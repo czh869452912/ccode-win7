@@ -1204,6 +1204,53 @@ def test_gui_preview_copy_is_app_shell_declared():
         assert hardcoded_copy not in preview_model_text
 
 
+def test_gui_file_preview_copy_is_app_shell_declared():
+    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
+    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
+    surface_body_text = _read(
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx"
+    )
+    file_preview_surface_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/FilePreviewSurface.jsx"
+    )
+    file_preview_model_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/file-preview-model.js"
+    )
+
+    assert '"file_preview": {' in spec_text
+    assert '"loading_message": "Loading file..."' in spec_text
+    assert "normalizeFilePreviewChrome" in model_text
+    assert "filePreview: normalizeFilePreviewChrome" in model_text
+    assert "filePreviewChrome.unavailableMessage" in app_text
+    assert "filePreviewChrome={filePreviewChrome}" in surface_body_text
+    assert "filePreviewChrome" in file_preview_surface_text
+    assert "chrome.languageLabels" in file_preview_model_text
+
+    for hardcoded_copy in (
+        '"File unavailable"',
+        '"Loading file..."',
+        ">Retry<",
+        '"Show markdown source"',
+        '"Show rendered markdown"',
+        '"Show file explorer"',
+    ):
+        assert hardcoded_copy not in app_text
+        assert hardcoded_copy not in store_text
+        assert hardcoded_copy not in file_preview_surface_text
+
+    for hardcoded_copy in (
+        '"File"',
+        '"Workspace"',
+        '"Plain"',
+        '"Markdown"',
+        '"TypeScript"',
+    ):
+        assert hardcoded_copy not in file_preview_model_text
+
+
 def test_gui_source_control_copy_is_app_shell_declared():
     spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")

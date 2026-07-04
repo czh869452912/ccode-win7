@@ -9,6 +9,7 @@ export default function RightPanelSurfaceBody({
   surface,
   surfacePanelProps,
   filePreviewsByPath,
+  filePreviewChrome,
   projectName,
   fileTree,
   treeHeight,
@@ -50,6 +51,7 @@ export default function RightPanelSurfaceBody({
       <FilePreviewSurface
         surface={surface}
         filePreview={(filePreviewsByPath || {})[filePath]}
+        filePreviewChrome={filePreviewChrome}
         projectName={projectName}
         onReload={onOpenFile}
         onOpenFilesSurface={onOpenFilesSurface}

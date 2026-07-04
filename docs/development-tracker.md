@@ -78,6 +78,11 @@
   `capabilities.surfaces.chrome`: aria label, empty output text, and
   termination reason prefix are backend-declared descriptors consumed through
   `surfaceChromeLabels(appCapabilities)`.
+- File Preview right-panel chrome now comes from
+  `capabilities.surfaces.chrome.file_preview`: default file/project labels,
+  loading/error fallback copy, retry/copy/explorer actions, metadata
+  separators, line labels, and language labels are backend-declared descriptors
+  consumed by the file-preview model and surface.
 - Source Control right-panel chrome now comes from
   `capabilities.source_control.chrome`: panel title, status/diff fallback
   notices, empty states, count/group/provider labels, runtime labels, and

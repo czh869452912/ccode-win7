@@ -18,17 +18,17 @@ export function normalizeFilePath(path) {
     .replace(/^\/+/, "");
 }
 
-export function fileNameForPath(path) {
+export function fileNameForPath(path, chrome = {}) {
   const normalized = normalizeFilePath(path);
-  if (!normalized) return "File";
+  if (!normalized) return chrome.defaultFileTitle || "";
   const parts = normalized.split("/").filter(Boolean);
   return parts[parts.length - 1] || normalized;
 }
 
 // Ported from reference/t3code/apps/web/src/components/files/filePath.ts so the
 // breadcrumb shape stays one-to-one with T3code.
-export function fileBreadcrumbs(projectName, relativePath) {
-  const project = String(projectName || "").trim() || "Workspace";
+export function fileBreadcrumbs(projectName, relativePath, chrome = {}) {
+  const project = String(projectName || "").trim() || chrome.defaultProjectLabel || "";
   const parts = normalizeFilePath(relativePath).split("/").filter(Boolean);
   return [
     { label: project, path: "", kind: "project" },
@@ -49,40 +49,44 @@ export function defaultFilePreviewMode(path) {
   return isMarkdownPreviewFile(path) ? FILE_PREVIEW_MODES.PREVIEW : FILE_PREVIEW_MODES.CODE;
 }
 
-const LANGUAGE_BY_EXTENSION = Object.freeze({
-  c: "C",
-  h: "C Header",
-  cc: "C++",
-  cpp: "C++",
-  cxx: "C++",
-  hpp: "C++ Header",
-  hh: "C++ Header",
-  py: "Python",
-  js: "JavaScript",
-  jsx: "JavaScript",
-  mjs: "JavaScript",
-  cjs: "JavaScript",
-  ts: "TypeScript",
-  tsx: "TypeScript",
-  json: "JSON",
-  md: "Markdown",
-  mdx: "Markdown",
-  css: "CSS",
-  html: "HTML",
-  sh: "Shell",
-  ps1: "PowerShell",
-  toml: "TOML",
-  yml: "YAML",
-  yaml: "YAML",
-  txt: "Text",
+const LANGUAGE_KEY_BY_EXTENSION = Object.freeze({
+  c: "c",
+  h: "c_header",
+  cc: "cpp",
+  cpp: "cpp",
+  cxx: "cpp",
+  hpp: "cpp_header",
+  hh: "cpp_header",
+  py: "python",
+  js: "javascript",
+  jsx: "javascript",
+  mjs: "javascript",
+  cjs: "javascript",
+  ts: "typescript",
+  tsx: "typescript",
+  json: "json",
+  md: "markdown",
+  mdx: "markdown",
+  css: "css",
+  html: "html",
+  sh: "shell",
+  ps1: "powershell",
+  toml: "toml",
+  yml: "yaml",
+  yaml: "yaml",
+  txt: "text",
 });
 
-export function fileLanguageForPath(path) {
-  const name = fileNameForPath(path);
+export function fileLanguageForPath(path, chrome = {}) {
+  const name = fileNameForPath(path, chrome);
   const dot = name.lastIndexOf(".");
-  if (dot <= 0) return "Plain";
+  if (dot <= 0) return chrome.plainLanguageLabel || "";
   const ext = name.slice(dot + 1).toLowerCase();
-  return LANGUAGE_BY_EXTENSION[ext] || ext.toUpperCase();
+  const labelKey = LANGUAGE_KEY_BY_EXTENSION[ext] || "";
+  const labels = chrome.languageLabels && typeof chrome.languageLabels === "object"
+    ? chrome.languageLabels
+    : {};
+  return (labelKey && labels[labelKey]) || ext.toUpperCase();
 }
 
 // Split file content into numbered gutter rows. Handles CRLF/CR/LF uniformly
@@ -107,11 +111,11 @@ export function fileRevealLine(content, requestedLine) {
   return Math.min(Math.max(1, Math.trunc(value)), lines.length);
 }
 
-export function filePreviewMeta(content, path) {
+export function filePreviewMeta(content, path, chrome = {}) {
   const lines = numberFileLines(content);
   return {
     lineCount: lines.length,
     charCount: String(content || "").length,
-    language: fileLanguageForPath(path),
+    language: fileLanguageForPath(path, chrome),
   };
 }

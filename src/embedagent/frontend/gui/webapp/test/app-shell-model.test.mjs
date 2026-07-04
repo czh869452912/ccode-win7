@@ -119,6 +119,22 @@ export function runAppShellModelTests() {
     bottomDrawerAriaLabel: "",
     runOutputEmptyMessage: "",
     terminationReasonPrefix: "",
+    filePreview: {
+      defaultFileTitle: "",
+      defaultProjectLabel: "",
+      loadingMessage: "",
+      unavailableMessage: "",
+      retryLabel: "",
+      copyPathTitleTemplate: "",
+      showMarkdownSourceLabel: "",
+      showRenderedMarkdownLabel: "",
+      showFileExplorerLabel: "",
+      metadataSeparator: "",
+      lineSingularLabel: "",
+      linePluralLabel: "",
+      plainLanguageLabel: "",
+      languageLabels: {},
+    },
   });
   assert.deepEqual(initial.capabilities.keybindings, []);
   assert.equal(initial.capabilities.agentApplication, null);
@@ -368,6 +384,25 @@ export function runAppShellModelTests() {
           bottom_drawer_aria_label: "Output drawer",
           run_output_empty_message: "No output yet.",
           termination_reason_prefix: "finished",
+          file_preview: {
+            default_file_title: "Document",
+            default_project_label: "Project",
+            loading_message: "Opening file",
+            unavailable_message: "Document unavailable",
+            retry_label: "Reload file",
+            copy_path_title_template: "Copy path for {title}",
+            show_markdown_source_label: "Show source",
+            show_rendered_markdown_label: "Show preview",
+            show_file_explorer_label: "Open explorer",
+            metadata_separator: " | ",
+            line_singular_label: "row",
+            line_plural_label: "rows",
+            plain_language_label: "Plain text",
+            language_labels: {
+              markdown: "Markdown doc",
+              python: "Python file",
+            },
+          },
         },
         right_panel: [
           surface("settings", "Settings", { launcher_order: 10 }),
@@ -657,6 +692,14 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.surfaces.chrome.bottomDrawerAriaLabel, "Output drawer");
   assert.equal(bootstrap.capabilities.surfaces.chrome.runOutputEmptyMessage, "No output yet.");
   assert.equal(bootstrap.capabilities.surfaces.chrome.terminationReasonPrefix, "finished");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.filePreview.defaultFileTitle, "Document");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.filePreview.defaultProjectLabel, "Project");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.filePreview.loadingMessage, "Opening file");
+  assert.equal(
+    bootstrap.capabilities.surfaces.chrome.filePreview.copyPathTitleTemplate,
+    "Copy path for {title}",
+  );
+  assert.equal(bootstrap.capabilities.surfaces.chrome.filePreview.languageLabels.markdown, "Markdown doc");
   assert.deepEqual(
     bootstrap.capabilities.surfaces.bottomDrawer.map((item) => item.kind),
     ["terminal"],

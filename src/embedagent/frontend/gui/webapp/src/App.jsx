@@ -146,6 +146,8 @@ function App() {
   const sourceControlChrome = sourceControlCapability.chrome || {};
   const previewCapability = state.app.capabilities?.preview || {};
   const previewChrome = previewCapability.chrome || {};
+  const surfaceChrome = state.app.capabilities?.surfaces?.chrome || {};
+  const filePreviewChrome = surfaceChrome.filePreview || {};
   const terminalController = useMemo(
     () =>
       createTerminalController({
@@ -384,7 +386,7 @@ function App() {
       dispatch({
         type: "file_preview_load_failed",
         path: filePath,
-        error: error.message || "File unavailable",
+        error: error.message || filePreviewChrome.unavailableMessage,
       });
     }
   }
@@ -909,6 +911,7 @@ function App() {
             surface={activeRightPanelSurface}
             surfacePanelProps={surfacePanelProps}
             filePreviewsByPath={state.filePreviewsByPath}
+            filePreviewChrome={filePreviewChrome}
             projectName={state.app.activeWorkspace?.label || ""}
             fileTree={state.fileTree}
             treeHeight={treeHeight}

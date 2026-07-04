@@ -14,12 +14,23 @@ import {
 } from "../src/session-runtime/file-preview-model.js";
 
 export function runFilePreviewModelTests() {
+  const filePreviewChrome = {
+    defaultFileTitle: "Document",
+    defaultProjectLabel: "Project",
+    plainLanguageLabel: "Plain text",
+    languageLabels: {
+      c: "C source",
+      markdown: "Markdown doc",
+      typescript: "TS file",
+    },
+  };
+
   assert.equal(normalizeFilePath("\\src\\parser.c"), "src/parser.c");
   assert.equal(normalizeFilePath("/a//b"), "a//b");
   assert.equal(fileNameForPath("src/deep/parser.c"), "parser.c");
-  assert.equal(fileNameForPath(""), "File");
+  assert.equal(fileNameForPath("", filePreviewChrome), "Document");
 
-  const crumbs = fileBreadcrumbs("demo-app", "src/core/parser.c");
+  const crumbs = fileBreadcrumbs("demo-app", "src/core/parser.c", filePreviewChrome);
   assert.deepEqual(
     crumbs.map((crumb) => crumb.kind),
     ["project", "directory", "directory", "file"],
@@ -30,8 +41,8 @@ export function runFilePreviewModelTests() {
   assert.equal(crumbs[3].label, "parser.c");
   assert.equal(crumbs[3].path, "src/core/parser.c");
 
-  const rootCrumbs = fileBreadcrumbs("", "README.md");
-  assert.equal(rootCrumbs[0].label, "Workspace");
+  const rootCrumbs = fileBreadcrumbs("", "README.md", filePreviewChrome);
+  assert.equal(rootCrumbs[0].label, "Project");
   assert.equal(rootCrumbs.length, 2);
   assert.equal(rootCrumbs[1].kind, "file");
 
@@ -41,9 +52,9 @@ export function runFilePreviewModelTests() {
   assert.equal(defaultFilePreviewMode("README.md"), FILE_PREVIEW_MODES.PREVIEW);
   assert.equal(defaultFilePreviewMode("src/parser.c"), FILE_PREVIEW_MODES.CODE);
 
-  assert.equal(fileLanguageForPath("src/parser.c"), "C");
-  assert.equal(fileLanguageForPath("app.tsx"), "TypeScript");
-  assert.equal(fileLanguageForPath("Makefile"), "Plain");
+  assert.equal(fileLanguageForPath("src/parser.c", filePreviewChrome), "C source");
+  assert.equal(fileLanguageForPath("app.tsx", filePreviewChrome), "TS file");
+  assert.equal(fileLanguageForPath("Makefile", filePreviewChrome), "Plain text");
   assert.equal(fileLanguageForPath("data.unknownext"), "UNKNOWNEXT");
 
   assert.deepEqual(numberFileLines(""), []);
@@ -62,9 +73,9 @@ export function runFilePreviewModelTests() {
   assert.equal(fileRevealLine("", 4), null);
   assert.equal(fileRevealLine("one", null), null);
 
-  const meta = filePreviewMeta("int main(void);\nreturn 0;\n", "src/main.c");
+  const meta = filePreviewMeta("int main(void);\nreturn 0;\n", "src/main.c", filePreviewChrome);
   assert.equal(meta.lineCount, 2);
-  assert.equal(meta.language, "C");
+  assert.equal(meta.language, "C source");
   assert.equal(meta.charCount, "int main(void);\nreturn 0;\n".length);
 
   console.log("file preview model checks passed");

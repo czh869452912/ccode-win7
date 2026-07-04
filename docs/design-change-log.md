@@ -44,6 +44,41 @@
 
 ## 3. 当前变更记录
 
+### DC-228
+
+- Date: 2026-07-04
+- Change Topic: GUI File Preview chrome descriptor convergence
+- Summary:
+  - Extended `/api/app/bootstrap` `capabilities.surfaces.chrome` with a
+    `file_preview` descriptor for default file/project labels, loading/error
+    fallback copy, retry/copy/explorer actions, metadata separators, line
+    labels, and language labels.
+  - Routed `App.jsx`, `RightPanelSurfaceBody.jsx`, `FilePreviewSurface.jsx`,
+    and `file-preview-model.js` through normalized app-shell file-preview
+    chrome instead of renderer-local English defaults.
+  - Removed the store-level file preview error fallback and added app-shell,
+    frontend model/source, and architecture guard coverage for File Preview
+    chrome ownership.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/FilePreviewSurface.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/file-preview-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/test/file-preview-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-227
 
 - Date: 2026-07-04

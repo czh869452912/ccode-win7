@@ -392,6 +392,35 @@ function normalizeSurfaceChrome(input = {}) {
     terminationReasonPrefix: String(
       value.termination_reason_prefix || value.terminationReasonPrefix || "",
     ),
+    filePreview: normalizeFilePreviewChrome(value.file_preview || value.filePreview),
+  };
+}
+
+function normalizeFilePreviewChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    defaultFileTitle: String(value.default_file_title || value.defaultFileTitle || ""),
+    defaultProjectLabel: String(value.default_project_label || value.defaultProjectLabel || ""),
+    loadingMessage: String(value.loading_message || value.loadingMessage || ""),
+    unavailableMessage: String(value.unavailable_message || value.unavailableMessage || ""),
+    retryLabel: String(value.retry_label || value.retryLabel || ""),
+    copyPathTitleTemplate: String(
+      value.copy_path_title_template || value.copyPathTitleTemplate || "",
+    ),
+    showMarkdownSourceLabel: String(
+      value.show_markdown_source_label || value.showMarkdownSourceLabel || "",
+    ),
+    showRenderedMarkdownLabel: String(
+      value.show_rendered_markdown_label || value.showRenderedMarkdownLabel || "",
+    ),
+    showFileExplorerLabel: String(
+      value.show_file_explorer_label || value.showFileExplorerLabel || "",
+    ),
+    metadataSeparator: String(value.metadata_separator || value.metadataSeparator || ""),
+    lineSingularLabel: String(value.line_singular_label || value.lineSingularLabel || ""),
+    linePluralLabel: String(value.line_plural_label || value.linePluralLabel || ""),
+    plainLanguageLabel: String(value.plain_language_label || value.plainLanguageLabel || ""),
+    languageLabels: normalizeStringMap(value.language_labels || value.languageLabels),
   };
 }
 

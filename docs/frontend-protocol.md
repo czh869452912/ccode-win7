@@ -138,7 +138,10 @@ GUI `/api/artifacts` route or `artifacts_refresh` WebSocket event.
 `diagnostics`; `capabilities.surfaces.bottom_drawer` may declare descriptors
 for `terminal`, `run_output`, and `logs`. `capabilities.terminal` describes the GUI
 terminal limitations (`enabled`, `pty`, `resize`, `history_persistent`, and
-`max_buffer_bytes`). `capabilities.source_control` describes the local
+`max_buffer_bytes`). `capabilities.surfaces.chrome.file_preview` describes
+File Preview chrome, metadata labels, fallback messages, and language labels
+for the read-only file right-panel surface. `capabilities.source_control`
+describes the local
 source-control surface: `enabled`, `vcs`, `read_only`, `remote_providers`,
 `network`, `checkpoints`, `requires_active_workspace`, and `chrome` copy for
 status/diff errors, empty states, counts, groups, providers, runtime labels,
@@ -153,6 +156,14 @@ full PTY. Its buffer and tab state are frontend/backend GUI display state only:
 they are not transcript history, workflow truth, telemetry, provider/runtime
 configuration, permission policy, source-control checkpoint state, or Agent
 Core state.
+
+The GUI File Preview right-panel is app-shell hosted and read-only over
+already-loaded workspace file content. The frontend may render breadcrumbs,
+language/line metadata, markdown preview mode, reveal markers, and retry/copy
+path actions, but those are GUI display affordances only. They are not file
+save behavior, transcript history, workflow truth, telemetry, provider/runtime
+configuration, permission policy, extension loading policy, source-control
+checkpoint state, or Agent Core state.
 
 The GUI Source Control right-panel and composer Branch Toolbar are app-shell
 hosted and active-workspace bound. They are read-only and local-only in the

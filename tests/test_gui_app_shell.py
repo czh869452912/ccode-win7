@@ -169,6 +169,42 @@ class TestGuiAppShellService(unittest.TestCase):
             "reason",
         )
         self.assertEqual(
+            payload["capabilities"]["surfaces"]["chrome"]["file_preview"],
+            {
+                "default_file_title": "File",
+                "default_project_label": "Workspace",
+                "loading_message": "Loading file...",
+                "unavailable_message": "File unavailable",
+                "retry_label": "Retry",
+                "copy_path_title_template": "Copy {title} path",
+                "show_markdown_source_label": "Show markdown source",
+                "show_rendered_markdown_label": "Show rendered markdown",
+                "show_file_explorer_label": "Show file explorer",
+                "metadata_separator": " / ",
+                "line_singular_label": "line",
+                "line_plural_label": "lines",
+                "plain_language_label": "Plain",
+                "language_labels": {
+                    "c": "C",
+                    "c_header": "C Header",
+                    "cpp": "C++",
+                    "cpp_header": "C++ Header",
+                    "python": "Python",
+                    "javascript": "JavaScript",
+                    "typescript": "TypeScript",
+                    "json": "JSON",
+                    "markdown": "Markdown",
+                    "css": "CSS",
+                    "html": "HTML",
+                    "shell": "Shell",
+                    "powershell": "PowerShell",
+                    "toml": "TOML",
+                    "yaml": "YAML",
+                    "text": "Text",
+                },
+            },
+        )
+        self.assertEqual(
             [item["id"] for item in payload["capabilities"]["thread_lifecycle"]["actions"]],
             ["rename", "fork", "archive"],
         )

@@ -248,7 +248,7 @@ export function reducer(state, action) {
             path,
             title: path,
             content: "",
-            error: String(action.error || "File unavailable"),
+            error: String(action.error || ""),
           },
         },
       };

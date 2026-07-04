@@ -978,6 +978,7 @@ async function main() {
   assert.equal(appSource.includes("file_preview_load_started"), true);
   assert.equal(appSource.includes("file_preview_loaded"), true);
   assert.equal(appSource.includes("file_preview_load_failed"), true);
+  assert.equal(appSource.includes("filePreviewChrome.unavailableMessage"), true);
   assert.equal(appSource.includes('kind: "file"'), true);
   assert.equal(appSource.includes('preview: { kind: "file"'), false);
   assert.equal(appSource.includes("showTabs={false}"), false);
@@ -1116,6 +1117,7 @@ async function main() {
   assert.equal(storeSource.includes("file_preview_load_started"), true);
   assert.equal(storeSource.includes("file_preview_loaded"), true);
   assert.equal(storeSource.includes("file_preview_load_failed"), true);
+  assert.equal(storeSource.includes('"File unavailable"'), false);
   assert.equal(storeSource.includes("reduceActivityState"), true);
   assert.equal(storeSource.includes('case "assistant_delta":'), false);
   assert.equal(storeSource.includes('case "tool_started":'), false);
@@ -1395,6 +1397,34 @@ async function main() {
   assert.equal(filePreviewSurfaceSource.includes("file-preview-action-icon"), true);
   assert.equal(filePreviewSurfaceSource.includes("breadcrumbRef"), true);
   assert.equal(filePreviewSurfaceSource.includes("onOpenFilesSurface"), true);
+  assert.equal(filePreviewSurfaceSource.includes("filePreviewChrome"), true);
+  assert.equal(filePreviewSurfaceSource.includes("filePreviewChrome.loadingMessage"), true);
+  for (const hardcodedFilePreviewCopy of [
+    "Loading file...",
+    "File unavailable",
+    ">Retry<",
+    "Copy ${title} path",
+    "Show markdown source",
+    "Show rendered markdown",
+    "Show file explorer",
+    ", ${meta.lineCount} lines",
+  ]) {
+    assert.equal(filePreviewSurfaceSource.includes(hardcodedFilePreviewCopy), false);
+  }
+  const filePreviewModelSource = fs.readFileSync(
+    webappSourcePath("session-runtime", "file-preview-model.js"),
+    "utf8",
+  );
+  assert.equal(filePreviewModelSource.includes("chrome.languageLabels"), true);
+  for (const hardcodedFilePreviewModelCopy of [
+    '"File"',
+    '"Workspace"',
+    '"Plain"',
+    '"Markdown"',
+    '"TypeScript"',
+  ]) {
+    assert.equal(filePreviewModelSource.includes(hardcodedFilePreviewModelCopy), false);
+  }
 
   const previewSurfaceSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "PreviewSurface.jsx"),
