@@ -266,7 +266,7 @@ export function buildSessionActivityRuntime({
   snapshot,
   sessionTransport,
   activities = [],
-  defaultMode = "explore",
+  defaultMode = "",
   activeTurnId = "",
   thinkingActive = false,
   toolCatalog = {},

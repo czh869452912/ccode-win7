@@ -9,10 +9,31 @@ export function runWorkflowDisplayTests() {
   assert.deepEqual(buildWorkflowRuntimeRows({ status: "idle" }), []);
   assert.equal(workflowTaskSummary({ status: "idle" }), "");
 
-  const cWorkflowRows = buildWorkflowRuntimeRows({
+  const legacySnapshotRows = buildWorkflowRuntimeRows({
     current_phase: "repair",
     discipline_profile: "lite-spec-tdd",
     current_activity: "Fix parser failure",
+  });
+  assert.deepEqual(legacySnapshotRows, []);
+
+  const cWorkflowRows = buildWorkflowRuntimeRows({
+    workflow: {
+      metadata: {
+        display_rows: [
+          { key: "current_phase", label_key: "inspector.currentPhase", value: "repair" },
+          {
+            key: "discipline_profile",
+            label_key: "inspector.disciplineProfile",
+            value: "lite-spec-tdd",
+          },
+          {
+            key: "current_activity",
+            label_key: "inspector.currentActivity",
+            value: "Fix parser failure",
+          },
+        ],
+      },
+    },
   });
   assert.deepEqual(
     cWorkflowRows.map((row) => row.key),

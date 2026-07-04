@@ -17,7 +17,7 @@ import {
 import { createWorkbenchState, reduceWorkbenchState } from "./workbench/surfaces.js";
 import { resetWorkspaceScopedState } from "./app-workspaces.js";
 
-export const DEFAULT_MODE = "explore";
+export const INITIAL_REQUESTED_MODE = "";
 export const EMPTY_CAPABILITIES = normalizeProtocolCapabilities({});
 
 export const initialState = {
@@ -42,7 +42,7 @@ export const initialState = {
   fileTree: [],
   toolCatalog: {},
   sessionCapabilities: EMPTY_CAPABILITIES,
-  requestedMode: DEFAULT_MODE,
+  requestedMode: INITIAL_REQUESTED_MODE,
   runOutput: createRunOutputState(),
   workbench: createWorkbenchState(),
   app: createAppShellState(),

@@ -507,7 +507,7 @@ User-facing turn experience is projected from safe transcript events:
 - `tool_result`
 - `loop_transition`
 
-`TurnExperienceReducer` consumes the validated transcript prefix and must not infer experience state from frontend replay, `timeline.jsonl`, prompts, local extension code, or renderer state. Session snapshots may expose `turn_experience` for CLI/TUI/GUI display and resume visibility; that projection does not decide whether the agent continues, whether validation is sufficient, which tools are active, what permissions apply, or what session history means.
+`TurnExperienceReducer` consumes the validated transcript prefix and must not infer experience state from frontend replay, `timeline.jsonl`, prompts, local extension code, renderer state, or command-name heuristics. Validation failures are projected only from explicit tool-result metadata supplied by the owning workflow/tool. Session snapshots may expose `turn_experience` for CLI/TUI/GUI display and resume visibility; that projection does not decide whether the agent continues, whether validation is sufficient, which tools are active, what permissions apply, or what session history means.
 
 ## 9. Frontend Contract
 
@@ -527,7 +527,12 @@ If a frontend change introduces older terms back into the product shell, that is
 GUI no-workspace copy, mode catalogs, command lists, tool presentation,
 workflow package/application identity, and runtime workflow summary rows must
 come from backend capability/snapshot payloads rather than renderer-side C/C++
-defaults.
+defaults. Runtime workflow rows are declared by the selected workflow
+projection under `workflow.metadata.display_rows`; the renderer must not
+synthesize default C/C++ phase, discipline, or activity rows from legacy
+snapshot fields. GUI session creation without an explicit mode leaves mode
+selection to the selected backend application/profile instead of injecting a
+renderer or route-level default.
 
 ## 10. Bundling Model
 

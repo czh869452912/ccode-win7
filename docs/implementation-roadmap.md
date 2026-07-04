@@ -75,7 +75,7 @@ product composition and default C/C++ behavior:
 - `AgentLoop` now owns Pi-style open turn-loop continuation behind `QueryEngine`, including agent steps, context/provider attempts, active schema requests through `AgentExtensionHost`, compact retry, tool batch interruption, guard stops, abort, and explicit loop safety-limit compatibility transitions; `ProgressGuard` uses action-plus-observation evidence fingerprints for no-progress/runaway detection instead of repeated tool-name stopping; ordinary command/build/test failures are diagnostic tool results for the next model turn rather than automatic guard-stop conditions; `QueryEngine` no longer owns `_run_loop_impl`, `_run_loop`, `_is_completion_signal`, private active-tool schema wrappers, or action-execution forwarding wrappers, and hosted defaults no longer stop merely because eight model/tool cycles were used
 - `ToolRuntime` construction is now workflow-neutral; the bundled C/C++ workflow package registers recipe, quality, evidence, and task-status tools with metadata through `CHarnessWorkflowExtension.register_tools(...)`
 - C/C++ workflow context reducers have moved out of Core `ReducerRegistry`; harness-owned reducers now cover recipe results, quality reports, failing evidence, and task status through `CHarnessWorkflowExtension.register_context_reducers(...)`
-- workflow prompt descriptors now use generic `WorkflowPrompt` naming and new prompt messages use `workflow_prompt`; old harness prompt names are no longer active prompt assembly kinds
+- workflow prompt descriptors now use generic `WorkflowPrompt` naming and new prompt messages use `workflow_prompt`; old harness prompt names and compatibility aliases are no longer active prompt assembly kinds
 - `propose_mode_switch` is no longer projected as an unconditional model tool; it appears only when explicitly activated through the active-tool boundary
 - `ToolCatalogEntry` now keeps internal execution, presentation, and context-policy facets while preserving the legacy flat catalog payload for protocol/frontend compatibility
 - C/C++ workflow pack definitions now live only under `src/embedagent/workflow_packages/c_cpp/packs.py`; the obsolete tooling-package compatibility export has been removed
@@ -86,6 +86,7 @@ product composition and default C/C++ behavior:
 - `CapabilityRegistry` is now the non-executing read model for tools, modes, local file resources, slash commands, model profiles, and workflow packages; activation and execution remain owned by `AgentExtensionHost` / `ExtensionManager` and `ToolRuntime` / `AgentToolActionService`
 - `RuntimeConfigReducer` now projects safe runtime configuration from transcript events, including model profile metadata, registered tool names, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records
 - `WorkflowPackageManifest` now describes the bundled C/C++ workflow package identity, declared tools, packs, supported modes/workflow states, and resource scopes as read-only non-executing control-plane data exposed through the shared extension manager
+- `TurnExperienceReducer` now treats validation state as explicit tool-result metadata, not a command-name heuristic; build/test/compiler command strings remain diagnostic evidence for the next model turn unless the owning workflow/tool marks the result as validation
 - `SelfExtensionAuthoringService` and `author_local_capability` can generate local skills, prompts, recipes, and disabled-by-default project extension skeletons without reloading resources or loading Python code
 - `scripts/offline-runtime-contract.json` is now the single repo-side contract for runtime-invoked bundled external tools; `validate-offline-bundle.ps1` and `check-bundle-dependencies.py` consume it for Python, Bash from MinGit, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executable validation
 - Slice 6 completed the documentation cutover for self-extensible Agent Core: active source-of-truth docs and module docs now treat local offline self-extension as official architecture while keeping marketplaces, online installs, dependency installation, built-in tool replacement, and multi-agent orchestration out of scope
@@ -163,6 +164,12 @@ Recent GUI app-shell work has established the first standalone-app boundary:
 - Generated GUI static assets remain committed release artifacts for the
   current offline packaging model; source review should use `webapp/src/`, and
   `npm run build` refreshes `frontend/gui/static/` after source changes.
+- GUI workflow runtime rows are now declared by the selected workflow projection
+  through `workflow.metadata.display_rows`; the renderer no longer synthesizes
+  C/C++ phase, discipline, or activity rows from legacy snapshot fields. New
+  sessions without an explicit mode leave mode selection to the selected
+  backend application/profile instead of injecting `explore` in GUI routes or
+  renderer state.
 - Offline GUI packaging now includes a native Win32 launcher exe in the portable
   bundle, preserving the one-folder delivery model while improving double-click
   startup.

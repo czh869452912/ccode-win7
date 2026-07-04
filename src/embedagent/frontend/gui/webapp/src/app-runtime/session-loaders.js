@@ -67,7 +67,7 @@ export function deriveSessionActivation(payload = {}, sessionId = "", options = 
   const history = safePayload.history || {};
   const snapshot = normalizeSessionPayload(
     safePayload.snapshot || {},
-    options.defaultMode || "explore",
+    options.defaultMode || "",
   );
   return {
     sessionId,

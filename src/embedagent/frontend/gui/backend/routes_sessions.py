@@ -15,7 +15,6 @@ from embedagent.frontend.gui.backend.protocol_payloads import (
     serialize_session_snapshot,
     serialize_session_summary,
 )
-from embedagent.modes import DEFAULT_MODE
 
 
 def register_session_routes(app: Any, backend: Any) -> None:
@@ -43,7 +42,7 @@ def register_session_routes(app: Any, backend: Any) -> None:
         return serialize_session_bootstrap(payload)
 
     @app.post("/api/sessions")
-    async def create_session(mode: str = DEFAULT_MODE):
+    async def create_session(mode: str = ""):
         core = backend._require_core()
         snapshot = backend._call_core(core.create_session, mode)
         backend._current_session_id = str(read_value(snapshot, "session_id", "") or "")
@@ -106,7 +105,7 @@ def register_session_routes(app: Any, backend: Any) -> None:
 
     @app.post("/api/sessions/{session_id}/mode")
     async def set_mode(session_id: str, request: Dict[str, Any]):
-        mode = request.get("mode", DEFAULT_MODE)
+        mode = request.get("mode", "")
         core = backend._require_core()
         backend._call_core(core.set_mode, session_id, mode)
         return {"status": "ok"}

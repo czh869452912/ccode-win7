@@ -72,7 +72,7 @@ function readWebappSourceText(...parts) {
 }
 
 async function main() {
-  assert.equal(initialState.requestedMode, "explore");
+  assert.equal(initialState.requestedMode, "");
   assert.equal(initialState.maxTurns, null);
   assert.equal(initialState.app.bootstrapLoaded, false);
   assert.equal(initialState.app.app.protocol, "gui_app_shell_v1");
@@ -275,7 +275,7 @@ async function main() {
   assert.equal(snapshot.pending_interaction_valid, false);
 
   const defaultModeSnapshot = normalizeSessionPayload({ session_id: "sess-default" });
-  assert.equal(defaultModeSnapshot.current_mode, "explore");
+  assert.equal(defaultModeSnapshot.current_mode, "");
 
   const pendingTurnAnchor = resolveActivityAnchor({
     explicitTurnId: "",

@@ -27,7 +27,7 @@ const sessions = [
   {
     session_id: "sess-next",
     user_goal: "Verify diff rendering",
-    current_mode: "verify",
+    current_mode: "",
     updated_at: "",
   },
   { session_id: "", user_goal: "ignored" },
@@ -84,6 +84,7 @@ export function runCommandPaletteModelTests() {
   assert.equal(sessionItems[0].description, "debug");
   assert.equal(sessionItems[0].trailing, "Current");
   assert.equal(sessionItems[1].title, "Verify diff rendering");
+  assert.equal(sessionItems[1].description, "");
 
   const workspaceItems = root.find((group) => group.id === "workspaces").items;
   assert.equal(workspaceItems.length, 2);

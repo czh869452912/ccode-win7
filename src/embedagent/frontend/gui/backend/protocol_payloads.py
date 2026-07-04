@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from embedagent.modes import DEFAULT_MODE
 from embedagent.protocol import (
     AgentApplicationDescriptor,
     AppBootstrap,
@@ -301,7 +300,7 @@ def serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
     return {
         "session_id": str(read_value(snapshot, "session_id", "") or ""),
         "status": read_status_value(snapshot),
-        "current_mode": str(read_value(snapshot, "current_mode", DEFAULT_MODE) or DEFAULT_MODE),
+        "current_mode": str(read_value(snapshot, "current_mode", "") or ""),
         "started_at": str(read_value(snapshot, "started_at", "", aliases=("created_at",)) or ""),
         "updated_at": str(read_value(snapshot, "updated_at", "") or ""),
         "workflow_state": str(read_value(snapshot, "workflow_state", "chat") or "chat"),

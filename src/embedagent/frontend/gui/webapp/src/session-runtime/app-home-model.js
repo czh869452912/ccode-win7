@@ -71,7 +71,7 @@ export function buildAppHomeModel({
   app = {},
   sessions = [],
   currentSessionId = "",
-  defaultMode = "explore",
+  defaultMode = "",
   threadLifecycleCapabilities = {},
 } = {}) {
   const activeWorkspace = app.activeWorkspace || null;
@@ -104,7 +104,7 @@ export function buildAppHomeModel({
           || String(session.user_goal || "").trim()
           || String(session.summary_text || "").trim()
           || `Session ${sessionId.slice(0, 8)}`,
-        mode: String(session.current_mode || defaultMode || "explore"),
+        mode: String(session.current_mode || defaultMode || ""),
         updated: formatSessionUpdatedLabel(session.updated_at),
         isActive: sessionId === currentSessionId,
         actions: buildThreadLifecycleActions(session, threadLifecycleCapabilities),

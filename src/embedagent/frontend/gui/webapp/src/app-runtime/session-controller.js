@@ -10,7 +10,11 @@ export function createSessionController({
   loadSession,
 }) {
   async function createSession(mode) {
-    const payload = await fetchJson(`/api/sessions?mode=${encodeURIComponent(mode)}`, {
+    const requestedMode = String(mode || "").trim();
+    const url = requestedMode
+      ? `/api/sessions?mode=${encodeURIComponent(requestedMode)}`
+      : "/api/sessions";
+    const payload = await fetchJson(url, {
       method: "POST",
     });
     const snapshot = normalizeSessionPayload(payload);

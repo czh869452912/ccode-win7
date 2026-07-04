@@ -57,7 +57,7 @@ export function resolveVisiblePermission(explicitPermission, snapshot) {
   return null;
 }
 
-export function normalizeSessionPayload(payload, defaultMode = "explore") {
+export function normalizeSessionPayload(payload, defaultMode = "") {
   const recentTransitions = Array.isArray(payload.recent_transitions)
     ? payload.recent_transitions.map((entry) => ({
         ...entry,

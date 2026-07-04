@@ -103,9 +103,6 @@ class WorkflowPrompt:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
-HarnessPrompt = WorkflowPrompt
-
-
 @dataclass
 class ContextPatch:
     messages: List[Dict[str, Any]] = field(default_factory=list)

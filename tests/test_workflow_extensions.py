@@ -264,7 +264,7 @@ def test_workflow_prompt_descriptor_uses_generic_name():
     ).read_text(encoding="utf-8")
 
     assert "class WorkflowPrompt" in extensions_source
-    assert "HarnessPrompt = WorkflowPrompt" in extensions_source
+    assert "HarnessPrompt = WorkflowPrompt" not in extensions_source
     assert "HarnessPrompt(" not in harness_source
     assert "from embedagent_core.extensions import HarnessPrompt" not in harness_source
 
@@ -299,6 +299,23 @@ def test_c_harness_workflow_projection_builder_shapes_generic_payload():
     assert workflow["metadata"] == {
         "current_phase": "context-phase",
         "discipline_profile": "context-discipline",
+        "display_rows": [
+            {
+                "key": "current_phase",
+                "label_key": "inspector.currentPhase",
+                "value": "context-phase",
+            },
+            {
+                "key": "discipline_profile",
+                "label_key": "inspector.disciplineProfile",
+                "value": "context-discipline",
+            },
+            {
+                "key": "current_activity",
+                "label_key": "inspector.currentActivity",
+                "value": "context activity",
+            },
+        ],
     }
 
 

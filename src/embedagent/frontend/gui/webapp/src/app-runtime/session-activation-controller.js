@@ -11,7 +11,7 @@ export function createSessionActivationController({
   fetchJson,
   dispatch,
   deriveSessionActivation,
-  defaultMode = "explore",
+  defaultMode = "",
   createTransportState,
   replaceTransportState,
   listTerminals,

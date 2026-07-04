@@ -759,6 +759,50 @@ def test_agent_application_capabilities_are_declared_by_backend_not_gui_defaults
         assert token not in no_workspace_text
 
 
+def test_agent_core_has_no_harness_prompt_or_command_name_validation_coupling():
+    extensions_text = _read(ROOT / "src/embedagent_core/extensions.py")
+    turn_experience_text = _read(ROOT / "src/embedagent_core/turn_experience.py")
+
+    assert "HarnessPrompt" not in extensions_text
+    assert "_looks_like_validation" not in turn_experience_text
+    for command_marker in ("ctest", "ninja", "cmake", "clang", "gcc"):
+        assert command_marker not in turn_experience_text
+
+
+def test_gui_workflow_display_and_default_mode_are_backend_declared():
+    workflow_display_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/workflow-display.js"
+    )
+    store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
+    state_helpers_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/state-helpers.js")
+    session_loaders_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-loaders.js"
+    )
+    activity_state_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/activity-state.js"
+    )
+    command_palette_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js"
+    )
+    gui_routes_text = _read(ROOT / "src/embedagent/frontend/gui/backend/routes_sessions.py")
+    gui_protocol_text = _read(ROOT / "src/embedagent/frontend/gui/backend/protocol_payloads.py")
+
+    for token in (
+        "snapshot.current_phase",
+        "snapshot.discipline_profile",
+        "workflow.current_phase",
+        "workflow.discipline_profile",
+    ):
+        assert token not in workflow_display_text
+    assert 'DEFAULT_MODE = "explore"' not in store_text
+    assert 'defaultMode = "explore"' not in state_helpers_text
+    assert 'options.defaultMode || "explore"' not in session_loaders_text
+    assert 'defaultMode = "explore"' not in activity_state_text
+    assert 'session.current_mode || session.mode || "explore"' not in command_palette_text
+    assert "DEFAULT_MODE" not in gui_routes_text
+    assert "DEFAULT_MODE" not in gui_protocol_text
+
+
 def test_hosted_interactions_do_not_keep_legacy_blocking_frontend_paths():
     banned_tokens = (
         "on_permission_request",

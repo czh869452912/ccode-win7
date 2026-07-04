@@ -178,7 +178,7 @@ function sessionItems(sessions = [], currentSessionId = "") {
     .slice(0, RECENT_SESSION_LIMIT)
     .map((session) => {
       const sessionId = asText(session.session_id || session.id);
-      const mode = asText(session.current_mode || session.mode || "explore");
+      const mode = asText(session.current_mode || session.mode);
       const updated = asText(session.updated_at || session.created_at);
       return {
         id: `session:${sessionId}`,

@@ -1,5 +1,5 @@
 import React, { startTransition, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { DEFAULT_MODE, initialState, reducer } from "./store.js";
+import { INITIAL_REQUESTED_MODE, initialState, reducer } from "./store.js";
 import {
   createTreeNode,
   makeEventId,
@@ -122,7 +122,7 @@ function App() {
         snapshot: state.snapshot,
         sessionTransport,
         activities: state.activities,
-        defaultMode: DEFAULT_MODE,
+        defaultMode: INITIAL_REQUESTED_MODE,
         activeTurnId: state.activeTurnId,
         thinkingActive: state.thinkingActive,
         toolCatalog: state.sessionCapabilities?.toolCatalog || state.toolCatalog,
@@ -341,7 +341,7 @@ function App() {
     const loadSessionController = createSessionActivationController({
       fetchJson,
       dispatch,
-      defaultMode: DEFAULT_MODE,
+      defaultMode: INITIAL_REQUESTED_MODE,
       createTransportState: createRuntimeSessionTransport,
       replaceTransportState: replaceSessionTransport,
       listTerminals,
@@ -480,7 +480,7 @@ function App() {
       locationSearch: typeof window === "undefined" ? "" : window.location.search || "",
       dispatch,
       openDiffFixture: openDiffSurface,
-      currentMode: state.requestedMode || DEFAULT_MODE,
+      currentMode: state.requestedMode || INITIAL_REQUESTED_MODE,
     });
   }, [runtimeState.timelineItems, state.requestedMode]);
 
@@ -700,7 +700,7 @@ function App() {
       app: state.app,
       sessions: threadSessions,
       currentSessionId,
-      defaultMode: DEFAULT_MODE,
+      defaultMode: INITIAL_REQUESTED_MODE,
       threadLifecycleCapabilities: state.app.capabilities?.threadLifecycle || {},
     }),
     [currentSessionId, state.app, threadSessions],
