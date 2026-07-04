@@ -203,11 +203,42 @@ export function runAppHomeModelTests() {
   assert.equal(enabledActions[2].enabled, false);
   assert.equal(enabledActions[2].reason, "backend_not_available");
 
+  const descriptorOnlyActions = buildThreadLifecycleActions(
+    { session_id: "sess-active" },
+    {
+      actions: [
+        { id: "rename", capability: "rename", order: 10 },
+        { id: "fork", label: "Clone", capability: "fork", order: 20 },
+        {
+          id: "archive",
+          label: "Hide",
+          capability: "archive",
+          order: 30,
+          enabled: false,
+          reasonLabel: "Host disabled",
+        },
+      ],
+    },
+  );
+  assert.deepEqual(
+    descriptorOnlyActions.map((action) => [
+      action.id,
+      action.label,
+      action.enabled,
+      action.reasonLabel,
+    ]),
+    [
+      ["fork", "Clone", true, ""],
+      ["archive", "Hide", false, "Host disabled"],
+    ],
+  );
+
   const missingSessionActions = buildThreadLifecycleActions(null, {
     actions: [{ id: "rename", label: "Retitle", capability: "rename" }],
   });
   assert.equal(missingSessionActions[0].enabled, false);
   assert.equal(missingSessionActions[0].reason, "missing_session");
+  assert.equal(missingSessionActions[0].reasonLabel, "");
 
   assert.equal(formatSessionUpdatedLabel(""), "");
   assert.equal(formatSessionUpdatedLabel("not-a-date"), "not-a-date");

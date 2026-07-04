@@ -106,13 +106,14 @@ and consumed by the GUI app shell through
 `capabilities.thread_lifecycle.actions` descriptor records rather than a
 renderer-owned fixed action list. The default app shell currently declares
 `rename`, `fork`, and `archive`; alternate shells may omit or relabel those
-entries. Prompt, confirmation, success, empty-title, and failure copy also live
-on those descriptors rather than in the renderer lifecycle controller. Missing
-notice copy remains absent rather than being synthesized from action ids or
-labels. Lifecycle actions update session summary/projection metadata used by
-app thread lists; they do not rewrite transcript history, own workflow state,
-activate tools, decide permissions, load extensions, or create source-control
-checkpoints.
+entries. Action labels, disabled reason labels, prompt, confirmation, success,
+empty-title, and failure copy also live on those descriptors rather than in the
+renderer lifecycle controller. Missing action labels keep actions out of the
+visible rail, and missing notice copy remains absent rather than being
+synthesized from action ids or labels. Lifecycle actions update session
+summary/projection metadata used by app thread lists; they do not rewrite
+transcript history, own workflow state, activate tools, decide permissions,
+load extensions, or create source-control checkpoints.
 
 The GUI terminal bottom drawer is also app-shell hosted. `GUIBackend` owns an
 in-memory terminal service bound to the active workspace and exposes

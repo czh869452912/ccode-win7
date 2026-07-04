@@ -282,12 +282,13 @@ Those actions now call backend session lifecycle endpoints that update
 summary/projection metadata for app thread lists. Rename changes display
 metadata only, archive hides the thread from normal recent-thread navigation
 without deleting transcript history, and fork copies transcript history into a
-new session id. Prompt, confirmation, success, empty-title, and failure notice
-copy comes from the app-shell action descriptors; missing notice copy remains
-absent rather than being synthesized from action ids or labels. The GUI must
-not simulate persistent thread metadata locally, rewrite transcripts, create
-source-control checkpoints, or make the frontend a second session-history
-source.
+new session id. Action labels, disabled reason labels, prompt, confirmation,
+success, empty-title, and failure notice copy come from the app-shell action
+descriptors; actions with missing labels stay out of the visible rail, and
+missing notice copy remains absent rather than being synthesized from action
+ids or labels. The GUI must not simulate persistent thread metadata locally,
+rewrite transcripts, create source-control checkpoints, or make the frontend a
+second session-history source.
 
 The GUI app-shell boundary is the desktop/app layer above workspaces and
 sessions. `AppShellService` wraps the existing GUI app host and returns a

@@ -44,6 +44,34 @@
 
 ## 3. 当前变更记录
 
+### DC-254
+
+- Date: 2026-07-04
+- Change Topic: GUI thread action rail labels are descriptor-only
+- Summary:
+  - Removed app-shell and app-home fallback paths that synthesized thread
+    lifecycle action labels from action ids.
+  - Actions without descriptor labels no longer render in the visible thread
+    action rail.
+  - Removed renderer-local disabled reason text for thread lifecycle actions;
+    disabled reason labels now remain descriptor-declared when present.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/app-home-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/app-home-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-253
 
 - Date: 2026-07-04

@@ -61,6 +61,8 @@ export function buildThreadLifecycleActions(session, capabilities = {}) {
     return leftOrder - rightOrder || String(left?.label || left?.id || "").localeCompare(String(right?.label || right?.id || ""));
   }).map((action) => {
     const actionId = String(action?.id || "").trim();
+    const label = String(action?.label || "").trim();
+    if (!label) return null;
     const capability = String(action?.capability || actionId).trim();
     const available = action?.enabled !== false;
     const enabled = Boolean(sessionId && actionId && available);
@@ -68,19 +70,14 @@ export function buildThreadLifecycleActions(session, capabilities = {}) {
     return {
       ...action,
       id: actionId,
-      label: String(action?.label || actionId).trim() || actionId,
+      label,
       capability,
       sessionId,
       enabled,
       reason,
-      reasonLabel:
-        reason === "backend_not_available"
-          ? "Backend lifecycle API is not available yet"
-          : reason === "missing_session"
-            ? "Thread is missing"
-            : "",
+      reasonLabel: String(action?.reasonLabel || action?.reason_label || "").trim(),
     };
-  });
+  }).filter(Boolean);
 }
 
 export function buildAppHomeModel({

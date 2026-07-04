@@ -1325,6 +1325,10 @@ async function main() {
   assert.equal(appHomeModelSource.includes("capabilities?.actions"), true);
   assert.equal(appHomeModelSource.includes("buildThreadLifecycleActions"), true);
   assert.equal(appHomeModelSource.includes("session.thread?.title"), true);
+  assert.equal(appShellModelSource.includes("label: String(input.label || id)"), false);
+  assert.equal(appHomeModelSource.includes("Backend lifecycle API is not available yet"), false);
+  assert.equal(appHomeModelSource.includes("Thread is missing"), false);
+  assert.equal(appHomeModelSource.includes("label: String(action?.label || actionId)"), false);
   assert.equal(sidebarSource.includes("threadCopy.sectionTitle"), true);
   assert.equal(sidebarSource.includes("Threads"), false);
   assert.equal(sidebarSource.includes("../strings.js"), false);

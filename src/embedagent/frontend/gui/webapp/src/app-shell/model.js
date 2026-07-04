@@ -65,12 +65,13 @@ function normalizeThreadLifecycleAction(input = {}, index = 0) {
   if (!id) return null;
   return {
     id,
-    label: String(input.label || id).trim() || id,
+    label: String(input.label || "").trim(),
     capability: String(input.capability || id).trim() || id,
     order: numberOrDefault(input.order || input.launcher_order || input.launcherOrder, index * 10),
     enabled: input.enabled !== false,
     danger: input.danger === true,
     description: String(input.description || ""),
+    reasonLabel: String(input.reason_label || input.reasonLabel || ""),
     promptTitle: String(input.prompt_title || input.promptTitle || ""),
     promptInitial: String(input.prompt_initial || input.promptInitial || ""),
     confirmTitle: String(input.confirm_title || input.confirmTitle || ""),
@@ -92,7 +93,12 @@ function normalizeThreadLifecycleActions(items) {
     seen.add(action.id);
     result.push(action);
   }
-  return result.sort((left, right) => left.order - right.order || left.label.localeCompare(right.label));
+  return result.sort(
+    (left, right) =>
+      left.order - right.order
+      || left.label.localeCompare(right.label)
+      || left.id.localeCompare(right.id),
+  );
 }
 
 function normalizeThreadLifecycle(input = {}) {

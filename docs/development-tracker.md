@@ -506,7 +506,7 @@
 
 - Session lifecycle facade 现在暴露 `rename` / `archive` / `fork`：rename 只更新 summary/projection thread title metadata，archive 默认隐藏 thread 但保留 transcript、summary 和外置 artifact/tool-result 引用，fork 复制 transcript 到新 session id 并写入 fork provenance。
 - GUI backend 新增 `POST /api/sessions/{id}/rename`、`/archive`、`/fork`，`/api/app/bootstrap` 的 capabilities 暴露 `thread_lifecycle.actions` descriptor records，让 GUI 只消费显式 backend action 声明而不是伪造第二份 session truth 或固定 action list。
-- React sidebar thread action rail 已接入真实 backend lifecycle API；frontend 从 app-shell descriptors 投影 action label/order/danger/enabled 状态，prompt/confirm/success/empty/failure copy 也来自同一 action descriptor；缺失的 notice copy 保持缺失，不再由 renderer 从 action id/label 拼 fallback 标题；renderer lifecycle controller 只做状态刷新和 notice，不拥有 transcript、workflow、permission、extension、provider 或 source-control/checkpoint policy。
+- React sidebar thread action rail 已接入真实 backend lifecycle API；frontend 从 app-shell descriptors 投影 action label/order/danger/enabled/disabled reason 状态，缺失 label 的 action 不进入可见 action rail，prompt/confirm/success/empty/failure copy 也来自同一 action descriptor；缺失的 notice copy 保持缺失，不再由 renderer 从 action id/label 拼 fallback 标题；renderer lifecycle controller 只做状态刷新和 notice，不拥有 transcript、workflow、permission、extension、provider 或 source-control/checkpoint policy。
 
 ### 2026-06-17 - T3code App-Shell Boundary
 

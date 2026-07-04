@@ -1223,6 +1223,32 @@ export function runAppShellModelTests() {
   assert.equal(capabilities.preview.chrome.refreshLabel, "Refresh preview");
   assert.equal(capabilities.preview.chrome.emptyTitle, "No preview");
 
+  const lifecycleCapabilities = normalizeAppCapabilities({
+    thread_lifecycle: {
+      actions: [
+        { id: "rename", capability: "rename", order: 20 },
+        {
+          id: "fork",
+          label: "Clone",
+          capability: "fork",
+          order: 10,
+          reason_label: "Disabled by host",
+        },
+      ],
+    },
+  });
+  assert.deepEqual(
+    lifecycleCapabilities.threadLifecycle.actions.map((item) => [
+      item.id,
+      item.label,
+      item.reasonLabel,
+    ]),
+    [
+      ["fork", "Clone", "Disabled by host"],
+      ["rename", "", ""],
+    ],
+  );
+
   const emptyCapabilities = normalizeAppCapabilities({});
   assert.deepEqual(emptyCapabilities.appCommands, []);
   assert.deepEqual(emptyCapabilities.workspaceCommands, []);

@@ -1712,6 +1712,8 @@ def test_gui_thread_lifecycle_actions_are_backend_descriptors():
     assert "confirmTitle" in model_text
     assert "successTitle" in model_text
     assert "actions: normalizeThreadLifecycleActions" in model_text
+    assert "reasonLabel" in model_text
+    assert "label: String(input.label || id)" not in model_text
     assert "getThreadLifecycleCapabilities" in controller_text
     assert "promptTitle" in controller_text
     assert "confirmTitle" in controller_text
@@ -1727,6 +1729,11 @@ def test_gui_thread_lifecycle_actions_are_backend_descriptors():
     assert '"Fork thread title"' not in controller_text
     assert '"Thread archived"' not in controller_text
     assert "THREAD_LIFECYCLE_ACTIONS" not in app_home_text
+    assert "if (!label) return null" in app_home_text
+    assert ".filter(Boolean)" in app_home_text
+    assert "Backend lifecycle API is not available yet" not in app_home_text
+    assert "Thread is missing" not in app_home_text
+    assert "label: String(action?.label || actionId)" not in app_home_text
     assert 'label: "Rename"' not in app_home_text
     assert 'label: "Fork"' not in app_home_text
     assert 'label: "Archive"' not in app_home_text
