@@ -373,7 +373,7 @@ function App() {
     }
   }
 
-  function openDiffSurface({ title = "Diff", diff = "", turnId = "", filePath = "" } = {}) {
+  function openDiffSurface({ title = "diff", diff = "", turnId = "", filePath = "" } = {}) {
     let resolvedDiff = diff;
     if (!resolvedDiff) {
       const item = runtimeState.timelineItems.find((candidate) => {
@@ -389,7 +389,7 @@ function App() {
     dispatch({
       type: "diff_surface_opened",
       diffSurface: createDiffSurfaceState({
-        title: filePath || title || "Diff",
+        title: filePath || title || "diff",
         diff: resolvedDiff,
         source: "gui",
         turnId,
@@ -477,6 +477,7 @@ function App() {
       createRightPanelController({
         dispatch,
         terminalController,
+        getAppCapabilities: () => stateRef.current.app.capabilities || {},
       }),
     [terminalController],
   );

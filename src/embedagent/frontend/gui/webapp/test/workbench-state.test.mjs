@@ -126,10 +126,18 @@ export function runWorkbenchStateTests() {
   );
   assert.equal(surfaceChromeLabels(fullAppCapabilities).emptyTitle, "Open workspace view");
   assert.equal(surfaceChromeLabels(fullAppCapabilities).closeAllActionLabel, "Close all views");
+  assert.equal(rightPanelLauncherSurfaceDefinitions(fullAppCapabilities)[0].title, "Preview");
+  assert.equal(rightPanelLauncherSurfaceDefinitions(fullAppCapabilities)[0].commandLabel, "Show Preview");
+  assert.equal(bottomDrawerSurfaceDefinitions(fullAppCapabilities)[0].title, "Run Output");
+  assert.equal(bottomDrawerSurfaceDefinitions(fullAppCapabilities)[0].commandLabel, "Show Run Output");
+  assert.equal(surfaceDefinitionFor("preview", fullAppCapabilities).title, "Preview");
   for (const definition of registryDefinitions) {
     assert.equal(definition.placement, "right");
     assert.equal(typeof definition.kind, "string");
-    assert.equal(Boolean(definition.title), true);
+    assert.equal(Object.hasOwn(definition, "title"), false);
+    assert.equal(Object.hasOwn(definition, "icon"), false);
+    assert.equal(Object.hasOwn(definition, "description"), false);
+    assert.equal(Object.hasOwn(definition, "commandLabel"), false);
     assert.equal(Boolean(definition.resourceId), true);
     assert.equal(Boolean(definition.closeBehavior), true);
     assert.equal(Array.isArray(definition.persistFields), true);
@@ -323,7 +331,7 @@ export function runWorkbenchStateTests() {
       id: "right:terminal:term-1",
       placement: "right",
       kind: "terminal",
-      title: "Terminal",
+      title: "terminal",
       resourceId: "term-1",
       filePath: "",
       terminalId: "term-1",
@@ -336,7 +344,7 @@ export function runWorkbenchStateTests() {
       id: "right:terminal:term-2",
       placement: "right",
       kind: "terminal",
-      title: "Terminal",
+      title: "terminal",
       resourceId: "term-2",
       filePath: "",
       terminalId: "term-2",
@@ -502,6 +510,7 @@ export function runWorkbenchStateTests() {
     rightPanelLauncherSurfaceDefinitions(limitedAppCapabilities).map((item) => item.kind),
     ["settings"],
   );
+  assert.equal(surfaceDefinitionFor("preview", limitedAppCapabilities), null);
   assert.deepEqual(
     surfaceCommandDefinitions(limitedAppCapabilities).map((item) => item.id),
     ["surface.settings"],

@@ -788,6 +788,21 @@ def test_gui_app_shell_surfaces_are_descriptor_records_not_string_lists():
     assert "label: definition.commandLabel" in surfaces_text
     assert "`Open ${definition.title}`" not in surfaces_text
     assert 'value.map((item) => String(item || ""))' not in surfaces_text
+    for registry_copy in (
+        'title: "Preview"',
+        'title: "Diff"',
+        'title: "Files"',
+        'title: "Terminal"',
+        'title: "Plan"',
+        'title: "Source Control"',
+        'title: "Settings"',
+        'title: "Diagnostics"',
+        'title: "Run Output"',
+        'commandLabel: "Open Terminal"',
+        'commandLabel: "Toggle Run Output"',
+        'description: "',
+    ):
+        assert registry_copy not in surfaces_text
     for hardcoded_copy in (
         '"Right panel"',
         '"Add panel surface"',

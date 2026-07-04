@@ -1,9 +1,9 @@
 import { surfaceDefinitionFor, titleForSurfaceKind } from "../workbench/surfaces.js";
 
-export function rightPanelSurfaceTitle(kind, fallback = "") {
+export function rightPanelSurfaceTitle(kind, fallback = "", appCapabilities = null) {
   const label = String(fallback || "").replace(/^Open\s+/i, "").trim();
   if (label) return label;
-  return titleForSurfaceKind(kind);
+  return titleForSurfaceKind(kind, appCapabilities);
 }
 
 export function normalizeFileSurfacePath(path) {
@@ -20,6 +20,7 @@ export function fileSurfaceTitle(path) {
 export function createRightPanelController({
   dispatch,
   terminalController,
+  getAppCapabilities = () => null,
 }) {
   function openSurface(kind, title = "") {
     const surfaceKind = String(kind || "");
@@ -28,12 +29,14 @@ export function createRightPanelController({
       void terminalController.openRightPanelSurface();
       return;
     }
+    const appCapabilities = getAppCapabilities();
+    const definition = surfaceDefinitionFor(surfaceKind, appCapabilities);
     dispatch({
       type: "workbench_surface_opened",
       placement: "right",
       kind: surfaceKind,
-      title: rightPanelSurfaceTitle(surfaceKind, title),
-      resourceId: surfaceDefinitionFor(surfaceKind)?.defaultResourceId || "",
+      title: rightPanelSurfaceTitle(surfaceKind, title, appCapabilities),
+      resourceId: definition?.defaultResourceId || "",
     });
   }
 

@@ -943,6 +943,9 @@ async function main() {
   );
   assert.equal(rightPanelControllerSource.includes("export function createRightPanelController"), true);
   assert.equal(rightPanelControllerSource.includes("rightPanelSurfaceTitle"), true);
+  assert.equal(rightPanelControllerSource.includes("getAppCapabilities"), true);
+  assert.equal(rightPanelControllerSource.includes("surfaceDefinitionFor(surfaceKind, appCapabilities)"), true);
+  assert.equal(rightPanelControllerSource.includes("rightPanelSurfaceTitle(surfaceKind, title, appCapabilities)"), true);
   assert.equal(rightPanelControllerSource.includes("terminalController.openRightPanelSurface"), true);
   assert.equal(rightPanelControllerSource.includes('type: "set_inspector"'), false);
   assert.equal(rightPanelControllerSource.includes("import React"), false);
@@ -1195,6 +1198,10 @@ async function main() {
     webappSourcePath("components", "workbench", "RightPanelTabs.jsx"),
     "utf8",
   );
+  const workbenchSurfacesSource = fs.readFileSync(
+    webappSourcePath("workbench", "surfaces.js"),
+    "utf8",
+  );
   assert.equal(rightPanelTabsSource.includes("right-panel-empty-state"), true);
   assert.equal(rightPanelTabsSource.includes("right-panel-add-surface"), true);
   assert.equal(rightPanelTabsSource.includes("right-panel-add-menu-popup"), true);
@@ -1210,6 +1217,12 @@ async function main() {
   assert.equal(rightPanelTabsSource.includes("right-panel-surface-tab--file"), true);
   assert.equal(rightPanelTabsSource.includes("right-panel-surface-tab--preview"), true);
   assert.equal(rightPanelTabsSource.includes("to" + "dos"), false);
+  assert.equal(workbenchSurfacesSource.includes('title: "Preview"'), false);
+  assert.equal(workbenchSurfacesSource.includes('title: "Diff"'), false);
+  assert.equal(workbenchSurfacesSource.includes('title: "Terminal"'), false);
+  assert.equal(workbenchSurfacesSource.includes('commandLabel: "Open Terminal"'), false);
+  assert.equal(workbenchSurfacesSource.includes('description: "'), false);
+  assert.equal(workbenchSurfacesSource.includes("titleForSurfaceKind(kind, appCapabilities = null)"), true);
 
   const changedFilesCardSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "ChangedFilesCard.jsx"),

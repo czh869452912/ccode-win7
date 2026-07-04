@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-220
+
+- Date: 2026-07-04
+- Change Topic: GUI surface display copy descriptor convergence
+- Summary:
+  - Removed renderer-local right-panel and bottom-drawer surface display copy
+    from `workbench/surfaces.js`; the local registry now keeps only supported
+    renderer mounting, resource, close-behavior, launcher support, and
+    persistence metadata.
+  - Surface titles, icons, descriptions, command labels, slash metadata,
+    launcher ordering, visibility hints, and keywords now come from normalized
+    `/api/app/bootstrap` app-shell surface descriptors when surfaces are
+    listed, opened, or rendered.
+  - Added frontend and architecture guards so missing app-shell surface
+    descriptors do not silently re-enable local GUI defaults.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelTabs.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `tests/test_pre_release_architecture_guards.py`
+  - `docs/modules/frontend-gui.md`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-219
 
 - Date: 2026-07-04

@@ -251,10 +251,12 @@ renderer-local global string registry.
 Workbench command-palette entries, right-panel add-surface launchers,
 bottom-drawer tabs, and keybinding targets are now filtered from the
 `/api/app/bootstrap` capability declaration. The renderer still owns local
-React components and label/icon metadata for supported surfaces, but it treats
-missing `app_commands`, `workspace_commands`, `surfaces.right_panel`, or
-`surfaces.bottom_drawer` arrays as no visible app-shell entrypoints rather
-than silently filling GUI defaults.
+React components plus mounting, resource, close-behavior, and persistence
+metadata for supported surfaces, but titles, icons, descriptions, command
+labels, slash metadata, launcher ordering, and keywords come only from
+app-shell surface descriptors. Missing `app_commands`, `workspace_commands`,
+`surfaces.right_panel`, or `surfaces.bottom_drawer` arrays are treated as no
+visible app-shell entrypoints rather than silently filling GUI defaults.
 
 The terminal bottom drawer is a GUI app-shell hosted surface implemented by
 `backend/terminal_service.py`, `backend/routes_terminal.py`, and the React

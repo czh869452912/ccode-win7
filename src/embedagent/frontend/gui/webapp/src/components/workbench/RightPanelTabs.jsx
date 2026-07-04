@@ -12,10 +12,10 @@ const SURFACE_TAB_TEST_IDS = {
   file: "right-panel-surface-tab--file",
 };
 
-function surfaceTitle(surface) {
+function surfaceTitle(surface, appCapabilities = null) {
   if (!surface) return "";
   if (surface.title) return surface.title;
-  return titleForSurfaceKind(surface.kind);
+  return titleForSurfaceKind(surface.kind, appCapabilities);
 }
 
 function joinLabel(prefix, value) {
@@ -35,6 +35,7 @@ function SurfaceIcon({ kind, definition = null, appCapabilities = null, chrome =
 }
 
 function SurfaceTabMenu({
+  appCapabilities,
   chrome,
   surface,
   onCloseSurface,
@@ -50,7 +51,7 @@ function SurfaceTabMenu({
         ref={buttonRef}
         type="button"
         className="right-panel-tab-menu-button"
-        aria-label={joinLabel(chrome.surfaceActionsLabelPrefix, surfaceTitle(surface))}
+        aria-label={joinLabel(chrome.surfaceActionsLabelPrefix, surfaceTitle(surface, appCapabilities))}
         aria-expanded={open}
         onClick={(event) => {
           event.stopPropagation();
@@ -219,7 +220,7 @@ export default function RightPanelTabs({
           <div className="right-panel-tab-strip">
             {items.map((surface) => {
               const active = surface.id === activeSurfaceId;
-              const title = surfaceTitle(surface);
+              const title = surfaceTitle(surface, appCapabilities);
               return (
                 <div
                   key={surface.id}
@@ -243,6 +244,7 @@ export default function RightPanelTabs({
                     <span>{title}</span>
                   </button>
                   <SurfaceTabMenu
+                    appCapabilities={appCapabilities}
                     chrome={chrome}
                     surface={surface}
                     onCloseSurface={onCloseSurface}

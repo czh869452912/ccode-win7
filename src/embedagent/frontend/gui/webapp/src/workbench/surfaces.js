@@ -28,9 +28,6 @@ function defineSurface(input) {
 export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
   defineSurface({
     kind: "preview",
-    title: "Preview",
-    icon: "B",
-    description: "Open a local browser preview.",
     placement: "right",
     resourceId: "optional",
     defaultResourceId: "",
@@ -39,15 +36,9 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     launcher: true,
     launcherOrder: 10,
     command: true,
-    slash: "/preview",
-    visibleWhen: "always",
-    keywords: ["browser", "localhost", "web"],
   }),
   defineSurface({
     kind: "diff",
-    title: "Diff",
-    icon: "D",
-    description: "Review local changes.",
     placement: "right",
     resourceId: "current",
     defaultResourceId: "current",
@@ -56,15 +47,9 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     launcher: true,
     launcherOrder: 40,
     command: true,
-    slash: "/diff",
-    visibleWhen: "always",
-    keywords: ["git", "changes", "diff"],
   }),
   defineSurface({
     kind: "files",
-    title: "Files",
-    icon: "F",
-    description: "Browse workspace files.",
     placement: "right",
     resourceId: "singleton",
     defaultResourceId: "",
@@ -73,14 +58,9 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     launcher: true,
     launcherOrder: 20,
     command: true,
-    slash: "/workspace",
-    visibleWhen: "always",
   }),
   defineSurface({
     kind: "file",
-    title: "File",
-    icon: "F",
-    description: "View a workspace file.",
     placement: "right",
     resourceId: "file_path",
     defaultResourceId: "",
@@ -92,9 +72,6 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
   }),
   defineSurface({
     kind: "terminal",
-    title: "Terminal",
-    icon: "T",
-    description: "Use a shell in this workspace.",
     placement: "right",
     resourceId: "terminal_id",
     defaultResourceId: "",
@@ -103,14 +80,9 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     launcher: true,
     launcherOrder: 30,
     command: true,
-    slash: "",
-    visibleWhen: "has_session",
   }),
   defineSurface({
     kind: "plan",
-    title: "Plan",
-    icon: "P",
-    description: "Inspect the current plan.",
     placement: "right",
     resourceId: "singleton",
     defaultResourceId: "",
@@ -119,14 +91,9 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     launcher: true,
     launcherOrder: 50,
     command: true,
-    slash: "/plan",
-    visibleWhen: "always",
   }),
   defineSurface({
     kind: "source_control",
-    title: "Source Control",
-    icon: "S",
-    description: "Review local Git status.",
     placement: "right",
     resourceId: "singleton",
     defaultResourceId: "",
@@ -135,17 +102,11 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     launcher: true,
     launcherOrder: 60,
     command: true,
-    slash: "",
-    visibleWhen: "always",
     readOnly: true,
     offline: true,
-    keywords: ["git", "changes", "local"],
   }),
   defineSurface({
     kind: "settings",
-    title: "Settings",
-    icon: "G",
-    description: "Adjust app-shell preferences.",
     placement: "right",
     resourceId: "singleton",
     defaultResourceId: "",
@@ -154,14 +115,9 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     launcher: true,
     launcherOrder: 70,
     command: true,
-    slash: "",
-    visibleWhen: "always",
   }),
   defineSurface({
     kind: "diagnostics",
-    title: "Diagnostics",
-    icon: "I",
-    description: "Inspect app-shell health.",
     placement: "right",
     resourceId: "singleton",
     defaultResourceId: "",
@@ -170,50 +126,33 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     launcher: true,
     launcherOrder: 80,
     command: true,
-    slash: "",
-    visibleWhen: "always",
   }),
 ]);
 
 export const BOTTOM_DRAWER_SURFACE_REGISTRY = Object.freeze([
   defineSurface({
     kind: "run_output",
-    title: "Run Output",
-    icon: "R",
-    description: "Show turn and tool output.",
     placement: "bottom",
     closeBehavior: "pinned",
     launcher: true,
     launcherOrder: 10,
     command: true,
-    commandLabel: "Toggle Run Output",
-    visibleWhen: "always",
   }),
   defineSurface({
     kind: "terminal",
-    title: "Terminal",
-    icon: "T",
-    description: "Use a shell in this workspace.",
     placement: "bottom",
     closeBehavior: "pinned",
     launcher: true,
     launcherOrder: 20,
     command: true,
-    commandLabel: "Open Terminal",
-    visibleWhen: "has_session",
   }),
   defineSurface({
     kind: "logs",
-    title: "Logs",
-    icon: "L",
-    description: "Inspect renderer and runtime logs.",
     placement: "bottom",
     closeBehavior: "pinned",
     launcher: true,
     launcherOrder: 30,
     command: true,
-    commandLabel: "Open Logs",
-    visibleWhen: "always",
   }),
 ]);
 
@@ -294,23 +233,21 @@ function surfaceDefinitionsForPlacement(placement) {
 function mergedSurfaceDefinition(definition, capability) {
   return {
     ...definition,
-    title: capability.title || definition.title,
-    icon: capability.icon || definition.icon,
-    description: capability.description || definition.description,
+    title: capability.title,
+    icon: capability.icon,
+    description: capability.description,
     resourceId: capability.resourceId || definition.resourceId,
     defaultResourceId: capability.defaultResourceId || definition.defaultResourceId,
     closeBehavior: capability.closeBehavior || definition.closeBehavior,
     launcher: capability.launcher && definition.launcher !== false,
     launcherOrder: capability.launcherOrder,
     command: capability.command && definition.command !== false,
-    commandLabel: capability.commandLabel || definition.commandLabel || "",
+    commandLabel: capability.commandLabel,
     slash: capability.slash || definition.slash || "",
     visibleWhen: capability.visibleWhen || definition.visibleWhen || "always",
     readOnly: capability.readOnly || definition.readOnly === true,
     offline: capability.offline || definition.offline === true,
-    keywords: Object.freeze(
-      Array.from(new Set([...(definition.keywords || []), ...(capability.keywords || [])])),
-    ),
+    keywords: Object.freeze(Array.from(new Set(capability.keywords || []))),
   };
 }
 
@@ -337,7 +274,7 @@ export function surfaceDefinitionFor(kind, appCapabilities = null) {
   if (!definition || !appCapabilities) return definition;
   const capability = surfaceCapabilityDefinitions(appCapabilities, "right")
     .find((item) => item.kind === normalized);
-  return capability ? mergedSurfaceDefinition(definition, capability) : definition;
+  return capability ? mergedSurfaceDefinition(definition, capability) : null;
 }
 
 export function rightPanelLauncherSurfaceDefinitions(appCapabilities = null) {
@@ -505,9 +442,9 @@ function makeSurface(input) {
   };
 }
 
-export function titleForSurfaceKind(kind) {
-  const definition = surfaceDefinitionFor(kind);
-  return definition ? definition.title : String(kind || "");
+export function titleForSurfaceKind(kind, appCapabilities = null) {
+  const definition = surfaceDefinitionFor(kind, appCapabilities);
+  return definition && definition.title ? definition.title : String(kind || "");
 }
 
 function emptySessionSurfaces() {
@@ -713,7 +650,7 @@ export function openFileSurface(state, input = {}) {
     kind: "file",
     filePath,
     resourceId: filePath,
-    title: basenameForPath(filePath) || "File",
+    title: basenameForPath(filePath) || "file",
   });
 }
 
@@ -724,7 +661,7 @@ export function openPreviewSurface(state, input = {}) {
     placement: "right",
     kind: "preview",
     resourceId: previewId,
-    title: input.title || "Preview",
+    title: input.title || previewId || "preview",
   });
 }
 
@@ -735,7 +672,7 @@ export function openTerminalSurface(state, input = {}) {
     ...input,
     placement: "right",
     kind: "terminal",
-    title: input.title || "Terminal",
+    title: input.title || terminalId || "terminal",
     resourceId: terminalId,
     terminalId,
     terminalIds: [terminalId],

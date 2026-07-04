@@ -42,7 +42,7 @@ function titleFor(kind, title, resourceId) {
   if (explicit) return explicit;
   if (kind === "file") {
     const parts = normalizeFilePath(resourceId).split("/");
-    return parts[parts.length - 1] || "File";
+    return parts[parts.length - 1] || kind;
   }
   return titleForSurfaceKind(kind);
 }
