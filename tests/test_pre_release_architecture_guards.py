@@ -747,6 +747,18 @@ def test_gui_command_result_run_output_log_is_payload_driven():
     assert 'data?.success ? "ok" : "error"' not in text
 
 
+def test_gui_command_result_timeline_labels_are_payload_or_chrome_declared():
+    t3_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js")
+    rows_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx"
+    )
+
+    assert "label: stringValue(item?.label)" in t3_text
+    assert "`/${commandName}`" not in t3_text
+    assert "`/${row.commandName" not in rows_text
+    assert 'label={row.label || chrome.commandDefaultName || ""}' in rows_text
+
+
 def test_gui_user_input_interactions_do_not_default_to_ask_user_tool():
     text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/interaction-model.js"

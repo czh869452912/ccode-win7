@@ -160,6 +160,9 @@
 - Command-result run-output logging is now payload-driven: WebSocket effects
   consume optional `log_label` / `log_detail` fields and no longer synthesize
   visible `command: /...` or ok/error copy from slash command names.
+- Command-result timeline labels are now payload/app-shell driven: T3 timeline
+  projection preserves command names as data but visible row labels come only
+  from explicit payload labels or `activity_rows.commandDefaultName`.
 - The retired GUI sidebar tab sidecar has been removed: root `sidebarTab`,
   `set_sidebar`, the old `sidebar-tab--chats` test id, and unused workbench
   `activeSection` / `projectSection` state are no longer product paths.

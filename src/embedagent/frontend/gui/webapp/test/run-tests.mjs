@@ -765,6 +765,7 @@ async function main() {
   ]) {
     assert.equal(t3TimelineSource.includes(hardcodedChangedFileCopy), false);
   }
+  assert.equal(t3TimelineSource.includes("`/${commandName}`"), false);
 
   const timelineRowsSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "TimelineRows.jsx"),
@@ -832,6 +833,7 @@ async function main() {
   assert.equal(timelineRowsSource.includes('data-testid="timeline-review-result-row"'), true);
   assert.equal(timelineRowsSource.includes('data-testid="timeline-work-group"'), true);
   assert.equal(timelineRowsSource.includes('data-testid="timeline-working-row"'), true);
+  assert.equal(timelineRowsSource.includes("`/${row.commandName"), false);
 
   const workRowSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "WorkRow.jsx"),

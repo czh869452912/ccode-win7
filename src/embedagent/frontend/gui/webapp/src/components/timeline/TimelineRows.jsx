@@ -426,7 +426,7 @@ function CommandResultRow({ row, markdownComponents, rowUiState, onToggleRow, ro
       rowKeyFor={rowKeyFor}
       className={`t3-command-result-row ${row.success === false ? "error" : "success"}`}
       data-testid="timeline-command-result-row"
-      label={row.label || `/${row.commandName || chrome.commandDefaultName || ""}`}
+      label={row.label || chrome.commandDefaultName || ""}
       meta={row.success === false ? chrome.commandFailedStatus || "" : chrome.commandCompletedStatus || ""}
     >
       <ReactMarkdown

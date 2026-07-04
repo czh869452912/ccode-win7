@@ -157,7 +157,9 @@ field/section labels under `tool_detail`. Frontend T3 timeline rows may carry
 display data such as timestamps, interruption flags, detail field keys, and
 detail section kinds, but fallback labels and templates remain app-shell
 chrome. Review-result rows are selected from structured review payload fields,
-not from slash command names.
+not from slash command names. Command-result row labels must come from
+explicit payload labels or app-shell `commandDefaultName`, not from
+renderer-synthesized `/${commandName}` strings.
 `capabilities.surfaces.chrome.file_preview` describes
 File Preview chrome, metadata labels, fallback messages, and language labels
 for the read-only file right-panel surface.

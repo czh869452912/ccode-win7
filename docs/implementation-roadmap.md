@@ -205,6 +205,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   write bottom-drawer log entries only when `log_label` / `log_detail` is
   present, and no longer synthesize `command: /...` or ok/error labels from
   slash command names and success booleans
+- GUI command-result timeline labels are now payload/app-shell declared:
+  `t3-timeline.js` preserves command names as structured data without creating
+  `/${commandName}` labels, and `TimelineRows.jsx` falls back only to
+  app-shell `activity_rows.commandDefaultName`
 - GUI renderer runtime state has started moving onto focused T3-style modules:
   `session-runtime/thread-state.js` owns thread/session selection, session
   summaries, and history-integrity display state, while

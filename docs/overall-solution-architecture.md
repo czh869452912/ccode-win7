@@ -341,7 +341,9 @@ Managed-session workflow refresh in the product adapter path goes through `Agent
 - GUI command-result follow-up behavior is payload-driven: session switching
   uses `switch_session_id`, Diff opening uses structured diff payloads, and
   run-output log copy uses optional `log_label` / `log_detail` fields rather
-  than renderer-derived slash-command names
+  than renderer-derived slash-command names; timeline command-result labels
+  likewise come from explicit payload labels or app-shell `commandDefaultName`,
+  not synthesized `/${commandName}` strings
 - provider request snapshots and workflow prompt append decisions live behind
   `TurnSnapshotService` and `PromptAssemblyService`; compact payload assembly
   lives in `CompactionJournal`, keeping `QueryEngine` focused on session

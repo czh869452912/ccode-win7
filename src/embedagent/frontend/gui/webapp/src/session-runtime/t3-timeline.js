@@ -955,7 +955,7 @@ function commandResultRow(item) {
     turnId: stringValue(item?.turnId || item?.turn_id),
     createdAt: timestampValue(item?.createdAt, item?.created_at),
     commandName,
-    label: stringValue(item?.label || (commandName ? `/${commandName}` : "")),
+    label: stringValue(item?.label),
     success: item?.success !== false,
     tone: item?.success === false ? "error" : "context",
     content: commandResultContent(item),

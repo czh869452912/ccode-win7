@@ -44,6 +44,34 @@
 
 ## 3. 当前变更记录
 
+### DC-252
+
+- Date: 2026-07-04
+- Change Topic: GUI command-result timeline labels are payload/app-shell declared
+- Summary:
+  - Removed `/${commandName}` synthesis from the T3 timeline command-result
+    projection and visible command-result row fallback.
+  - Command names remain structured data for payload-driven effects, while
+    visible timeline labels now come only from explicit payload `label` values
+    or app-shell `activity_rows.commandDefaultName`.
+  - Added frontend and Python architecture guards to prevent command-name based
+    timeline label fallback from returning.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/t3-timeline.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-251
 
 - Date: 2026-07-04

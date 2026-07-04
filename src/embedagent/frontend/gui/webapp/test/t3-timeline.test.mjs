@@ -1134,6 +1134,7 @@ export function runT3TimelineTests() {
   const reviewNameOnlyRow = reviewNameOnlyRows.find((row) => row.id === "review-name-only");
   assert.ok(reviewNameOnlyRow);
   assert.equal(reviewNameOnlyRow.kind, T3_ROW_KINDS.COMMAND_RESULT);
+  assert.equal(reviewNameOnlyRow.label, "");
   assert.equal(reviewNameOnlyRows.some((row) => row.kind === T3_ROW_KINDS.REVIEW_RESULT), false);
 
   const richRows = projectT3TimelineRows({
