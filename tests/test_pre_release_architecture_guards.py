@@ -1584,6 +1584,7 @@ def test_gui_diff_panel_copy_is_app_shell_declared():
     socket_effects_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"
     )
+    store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
 
     assert '"diff_panel": {' in spec_text
     assert "normalizeDiffPanelChrome" in model_text
@@ -1614,6 +1615,7 @@ def test_gui_diff_panel_copy_is_app_shell_declared():
     assert '"Git Diff"' not in app_text
     assert "`Git Diff:" not in app_text
     assert '"Git Diff"' not in socket_effects_text
+    assert 'title: action.diffSurface?.title || "diff"' not in store_text
 
 
 def test_gui_source_control_copy_is_app_shell_declared():

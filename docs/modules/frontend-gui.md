@@ -446,7 +446,9 @@ clicks wired to the Diff surface.
 The Diff surface is a right-panel surface (`kind = "diff"`) backed by
 `session-runtime/diff-model.js` and `components/diff/DiffPanel.jsx`. Command
 results carrying structured `data.diff` and diff-capable timeline entries open
-this surface with parsed unified-diff file summaries. It now copies T3code's right-panel chrome more
+this surface with parsed unified-diff file summaries. Workbench tab titles come
+from explicit diff payload titles or the app-shell surface descriptor, not a
+renderer `"diff"` fallback. It now copies T3code's right-panel chrome more
 closely: a `surface-subheader`, a horizontal diff-selection chip strip,
 stacked/split view controls, line-wrap and whitespace display toggles, a
 collapsible changed-file rail, and a focused scrollable diff viewport. Rendering

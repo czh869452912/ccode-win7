@@ -1275,6 +1275,7 @@ async function main() {
   assert.equal(storeSource.includes("TOOL_LABELS"), false);
   assert.equal(storeSource.includes("export function toolLabel"), false);
   assert.equal(storeSource.includes("Read  "), false);
+  assert.equal(storeSource.includes('title: action.diffSurface?.title || "diff"'), false);
 
   const noWorkspaceSource = fs.readFileSync(
     webappSourcePath("components", "NoWorkspaceState.jsx"),

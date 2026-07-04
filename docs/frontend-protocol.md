@@ -172,7 +172,9 @@ for the read-only file right-panel surface.
 empty-state copy, control titles, file rail labels, collapse labels, and the
 source-control diff title template for the already-projected diff display
 surface. A `command_result` may open the Diff surface from structured
-`data.diff`; renderers must not key that behavior on `command_name`.
+`data.diff`; renderers must not key that behavior on `command_name`, and
+workbench tab titles must come from explicit diff payload titles or the
+app-shell surface descriptor rather than a renderer `"diff"` fallback.
 `capabilities.source_control`
 describes the local
 source-control surface: `enabled`, `vcs`, `read_only`, `remote_providers`,

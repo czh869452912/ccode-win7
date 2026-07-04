@@ -134,7 +134,9 @@
   `capabilities.surfaces.chrome.diff_panel`: default titles, empty-state copy,
   controls, file rail labels, collapse labels, and source-control diff title
   templates are backend-declared descriptors consumed by the Diff model,
-  socket effects, App source-control bridge, and surface.
+  socket effects, App source-control bridge, and surface; workbench tab titles
+  come from explicit diff payload titles or the app-shell surface descriptor
+  rather than a renderer `"diff"` fallback.
 - Composer slash/path menu chrome now comes from
   `capabilities.chrome.composer.command_menu`, while slash command group labels
   reuse `capabilities.command_palette.groups`; the composer search,

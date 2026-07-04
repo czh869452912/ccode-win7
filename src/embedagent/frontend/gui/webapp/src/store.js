@@ -258,7 +258,7 @@ export function reducer(state, action) {
           type: "workbench_surface_opened",
           placement: "right",
           kind: "diff",
-          title: action.diffSurface?.title || "diff",
+          title: action.diffSurface?.title || "",
           resourceId: "current",
         }),
       };

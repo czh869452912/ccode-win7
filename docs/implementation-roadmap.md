@@ -182,7 +182,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   descriptor title instead of renderer-local defaults, and missing descriptor
   titles are not synthesized from surface kind/id values. Resource surface
   helper titles use only instance data such as file basenames, preview ids/URLs,
-  and terminal ids; missing preview instance data does not create a fallback tab
+  and terminal ids; missing preview instance data does not create a fallback
+  tab. Diff workbench tab titles come from explicit diff payload titles or the
+  app-shell surface descriptor rather than a renderer `"diff"` fallback
 - GUI workbench session/message/view/palette command entries now come from
   app-shell `workbench_commands` descriptors; the renderer no longer owns a
   `LOCAL_COMMANDS` list, and the retired duplicate `workflow.diff` command is

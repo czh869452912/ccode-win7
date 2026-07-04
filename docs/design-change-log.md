@@ -44,6 +44,32 @@
 
 ## 3. 当前变更记录
 
+### DC-257
+
+- Date: 2026-07-04
+- Change Topic: GUI Diff workbench tab title is payload/app-shell driven
+- Summary:
+  - Removed the store fallback that opened Diff workbench surfaces with a
+    renderer-local `"diff"` title when the diff payload title was absent.
+  - Untitled Diff payloads now keep an empty workbench surface title so the
+    right-panel tab can use the app-shell surface descriptor or remain empty.
+  - Added frontend and Python architecture guards to keep Diff tab titles from
+    regressing to renderer string literals.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/test/store-reducer.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-256
 
 - Date: 2026-07-04
