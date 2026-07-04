@@ -968,6 +968,9 @@ def test_gui_app_home_copy_is_app_shell_declared():
     assert "normalizeHomeCopy" in app_model_text
     assert "home: normalizeHomeCopy" in app_model_text
     assert "app.capabilities?.home" in app_home_text
+    assert "productName" in app_home_text
+    assert "appHome?.productName" in no_workspace_text
+    assert ">EmbedAgent<" not in no_workspace_text
     for hardcoded_copy in (
         '"No workspace"',
         '"Open a local project"',

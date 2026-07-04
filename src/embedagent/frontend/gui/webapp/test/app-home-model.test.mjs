@@ -9,6 +9,9 @@ import {
 export function runAppHomeModelTests() {
   const model = buildAppHomeModel({
     app: {
+      app: {
+        productName: "Python Agent Workbench",
+      },
       hasActiveWorkspace: true,
       activeWorkspace: {
         id: "ws-active",
@@ -100,6 +103,7 @@ export function runAppHomeModelTests() {
   });
 
   assert.equal(model.workspace.hasActiveWorkspace, true);
+  assert.equal(model.productName, "Python Agent Workbench");
   assert.equal(model.workspace.activeLabel, "parser");
   assert.equal(model.workspace.copy.sectionTitle, "Projects");
   assert.equal(model.workspace.copy.pathPlaceholder, "Project path");

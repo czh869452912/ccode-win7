@@ -115,6 +115,10 @@
   longer invent `workflow_state: "chat"` when a backend snapshot omits the
   state name; workflow display stays on explicit snapshot values plus the
   separate generic `workflow` payload.
+- No-workspace GUI shell branding now comes from backend app metadata:
+  `app-home-model.js` projects `app.productName`, and `NoWorkspaceState.jsx`
+  renders that descriptor value instead of hard-coding the default product
+  name.
 - File Preview right-panel chrome now comes from
   `capabilities.surfaces.chrome.file_preview`: default file/project labels,
   loading/error fallback copy, retry/copy/explorer actions, metadata

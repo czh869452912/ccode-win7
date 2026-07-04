@@ -16,6 +16,7 @@ export default function NoWorkspaceState({
   const primary = copy.primary || "";
   const secondary = copy.secondary || "";
   const pathPlaceholder = copy.pathPlaceholder || copy.path_placeholder || "";
+  const productName = appHome?.productName || "";
   const workspaceCopy = appHome?.workspace?.copy || {};
   const recentWorkspaces = Array.isArray(appHome?.workspace?.rows)
     ? appHome.workspace.rows
@@ -31,7 +32,7 @@ export default function NoWorkspaceState({
   return (
     <main className="no-workspace" data-testid="no-workspace-state">
       <section className="no-workspace-inner" aria-label={workspaceCopy.openAriaLabel}>
-        <div className="no-workspace-kicker">EmbedAgent</div>
+        {productName ? <div className="no-workspace-kicker">{productName}</div> : null}
         {primary ? <h1 className="no-workspace-title">{primary}</h1> : null}
         {secondary ? <p className="no-workspace-subtitle">{secondary}</p> : null}
         {scenarioLabel ? <div className="no-workspace-scenario">{scenarioLabel}</div> : null}

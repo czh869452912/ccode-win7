@@ -96,6 +96,7 @@ export function buildAppHomeModel({
   const workspaceCopy = home.workspace || {};
   const threadCopy = home.threads || {};
   const emptyState = emptyStateCopy(app);
+  const productName = firstText(app.app?.productName, app.app?.product_name);
   const workspaceRows = (Array.isArray(app.workspaces) ? app.workspaces : [])
     .filter((workspace) => workspace && workspace.id)
     .map((workspace) => {
@@ -134,6 +135,7 @@ export function buildAppHomeModel({
 
   const hasActiveWorkspace = Boolean(app.hasActiveWorkspace && activeWorkspace);
   return {
+    productName,
     workspace: {
       hasActiveWorkspace,
       activeId: activeWorkspace ? String(activeWorkspace.id || "") : "",

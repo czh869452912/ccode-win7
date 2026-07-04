@@ -44,6 +44,31 @@
 
 ## 3. 当前变更记录
 
+### DC-246
+
+- Date: 2026-07-04
+- Change Topic: No-workspace GUI branding is app-shell declared
+- Summary:
+  - Removed the hard-coded `EmbedAgent` no-workspace kicker from the GUI
+    renderer.
+  - `app-home-model.js` now projects backend app metadata `productName`, and
+    `NoWorkspaceState.jsx` renders that descriptor value when present.
+  - Added frontend and architecture guards so no-workspace shell branding stays
+    driven by app-shell metadata instead of renderer defaults.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/app-home-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/NoWorkspaceState.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/app-home-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-245
 
 - Date: 2026-07-04

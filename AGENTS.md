@@ -247,6 +247,9 @@ Official session-history truth is:
 - `GET /api/sessions/{id}/bootstrap` as the only GUI/TUI activation bootstrap contract
 
 `GET /api/app/bootstrap` is the GUI app-shell activation bootstrap only. It may expose GUI-owned workspace registry projection, safe host/runtime/renderer diagnostics, app-level commands, app surfaces, and local shell settings; it must not become session history truth, workflow truth, provider/runtime policy, permission policy, extension loading policy, or a replacement for `GET /api/sessions/{id}/bootstrap`.
+No-workspace shell branding and copy must come from app-shell metadata such as
+`app.productName`, `capabilities.home`, and `capabilities.emptyState`; renderer
+components must not hard-code the default product or agent name.
 
 GUI thread lifecycle operations (`rename`, `fork`, and `archive`) must flow through the session lifecycle facade and update session summary/projection metadata used by app thread lists. They must not rewrite transcript history, own workflow state, activate tools, decide permissions, load extensions, or create source-control checkpoints.
 

@@ -126,6 +126,9 @@ launcher; once a workspace has an active core, the active core's safe
 capability projection is authoritative. The GUI can use that projection for
 app-level empty-state copy and agent-aware shell display without creating a core
 or reading session history.
+No-workspace shell branding and copy must come from app-shell metadata such as
+`app.productName`, `capabilities.home`, and `capabilities.emptyState`; renderer
+components must not hard-code the default product or agent name.
 Workbench-local persisted surface state is re-sanitized after app bootstrap or
 workspace switch against the same declaration; stale local `preview`,
 `source_control`, `terminal`, or other surfaces must not survive when the

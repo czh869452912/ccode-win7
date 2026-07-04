@@ -1278,6 +1278,7 @@ async function main() {
   assert.equal(noWorkspaceSource.includes("local workspace"), false);
   assert.equal(noWorkspaceSource.includes("Open a project"), false);
   assert.equal(noWorkspaceSource.includes("D:\\\\work\\\\project"), false);
+  assert.equal(noWorkspaceSource.includes(">EmbedAgent<"), false);
 
   const sidebarSource = fs.readFileSync(
     webappSourcePath("components", "Sidebar.jsx"),
