@@ -59,6 +59,10 @@ interaction state, or app-shell diagnostics.
 The GUI artifact refetch facade has also been removed: GUI routes no longer
 expose `/api/artifacts`, and WebSocket/frontend callback contracts no longer
 carry `artifacts_refresh`.
+The hosted `/artifacts` slash command and TUI artifact browser surface are also
+retired. Tool-result stored paths may remain in transcript/session metadata for
+evidence and cleanup, but frontends no longer get a standalone artifact browse
+API.
 The old GUI workflow-runtime display helper is also removed; renderer workflow
 detail must come from backend-declared session snapshot, capability, or
 activity projections instead of synthesized C/C++ phase rows.

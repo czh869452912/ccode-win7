@@ -12,15 +12,6 @@ class ExplorerItem:
 
 
 @dataclass
-class ArtifactRow:
-    path: str
-    tool_name: str = ""
-    field_name: str = ""
-    kind: str = ""
-    created_at: str = ""
-
-
-@dataclass
 class EditorBuffer:
     path: str = ""
     content: str = ""

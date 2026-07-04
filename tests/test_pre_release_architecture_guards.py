@@ -1068,6 +1068,39 @@ def test_gui_has_no_split_artifact_refetch_facade():
         assert token not in gui_routes_text
 
 
+def test_no_hosted_or_tui_artifact_browser_facade():
+    inprocess_text = _read(ROOT / "src/embedagent_host/inprocess_adapter.py")
+    command_service_text = _read(ROOT / "src/embedagent_host/hosted_command_service.py")
+    slash_commands_text = _read(ROOT / "src/embedagent/slash_commands.py")
+    tui_app_text = _read(ROOT / "src/embedagent/frontend/tui/app.py")
+    tui_controller_text = _read(ROOT / "src/embedagent/frontend/tui/controller.py")
+    tui_workbench_text = _read(ROOT / "src/embedagent/frontend/tui/workbench.py")
+    tui_services_init_text = _read(ROOT / "src/embedagent/frontend/tui/services/__init__.py")
+    tui_services_dir = ROOT / "src/embedagent/frontend/tui/services"
+
+    for token in (
+        "def list_artifacts",
+        "def read_artifact",
+        "_handle_command_artifacts",
+        'SlashCommandSpec("artifacts"',
+        "ArtifactService",
+        "artifact_service",
+        "show_artifacts",
+        "refresh_artifacts",
+        "surface.artifacts",
+        "artifact.open",
+    ):
+        assert token not in inprocess_text
+        assert token not in command_service_text
+        assert token not in slash_commands_text
+        assert token not in tui_app_text
+        assert token not in tui_controller_text
+        assert token not in tui_workbench_text
+        assert token not in tui_services_init_text
+
+    assert not (tui_services_dir / "artifacts.py").exists()
+
+
 def test_hosted_interactions_do_not_keep_legacy_blocking_frontend_paths():
     banned_tokens = (
         "on_permission_request",

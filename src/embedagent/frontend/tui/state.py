@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from embedagent.frontend.tui.models import ArtifactRow, EditorBuffer, ExplorerItem
+from embedagent.frontend.tui.models import EditorBuffer, ExplorerItem
 from embedagent.frontend.tui.workbench import WorkbenchState
 
 
@@ -44,8 +44,6 @@ class TimelineState:
 @dataclass
 class InspectorState:
     tab: str = "status"
-    artifact_items: List[ArtifactRow] = field(default_factory=list)
-    selected_artifact_ref: str = ""
 
 
 @dataclass

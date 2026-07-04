@@ -415,7 +415,6 @@ class InProcessAdapter(object):
             list_workspace_recipes=self.list_workspace_recipes,
             reload_resources=self.reload_resources,
             list_tasks=self.list_tasks,
-            list_artifacts=self.list_artifacts,
             get_permission_context=self.get_permission_context,
             emit=self._emit,
             emit_with_snapshot=self._emit_with_snapshot,
@@ -1160,30 +1159,6 @@ class InProcessAdapter(object):
         if "transcript not found" in message or "empty transcript" in message:
             return "transcript_missing"
         return str(exc or "history_unavailable")
-
-    def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
-        items = self.tools.projection_db.list_tool_results(limit=limit)
-        result = []
-        for item in items:
-            result.append(
-                {
-                    "path": item["stored_path"],
-                    "tool_name": item["tool_name"],
-                    "field_name": item["field_name"],
-                    "created_at": item["created_at"],
-                    "preview_text": item["preview_text"],
-                    "byte_count": item["byte_count"],
-                    "kind": item["content_kind"],
-                }
-            )
-        return result
-
-    def read_artifact(self, reference: str) -> Dict[str, Any]:
-        absolute_path = self.tools.tool_result_store.resolve_existing_path(reference)
-        with open(absolute_path, "r", encoding="utf-8") as handle:
-            content = handle.read()
-        kind = "json" if absolute_path.lower().endswith(".json") else "text"
-        return {"path": reference, "kind": kind, "content": content}
 
     def list_tasks(self, session_id: str = "") -> Dict[str, Any]:
         if not session_id:

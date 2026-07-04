@@ -141,7 +141,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   state, and app-shell diagnostics instead. The split GUI artifact refetch
   facade has also been removed: no `/api/artifacts` route, no
   `artifacts_refresh` WebSocket event, and no frontend callback bridge for
-  artifact invalidation remains.
+  artifact invalidation remains. The hosted `/artifacts` slash command and TUI
+  artifact browser service/surface have also been retired; tool-result stored
+  paths remain evidence metadata, not a standalone frontend browse API.
 - GUI thread lifecycle actions now route through the session lifecycle facade:
   rename updates summary/projection title metadata, archive hides a session from
   default thread lists without deleting transcript/summary/artifact references,

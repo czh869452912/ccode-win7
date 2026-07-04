@@ -101,11 +101,6 @@ class TestNoBareExceptBlocks:
                 "ValueError",
                 "TypeError",
             ],
-            "src/embedagent/frontend/tui/services/artifacts.py": [
-                "OSError",
-                "ValueError",
-                "TypeError",
-            ],
             "src/embedagent/frontend/tui/layout.py": ["ValueError", "TypeError"],
             "src/embedagent_host/inprocess_adapter.py": ["OSError", "ValueError", "TypeError"],
         }

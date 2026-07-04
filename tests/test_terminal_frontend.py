@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from prompt_toolkit.document import Document
 
 from embedagent.frontend.tui.completion import TerminalCompleter
-from embedagent.frontend.tui.models import ArtifactRow, ExplorerItem
+from embedagent.frontend.tui.models import ExplorerItem
 from embedagent.frontend.tui.state import TerminalState
 
 
@@ -18,13 +18,6 @@ class TestTerminalFrontendModules(unittest.TestCase):
         self.state.explorer.items = [
             ExplorerItem(kind="file", path="src/main.c", label="[F] main.c"),
             ExplorerItem(kind="file", path="docs/readme.md", label="[F] readme.md"),
-        ]
-        self.state.inspector.artifact_items = [
-            ArtifactRow(
-                path=".embedagent/memory/artifacts/demo.json",
-                tool_name="bash",
-                field_name="stdout",
-            ),
         ]
         self.state.session.session_items = [
             {"session_id": "sess-001", "current_mode": "build"},
@@ -42,10 +35,6 @@ class TestTerminalFrontendModules(unittest.TestCase):
     def test_file_completion(self):
         items = self._complete("please open @src/")
         self.assertIn("src/main.c", items)
-
-    def test_artifact_completion(self):
-        items = self._complete("artifact:.embed")
-        self.assertIn(".embedagent/memory/artifacts/demo.json", items)
 
     def test_session_completion(self):
         items = self._complete("session:sess")
@@ -79,7 +68,6 @@ class TestTerminalFrontendModules(unittest.TestCase):
 
         names = command_names()
         self.assertIn("tasks", names)
-        self.assertIn("artifacts", names)
         self.assertIn("open", names)
         self.assertIn("edit", names)
         self.assertIn("save", names)

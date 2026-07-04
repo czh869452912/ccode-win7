@@ -31,14 +31,6 @@ class TerminalCompleter(Completer):
                     continue
                 yield Completion(candidate, start_position=-len(prefix), display="@" + candidate)
             return
-        artifact_match = re.search(r"artifact:([^\s]*)$", text_before)
-        if artifact_match:
-            prefix = artifact_match.group(1)
-            for item in self._artifact_candidates(state):
-                if prefix and prefix.lower() not in item.lower():
-                    continue
-                yield Completion(item, start_position=-len(prefix), display="artifact:" + item)
-            return
         session_match = re.search(r"session:([^\s]*)$", text_before)
         if session_match:
             prefix = session_match.group(1)
@@ -66,12 +58,6 @@ class TerminalCompleter(Completer):
         if callable(summary):
             pass
         return values[:200]
-
-    def _artifact_candidates(self, state) -> Iterable[str]:
-        for item in getattr(state.inspector, "artifact_items", []):
-            path = getattr(item, "path", "")
-            if path:
-                yield path
 
     def _session_candidates(self, state) -> Iterable[str]:
         for item in getattr(state.session, "session_items", []):

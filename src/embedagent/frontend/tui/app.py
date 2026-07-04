@@ -7,7 +7,6 @@ from embedagent.frontend.tui.controller import TerminalController
 from embedagent.frontend.tui.host import detect_host
 from embedagent.frontend.tui.layout import TerminalLayout
 from embedagent.frontend.tui.services import (
-    ArtifactService,
     EditorService,
     SessionService,
     TimelineService,
@@ -67,7 +66,6 @@ class TerminalApp(object):
         )
         self.workspace_service = WorkspaceService(adapter, workspace)
         self.timeline_service = TimelineService(adapter)
-        self.artifact_service = ArtifactService(adapter)
         self.editor_service = EditorService(self.workspace_service, workspace)
         self.pipe_input = None
         self._pipe_input_cm = None

@@ -496,11 +496,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         reloaded = self.adapter.read_workspace_file("src/pkg/demo.c")
         self.assertIn("return 1;", reloaded["content"])
 
-    def test_artifact_and_task_apis(self):
-        artifacts = self.adapter.list_artifacts(limit=10)
-        self.assertGreaterEqual(len(artifacts), 1)
-        payload = self.adapter.read_artifact(artifacts[0]["path"])
-        self.assertEqual(payload["kind"], "text")
+    def test_task_api(self):
         tasks = self.adapter.list_tasks(session_id=str(self.snapshot.get("session_id") or ""))
         # No harness state pre-generated on session creation
         self.assertEqual(tasks["count"], 0)
