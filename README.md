@@ -74,6 +74,10 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
   app-shell metadata such as `app.productName`, `capabilities.home`, and
   `capabilities.emptyState`; renderer components must not hard-code the
   default product or agent name.
+- Official GUI surface descriptor copy: right-panel surface titles and
+  surface-owned panel headings, including the Files surface header, come from
+  backend-declared app-shell surface descriptors rather than renderer-local
+  defaults.
 - Official application refresh path: `AgentApplication.refresh_managed_session()` delegates to the selected application's workflow refreshers. The bundled C/C++ application uses `CHarnessWorkflowExtension.refresh_managed_session()` internally; the old `HarnessStateSynchronizer` service facade has been removed.
 - Official runtime schema projection: `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single schema projection entry point; callers must pass explicit active tool names and omitted `tool_names` project no provider-facing schemas
 - Official core accessor surface: mode registry, command sanitizer, and adapter class lookup use `get_mode_registry()`, `get_command_sanitizer()`, and `get_inprocess_adapter()` directly. Removed registry, sanitizer, and adapter private aliases must not be reintroduced.

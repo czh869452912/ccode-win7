@@ -23,7 +23,7 @@
 - GUI app-shell hosted source-control read model（`backend/source_control_service.py`、`webapp/src/source-control/`）
 - 协议回调到 WebSocket 广播的实时转换（`backend/server.py`）
 - WebSocket 断线重连与会话事件回放恢复（`webapp/`）
-- T3code-inspired Agent timeline rows、structured tool detail expansion、timeline file-link activation、composer interaction panel、app-shell-declared Preview/File/Diff/Files right-panel surface chrome、renderer-local workbench UI state persistence、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/workbench/`、`webapp/src/components/`、`webapp/src/styles.css`）
+- T3code-inspired Agent timeline rows、structured tool detail expansion、timeline file-link activation、composer interaction panel、app-shell-declared Preview/File/Diff/Files right-panel surface chrome and surface titles、renderer-local workbench UI state persistence、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/workbench/`、`webapp/src/components/`、`webapp/src/styles.css`）
 - 开发机可视调试 harness：启动真实 GUI、执行场景、截图、检查 console/DOM（`scripts/gui-visual-debug.mjs`）
 
 ## 3. Code Mapping
@@ -65,7 +65,7 @@
 
 Preview surface chrome, File Preview chrome, source-control panel chrome,
 bottom drawer run-output chrome, terminal chrome, thread lifecycle actions,
-command palette copy, and surface descriptors are declared by
+command palette copy, surface titles, and surface descriptors are declared by
 `/api/app/bootstrap` app-shell capabilities. Renderer modules normalize and
 consume those descriptors; they must not become a second source of
 agent/workflow-specific display defaults.
@@ -155,7 +155,9 @@ not push thread management out of the visible workbench.
 
 The left sidebar owns workspace and thread navigation only. File browsing is
 owned by the right-panel `FilesSurface`, which renders the single file tree and
-opens file preview tabs through right-panel surface descriptors. The sidebar
+opens file preview tabs through right-panel surface descriptors. The
+`FilesSurface` panel title is also read from the active surface descriptor, not
+from renderer-local default copy. The sidebar
 must not render a second Files tab or duplicate file tree; file navigation
 remains GUI app-shell display state and must not become workflow truth.
 

@@ -44,6 +44,32 @@
 
 ## 3. 当前变更记录
 
+### DC-247
+
+- Date: 2026-07-04
+- Change Topic: Files surface title is app-shell declared
+- Summary:
+  - Removed the hard-coded `Files` header from the GUI right-panel
+    `FilesSurface`.
+  - `RightPanelSurfaceBody.jsx` now passes the active surface descriptor into
+    `FilesSurface.jsx`, and the panel header renders `surface.title`.
+  - Added frontend and architecture guards so right-panel Files surface titles
+    stay descriptor-driven for generic or specialized agent shells.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/FilesSurface.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-246
 
 - Date: 2026-07-04

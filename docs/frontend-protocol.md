@@ -93,7 +93,9 @@ slash/path menu aria labels, empty states, path group label, item-kind labels,
 and fallback command group label. Surface descriptors carry `id`,
 `title`, and ordering metadata, and may also carry `icon`, `description`, `command`,
 `command_label`, `slash`, `visible_when`, `read_only`, `offline`, and
-`keywords`. Surface chrome descriptors carry the right-panel aria label,
+`keywords`. Right-panel surface titles and surface-owned panel headings,
+including the Files surface header, must consume those descriptors instead of
+renderer-local default copy. Surface chrome descriptors carry the right-panel aria label,
 add-surface label, empty-state title/body, tab action labels, close-label
 prefixes, and default icon fallback. Keybinding descriptors carry `key`,
 `command_id`, and `when`. The

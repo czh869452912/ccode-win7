@@ -1512,6 +1512,23 @@ def test_gui_file_preview_copy_is_app_shell_declared():
         assert hardcoded_copy not in file_preview_model_text
 
 
+def test_gui_files_surface_title_is_app_shell_declared():
+    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
+    files_surface_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/FilesSurface.jsx"
+    )
+    surface_body_text = _read(
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx"
+    )
+
+    assert '_surface(\n                "files",' in spec_text
+    assert '"Files"' in spec_text
+    assert "surface?.title" in files_surface_text
+    assert "surface={surface}" in surface_body_text
+    assert "<strong>Files</strong>" not in files_surface_text
+
+
 def test_gui_diff_panel_copy_is_app_shell_declared():
     spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")

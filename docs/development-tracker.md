@@ -119,6 +119,10 @@
   `app-home-model.js` projects `app.productName`, and `NoWorkspaceState.jsx`
   renders that descriptor value instead of hard-coding the default product
   name.
+- Files right-panel surface title now comes from the active app-shell surface
+  descriptor: `RightPanelSurfaceBody.jsx` passes the surface record into
+  `FilesSurface.jsx`, and the panel header no longer hard-codes the default
+  Files copy.
 - File Preview right-panel chrome now comes from
   `capabilities.surfaces.chrome.file_preview`: default file/project labels,
   loading/error fallback copy, retry/copy/explorer actions, metadata

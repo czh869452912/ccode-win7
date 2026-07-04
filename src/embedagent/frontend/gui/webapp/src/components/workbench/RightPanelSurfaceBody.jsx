@@ -38,6 +38,7 @@ export default function RightPanelSurfaceBody({
   if (surface.kind === "files") {
     return (
       <FilesSurface
+        surface={surface}
         fileTree={fileTree}
         treeHeight={treeHeight}
         onOpenFile={onOpenFile}

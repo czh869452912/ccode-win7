@@ -173,7 +173,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
 - GUI right-panel surface chrome now comes from app-shell `surfaces.chrome`
   descriptors; the renderer no longer owns right-panel aria copy, add-surface
   label, empty-state text, surface action menu labels, close labels, or
-  surface command-label string concatenation
+  surface command-label string concatenation. Surface-owned panel headings,
+  including the Files surface header, use the active app-shell surface
+  descriptor title instead of renderer-local defaults
 - GUI workbench session/message/view/palette command entries now come from
   app-shell `workbench_commands` descriptors; the renderer no longer owns a
   `LOCAL_COMMANDS` list, and the retired duplicate `workflow.diff` command is

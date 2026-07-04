@@ -250,6 +250,9 @@ Official session-history truth is:
 No-workspace shell branding and copy must come from app-shell metadata such as
 `app.productName`, `capabilities.home`, and `capabilities.emptyState`; renderer
 components must not hard-code the default product or agent name.
+Right-panel surface titles and surface-owned panel headings, including the
+Files surface header, must come from backend-declared app-shell surface
+descriptors rather than renderer-local default copy.
 
 GUI thread lifecycle operations (`rename`, `fork`, and `archive`) must flow through the session lifecycle facade and update session summary/projection metadata used by app thread lists. They must not rewrite transcript history, own workflow state, activate tools, decide permissions, load extensions, or create source-control checkpoints.
 

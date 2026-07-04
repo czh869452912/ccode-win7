@@ -53,7 +53,9 @@ are also app-shell descriptors. Right-panel chrome copy, tab action labels,
 aria labels, empty-state text, and default surface icon fallback come from
 `capabilities.surfaces.chrome`.
 Labels, descriptions, icon keys, command/slash metadata, ordering, visibility,
-and read-only/offline hints come from the app shell.
+and read-only/offline hints come from the app shell. Surface-owned panel
+headings, including the right-panel Files surface header, use the active
+surface descriptor title rather than renderer-local defaults.
 GUI home/sidebar copy for workspace and thread sections is also app-shell
 declared through `capabilities.home`; renderer components consume that read
 model instead of owning the default workspace/thread wording.

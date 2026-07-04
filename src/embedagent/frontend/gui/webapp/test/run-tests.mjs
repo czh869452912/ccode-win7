@@ -1504,12 +1504,15 @@ async function main() {
   assert.equal(filesSurfaceSource.includes('data-testid="right-panel-file-tree-scroll"'), true);
   assert.equal(filesSurfaceSource.includes("right-panel-file-node--"), true);
   assert.equal(filesSurfaceSource.includes("onLoadFileChildren"), true);
+  assert.equal(filesSurfaceSource.includes("surface?.title"), true);
+  assert.equal(filesSurfaceSource.includes("<strong>Files</strong>"), false);
 
   const rightPanelSurfaceBodySource = fs.readFileSync(
     webappSourcePath("components", "workbench", "RightPanelSurfaceBody.jsx"),
     "utf8",
   );
   assert.equal(rightPanelSurfaceBodySource.includes("FilesSurface"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("surface={surface}"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("FilePreviewSurface"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("PreviewSurface"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("TerminalShell"), true);
