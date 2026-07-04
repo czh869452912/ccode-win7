@@ -16,7 +16,6 @@ export const T3_ROW_KINDS = Object.freeze({
   SYSTEM_NOTICE: "system_notice",
 });
 
-const WRITE_TOOLS = new Set(["write_file", "edit_file", "git_diff"]);
 const META_ARG_PREFIX = "_";
 const DETAIL_TEXT_LIMIT = 4000;
 const TOOL_LIFECYCLE_STATUSES = new Set(["inProgress", "completed", "failed", "declined", "stopped"]);
@@ -272,10 +271,12 @@ function diffTextFromItem(item) {
   return "";
 }
 
-function changedPathFromItem(item) {
+function changedPathFromItem(item, presentation = null) {
+  const key = stringValue(presentation?.changedPathArg);
+  if (!key) return "";
   const data = item?.data || {};
-  const args = item?.arguments || {};
-  return stringValue(data.path || data.file || args.path || args.file || item?.path);
+  const args = publicArgs(item?.arguments || {});
+  return stringValue(args[key] || data[key]);
 }
 
 function normalizeChangedFileEntry(entry) {
@@ -306,14 +307,15 @@ function explicitChangedFiles(item) {
   return source.map(normalizeChangedFileEntry).filter(Boolean);
 }
 
-export function summarizeChangedFiles(items = []) {
+export function summarizeChangedFiles(items = [], options = {}) {
   const fileMap = new Map();
+  const toolCatalog = options?.toolCatalog || {};
   for (const item of items || []) {
     for (const file of explicitChangedFiles(item)) {
       mergeFileStats(fileMap, { ...file, sourceId: item?.id || item?.call_id || "" });
     }
     const toolName = stringValue(item?.toolName || item?.tool_name);
-    const commandName = stringValue(item?.commandName || item?.command_name);
+    const toolPresentation = resolveToolPresentation(toolName, toolCatalog);
     const diffText = diffTextFromItem(item);
     const diffFiles = parseDiffFiles(diffText);
     if (diffFiles.length > 0) {
@@ -322,16 +324,14 @@ export function summarizeChangedFiles(items = []) {
       }
       continue;
     }
-    if (WRITE_TOOLS.has(toolName) || commandName === "diff") {
-      const path = changedPathFromItem(item);
-      if (path) {
-        mergeFileStats(fileMap, {
-          path,
-          additions: numberValue(item?.data?.additions),
-          deletions: numberValue(item?.data?.deletions),
-          sourceId: item?.id || item?.call_id || "",
-        });
-      }
+    const path = changedPathFromItem(item, toolPresentation);
+    if (path) {
+      mergeFileStats(fileMap, {
+        path,
+        additions: numberValue(item?.data?.additions),
+        deletions: numberValue(item?.data?.deletions),
+        sourceId: item?.id || item?.call_id || "",
+      });
     }
   }
   const files = Array.from(fileMap.values());
@@ -779,7 +779,7 @@ export function normalizeWorkEntry(item, options = {}) {
   const toolName = stringValue(item?.toolName || item?.tool_name);
   const toolPresentation = resolveToolPresentation(toolName, options.toolCatalog || {});
   const status = stringValue(item?.status || "running");
-  const changed = summarizeChangedFiles([item]);
+  const changed = summarizeChangedFiles([item], { toolCatalog: options.toolCatalog || {} });
   const data = item?.data && typeof item.data === "object" ? item.data : {};
   const requestKind =
     normalizeRequestKind(item?.requestKind || item?.request_kind || data.requestKind || data.request_kind) ||
@@ -1330,8 +1330,8 @@ function pushLooseItem(push, item, context = {}) {
   }
 }
 
-function diffSummaryRow(group) {
-  const changed = summarizeChangedFiles(allTurnItems(group));
+function diffSummaryRow(group, context = {}) {
+  const changed = summarizeChangedFiles(allTurnItems(group), { toolCatalog: context.toolCatalog || {} });
   if (changed.files.length === 0) return null;
   return {
     id: `diff-summary-${group?.turnId || changed.files.map((file) => file.path).join("-")}`,
@@ -1402,7 +1402,7 @@ export function projectT3TimelineRows({
       }
     }
 
-    const changedRow = diffSummaryRow(group);
+    const changedRow = diffSummaryRow(group, context);
     if (changedRow) pushRow(changedRow);
 
     if (entries.length === 0 || shouldFold) {

@@ -306,9 +306,11 @@ no-workspace copy when the backend has not provided them.
 Tool descriptors in `tools` carry GUI presentation fields such as `name`,
 `label`, `renderer_key`, `permission_category`, `source_type`, `source_id`,
 and safe `metadata`. `metadata.preview_arg` is the current display contract
-for timeline tool-call previews. GUI code must consume this descriptor data
-instead of deriving preview text or command/file request kind from built-in or
-workflow tool names.
+for timeline tool-call previews, and `metadata.changed_path_arg` identifies
+the argument that can seed changed-file summaries when no explicit diff or
+changed-file list is present. GUI code must consume this descriptor data
+instead of deriving preview text, command/file request kind, or changed-file
+paths from built-in or workflow tool names.
 `workflowPackages` is present as an array; profile-only applications such as
 `embedagent.python` or `embedagent.html` may legitimately return an empty
 array.
@@ -534,10 +536,11 @@ Catalog entries include display and source metadata:
 - `renderer_key`
 - `permission_category`
 - `metadata.preview_arg`
+- `metadata.changed_path_arg`
 - `source_type`
 - `source_id`
 
-Frontends may display dynamic tool source metadata for diagnostics or future extension management. Timeline tool-call preview text and command/file request kind must come from this catalog metadata plus backend-projected permission categories, not from renderer-side tool-name tables. Frontends must continue to treat tool permission behavior as backend-owned and derive permission prompts only from backend events.
+Frontends may display dynamic tool source metadata for diagnostics or future extension management. Timeline tool-call preview text, command/file request kind, and changed-file path inference must come from this catalog metadata plus backend-projected permission categories, not from renderer-side tool-name tables. Frontends must continue to treat tool permission behavior as backend-owned and derive permission prompts only from backend events.
 
 Extension diagnostics are frontend-visible health information. Frontends may display them, but they must not infer extension execution policy from them.
 

@@ -224,9 +224,10 @@ These tools are registered in the runtime catalog. Built-in mode prompts expose 
 Runtime schema filtering no longer activates the default harness pack on its own. Product paths that need the full default C/C++ tool set combine the mode contract with `ExtensionManager` active tools, then request schemas by explicit tool names.
 
 The runtime catalog is also the source of safe GUI presentation metadata. Tool
-entries may declare `metadata.preview_arg`, and session capabilities project
-that field to frontends so timeline tool previews can adapt to different base
-or specialized agents without hard-coded `bash`, `read_file`, or workflow-tool
+entries may declare `metadata.preview_arg` and `metadata.changed_path_arg`, and
+session capabilities project those fields to frontends so timeline tool
+previews and changed-file summaries can adapt to different base or specialized
+agents without hard-coded `bash`, `read_file`, `write_file`, or workflow-tool
 name tables.
 
 In-process extensions may register additional `ToolDefinition` objects into the shared runtime catalog. Registration records `source_type` and `source_id`, but a dynamic tool is model-visible only when activated through the shared `ExtensionManager` active-tool path and remains subject to `PermissionPolicy`.

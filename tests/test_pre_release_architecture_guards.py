@@ -709,6 +709,9 @@ def test_gui_timeline_tool_preview_is_catalog_driven():
         'if (toolName === "glob_files")',
         'if (toolName === "read_file" || toolName === "write_file" || toolName === "edit_file")',
         "function toolNameRequestKind",
+        "const WRITE_TOOLS",
+        "WRITE_TOOLS.has",
+        'commandName === "diff"',
     ):
         assert token not in text
 

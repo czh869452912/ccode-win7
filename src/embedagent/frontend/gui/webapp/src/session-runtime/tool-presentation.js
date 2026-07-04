@@ -20,6 +20,7 @@ export function resolveToolPresentation(toolName, catalog = {}) {
     rendererKey: text(source.rendererKey || source.renderer_key, "generic"),
     permissionCategory: text(source.permissionCategory || source.permission_category, "other"),
     previewArg: text(metadata.previewArg || metadata.preview_arg),
+    changedPathArg: text(metadata.changedPathArg || metadata.changed_path_arg),
     metadata,
   };
 }

@@ -37,7 +37,7 @@ _VALID_TOOL_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _REGISTERABLE_PERMISSION_CATEGORIES = OFFICIAL_PERMISSION_CATEGORIES
 _EXTENSION_REQUIRED_PERMISSION_METADATA = ("permission_category",)
 _READ_MODEL_INVALIDATIONS = frozenset(("workspace_files", "tasks", "capabilities"))
-_PRESENTATION_METADATA_KEYS = ("preview_arg",)
+_PRESENTATION_METADATA_KEYS = ("preview_arg", "changed_path_arg")
 
 
 def _normalize_read_model_invalidations(tool_name: str, value: Any) -> List[str]:
@@ -95,6 +95,7 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "file_write",
         "supports_diff_preview": True,
         "preview_arg": "path",
+        "changed_path_arg": "path",
         "context_reducer_key": "write_file",
         "read_only": False,
         "concurrency_safe": False,
@@ -113,6 +114,7 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "file_edit",
         "supports_diff_preview": True,
         "preview_arg": "path",
+        "changed_path_arg": "path",
         "context_reducer_key": "edit_file",
         "read_only": False,
         "concurrency_safe": False,

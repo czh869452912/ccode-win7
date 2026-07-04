@@ -149,6 +149,7 @@ def test_tool_catalog_projects_safe_presentation_metadata(tmp_path):
     runtime = ToolRuntime(str(tmp_path))
     tool = make_dynamic_tool()
     tool.metadata["preview_arg"] = "message"
+    tool.metadata["changed_path_arg"] = "message"
     runtime.register_tool(
         tool,
         source_id="test.extension",
@@ -158,8 +159,14 @@ def test_tool_catalog_projects_safe_presentation_metadata(tmp_path):
     entry = runtime.tool_catalog_entry("dynamic_echo")
     observation = runtime.execute("dynamic_echo", {"message": "hello"})
 
-    assert entry["metadata"] == {"preview_arg": "message"}
-    assert observation.data["presentation_metadata"] == {"preview_arg": "message"}
+    assert entry["metadata"] == {
+        "changed_path_arg": "message",
+        "preview_arg": "message",
+    }
+    assert observation.data["presentation_metadata"] == {
+        "changed_path_arg": "message",
+        "preview_arg": "message",
+    }
     assert "mode_visibility" not in entry["metadata"]
     assert "permission_category" not in entry["metadata"]
 
@@ -204,6 +211,14 @@ def test_builtin_tool_catalog_declares_preview_args(tmp_path):
 
     for tool_name, preview_arg in expected.items():
         assert runtime.tool_catalog_entry(tool_name)["metadata"]["preview_arg"] == preview_arg
+
+
+def test_builtin_write_tools_declare_changed_path_args(tmp_path):
+    runtime = ToolRuntime(str(tmp_path))
+
+    assert runtime.tool_catalog_entry("write_file")["metadata"]["changed_path_arg"] == "path"
+    assert runtime.tool_catalog_entry("edit_file")["metadata"]["changed_path_arg"] == "path"
+    assert "changed_path_arg" not in runtime.tool_catalog_entry("read_file")["metadata"]
 
 
 def test_builtin_write_tools_declare_read_model_invalidations(tmp_path):

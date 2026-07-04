@@ -756,6 +756,13 @@ async function main() {
   ]) {
     assert.equal(t3TimelineSource.includes(hardcodedToolPreviewCopy), false);
   }
+  for (const hardcodedChangedFileCopy of [
+    "const WRITE_TOOLS",
+    "WRITE_TOOLS.has",
+    'commandName === "diff"',
+  ]) {
+    assert.equal(t3TimelineSource.includes(hardcodedChangedFileCopy), false);
+  }
 
   const timelineRowsSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "TimelineRows.jsx"),

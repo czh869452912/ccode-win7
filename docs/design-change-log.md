@@ -44,6 +44,37 @@
 
 ## 3. 当前变更记录
 
+### DC-240
+
+- Date: 2026-07-04
+- Change Topic: GUI timeline changed-file inference is catalog-driven
+- Summary:
+  - Added `changed_path_arg` to the safe tool presentation metadata projected
+    through `ToolCatalogEntry.metadata`.
+  - Declared `changed_path_arg = "path"` for `write_file` and `edit_file`.
+  - Removed the frontend `WRITE_TOOLS`/`commandName === "diff"` changed-file
+    inference table from `t3-timeline.js`; changed-file summaries now use
+    explicit changed-file lists, explicit diffs, or catalog-declared changed
+    path arguments.
+  - Extended frontend projection tests, runtime catalog tests, source checks,
+    and architecture guards to keep changed-file path inference metadata-owned.
+- Impacted Scope:
+  - `src/embedagent/tools/runtime.py`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/tool-presentation.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/test/t3-timeline.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_dynamic_tool_registration.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/tool-contracts.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-239
 
 - Date: 2026-07-04

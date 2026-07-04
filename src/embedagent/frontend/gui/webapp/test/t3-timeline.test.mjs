@@ -913,6 +913,114 @@ export function runT3TimelineTests() {
   assert.equal(changed.additions, 2);
   assert.equal(changed.deletions, 2);
 
+  const catalogChanged = summarizeChangedFiles(
+    [
+      {
+        id: "catalog-write-1",
+        kind: "tool",
+        toolName: "write_file",
+        status: "success",
+        arguments: { path: "src/catalog-driven.c" },
+        data: { additions: 1 },
+      },
+    ],
+    {
+      toolCatalog: {
+        write_file: {
+          name: "write_file",
+          metadata: { changed_path_arg: "path" },
+        },
+      },
+    },
+  );
+  assert.deepEqual(catalogChanged.files.map((file) => file.path), ["src/catalog-driven.c"]);
+  assert.equal(catalogChanged.additions, 1);
+
+  const undeclaredChanged = summarizeChangedFiles([
+    {
+      id: "undeclared-write-1",
+      kind: "tool",
+      toolName: "write_file",
+      status: "success",
+      arguments: { path: "src/undeclared-write.c" },
+      data: { additions: 1 },
+    },
+  ]);
+  assert.deepEqual(undeclaredChanged.files, []);
+
+  const catalogDiffRows = projectT3TimelineRows({
+    toolCatalog: {
+      write_file: {
+        name: "write_file",
+        metadata: { changed_path_arg: "path" },
+      },
+    },
+    turnGroups: [
+      {
+        turnId: "turn-catalog-changed-files",
+        userItem: { id: "u-catalog-changed", kind: "user", content: "write", turnId: "turn-catalog-changed-files" },
+        steps: [
+          {
+            stepId: "step-catalog-changed",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "catalog-write-row",
+                kind: "tool",
+                toolName: "write_file",
+                status: "success",
+                arguments: { path: "src/catalog-row.c" },
+                data: { additions: 1 },
+                turnId: "turn-catalog-changed-files",
+                stepId: "step-catalog-changed",
+              },
+            ],
+            assistantItem: null,
+          },
+        ],
+        trailingTurnItems: [],
+        leadingSystemItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "idle",
+  });
+  const catalogDiffSummary = catalogDiffRows.find((row) => row.kind === T3_ROW_KINDS.DIFF_SUMMARY);
+  assert.deepEqual(catalogDiffSummary.files.map((file) => file.path), ["src/catalog-row.c"]);
+
+  const undeclaredDiffRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-undeclared-changed-files",
+        userItem: { id: "u-undeclared-changed", kind: "user", content: "write", turnId: "turn-undeclared-changed-files" },
+        steps: [
+          {
+            stepId: "step-undeclared-changed",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "undeclared-write-row",
+                kind: "tool",
+                toolName: "write_file",
+                status: "success",
+                arguments: { path: "src/undeclared-row.c" },
+                data: { additions: 1 },
+                turnId: "turn-undeclared-changed-files",
+                stepId: "step-undeclared-changed",
+              },
+            ],
+            assistantItem: null,
+          },
+        ],
+        trailingTurnItems: [],
+        leadingSystemItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "idle",
+  });
+  assert.equal(undeclaredDiffRows.some((row) => row.kind === T3_ROW_KINDS.DIFF_SUMMARY), false);
+
   const interruptedRows = projectT3TimelineRows({
     turnGroups: [
       {

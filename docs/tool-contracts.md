@@ -23,13 +23,13 @@ may use those hints to refresh read-only projections, but they must not infer
 refresh behavior from hard-coded tool-name lists. These hints do not activate
 tools, grant permissions, mutate workflow state, or bypass `PermissionPolicy`.
 
-Catalog metadata may declare safe presentation metadata such as
-`preview_arg`. The runtime projects only the whitelisted presentation metadata
-under catalog-entry `metadata`, and GUI timeline previews consume that
-projection through session capabilities instead of checking names such as
-`bash`, `read_file`, or `grep_text`. Presentation metadata affects display
-only; it does not activate tools, grant permissions, execute tools, or change
-workflow state.
+Catalog metadata may declare safe presentation metadata such as `preview_arg`
+and `changed_path_arg`. The runtime projects only the whitelisted presentation
+metadata under catalog-entry `metadata`, and GUI timeline previews/changed-file
+summaries consume that projection through session capabilities instead of
+checking names such as `bash`, `read_file`, `write_file`, or `grep_text`.
+Presentation metadata affects display only; it does not activate tools, grant
+permissions, execute tools, or change workflow state.
 
 The official runtime facade is:
 
@@ -93,7 +93,7 @@ In-process extensions may register tools into the shared `ToolRuntime` through t
 - mode and workflow visibility metadata when they need to override defaults
 - read-only and concurrency metadata through either the `ToolDefinition` or explicit metadata
 - optional read-model invalidation hints such as `read_model_invalidations`
-- optional presentation metadata such as `preview_arg`
+- optional presentation metadata such as `preview_arg` and `changed_path_arg`
 - source metadata supplied by the extension runtime
 
 Registration does not make a tool active by itself. A dynamic tool appears in model schemas and frontend catalog views only when its name is active through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` as consumed by `AgentExtensionHost`. Project-local Python extensions use the same registration path and source metadata. Extensions cannot replace built-in tools.

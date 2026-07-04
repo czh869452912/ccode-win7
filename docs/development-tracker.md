@@ -91,6 +91,10 @@
   session capabilities, the default C/C++ workflow package declares its
   workflow preview argument, and `t3-timeline.js` no longer keeps
   `bash`/`read_file`/`grep_text`/workflow-tool preview branches.
+- Timeline changed-file path inference is now catalog-driven as well:
+  `write_file` and `edit_file` declare safe `metadata.changed_path_arg`, and
+  the GUI T3 timeline no longer keeps a `WRITE_TOOLS` or command-name diff
+  table for changed-file summaries.
 - File Preview right-panel chrome now comes from
   `capabilities.surfaces.chrome.file_preview`: default file/project labels,
   loading/error fallback copy, retry/copy/explorer actions, metadata
