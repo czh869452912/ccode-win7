@@ -334,6 +334,8 @@ state; opening, activating, and closing right-panel content flows through
 workbench surface state.
 
 `POST /api/sessions` without an explicit mode leaves mode selection to the selected backend application/profile. Frontends should not inject `explore` or `build` as an implicit entry mode.
+Frontend protocol projection also preserves an empty/missing `current_mode` as
+empty diagnostic state instead of filling in the built-in `explore` mode.
 
 `POST /api/sessions/{session_id}/resume` should preserve the restored session mode unless the caller explicitly supplies a mode override.
 

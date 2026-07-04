@@ -791,6 +791,7 @@ def test_gui_workflow_display_and_default_mode_are_backend_declared():
     )
     gui_routes_text = _read(ROOT / "src/embedagent/frontend/gui/backend/routes_sessions.py")
     gui_protocol_text = _read(ROOT / "src/embedagent/frontend/gui/backend/protocol_payloads.py")
+    core_adapter_text = _read(ROOT / "src/embedagent/core/adapter.py")
 
     for token in (
         "snapshot.current_phase",
@@ -806,6 +807,8 @@ def test_gui_workflow_display_and_default_mode_are_backend_declared():
     assert 'session.current_mode || session.mode || "explore"' not in command_palette_text
     assert "DEFAULT_MODE" not in gui_routes_text
     assert "DEFAULT_MODE" not in gui_protocol_text
+    assert "DEFAULT_MODE" not in core_adapter_text
+    assert 'current_mode=snapshot.get("current_mode") or' not in core_adapter_text
 
 
 def test_gui_tool_presentation_is_catalog_driven():

@@ -195,6 +195,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
 - Root renderer `inspectorTab` / `inspectorOpen` state and `set_inspector` /
   `toggle_inspector` reducer actions have been removed; right-panel navigation
   now flows only through workbench surface state.
+- `AgentCoreAdapter` no longer imports built-in `DEFAULT_MODE` or injects
+  `explore` into missing frontend protocol `current_mode`; selected
+  application/profile mode state remains backend-declared.
 - Offline GUI packaging now includes a native Win32 launcher exe in the portable
   bundle, preserving the one-folder delivery model while improving double-click
   startup.
