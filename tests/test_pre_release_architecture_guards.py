@@ -905,7 +905,9 @@ def test_gui_has_no_split_tool_catalog_facade():
 
 def test_gui_workbench_entrypoints_are_app_capability_driven():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
     commands_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js")
+    ui_state_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/ui-state.js")
     keybindings_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/keybindings.js"
     )
@@ -924,6 +926,10 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert "surfaceCommandDefinitions(appCapabilities)" in commands_text
     assert "bottomDrawerCommandDefinitions(appCapabilities)" in commands_text
     assert "if (declared === null) return commands" not in commands_text
+    assert "sanitizeWorkbenchUiStateForAppCapabilities" in store_text
+    assert "sanitizeWorkbenchUiStateForAppCapabilities" in ui_state_text
+    assert "rightPanelLauncherSurfaceDefinitions(appCapabilities)" in ui_state_text
+    assert "bottomDrawerSurfaceDefinitions(appCapabilities)" in ui_state_text
     assert "appCapabilities" in keybindings_text
     assert "rightPanelLauncherSurfaceDefinitions(appCapabilities)" in right_panel_tabs_text
     assert "bottomDrawerSurfaceDefinitions(appCapabilities)" in bottom_drawer_text

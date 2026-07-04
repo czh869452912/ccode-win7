@@ -14,6 +14,7 @@ import {
   reduceActivityState,
 } from "./session-runtime/activity-reducer.js";
 import { createWorkbenchState, reduceWorkbenchState } from "./workbench/surfaces.js";
+import { sanitizeWorkbenchUiStateForAppCapabilities } from "./workbench/ui-state.js";
 import { resetWorkspaceScopedState } from "./app-workspaces.js";
 
 export const INITIAL_REQUESTED_MODE = "";
@@ -81,14 +82,17 @@ export function reducer(state, action) {
           sessionId: action.sessionId || readActiveThreadId(state),
         }),
       };
-    case "app_bootstrap_loaded":
+    case "app_bootstrap_loaded": {
+      const app = reduceAppShellState(state.app, {
+        type: "app_shell_bootstrap_loaded",
+        bootstrap: action.bootstrap || {},
+      });
       return {
         ...state,
-        app: reduceAppShellState(state.app, {
-          type: "app_shell_bootstrap_loaded",
-          bootstrap: action.bootstrap || {},
-        }),
+        app,
+        workbench: sanitizeWorkbenchUiStateForAppCapabilities(state.workbench, app.capabilities),
       };
+    }
     case "workspace_path_changed":
       return {
         ...state,
@@ -114,19 +118,35 @@ export function reducer(state, action) {
       };
     case "workspace_switched": {
       const reset = resetWorkspaceScopedState(state);
+      const app = reduceAppShellState(reset.app, {
+        type: "app_shell_workspace_switched",
+        bootstrap: action.bootstrap || {},
+      });
       return {
         ...reset,
-        app: reduceAppShellState(reset.app, {
-          type: "app_shell_workspace_switched",
-          bootstrap: action.bootstrap || {},
-        }),
+        app,
+        workbench: sanitizeWorkbenchUiStateForAppCapabilities(reset.workbench, app.capabilities),
       };
     }
-    case "app_shell_bootstrap_loaded":
+    case "app_shell_bootstrap_loaded": {
+      const app = reduceAppShellState(state.app, action);
+      return {
+        ...state,
+        app,
+        workbench: sanitizeWorkbenchUiStateForAppCapabilities(state.workbench, app.capabilities),
+      };
+    }
+    case "app_shell_workspace_switched": {
+      const app = reduceAppShellState(state.app, action);
+      return {
+        ...state,
+        app,
+        workbench: sanitizeWorkbenchUiStateForAppCapabilities(state.workbench, app.capabilities),
+      };
+    }
     case "app_shell_workspace_path_changed":
     case "app_shell_workspace_activation_started":
     case "app_shell_workspace_activation_failed":
-    case "app_shell_workspace_switched":
     case "app_shell_settings_changed":
       return {
         ...state,

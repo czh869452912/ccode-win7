@@ -132,7 +132,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   keybinding targets are filtered from `/api/app/bootstrap` app-shell
   capabilities; renderer-local surface registries now provide presentation
   metadata only and do not invent visible app entrypoints when the
-  `capabilities` object or relevant capability arrays are missing
+  `capabilities` object or relevant capability arrays are missing; persisted
+  workbench surface state is also re-sanitized after app bootstrap or workspace
+  switch against those app-shell capabilities
 - GUI thread lifecycle actions now route through the session lifecycle facade:
   rename updates summary/projection title metadata, archive hides a session from
   default thread lists without deleting transcript/summary/artifact references,

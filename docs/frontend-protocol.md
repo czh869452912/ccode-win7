@@ -79,6 +79,10 @@ icons, keybindings, and React components, but visible command-palette entries,
 right-panel launchers, bottom-drawer tabs, and keybinding targets are filtered
 from this bootstrap declaration. A missing `capabilities` object or missing
 capability arrays mean no app-shell entrypoints, not GUI defaults.
+Workbench-local persisted surface state is re-sanitized after app bootstrap or
+workspace switch against the same declaration; stale local `preview`,
+`source_control`, `terminal`, or other surfaces must not survive when the
+backend no longer declares their parent surface capability.
 `capabilities.surfaces.right_panel` may include `files`, `terminal`, `diff`,
 `preview`, `plan`, `source_control`, `settings`, and `diagnostics`;
 `capabilities.surfaces.bottom_drawer` may include `terminal`, `run_output`,

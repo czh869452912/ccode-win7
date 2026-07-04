@@ -49,7 +49,9 @@ keybinding targets are filtered from GUI app-shell capabilities returned by
 `GET /api/app/bootstrap`. Renderer-local surface registries may describe how a
 known surface is displayed, but they do not grant app-shell entrypoints when
 the backend declaration omits the `capabilities` object or the relevant command
-or surface arrays.
+or surface arrays. Persisted workbench surface state is re-sanitized after app
+bootstrap or workspace switch against the same declaration, so stale local UI
+state cannot reopen surfaces that the active app shell does not expose.
 Frontend protocol adapters preserve backend-declared mode state. They must not
 import the built-in mode default or inject `explore` when a selected
 application/profile leaves `current_mode` empty.
