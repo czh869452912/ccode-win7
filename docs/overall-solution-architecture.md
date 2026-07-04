@@ -46,8 +46,8 @@ tool policy, permission policy, extension loading policy, provider
 configuration, telemetry, or Agent Core runtime reducers.
 Workbench command visibility, right-panel launchers, bottom-drawer tabs, and
 keybinding targets are filtered from GUI app-shell capabilities returned by
-`GET /api/app/bootstrap`. App-shell app/workspace commands, surfaces, and
-keybindings are backend-declared descriptor records rather than bare string ids;
+`GET /api/app/bootstrap`. App-shell app/workspace/workbench commands, surfaces,
+and keybindings are backend-declared descriptor records rather than bare string ids;
 command-palette group titles/descriptions/order and palette labels/placeholders
 are also app-shell descriptors. Right-panel chrome copy, tab action labels,
 aria labels, empty-state text, and default surface icon fallback come from
@@ -618,6 +618,10 @@ instead of keeping their own hard-coded surface tab registry, `inspectorTab`
 adapter, or `onTabChange` navigation path that bypasses app capabilities.
 Right-panel chrome copy and surface command labels are also backend-declared
 surface capability metadata rather than renderer string concatenation.
+Session/message/view/palette command entries are backend-declared
+`workbench_commands`; the renderer no longer owns a local default command list,
+and the old duplicate `workflow.diff` entrypoint is not part of the default GUI
+shell.
 The renderer must not keep parallel root-level `inspectorTab` / `inspectorOpen`
 navigation fields; the right-panel workbench surface state is the single live
 navigation state for this area.

@@ -130,9 +130,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `webapp/src/app-shell/` and drive Settings/Diagnostics right-panel surfaces
 - GUI workbench commands, right-panel launchers, bottom-drawer tabs, and
   keybinding targets are filtered from `/api/app/bootstrap` app-shell
-  capabilities; app-shell app/workspace commands, surfaces, and keybindings are
-  descriptor records carrying display, ordering, command, slash, shortcut, and
-  safety metadata, while renderer-local surface
+  capabilities; app-shell app/workspace/workbench commands, surfaces, and
+  keybindings are descriptor records carrying display, ordering, command,
+  slash, shortcut, and safety metadata, while renderer-local surface
   registries now provide only known renderer mounting details through derived
   helper functions rather than exported fixed id lists, and do not invent
   visible app entrypoints when the `capabilities` object or relevant descriptor
@@ -174,6 +174,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   descriptors; the renderer no longer owns right-panel aria copy, add-surface
   label, empty-state text, surface action menu labels, close labels, or
   surface command-label string concatenation
+- GUI workbench session/message/view/palette command entries now come from
+  app-shell `workbench_commands` descriptors; the renderer no longer owns a
+  `LOCAL_COMMANDS` list, and the retired duplicate `workflow.diff` command is
+  removed in favor of the declared `surface.diff` entrypoint
 - GUI home/sidebar workspace and thread copy now comes from app-shell
   `home.workspace` / `home.threads` descriptors plus the selected agent
   `emptyState`; renderer components no longer own the default no-workspace,

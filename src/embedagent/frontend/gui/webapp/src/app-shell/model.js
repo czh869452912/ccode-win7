@@ -367,6 +367,10 @@ export function normalizeAppCapabilities(input = {}) {
       Array.isArray(input.workspace_commands) ? input.workspace_commands : input.workspaceCommands,
       "workspace",
     ),
+    workbenchCommands: normalizeAppCommandDescriptors(
+      Array.isArray(input.workbench_commands) ? input.workbench_commands : input.workbenchCommands,
+      "workbench",
+    ),
     commandPalette: normalizeCommandPalette(input),
     home: normalizeHomeCopy(input),
     surfaces: {

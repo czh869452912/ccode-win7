@@ -125,6 +125,13 @@ class TestGuiAppShellService(unittest.TestCase):
         self.assertIn("app.diagnostics", app_command_ids)
         self.assertIn("app.source_control", app_command_ids)
         self.assertIn("app.reload", app_command_ids)
+        workbench_command_ids = [
+            item["id"] for item in payload["capabilities"]["workbench_commands"]
+        ]
+        self.assertIn("message.send", workbench_command_ids)
+        self.assertIn("palette.open", workbench_command_ids)
+        self.assertIn("view.toggle_right_panel", workbench_command_ids)
+        self.assertNotIn("workflow.diff", workbench_command_ids)
         keybinding_commands = [
             item["command_id"] for item in payload["capabilities"]["keybindings"]
         ]
@@ -278,6 +285,13 @@ class TestGuiAppShellService(unittest.TestCase):
                             "group": "workspace",
                         },
                     ),
+                    workbench_commands=(
+                        {
+                            "id": "palette.open",
+                            "label": "Launch",
+                            "group": "view",
+                        },
+                    ),
                     command_palette_labels={
                         "root_title": "Launcher",
                         "commands_section": "Actions",
@@ -326,6 +340,10 @@ class TestGuiAppShellService(unittest.TestCase):
         self.assertEqual(
             [item["id"] for item in payload["capabilities"]["workspace_commands"]],
             ["workspace.open"],
+        )
+        self.assertEqual(
+            [item["id"] for item in payload["capabilities"]["workbench_commands"]],
+            ["palette.open"],
         )
         self.assertEqual(
             [item["id"] for item in payload["capabilities"]["surfaces"]["right_panel"]],

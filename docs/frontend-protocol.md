@@ -72,12 +72,12 @@ Current app-shell v1 fields include `app`, `workspaces`,
 `settings`, and `last_error`. Diagnostics are safe read-model fields for host,
 runtime, renderer, workspace registry, and active-core presence only.
 `capabilities.app_commands`, `capabilities.workspace_commands`,
-`capabilities.command_palette.groups`,
+`capabilities.workbench_commands`, `capabilities.command_palette.groups`,
 `capabilities.surfaces.right_panel`,
 `capabilities.surfaces.bottom_drawer`, `capabilities.surfaces.chrome`, and
 `capabilities.keybindings` are the app-shell entrypoint contract for the
-renderer workbench. App/workspace command entries and surface entries are
-descriptor records, not bare ids. Command
+renderer workbench. App/workspace/workbench command entries and surface entries
+are descriptor records, not bare ids. Command
 descriptors carry `id`, `group`, `label`, ordering metadata, and may also carry
 `slash`, `visible_when`, `surface`, `drawer`, `keywords`, `description`, and
 safe dispatch metadata. Command-palette group descriptors carry `id`, `title`,
@@ -96,7 +96,11 @@ prefixes, and default icon fallback. Keybinding descriptors carry `key`,
 renderer may keep local metadata for React components, but visible
 command-palette entries, right-panel launchers, bottom-drawer tabs, surface
 command labels, panel chrome labels, icons, descriptions, and keybinding
-targets are filtered or merged from this bootstrap declaration. A
+targets are filtered or merged from this bootstrap declaration. Renderer-local
+workbench command lists must not provide default session, message, view,
+palette, or workflow commands when app-shell command descriptors are absent;
+the retired duplicate `workflow.diff` GUI command is replaced by the declared
+`surface.diff` entrypoint. A
 missing `capabilities` object or missing capability descriptor arrays mean no
 app-shell entrypoints, not GUI defaults.
 `capabilities.home` carries GUI home/sidebar copy for workspace and thread

@@ -4,34 +4,16 @@ import {
   surfaceCommandDefinitions,
 } from "./surfaces.js";
 
-const LOCAL_COMMANDS = [
-  { id: "session.new", group: "session", label: "New Session", slash: "/new", visibleWhen: "always" },
-  { id: "thread.new", group: "session", label: "New Thread", slash: "", visibleWhen: "always", keywords: ["session", "chat"] },
-  { id: "session.refresh", group: "session", label: "Refresh Sessions", slash: "/sessions", visibleWhen: "always" },
-  { id: "session.resume", group: "session", label: "Resume Session", slash: "/resume", visibleWhen: "always" },
-  { id: "message.send", group: "message", label: "Send Message", slash: "", visibleWhen: "composer_ready" },
-  { id: "message.stop", group: "message", label: "Stop Running Turn", slash: "", visibleWhen: "running" },
-  { id: "workflow.diff", group: "workflow", label: "Review Diff", slash: "/diff", visibleWhen: "has_session" },
-  { id: "view.toggle_right_panel", group: "view", label: "Toggle Right Panel", slash: "", visibleWhen: "always" },
-  { id: "view.toggle_bottom_drawer", group: "view", label: "Toggle Bottom Drawer", slash: "", visibleWhen: "always" },
-  { id: "palette.open", group: "view", label: "Open Command Palette", slash: "", visibleWhen: "always" },
-  { id: "palette.close", group: "view", label: "Close Command Palette", slash: "", visibleWhen: "palette_open" },
-];
-
-export const WORKBENCH_COMMANDS = [
-  ...LOCAL_COMMANDS,
-];
-
-function localWorkbenchCommands() {
-  return LOCAL_COMMANDS;
-}
-
 function appCommandDefinitions(appCapabilities = null) {
   return Array.isArray(appCapabilities?.appCommands) ? appCapabilities.appCommands : [];
 }
 
 function workspaceCommandDefinitions(appCapabilities = null) {
   return Array.isArray(appCapabilities?.workspaceCommands) ? appCapabilities.workspaceCommands : [];
+}
+
+function workbenchCommandDefinitions(appCapabilities = null) {
+  return Array.isArray(appCapabilities?.workbenchCommands) ? appCapabilities.workbenchCommands : [];
 }
 
 function commandFromCapability(item = {}) {
@@ -56,7 +38,7 @@ export function buildWorkbenchCommands(capabilities = {}, appCapabilities = null
   const seen = new Set();
   const builtinCommands = [
     ...appCommandDefinitions(appCapabilities),
-    ...localWorkbenchCommands(),
+    ...workbenchCommandDefinitions(appCapabilities),
     ...surfaceCommandDefinitions(appCapabilities),
     ...bottomDrawerCommandDefinitions(appCapabilities),
     ...workspaceCommandDefinitions(appCapabilities),

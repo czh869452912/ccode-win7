@@ -35,6 +35,18 @@ function visualAppBootstrap() {
         { id: "workspace.refresh", label: "Refresh Workspaces", group: "workspace", order: 20 },
         { id: "workspace.remove_current", label: "Remove Current Workspace From Recents", group: "workspace", order: 30, visible_when: "has_workspace" },
       ],
+      workbench_commands: [
+        { id: "session.new", label: "New Session", group: "session", order: 10, slash: "/new" },
+        { id: "thread.new", label: "New Thread", group: "session", order: 20, keywords: ["session", "chat"] },
+        { id: "session.refresh", label: "Refresh Sessions", group: "session", order: 30, slash: "/sessions" },
+        { id: "session.resume", label: "Resume Session", group: "session", order: 40, slash: "/resume" },
+        { id: "message.send", label: "Send Message", group: "message", order: 10, visible_when: "composer_ready" },
+        { id: "message.stop", label: "Stop Running Turn", group: "message", order: 20, visible_when: "running" },
+        { id: "view.toggle_right_panel", label: "Toggle Right Panel", group: "view", order: 10 },
+        { id: "view.toggle_bottom_drawer", label: "Toggle Bottom Drawer", group: "view", order: 20 },
+        { id: "palette.open", label: "Open Command Palette", group: "view", order: 30 },
+        { id: "palette.close", label: "Close Command Palette", group: "view", order: 40, visible_when: "palette_open" },
+      ],
       command_palette: {
         groups: [
           { id: "app", title: "App", description: "App shell commands", order: 10 },

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 
 import {
-  WORKBENCH_COMMANDS,
   commandById,
   visibleCommands,
 } from "../src/workbench/commands.js";
@@ -72,6 +71,19 @@ const WORKSPACE_COMMAND_DESCRIPTORS = Object.freeze([
   { id: "workspace.remove_current", group: "workspace", label: "Forget Project", visibleWhen: "has_workspace", order: 30 },
 ]);
 
+const WORKBENCH_COMMAND_DESCRIPTORS = Object.freeze([
+  { id: "session.new", group: "session", label: "New Session", slash: "/new", visibleWhen: "always", order: 10 },
+  { id: "thread.new", group: "session", label: "New Thread", slash: "", visibleWhen: "always", order: 20 },
+  { id: "session.refresh", group: "session", label: "Refresh Sessions", slash: "/sessions", visibleWhen: "always", order: 30 },
+  { id: "session.resume", group: "session", label: "Resume Session", slash: "/resume", visibleWhen: "always", order: 40 },
+  { id: "message.send", group: "message", label: "Send Message", slash: "", visibleWhen: "composer_ready", order: 10 },
+  { id: "message.stop", group: "message", label: "Stop Running Turn", slash: "", visibleWhen: "running", order: 20 },
+  { id: "view.toggle_right_panel", group: "view", label: "Toggle Right Panel", slash: "", visibleWhen: "always", order: 10 },
+  { id: "view.toggle_bottom_drawer", group: "view", label: "Toggle Bottom Drawer", slash: "", visibleWhen: "always", order: 20 },
+  { id: "palette.open", group: "view", label: "Open Command Palette", slash: "", visibleWhen: "always", order: 30 },
+  { id: "palette.close", group: "view", label: "Close Command Palette", slash: "", visibleWhen: "palette_open", order: 40 },
+]);
+
 function cloneSurfaces(items) {
   return items.map((item) => ({ ...item }));
 }
@@ -85,6 +97,7 @@ export function runWorkbenchStateTests() {
   const fullAppCapabilities = {
     appCommands: APP_COMMAND_DESCRIPTORS.map((item) => ({ ...item })),
     workspaceCommands: WORKSPACE_COMMAND_DESCRIPTORS.map((item) => ({ ...item })),
+    workbenchCommands: WORKBENCH_COMMAND_DESCRIPTORS.map((item) => ({ ...item })),
     surfaces: {
       chrome: {
         rightPanelAriaLabel: "Workspace panel",
@@ -419,22 +432,6 @@ export function runWorkbenchStateTests() {
   });
   assert.equal(unknownRightSurface, initial);
 
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.settings"), false);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.diagnostics"), false);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.source_control"), false);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.reload"), false);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.files"), false);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.preview"), false);
-  assert.deepEqual(
-    WORKBENCH_COMMANDS.filter((item) => item.group === "surface" && item.surface)
-      .map((item) => item.id),
-    [],
-  );
-  assert.deepEqual(
-    WORKBENCH_COMMANDS.filter((item) => item.group === "surface" && item.drawer)
-      .map((item) => item.id),
-    [],
-  );
   assert.equal(commandById("surface.preview"), null);
   assert.equal(commandById("app.settings", {}, fullAppCapabilities).label, "Preferences");
   assert.equal(commandById("workspace.open", {}, fullAppCapabilities).label, "Open Project");
@@ -444,25 +441,36 @@ export function runWorkbenchStateTests() {
   assert.equal(commandById("surface.source_control", {}, fullAppCapabilities).surface, "source_control");
   assert.equal(commandById("surface.settings", {}, fullAppCapabilities).surface, "settings");
   assert.equal(commandById("surface.diagnostics", {}, fullAppCapabilities).surface, "diagnostics");
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.open"), false);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.refresh"), false);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.remove_current"), false);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "thread.new"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "drawer.terminal"), false);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id.includes("code")), false);
-  assert.equal(commandById("message.send").slash, "");
+  assert.equal(commandById("message.send"), null);
+  assert.equal(commandById("message.send", {}, fullAppCapabilities).slash, "");
 
-  const visibleWhenIdle = visibleCommands({ hasSession: true, isRunning: false });
-  assert.equal(visibleWhenIdle.some((item) => item.id === "app.settings"), false);
-  assert.equal(visibleWhenIdle.some((item) => item.id === "app.source_control"), false);
+  const visibleWithoutAppShell = visibleCommands({ hasSession: true, isRunning: false });
+  assert.equal(visibleWithoutAppShell.some((item) => item.id === "app.settings"), false);
+  assert.equal(visibleWithoutAppShell.some((item) => item.id === "message.send"), false);
+
+  const visibleWhenIdle = visibleCommands({
+    hasSession: true,
+    isRunning: false,
+    appCapabilities: fullAppCapabilities,
+  });
+  assert.equal(visibleWhenIdle.some((item) => item.id === "app.settings"), true);
+  assert.equal(visibleWhenIdle.some((item) => item.id === "app.source_control"), true);
   assert.equal(visibleWhenIdle.some((item) => item.id === "message.send"), true);
   assert.equal(visibleWhenIdle.some((item) => item.id === "message.stop"), false);
 
-  const visibleWithoutSession = visibleCommands({ hasSession: false, isRunning: false });
-  assert.equal(visibleWithoutSession.some((item) => item.id === "app.settings"), false);
+  const visibleWithoutSession = visibleCommands({
+    hasSession: false,
+    isRunning: false,
+    appCapabilities: fullAppCapabilities,
+  });
+  assert.equal(visibleWithoutSession.some((item) => item.id === "app.settings"), true);
   assert.equal(visibleWithoutSession.some((item) => item.id === "mode.build"), false);
 
-  const visibleWhenRunning = visibleCommands({ hasSession: true, isRunning: true });
+  const visibleWhenRunning = visibleCommands({
+    hasSession: true,
+    isRunning: true,
+    appCapabilities: fullAppCapabilities,
+  });
   assert.equal(visibleWhenRunning.some((item) => item.id === "message.stop"), true);
 
   const limitedAppCapabilities = {
@@ -537,8 +545,16 @@ export function runWorkbenchStateTests() {
   const command = resolveKeybinding(fullAppCapabilities.keybindings, "mod+k", {
     paletteOpen: false,
     isRunning: false,
+    appCapabilities: fullAppCapabilities,
   });
   assert.equal(command.id, "palette.open");
+  assert.equal(
+    resolveKeybinding(fullAppCapabilities.keybindings, "mod+k", {
+      paletteOpen: false,
+      isRunning: false,
+    }),
+    null,
+  );
 
   const settingsCommand = resolveKeybinding(fullAppCapabilities.keybindings, "mod+,", {
     paletteOpen: false,

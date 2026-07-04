@@ -30,6 +30,7 @@ export function runAppShellModelTests() {
   assert.deepEqual(initial.diagnostics.host, {});
   assert.deepEqual(initial.capabilities.appCommands, []);
   assert.deepEqual(initial.capabilities.workspaceCommands, []);
+  assert.deepEqual(initial.capabilities.workbenchCommands, []);
   assert.deepEqual(initial.capabilities.commandPalette.groups, []);
   assert.deepEqual(initial.capabilities.commandPalette.labels, {
     rootTitle: "",
@@ -140,6 +141,10 @@ export function runAppShellModelTests() {
       ],
       workspace_commands: [
         { id: "workspace.open", label: "Open Project", group: "workspace", order: 10 },
+      ],
+      workbench_commands: [
+        { id: "message.send", label: "Send", group: "message", visible_when: "composer_ready", order: 10 },
+        { id: "palette.open", label: "Launch", group: "view", order: 20 },
       ],
       command_palette: {
         groups: [
@@ -309,6 +314,13 @@ export function runAppShellModelTests() {
     [["workspace.open", "Open Project"]],
   );
   assert.deepEqual(
+    bootstrap.capabilities.workbenchCommands.map((item) => [item.id, item.label, item.visibleWhen]),
+    [
+      ["message.send", "Send", "composer_ready"],
+      ["palette.open", "Launch", "always"],
+    ],
+  );
+  assert.deepEqual(
     bootstrap.capabilities.commandPalette.groups.map((item) => [item.id, item.title, item.description]),
     [
       ["app", "Application", "Application commands"],
@@ -413,6 +425,7 @@ export function runAppShellModelTests() {
   const capabilities = normalizeAppCapabilities({
     app_commands: [{ id: "app.settings", label: "Preferences", group: "app" }],
     workspace_commands: [{ id: "workspace.open", label: "Open Project", group: "workspace" }],
+    workbench_commands: [{ id: "palette.open", label: "Launch", group: "view" }],
     surfaces: {
       right_panel: [surface("settings", "Settings")],
       bottom_drawer: [surface("logs", "Logs")],
@@ -431,6 +444,10 @@ export function runAppShellModelTests() {
     capabilities.workspaceCommands.map((item) => [item.id, item.label, item.group]),
     [["workspace.open", "Open Project", "workspace"]],
   );
+  assert.deepEqual(
+    capabilities.workbenchCommands.map((item) => [item.id, item.label, item.group]),
+    [["palette.open", "Launch", "view"]],
+  );
   assert.deepEqual(capabilities.surfaces.rightPanel.map((item) => item.kind), ["settings"]);
   assert.deepEqual(capabilities.surfaces.bottomDrawer.map((item) => item.kind), ["logs"]);
   assert.deepEqual(capabilities.keybindings, [
@@ -446,6 +463,7 @@ export function runAppShellModelTests() {
   const emptyCapabilities = normalizeAppCapabilities({});
   assert.deepEqual(emptyCapabilities.appCommands, []);
   assert.deepEqual(emptyCapabilities.workspaceCommands, []);
+  assert.deepEqual(emptyCapabilities.workbenchCommands, []);
   assert.deepEqual(emptyCapabilities.surfaces.rightPanel, []);
   assert.deepEqual(emptyCapabilities.surfaces.bottomDrawer, []);
   assert.deepEqual(emptyCapabilities.keybindings, []);

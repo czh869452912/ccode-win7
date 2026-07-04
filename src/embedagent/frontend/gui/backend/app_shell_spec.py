@@ -20,6 +20,7 @@ def _copy_records(records: Tuple[Dict[str, Any], ...]) -> list:
 class AppShellSpec(object):
     app_commands: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     workspace_commands: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
+    workbench_commands: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     command_palette_groups: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     command_palette_labels: Dict[str, Any] = field(default_factory=dict)
     surface_chrome: Dict[str, Any] = field(default_factory=dict)
@@ -35,6 +36,7 @@ class AppShellSpec(object):
         return {
             "app_commands": _copy_records(self.app_commands),
             "workspace_commands": _copy_records(self.workspace_commands),
+            "workbench_commands": _copy_records(self.workbench_commands),
             "command_palette": {
                 "groups": _copy_records(self.command_palette_groups),
                 "labels": _copy_value(self.command_palette_labels),
@@ -166,6 +168,70 @@ def default_app_shell_spec() -> AppShellSpec:
                 30,
                 visible_when="has_workspace",
                 keywords=["forget", "recent"],
+            ),
+        ),
+        workbench_commands=(
+            _command("session.new", "session", "New Session", 10, slash="/new"),
+            _command(
+                "thread.new",
+                "session",
+                "New Thread",
+                20,
+                slash="",
+                keywords=["session", "chat"],
+            ),
+            _command(
+                "session.refresh",
+                "session",
+                "Refresh Sessions",
+                30,
+                slash="/sessions",
+            ),
+            _command(
+                "session.resume",
+                "session",
+                "Resume Session",
+                40,
+                slash="/resume",
+            ),
+            _command(
+                "message.send",
+                "message",
+                "Send Message",
+                10,
+                visible_when="composer_ready",
+            ),
+            _command(
+                "message.stop",
+                "message",
+                "Stop Running Turn",
+                20,
+                visible_when="running",
+            ),
+            _command(
+                "view.toggle_right_panel",
+                "view",
+                "Toggle Right Panel",
+                10,
+            ),
+            _command(
+                "view.toggle_bottom_drawer",
+                "view",
+                "Toggle Bottom Drawer",
+                20,
+            ),
+            _command(
+                "palette.open",
+                "view",
+                "Open Command Palette",
+                30,
+            ),
+            _command(
+                "palette.close",
+                "view",
+                "Close Command Palette",
+                40,
+                visible_when="palette_open",
             ),
         ),
         command_palette_groups=(

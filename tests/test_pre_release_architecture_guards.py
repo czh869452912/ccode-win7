@@ -917,10 +917,15 @@ def test_gui_app_shell_commands_are_descriptor_records_not_string_lists():
     assert "def _command(" in spec_text
     assert '"app_commands": _copy_records(self.app_commands)' in spec_text
     assert '"workspace_commands": _copy_records(self.workspace_commands)' in spec_text
+    assert '"workbench_commands": _copy_records(self.workbench_commands)' in spec_text
     assert "normalizeAppCommandDescriptor" in model_text
     assert "appCommands: normalizeAppCommandDescriptors" in model_text
     assert "workspaceCommands: normalizeAppCommandDescriptors" in model_text
+    assert "workbenchCommands: normalizeAppCommandDescriptors" in model_text
     assert "WORKSPACE_COMMANDS" not in commands_text
+    assert "LOCAL_COMMANDS" not in commands_text
+    assert "WORKBENCH_COMMANDS" not in commands_text
+    assert "workflow.diff" not in commands_text
     assert "filterCommandsByCapability" not in commands_text
     assert "APP_COMMANDS" not in commands_text
     assert not app_shell_commands_path.exists()

@@ -9,7 +9,6 @@ import {
 const COMMANDS = [
   { id: "session.resume", group: "session", label: "Resume Session", slash: "/resume", visibleWhen: "always" },
   { id: "surface.diff", group: "surface", label: "Open Diff", slash: "/diff", visibleWhen: "always", keywords: ["git", "changes"] },
-  { id: "workflow.diff", group: "workflow", label: "Review Diff", slash: "/diff", visibleWhen: "has_session" },
   { id: "mode.build", group: "mode", label: "Mode: Build", slash: "/mode build", visibleWhen: "has_session" },
   { id: "mode.debug", group: "mode", label: "Mode: Debug", slash: "/mode debug", visibleWhen: "has_session" },
   { id: "resources", group: "command", label: "/resources [reload]", slash: "/resources [reload]", insertion: "/resources ", visibleWhen: "always" },
