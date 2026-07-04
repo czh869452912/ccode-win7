@@ -83,6 +83,11 @@
   loading/error fallback copy, retry/copy/explorer actions, metadata
   separators, line labels, and language labels are backend-declared descriptors
   consumed by the file-preview model and surface.
+- Composer slash/path menu chrome now comes from
+  `capabilities.chrome.composer.command_menu`, while slash command group labels
+  reuse `capabilities.command_palette.groups`; the composer search,
+  interaction, and menu components no longer keep a parallel command/path menu
+  copy table.
 - Source Control right-panel chrome now comes from
   `capabilities.source_control.chrome`: panel title, status/diff fallback
   notices, empty states, count/group/provider labels, runtime labels, and

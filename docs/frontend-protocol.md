@@ -86,7 +86,11 @@ safe dispatch metadata. Command-palette group descriptors carry `id`, `title`,
 owning a fixed group title/description table. `capabilities.command_palette`
 also carries renderer-facing `labels` for the palette title, search label,
 placeholders, empty states, root section titles, current/missing badges,
-workspace meta text, and session/workspace fallback labels. Surface descriptors carry `id`,
+workspace meta text, and session/workspace fallback labels. Composer
+slash-command group labels must reuse `capabilities.command_palette.groups`,
+while `capabilities.chrome.composer.command_menu` carries the Composer
+slash/path menu aria labels, empty states, path group label, item-kind labels,
+and fallback command group label. Surface descriptors carry `id`,
 `title`, and ordering metadata, and may also carry `icon`, `description`, `command`,
 `command_label`, `slash`, `visible_when`, `read_only`, `offline`, and
 `keywords`. Surface chrome descriptors carry the right-panel aria label,

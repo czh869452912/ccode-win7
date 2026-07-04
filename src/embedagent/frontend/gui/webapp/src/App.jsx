@@ -66,6 +66,7 @@ import {
 } from "./workbench/ui-state.js";
 
 const EMPTY_COMMAND_HINTS = [];
+const EMPTY_COMMAND_GROUPS = [];
 const EMPTY_KEYBINDINGS = [];
 
 function isTurnInterruptibleStatus(status) {
@@ -114,6 +115,16 @@ function App() {
   ]);
   const paletteCommands = useMemo(() => visibleCommands(commandContext), [commandContext]);
   const keybindings = state.app.capabilities.keybindings || EMPTY_KEYBINDINGS;
+  const commandPaletteGroups =
+    state.app.capabilities?.commandPalette?.groups || EMPTY_COMMAND_GROUPS;
+  const composerCommandGroupLabels = useMemo(
+    () =>
+      commandPaletteGroups.reduce((labels, group) => {
+        if (group?.id) labels[group.id] = group.title || "";
+        return labels;
+      }, {}),
+    [commandPaletteGroups],
+  );
   const composerCommands = useMemo(
     () => buildComposerCommandsFromCapabilities(state.sessionCapabilities || {}),
     [state.sessionCapabilities],
@@ -835,6 +846,7 @@ function App() {
               currentMode={currentMode}
               modeCatalog={state.sessionCapabilities?.modeCatalog || {}}
               commandHints={EMPTY_COMMAND_HINTS}
+              commandGroupLabels={composerCommandGroupLabels}
               commands={composerCommands}
               fileTree={state.fileTree}
               onOpenCommandPalette={() => dispatch({ type: "workbench_command_palette_opened" })}

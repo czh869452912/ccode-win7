@@ -7,25 +7,32 @@ export default function ComposerCommandMenu({
   activeItemId = "",
   onSelect,
   onHighlight,
-  emptyText = "No matches",
+  emptyText = "",
+  chrome = {},
 }) {
   if (!open) return null;
 
   const safeGroups = Array.isArray(groups) ? groups : [];
   const itemCount = safeGroups.reduce((count, group) => count + (Array.isArray(group.items) ? group.items.length : 0), 0);
+  const menuEmptyText = emptyText || chrome.defaultEmptyText || "";
+  const ariaLabel = trigger?.kind === "path" ? chrome.pathAriaLabel : chrome.commandAriaLabel;
+  const itemKindLabels = {
+    "path-context": chrome.pathItemKindLabel || "",
+    "slash-command": chrome.commandItemKindLabel || "",
+  };
 
   return (
     <div
       id="composer-command-menu"
       className="composer-command-menu"
       role="listbox"
-      aria-label={trigger?.kind === "path" ? "File context suggestions" : "Slash command suggestions"}
+      aria-label={ariaLabel || ""}
       data-trigger-kind={trigger?.kind || ""}
       data-testid="composer-command-menu"
     >
       {itemCount === 0 && (
         <div className="composer-menu-empty" data-testid="composer-menu-empty">
-          {emptyText}
+          {menuEmptyText}
         </div>
       )}
       {safeGroups.map((group) => (
@@ -54,8 +61,9 @@ export default function ComposerCommandMenu({
                     <span className="composer-menu-item-label">{item.label}</span>
                     {item.detail && <span className="composer-menu-item-detail">{item.detail}</span>}
                   </span>
-                  {item.type === "path-context" && <span className="composer-menu-item-kind">file</span>}
-                  {item.type === "slash-command" && <span className="composer-menu-item-kind">command</span>}
+                  {itemKindLabels[item.type] && (
+                    <span className="composer-menu-item-kind">{itemKindLabels[item.type]}</span>
+                  )}
                 </button>
               );
             })}

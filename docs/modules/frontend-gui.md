@@ -259,6 +259,11 @@ longer keeps a parallel `strings.js`/`LangContext` translation table or an
 unused `InteractionPanel.jsx`; new shell copy that depends on the active
 base/specialized agent must enter through app-shell descriptors rather than a
 renderer-local global string registry.
+The Composer slash-command and file-context menu follows the same rule:
+`capabilities.chrome.composer.command_menu` supplies menu aria labels, empty
+states, path/kind labels, and fallback command group copy, while slash command
+group names reuse `capabilities.command_palette.groups`. Composer search and
+interaction helpers must not own a second English group/copy table.
 
 Workbench command-palette entries, right-panel add-surface launchers,
 bottom-drawer tabs, and keybinding targets are now filtered from the

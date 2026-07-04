@@ -577,6 +577,25 @@ function normalizeComposerHints(input = {}) {
   );
 }
 
+function normalizeComposerCommandMenuChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    pathGroupLabel: String(value.path_group_label || value.pathGroupLabel || ""),
+    commandGroupFallbackLabel: String(
+      value.command_group_fallback_label || value.commandGroupFallbackLabel || "",
+    ),
+    pathEmptyText: String(value.path_empty_text || value.pathEmptyText || ""),
+    commandEmptyText: String(value.command_empty_text || value.commandEmptyText || ""),
+    defaultEmptyText: String(value.default_empty_text || value.defaultEmptyText || ""),
+    pathAriaLabel: String(value.path_aria_label || value.pathAriaLabel || ""),
+    commandAriaLabel: String(value.command_aria_label || value.commandAriaLabel || ""),
+    pathItemKindLabel: String(value.path_item_kind_label || value.pathItemKindLabel || ""),
+    commandItemKindLabel: String(
+      value.command_item_kind_label || value.commandItemKindLabel || "",
+    ),
+  };
+}
+
 function normalizeComposerChrome(input = {}) {
   const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
   return {
@@ -585,6 +604,7 @@ function normalizeComposerChrome(input = {}) {
     sendLabel: String(value.send_label || value.sendLabel || ""),
     stopLabel: String(value.stop_label || value.stopLabel || ""),
     hints: normalizeComposerHints(value.hints),
+    commandMenu: normalizeComposerCommandMenuChrome(value.command_menu || value.commandMenu),
   };
 }
 

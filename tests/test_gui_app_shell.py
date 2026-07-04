@@ -246,6 +246,20 @@ class TestGuiAppShellService(unittest.TestCase):
             "Message",
         )
         self.assertEqual(
+            payload["capabilities"]["chrome"]["composer"]["command_menu"],
+            {
+                "path_group_label": "Files",
+                "command_group_fallback_label": "Command",
+                "path_empty_text": "No files found",
+                "command_empty_text": "No commands found",
+                "default_empty_text": "No matches",
+                "path_aria_label": "File context suggestions",
+                "command_aria_label": "Slash command suggestions",
+                "path_item_kind_label": "file",
+                "command_item_kind_label": "command",
+            },
+        )
+        self.assertEqual(
             payload["capabilities"]["chrome"]["interaction"]["approve_once_label"],
             "Approve once",
         )

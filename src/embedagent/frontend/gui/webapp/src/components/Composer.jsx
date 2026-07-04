@@ -30,6 +30,7 @@ export default function Composer({
   currentMode,
   modeCatalog = {},
   commandHints = [],
+  commandGroupLabels = {},
   commands = [],
   fileTree = [],
   onOpenCommandPalette,
@@ -47,6 +48,7 @@ export default function Composer({
 
   const hasInteraction = Boolean(interaction || interactionNotice);
   const textValue = String(value || "");
+  const commandMenuChrome = chrome.commandMenu || {};
   const interactionModel = useMemo(
     () =>
       buildComposerInteractionModel({
@@ -60,10 +62,14 @@ export default function Composer({
         hasInteraction,
         dismissedTriggerKey,
         activeIndex,
+        commandMenuChrome,
+        commandGroupLabels,
       }),
     [
       activeIndex,
+      commandGroupLabels,
       commandHints,
+      commandMenuChrome,
       commands,
       currentMode,
       cursor,
@@ -197,6 +203,7 @@ export default function Composer({
           onHighlight={handleHighlight}
           onSelect={selectMenuItem}
           emptyText={interactionModel.menu.emptyText}
+          chrome={commandMenuChrome}
         />
         {currentMode && (
           <span className="composer-mode-badge" style={modeBadgeStyle(currentMode, modeCatalog)}>

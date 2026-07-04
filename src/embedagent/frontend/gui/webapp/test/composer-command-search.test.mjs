@@ -16,7 +16,12 @@ const COMMANDS = [
 ];
 
 export function runComposerCommandSearchTests() {
-  const items = buildComposerCommandItems(COMMANDS);
+  const items = buildComposerCommandItems(COMMANDS, {
+    mode: "Agent modes",
+    surface: "Views",
+    session: "Runs",
+    command: "Action",
+  });
   assert.deepEqual(
     items.map((item) => item.id),
     ["slash:session.resume", "slash:surface.diff", "slash:mode.build", "slash:mode.debug", "slash:resources"],
@@ -52,7 +57,7 @@ export function runComposerCommandSearchTests() {
   const grouped = groupComposerCommandItems(searchComposerCommandItems(items, "mode"));
   assert.deepEqual(
     grouped.map((group) => group.label),
-    ["Mode"],
+    ["Agent modes"],
   );
   assert.deepEqual(
     grouped[0].items.map((item) => item.slash),

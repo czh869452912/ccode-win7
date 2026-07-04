@@ -44,6 +44,45 @@
 
 ## 3. 当前变更记录
 
+### DC-229
+
+- Date: 2026-07-04
+- Change Topic: GUI Composer menu chrome descriptor convergence
+- Summary:
+  - Extended `/api/app/bootstrap` `capabilities.chrome.composer` with a
+    `command_menu` descriptor for slash/path menu aria labels, empty states,
+    path group label, item-kind labels, and fallback command group copy.
+  - Routed `App.jsx`, `Composer.jsx`, `ComposerCommandMenu.jsx`, and the
+    composer search/interaction helpers through normalized app-shell Composer
+    menu chrome.
+  - Reused `capabilities.command_palette.groups` for Composer slash-command
+    group labels so the GUI does not keep a second command group title table.
+  - Added app-shell, frontend model/source, and architecture guard coverage for
+    Composer menu chrome ownership.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/Composer.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/composer/ComposerCommandMenu.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/composer/composer-command-search.js`
+  - `src/embedagent/frontend/gui/webapp/src/composer/composer-interaction-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/composer/composer-path-context.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/composer-command-search.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/composer-components-source.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/composer-interaction-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/composer-path-context.test.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-228
 
 - Date: 2026-07-04

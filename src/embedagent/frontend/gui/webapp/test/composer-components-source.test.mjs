@@ -22,6 +22,17 @@ export function runComposerComponentsSourceTests() {
   assert.equal(menuSource.includes("composer-menu-group"), true);
   assert.equal(menuSource.includes("composer-menu-item"), true);
   assert.equal(menuSource.includes("composer-menu-empty"), true);
+  assert.equal(menuSource.includes("chrome.pathAriaLabel"), true);
+  assert.equal(menuSource.includes("chrome.pathItemKindLabel"), true);
+  for (const hardcodedComposerMenuCopy of [
+    "No matches",
+    "File context suggestions",
+    "Slash command suggestions",
+    ">file<",
+    ">command<",
+  ]) {
+    assert.equal(menuSource.includes(hardcodedComposerMenuCopy), false);
+  }
   assert.equal(menuSource.includes("onMouseDown"), true);
   assertNoCoreBoundaryLeak(menuSource, "ComposerCommandMenu");
 

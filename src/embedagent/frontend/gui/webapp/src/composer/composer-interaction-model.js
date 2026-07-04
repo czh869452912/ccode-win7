@@ -69,6 +69,8 @@ export function buildComposerInteractionModel({
   hasInteraction = false,
   dismissedTriggerKey = "",
   activeIndex = 0,
+  commandMenuChrome = {},
+  commandGroupLabels = {},
 } = {}) {
   const textValue = String(value || "");
   const boundedCursor = Math.max(0, Math.min(Math.trunc(Number(cursor) || 0), textValue.length));
@@ -77,14 +79,25 @@ export function buildComposerInteractionModel({
   const triggerKey = composerTriggerKey(trigger);
   const menuOpen = Boolean(!disabled && trigger && triggerKey !== dismissedTriggerKey);
   const commandSource = commands.length > 0 ? commands : commandsFromHints(commandHints);
-  const slashItems = buildComposerCommandItems(commandSource);
+  const slashItems = buildComposerCommandItems(
+    commandSource,
+    commandGroupLabels,
+    commandMenuChrome,
+  );
   const pathCandidates = flattenComposerPathCandidates(fileTree);
 
   let groups = [];
   if (menuOpen && trigger && trigger.kind === "slash") {
-    groups = groupComposerCommandItems(searchComposerCommandItems(slashItems, trigger.query, 8));
+    groups = groupComposerCommandItems(
+      searchComposerCommandItems(slashItems, trigger.query, 8),
+      commandGroupLabels,
+      commandMenuChrome,
+    );
   } else if (menuOpen && trigger && trigger.kind === "path") {
-    groups = groupComposerPathCandidates(searchComposerPathCandidates(pathCandidates, trigger.query, 8));
+    groups = groupComposerPathCandidates(
+      searchComposerPathCandidates(pathCandidates, trigger.query, 8),
+      commandMenuChrome,
+    );
   }
 
   const items = flattenGroups(groups);
@@ -110,7 +123,10 @@ export function buildComposerInteractionModel({
       items,
       activeIndex: resolvedActiveIndex,
       activeItem,
-      emptyText: trigger && trigger.kind === "path" ? "No files found" : "No commands found",
+      emptyText:
+        trigger && trigger.kind === "path"
+          ? commandMenuChrome.pathEmptyText || ""
+          : commandMenuChrome.commandEmptyText || "",
     },
     hints: [
       { id: "command" },

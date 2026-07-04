@@ -1080,6 +1080,57 @@ def test_gui_chrome_copy_is_app_shell_declared():
     assert "diagnosticGroups[row.group]" in surface_panel_text
 
 
+def test_gui_composer_menu_copy_is_app_shell_declared():
+    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
+    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    composer_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Composer.jsx")
+    menu_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/composer/ComposerCommandMenu.jsx"
+    )
+    command_search_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/composer/composer-command-search.js"
+    )
+    path_context_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/composer/composer-path-context.js"
+    )
+    interaction_model_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/composer/composer-interaction-model.js"
+    )
+
+    assert '"command_menu": {' in spec_text
+    assert '"path_group_label": "Files"' in spec_text
+    assert "normalizeComposerCommandMenuChrome" in model_text
+    assert "commandMenu: normalizeComposerCommandMenuChrome" in model_text
+    assert "composerCommandGroupLabels" in app_text
+    assert "commandGroupLabels={composerCommandGroupLabels}" in app_text
+    assert "const commandMenuChrome = chrome.commandMenu || {}" in composer_text
+    assert "commandGroupLabels" in composer_text
+    assert "chrome={commandMenuChrome}" in composer_text
+    assert "chrome.pathAriaLabel" in menu_text
+    assert "chrome.pathItemKindLabel" in menu_text
+    assert "commandMenuChrome.pathGroupLabel" in path_context_text
+    assert "commandMenuChrome.commandEmptyText" in interaction_model_text
+    assert "commandGroupLabels" in command_search_text
+    assert "GROUP_LABELS" not in command_search_text
+
+    for hardcoded_copy in (
+        '"Files"',
+        '"Command"',
+        '"No files found"',
+        '"No commands found"',
+        '"No matches"',
+        '"File context suggestions"',
+        '"Slash command suggestions"',
+        ">file<",
+        ">command<",
+    ):
+        assert hardcoded_copy not in menu_text
+        assert hardcoded_copy not in command_search_text
+        assert hardcoded_copy not in path_context_text
+        assert hardcoded_copy not in interaction_model_text
+
+
 def test_gui_terminal_copy_is_app_shell_declared():
     spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")

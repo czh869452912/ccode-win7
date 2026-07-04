@@ -29,6 +29,17 @@ const FILE_TREE = [
 ];
 
 export function runComposerInteractionModelTests() {
+  const commandMenuChrome = {
+    pathGroupLabel: "Project files",
+    commandGroupFallbackLabel: "Action",
+    pathEmptyText: "No project files",
+    commandEmptyText: "No actions",
+  };
+  const commandGroupLabels = {
+    mode: "Agent modes",
+    surface: "Views",
+    session: "Runs",
+  };
   const slashModel = buildComposerInteractionModel({
     value: "/mode d",
     cursor: "/mode d".length,
@@ -39,6 +50,8 @@ export function runComposerInteractionModelTests() {
     hasInteraction: false,
     dismissedTriggerKey: "",
     activeIndex: 0,
+    commandMenuChrome,
+    commandGroupLabels,
   });
 
   assert.equal(slashModel.disabled, false);
@@ -46,6 +59,8 @@ export function runComposerInteractionModelTests() {
   assert.equal(slashModel.canSend, true);
   assert.equal(slashModel.menu.open, true);
   assert.equal(slashModel.menu.triggerKind, "slash");
+  assert.equal(slashModel.menu.emptyText, "No actions");
+  assert.equal(slashModel.menu.groups[0].label, "Agent modes");
   assert.equal(slashModel.menu.items[0].slash, "/mode debug");
   assert.equal(slashModel.menu.activeItem.id, slashModel.menu.items[0].id);
   assert.equal(slashModel.hints.some((hint) => hint.id === "command"), true);
@@ -72,10 +87,14 @@ export function runComposerInteractionModelTests() {
     hasInteraction: false,
     dismissedTriggerKey: "",
     activeIndex: 0,
+    commandMenuChrome,
+    commandGroupLabels,
   });
 
   assert.equal(pathModel.menu.open, true);
   assert.equal(pathModel.menu.triggerKind, "path");
+  assert.equal(pathModel.menu.emptyText, "No project files");
+  assert.equal(pathModel.menu.groups[0].label, "Project files");
   assert.deepEqual(
     pathModel.menu.items.map((item) => item.path),
     ["src/parser.c"],

@@ -69,6 +69,17 @@ export function runAppShellModelTests() {
       sendLabel: "",
       stopLabel: "",
       hints: {},
+      commandMenu: {
+        pathGroupLabel: "",
+        commandGroupFallbackLabel: "",
+        pathEmptyText: "",
+        commandEmptyText: "",
+        defaultEmptyText: "",
+        pathAriaLabel: "",
+        commandAriaLabel: "",
+        pathItemKindLabel: "",
+        commandItemKindLabel: "",
+      },
     },
     interaction: {
       pendingApprovalKicker: "",
@@ -329,6 +340,17 @@ export function runAppShellModelTests() {
           command_palette_label: "Open launcher",
           send_label: "Send prompt",
           stop_label: "Stop prompt",
+          command_menu: {
+            path_group_label: "Project files",
+            command_group_fallback_label: "Action",
+            path_empty_text: "No project files",
+            command_empty_text: "No actions",
+            default_empty_text: "Nothing here",
+            path_aria_label: "Project file suggestions",
+            command_aria_label: "Action suggestions",
+            path_item_kind_label: "path",
+            command_item_kind_label: "action",
+          },
           hints: {
             command: "/ actions",
             file: "@ paths",
@@ -672,6 +694,10 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.chrome.header.commandPaletteShortLabel, "Go");
   assert.equal(bootstrap.capabilities.chrome.header.turnsLabel, "steps");
   assert.equal(bootstrap.capabilities.chrome.composer.placeholder, "Ask the Python agent");
+  assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.pathGroupLabel, "Project files");
+  assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.commandGroupFallbackLabel, "Action");
+  assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.commandEmptyText, "No actions");
+  assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.commandItemKindLabel, "action");
   assert.equal(bootstrap.capabilities.chrome.composer.hints.command, "/ actions");
   assert.equal(bootstrap.capabilities.chrome.interaction.pendingApprovalKicker, "APPROVAL");
   assert.equal(bootstrap.capabilities.chrome.interaction.commandApprovalSummary, "Command summary");
