@@ -88,7 +88,10 @@ display descriptors: app/workspace/workbench command descriptors that omit
 labels do not become visible commands, and dynamic slash-command descriptors
 are visible only when they provide explicit `label`, `usage`, or `slash`
 metadata. Renderer command lists and command-palette rows must not synthesize
-labels or titles from command ids. `capabilities.command_palette`
+labels or titles from command ids. Commands whose groups are missing from
+`capabilities.command_palette.groups`, or whose group descriptors omit `title`,
+do not become visible palette rows; renderers must not title-case group ids as
+fallback group titles. `capabilities.command_palette`
 also carries renderer-facing `labels` for the palette title, search label,
 placeholders, empty states, root section titles, current/missing badges,
 workspace meta text, and session/workspace fallback labels. Composer

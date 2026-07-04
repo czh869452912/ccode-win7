@@ -1093,6 +1093,12 @@ def test_gui_command_palette_groups_are_app_shell_descriptors():
     assert "paletteLabels" in palette_model_text
     assert "asText(command.label) || asText(command.id)" not in palette_model_text
     assert "asText(command.group) === targetGroup && asText(command.label)" in palette_model_text
+    assert "title: asText(group.title) || titleCase(id)" not in palette_model_text
+    assert "title: titleCase(id)" not in palette_model_text
+    assert "descriptor.title || titleCase" not in palette_model_text
+    assert 'asText(command.group) || "commands"' not in palette_model_text
+    assert "!group || !groupDescriptor(group, groupDescriptors).title" in palette_model_text
+    assert "if (!title) return []" in palette_model_text
     assert '"Command palette"' not in palette_component_text
     assert '"Search commands, sessions, workspaces"' not in palette_component_text
     assert '"No matching commands, sessions, or workspaces"' not in palette_component_text

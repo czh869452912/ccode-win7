@@ -58,7 +58,8 @@ Workbench command labels are visible descriptors too: app/workspace/workbench
 commands without explicit labels are omitted from visible command entrypoints,
 dynamic slash commands must provide explicit `label`, `usage`, or `slash`
 metadata, and command-palette rows must not fall back to command ids for
-titles.
+titles. Commands in undeclared or untitled palette groups remain hidden rather
+than using title-cased group ids.
 Labels, descriptions, icon keys, command/slash metadata, ordering, visibility,
 and read-only/offline hints come from the app shell. Surface-owned panel
 headings, including the right-panel Files surface header, use the active

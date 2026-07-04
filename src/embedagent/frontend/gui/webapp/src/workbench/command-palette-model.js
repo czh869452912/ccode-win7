@@ -57,7 +57,7 @@ function paletteGroupDescriptors(commandPalette = {}) {
     if (!id || result[id]) continue;
     result[id] = {
       id,
-      title: asText(group.title) || titleCase(id),
+      title: asText(group.title),
       description: asText(group.description),
       order: Number.isFinite(Number(group.order)) ? Number(group.order) : 0,
       leading: asText(group.leading),
@@ -88,7 +88,7 @@ function groupDescriptor(groupId, descriptors) {
   const id = asText(groupId);
   return descriptors[id] || {
     id,
-    title: titleCase(id),
+    title: "",
     description: "",
     order: 1000,
     leading: "",
@@ -174,7 +174,8 @@ function groupCommandItems(commands = [], shortcutMap = {}, groupDescriptors = {
   const groups = {};
   for (const command of commands || []) {
     if (!command || !command.id || !asText(command.label)) continue;
-    const group = asText(command.group) || "commands";
+    const group = asText(command.group);
+    if (!group || !groupDescriptor(group, groupDescriptors).title) continue;
     if (!groups[group]) groups[group] = [];
     groups[group].push(commandItem(command, shortcutMap, groupDescriptors));
   }
@@ -183,7 +184,8 @@ function groupCommandItems(commands = [], shortcutMap = {}, groupDescriptors = {
 
 function submenuItem(groupId, items, groupDescriptors) {
   const descriptor = groupDescriptor(groupId, groupDescriptors);
-  const title = descriptor.title || titleCase(groupId);
+  const title = descriptor.title;
+  if (!title) return null;
   return {
     id: `submenu:${groupId}`,
     type: "submenu",
@@ -280,7 +282,8 @@ export function buildCommandPaletteRootGroups({
   const commandGroups = groupCommandItems(commands, shortcutMap, groupDescriptors);
   const commandGroupIds = sortedCommandGroupIds(commandGroups, groupDescriptors);
   const submenuItems = commandGroupIds
-    .map((groupId) => submenuItem(groupId, commandGroups[groupId], groupDescriptors));
+    .map((groupId) => submenuItem(groupId, commandGroups[groupId], groupDescriptors))
+    .filter(Boolean);
   const allCommandItems = commandGroupIds
     .reduce((items, groupId) => items.concat(commandGroups[groupId]), []);
   const commandRootItems = filterAndRank(submenuItems.concat(allCommandItems), query).slice(0, ROOT_COMMAND_LIMIT);
@@ -303,11 +306,13 @@ export function buildCommandPaletteSubmenuGroups({
   if (!targetGroup) return [];
   const shortcutMap = shortcutByCommandId(keybindings);
   const groupDescriptors = paletteGroupDescriptors(commandPalette || {});
+  const descriptor = groupDescriptor(targetGroup, groupDescriptors);
+  const title = descriptor.title;
+  if (!title) return [];
   const items = (commands || [])
     .filter((command) => command && asText(command.group) === targetGroup && asText(command.label))
     .map((command) => commandItem(command, shortcutMap, groupDescriptors));
   const ranked = filterAndRank(items, query);
-  const title = groupDescriptor(targetGroup, groupDescriptors).title || titleCase(targetGroup);
   return ranked.length > 0 ? [{ id: targetGroup, title, items: ranked }] : [];
 }
 

@@ -1343,6 +1343,10 @@ async function main() {
   assert.equal(workbenchCommandsSource.includes("item.label || item.usage || id"), false);
   assert.equal(workbenchCommandsSource.includes("!command.label"), true);
   assert.equal(commandPaletteModelSource.includes("asText(command.label) || asText(command.id)"), false);
+  assert.equal(commandPaletteModelSource.includes("title: asText(group.title) || titleCase(id)"), false);
+  assert.equal(commandPaletteModelSource.includes("title: titleCase(id)"), false);
+  assert.equal(commandPaletteModelSource.includes("descriptor.title || titleCase"), false);
+  assert.equal(commandPaletteModelSource.includes('asText(command.group) || "commands"'), false);
   assert.equal(protocolNormalizerSource.includes("firstText(data.label, data.usage, id)"), false);
   assert.equal(appHomeModelSource.includes("Backend lifecycle API is not available yet"), false);
   assert.equal(appHomeModelSource.includes("Thread is missing"), false);

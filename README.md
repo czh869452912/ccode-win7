@@ -87,8 +87,9 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
   come from app-shell command descriptors, and dynamic command labels come from
   explicit capability `label`, `usage`, or `slash` metadata. Commands with no
   visible label stay out of workbench command lists and the command palette;
-  renderer code must not synthesize labels or palette row titles from command
-  ids.
+  commands in command-palette groups without explicit descriptor titles also
+  stay hidden. Renderer code must not synthesize labels, palette row titles, or
+  group titles from command ids or group ids.
 - Official application refresh path: `AgentApplication.refresh_managed_session()` delegates to the selected application's workflow refreshers. The bundled C/C++ application uses `CHarnessWorkflowExtension.refresh_managed_session()` internally; the old `HarnessStateSynchronizer` service facade has been removed.
 - Official runtime schema projection: `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single schema projection entry point; callers must pass explicit active tool names and omitted `tool_names` project no provider-facing schemas
 - Official core accessor surface: mode registry, command sanitizer, and adapter class lookup use `get_mode_registry()`, `get_command_sanitizer()`, and `get_inprocess_adapter()` directly. Removed registry, sanitizer, and adapter private aliases must not be reintroduced.

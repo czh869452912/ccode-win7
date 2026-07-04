@@ -173,5 +173,36 @@ export function runCommandPaletteModelTests() {
     }),
     [],
   );
+  const orphanCommands = [
+    { id: "app.orphan", group: "orphan", label: "Orphan Command" },
+    { id: "app.untitled", group: "untitled", label: "Untitled Group Command" },
+  ];
+  const partialPalette = {
+    groups: [{ id: "untitled", title: "", description: "", order: 1 }],
+    labels: { commandsSection: "Actions" },
+  };
+  assert.deepEqual(
+    flattenPaletteGroups(buildCommandPaletteRootGroups({
+      commands: orphanCommands,
+      commandPalette: partialPalette,
+    })).filter((item) => item.type === "command" || item.type === "submenu"),
+    [],
+  );
+  assert.deepEqual(
+    buildCommandPaletteSubmenuGroups({
+      commands: orphanCommands,
+      commandPalette: partialPalette,
+      groupId: "orphan",
+    }),
+    [],
+  );
+  assert.deepEqual(
+    buildCommandPaletteSubmenuGroups({
+      commands: orphanCommands,
+      commandPalette: partialPalette,
+      groupId: "untitled",
+    }),
+    [],
+  );
   assert.deepEqual(flattenPaletteGroups([{ id: "x", items: [{ id: "a" }, { id: "b" }] }]).map((item) => item.id), ["a", "b"]);
 }
