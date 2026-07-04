@@ -298,7 +298,6 @@ Key routes include:
 - `POST /api/sessions/{session_id}/terminals/{terminal_id}/resize`
 - `POST /api/sessions/{session_id}/terminals/{terminal_id}/close`
 - `GET /api/workspace`
-- `GET /api/tool-catalog`
 - `GET /api/artifacts`
 - file read/tree routes
 
@@ -323,7 +322,10 @@ or an extension loading endpoint. Its application fields are display/control
 metadata only: `agentApplication` identifies the selected scenario application,
 and `agentApplications` lists only applications available from the selected
 package/registry, so an externally injected Python/HTML/etc. application does
-not inherit bundled C/C++ defaults in the GUI.
+not inherit bundled C/C++ defaults in the GUI. Tool presentation metadata,
+including `toolCatalog`, is consumed from this capability projection and from
+session bootstrap payloads; there is no split GUI `/api/tool-catalog` refetch
+contract or frontend-facing `CoreInterface.get_tool_catalog` facade.
 
 `POST /api/sessions` without an explicit mode leaves mode selection to the selected backend application/profile. Frontends should not inject `explore` or `build` as an implicit entry mode.
 

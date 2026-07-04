@@ -185,6 +185,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `list_tasks` / `list_workspace_recipes` facades have been removed.
   Workflow-specific quick actions must be exposed through backend capability or
   command metadata.
+- GUI tool catalog display now comes from session capability/bootstrap
+  `toolCatalog`; the old `/api/tool-catalog` route, root renderer
+  `toolCatalog` fallback state, and frontend-facing `CoreInterface.get_tool_catalog`
+  facade have been removed.
 - Offline GUI packaging now includes a native Win32 launcher exe in the portable
   bundle, preserving the one-folder delivery model while improving double-click
   startup.

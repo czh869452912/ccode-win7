@@ -552,6 +552,10 @@ and tool capabilities, not a GUI-owned `/api/workspace/recipes` panel feed or
 frontend-facing `list_workspace_recipes` facade; workflow-specific quick actions
 must be declared through backend capability or command metadata rather than a
 renderer-owned recipe list.
+Tool presentation metadata for timeline/tool rows is also part of session
+capability/bootstrap projection. The GUI must not call a split
+`/api/tool-catalog` endpoint, keep a root `toolCatalog` fallback state, or
+depend on a frontend-facing `CoreInterface.get_tool_catalog` facade.
 
 ## 10. Bundling Model
 

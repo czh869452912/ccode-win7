@@ -133,11 +133,6 @@ def register_session_routes(app: Any, backend: Any) -> None:
         core = backend._require_core()
         return backend._call_core(core.reload_resources, session_id, reason="api")
 
-    @app.get("/api/tool-catalog")
-    async def get_tool_catalog():
-        core = backend._require_core()
-        return {"items": core.get_tool_catalog()}
-
     @app.get("/api/sessions/{session_id}/plan")
     async def get_session_plan(session_id: str):
         core = backend._require_core()

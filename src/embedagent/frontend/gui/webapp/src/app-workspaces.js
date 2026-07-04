@@ -40,7 +40,6 @@ export function resetWorkspaceScopedState(state = {}) {
     filePreviewsByPath: {},
     diffSurface: null,
     fileTree: [],
-    toolCatalog: {},
     sessionCapabilities: EMPTY_CAPABILITIES,
     runOutput: reduceRunOutputState(state.runOutput, { type: "workspace_scoped_state_reset" }),
     terminationReason: "",

@@ -876,6 +876,30 @@ def test_gui_core_interface_has_no_split_task_or_recipe_facade():
         assert token not in core_adapter_text
 
 
+def test_gui_has_no_split_tool_catalog_facade():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
+    app_workspaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-workspaces.js")
+    routes_text = _read(ROOT / "src/embedagent/frontend/gui/backend/routes_sessions.py")
+    protocol_text = _read(ROOT / "src/embedagent/protocol/__init__.py")
+    core_adapter_text = _read(ROOT / "src/embedagent/core/adapter.py")
+
+    for token in (
+        "/api/tool-catalog",
+        "loadToolCatalog",
+        "tool_catalog_loaded",
+        "state.toolCatalog",
+        "toolCatalog: {}",
+        "def get_tool_catalog",
+    ):
+        assert token not in app_text
+        assert token not in store_text
+        assert token not in app_workspaces_text
+        assert token not in routes_text
+        assert token not in protocol_text
+        assert token not in core_adapter_text
+
+
 def test_gui_workbench_entrypoints_are_app_capability_driven():
     commands_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js")
     keybindings_text = _read(

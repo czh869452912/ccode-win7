@@ -38,7 +38,6 @@ export const initialState = {
   filePreviewsByPath: {},
   diffSurface: null,
   fileTree: [],
-  toolCatalog: {},
   sessionCapabilities: EMPTY_CAPABILITIES,
   requestedMode: INITIAL_REQUESTED_MODE,
   runOutput: createRunOutputState(),
@@ -329,11 +328,6 @@ export function reducer(state, action) {
       return {
         ...state,
         interactionNotice: null,
-      };
-    case "tool_catalog_loaded":
-      return {
-        ...state,
-        toolCatalog: action.catalog || {},
       };
     case "file_tree_loaded":
       return { ...state, fileTree: action.nodes };

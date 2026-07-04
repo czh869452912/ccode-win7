@@ -429,11 +429,6 @@ class CoreInterface(ABC):
         pass
 
     @abstractmethod
-    def get_tool_catalog(self) -> List[Dict[str, Any]]:
-        """获取当前工具目录"""
-        pass
-
-    @abstractmethod
     def shutdown(self) -> None:
         """关闭 Core"""
         pass

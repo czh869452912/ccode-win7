@@ -82,6 +82,7 @@ async function main() {
   assert.deepEqual(initialState.sessionCapabilities.commands, []);
   assert.deepEqual(initialState.sessionCapabilities.modes, []);
   assert.deepEqual(initialState.sessionCapabilities.toolCatalog, {});
+  assert.equal(Object.hasOwn(initialState, "toolCatalog"), false);
   const storeTerminalSurface = reducer(initialState, {
     type: "workbench_surface_opened",
     placement: "right",
@@ -192,6 +193,7 @@ async function main() {
   assert.deepEqual(switchedWorkspaceState.sessionCapabilities.commands, []);
   assert.deepEqual(switchedWorkspaceState.sessionCapabilities.modes, []);
   assert.deepEqual(switchedWorkspaceState.sessionCapabilities.toolCatalog, {});
+  assert.equal(Object.hasOwn(switchedWorkspaceState, "toolCatalog"), false);
   assert.deepEqual(switchedWorkspaceState.activities, []);
   assert.deepEqual(switchedWorkspaceState.fileTree, []);
   assert.equal(switchedWorkspaceState.app.hasActiveWorkspace, false);
@@ -219,6 +221,7 @@ async function main() {
   assert.deepEqual(activatedThreadState.sessionCapabilities.commands, []);
   assert.deepEqual(activatedThreadState.sessionCapabilities.modes, []);
   assert.deepEqual(activatedThreadState.sessionCapabilities.toolCatalog, {});
+  assert.equal(Object.hasOwn(activatedThreadState, "toolCatalog"), false);
 
   const fileTreeState = reducer(initialState, {
     type: "file_tree_loaded",
@@ -890,8 +893,11 @@ async function main() {
   assert.equal(appSource.includes("installVisualDebugFixtures"), true);
   assert.equal(appSource.includes("/api/tasks"), false);
   assert.equal(appSource.includes("/api/workspace/recipes"), false);
+  assert.equal(appSource.includes("/api/tool-catalog"), false);
   assert.equal(appSource.includes("loadTasks"), false);
   assert.equal(appSource.includes("loadWorkspaceRecipes"), false);
+  assert.equal(appSource.includes("loadToolCatalog"), false);
+  assert.equal(appSource.includes("state.toolCatalog"), false);
   assert.equal(appSource.includes("createLoaderRequestExecutor"), true);
   assert.equal(appSource.includes("deriveSessionActivation"), false);
   assert.equal(appSource.includes("function connectWebSocket"), false);
@@ -1104,6 +1110,8 @@ async function main() {
   assert.equal(storeSource.includes('case "tool_finished":'), false);
   assert.equal(storeSource.includes('case "tasks_loaded":'), false);
   assert.equal(storeSource.includes('case "recipes_loaded":'), false);
+  assert.equal(storeSource.includes('case "tool_catalog_loaded":'), false);
+  assert.equal(storeSource.includes("toolCatalog: {}"), false);
   assert.equal(storeSource.includes("TOOL_LABELS"), false);
   assert.equal(storeSource.includes("export function toolLabel"), false);
   assert.equal(storeSource.includes("Read  "), false);

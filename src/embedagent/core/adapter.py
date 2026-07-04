@@ -529,9 +529,6 @@ class AgentCoreAdapter(CoreInterface):
             self._adapter.remember_permission_category(session_id, category)
         )
 
-    def get_tool_catalog(self) -> List[Dict[str, Any]]:
-        return self._adapter.get_tool_catalog()
-
     def shutdown(self) -> None:
         """关闭 Core"""
         with self._lock:

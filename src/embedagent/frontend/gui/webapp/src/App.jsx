@@ -127,7 +127,7 @@ function App() {
         defaultMode: INITIAL_REQUESTED_MODE,
         activeTurnId: state.activeTurnId,
         thinkingActive: state.thinkingActive,
-        toolCatalog: state.sessionCapabilities?.toolCatalog || state.toolCatalog,
+        toolCatalog: state.sessionCapabilities?.toolCatalog || {},
       }),
     [
       sessionTransport,
@@ -136,7 +136,6 @@ function App() {
       state.thinkingActive,
       state.activities,
       state.sessionCapabilities,
-      state.toolCatalog,
     ],
   );
   runtimeStateRef.current = runtimeState;
@@ -319,17 +318,6 @@ function App() {
     dispatch({ type: "sessions_loaded", sessions: payload.sessions || [] });
   }
 
-  async function loadToolCatalog() {
-    const payload = await fetchJson("/api/tool-catalog");
-    const items = Array.isArray(payload.items) ? payload.items : [];
-    const catalog = {};
-    for (const item of items) {
-      if (!item || !item.name) continue;
-      catalog[item.name] = item;
-    }
-    dispatch({ type: "tool_catalog_loaded", catalog });
-  }
-
   async function loadPermissionContext(sessionId) {
     if (!sessionId) {
       dispatch({ type: "permission_context_loaded", context: null });
@@ -488,7 +476,6 @@ function App() {
             loadArtifacts(),
             loadSessionCommandCapabilities({ fetchJson, dispatch }),
             loadFileChildren("."),
-            loadToolCatalog(),
             loadSourceControlStatus(false, assumeWorkspace),
           ]);
         },
@@ -876,7 +863,7 @@ function App() {
               ref={timelineRef}
               timeline={runtimeState.timelineView}
               rows={runtimeState.t3TimelineRows}
-              toolCatalog={state.toolCatalog}
+              toolCatalog={state.sessionCapabilities?.toolCatalog || {}}
               historyIntegrity={historyIntegrity}
               thinkingActive={state.thinkingActive}
               streamingReasoningId={state.streamingReasoningId}
