@@ -1306,6 +1306,11 @@ async function main() {
     webappSourcePath("session-runtime", "app-home-model.js"),
     "utf8",
   );
+  const appShellModelSource = fs.readFileSync(
+    webappSourcePath("app-shell", "model.js"),
+    "utf8",
+  );
+  assert.equal(appShellModelSource.includes('"EmbedAgent"'), false);
   assert.equal(appHomeModelSource.includes("THREAD_LIFECYCLE_ACTIONS"), false);
   assert.equal(appHomeModelSource.includes("capabilities?.actions"), true);
   assert.equal(appHomeModelSource.includes("buildThreadLifecycleActions"), true);

@@ -73,7 +73,8 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official GUI no-workspace shell copy: the empty workspace screen consumes
   app-shell metadata such as `app.productName`, `capabilities.home`, and
   `capabilities.emptyState`; renderer components must not hard-code the
-  default product or agent name.
+  default product or agent name, and renderer app-shell normalizers must
+  preserve missing product names as empty rather than inventing a default.
 - Official GUI surface descriptor copy: right-panel surface titles and
   surface-owned panel headings, including the Files surface header, come from
   backend-declared app-shell surface descriptors rather than renderer-local

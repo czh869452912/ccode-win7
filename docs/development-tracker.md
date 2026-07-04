@@ -118,7 +118,8 @@
 - No-workspace GUI shell branding now comes from backend app metadata:
   `app-home-model.js` projects `app.productName`, and `NoWorkspaceState.jsx`
   renders that descriptor value instead of hard-coding the default product
-  name.
+  name. The renderer app-shell normalizer also preserves a missing
+  `productName` as empty instead of falling back to the bundled product name.
 - Files right-panel surface title now comes from the active app-shell surface
   descriptor: `RightPanelSurfaceBody.jsx` passes the surface record into
   `FilesSurface.jsx`, and the panel header no longer hard-codes the default

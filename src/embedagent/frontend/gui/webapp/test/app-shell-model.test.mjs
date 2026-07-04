@@ -21,6 +21,7 @@ export function runAppShellModelTests() {
   const initial = createAppShellState();
   assert.equal(initial.bootstrapLoaded, false);
   assert.equal(initial.app.shellVersion, 1);
+  assert.equal(initial.app.productName, "");
   assert.equal(initial.app.protocol, "gui_app_shell_v1");
   assert.deepEqual(initial.workspaces, []);
   assert.equal(initial.activeWorkspace, null);

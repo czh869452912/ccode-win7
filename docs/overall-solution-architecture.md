@@ -76,7 +76,8 @@ that projection comes from the backend-selected application registry declared
 by the app host or launcher; after workspace activation the active Core's
 capability projection is authoritative. The GUI can adapt labels/copy for
 generic or specialized agents without creating a core or making app bootstrap a
-session-history source.
+session-history source. Renderer app-shell normalizers preserve a missing
+backend product name as empty rather than inventing the bundled product name.
 Retired Inspector sidecar state for artifacts, review panes, permission-rule
 panes, runtime panes, workspace previews, and event logs has been removed; those
 concerns now appear only through active surfaces, session activities,

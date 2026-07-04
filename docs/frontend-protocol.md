@@ -130,7 +130,9 @@ app-level empty-state copy and agent-aware shell display without creating a core
 or reading session history.
 No-workspace shell branding and copy must come from app-shell metadata such as
 `app.productName`, `capabilities.home`, and `capabilities.emptyState`; renderer
-components must not hard-code the default product or agent name.
+components and app-shell normalizers must not hard-code the default product or
+agent name. A missing backend `productName` remains empty instead of falling
+back to the bundled product name.
 Workbench-local persisted surface state is re-sanitized after app bootstrap or
 workspace switch against the same declaration; stale local `preview`,
 `source_control`, `terminal`, or other surfaces must not survive when the

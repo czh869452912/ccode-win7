@@ -969,7 +969,7 @@ export function normalizeAppDiagnostics(input = {}) {
 function normalizeAppMetadata(input = {}) {
   return {
     shellVersion: Number(input.shell_version || input.shellVersion || 1),
-    productName: String(input.product_name || input.productName || "EmbedAgent"),
+    productName: String(input.product_name || input.productName || ""),
     protocol: String(input.protocol || "gui_app_shell_v1"),
   };
 }

@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-248
+
+- Date: 2026-07-04
+- Change Topic: App-shell product-name fallback removed from renderer model
+- Summary:
+  - Removed the renderer app-shell model fallback that filled missing
+    `productName` metadata with the bundled `EmbedAgent` product name.
+  - `createAppShellState()` and `normalizeAppBootstrap()` now preserve missing
+    product names as empty strings so generic or specialized GUI shells must
+    receive their branding from backend app metadata.
+  - Added frontend behavior/source checks and an architecture guard to prevent
+    reintroducing product-name defaults in renderer app-shell normalization.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-247
 
 - Date: 2026-07-04

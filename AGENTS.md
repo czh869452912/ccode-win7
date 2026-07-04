@@ -249,7 +249,9 @@ Official session-history truth is:
 `GET /api/app/bootstrap` is the GUI app-shell activation bootstrap only. It may expose GUI-owned workspace registry projection, safe host/runtime/renderer diagnostics, app-level commands, app surfaces, and local shell settings; it must not become session history truth, workflow truth, provider/runtime policy, permission policy, extension loading policy, or a replacement for `GET /api/sessions/{id}/bootstrap`.
 No-workspace shell branding and copy must come from app-shell metadata such as
 `app.productName`, `capabilities.home`, and `capabilities.emptyState`; renderer
-components must not hard-code the default product or agent name.
+components must not hard-code the default product or agent name, and renderer
+app-shell normalizers must preserve missing product names as empty rather than
+inventing a default.
 Right-panel surface titles and surface-owned panel headings, including the
 Files surface header, must come from backend-declared app-shell surface
 descriptors rather than renderer-local default copy.
