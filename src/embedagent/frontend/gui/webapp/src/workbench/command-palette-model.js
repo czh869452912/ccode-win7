@@ -108,8 +108,6 @@ function sortedCommandGroupIds(groups, descriptors) {
 function commandDescription(command = {}, descriptor = {}) {
   if (command.description) return command.description;
   if (command.slash) return command.slash;
-  if (command.surface) return `Open ${command.surface}`;
-  if (command.drawer) return `Open ${command.drawer}`;
   return descriptor.description || "";
 }
 

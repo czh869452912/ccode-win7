@@ -215,5 +215,17 @@ export function runCommandPaletteModelTests() {
   assert.equal(noCopyCommand.title, "Visible Command");
   assert.equal(noCopyCommand.description, "");
   assert.equal(noCopyCommand.meta, "");
+  const surfaceNoCopyItems = flattenPaletteGroups(buildCommandPaletteRootGroups({
+    commands: [
+      { id: "surface.preview", group: "surface", label: "Show Preview", surface: "preview", slash: "" },
+      { id: "drawer.logs", group: "surface", label: "Show Logs", drawer: "logs", slash: "" },
+    ],
+    commandPalette: {
+      groups: [{ id: "surface", title: "Panels", description: "", order: 1 }],
+      labels: { commandsSection: "Actions" },
+    },
+  }));
+  assert.equal(surfaceNoCopyItems.find((item) => item.commandId === "surface.preview").description, "");
+  assert.equal(surfaceNoCopyItems.find((item) => item.commandId === "drawer.logs").description, "");
   assert.deepEqual(flattenPaletteGroups([{ id: "x", items: [{ id: "a" }, { id: "b" }] }]).map((item) => item.id), ["a", "b"]);
 }

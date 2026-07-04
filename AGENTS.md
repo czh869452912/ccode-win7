@@ -417,7 +417,8 @@ metadata. Commands in command-palette groups without explicit descriptor titles
 must also stay hidden. Renderer command lists and command-palette rows must not
 synthesize visible titles from command ids or group ids, and missing command
 row description/meta copy must remain empty instead of falling back to command
-ids.
+ids. Surface command row descriptions must come from surface descriptors and
+must not be synthesized from surface or drawer ids.
 
 The GUI terminal bottom drawer is an app-shell hosted surface, not Agent Core. It uses Windows 7-compatible Python stdlib subprocess pipes, is not a full PTY, and must not depend on ConPTY, `node-pty`, `pywinpty`, `pexpect`, Electron, runtime Node, Docker, WSL, VS Code, or online services. Terminal output is GUI-local display state only: it must not be written to `transcript.jsonl`, telemetry, workflow state, source-control checkpoints, or permission/runtime reducer truth.
 

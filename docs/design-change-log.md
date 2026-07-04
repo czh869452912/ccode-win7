@@ -44,6 +44,34 @@
 
 ## 3. 当前变更记录
 
+### DC-261
+
+- Date: 2026-07-04
+- Change Topic: GUI surface command palette copy is descriptor-owned
+- Summary:
+  - Surface and bottom-drawer command projections now carry surface descriptor
+    descriptions into workbench commands.
+  - Command-palette command row descriptions no longer synthesize
+    `Open <surface>` or `Open <drawer>` copy from surface/drawer ids.
+  - Added frontend and Python architecture guards so surface command secondary
+    copy stays descriptor-owned.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-260
 
 - Date: 2026-07-04

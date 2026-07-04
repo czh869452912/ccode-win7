@@ -142,6 +142,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   command-id fallback copy; commands in undeclared or untitled palette groups
   remain hidden rather than using title-cased group ids; missing command row
   description/meta copy remains empty rather than falling back to command ids;
+  surface command row descriptions come from surface descriptors rather than
+  surface/drawer ids;
   surface descriptors without explicit titles remain
   diagnostic capability records and do not enter visible launchers or surface
   commands; persisted workbench surface state is also re-sanitized

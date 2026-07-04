@@ -60,7 +60,8 @@ dynamic slash commands must provide explicit `label`, `usage`, or `slash`
 metadata, and command-palette rows must not fall back to command ids for
 titles. Commands in undeclared or untitled palette groups remain hidden rather
 than using title-cased group ids, and missing command row description/meta copy
-remains empty instead of falling back to command ids.
+remains empty instead of falling back to command ids. Surface command row
+descriptions come from surface descriptors rather than surface/drawer ids.
 Labels, descriptions, icon keys, command/slash metadata, ordering, visibility,
 and read-only/offline hints come from the app shell. Surface-owned panel
 headings, including the right-panel Files surface header, use the active

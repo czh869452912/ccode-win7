@@ -134,8 +134,36 @@ export function runWorkbenchStateTests() {
   assert.equal(surfaceChromeLabels(fullAppCapabilities).terminationReasonPrefix, "finished");
   assert.equal(rightPanelLauncherSurfaceDefinitions(fullAppCapabilities)[0].title, "Preview");
   assert.equal(rightPanelLauncherSurfaceDefinitions(fullAppCapabilities)[0].commandLabel, "Show Preview");
+  const describedSurfaceCommands = surfaceCommandDefinitions({
+    surfaces: {
+      rightPanel: [
+        {
+          id: "preview",
+          title: "Preview",
+          description: "Open a local preview descriptor.",
+          commandLabel: "Show Preview",
+          launcherOrder: 10,
+        },
+      ],
+    },
+  });
+  assert.equal(describedSurfaceCommands[0].description, "Open a local preview descriptor.");
   assert.equal(bottomDrawerSurfaceDefinitions(fullAppCapabilities)[0].title, "Run Output");
   assert.equal(bottomDrawerSurfaceDefinitions(fullAppCapabilities)[0].commandLabel, "Show Run Output");
+  const describedDrawerCommands = bottomDrawerCommandDefinitions({
+    surfaces: {
+      bottomDrawer: [
+        {
+          id: "terminal",
+          title: "Terminal",
+          description: "Open a terminal descriptor.",
+          commandLabel: "Show Terminal",
+          launcherOrder: 10,
+        },
+      ],
+    },
+  });
+  assert.equal(describedDrawerCommands[0].description, "Open a terminal descriptor.");
   assert.equal(surfaceDefinitionFor("preview", fullAppCapabilities).title, "Preview");
   for (const definition of registryDefinitions) {
     assert.equal(definition.placement, "right");

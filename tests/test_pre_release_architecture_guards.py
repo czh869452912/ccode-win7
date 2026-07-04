@@ -886,6 +886,7 @@ def test_gui_app_shell_surfaces_are_descriptor_records_not_string_lists():
     assert "hasDisplayTitle" in surfaces_text
     assert "&& hasDisplayTitle(definition)" in surfaces_text
     assert "label: definition.commandLabel" in surfaces_text
+    assert "description: definition.description" in surfaces_text
     assert "`Open ${definition.title}`" not in surfaces_text
     assert "String(input.title || kind)" not in app_model_text
     assert (
@@ -1094,6 +1095,8 @@ def test_gui_command_palette_groups_are_app_shell_descriptors():
     assert "asText(command.label) || asText(command.id)" not in palette_model_text
     assert "descriptor.description || command.id" not in palette_model_text
     assert "command.slash || command.id" not in palette_model_text
+    assert "`Open ${command.surface}`" not in palette_model_text
+    assert "`Open ${command.drawer}`" not in palette_model_text
     assert "asText(command.group) === targetGroup && asText(command.label)" in palette_model_text
     assert "title: asText(group.title) || titleCase(id)" not in palette_model_text
     assert "title: titleCase(id)" not in palette_model_text
