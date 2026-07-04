@@ -24,12 +24,13 @@ import {
   rightPanelLauncherSurfaceDefinitions,
   rightPanelSurfaceDefinitions,
   surfaceCommandDefinitions,
+  surfaceChromeLabels,
   surfaceDefinitionFor,
   supportedSurfaceKinds,
 } from "../src/workbench/surfaces.js";
 
 function surface(id, title = id, launcherOrder = 0) {
-  return { id, title, launcherOrder };
+  return { id, title, launcherOrder, commandLabel: `Show ${title}` };
 }
 
 const RIGHT_PANEL_CAPABILITY_DESCRIPTORS = Object.freeze([
@@ -85,6 +86,19 @@ export function runWorkbenchStateTests() {
     appCommands: APP_COMMAND_DESCRIPTORS.map((item) => ({ ...item })),
     workspaceCommands: WORKSPACE_COMMAND_DESCRIPTORS.map((item) => ({ ...item })),
     surfaces: {
+      chrome: {
+        rightPanelAriaLabel: "Workspace panel",
+        addSurfaceLabel: "Add workspace view",
+        emptyTitle: "Open workspace view",
+        emptyBody: "Choose a view.",
+        surfaceActionsLabelPrefix: "View actions for",
+        closeLabelPrefix: "Close view",
+        closeActionLabel: "Close view",
+        closeOthersActionLabel: "Close other views",
+        closeToRightActionLabel: "Close views to the right",
+        closeAllActionLabel: "Close all views",
+        defaultIcon: "V",
+      },
       rightPanel: cloneSurfaces(RIGHT_PANEL_CAPABILITY_DESCRIPTORS),
       bottomDrawer: cloneSurfaces(BOTTOM_DRAWER_CAPABILITY_DESCRIPTORS),
     },
@@ -97,6 +111,8 @@ export function runWorkbenchStateTests() {
     rightPanelLauncherSurfaceDefinitions(fullAppCapabilities).map((definition) => definition.kind),
     capabilityIds(RIGHT_PANEL_CAPABILITY_DESCRIPTORS),
   );
+  assert.equal(surfaceChromeLabels(fullAppCapabilities).emptyTitle, "Open workspace view");
+  assert.equal(surfaceChromeLabels(fullAppCapabilities).closeAllActionLabel, "Close all views");
   for (const definition of registryDefinitions) {
     assert.equal(definition.placement, "right");
     assert.equal(typeof definition.kind, "string");
@@ -423,6 +439,7 @@ export function runWorkbenchStateTests() {
   assert.equal(commandById("app.settings", {}, fullAppCapabilities).label, "Preferences");
   assert.equal(commandById("workspace.open", {}, fullAppCapabilities).label, "Open Project");
   assert.equal(commandById("surface.preview", {}, fullAppCapabilities).surface, "preview");
+  assert.equal(commandById("surface.preview", {}, fullAppCapabilities).label, "Show Preview");
   assert.equal(commandById("surface.diff", {}, fullAppCapabilities).surface, "diff");
   assert.equal(commandById("surface.source_control", {}, fullAppCapabilities).surface, "source_control");
   assert.equal(commandById("surface.settings", {}, fullAppCapabilities).surface, "settings");
@@ -456,6 +473,19 @@ export function runWorkbenchStateTests() {
       { id: "workspace.open", group: "workspace", label: "Open Project", visibleWhen: "always" },
     ],
     surfaces: {
+      chrome: {
+        rightPanelAriaLabel: "Workspace panel",
+        addSurfaceLabel: "Add workspace view",
+        emptyTitle: "Open workspace view",
+        emptyBody: "Choose a view.",
+        surfaceActionsLabelPrefix: "View actions for",
+        closeLabelPrefix: "Close view",
+        closeActionLabel: "Close view",
+        closeOthersActionLabel: "Close other views",
+        closeToRightActionLabel: "Close views to the right",
+        closeAllActionLabel: "Close all views",
+        defaultIcon: "V",
+      },
       rightPanel: [surface("settings", "Settings")],
       bottomDrawer: [surface("logs", "Logs")],
     },

@@ -170,6 +170,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `command_palette.groups` descriptors; the renderer no longer owns a fixed
   `COMMAND_GROUPS`, group title, group description table, palette placeholder,
   empty-state, current/missing badge, or root-section copy
+- GUI right-panel surface chrome now comes from app-shell `surfaces.chrome`
+  descriptors; the renderer no longer owns right-panel aria copy, add-surface
+  label, empty-state text, surface action menu labels, close labels, or
+  surface command-label string concatenation
 - GUI home/sidebar workspace and thread copy now comes from app-shell
   `home.workspace` / `home.threads` descriptors plus the selected agent
   `emptyState`; renderer components no longer own the default no-workspace,

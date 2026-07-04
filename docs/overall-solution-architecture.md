@@ -49,7 +49,9 @@ keybinding targets are filtered from GUI app-shell capabilities returned by
 `GET /api/app/bootstrap`. App-shell app/workspace commands, surfaces, and
 keybindings are backend-declared descriptor records rather than bare string ids;
 command-palette group titles/descriptions/order and palette labels/placeholders
-are also app-shell descriptors.
+are also app-shell descriptors. Right-panel chrome copy, tab action labels,
+aria labels, empty-state text, and default surface icon fallback come from
+`capabilities.surfaces.chrome`.
 Labels, descriptions, icon keys, command/slash metadata, ordering, visibility,
 and read-only/offline hints come from the app shell.
 GUI home/sidebar copy for workspace and thread sections is also app-shell
@@ -614,6 +616,8 @@ Surface panel components render whichever supported surface is active, but they
 must merge backend-declared descriptor metadata with locally supported renderers
 instead of keeping their own hard-coded surface tab registry, `inspectorTab`
 adapter, or `onTabChange` navigation path that bypasses app capabilities.
+Right-panel chrome copy and surface command labels are also backend-declared
+surface capability metadata rather than renderer string concatenation.
 The renderer must not keep parallel root-level `inspectorTab` / `inspectorOpen`
 navigation fields; the right-panel workbench surface state is the single live
 navigation state for this area.

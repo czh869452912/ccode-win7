@@ -150,7 +150,7 @@ function normalizeSurfaceCapability(input = {}, placement = "right") {
     id: kind,
     kind,
     title,
-    icon: String(input.icon || "S").trim() || "S",
+    icon: String(input.icon || "").trim(),
     description: String(input.description || ""),
     placement,
     resourceId: String(input.resource_id || input.resourceId || ""),
@@ -165,6 +165,31 @@ function normalizeSurfaceCapability(input = {}, placement = "right") {
     readOnly: input.read_only === true || input.readOnly === true,
     offline: input.offline === true,
     keywords: normalizeKeywords(input.keywords),
+  };
+}
+
+function normalizeSurfaceChrome(input = {}) {
+  const surfaces = input.surfaces && typeof input.surfaces === "object" ? input.surfaces : {};
+  const raw = surfaces.chrome || surfaces.surface_chrome || {};
+  const value = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  return {
+    rightPanelAriaLabel: String(value.right_panel_aria_label || value.rightPanelAriaLabel || ""),
+    addSurfaceLabel: String(value.add_surface_label || value.addSurfaceLabel || ""),
+    emptyTitle: String(value.empty_title || value.emptyTitle || ""),
+    emptyBody: String(value.empty_body || value.emptyBody || ""),
+    surfaceActionsLabelPrefix: String(
+      value.surface_actions_label_prefix || value.surfaceActionsLabelPrefix || "",
+    ),
+    closeLabelPrefix: String(value.close_label_prefix || value.closeLabelPrefix || ""),
+    closeActionLabel: String(value.close_action_label || value.closeActionLabel || ""),
+    closeOthersActionLabel: String(
+      value.close_others_action_label || value.closeOthersActionLabel || "",
+    ),
+    closeToRightActionLabel: String(
+      value.close_to_right_action_label || value.closeToRightActionLabel || "",
+    ),
+    closeAllActionLabel: String(value.close_all_action_label || value.closeAllActionLabel || ""),
+    defaultIcon: String(value.default_icon || value.defaultIcon || ""),
   };
 }
 
@@ -353,6 +378,7 @@ export function normalizeAppCapabilities(input = {}) {
         Array.isArray(surfaces.bottom_drawer) ? surfaces.bottom_drawer : surfaces.bottomDrawer,
         "bottom",
       ),
+      chrome: normalizeSurfaceChrome(input),
     },
     keybindings: normalizeKeybindings(input.keybindings || input.key_bindings),
     agentApplication: normalizeAgentApplicationDescriptor(

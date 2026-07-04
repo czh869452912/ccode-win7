@@ -142,6 +142,14 @@ class TestGuiAppShellService(unittest.TestCase):
             10,
         )
         self.assertEqual(
+            payload["capabilities"]["surfaces"]["chrome"]["empty_title"],
+            "Open a surface",
+        )
+        self.assertEqual(
+            payload["capabilities"]["surfaces"]["chrome"]["close_all_action_label"],
+            "Close all",
+        )
+        self.assertEqual(
             [item["id"] for item in payload["capabilities"]["thread_lifecycle"]["actions"]],
             ["rename", "fork", "archive"],
         )
@@ -274,6 +282,10 @@ class TestGuiAppShellService(unittest.TestCase):
                         "root_title": "Launcher",
                         "commands_section": "Actions",
                     },
+                    surface_chrome={
+                        "empty_title": "Open view",
+                        "close_all_action_label": "Close views",
+                    },
                     right_panel_surfaces=(
                         {
                             "id": "settings",
@@ -320,6 +332,13 @@ class TestGuiAppShellService(unittest.TestCase):
             ["settings"],
         )
         self.assertEqual(payload["capabilities"]["surfaces"]["bottom_drawer"], [])
+        self.assertEqual(
+            payload["capabilities"]["surfaces"]["chrome"],
+            {
+                "empty_title": "Open view",
+                "close_all_action_label": "Close views",
+            },
+        )
         self.assertEqual(
             payload["capabilities"]["keybindings"],
             [{"key": "mod+,", "command_id": "app.settings", "when": "always"}],

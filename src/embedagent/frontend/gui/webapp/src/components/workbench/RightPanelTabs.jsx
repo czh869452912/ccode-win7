@@ -1,6 +1,7 @@
 import React from "react";
 import {
   rightPanelLauncherSurfaceDefinitions,
+  surfaceChromeLabels,
   surfaceDefinitionFor,
   titleForSurfaceKind,
 } from "../../workbench/surfaces.js";
@@ -17,12 +18,24 @@ function surfaceTitle(surface) {
   return titleForSurfaceKind(surface.kind);
 }
 
-function SurfaceIcon({ kind, definition = null, appCapabilities = null }) {
+function joinLabel(prefix, value) {
+  const left = String(prefix || "").trim();
+  const right = String(value || "").trim();
+  return left && right ? `${left} ${right}` : left || right;
+}
+
+function SurfaceIcon({ kind, definition = null, appCapabilities = null, chrome = null }) {
   const resolved = definition || surfaceDefinitionFor(kind, appCapabilities);
-  return <span className="right-panel-surface-icon" aria-hidden="true">{resolved?.icon || "S"}</span>;
+  const labels = chrome || surfaceChromeLabels(appCapabilities);
+  return (
+    <span className="right-panel-surface-icon" aria-hidden="true">
+      {resolved?.icon || labels.defaultIcon}
+    </span>
+  );
 }
 
 function SurfaceTabMenu({
+  chrome,
   surface,
   onCloseSurface,
   onCloseOtherSurfaces,
@@ -37,7 +50,7 @@ function SurfaceTabMenu({
         ref={buttonRef}
         type="button"
         className="right-panel-tab-menu-button"
-        aria-label={`Surface actions for ${surfaceTitle(surface)}`}
+        aria-label={joinLabel(chrome.surfaceActionsLabelPrefix, surfaceTitle(surface))}
         aria-expanded={open}
         onClick={(event) => {
           event.stopPropagation();
@@ -60,38 +73,38 @@ function SurfaceTabMenu({
             onCloseSurface(surface);
           }}
         >
-          Close
+          {chrome.closeActionLabel}
         </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onCloseOtherSurfaces(surface);
-            }}
-          >
-            Close others
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onCloseSurfacesToRight(surface);
-            }}
-          >
-            Close to the right
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onCloseAllSurfaces();
-            }}
-          >
-            Close all
-          </button>
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            setOpen(false);
+            onCloseOtherSurfaces(surface);
+          }}
+        >
+          {chrome.closeOthersActionLabel}
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            setOpen(false);
+            onCloseSurfacesToRight(surface);
+          }}
+        >
+          {chrome.closeToRightActionLabel}
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            setOpen(false);
+            onCloseAllSurfaces();
+          }}
+        >
+          {chrome.closeAllActionLabel}
+        </button>
       </FloatingMenu>
     </span>
   );
@@ -101,6 +114,7 @@ function SurfaceAddMenu({ appCapabilities, onAddSurface }) {
   const [open, setOpen] = React.useState(false);
   const buttonRef = React.useRef(null);
   const availableSurfaces = rightPanelLauncherSurfaceDefinitions(appCapabilities);
+  const chrome = surfaceChromeLabels(appCapabilities);
   if (availableSurfaces.length === 0) return null;
   return (
     <span className="right-panel-add-menu">
@@ -108,10 +122,10 @@ function SurfaceAddMenu({ appCapabilities, onAddSurface }) {
         ref={buttonRef}
         type="button"
         className="right-panel-add-surface"
-        aria-label="Add panel surface"
+        aria-label={chrome.addSurfaceLabel}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        title="Add panel surface"
+        title={chrome.addSurfaceLabel}
       >
         +
       </button>
@@ -132,7 +146,7 @@ function SurfaceAddMenu({ appCapabilities, onAddSurface }) {
                 onAddSurface(definition.kind);
               }}
             >
-              <SurfaceIcon definition={definition} />
+              <SurfaceIcon definition={definition} chrome={chrome} />
               <span>{definition.title}</span>
             </button>
           );
@@ -144,11 +158,12 @@ function SurfaceAddMenu({ appCapabilities, onAddSurface }) {
 
 function RightPanelEmptyState({ appCapabilities, onAddSurface }) {
   const availableSurfaces = rightPanelLauncherSurfaceDefinitions(appCapabilities);
+  const chrome = surfaceChromeLabels(appCapabilities);
   return (
     <div className="right-panel-empty-state" data-testid="right-panel-empty-state">
       <div className="right-panel-empty-copy">
-        <h3>Open a surface</h3>
-        <p>Choose what to show in the right panel.</p>
+        <h3>{chrome.emptyTitle}</h3>
+        <p>{chrome.emptyBody}</p>
       </div>
       <div className="right-panel-empty-grid">
         {availableSurfaces.map((definition) => {
@@ -160,7 +175,7 @@ function RightPanelEmptyState({ appCapabilities, onAddSurface }) {
               onClick={() => onAddSurface(definition.kind)}
               data-testid={`right-panel-empty-surface--${definition.kind}`}
             >
-              <SurfaceIcon definition={definition} />
+              <SurfaceIcon definition={definition} chrome={chrome} />
               <span>{definition.title}</span>
               <small>{definition.description}</small>
             </button>
@@ -185,6 +200,7 @@ export default function RightPanelTabs({
 }) {
   const items = Array.isArray(surfaces) ? surfaces : [];
   const activeSurface = items.find((surface) => surface.id === activeSurfaceId) || null;
+  const chrome = surfaceChromeLabels(appCapabilities);
   const tabListRef = React.useRef(null);
   React.useEffect(() => {
     const activeTab = tabListRef.current?.querySelector("[data-active-tab='true']");
@@ -192,7 +208,12 @@ export default function RightPanelTabs({
   }, [activeSurfaceId]);
 
   return (
-    <aside className="right-panel" role="complementary" aria-label="Right panel" data-testid="right-panel">
+    <aside
+      className="right-panel"
+      role="complementary"
+      aria-label={chrome.rightPanelAriaLabel}
+      data-testid="right-panel"
+    >
       <div className="right-panel-tabs" role="tablist" data-testid="right-panel-surface-tabs">
         <div className="right-panel-tab-scroll" ref={tabListRef} data-right-panel-tab-list>
           <div className="right-panel-tab-strip">
@@ -214,10 +235,15 @@ export default function RightPanelTabs({
                     title={title}
                     onClick={() => onActivateSurface(surface)}
                   >
-                    <SurfaceIcon kind={surface.kind} appCapabilities={appCapabilities} />
+                    <SurfaceIcon
+                      kind={surface.kind}
+                      appCapabilities={appCapabilities}
+                      chrome={chrome}
+                    />
                     <span>{title}</span>
                   </button>
                   <SurfaceTabMenu
+                    chrome={chrome}
                     surface={surface}
                     onCloseSurface={onCloseSurface}
                     onCloseOtherSurfaces={onCloseOtherSurfaces}
@@ -227,7 +253,7 @@ export default function RightPanelTabs({
                   <button
                     type="button"
                     className="right-panel-tab-close"
-                    aria-label={`Close ${title}`}
+                    aria-label={joinLabel(chrome.closeLabelPrefix, title)}
                     onClick={() => onCloseSurface(surface)}
                   >
                     x

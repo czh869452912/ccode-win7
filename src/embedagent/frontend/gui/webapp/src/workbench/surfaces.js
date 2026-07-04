@@ -267,6 +267,26 @@ export function surfaceCapabilityDefinitions(appCapabilities, placement) {
     .filter(Boolean);
 }
 
+export function surfaceChromeLabels(appCapabilities = null) {
+  const surfaces = appCapabilities?.surfaces && typeof appCapabilities.surfaces === "object"
+    ? appCapabilities.surfaces
+    : {};
+  const chrome = surfaces.chrome && typeof surfaces.chrome === "object" ? surfaces.chrome : {};
+  return {
+    rightPanelAriaLabel: String(chrome.rightPanelAriaLabel || ""),
+    addSurfaceLabel: String(chrome.addSurfaceLabel || ""),
+    emptyTitle: String(chrome.emptyTitle || ""),
+    emptyBody: String(chrome.emptyBody || ""),
+    surfaceActionsLabelPrefix: String(chrome.surfaceActionsLabelPrefix || ""),
+    closeLabelPrefix: String(chrome.closeLabelPrefix || ""),
+    closeActionLabel: String(chrome.closeActionLabel || ""),
+    closeOthersActionLabel: String(chrome.closeOthersActionLabel || ""),
+    closeToRightActionLabel: String(chrome.closeToRightActionLabel || ""),
+    closeAllActionLabel: String(chrome.closeAllActionLabel || ""),
+    defaultIcon: String(chrome.defaultIcon || ""),
+  };
+}
+
 function surfaceDefinitionsForPlacement(placement) {
   return placement === "bottom" ? BOTTOM_DRAWER_SURFACE_REGISTRY : RIGHT_PANEL_SURFACE_REGISTRY;
 }
@@ -334,7 +354,7 @@ export function surfaceCommandDefinitions(appCapabilities = null) {
     .map((definition) => ({
       id: `surface.${definition.kind}`,
       group: "surface",
-      label: `Open ${definition.title}`,
+      label: definition.commandLabel,
       slash: definition.slash || "",
       surface: definition.kind,
       visibleWhen: definition.visibleWhen || "always",
@@ -348,7 +368,7 @@ export function bottomDrawerCommandDefinitions(appCapabilities = null) {
     .map((definition) => ({
       id: `drawer.${definition.kind}`,
       group: "surface",
-      label: definition.commandLabel || `Open ${definition.title}`,
+      label: definition.commandLabel,
       slash: definition.slash || "",
       drawer: definition.kind,
       visibleWhen: definition.visibleWhen || "always",

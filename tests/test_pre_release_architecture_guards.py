@@ -768,6 +768,9 @@ def test_gui_app_shell_surfaces_are_descriptor_records_not_string_lists():
     app_shell_spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     app_model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
     surfaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js")
+    right_panel_tabs_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelTabs.jsx"
+    )
 
     for token in (
         '_surface(\n                "files"',
@@ -775,9 +778,27 @@ def test_gui_app_shell_surfaces_are_descriptor_records_not_string_lists():
         '"launcher_order"',
     ):
         assert token in app_shell_spec_text
+    assert "surface_chrome" in app_shell_spec_text
+    assert "command_label" in app_shell_spec_text
     assert "normalizeSurfaceCapability" in app_model_text
+    assert "normalizeSurfaceChrome" in app_model_text
     assert "surfaceCapabilityDefinitions" in surfaces_text
+    assert "surfaceChromeLabels" in surfaces_text
+    assert "surfaceChromeLabels(appCapabilities)" in right_panel_tabs_text
+    assert "label: definition.commandLabel" in surfaces_text
+    assert "`Open ${definition.title}`" not in surfaces_text
     assert 'value.map((item) => String(item || ""))' not in surfaces_text
+    for hardcoded_copy in (
+        '"Right panel"',
+        '"Add panel surface"',
+        '"Open a surface"',
+        '"Choose what to show in the right panel."',
+        '"Surface actions for"',
+        '"Close others"',
+        '"Close to the right"',
+        '"Close all"',
+    ):
+        assert hardcoded_copy not in right_panel_tabs_text
 
 
 def test_gui_surface_registry_does_not_export_fixed_surface_id_lists():

@@ -10,7 +10,7 @@ const VISUAL_WORKSPACE = Object.freeze({
 });
 
 function surface(id, title, launcherOrder) {
-  return { id, title, launcher_order: launcherOrder };
+  return { id, title, launcher_order: launcherOrder, command_label: `Open ${title}` };
 }
 
 function keybinding(key, commandId, when = "always") {
@@ -120,6 +120,19 @@ function visualAppBootstrap() {
         },
       },
       surfaces: {
+        chrome: {
+          right_panel_aria_label: "Right panel",
+          add_surface_label: "Add panel surface",
+          empty_title: "Open a surface",
+          empty_body: "Choose what to show in the right panel.",
+          surface_actions_label_prefix: "Surface actions for",
+          close_label_prefix: "Close",
+          close_action_label: "Close",
+          close_others_action_label: "Close others",
+          close_to_right_action_label: "Close to the right",
+          close_all_action_label: "Close all",
+          default_icon: "S",
+        },
         right_panel: [
           surface("preview", "Preview", 10),
           surface("files", "Files", 20),

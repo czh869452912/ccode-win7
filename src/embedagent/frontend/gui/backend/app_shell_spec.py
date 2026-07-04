@@ -22,6 +22,7 @@ class AppShellSpec(object):
     workspace_commands: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     command_palette_groups: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     command_palette_labels: Dict[str, Any] = field(default_factory=dict)
+    surface_chrome: Dict[str, Any] = field(default_factory=dict)
     right_panel_surfaces: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     bottom_drawer_surfaces: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     keybindings: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
@@ -41,6 +42,7 @@ class AppShellSpec(object):
             "surfaces": {
                 "right_panel": _copy_records(self.right_panel_surfaces),
                 "bottom_drawer": _copy_records(self.bottom_drawer_surfaces),
+                "chrome": _copy_value(self.surface_chrome),
             },
             "keybindings": _copy_records(self.keybindings),
             "source_control": _copy_value(self.source_control),
@@ -193,6 +195,19 @@ def default_app_shell_spec() -> AppShellSpec:
             "workspace_fallback": "Workspace",
             "session_fallback_prefix": "Session",
         },
+        surface_chrome={
+            "right_panel_aria_label": "Right panel",
+            "add_surface_label": "Add panel surface",
+            "empty_title": "Open a surface",
+            "empty_body": "Choose what to show in the right panel.",
+            "surface_actions_label_prefix": "Surface actions for",
+            "close_label_prefix": "Close",
+            "close_action_label": "Close",
+            "close_others_action_label": "Close others",
+            "close_to_right_action_label": "Close to the right",
+            "close_all_action_label": "Close all",
+            "default_icon": "S",
+        },
         right_panel_surfaces=(
             _surface(
                 "preview",
@@ -201,6 +216,7 @@ def default_app_shell_spec() -> AppShellSpec:
                 icon="B",
                 description="Open a local browser preview.",
                 command=True,
+                command_label="Open Preview",
                 slash="/preview",
                 visible_when="always",
                 default_resource_id="",
@@ -214,6 +230,7 @@ def default_app_shell_spec() -> AppShellSpec:
                 icon="F",
                 description="Browse workspace files.",
                 command=True,
+                command_label="Open Files",
                 slash="/workspace",
                 visible_when="always",
                 default_resource_id="",
@@ -226,6 +243,7 @@ def default_app_shell_spec() -> AppShellSpec:
                 icon="T",
                 description="Use a shell in this workspace.",
                 command=True,
+                command_label="Open Terminal",
                 slash="",
                 visible_when="has_session",
                 default_resource_id="",
@@ -238,6 +256,7 @@ def default_app_shell_spec() -> AppShellSpec:
                 icon="D",
                 description="Review local changes.",
                 command=True,
+                command_label="Open Diff",
                 slash="/diff",
                 visible_when="always",
                 default_resource_id="current",
@@ -251,6 +270,7 @@ def default_app_shell_spec() -> AppShellSpec:
                 icon="P",
                 description="Inspect the current plan.",
                 command=True,
+                command_label="Open Plan",
                 slash="/plan",
                 visible_when="always",
                 default_resource_id="",
@@ -263,6 +283,7 @@ def default_app_shell_spec() -> AppShellSpec:
                 icon="S",
                 description="Review local Git status.",
                 command=True,
+                command_label="Open Source Control",
                 slash="",
                 visible_when="always",
                 default_resource_id="",
@@ -278,6 +299,7 @@ def default_app_shell_spec() -> AppShellSpec:
                 icon="G",
                 description="Adjust app-shell preferences.",
                 command=True,
+                command_label="Open Settings",
                 slash="",
                 visible_when="always",
                 default_resource_id="",
@@ -290,6 +312,7 @@ def default_app_shell_spec() -> AppShellSpec:
                 icon="I",
                 description="Inspect app-shell health.",
                 command=True,
+                command_label="Open Diagnostics",
                 slash="",
                 visible_when="always",
                 default_resource_id="",

@@ -74,9 +74,10 @@ runtime, renderer, workspace registry, and active-core presence only.
 `capabilities.app_commands`, `capabilities.workspace_commands`,
 `capabilities.command_palette.groups`,
 `capabilities.surfaces.right_panel`,
-`capabilities.surfaces.bottom_drawer`, and `capabilities.keybindings` are the
-app-shell entrypoint contract for the renderer workbench. App/workspace command
-entries and surface entries are descriptor records, not bare ids. Command
+`capabilities.surfaces.bottom_drawer`, `capabilities.surfaces.chrome`, and
+`capabilities.keybindings` are the app-shell entrypoint contract for the
+renderer workbench. App/workspace command entries and surface entries are
+descriptor records, not bare ids. Command
 descriptors carry `id`, `group`, `label`, ordering metadata, and may also carry
 `slash`, `visible_when`, `surface`, `drawer`, `keywords`, `description`, and
 safe dispatch metadata. Command-palette group descriptors carry `id`, `title`,
@@ -88,11 +89,14 @@ placeholders, empty states, root section titles, current/missing badges,
 workspace meta text, and session/workspace fallback labels. Surface descriptors carry `id`,
 `title`, and ordering metadata, and may also carry `icon`, `description`, `command`,
 `command_label`, `slash`, `visible_when`, `read_only`, `offline`, and
-`keywords`. Keybinding descriptors carry `key`, `command_id`, and `when`. The
+`keywords`. Surface chrome descriptors carry the right-panel aria label,
+add-surface label, empty-state title/body, tab action labels, close-label
+prefixes, and default icon fallback. Keybinding descriptors carry `key`,
+`command_id`, and `when`. The
 renderer may keep local metadata for React components, but visible
-command-palette entries, right-panel launchers, bottom-drawer tabs, labels,
-icons, descriptions, and keybinding targets are filtered or merged from this
-bootstrap declaration. A
+command-palette entries, right-panel launchers, bottom-drawer tabs, surface
+command labels, panel chrome labels, icons, descriptions, and keybinding
+targets are filtered or merged from this bootstrap declaration. A
 missing `capabilities` object or missing capability descriptor arrays mean no
 app-shell entrypoints, not GUI defaults.
 `capabilities.home` carries GUI home/sidebar copy for workspace and thread

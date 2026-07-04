@@ -50,6 +50,19 @@ export function runAppShellModelTests() {
   });
   assert.deepEqual(initial.capabilities.surfaces.rightPanel, []);
   assert.deepEqual(initial.capabilities.surfaces.bottomDrawer, []);
+  assert.deepEqual(initial.capabilities.surfaces.chrome, {
+    rightPanelAriaLabel: "",
+    addSurfaceLabel: "",
+    emptyTitle: "",
+    emptyBody: "",
+    surfaceActionsLabelPrefix: "",
+    closeLabelPrefix: "",
+    closeActionLabel: "",
+    closeOthersActionLabel: "",
+    closeToRightActionLabel: "",
+    closeAllActionLabel: "",
+    defaultIcon: "",
+  });
   assert.deepEqual(initial.capabilities.keybindings, []);
   assert.equal(initial.capabilities.agentApplication, null);
   assert.deepEqual(initial.capabilities.agentApplications, []);
@@ -152,6 +165,19 @@ export function runAppShellModelTests() {
         },
       },
       surfaces: {
+        chrome: {
+          right_panel_aria_label: "Workspace panel",
+          add_surface_label: "Add workspace view",
+          empty_title: "Open a workspace view",
+          empty_body: "Choose a project surface.",
+          surface_actions_label_prefix: "View actions for",
+          close_label_prefix: "Close view",
+          close_action_label: "Close view",
+          close_others_action_label: "Close other views",
+          close_to_right_action_label: "Close views to the right",
+          close_all_action_label: "Close all views",
+          default_icon: "V",
+        },
         right_panel: [
           surface("settings", "Settings", { launcher_order: 10 }),
           surface("diagnostics", "Diagnostics", { launcher_order: 20 }),
@@ -299,6 +325,11 @@ export function runAppShellModelTests() {
     ["settings", "diagnostics", "source_control"],
   );
   assert.equal(bootstrap.capabilities.surfaces.rightPanel[0].title, "Settings");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.rightPanelAriaLabel, "Workspace panel");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.addSurfaceLabel, "Add workspace view");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.emptyTitle, "Open a workspace view");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.closeAllActionLabel, "Close all views");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.defaultIcon, "V");
   assert.deepEqual(
     bootstrap.capabilities.surfaces.bottomDrawer.map((item) => item.kind),
     ["terminal"],
