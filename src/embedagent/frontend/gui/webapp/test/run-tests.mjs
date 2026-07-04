@@ -83,6 +83,8 @@ async function main() {
   assert.deepEqual(initialState.sessionCapabilities.modes, []);
   assert.deepEqual(initialState.sessionCapabilities.toolCatalog, {});
   assert.equal(Object.hasOwn(initialState, "toolCatalog"), false);
+  assert.equal(Object.hasOwn(initialState, "inspectorTab"), false);
+  assert.equal(Object.hasOwn(initialState, "inspectorOpen"), false);
   const storeTerminalSurface = reducer(initialState, {
     type: "workbench_surface_opened",
     placement: "right",
@@ -477,7 +479,7 @@ async function main() {
       focusedDiff: "--- a/demo.c\n+++ b/demo.c\n",
     },
   });
-  assert.equal(diffSurfaceState.inspectorTab, "diff");
+  assert.equal(Object.hasOwn(diffSurfaceState, "inspectorTab"), false);
   assert.equal(diffSurfaceState.workbench.rightPanel.activeKind, "diff");
   assert.equal(diffSurfaceState.workbench.rightPanel.activeSurfaceId, "right:diff:current");
   assert.equal(diffSurfaceState.diffSurface.title, "Git Diff");
@@ -554,9 +556,8 @@ async function main() {
       remembered_categories: ["workspace_write"],
       rules: [{ decision: "ask", category: "workspace_write", reason: "write" }],
     },
-    inspectorTab: "permissions",
   });
-  assert.equal(permissionState.inspectorTab, "permissions");
+  assert.equal(Object.hasOwn(permissionState, "inspectorTab"), false);
   assert.deepEqual(permissionState.permissionContext.remembered_categories, ["workspace_write"]);
 
   const pendingPermissionState = reducer(initialState, {
@@ -578,8 +579,8 @@ async function main() {
   });
   assert.equal(pendingPermissionState.snapshot.pending_interaction.interaction_id, "perm-panel-1");
   assert.equal(Object.prototype.hasOwnProperty.call(pendingPermissionState, "permission"), false);
-  assert.equal(pendingPermissionState.inspectorTab, "interaction");
-  assert.equal(pendingPermissionState.inspectorOpen, true);
+  assert.equal(Object.hasOwn(pendingPermissionState, "inspectorTab"), false);
+  assert.equal(Object.hasOwn(pendingPermissionState, "inspectorOpen"), false);
   assert.equal(pendingPermissionState.activities.length, 0);
 
   const clearedPermissionState = reducer(pendingPermissionState, {
@@ -616,8 +617,8 @@ async function main() {
   });
   assert.equal(pendingUserInputState.snapshot.pending_interaction.interaction_id, "ask-panel-1");
   assert.equal(Object.prototype.hasOwnProperty.call(pendingUserInputState, "userInput"), false);
-  assert.equal(pendingUserInputState.inspectorTab, "interaction");
-  assert.equal(pendingUserInputState.inspectorOpen, true);
+  assert.equal(Object.hasOwn(pendingUserInputState, "inspectorTab"), false);
+  assert.equal(Object.hasOwn(pendingUserInputState, "inspectorOpen"), false);
   assert.equal(pendingUserInputState.activities.length, 0);
 
   const answeredUserInputState = reducer(pendingUserInputState, {
@@ -657,8 +658,8 @@ async function main() {
     },
   );
   assert.equal(activatedState.runOutput.length, 0);
-  assert.equal(activatedState.inspectorTab, "interaction");
-  assert.equal(activatedState.inspectorOpen, true);
+  assert.equal(Object.hasOwn(activatedState, "inspectorTab"), false);
+  assert.equal(Object.hasOwn(activatedState, "inspectorOpen"), false);
 
   const bootstrapToolState = reducer(initialState, {
     type: "session_activated",
@@ -953,6 +954,7 @@ async function main() {
   assert.equal(rightPanelControllerSource.includes("export function createRightPanelController"), true);
   assert.equal(rightPanelControllerSource.includes("rightPanelSurfaceTitle"), true);
   assert.equal(rightPanelControllerSource.includes("terminalController.openRightPanelSurface"), true);
+  assert.equal(rightPanelControllerSource.includes('type: "set_inspector"'), false);
   assert.equal(rightPanelControllerSource.includes("import React"), false);
   const workbenchCommandControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "workbench-command-controller.js"),
@@ -985,6 +987,8 @@ async function main() {
   assert.equal(appSource.includes('preview: { kind: "file"'), false);
   assert.equal(appSource.includes("showTabs={false}"), false);
   assert.equal(appSource.includes("onTabChange:"), false);
+  assert.equal(appSource.includes('type: "set_inspector"'), false);
+  assert.equal(appSource.includes("inspectorTab:"), false);
   assert.equal(appSource.includes("activeKind={state.inspectorTab}"), false);
   assert.equal(appSource.includes("appShell: state.app"), true);
   assert.equal(appSource.includes("projectSessionRuntime"), false);
@@ -996,6 +1000,8 @@ async function main() {
   );
   assert.equal(visualFixturesSource.includes("buildLongTimelineFixtureAction"), true);
   assert.equal(visualFixturesSource.includes("loadLongTimelineFixture"), true);
+  assert.equal(visualFixturesSource.includes('type: "set_inspector"'), false);
+  assert.equal(visualFixturesSource.includes("inspectorTab"), false);
 
   const socketMessageEffectsSource = fs.readFileSync(
     webappSourcePath("app-runtime", "socket-message-effects.js"),
@@ -1007,6 +1013,8 @@ async function main() {
   assert.equal(socketMessageEffectsSource.includes("export const LOADER_REQUESTS"), false);
   assert.equal(socketMessageEffectsSource.includes("workspace_changed"), true);
   assert.equal(socketMessageEffectsSource.includes("terminal_event"), true);
+  assert.equal(socketMessageEffectsSource.includes('type: "set_inspector"'), false);
+  assert.equal(socketMessageEffectsSource.includes("inspectorTab"), false);
   assert.equal(socketMessageEffectsSource.includes("session_event"), true);
   assert.equal(socketMessageEffectsSource.includes('type === "permission_request"'), true);
   assert.equal(socketMessageEffectsSource.includes('type === "user_input_request"'), true);
@@ -1114,6 +1122,10 @@ async function main() {
   assert.equal(storeSource.includes('case "recipes_loaded":'), false);
   assert.equal(storeSource.includes('case "tool_catalog_loaded":'), false);
   assert.equal(storeSource.includes("toolCatalog: {}"), false);
+  assert.equal(storeSource.includes("inspectorTab"), false);
+  assert.equal(storeSource.includes("inspectorOpen"), false);
+  assert.equal(storeSource.includes('case "set_inspector":'), false);
+  assert.equal(storeSource.includes('case "toggle_inspector":'), false);
   assert.equal(storeSource.includes("TOOL_LABELS"), false);
   assert.equal(storeSource.includes("export function toolLabel"), false);
   assert.equal(storeSource.includes("Read  "), false);

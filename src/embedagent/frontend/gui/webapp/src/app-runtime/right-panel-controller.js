@@ -35,7 +35,6 @@ export function createRightPanelController({
       title: rightPanelSurfaceTitle(surfaceKind, title),
       resourceId: surfaceDefinitionFor(surfaceKind)?.defaultResourceId || "",
     });
-    dispatch({ type: "set_inspector", value: surfaceKind });
   }
 
   return {

@@ -329,6 +329,9 @@ contract or frontend-facing `CoreInterface.get_tool_catalog` facade.
 Right-panel navigation is likewise owned by the app-shell surface capability
 projection. Inspector content components render the active surface only; they do
 not keep a second hard-coded tab registry or `onTabChange` navigation contract.
+The renderer has no root-level `inspectorTab` / `inspectorOpen` navigation
+state; opening, activating, and closing right-panel content flows through
+workbench surface state.
 
 `POST /api/sessions` without an explicit mode leaves mode selection to the selected backend application/profile. Frontends should not inject `explore` or `build` as an implicit entry mode.
 

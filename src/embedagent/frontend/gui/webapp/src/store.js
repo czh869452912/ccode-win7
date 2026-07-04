@@ -21,8 +21,6 @@ export const EMPTY_CAPABILITIES = normalizeProtocolCapabilities({});
 
 export const initialState = {
   sidebarTab: "chats",
-  inspectorTab: "tasks",
-  inspectorOpen: true,
   lang: "en",
   thread: createThreadState(),
   snapshot: null,
@@ -73,10 +71,6 @@ export function reducer(state, action) {
   switch (action.type) {
     case "set_sidebar":
       return { ...state, sidebarTab: action.value };
-    case "set_inspector":
-      return { ...state, inspectorTab: action.value };
-    case "toggle_inspector":
-      return { ...state, inspectorOpen: !state.inspectorOpen };
     case "set_lang":
       return { ...state, lang: action.value };
     case "set_composer":
@@ -179,14 +173,6 @@ export function reducer(state, action) {
         review: null,
         permissionContext: null,
         tasks: Array.isArray(action.snapshot?.task_items) ? action.snapshot.task_items : [],
-        inspectorTab:
-          action.snapshot?.pending_interaction_valid && action.snapshot?.pending_interaction
-            ? "interaction"
-            : state.inspectorTab,
-        inspectorOpen:
-          action.snapshot?.pending_interaction_valid && action.snapshot?.pending_interaction
-            ? true
-            : state.inspectorOpen,
         workbench: reduceWorkbenchState(state.workbench, {
           type: "workbench_session_activated",
           sessionId: action.sessionId,
@@ -195,12 +181,6 @@ export function reducer(state, action) {
     case "session_snapshot": {
       const snapshot = action.snapshot;
       if (!snapshot) return state;
-      const hadActiveInteraction = Boolean(
-        state.snapshot?.pending_interaction_valid && state.snapshot?.pending_interaction,
-      );
-      const hasActiveInteraction = Boolean(
-        snapshot.pending_interaction_valid && snapshot.pending_interaction,
-      );
       return {
         ...state,
         thread: reduceThreadState(state.thread, action),
@@ -211,14 +191,6 @@ export function reducer(state, action) {
           snapshot.pending_interaction_valid && snapshot.pending_interaction
             ? null
             : state.interactionNotice,
-        inspectorTab:
-          !hadActiveInteraction && hasActiveInteraction
-            ? "interaction"
-            : state.inspectorTab,
-        inspectorOpen:
-          !hadActiveInteraction && hasActiveInteraction
-            ? true
-            : state.inspectorOpen,
       };
     }
     case "artifacts_loaded":
@@ -227,7 +199,6 @@ export function reducer(state, action) {
       return {
         ...state,
         preview: action.preview,
-        inspectorTab: action.inspectorTab || state.inspectorTab,
       };
     case "file_preview_load_started": {
       const path = String(action.path || "");
@@ -285,7 +256,6 @@ export function reducer(state, action) {
       return {
         ...state,
         diffSurface: action.diffSurface || null,
-        inspectorTab: "diff",
         workbench: reduceWorkbenchState(state.workbench, {
           type: "workbench_surface_opened",
           placement: "right",
@@ -303,26 +273,21 @@ export function reducer(state, action) {
       return {
         ...state,
         plan: action.plan,
-        inspectorTab: action.inspectorTab || state.inspectorTab,
       };
     case "review_loaded":
       return {
         ...state,
         review: action.review,
-        inspectorTab: action.inspectorTab || state.inspectorTab,
       };
     case "permission_context_loaded":
       return {
         ...state,
         permissionContext: action.context,
-        inspectorTab: action.inspectorTab || state.inspectorTab,
       };
     case "interaction_notice_set":
       return {
         ...state,
         interactionNotice: action.notice || null,
-        inspectorTab: "interaction",
-        inspectorOpen: true,
       };
     case "interaction_notice_clear":
       return {

@@ -560,6 +560,9 @@ Right-panel navigation is app-shell surface capability driven end to end.
 Inspector content components render whichever supported surface is active, but
 they must not keep their own hard-coded surface tab registry or `onTabChange`
 navigation path that bypasses app capabilities.
+The renderer must not keep parallel root-level `inspectorTab` / `inspectorOpen`
+navigation fields; the right-panel workbench surface state is the single live
+navigation state for this area.
 
 ## 10. Bundling Model
 

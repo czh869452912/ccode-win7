@@ -304,7 +304,6 @@ function App() {
             filePath: path,
           }),
         });
-        dispatch({ type: "set_inspector", value: "diff" });
       } else {
         dispatch({ type: "source_control_diff_failed", error: diff.reason || "Diff unavailable" });
       }
@@ -397,7 +396,6 @@ function App() {
     dispatch({
       type: "preview_loaded",
       preview: { kind: "artifact", title: payload.path || reference, content },
-      inspectorTab: "preview",
     });
   }
 
@@ -424,7 +422,6 @@ function App() {
         title: entry?.title || "Review Evidence",
         content: entry?.content || "",
       },
-      inspectorTab: "preview",
     });
   }
 
@@ -711,7 +708,6 @@ function App() {
         resourceId,
         previewSnapshot: snapshot,
       });
-      dispatch({ type: "set_inspector", value: "preview" });
       return result;
     } catch (error) {
       dispatch({
@@ -921,7 +917,6 @@ function App() {
               surfaceId: surface.id,
               kind: surface.kind,
             });
-            dispatch({ type: "set_inspector", value: surface.kind });
             if (surface.kind === "terminal" && surface.activeTerminalId) {
               void terminalController.openSession(surface.activeTerminalId);
             }

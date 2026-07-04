@@ -945,6 +945,26 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
         assert token not in controller_text
 
 
+def test_gui_has_no_root_inspector_navigation_state():
+    checked_paths = (
+        ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx",
+        ROOT / "src/embedagent/frontend/gui/webapp/src/store.js",
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js",
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js",
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/visual-debug-fixtures.js",
+    )
+    banned_tokens = (
+        "inspectorTab",
+        "inspectorOpen",
+        "set_inspector",
+        "toggle_inspector",
+    )
+    for path in checked_paths:
+        text = _read(path)
+        for token in banned_tokens:
+            assert token not in text
+
+
 def test_hosted_interactions_do_not_keep_legacy_blocking_frontend_paths():
     banned_tokens = (
         "on_permission_request",

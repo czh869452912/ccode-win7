@@ -66,14 +66,6 @@ function dispatchTimelineFixture(dispatch, action) {
       },
     });
   }
-  if (action.inspectorTab) {
-    dispatch({ type: "set_inspector", value: action.inspectorTab });
-    dispatch({
-      type: "workbench_surface_activated",
-      placement: "right",
-      kind: action.inspectorTab,
-    });
-  }
   if (action.activeTurnId || action.activeStepId) {
     dispatch({
       type: "step_started",
@@ -104,7 +96,6 @@ function dispatchInteractionFixture(dispatch, action) {
     activities: [],
     historyIntegrity: null,
   });
-  dispatch({ type: "set_inspector", value: "interaction" });
 }
 
 function dispatchThreadFixture(dispatch, action) {
@@ -189,7 +180,6 @@ export function buildTimelineFixtureAction({ currentMode = "explore" } = {}) {
   return {
     type: "dev_fixture_timeline",
     sessionId: "visual-debug-timeline",
-    inspectorTab: "tasks",
     timeline: [
       {
         id: "visual-user-1",
@@ -411,7 +401,6 @@ export function buildLongTimelineFixtureAction({ currentMode = "explore", turnCo
   return {
     type: "dev_fixture_timeline",
     sessionId: "visual-debug-long-timeline",
-    inspectorTab: "tasks",
     timeline,
     snapshot: {
       session_id: "visual-debug-long-timeline",

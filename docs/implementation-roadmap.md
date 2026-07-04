@@ -192,6 +192,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
 - Right-panel surface navigation is now the only GUI right-panel entrypoint
   truth. `Inspector` no longer keeps an internal `RIGHT_PANEL_SURFACES` tab
   registry, `showTabs` flag, or `onTabChange` navigation contract.
+- Root renderer `inspectorTab` / `inspectorOpen` state and `set_inspector` /
+  `toggle_inspector` reducer actions have been removed; right-panel navigation
+  now flows only through workbench surface state.
 - Offline GUI packaging now includes a native Win32 launcher exe in the portable
   bundle, preserving the one-folder delivery model while improving double-click
   startup.
