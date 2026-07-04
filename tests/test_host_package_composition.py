@@ -98,6 +98,24 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertEqual(python_app.extension_manager.package_manifests(), [])
         self.assertEqual(html_app.extension_manager.package_manifests(), [])
 
+    def test_agent_application_registry_is_record_driven_not_builder_tuple(self):
+        module_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "src",
+            "embedagent",
+            "agent_applications.py",
+        )
+        with open(module_path, "r", encoding="utf-8") as handle:
+            source = handle.read()
+
+        self.assertIn("class AgentApplicationRecord", source)
+        self.assertIn("BUILTIN_AGENT_APPLICATION_RECORDS", source)
+        self.assertNotIn("class AgentApplicationDefinition", source)
+        self.assertNotIn("_builtin_agent_application_definitions", source)
+        self.assertNotIn("manifest_loader", source)
+        self.assertNotIn("builder:", source)
+
     def test_default_application_compatibility_wrapper_is_removed(self):
         import embedagent.agent_applications as agent_applications
 

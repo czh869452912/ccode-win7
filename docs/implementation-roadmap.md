@@ -344,9 +344,10 @@ The current self-extensible Agent Core baseline remains valid. The next program 
 
 14. **Agent application manifest and capability projection**
    - current implementation status: Phase N is complete for the hosted boundary and first built-in multi-application registry
-   - `AgentApplicationManifest` records describe application id, label, profile id, workflow package ids, source metadata, and default status
-   - `build_agent_application(application_id, tools)` is the hosted selected-application loader; the default C/C++ application is one builtin application, not a `QueryEngine` fallback
-   - built-in ids now include `embedagent.default_c_cpp`, `embedagent.generic`, `embedagent.python`, and `embedagent.html`; the non-C applications are profile-only and do not install the C/C++ workflow package
+- `AgentApplicationManifest` records describe application id, label, profile id, workflow package ids, source metadata, and default status
+- `build_agent_application(application_id, tools)` is the hosted selected-application loader; the default C/C++ application is one builtin application, not a `QueryEngine` fallback
+- built-in applications are declared as `AgentApplicationRecord` data and resolved through profile/workflow kind loaders; the old per-application definition tuple with stored manifest/builder callables has been removed
+- built-in ids now include `embedagent.default_c_cpp`, `embedagent.generic`, `embedagent.python`, and `embedagent.html`; the non-C applications are profile-only and do not install the C/C++ workflow package
    - GUI/session capability payloads expose `agentApplication` and `agentApplications` from the backend, and injected external applications do not leak the bundled C/C++ application into their available-application list
    - renderer no-workspace copy, capability normalizers, mode order, `workflowPackages`, and runtime workflow summary rows now come from backend-declared capability/snapshot payloads instead of C/C++ defaults
 

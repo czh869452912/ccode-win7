@@ -150,7 +150,9 @@ Core.
 
 Hosted `AgentApplication` records declare scenario identity, manifest metadata,
 profile, mode policy, extension manager, and workflow refreshers. The hosted
-application registry resolves the selected application id and exposes safe
+application registry stores built-in applications as `AgentApplicationRecord`
+data and resolves the selected application id through profile/workflow kind
+loaders instead of per-application builder callables. It exposes safe
 `AgentApplicationManifest` records for GUI capability projection. Agent
 profiles declare scenario mode metadata, base tool policy, and GUI mode
 capability projection.

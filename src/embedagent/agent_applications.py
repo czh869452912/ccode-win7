@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from embedagent.agent_profiles import (
     AgentProfile,
+    default_c_cpp_agent_profile,
     generic_agent_profile,
     html_agent_profile,
     python_agent_profile,
@@ -63,33 +64,98 @@ class AgentApplication:
 
 
 @dataclass(frozen=True)
-class AgentApplicationDefinition:
+class AgentApplicationRecord:
     application_id: str
-    manifest_loader: Callable[[], AgentApplicationManifest]
-    builder: Callable[[Any], AgentApplication]
+    label: str
+    profile_id: str
+    profile_kind: str
+    workflow_package_ids: Tuple[str, ...] = field(default_factory=tuple)
+    workflow_kind: str = ""
+    source_type: str = "builtin"
+    source_id: str = ""
+    default: bool = False
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_manifest(self) -> AgentApplicationManifest:
+        return AgentApplicationManifest(
+            application_id=self.application_id,
+            label=self.label,
+            profile_id=self.profile_id,
+            workflow_package_ids=tuple(self.workflow_package_ids),
+            source_type=self.source_type,
+            source_id=self.source_id,
+            default=bool(self.default),
+            metadata=dict(self.metadata or {}),
+        )
 
 
-def _profile_application_manifest(
-    application_id: str,
-    label: str,
-    metadata: Optional[Dict[str, Any]] = None,
-) -> AgentApplicationManifest:
-    return AgentApplicationManifest(
-        application_id=application_id,
-        label=label,
-        profile_id=application_id,
-        workflow_package_ids=(),
+BUILTIN_AGENT_APPLICATION_RECORDS = (
+    AgentApplicationRecord(
+        application_id=DEFAULT_AGENT_APPLICATION_ID,
+        label="Default C/C++ Agent",
+        profile_id=DEFAULT_AGENT_APPLICATION_ID,
+        profile_kind="default_c_cpp",
+        workflow_package_ids=("embedagent.c_workflow",),
+        workflow_kind="c_cpp",
+        source_type="builtin",
+        source_id="embedagent.workflow_packages.c_cpp",
+        default=True,
+    ),
+    AgentApplicationRecord(
+        application_id=GENERIC_AGENT_APPLICATION_ID,
+        label="Generic Agent",
+        profile_id=GENERIC_AGENT_APPLICATION_ID,
+        profile_kind="generic",
         source_type="builtin",
         source_id="embedagent.agent_profiles",
-        default=False,
-        metadata=dict(metadata or {}),
-    )
+        metadata={"domain": "generic"},
+    ),
+    AgentApplicationRecord(
+        application_id=PYTHON_AGENT_APPLICATION_ID,
+        label="Python Agent",
+        profile_id=PYTHON_AGENT_APPLICATION_ID,
+        profile_kind="python",
+        source_type="builtin",
+        source_id="embedagent.agent_profiles",
+        metadata={"domain": "python"},
+    ),
+    AgentApplicationRecord(
+        application_id=HTML_AGENT_APPLICATION_ID,
+        label="HTML Agent",
+        profile_id=HTML_AGENT_APPLICATION_ID,
+        profile_kind="html",
+        source_type="builtin",
+        source_id="embedagent.agent_profiles",
+        metadata={"domain": "html"},
+    ),
+)
+
+
+def _record_by_id(application_id: str) -> AgentApplicationRecord:
+    requested = str(application_id or "").strip() or DEFAULT_AGENT_APPLICATION_ID
+    for record in BUILTIN_AGENT_APPLICATION_RECORDS:
+        if requested == record.application_id:
+            return record
+    raise ValueError("Unknown agent application %r" % (application_id,))
+
+
+def _profile_for_record(record: AgentApplicationRecord) -> AgentProfile:
+    if record.profile_kind == "default_c_cpp":
+        return default_c_cpp_agent_profile()
+    if record.profile_kind == "generic":
+        return generic_agent_profile()
+    if record.profile_kind == "python":
+        return python_agent_profile()
+    if record.profile_kind == "html":
+        return html_agent_profile()
+    raise ValueError("Unknown agent profile kind %r" % (record.profile_kind,))
 
 
 def _build_profile_application(
-    manifest: AgentApplicationManifest,
+    record: AgentApplicationRecord,
     profile: AgentProfile,
 ) -> AgentApplication:
+    manifest = record.to_manifest()
     return AgentApplication(
         application_id=manifest.application_id,
         label=manifest.label,
@@ -100,91 +166,27 @@ def _build_profile_application(
 
 
 def generic_agent_application_manifest() -> AgentApplicationManifest:
-    return _profile_application_manifest(
-        GENERIC_AGENT_APPLICATION_ID,
-        "Generic Agent",
-        {"domain": "generic"},
-    )
+    return _record_by_id(GENERIC_AGENT_APPLICATION_ID).to_manifest()
 
 
 def python_agent_application_manifest() -> AgentApplicationManifest:
-    return _profile_application_manifest(
-        PYTHON_AGENT_APPLICATION_ID,
-        "Python Agent",
-        {"domain": "python"},
-    )
+    return _record_by_id(PYTHON_AGENT_APPLICATION_ID).to_manifest()
 
 
 def html_agent_application_manifest() -> AgentApplicationManifest:
-    return _profile_application_manifest(
-        HTML_AGENT_APPLICATION_ID,
-        "HTML Agent",
-        {"domain": "html"},
-    )
-
-
-def _build_generic_agent_application(tools: Any) -> AgentApplication:
-    del tools
-    manifest = generic_agent_application_manifest()
-    return _build_profile_application(manifest, generic_agent_profile())
-
-
-def _build_python_agent_application(tools: Any) -> AgentApplication:
-    del tools
-    manifest = python_agent_application_manifest()
-    return _build_profile_application(manifest, python_agent_profile())
-
-
-def _build_html_agent_application(tools: Any) -> AgentApplication:
-    del tools
-    manifest = html_agent_application_manifest()
-    return _build_profile_application(manifest, html_agent_profile())
-
-
-def _c_cpp_agent_application_manifest() -> AgentApplicationManifest:
-    from embedagent.workflow_packages.c_cpp.application import c_cpp_agent_application_manifest
-
-    return c_cpp_agent_application_manifest()
-
-
-def _build_c_cpp_agent_application(tools: Any) -> AgentApplication:
-    from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
-
-    return build_c_cpp_agent_application(tools)
-
-
-def _builtin_agent_application_definitions() -> Tuple[AgentApplicationDefinition, ...]:
-    return (
-        AgentApplicationDefinition(
-            application_id=DEFAULT_AGENT_APPLICATION_ID,
-            manifest_loader=_c_cpp_agent_application_manifest,
-            builder=_build_c_cpp_agent_application,
-        ),
-        AgentApplicationDefinition(
-            application_id=GENERIC_AGENT_APPLICATION_ID,
-            manifest_loader=generic_agent_application_manifest,
-            builder=_build_generic_agent_application,
-        ),
-        AgentApplicationDefinition(
-            application_id=PYTHON_AGENT_APPLICATION_ID,
-            manifest_loader=python_agent_application_manifest,
-            builder=_build_python_agent_application,
-        ),
-        AgentApplicationDefinition(
-            application_id=HTML_AGENT_APPLICATION_ID,
-            manifest_loader=html_agent_application_manifest,
-            builder=_build_html_agent_application,
-        ),
-    )
+    return _record_by_id(HTML_AGENT_APPLICATION_ID).to_manifest()
 
 
 def available_agent_application_manifests() -> List[AgentApplicationManifest]:
-    return [definition.manifest_loader() for definition in _builtin_agent_application_definitions()]
+    return [record.to_manifest() for record in BUILTIN_AGENT_APPLICATION_RECORDS]
 
 
 def build_agent_application(application_id: str, tools: Any) -> AgentApplication:
-    requested = str(application_id or "").strip() or DEFAULT_AGENT_APPLICATION_ID
-    for definition in _builtin_agent_application_definitions():
-        if requested == definition.application_id:
-            return definition.builder(tools)
-    raise ValueError("Unknown agent application %r" % (application_id,))
+    record = _record_by_id(application_id)
+    if record.workflow_kind == "c_cpp":
+        from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
+
+        return build_c_cpp_agent_application(tools)
+    if record.workflow_kind:
+        raise ValueError("Unknown workflow kind %r" % (record.workflow_kind,))
+    return _build_profile_application(record, _profile_for_record(record))
