@@ -223,6 +223,12 @@ These tools are registered in the runtime catalog. Built-in mode prompts expose 
 
 Runtime schema filtering no longer activates the default harness pack on its own. Product paths that need the full default C/C++ tool set combine the mode contract with `ExtensionManager` active tools, then request schemas by explicit tool names.
 
+The runtime catalog is also the source of safe GUI presentation metadata. Tool
+entries may declare `metadata.preview_arg`, and session capabilities project
+that field to frontends so timeline tool previews can adapt to different base
+or specialized agents without hard-coded `bash`, `read_file`, or workflow-tool
+name tables.
+
 In-process extensions may register additional `ToolDefinition` objects into the shared runtime catalog. Registration records `source_type` and `source_id`, but a dynamic tool is model-visible only when activated through the shared `ExtensionManager` active-tool path and remains subject to `PermissionPolicy`.
 
 Local resource reload is file-only. Skills and prompts are surfaced as discovered resources, while `.embedagent/recipes/*.json` contributes workflow-neutral recipe definitions. The default C/C++ workflow package normalizes runnable workspace recipes into the `list_recipes` / `run_recipe` path at its own aggregation boundary. Skills may include Agent Skills-style frontmatter (`name`, `description`, `disable-model-invocation`); visible skills are summarized once through the hosted local skill listing prompt unit, and `/skill:<name> [args]` expands the skill Markdown body into the next user turn. Prompt files are expanded only through explicit `/prompt:<name-or-path> [args]` invocation. Reloading resources records transcript-backed diagnostics and does not execute project-local Python code. `author_local_capability` can create local resource files and disabled extension skeletons, but the caller must still use resource reload or explicit extension loading as separate follow-up operations.

@@ -699,6 +699,20 @@ def test_tool_refresh_paths_use_read_model_invalidations_not_tool_name_lists():
     assert offenders == []
 
 
+def test_gui_timeline_tool_preview_is_catalog_driven():
+    text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js")
+
+    assert "commandPreviewFromToolPresentation" in text
+    for token in (
+        'if (toolName === "shell" || toolName === "bash")',
+        'if (toolName === "grep_text")',
+        'if (toolName === "glob_files")',
+        'if (toolName === "read_file" || toolName === "write_file" || toolName === "edit_file")',
+        "function toolNameRequestKind",
+    ):
+        assert token not in text
+
+
 def test_gui_raw_interaction_requests_do_not_synthesize_activity_records():
     files = [
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js",

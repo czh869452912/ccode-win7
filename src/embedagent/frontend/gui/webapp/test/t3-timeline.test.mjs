@@ -488,6 +488,128 @@ export function runT3TimelineTests() {
   assert.equal(metadataWork.presentation.heading, "Pytest");
   assert.equal(metadataWork.presentation.iconName, "terminal");
 
+  const catalogDrivenRows = projectT3TimelineRows({
+    toolCatalog: {
+      bash: {
+        name: "bash",
+        label: "Shell",
+        iconKey: "terminal",
+        rendererKey: "command",
+        permissionCategory: "shell_exec",
+        metadata: { preview_arg: "command" },
+      },
+      read_file: {
+        name: "read_file",
+        label: "Read File",
+        iconKey: "eye",
+        rendererKey: "file",
+        permissionCategory: "read",
+        metadata: { preview_arg: "path" },
+      },
+    },
+    turnGroups: [
+      {
+        turnId: "turn-catalog-preview",
+        userItem: {
+          id: "u-catalog-preview",
+          kind: "user",
+          content: "inspect catalog preview",
+          turnId: "turn-catalog-preview",
+        },
+        steps: [
+          {
+            stepId: "step-catalog-preview",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "bash-catalog-preview",
+                kind: "tool",
+                toolName: "bash",
+                status: "success",
+                arguments: { command: "uv run pytest tests/catalog" },
+                turnId: "turn-catalog-preview",
+                stepId: "step-catalog-preview",
+              },
+              {
+                id: "read-catalog-preview",
+                kind: "tool",
+                toolName: "read_file",
+                status: "success",
+                arguments: { path: "src/from-catalog.c" },
+                turnId: "turn-catalog-preview",
+                stepId: "step-catalog-preview",
+              },
+            ],
+            assistantItem: null,
+          },
+        ],
+        trailingTurnItems: [],
+        leadingSystemItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "running",
+    activeTurnId: "turn-catalog-preview",
+  });
+  const bashCatalogPreview = catalogDrivenRows.find((row) => row.id === "bash-catalog-preview");
+  assert.equal(bashCatalogPreview.requestKind, "command");
+  assert.equal(bashCatalogPreview.commandPreview, "uv run pytest tests/catalog");
+  const readCatalogPreview = catalogDrivenRows.find((row) => row.id === "read-catalog-preview");
+  assert.equal(readCatalogPreview.requestKind, "file-read");
+  assert.equal(readCatalogPreview.commandPreview, "src/from-catalog.c");
+
+  const undeclaredBuiltInRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-undeclared-preview",
+        userItem: {
+          id: "u-undeclared-preview",
+          kind: "user",
+          content: "inspect undeclared preview",
+          turnId: "turn-undeclared-preview",
+        },
+        steps: [
+          {
+            stepId: "step-undeclared-preview",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "bash-undeclared-preview",
+                kind: "tool",
+                toolName: "bash",
+                status: "success",
+                arguments: { command: "uv run pytest tests/undeclared" },
+                turnId: "turn-undeclared-preview",
+                stepId: "step-undeclared-preview",
+              },
+              {
+                id: "read-undeclared-preview",
+                kind: "tool",
+                toolName: "read_file",
+                status: "success",
+                arguments: { path: "src/undeclared.c" },
+                turnId: "turn-undeclared-preview",
+                stepId: "step-undeclared-preview",
+              },
+            ],
+            assistantItem: null,
+          },
+        ],
+        trailingTurnItems: [],
+        leadingSystemItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "running",
+    activeTurnId: "turn-undeclared-preview",
+  });
+  const undeclaredBash = undeclaredBuiltInRows.find((row) => row.id === "bash-undeclared-preview");
+  assert.equal(undeclaredBash.requestKind, "");
+  assert.equal(undeclaredBash.commandPreview, "");
+  const undeclaredRead = undeclaredBuiltInRows.find((row) => row.id === "read-undeclared-preview");
+  assert.equal(undeclaredRead.requestKind, "");
+  assert.equal(undeclaredRead.commandPreview, "");
+
   const actionPresentationRows = projectT3TimelineRows({
     turnGroups: [
       {

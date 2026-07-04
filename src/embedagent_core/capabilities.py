@@ -294,6 +294,33 @@ def app_capability_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     for item in modes:
         item.pop("_order", None)
     payload["modes"] = modes
+    tools = []
+    for item in list((snapshot or {}).get("descriptors") or []):
+        if not isinstance(item, dict) or item.get("kind") != "tool":
+            continue
+        metadata = dict(item.get("metadata") or {})
+        name = _clean_text(metadata.get("name") or item.get("name"))
+        if not name:
+            continue
+        tools.append(
+            {
+                "name": name,
+                "label": _clean_text(metadata.get("user_label"), name),
+                "renderer_key": _clean_text(metadata.get("result_renderer_key"), "generic"),
+                "progress_renderer_key": _clean_text(
+                    metadata.get("progress_renderer_key"),
+                    "default",
+                ),
+                "result_renderer_key": _clean_text(metadata.get("result_renderer_key"), "generic"),
+                "permission_category": _clean_text(metadata.get("permission_category"), "other"),
+                "metadata": dict(metadata.get("metadata") or {}),
+                "source_type": _clean_text(item.get("source_type"), "runtime"),
+                "source_id": _clean_text(item.get("source_id"), "runtime"),
+                "active": bool(item.get("active", True)),
+            }
+        )
+    tools.sort(key=lambda item: item["name"])
+    payload["tools"] = tools
     workflow_packages = []
     for item in list((snapshot or {}).get("descriptors") or []):
         if not isinstance(item, dict) or item.get("kind") != "workflow_package":

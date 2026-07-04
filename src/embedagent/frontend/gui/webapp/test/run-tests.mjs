@@ -746,6 +746,16 @@ async function main() {
   ]) {
     assert.equal(t3TimelineSource.includes(hardcodedProjectionChromeCopy), false);
   }
+  assert.equal(t3TimelineSource.includes("commandPreviewFromToolPresentation"), true);
+  for (const hardcodedToolPreviewCopy of [
+    'if (toolName === "shell" || toolName === "bash")',
+    'if (toolName === "grep_text")',
+    'if (toolName === "glob_files")',
+    'if (toolName === "read_file" || toolName === "write_file" || toolName === "edit_file")',
+    "function toolNameRequestKind",
+  ]) {
+    assert.equal(t3TimelineSource.includes(hardcodedToolPreviewCopy), false);
+  }
 
   const timelineRowsSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "TimelineRows.jsx"),

@@ -84,6 +84,7 @@ class ToolPresentation:
     progress_renderer_key: str
     result_renderer_key: str
     supports_diff_preview: bool
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -166,6 +167,7 @@ class ToolCatalogEntry:
             "progress_renderer_key": self.progress_renderer_key,
             "result_renderer_key": self.result_renderer_key,
             "supports_diff_preview": self.supports_diff_preview,
+            "metadata": dict(self.presentation.metadata or {}),
             "context_reducer_key": self.context_reducer_key,
             "read_only": self.read_only,
             "concurrency_safe": self.concurrency_safe,

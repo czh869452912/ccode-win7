@@ -44,6 +44,42 @@
 
 ## 3. 当前变更记录
 
+### DC-239
+
+- Date: 2026-07-04
+- Change Topic: GUI timeline tool previews are catalog-driven
+- Summary:
+  - Added safe tool presentation metadata projection through
+    `ToolCatalogEntry.metadata`, currently including `preview_arg` only.
+  - Declared preview arguments for default built-in tools and the default
+    C/C++ `run_recipe` workflow tool, and exposed tool descriptors through
+    session capabilities for GUI consumption.
+  - Removed renderer-side timeline preview/request-kind branches for
+    `bash`, `read_file`, `grep_text`, and related built-in tool names.
+  - Added runtime, workflow, adapter capability, frontend projection, and
+    architecture guard coverage so specialized agents can drive GUI timeline
+    previews through catalog metadata.
+- Impacted Scope:
+  - `src/embedagent_core/tool_contracts.py`
+  - `src/embedagent_core/capabilities.py`
+  - `src/embedagent/tools/runtime.py`
+  - `src/embedagent/workflow_packages/c_cpp/tool_metadata.py`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/test/t3-timeline.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_dynamic_tool_registration.py`
+  - `tests/test_workflow_extensions.py`
+  - `tests/test_inprocess_adapter_frontend_api.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/tool-contracts.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-238
 
 - Date: 2026-07-04

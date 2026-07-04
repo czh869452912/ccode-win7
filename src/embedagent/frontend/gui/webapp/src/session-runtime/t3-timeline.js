@@ -342,19 +342,9 @@ export function summarizeChangedFiles(items = []) {
   };
 }
 
-function commandPreviewFor(toolName, args, presentation = null) {
+function commandPreviewFor(args, presentation = null) {
   if (!args || typeof args !== "object") return "";
-  const metadataPreview = commandPreviewFromToolPresentation(presentation, args);
-  if (metadataPreview) return metadataPreview;
-  if (toolName === "shell" || toolName === "bash") {
-    return stringValue(args.command);
-  }
-  if (toolName === "grep_text") return stringValue(args.pattern || args.query);
-  if (toolName === "glob_files") return stringValue(args.pattern);
-  if (toolName === "read_file" || toolName === "write_file" || toolName === "edit_file") {
-    return stringValue(args.path);
-  }
-  return "";
+  return commandPreviewFromToolPresentation(presentation, args);
 }
 
 function permissionCategoryToRequestKind(value) {
@@ -362,13 +352,6 @@ function permissionCategoryToRequestKind(value) {
   if (["command", "shell", "shell_exec", "toolchain_exec", "process", "network", "telemetry"].includes(text)) return "command";
   if (text === "file-read" || text === "read" || text === "workspace_read") return "file-read";
   if (text === "file-change" || text === "write" || text === "workspace_write" || text === "git_write") return "file-change";
-  return "";
-}
-
-function toolNameRequestKind(toolName) {
-  if (toolName === "shell" || toolName === "bash") {
-    return "command";
-  }
   return "";
 }
 
@@ -801,11 +784,10 @@ export function normalizeWorkEntry(item, options = {}) {
   const requestKind =
     normalizeRequestKind(item?.requestKind || item?.request_kind || data.requestKind || data.request_kind) ||
     normalizeRequestKind(item?.permissionCategory || item?.permission_category) ||
-    permissionCategoryToRequestKind(toolPresentation.permissionCategory) ||
-    toolNameRequestKind(toolName);
+    permissionCategoryToRequestKind(toolPresentation.permissionCategory);
   const command =
-    firstString(item?.command, item?.rawCommand ? "" : "", data.command, args.command) ||
-    commandPreviewFor(toolName, args, toolPresentation);
+    firstString(item?.command, item?.rawCommand ? "" : "", data.command) ||
+    commandPreviewFor(args, toolPresentation);
   const rawCommand = firstString(item?.rawCommand, item?.raw_command, data.rawCommand, data.raw_command);
   const detail = firstString(item?.detail, data.detail) || detailTextFor(item);
   const itemType = normalizeItemType(item?.itemType || item?.item_type || data.itemType || data.item_type);
@@ -870,7 +852,7 @@ export function normalizeWorkEntry(item, options = {}) {
     requestKind,
     command,
     rawCommand,
-    commandPreview: command || commandPreviewFor(toolName, args, toolPresentation),
+    commandPreview: command || commandPreviewFor(args, toolPresentation),
     args,
     detail,
     detailModel: buildToolDetailModel(item, args, changed),

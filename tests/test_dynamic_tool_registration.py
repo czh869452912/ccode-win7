@@ -131,6 +131,7 @@ def test_register_tool_defaults_extension_presentation_metadata(tmp_path):
     assert entry["user_label"] == "minimal_echo"
     assert entry["progress_renderer_key"] == "default"
     assert entry["result_renderer_key"] == "default"
+    assert entry["metadata"] == {}
     assert entry["context_reducer_key"] == "minimal_echo"
     assert entry["read_only"] is True
     assert entry["concurrency_safe"] is True
@@ -142,6 +143,25 @@ def test_register_tool_defaults_extension_presentation_metadata(tmp_path):
     assert observation.success is True
     assert observation.data["tool_label"] == "minimal_echo"
     assert observation.data["read_model_invalidations"] == []
+
+
+def test_tool_catalog_projects_safe_presentation_metadata(tmp_path):
+    runtime = ToolRuntime(str(tmp_path))
+    tool = make_dynamic_tool()
+    tool.metadata["preview_arg"] = "message"
+    runtime.register_tool(
+        tool,
+        source_id="test.extension",
+        source_type="extension",
+    )
+
+    entry = runtime.tool_catalog_entry("dynamic_echo")
+    observation = runtime.execute("dynamic_echo", {"message": "hello"})
+
+    assert entry["metadata"] == {"preview_arg": "message"}
+    assert observation.data["presentation_metadata"] == {"preview_arg": "message"}
+    assert "mode_visibility" not in entry["metadata"]
+    assert "permission_category" not in entry["metadata"]
 
 
 def test_tool_catalog_entry_keeps_internal_metadata_facets_behind_legacy_payload(tmp_path):
@@ -168,6 +188,22 @@ def test_tool_catalog_entry_keeps_internal_metadata_facets_behind_legacy_payload
     assert payload["user_label"] == "minimal_echo"
     assert payload["context_reducer_key"] == "minimal_echo"
     assert payload["read_model_invalidations"] == []
+
+
+def test_builtin_tool_catalog_declares_preview_args(tmp_path):
+    runtime = ToolRuntime(str(tmp_path))
+
+    expected = {
+        "read_file": "path",
+        "write_file": "path",
+        "edit_file": "path",
+        "bash": "command",
+        "glob_files": "pattern",
+        "grep_text": "pattern",
+    }
+
+    for tool_name, preview_arg in expected.items():
+        assert runtime.tool_catalog_entry(tool_name)["metadata"]["preview_arg"] == preview_arg
 
 
 def test_builtin_write_tools_declare_read_model_invalidations(tmp_path):

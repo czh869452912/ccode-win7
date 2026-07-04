@@ -86,6 +86,11 @@
   `capabilities.chrome.timeline.work_row`: fallback headings, fallback icon
   names, and status aria labels are backend-declared descriptors rather than
   renderer-local work-row defaults.
+- Timeline tool-call preview text and command/file request kind are now
+  catalog-driven: `ToolRuntime` projects safe `metadata.preview_arg` through
+  session capabilities, the default C/C++ workflow package declares its
+  workflow preview argument, and `t3-timeline.js` no longer keeps
+  `bash`/`read_file`/`grep_text`/workflow-tool preview branches.
 - File Preview right-panel chrome now comes from
   `capabilities.surfaces.chrome.file_preview`: default file/project labels,
   loading/error fallback copy, retry/copy/explorer actions, metadata

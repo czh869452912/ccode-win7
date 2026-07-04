@@ -303,6 +303,12 @@ Session capability payloads expose:
 Renderer code must consume these backend-declared descriptors. It must not
 hard-code the default C/C++ application, mode list, workflow-package labels, or
 no-workspace copy when the backend has not provided them.
+Tool descriptors in `tools` carry GUI presentation fields such as `name`,
+`label`, `renderer_key`, `permission_category`, `source_type`, `source_id`,
+and safe `metadata`. `metadata.preview_arg` is the current display contract
+for timeline tool-call previews. GUI code must consume this descriptor data
+instead of deriving preview text or command/file request kind from built-in or
+workflow tool names.
 `workflowPackages` is present as an array; profile-only applications such as
 `embedagent.python` or `embedagent.html` may legitimately return an empty
 array.
@@ -422,10 +428,10 @@ or an extension loading endpoint. Its application fields are display/control
 metadata only: `agentApplication` identifies the selected scenario application,
 and `agentApplications` lists only applications available from the selected
 package/registry, so an externally injected Python/HTML/etc. application does
-not inherit bundled C/C++ defaults in the GUI. Tool presentation metadata,
-including `toolCatalog`, is consumed from this capability projection and from
-session bootstrap payloads; there is no split GUI `/api/tool-catalog` refetch
-contract or frontend-facing `CoreInterface.get_tool_catalog` facade.
+not inherit bundled C/C++ defaults in the GUI. Tool presentation metadata is
+consumed from this capability projection's `tools` descriptors and normalized
+into the renderer `toolCatalog`; there is no split GUI `/api/tool-catalog`
+refetch contract or frontend-facing `CoreInterface.get_tool_catalog` facade.
 Right-panel navigation is likewise owned by the app-shell surface capability
 projection. Surface panel components render the active surface kind only; they
 merge backend-declared descriptor metadata with locally supported renderers and
@@ -521,12 +527,17 @@ The UI should not use the catalog to reintroduce deprecated mode/tool naming.
 
 Catalog visibility is computed from workflow-neutral mode contracts plus tools activated by the hosted runtime's shared `ExtensionManager`. This lets the shell display harness tool metadata such as `task_status` while keeping `modes.py` independent from the harness pack design and avoiding a separate frontend-only extension chain.
 
-Catalog entries include tool source metadata:
+Catalog entries include display and source metadata:
 
+- `name`
+- `label`
+- `renderer_key`
+- `permission_category`
+- `metadata.preview_arg`
 - `source_type`
 - `source_id`
 
-Frontends may display dynamic tool source metadata for diagnostics or future extension management. They must continue to treat tool permission behavior as backend-owned and derive permission prompts only from backend events.
+Frontends may display dynamic tool source metadata for diagnostics or future extension management. Timeline tool-call preview text and command/file request kind must come from this catalog metadata plus backend-projected permission categories, not from renderer-side tool-name tables. Frontends must continue to treat tool permission behavior as backend-owned and derive permission prompts only from backend events.
 
 Extension diagnostics are frontend-visible health information. Frontends may display them, but they must not infer extension execution policy from them.
 
