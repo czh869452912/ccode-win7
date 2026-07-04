@@ -215,7 +215,16 @@ function MessageRow({ row, markdownComponents }) {
   );
 }
 
-function TurnFoldRow({ row, rowUiState, onToggleRow, rowKeyFor, onOpenDiff, onOpenFile, markdownComponents }) {
+function TurnFoldRow({
+  row,
+  rowUiState,
+  onToggleRow,
+  rowKeyFor,
+  onOpenDiff,
+  onOpenFile,
+  markdownComponents,
+  chrome,
+}) {
   const entries = Array.isArray(row.entries) ? row.entries : [];
   const key = rowKeyFor(row);
   const open = Boolean(rowUiState?.expanded?.[key]);
@@ -247,6 +256,7 @@ function TurnFoldRow({ row, rowUiState, onToggleRow, rowKeyFor, onOpenDiff, onOp
               rowUiState={rowUiState}
               onToggleRow={onToggleRow}
               rowKeyFor={rowKeyFor}
+              chrome={chrome}
             />
           ))}
         </div>
@@ -427,6 +437,7 @@ function TimelineRowSwitch({
   rowUiState,
   onToggleRow,
   rowKeyFor,
+  chrome,
 }) {
   if (row.kind === "message") {
     return <MessageRow row={row} markdownComponents={markdownComponents} />;
@@ -454,11 +465,21 @@ function TimelineRowSwitch({
         onOpenDiff={onOpenDiff}
         onOpenFile={onOpenFile}
         markdownComponents={markdownComponents}
+        chrome={chrome}
       />
     );
   }
   if (row.kind === "interaction") return <InteractionRow row={row} />;
-  if (row.kind === "diff_summary") return <ChangedFilesCard row={row} onOpenDiff={onOpenDiff} />;
+  if (row.kind === "diff_summary") {
+    const changedFilesChrome = chrome?.changedFiles || {};
+    return (
+      <ChangedFilesCard
+        row={row}
+        onOpenDiff={onOpenDiff}
+        chrome={changedFilesChrome}
+      />
+    );
+  }
   if (row.kind === "reasoning") {
     return <ReasoningRow row={row} rowUiState={rowUiState} onToggleRow={onToggleRow} rowKeyFor={rowKeyFor} />;
   }
@@ -502,6 +523,7 @@ export default function TimelineRows({
   rowUiState = null,
   onToggleRow = null,
   rowKeyFor = defaultRowUiKey,
+  chrome = {},
 }) {
   const sections = React.useMemo(() => splitRowsIntoSections(rows || []), [rows]);
   return (
@@ -529,6 +551,7 @@ export default function TimelineRows({
             rowUiState={rowUiState}
             onToggleRow={onToggleRow}
             rowKeyFor={rowKeyFor}
+            chrome={chrome}
           />
         );
       })}

@@ -710,6 +710,40 @@ function normalizeSurfacePanelChrome(input = {}) {
   };
 }
 
+function normalizeTimelineChangedFilesChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    summaryTemplate: String(value.summary_template || value.summaryTemplate || ""),
+    expandLabel: String(value.expand_label || value.expandLabel || ""),
+    collapseLabel: String(value.collapse_label || value.collapseLabel || ""),
+    viewDiffLabel: String(value.view_diff_label || value.viewDiffLabel || ""),
+  };
+}
+
+function normalizeTimelineChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    ariaLabel: String(value.aria_label || value.ariaLabel || ""),
+    emptyState: String(value.empty_state || value.emptyState || ""),
+    historyPartialLabel: String(value.history_partial_label || value.historyPartialLabel || ""),
+    historyPartialFallback: String(
+      value.history_partial_fallback || value.historyPartialFallback || "",
+    ),
+    historyUnavailable: String(value.history_unavailable || value.historyUnavailable || ""),
+    explicitLoopLimitReached: String(
+      value.explicit_loop_limit_reached || value.explicitLoopLimitReached || "",
+    ),
+    maxTurnLimitTemplate: String(
+      value.max_turn_limit_template || value.maxTurnLimitTemplate || "",
+    ),
+    guardStopped: String(value.guard_stopped || value.guardStopped || ""),
+    cancelled: String(value.cancelled || ""),
+    changedFiles: normalizeTimelineChangedFilesChrome(
+      value.changed_files || value.changedFiles,
+    ),
+  };
+}
+
 function normalizeChrome(input = {}) {
   const value = input.chrome && typeof input.chrome === "object" && !Array.isArray(input.chrome)
     ? input.chrome
@@ -722,6 +756,7 @@ function normalizeChrome(input = {}) {
     composer: normalizeComposerChrome(value.composer),
     interaction: normalizeInteractionChrome(value.interaction),
     surfacePanel: normalizeSurfacePanelChrome(value.surface_panel || value.surfacePanel),
+    timeline: normalizeTimelineChrome(value.timeline),
   };
 }
 

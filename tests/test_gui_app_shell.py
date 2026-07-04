@@ -205,6 +205,26 @@ class TestGuiAppShellService(unittest.TestCase):
             },
         )
         self.assertEqual(
+            payload["capabilities"]["chrome"]["timeline"],
+            {
+                "aria_label": "Conversation",
+                "empty_state": "No conversation yet.",
+                "history_partial_label": "history partially restored",
+                "history_partial_fallback": "restore stopped early",
+                "history_unavailable": "session history unavailable",
+                "explicit_loop_limit_reached": "Explicit loop safety limit reached.",
+                "max_turn_limit_template": "Maximum turn limit reached ({turnsUsed}/{maxTurns}).",
+                "guard_stopped": "Stopped by guard.",
+                "cancelled": "Cancelled.",
+                "changed_files": {
+                    "summary_template": "{count} changed files",
+                    "expand_label": "Expand",
+                    "collapse_label": "Collapse",
+                    "view_diff_label": "View diff",
+                },
+            },
+        )
+        self.assertEqual(
             payload["capabilities"]["surfaces"]["chrome"]["diff_panel"],
             {
                 "default_title": "Diff",

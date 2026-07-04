@@ -97,6 +97,10 @@
 - Command Palette empty-state copy is now entirely descriptor-owned through
   `capabilities.command_palette.labels`; `CommandPaletteResults` no longer
   carries a renderer-local English fallback for missing app-shell labels.
+- Timeline chrome now comes from `capabilities.chrome.timeline`: log aria label,
+  empty/history/termination copy, and changed-files card labels are
+  backend-declared descriptors consumed by Timeline, TimelineRows, and
+  ChangedFilesCard.
 - Source Control right-panel chrome now comes from
   `capabilities.source_control.chrome`: panel title, status/diff fallback
   notices, empty states, count/group/provider labels, runtime labels, and

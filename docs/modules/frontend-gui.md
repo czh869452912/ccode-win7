@@ -167,6 +167,18 @@ while continuing to consume the existing GUI terminal backend service. Timeline
 rows are projected through the frontend-local T3 row model; compact/context
 display is turn-associated display metadata, not Agent Core context policy.
 
+### T3 Timeline Chrome
+
+- The Timeline renders `/api/sessions/{id}/bootstrap` history activities plus
+  live session activity rows through the frontend-local T3 row model. It is
+  display state only and does not become durable history truth, workflow state,
+  provider/runtime policy, permission policy, telemetry, extension loading, or
+  Agent Core behavior.
+- Timeline log aria labels, empty/history/termination copy, and changed-files
+  card summary/action labels are declared under `/api/app/bootstrap`
+  `capabilities.chrome.timeline`; renderer Timeline modules may consume that
+  chrome but must not keep parallel English defaults for those fields.
+
 ### T3 File Preview Chrome
 
 - The right-panel `FilePreviewSurface` renders a T3code-style file viewer over an

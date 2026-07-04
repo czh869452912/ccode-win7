@@ -142,7 +142,9 @@ GUI `/api/artifacts` route or `artifacts_refresh` WebSocket event.
 `diagnostics`; `capabilities.surfaces.bottom_drawer` may declare descriptors
 for `terminal`, `run_output`, and `logs`. `capabilities.terminal` describes the GUI
 terminal limitations (`enabled`, `pty`, `resize`, `history_persistent`, and
-`max_buffer_bytes`). `capabilities.surfaces.chrome.file_preview` describes
+`max_buffer_bytes`). `capabilities.chrome.timeline` describes Timeline log
+aria labels, empty/history/termination copy, and changed-files card labels.
+`capabilities.surfaces.chrome.file_preview` describes
 File Preview chrome, metadata labels, fallback messages, and language labels
 for the read-only file right-panel surface.
 `capabilities.surfaces.chrome.diff_panel` describes Diff Panel default titles,

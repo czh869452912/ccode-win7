@@ -112,6 +112,23 @@ export function runAppShellModelTests() {
       noPlan: "",
       diagnosticGroups: {},
     },
+    timeline: {
+      ariaLabel: "",
+      emptyState: "",
+      historyPartialLabel: "",
+      historyPartialFallback: "",
+      historyUnavailable: "",
+      explicitLoopLimitReached: "",
+      maxTurnLimitTemplate: "",
+      guardStopped: "",
+      cancelled: "",
+      changedFiles: {
+        summaryTemplate: "",
+        expandLabel: "",
+        collapseLabel: "",
+        viewDiffLabel: "",
+      },
+    },
   });
   assert.deepEqual(initial.capabilities.surfaces.rightPanel, []);
   assert.deepEqual(initial.capabilities.surfaces.bottomDrawer, []);
@@ -405,6 +422,23 @@ export function runAppShellModelTests() {
           no_plan: "No run plan.",
           diagnostic_groups: {
             host: "Host process",
+          },
+        },
+        timeline: {
+          aria_label: "Run log",
+          empty_state: "No turns yet.",
+          history_partial_label: "history restored with gaps",
+          history_partial_fallback: "restore paused",
+          history_unavailable: "run history unavailable",
+          explicit_loop_limit_reached: "Loop safety limit reached.",
+          max_turn_limit_template: "Turn cap reached ({turnsUsed}/{maxTurns}).",
+          guard_stopped: "Guard stopped this run.",
+          cancelled: "Cancelled by user.",
+          changed_files: {
+            summary_template: "{count} paths changed",
+            expand_label: "Open tree",
+            collapse_label: "Close tree",
+            view_diff_label: "Review patch",
           },
         },
       },
@@ -741,6 +775,22 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.chrome.interaction.customAnswerPlaceholder, "Custom answer");
   assert.equal(bootstrap.capabilities.chrome.surfacePanel.ariaLabel, "View panel");
   assert.equal(bootstrap.capabilities.chrome.surfacePanel.diagnosticGroups.host, "Host process");
+  assert.equal(bootstrap.capabilities.chrome.timeline.ariaLabel, "Run log");
+  assert.equal(bootstrap.capabilities.chrome.timeline.emptyState, "No turns yet.");
+  assert.equal(bootstrap.capabilities.chrome.timeline.historyPartialLabel, "history restored with gaps");
+  assert.equal(bootstrap.capabilities.chrome.timeline.historyPartialFallback, "restore paused");
+  assert.equal(bootstrap.capabilities.chrome.timeline.historyUnavailable, "run history unavailable");
+  assert.equal(bootstrap.capabilities.chrome.timeline.explicitLoopLimitReached, "Loop safety limit reached.");
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.maxTurnLimitTemplate,
+    "Turn cap reached ({turnsUsed}/{maxTurns}).",
+  );
+  assert.equal(bootstrap.capabilities.chrome.timeline.guardStopped, "Guard stopped this run.");
+  assert.equal(bootstrap.capabilities.chrome.timeline.cancelled, "Cancelled by user.");
+  assert.equal(bootstrap.capabilities.chrome.timeline.changedFiles.summaryTemplate, "{count} paths changed");
+  assert.equal(bootstrap.capabilities.chrome.timeline.changedFiles.expandLabel, "Open tree");
+  assert.equal(bootstrap.capabilities.chrome.timeline.changedFiles.collapseLabel, "Close tree");
+  assert.equal(bootstrap.capabilities.chrome.timeline.changedFiles.viewDiffLabel, "Review patch");
   assert.deepEqual(
     bootstrap.capabilities.surfaces.rightPanel.map((item) => item.kind),
     ["settings", "diagnostics", "source_control"],

@@ -849,6 +849,7 @@ function App() {
               onScroll={handleTimelineScroll}
               onOpenDiff={openDiffSurface}
               onOpenFile={openFile}
+              chrome={appChrome.timeline || {}}
             />
             <Composer
               chrome={appChrome.composer || {}}

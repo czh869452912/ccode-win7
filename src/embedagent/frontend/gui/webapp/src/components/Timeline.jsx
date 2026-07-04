@@ -20,30 +20,37 @@ function parseTimelineFileHref(href) {
   return { path: normalizedPath, line: Number.isFinite(line) ? line : undefined };
 }
 
+function formatTemplate(template = "", values = {}) {
+  return String(template || "").replace(/\{(\w+)\}/g, (_match, key) =>
+    String(values[key] ?? ""),
+  );
+}
+
 function terminationCardFor({
   terminationReason,
   terminationDisplayReason,
   terminationMessage,
   turnsUsed,
   maxTurns,
+  chrome = {},
 }) {
   if (terminationReason === "max_turns") {
     if (maxTurns == null) {
       return {
         tone: "context",
-        content: "Explicit loop safety limit reached.",
+        content: chrome.explicitLoopLimitReached || "",
       };
     }
     return {
       tone: "context",
-      content: `Maximum turn limit reached (${turnsUsed}/${maxTurns}).`,
+      content: formatTemplate(chrome.maxTurnLimitTemplate, { turnsUsed, maxTurns }),
     };
   }
   if (terminationReason === "guard") {
-    return { tone: "error", content: "Stopped by guard." };
+    return { tone: "error", content: chrome.guardStopped || "" };
   }
   if (terminationReason === "aborted") {
-    return { tone: "context", content: "Cancelled." };
+    return { tone: "context", content: chrome.cancelled || "" };
   }
   if (terminationReason && terminationReason !== "completed") {
     const label = terminationDisplayReason || terminationReason;
@@ -67,6 +74,7 @@ const Timeline = forwardRef(function Timeline(
     onScroll,
     onOpenDiff,
     onOpenFile,
+    chrome = {},
   },
   ref,
 ) {
@@ -149,6 +157,7 @@ const Timeline = forwardRef(function Timeline(
     terminationMessage,
     turnsUsed,
     maxTurns,
+    chrome,
   });
 
   return (
@@ -159,18 +168,18 @@ const Timeline = forwardRef(function Timeline(
       role="log"
       aria-live="polite"
       aria-atomic="false"
-      aria-label="Conversation"
+      aria-label={chrome.ariaLabel || ""}
       data-testid="timeline-root"
     >
       <div className="timeline-shell">
         {historyIntegrity?.status === "partial" ? (
           <div className="system-card context" role="status">
-            <strong>history partially restored</strong>: {historyIntegrity.restoreStopReason || historyIntegrity.restore_stop_reason || "restore stopped early"}
+            <strong>{chrome.historyPartialLabel || ""}</strong>: {historyIntegrity.restoreStopReason || historyIntegrity.restore_stop_reason || chrome.historyPartialFallback || ""}
           </div>
         ) : null}
         {historyIntegrity?.status === "unavailable" ? (
           <div className="system-card error" role="alert">
-            session history unavailable
+            {chrome.historyUnavailable || ""}
           </div>
         ) : null}
         {t3Rows.length > 0 ? (
@@ -182,9 +191,10 @@ const Timeline = forwardRef(function Timeline(
             rowUiState={timelineUiState}
             onToggleRow={handleToggleTimelineRow}
             rowKeyFor={rowUiKey}
+            chrome={chrome}
           />
         ) : (
-          <div className="timeline-empty-state" role="status">No conversation yet.</div>
+          <div className="timeline-empty-state" role="status">{chrome.emptyState || ""}</div>
         )}
         {terminationCard ? (
           <div className={`system-card ${terminationCard.tone}`} role={terminationCard.tone === "error" ? "alert" : "status"}>

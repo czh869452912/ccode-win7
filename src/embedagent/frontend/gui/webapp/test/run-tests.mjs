@@ -704,8 +704,21 @@ async function main() {
   assert.equal(timelineSource.includes("onOpenFile"), true);
   assert.equal(timelineSource.includes("handleTimelineFileLink"), true);
   assert.equal(timelineSource.includes("parseTimelineFileHref"), true);
-  assert.equal(timelineSource.includes("history partially restored"), true);
-  assert.equal(timelineSource.includes("session history unavailable"), true);
+  assert.equal(timelineSource.includes("chrome.historyPartialLabel"), true);
+  assert.equal(timelineSource.includes("chrome.historyUnavailable"), true);
+  for (const hardcodedTimelineCopy of [
+    "Conversation",
+    "No conversation yet.",
+    "history partially restored",
+    "restore stopped early",
+    "session history unavailable",
+    "Explicit loop safety limit reached.",
+    "Maximum turn limit reached",
+    "Stopped by guard.",
+    "Cancelled.",
+  ]) {
+    assert.equal(timelineSource.includes(hardcodedTimelineCopy), false);
+  }
 
   const timelineRowsSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "TimelineRows.jsx"),
@@ -723,6 +736,7 @@ async function main() {
   assert.equal(timelineRowsSource.includes("ContextSummaryRow"), true);
   assert.equal(timelineRowsSource.includes("CommandResultRow"), true);
   assert.equal(timelineRowsSource.includes("ReviewResultRow"), true);
+  assert.equal(timelineRowsSource.includes("changedFilesChrome"), true);
   assert.equal(timelineRowsSource.includes("TimelineRowSwitch"), true);
   assert.equal(timelineRowsSource.includes("MAX_VISIBLE_WORK_LOG_ENTRIES"), true);
   assert.equal(timelineRowsSource.includes("WorkGroupSection"), true);
@@ -1240,7 +1254,16 @@ async function main() {
   );
   assert.equal(changedFilesCardSource.includes("buildChangedFilesTree"), true);
   assert.equal(changedFilesCardSource.includes('data-testid="changed-files-tree"'), true);
-  assert.equal(changedFilesCardSource.includes("View diff"), true);
+  assert.equal(changedFilesCardSource.includes("chrome.viewDiffLabel"), true);
+  assert.equal(changedFilesCardSource.includes("chrome.summaryTemplate"), true);
+  for (const hardcodedChangedFilesCopy of [
+    "View diff",
+    '"Collapse"',
+    '"Expand"',
+    " changed files",
+  ]) {
+    assert.equal(changedFilesCardSource.includes(hardcodedChangedFilesCopy), false);
+  }
 
   const diffPanelSource = fs.readFileSync(
     webappSourcePath("components", "diff", "DiffPanel.jsx"),
