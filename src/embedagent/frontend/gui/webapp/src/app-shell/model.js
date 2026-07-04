@@ -142,6 +142,32 @@ function normalizeSurfaceCapabilityList(items, placement) {
   return result;
 }
 
+function normalizeKeybinding(input = {}) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const key = String(input.key || "").trim().toLowerCase();
+  const commandId = String(input.command_id || input.commandId || "").trim();
+  if (!key || !commandId) return null;
+  return {
+    key,
+    commandId,
+    when: String(input.when || "always").trim() || "always",
+  };
+}
+
+function normalizeKeybindings(items) {
+  if (!Array.isArray(items)) return [];
+  const result = [];
+  const seen = new Set();
+  for (const item of items) {
+    const binding = normalizeKeybinding(item);
+    const id = binding ? `${binding.key}:${binding.commandId}:${binding.when}` : "";
+    if (!binding || seen.has(id)) continue;
+    seen.add(id);
+    result.push(binding);
+  }
+  return result;
+}
+
 export function normalizeAppCapabilities(input = {}) {
   const surfaces = input.surfaces && typeof input.surfaces === "object" ? input.surfaces : {};
   return {
@@ -165,6 +191,7 @@ export function normalizeAppCapabilities(input = {}) {
         "bottom",
       ),
     },
+    keybindings: normalizeKeybindings(input.keybindings || input.key_bindings),
     sourceControl: normalizeSourceControlCapability(input),
     terminal: normalizeTerminalCapability(input),
     threadLifecycle: normalizeThreadLifecycle(input),

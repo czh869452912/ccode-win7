@@ -116,6 +116,7 @@ class AppShellService(object):
                 "right_panel": self._right_panel_surfaces(),
                 "bottom_drawer": self._bottom_drawer_surfaces(),
             },
+            "keybindings": self._keybindings(),
             "source_control": {
                 "enabled": True,
                 "vcs": ["git"],
@@ -138,6 +139,65 @@ class AppShellService(object):
                 "archive": True,
             },
         }
+
+    def _keybindings(self) -> list:
+        return [
+            {
+                "key": "mod+k",
+                "command_id": "palette.open",
+                "when": "not_palette",
+            },
+            {
+                "key": "escape",
+                "command_id": "palette.close",
+                "when": "palette",
+            },
+            {
+                "key": "escape",
+                "command_id": "message.stop",
+                "when": "running",
+            },
+            {
+                "key": "mod+b",
+                "command_id": "view.toggle_right_panel",
+                "when": "always",
+            },
+            {
+                "key": "mod+,",
+                "command_id": "app.settings",
+                "when": "always",
+            },
+            {
+                "key": "mod+j",
+                "command_id": "view.toggle_bottom_drawer",
+                "when": "always",
+            },
+            {
+                "key": "mod+1",
+                "command_id": "surface.files",
+                "when": "always",
+            },
+            {
+                "key": "mod+2",
+                "command_id": "surface.terminal",
+                "when": "always",
+            },
+            {
+                "key": "mod+3",
+                "command_id": "surface.diff",
+                "when": "always",
+            },
+            {
+                "key": "mod+4",
+                "command_id": "surface.preview",
+                "when": "always",
+            },
+            {
+                "key": "mod+enter",
+                "command_id": "message.send",
+                "when": "composer",
+            },
+        ]
 
     def _right_panel_surfaces(self) -> list:
         return [

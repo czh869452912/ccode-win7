@@ -11,7 +11,6 @@ import {
   visibleCommands,
 } from "../src/workbench/commands.js";
 import {
-  DEFAULT_KEYBINDINGS,
   eventToKey,
   resolveKeybinding,
 } from "../src/workbench/keybindings.js";
@@ -55,6 +54,15 @@ const BOTTOM_DRAWER_CAPABILITY_DESCRIPTORS = Object.freeze([
   surface("logs", "Logs", 30),
 ]);
 
+const KEYBINDING_DESCRIPTORS = Object.freeze([
+  { key: "mod+k", commandId: "palette.open", when: "not_palette" },
+  { key: "mod+,", commandId: "app.settings", when: "always" },
+  { key: "mod+1", commandId: "surface.files", when: "always" },
+  { key: "mod+2", commandId: "surface.terminal", when: "always" },
+  { key: "mod+3", commandId: "surface.diff", when: "always" },
+  { key: "mod+4", commandId: "surface.preview", when: "always" },
+]);
+
 function cloneSurfaces(items) {
   return items.map((item) => ({ ...item }));
 }
@@ -77,6 +85,7 @@ export function runWorkbenchStateTests() {
       rightPanel: cloneSurfaces(RIGHT_PANEL_CAPABILITY_DESCRIPTORS),
       bottomDrawer: cloneSurfaces(BOTTOM_DRAWER_CAPABILITY_DESCRIPTORS),
     },
+    keybindings: KEYBINDING_DESCRIPTORS.map((item) => ({ ...item })),
   };
   assert.equal(registryDefinitions, RIGHT_PANEL_SURFACE_REGISTRY);
   assert.deepEqual(registryDefinitions.map((definition) => definition.kind), supportedSurfaceKinds("right"));
@@ -487,34 +496,34 @@ export function runWorkbenchStateTests() {
     shiftKey: false,
   };
   assert.equal(eventToKey(syntheticEvent), "mod+k");
-  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+k"), true);
-  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+," && item.commandId === "app.settings"), true);
-  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+1" && item.commandId === "surface.files"), true);
-  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+2" && item.commandId === "surface.terminal"), true);
-  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+3" && item.commandId === "surface.diff"), true);
-  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+4" && item.commandId === "surface.preview"), true);
+  assert.equal(fullAppCapabilities.keybindings.some((item) => item.key === "mod+k"), true);
+  assert.equal(fullAppCapabilities.keybindings.some((item) => item.key === "mod+," && item.commandId === "app.settings"), true);
+  assert.equal(fullAppCapabilities.keybindings.some((item) => item.key === "mod+1" && item.commandId === "surface.files"), true);
+  assert.equal(fullAppCapabilities.keybindings.some((item) => item.key === "mod+2" && item.commandId === "surface.terminal"), true);
+  assert.equal(fullAppCapabilities.keybindings.some((item) => item.key === "mod+3" && item.commandId === "surface.diff"), true);
+  assert.equal(fullAppCapabilities.keybindings.some((item) => item.key === "mod+4" && item.commandId === "surface.preview"), true);
 
-  const command = resolveKeybinding(DEFAULT_KEYBINDINGS, "mod+k", {
+  const command = resolveKeybinding(fullAppCapabilities.keybindings, "mod+k", {
     paletteOpen: false,
     isRunning: false,
   });
   assert.equal(command.id, "palette.open");
 
-  const settingsCommand = resolveKeybinding(DEFAULT_KEYBINDINGS, "mod+,", {
+  const settingsCommand = resolveKeybinding(fullAppCapabilities.keybindings, "mod+,", {
     paletteOpen: false,
     isRunning: false,
     appCapabilities: fullAppCapabilities,
   });
   assert.equal(settingsCommand.id, "app.settings");
   assert.equal(
-    resolveKeybinding(DEFAULT_KEYBINDINGS, "mod+,", {
+    resolveKeybinding(fullAppCapabilities.keybindings, "mod+,", {
       paletteOpen: false,
       isRunning: false,
     }),
     null,
   );
 
-  const blocked = resolveKeybinding(DEFAULT_KEYBINDINGS, "enter", {
+  const blocked = resolveKeybinding(fullAppCapabilities.keybindings, "enter", {
     paletteOpen: false,
     composerFocused: false,
   });

@@ -13,6 +13,10 @@ function surface(id, title, launcherOrder) {
   return { id, title, launcher_order: launcherOrder };
 }
 
+function keybinding(key, commandId, when = "always") {
+  return { key, command_id: commandId, when };
+}
+
 function visualAppBootstrap() {
   return {
     app: { shell_version: 1, product_name: "EmbedAgent", protocol: "gui_app_shell_v1" },
@@ -38,6 +42,19 @@ function visualAppBootstrap() {
           surface("logs", "Logs", 30),
         ],
       },
+      keybindings: [
+        keybinding("mod+k", "palette.open", "not_palette"),
+        keybinding("escape", "palette.close", "palette"),
+        keybinding("escape", "message.stop", "running"),
+        keybinding("mod+b", "view.toggle_right_panel"),
+        keybinding("mod+,", "app.settings"),
+        keybinding("mod+j", "view.toggle_bottom_drawer"),
+        keybinding("mod+1", "surface.files"),
+        keybinding("mod+2", "surface.terminal"),
+        keybinding("mod+3", "surface.diff"),
+        keybinding("mod+4", "surface.preview"),
+        keybinding("mod+enter", "message.send", "composer"),
+      ],
       terminal: { enabled: true, pty: false, resize: false, history_persistent: false, max_buffer_bytes: 200000 },
       source_control: {
         enabled: true,

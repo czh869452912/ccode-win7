@@ -61,13 +61,14 @@ import RightPanelSurfaceBody from "./components/workbench/RightPanelSurfaceBody.
 import RightPanelTabs from "./components/workbench/RightPanelTabs.jsx";
 import WorkbenchHeader from "./components/workbench/WorkbenchHeader.jsx";
 import { commandById, visibleCommands } from "./workbench/commands.js";
-import { DEFAULT_KEYBINDINGS, eventToKey, resolveKeybinding } from "./workbench/keybindings.js";
+import { eventToKey, resolveKeybinding } from "./workbench/keybindings.js";
 import {
   persistWorkbenchUiState,
   readPersistedWorkbenchUiState,
 } from "./workbench/ui-state.js";
 
 const EMPTY_COMMAND_HINTS = [];
+const EMPTY_KEYBINDINGS = [];
 
 function isTurnInterruptibleStatus(status) {
   return status === "running" || status === "waiting_permission" || status === "waiting_user_input";
@@ -113,6 +114,7 @@ function App() {
     state.sessionCapabilities,
   ]);
   const paletteCommands = useMemo(() => visibleCommands(commandContext), [commandContext]);
+  const keybindings = state.app.capabilities.keybindings || EMPTY_KEYBINDINGS;
   const composerCommands = useMemo(
     () => buildComposerCommandsFromCapabilities(state.sessionCapabilities || {}),
     [state.sessionCapabilities],
@@ -508,7 +510,7 @@ function App() {
 
   useEffect(() => {
     function onWorkbenchKeyDown(event) {
-      const command = resolveKeybinding(DEFAULT_KEYBINDINGS, eventToKey(event), {
+      const command = resolveKeybinding(keybindings, eventToKey(event), {
         paletteOpen: state.workbench.commandPalette.open,
         isRunning: isTurnInterruptibleStatus(currentStatus),
         composerFocused: document.activeElement?.dataset?.testid === "composer-input",
@@ -526,6 +528,7 @@ function App() {
     currentStatus,
     composerDraft,
     currentSessionId,
+    keybindings,
     state.sessionCapabilities,
     state.app.capabilities,
   ]);
@@ -944,7 +947,7 @@ function App() {
       currentSessionId={currentSessionId}
       workspaces={state.app.workspaces}
       activeWorkspaceId={activeWorkspaceId}
-      keybindings={DEFAULT_KEYBINDINGS}
+      keybindings={keybindings}
       onQueryChange={(query) => dispatch({ type: "workbench_command_palette_query_changed", query })}
       onClose={() => dispatch({ type: "workbench_command_palette_closed" })}
       onSelect={(command) => {

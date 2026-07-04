@@ -32,6 +32,7 @@ export function runAppShellModelTests() {
   assert.deepEqual(initial.capabilities.workspaceCommands, []);
   assert.deepEqual(initial.capabilities.surfaces.rightPanel, []);
   assert.deepEqual(initial.capabilities.surfaces.bottomDrawer, []);
+  assert.deepEqual(initial.capabilities.keybindings, []);
   assert.equal(initial.capabilities.terminal.enabled, false);
   assert.equal(initial.capabilities.terminal.pty, false);
   assert.equal(initial.capabilities.terminal.resize, false);
@@ -86,6 +87,10 @@ export function runAppShellModelTests() {
         ],
         bottom_drawer: [surface("terminal", "Terminal", { launcher_order: 10 })],
       },
+      keybindings: [
+        { key: "MOD+K", command_id: "palette.open", when: "not_palette" },
+        { key: "mod+,", command_id: "app.settings", when: "always" },
+      ],
       source_control: {
         enabled: true,
         vcs: ["git"],
@@ -130,6 +135,10 @@ export function runAppShellModelTests() {
     bootstrap.capabilities.surfaces.bottomDrawer.map((item) => item.kind),
     ["terminal"],
   );
+  assert.deepEqual(bootstrap.capabilities.keybindings, [
+    { key: "mod+k", commandId: "palette.open", when: "not_palette" },
+    { key: "mod+,", commandId: "app.settings", when: "always" },
+  ]);
   assert.equal(bootstrap.capabilities.sourceControl.enabled, true);
   assert.deepEqual(bootstrap.capabilities.sourceControl.vcs, ["git"]);
   assert.equal(bootstrap.capabilities.sourceControl.readOnly, true);
@@ -177,12 +186,16 @@ export function runAppShellModelTests() {
       right_panel: [surface("settings", "Settings")],
       bottom_drawer: [surface("logs", "Logs")],
     },
+    key_bindings: [{ key: "mod+k", command_id: "palette.open" }],
     terminal: { enabled: true, pty: false, resize: false },
   });
   assert.deepEqual(capabilities.appCommands, ["app.settings"]);
   assert.deepEqual(capabilities.workspaceCommands, ["workspace.open"]);
   assert.deepEqual(capabilities.surfaces.rightPanel.map((item) => item.kind), ["settings"]);
   assert.deepEqual(capabilities.surfaces.bottomDrawer.map((item) => item.kind), ["logs"]);
+  assert.deepEqual(capabilities.keybindings, [
+    { key: "mod+k", commandId: "palette.open", when: "always" },
+  ]);
   assert.equal(capabilities.terminal.enabled, true);
   assert.equal(capabilities.terminal.pty, false);
   assert.equal(capabilities.terminal.resize, false);
@@ -192,6 +205,7 @@ export function runAppShellModelTests() {
   assert.deepEqual(emptyCapabilities.workspaceCommands, []);
   assert.deepEqual(emptyCapabilities.surfaces.rightPanel, []);
   assert.deepEqual(emptyCapabilities.surfaces.bottomDrawer, []);
+  assert.deepEqual(emptyCapabilities.keybindings, []);
 
   const reduced = reduceAppShellState(initial, {
     type: "app_shell_bootstrap_loaded",

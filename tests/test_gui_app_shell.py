@@ -86,6 +86,12 @@ class TestGuiAppShellService(unittest.TestCase):
         self.assertIn("app.diagnostics", payload["capabilities"]["app_commands"])
         self.assertIn("app.source_control", payload["capabilities"]["app_commands"])
         self.assertIn("app.reload", payload["capabilities"]["app_commands"])
+        keybinding_commands = [
+            item["command_id"] for item in payload["capabilities"]["keybindings"]
+        ]
+        self.assertIn("palette.open", keybinding_commands)
+        self.assertIn("surface.files", keybinding_commands)
+        self.assertIn("app.settings", keybinding_commands)
         right_panel_surfaces = [
             item["id"] for item in payload["capabilities"]["surfaces"]["right_panel"]
         ]

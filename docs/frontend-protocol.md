@@ -72,15 +72,17 @@ Current app-shell v1 fields include `app`, `workspaces`,
 `settings`, and `last_error`. Diagnostics are safe read-model fields for host,
 runtime, renderer, workspace registry, and active-core presence only.
 `capabilities.app_commands`, `capabilities.workspace_commands`,
-`capabilities.surfaces.right_panel`, and
-`capabilities.surfaces.bottom_drawer` are the app-shell entrypoint contract for
-the renderer workbench. Surface entries are descriptor records, not bare ids:
+`capabilities.surfaces.right_panel`,
+`capabilities.surfaces.bottom_drawer`, and `capabilities.keybindings` are the
+app-shell entrypoint contract for the renderer workbench. Surface entries are
+descriptor records, not bare ids:
 at minimum they carry `id`, `title`, and ordering metadata, and may also carry
 `icon`, `description`, `command`, `command_label`, `slash`, `visible_when`,
-`read_only`, `offline`, and `keywords`. The renderer may keep local metadata
-for keybindings and React components, but visible command-palette entries,
-right-panel launchers, bottom-drawer tabs, labels, icons, descriptions, and
-keybinding targets are filtered or merged from this bootstrap declaration. A
+`read_only`, `offline`, and `keywords`. Keybinding descriptors carry `key`,
+`command_id`, and `when`. The renderer may keep local metadata for React
+components, but visible command-palette entries, right-panel launchers,
+bottom-drawer tabs, labels, icons, descriptions, and keybinding targets are
+filtered or merged from this bootstrap declaration. A
 missing `capabilities` object or missing capability descriptor arrays mean no
 app-shell entrypoints, not GUI defaults.
 Workbench-local persisted surface state is re-sanitized after app bootstrap or

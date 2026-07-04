@@ -799,6 +799,22 @@ def test_gui_surface_registry_does_not_export_fixed_surface_id_lists():
     assert "supportedSurfaceKinds(" in ui_state_text
 
 
+def test_gui_keybindings_are_app_shell_declared_not_renderer_defaults():
+    app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    app_model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
+    keybindings_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/keybindings.js"
+    )
+
+    assert '"keybindings": self._keybindings()' in app_shell_text
+    assert '"command_id": "palette.open"' in app_shell_text
+    assert "normalizeKeybinding" in app_model_text
+    assert "state.app.capabilities.keybindings" in app_text
+    assert "DEFAULT_KEYBINDINGS" not in app_text
+    assert "DEFAULT_KEYBINDINGS" not in keybindings_text
+
+
 def test_agent_core_has_no_harness_prompt_or_command_name_validation_coupling():
     extensions_text = _read(ROOT / "src/embedagent_core/extensions.py")
     turn_experience_text = _read(ROOT / "src/embedagent_core/turn_experience.py")
