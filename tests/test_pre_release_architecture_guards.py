@@ -1344,6 +1344,7 @@ def test_gui_terminal_copy_is_app_shell_declared():
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js"
     )
     labels_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/terminal/terminal-labels.js")
+    api_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/terminal/terminal-api.js")
     shell_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/TerminalShell.jsx"
     )
@@ -1366,6 +1367,7 @@ def test_gui_terminal_copy_is_app_shell_declared():
     assert "terminalChrome" in shell_text
     assert "terminalChrome" in surface_body_text
     assert "terminalChrome" in bottom_drawer_text
+    assert '"Terminal request failed"' not in api_text
 
     for hardcoded_copy in (
         '"Open a session before using the terminal."',
@@ -1399,6 +1401,7 @@ def test_gui_preview_copy_is_app_shell_declared():
     preview_model_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/preview-surface-model.js"
     )
+    preview_api_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/preview/preview-api.js")
     surface_body_text = _read(
         ROOT
         / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx"
@@ -1417,6 +1420,7 @@ def test_gui_preview_copy_is_app_shell_declared():
     assert "previewChrome" in preview_surface_text
     assert "chrome.statusReady" in preview_model_text
     assert "chrome.emptyTitle" in preview_model_text
+    assert '"Preview request failed"' not in preview_api_text
 
     for hardcoded_copy in (
         '"Open a session before using preview."',
@@ -1596,6 +1600,9 @@ def test_gui_source_control_copy_is_app_shell_declared():
         ROOT
         / "src/embedagent/frontend/gui/webapp/src/source-control/source-control-presentation.js"
     )
+    source_control_api_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/source-control/source-control-api.js"
+    )
     branch_toolbar_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/BranchToolbar.jsx"
     )
@@ -1618,6 +1625,7 @@ def test_gui_source_control_copy_is_app_shell_declared():
     assert "chrome.providerLabels" in source_control_presentation_text
     assert "model.branchMetaLabel" in branch_toolbar_text
     assert "sourceControlChrome?.branchToolbar" in branch_toolbar_model_text
+    assert '"Source control request failed"' not in source_control_api_text
 
     for hardcoded_copy in (
         '"Source control unavailable"',

@@ -68,7 +68,9 @@ bottom drawer run-output chrome, terminal chrome, thread lifecycle actions,
 command palette copy, surface titles, and surface descriptors are declared by
 `/api/app/bootstrap` app-shell capabilities. Renderer modules normalize and
 consume those descriptors; they must not become a second source of
-agent/workflow-specific display defaults.
+agent/workflow-specific display defaults. Frontend API helpers for preview,
+terminal, and source-control do not provide their own request-failure copy when
+the backend omits error details; controllers fall through to app-shell chrome.
 Session bootstrap projection and renderer session normalization preserve the
 backend snapshot's explicit `workflow_state`; they do not fill missing values
 with the legacy `chat` state name. GUI workflow display uses the separate

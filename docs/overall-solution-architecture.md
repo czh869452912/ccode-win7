@@ -134,6 +134,10 @@ existing Diff surface for selected files. This slice does not stage, commit,
 push, pull, contact remote providers, create checkpoints, or write transcript
 history, workflow state, telemetry, permission policy, runtime reducer truth,
 provider configuration, extension loading state, or Agent Core behavior.
+Frontend source-control, terminal, and preview API helpers do not contain
+helper-local request-failure copy; when backend error payloads omit detail,
+controllers fall through to the app-shell chrome fallback declared for the
+surface.
 
 The GUI Preview right-panel is app-shell hosted as well. `GUIBackend` owns a
 workspace-bound `PreviewService` that accepts local loopback HTTP URLs only,

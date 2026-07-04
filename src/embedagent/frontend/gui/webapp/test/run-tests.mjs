@@ -1215,6 +1215,7 @@ async function main() {
   );
   assert.equal(terminalApiSource.includes("/api/sessions/"), true);
   assert.equal(terminalApiSource.includes("fetch("), true);
+  assert.equal(terminalApiSource.includes("Terminal request failed"), false);
 
   const visualDebugFixturesSource = fs.readFileSync(
     webappSourcePath("app-runtime", "visual-debug-fixtures.js"),
@@ -1446,6 +1447,11 @@ async function main() {
   ]) {
     assert.equal(sourceControlPanelSource.includes(hardcodedSourceControlCopy), false);
   }
+  const sourceControlApiSource = fs.readFileSync(
+    webappSourcePath("source-control", "source-control-api.js"),
+    "utf8",
+  );
+  assert.equal(sourceControlApiSource.includes("Source control request failed"), false);
 
   const branchToolbarSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "BranchToolbar.jsx"),
@@ -1624,6 +1630,7 @@ async function main() {
   assert.equal(previewApiSource.includes("/api/sessions/"), true);
   assert.equal(previewApiSource.includes("/preview/open"), true);
   assert.equal(previewApiSource.includes("/api/app/preview/open-external"), true);
+  assert.equal(previewApiSource.includes("Preview request failed"), false);
 
   const repoRoot = path.resolve(WEBAPP_ROOT, "..", "..", "..", "..", "..");
   const visualDebugSource = fs.readFileSync(

@@ -182,6 +182,10 @@ full PTY. Its buffer and tab state are frontend/backend GUI display state only:
 they are not transcript history, workflow truth, telemetry, provider/runtime
 configuration, permission policy, source-control checkpoint state, or Agent
 Core state.
+Frontend terminal, preview, and source-control API helpers must surface
+backend `detail`, `error`, or status text only; when those are absent they
+leave the error message empty so renderer controllers can use app-shell chrome
+fallbacks instead of helper-local request-failure copy.
 
 The GUI File Preview right-panel is app-shell hosted and read-only over
 already-loaded workspace file content. The frontend may render breadcrumbs,

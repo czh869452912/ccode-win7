@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-250
+
+- Date: 2026-07-04
+- Change Topic: GUI API error fallback copy is app-shell declared
+- Summary:
+  - Removed helper-local request-failure copy from Preview, Terminal, and
+    Source Control frontend API helpers.
+  - API helpers now throw backend `detail`, backend `error`, status text, or an
+    empty message; renderer controllers then fall through to app-shell chrome
+    fallback notices.
+  - Added preview API behavior coverage plus frontend and architecture guards
+    so surface API helpers do not reintroduce local request-failure strings.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/preview/preview-api.js`
+  - `src/embedagent/frontend/gui/webapp/src/terminal/terminal-api.js`
+  - `src/embedagent/frontend/gui/webapp/src/source-control/source-control-api.js`
+  - `src/embedagent/frontend/gui/webapp/test/preview-api.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-249
 
 - Date: 2026-07-04

@@ -153,6 +153,10 @@
   `capabilities.source_control.chrome`: panel title, status/diff fallback
   notices, empty states, count/group/provider labels, runtime labels, and
   refresh action copy are backend-declared descriptors consumed by the renderer.
+- Preview, Terminal, and Source Control frontend API helpers no longer carry
+  local request-failure copy. When backend responses omit `detail` / `error`
+  and status text, controllers fall through to app-shell chrome fallback
+  notices instead of helper-level English strings.
 - The retired GUI sidebar tab sidecar has been removed: root `sidebarTab`,
   `set_sidebar`, the old `sidebar-tab--chats` test id, and unused workbench
   `activeSection` / `projectSection` state are no longer product paths.

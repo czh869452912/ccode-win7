@@ -197,7 +197,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
 - GUI Preview runtime boundary is now app-shell hosted and local-only: the
   backend owns a `PreviewService` that opens/probes loopback HTTP URLs, while
   the React preview model/API/chrome surface renders loading, success, and
-  unreachable states without adding browser automation or Agent Core behavior
+  unreachable states without adding browser automation or Agent Core behavior.
+  Preview, terminal, and source-control API helpers no longer carry
+  helper-local request-failure copy, so missing backend error text falls through
+  to app-shell chrome fallbacks
 - GUI renderer runtime state has started moving onto focused T3-style modules:
   `session-runtime/thread-state.js` owns thread/session selection, session
   summaries, and history-integrity display state, while
