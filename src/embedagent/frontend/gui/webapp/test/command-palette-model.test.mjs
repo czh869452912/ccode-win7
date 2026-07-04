@@ -64,6 +64,8 @@ const commandPalette = {
     workspaceMeta: "Project",
     workspaceFallback: "Project",
     sessionFallbackPrefix: "Thread",
+    sessionLeading: "T",
+    workspaceLeading: "P",
   },
 };
 
@@ -113,6 +115,7 @@ export function runCommandPaletteModelTests() {
   assert.equal(sessionItems[0].id, "session:sess-active");
   assert.equal(sessionItems[0].title, "Fix parser recovery");
   assert.equal(sessionItems[0].description, "debug");
+  assert.equal(sessionItems[0].leading, "T");
   assert.equal(sessionItems[0].trailing, "Selected");
   assert.equal(sessionItems[1].title, "Verify diff rendering");
   assert.equal(sessionItems[1].description, "");
@@ -121,6 +124,7 @@ export function runCommandPaletteModelTests() {
   assert.equal(workspaceItems.length, 2);
   assert.equal(workspaceItems[0].id, "workspace:ws-active");
   assert.equal(workspaceItems[0].trailing, "Selected");
+  assert.equal(workspaceItems[0].leading, "P");
   assert.equal(workspaceItems[0].disabled, false);
   assert.equal(workspaceItems[1].title, "workspace");
   assert.equal(workspaceItems[1].description, "D:/missing/workspace");
@@ -227,5 +231,17 @@ export function runCommandPaletteModelTests() {
   }));
   assert.equal(surfaceNoCopyItems.find((item) => item.commandId === "surface.preview").description, "");
   assert.equal(surfaceNoCopyItems.find((item) => item.commandId === "drawer.logs").description, "");
+  const noLeadingRoot = buildCommandPaletteRootGroups({
+    sessions: [{ session_id: "sess-leading", title: "Visible session" }],
+    workspaces: [{ id: "ws-leading", label: "Visible workspace", path: "D:/visible" }],
+    commandPalette: {
+      labels: {
+        sessionsSection: "Threads",
+        workspacesSection: "Projects",
+      },
+    },
+  });
+  assert.equal(flattenPaletteGroups(noLeadingRoot).find((item) => item.id === "session:sess-leading").leading, "");
+  assert.equal(flattenPaletteGroups(noLeadingRoot).find((item) => item.id === "workspace:ws-leading").leading, "");
   assert.deepEqual(flattenPaletteGroups([{ id: "x", items: [{ id: "a" }, { id: "b" }] }]).map((item) => item.id), ["a", "b"]);
 }

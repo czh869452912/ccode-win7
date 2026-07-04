@@ -1083,10 +1083,14 @@ def test_gui_command_palette_groups_are_app_shell_descriptors():
 
     assert "command_palette_groups" in spec_text
     assert "command_palette_labels" in spec_text
+    assert "session_leading" in spec_text
+    assert "workspace_leading" in spec_text
     assert '"command_palette": {' in spec_text
     assert "def _palette_group(" in spec_text
     assert "normalizePaletteGroupDescriptor" in model_text
     assert "rootPlaceholder" in model_text
+    assert "sessionLeading" in model_text
+    assert "workspaceLeading" in model_text
     assert "commandPalette: normalizeCommandPalette" in model_text
     assert "GROUP_TITLES" not in palette_model_text
     assert "GROUP_DESCRIPTIONS" not in palette_model_text
@@ -1097,6 +1101,8 @@ def test_gui_command_palette_groups_are_app_shell_descriptors():
     assert "command.slash || command.id" not in palette_model_text
     assert "`Open ${command.surface}`" not in palette_model_text
     assert "`Open ${command.drawer}`" not in palette_model_text
+    assert 'leading: "T"' not in palette_model_text
+    assert 'leading: "W"' not in palette_model_text
     assert "asText(command.group) === targetGroup && asText(command.label)" in palette_model_text
     assert "title: asText(group.title) || titleCase(id)" not in palette_model_text
     assert "title: titleCase(id)" not in palette_model_text

@@ -593,6 +593,8 @@ function normalizeCommandPalette(input = {}) {
       workspaceMeta: String(labels.workspace_meta || labels.workspaceMeta || ""),
       workspaceFallback: String(labels.workspace_fallback || labels.workspaceFallback || ""),
       sessionFallbackPrefix: String(labels.session_fallback_prefix || labels.sessionFallbackPrefix || ""),
+      sessionLeading: String(labels.session_leading || labels.sessionLeading || ""),
+      workspaceLeading: String(labels.workspace_leading || labels.workspaceLeading || ""),
     },
   };
 }

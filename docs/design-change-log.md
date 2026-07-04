@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-262
+
+- Date: 2026-07-04
+- Change Topic: GUI command-palette session/workspace leading markers are descriptors
+- Summary:
+  - Added app-shell command-palette label descriptors for session and workspace
+    leading markers.
+  - Command-palette session/workspace rows now render those descriptor values
+    and leave the marker empty when absent instead of hard-coding `T` / `W`.
+  - Added frontend and Python architecture guards for the no renderer-local
+    leading marker rule.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-261
 
 - Date: 2026-07-04

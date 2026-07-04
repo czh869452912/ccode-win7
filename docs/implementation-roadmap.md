@@ -144,6 +144,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   description/meta copy remains empty rather than falling back to command ids;
   surface command row descriptions come from surface descriptors rather than
   surface/drawer ids;
+  session/workspace palette row leading markers come from command-palette label
+  descriptors and remain empty when absent;
   surface descriptors without explicit titles remain
   diagnostic capability records and do not enter visible launchers or surface
   commands; persisted workbench surface state is also re-sanitized

@@ -264,6 +264,8 @@ def default_app_shell_spec() -> AppShellSpec:
             "workspace_meta": "Workspace",
             "workspace_fallback": "Workspace",
             "session_fallback_prefix": "Session",
+            "session_leading": "T",
+            "workspace_leading": "W",
         },
         chrome={
             "brand_subtitle": "Local agent workbench",

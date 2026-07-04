@@ -1347,6 +1347,8 @@ async function main() {
   assert.equal(commandPaletteModelSource.includes("command.slash || command.id"), false);
   assert.equal(commandPaletteModelSource.includes("`Open ${command.surface}`"), false);
   assert.equal(commandPaletteModelSource.includes("`Open ${command.drawer}`"), false);
+  assert.equal(commandPaletteModelSource.includes('leading: "T"'), false);
+  assert.equal(commandPaletteModelSource.includes('leading: "W"'), false);
   assert.equal(commandPaletteModelSource.includes("title: asText(group.title) || titleCase(id)"), false);
   assert.equal(commandPaletteModelSource.includes("title: titleCase(id)"), false);
   assert.equal(commandPaletteModelSource.includes("descriptor.title || titleCase"), false);

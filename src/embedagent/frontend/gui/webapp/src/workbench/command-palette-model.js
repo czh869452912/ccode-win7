@@ -81,6 +81,8 @@ function paletteLabels(commandPalette = {}) {
     workspaceMeta: asText(labels.workspaceMeta),
     workspaceFallback: asText(labels.workspaceFallback),
     sessionFallbackPrefix: asText(labels.sessionFallbackPrefix),
+    sessionLeading: asText(labels.sessionLeading),
+    workspaceLeading: asText(labels.workspaceLeading),
   };
 }
 
@@ -228,7 +230,7 @@ function sessionItems(sessions = [], currentSessionId = "", labels = {}) {
         description: mode,
         meta: updated,
         trailing: sessionId === currentSessionId ? labels.currentLabel : "",
-        leading: "T",
+        leading: labels.sessionLeading,
         disabled: false,
         searchTerms: [sessionId, mode, updated],
       };
@@ -253,7 +255,7 @@ function workspaceItems(workspaces = [], activeWorkspaceId = "", labels = {}) {
         description: asText(workspace.path),
         meta: labels.workspaceMeta,
         trailing: workspaceId === activeWorkspaceId ? labels.currentLabel : exists ? "" : labels.missingLabel,
-        leading: "W",
+        leading: labels.workspaceLeading,
         disabled: !exists,
         searchTerms: [workspaceId, workspace.path, workspace.label],
       };

@@ -49,6 +49,8 @@ export function runAppShellModelTests() {
     workspaceMeta: "",
     workspaceFallback: "",
     sessionFallbackPrefix: "",
+    sessionLeading: "",
+    workspaceLeading: "",
   });
   assert.deepEqual(initial.capabilities.chrome, {
     brandSubtitle: "",
@@ -405,6 +407,8 @@ export function runAppShellModelTests() {
           workspace_meta: "Project",
           workspace_fallback: "Project",
           session_fallback_prefix: "Thread",
+          session_leading: "S",
+          workspace_leading: "W",
         },
       },
       chrome: {
@@ -1165,6 +1169,12 @@ export function runAppShellModelTests() {
     agent_application: { application_id: "tests.generic", label: "Generic Agent" },
     agent_applications: [{ application_id: "tests.generic", label: "Generic Agent" }],
     empty_state: { scenario_label: "Generic workspace" },
+    command_palette: {
+      labels: {
+        session_leading: "S",
+        workspace_leading: "W",
+      },
+    },
     chrome: {
       brand_subtitle: "Generic shell",
       composer: { placeholder: "Ask" },
@@ -1208,6 +1218,8 @@ export function runAppShellModelTests() {
   assert.equal(capabilities.agentApplication.applicationId, "tests.generic");
   assert.equal(capabilities.agentApplications[0].label, "Generic Agent");
   assert.equal(capabilities.emptyState.scenarioLabel, "Generic workspace");
+  assert.equal(capabilities.commandPalette.labels.sessionLeading, "S");
+  assert.equal(capabilities.commandPalette.labels.workspaceLeading, "W");
   assert.equal(capabilities.chrome.brandSubtitle, "Generic shell");
   assert.equal(capabilities.chrome.composer.placeholder, "Ask");
   assert.equal(capabilities.terminal.enabled, true);
