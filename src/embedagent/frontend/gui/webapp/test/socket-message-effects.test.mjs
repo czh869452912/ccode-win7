@@ -273,8 +273,10 @@ export function runSocketMessageEffectsTests() {
     success: true,
     data: { items: [{ id: "build" }] },
   });
-  assert.equal(commandRecipes.actions[1].type, "recipes_loaded");
-  assert.deepEqual(commandRecipes.actions[2], { type: "set_inspector", value: "run" });
+  assert.deepEqual(commandRecipes.actions.map((item) => item.type), [
+    "command_result",
+    "log_event",
+  ]);
 
   const finished = derive("session_finished", {
     session_snapshot: { session_id: "sess-active", status: "completed" },
@@ -283,8 +285,8 @@ export function runSocketMessageEffectsTests() {
   assert.equal(finished.actions[1].type, "session_snapshot");
   assert.deepEqual(finished.loaderRequests, [
     { name: LOADER_REQUESTS.LOAD_SESSIONS },
-    { name: LOADER_REQUESTS.LOAD_TASKS, sessionId: "sess-active" },
   ]);
+  assert.deepEqual(derive("tasks_refresh").loaderRequests, []);
 
   const compacted = derive("message", {
     id: "compact-1",

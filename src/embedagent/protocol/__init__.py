@@ -295,10 +295,6 @@ class FrontendCallbacks(Protocol):
         """计划更新"""
         ...
 
-    def on_tasks_refresh(self) -> None:
-        """Notify frontend to refetch task list."""
-        ...
-
     def on_artifacts_refresh(self) -> None:
         """Notify frontend to refetch artifacts list."""
         ...

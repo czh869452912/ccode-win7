@@ -290,9 +290,7 @@ Key routes include:
 - `POST /api/sessions/{session_id}/terminals/{terminal_id}/resize`
 - `POST /api/sessions/{session_id}/terminals/{terminal_id}/close`
 - `GET /api/workspace`
-- `GET /api/workspace/recipes`
 - `GET /api/tool-catalog`
-- `GET /api/tasks`
 - `GET /api/artifacts`
 - file read/tree routes
 
@@ -300,6 +298,12 @@ Key routes include:
 reports app-shell state only. Session activation remains exclusively
 `GET /api/sessions/{session_id}/bootstrap`, whose payload contains session
 snapshot, structured history, plan, and permission context.
+
+Frontend task display comes from `snapshot.task_items` in session snapshots and
+bootstrap payloads. There is no split task-list refetch endpoint or
+`tasks_refresh` WebSocket contract. Workspace recipes are local workflow
+resources and tool/command capabilities; the GUI must not treat them as a
+renderer-owned `/api/workspace/recipes` feed.
 
 `GET /api/sessions/capabilities` exposes the active workspace/session command
 capability projection used by GUI composer slash-command menus. It is a
@@ -311,7 +315,7 @@ and `agentApplications` lists only applications available from the selected
 package/registry, so an externally injected Python/HTML/etc. application does
 not inherit bundled C/C++ defaults in the GUI.
 
-`POST /api/sessions` defaults to `explore` when no mode is supplied. Frontends should not use `build` as the implicit entry mode.
+`POST /api/sessions` without an explicit mode leaves mode selection to the selected backend application/profile. Frontends should not inject `explore` or `build` as an implicit entry mode.
 
 `POST /api/sessions/{session_id}/resume` should preserve the restored session mode unless the caller explicitly supplies a mode override.
 
@@ -350,7 +354,6 @@ Important pushed event types include:
 - `turn_start`
 - `turn_end`
 - `session_finished`
-- `tasks_refresh`
 - `artifacts_refresh`
 - `message`
 - `session_event`

@@ -387,15 +387,21 @@ async def _exercise_gui(gui_port: int) -> Dict[str, object]:
         )
         await _consume_until_idle(websocket, session_id, summary)
 
-        first_tasks = _json_request(api_root + "/api/tasks?session_id=%s" % session_id)
+        first_bootstrap = _json_request(api_root + "/api/sessions/%s/bootstrap" % session_id)
         second_session = _json_request(api_root + "/api/sessions?mode=build", method="POST")
         second_session_id = str(second_session.get("session_id") or "")
-        second_tasks = _json_request(api_root + "/api/tasks?session_id=%s" % second_session_id)
+        second_bootstrap = _json_request(
+            api_root + "/api/sessions/%s/bootstrap" % second_session_id
+        )
 
         summary["session_id"] = session_id
         summary["assistant_text"] = "".join(summary["stream_deltas"])
-        summary["first_session_tasks"] = len(first_tasks.get("tasks") or [])
-        summary["second_session_tasks"] = len(second_tasks.get("tasks") or [])
+        summary["first_session_task_items"] = len(
+            (first_bootstrap.get("snapshot") or {}).get("task_items") or []
+        )
+        summary["second_session_task_items"] = len(
+            (second_bootstrap.get("snapshot") or {}).get("task_items") or []
+        )
         summary["second_session_id"] = second_session_id
         return summary
 
@@ -568,8 +574,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         ]
         if not review_commands or not review_commands[0].get("success"):
             raise RuntimeError("GUI smoke did not exercise /review workflow: %s" % summary)
-        if "first_session_tasks" not in summary or "second_session_tasks" not in summary:
-            raise RuntimeError("GUI smoke task API check failed: %s" % summary)
+        if (
+            "first_session_task_items" not in summary
+            or "second_session_task_items" not in summary
+        ):
+            raise RuntimeError("GUI smoke bootstrap task projection check failed: %s" % summary)
         renderer_report = {}
         if os.path.isfile(renderer_report_path):
             with open(renderer_report_path, "r", encoding="utf-8") as handle:

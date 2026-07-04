@@ -33,7 +33,6 @@ export const initialState = {
   artifacts: [],
   plan: null,
   review: null,
-  recipes: [],
   permissionContext: null,
   preview: null,
   filePreviewsByPath: {},
@@ -223,12 +222,8 @@ export function reducer(state, action) {
             : state.inspectorOpen,
       };
     }
-    case "tasks_loaded":
-      return { ...state, tasks: action.tasks };
     case "artifacts_loaded":
       return { ...state, artifacts: action.items };
-    case "recipes_loaded":
-      return { ...state, recipes: action.items || [] };
     case "preview_loaded":
       return {
         ...state,

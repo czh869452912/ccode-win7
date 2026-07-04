@@ -57,10 +57,6 @@ function pickToolPresentationPayload(payload = {}) {
   };
 }
 
-function currentSession(options) {
-  return options.currentSessionId || "";
-}
-
 function readModelInvalidations(payload = {}) {
   const raw = payload?.read_model_invalidations || payload?.readModelInvalidations || payload?.data?.read_model_invalidations || [];
   return Array.isArray(raw) ? raw.map((item) => String(item || "").trim()).filter(Boolean) : [];
@@ -128,10 +124,6 @@ function commandResultEffects(data, options) {
       },
       inspectorTab: "preview",
     });
-  }
-  if (commandName === "recipes") {
-    effects.actions.push({ type: "recipes_loaded", items: data?.data?.items || [] });
-    effects.actions.push({ type: "set_inspector", value: "run" });
   }
   if (commandName === "run") {
     effects.actions.push({ type: "set_inspector", value: "problems" });
@@ -423,23 +415,7 @@ export function deriveSocketMessageEffects({
       });
     }
     effects.loaderRequests.push({ name: LOADER_REQUESTS.LOAD_SESSIONS });
-    if (currentSession(options)) {
-      effects.loaderRequests.push({
-        name: LOADER_REQUESTS.LOAD_TASKS,
-        sessionId: currentSession(options),
-      });
-    }
     effects.actions.push(logAction("session_finished", ""));
-    return effects;
-  }
-
-  if (type === "tasks_refresh") {
-    if (currentSession(options)) {
-      effects.loaderRequests.push({
-        name: LOADER_REQUESTS.LOAD_TASKS,
-        sessionId: currentSession(options),
-      });
-    }
     return effects;
   }
 

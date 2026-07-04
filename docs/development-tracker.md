@@ -198,7 +198,11 @@
 
 ### 2026-06-20 - Pi/T3 Residual Contract Cleanup
 
-- GUI smoke validation now follows the current T3-style app-shell task contract: `build` sessions, `/api/tasks`, `task_status`, permission/user-input flows, and `/review`; stale `mode=code`, `/api/todos`, and `manage_todos` references are guarded by a focused contract test.
+- GUI smoke validation now follows the current T3-style app-shell task contract:
+  `build` sessions, session bootstrap `task_items`, `task_status`,
+  permission/user-input flows, and `/review`; stale `mode=code`, `/api/todos`,
+  `/api/tasks`, and `manage_todos` references are guarded by a focused contract
+  test.
 - Agent Core prompt behavior is slimmer and more Pi-like: build mode no longer hard-codes a `lite_spec_tdd` phase prescription in the base mode prompt, leaving workflow package prompt injection behind the extension boundary.
 - C harness workflow injection now recognizes common Chinese development/debug/verification requests while keeping casual chat in build/debug from initializing workflow state.
 - Tool result cache documentation and stats now describe only implemented cache tiers; the unused L3 projection placeholder has been removed instead of being treated as a public capability.

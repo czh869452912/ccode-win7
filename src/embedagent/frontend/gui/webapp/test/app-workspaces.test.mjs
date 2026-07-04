@@ -63,7 +63,6 @@ export function runAppWorkspaceTests() {
     activities: [{ id: "row-1" }],
     tasks: [{ id: 1 }],
     artifacts: [{ id: "a" }],
-    recipes: [{ id: "r" }],
     preview: { title: "README.md" },
     diffSurface: { title: "Diff" },
     fileTree: [{ id: "src" }],
@@ -80,7 +79,6 @@ export function runAppWorkspaceTests() {
   assert.deepEqual(reset.activities, []);
   assert.deepEqual(reset.tasks, []);
   assert.deepEqual(reset.artifacts, []);
-  assert.deepEqual(reset.recipes, []);
   assert.equal(reset.preview, null);
   assert.equal(reset.diffSurface, null);
   assert.deepEqual(reset.fileTree, []);

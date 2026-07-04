@@ -94,25 +94,10 @@ class TestGuiSync(unittest.TestCase):
             shutil.rmtree(workspace, ignore_errors=True)
             shutil.rmtree(static_dir, ignore_errors=True)
 
-    def test_websocket_frontend_has_on_tasks_refresh(self):
-        from embedagent.frontend.gui.backend.server import WebSocketFrontend
-
-        self.assertTrue(hasattr(WebSocketFrontend, "on_tasks_refresh"))
-
     def test_websocket_frontend_has_on_artifacts_refresh(self):
         from embedagent.frontend.gui.backend.server import WebSocketFrontend
 
         self.assertTrue(hasattr(WebSocketFrontend, "on_artifacts_refresh"))
-
-    def test_on_tasks_refresh_dispatches_correct_type(self):
-        from embedagent.frontend.gui.backend.server import WebSocketFrontend
-
-        frontend = WebSocketFrontend()
-        dispatched = []
-        frontend._dispatch_message = lambda msg: dispatched.append(msg) or True
-        frontend.on_tasks_refresh()
-        self.assertEqual(len(dispatched), 1)
-        self.assertEqual(dispatched[0]["type"], "tasks_refresh")
 
     def test_on_artifacts_refresh_dispatches_correct_type(self):
         from embedagent.frontend.gui.backend.server import WebSocketFrontend
@@ -124,11 +109,22 @@ class TestGuiSync(unittest.TestCase):
         self.assertEqual(len(dispatched), 1)
         self.assertEqual(dispatched[0]["type"], "artifacts_refresh")
 
-    def test_callback_bridge_calls_tasks_refresh_for_task_invalidation(self):
+    def test_callback_bridge_ignores_task_refetch_invalidation(self):
         from embedagent.core.adapter import CallbackBridge
 
-        mock_frontend = MagicMock()
-        bridge = CallbackBridge(mock_frontend)
+        class Frontend(object):
+            def __init__(self):
+                self.tool_finished = 0
+                self.artifacts_refreshed = 0
+
+            def on_tool_finish(self, _result):
+                self.tool_finished += 1
+
+            def on_artifacts_refresh(self):
+                self.artifacts_refreshed += 1
+
+        frontend = Frontend()
+        bridge = CallbackBridge(frontend)
         bridge.emit(
             "tool_finished",
             "session-1",
@@ -139,7 +135,8 @@ class TestGuiSync(unittest.TestCase):
                 "call_id": "call-1",
             },
         )
-        mock_frontend.on_tasks_refresh.assert_called_once()
+        self.assertEqual(frontend.tool_finished, 1)
+        self.assertEqual(frontend.artifacts_refreshed, 0)
 
     def test_callback_bridge_calls_artifacts_refresh_for_artifact_invalidation(self):
         from embedagent.core.adapter import CallbackBridge
@@ -161,8 +158,18 @@ class TestGuiSync(unittest.TestCase):
     def test_callback_bridge_calls_both_refreshes_for_multiple_invalidations(self):
         from embedagent.core.adapter import CallbackBridge
 
-        mock_frontend = MagicMock()
-        bridge = CallbackBridge(mock_frontend)
+        class Frontend(object):
+            def __init__(self):
+                self.artifacts_refreshed = 0
+
+            def on_tool_finish(self, _result):
+                pass
+
+            def on_artifacts_refresh(self):
+                self.artifacts_refreshed += 1
+
+        frontend = Frontend()
+        bridge = CallbackBridge(frontend)
         bridge.emit(
             "tool_finished",
             "session-1",
@@ -173,8 +180,7 @@ class TestGuiSync(unittest.TestCase):
                 "call_id": "call-3",
             },
         )
-        mock_frontend.on_tasks_refresh.assert_called_once()
-        mock_frontend.on_artifacts_refresh.assert_called_once()
+        self.assertEqual(frontend.artifacts_refreshed, 1)
 
     def test_callback_bridge_context_compacted_preserves_metadata(self):
         from embedagent.core.adapter import CallbackBridge
@@ -251,7 +257,6 @@ class TestGuiSync(unittest.TestCase):
                 "call_id": "call-4",
             },
         )
-        mock_frontend.on_tasks_refresh.assert_not_called()
         mock_frontend.on_artifacts_refresh.assert_not_called()
 
 

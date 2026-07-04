@@ -14,7 +14,8 @@ class TestGuiSmokeContract(unittest.TestCase):
         self.assertNotIn("manage" + "_to" + "dos", text)
         self.assertNotIn("/api/" + "to" + "dos", text)
         self.assertNotIn("mode=code", text)
-        self.assertIn("/api/tasks", text)
+        self.assertNotIn("/api/tasks", text)
+        self.assertIn("/api/sessions/%s/bootstrap", text)
 
     def test_smoke_script_prefers_native_bundle_gui_launcher(self):
         text = self._script_text()

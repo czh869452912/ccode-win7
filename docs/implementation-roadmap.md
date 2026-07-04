@@ -174,6 +174,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   permission categories, and preview arguments come from backend-declared tool
   catalog metadata, while unknown tools fall back only to their tool id. The old
   renderer-owned built-in tool label table has been removed.
+- GUI tasks now come only from session bootstrap/snapshot `task_items`; the old
+  split `/api/tasks`, `tasks_refresh`, `tasks_loaded`, `/api/workspace/recipes`,
+  and renderer recipe-list load paths have been removed. Workflow-specific quick
+  actions must be exposed through backend capability or command metadata.
 - Offline GUI packaging now includes a native Win32 launcher exe in the portable
   bundle, preserving the one-folder delivery model while improving double-click
   startup.

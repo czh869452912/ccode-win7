@@ -20,7 +20,6 @@ function createRecordedLoaders() {
       loadActiveWorkspaceData: record("loadActiveWorkspaceData"),
       loadSessions: record("loadSessions"),
       loadSession: record("loadSession"),
-      loadTasks: record("loadTasks"),
       loadArtifacts: record("loadArtifacts"),
       loadPermissionContext: record("loadPermissionContext"),
       loadFileChildren: record("loadFileChildren"),
@@ -36,6 +35,7 @@ async function flush(result) {
 export async function runSessionLoadersTests() {
   const { calls, loaders } = createRecordedLoaders();
   const execute = createLoaderRequestExecutor(loaders);
+  assert.equal(Object.prototype.hasOwnProperty.call(LOADER_REQUESTS, "LOAD_TASKS"), false);
 
   assert.equal(await flush(execute({ name: LOADER_REQUESTS.LOAD_APP_BOOTSTRAP })), "loadAppBootstrap:done");
   assert.equal(calls.at(-1).name, "loadAppBootstrap");
@@ -55,9 +55,6 @@ export async function runSessionLoadersTests() {
 
   await execute({ name: LOADER_REQUESTS.LOAD_SESSION, sessionId: "sess-2" });
   assert.deepEqual(calls.at(-1), { name: "loadSession", args: ["sess-2"] });
-
-  await execute({ name: LOADER_REQUESTS.LOAD_TASKS, sessionId: "sess-3" });
-  assert.deepEqual(calls.at(-1), { name: "loadTasks", args: ["sess-3"] });
 
   await execute({ name: LOADER_REQUESTS.LOAD_ARTIFACTS });
   assert.deepEqual(calls.at(-1), { name: "loadArtifacts", args: [] });
@@ -79,7 +76,6 @@ export async function runSessionLoadersTests() {
   await execute({});
   await execute(null);
   await execute({ name: LOADER_REQUESTS.LOAD_SESSION });
-  await execute({ name: LOADER_REQUESTS.LOAD_TASKS });
   await execute({ name: LOADER_REQUESTS.LOAD_PERMISSION_CONTEXT });
   assert.equal(calls.length, beforeNoOps);
 

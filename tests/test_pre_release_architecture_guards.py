@@ -823,6 +823,47 @@ def test_gui_tool_presentation_is_catalog_driven():
     assert "label: text(source.label, name)" in tool_presentation_text
 
 
+def test_gui_has_no_split_task_or_recipe_refetch_contracts():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
+    session_loaders_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-loaders.js"
+    )
+    socket_effects_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"
+    )
+    gui_routes_text = _read(ROOT / "src/embedagent/frontend/gui/backend/routes_sessions.py")
+    gui_server_text = _read(ROOT / "src/embedagent/frontend/gui/backend/server.py")
+    protocol_text = _read(ROOT / "src/embedagent/protocol/__init__.py")
+    inspector_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Inspector.jsx")
+    styles_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/styles.css")
+
+    for token in (
+        "/api/tasks",
+        "/api/workspace/recipes",
+        "loadTasks",
+        "loadWorkspaceRecipes",
+        "tasks_loaded",
+        "recipes_loaded",
+        "LOAD_TASKS",
+        "tasks_refresh",
+        "on_tasks_refresh",
+        "RunPanel",
+        "RecipeCard",
+        "onRunRecipe",
+        "recipe-",
+    ):
+        assert token not in app_text
+        assert token not in store_text
+        assert token not in session_loaders_text
+        assert token not in socket_effects_text
+        assert token not in gui_routes_text
+        assert token not in gui_server_text
+        assert token not in protocol_text
+        assert token not in inspector_text
+        assert token not in styles_text
+
+
 def test_hosted_interactions_do_not_keep_legacy_blocking_frontend_paths():
     banned_tokens = (
         "on_permission_request",

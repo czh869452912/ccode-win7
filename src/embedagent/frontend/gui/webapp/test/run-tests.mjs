@@ -632,15 +632,6 @@ async function main() {
   assert.equal(Object.prototype.hasOwnProperty.call(answeredUserInputState, "userInput"), false);
   assert.equal(answeredUserInputState.activities.length, 0);
 
-  const recipeState = reducer(initialState, {
-    type: "recipes_loaded",
-    items: [
-      { id: "python.test.default", tool_name: "pytest", recipe_action: "test", label: "Pytest", source: "detected" },
-      { id: "html.lint.default", tool_name: "html_lint", recipe_action: "lint", label: "HTML Lint", source: "detected" },
-    ],
-  });
-  assert.equal(recipeState.recipes.length, 2);
-
   const activatedState = reducer(
     {
       ...initialState,
@@ -808,9 +799,13 @@ async function main() {
   assert.equal(inspectorSource.includes("sourceControl={sourceControl}"), true);
   assert.equal(inspectorSource.includes("todo-row"), false);
   assert.equal(inspectorSource.includes("todo-mark"), false);
+  assert.equal(inspectorSource.includes("RunPanel"), false);
+  assert.equal(inspectorSource.includes("RecipeCard"), false);
+  assert.equal(inspectorSource.includes("onRunRecipe"), false);
 
   const stylesSource = readWebappSourceText("styles.css");
   assert.equal(stylesSource.includes("todo-"), false);
+  assert.equal(stylesSource.includes("recipe-"), false);
   assert.equal(stylesSource.includes("mode-code"), false);
   assert.equal(stylesSource.includes("mode-build"), false);
   assert.equal(stylesSource.includes("--mode-badge-color"), true);
@@ -893,6 +888,10 @@ async function main() {
   assert.equal(appSource.includes("executeSocketEffects"), true);
   assert.equal(appSource.includes("executeLoaderRequest"), true);
   assert.equal(appSource.includes("installVisualDebugFixtures"), true);
+  assert.equal(appSource.includes("/api/tasks"), false);
+  assert.equal(appSource.includes("/api/workspace/recipes"), false);
+  assert.equal(appSource.includes("loadTasks"), false);
+  assert.equal(appSource.includes("loadWorkspaceRecipes"), false);
   assert.equal(appSource.includes("createLoaderRequestExecutor"), true);
   assert.equal(appSource.includes("deriveSessionActivation"), false);
   assert.equal(appSource.includes("function connectWebSocket"), false);
@@ -1103,6 +1102,8 @@ async function main() {
   assert.equal(storeSource.includes('case "assistant_delta":'), false);
   assert.equal(storeSource.includes('case "tool_started":'), false);
   assert.equal(storeSource.includes('case "tool_finished":'), false);
+  assert.equal(storeSource.includes('case "tasks_loaded":'), false);
+  assert.equal(storeSource.includes('case "recipes_loaded":'), false);
   assert.equal(storeSource.includes("TOOL_LABELS"), false);
   assert.equal(storeSource.includes("export function toolLabel"), false);
   assert.equal(storeSource.includes("Read  "), false);

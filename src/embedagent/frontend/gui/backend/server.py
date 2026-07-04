@@ -359,9 +359,6 @@ class WebSocketFrontend(FrontendCallbacks):
             }
         )
 
-    def on_tasks_refresh(self) -> None:
-        self._dispatch_message({"type": "tasks_refresh"})
-
     def on_artifacts_refresh(self) -> None:
         self._dispatch_message({"type": "artifacts_refresh"})
 

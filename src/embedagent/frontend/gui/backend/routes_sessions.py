@@ -128,11 +128,6 @@ def register_session_routes(app: Any, backend: Any) -> None:
         core = backend._require_core()
         return core.get_workspace_snapshot()
 
-    @app.get("/api/workspace/recipes")
-    async def get_workspace_recipes():
-        core = backend._require_core()
-        return core.list_workspace_recipes()
-
     @app.post("/api/sessions/{session_id}/resources/reload")
     async def reload_session_resources(session_id: str):
         core = backend._require_core()
@@ -193,11 +188,6 @@ def register_session_routes(app: Any, backend: Any) -> None:
             "new_content": diff.new_content,
             "unified_diff": diff.unified_diff,
         }
-
-    @app.get("/api/tasks")
-    async def list_tasks(session_id: str = ""):
-        core = backend._require_core()
-        return {"tasks": core.list_tasks(session_id=session_id)}
 
     @app.get("/api/artifacts")
     async def list_artifacts(limit: int = 20):

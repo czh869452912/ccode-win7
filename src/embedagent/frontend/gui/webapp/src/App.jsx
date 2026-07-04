@@ -345,25 +345,14 @@ function App() {
       createTransportState: createRuntimeSessionTransport,
       replaceTransportState: replaceSessionTransport,
       listTerminals,
-      loadTasks,
       loadArtifacts,
     });
     await loadSessionController(sessionId);
   }
 
-  async function loadTasks(sessionId) {
-    const payload = await fetchJson(`/api/tasks?session_id=${encodeURIComponent(sessionId || "")}`);
-    dispatch({ type: "tasks_loaded", tasks: payload.tasks || [] });
-  }
-
   async function loadArtifacts() {
     const payload = await fetchJson("/api/artifacts");
     dispatch({ type: "artifacts_loaded", items: payload.items || [] });
-  }
-
-  async function loadWorkspaceRecipes() {
-    const payload = await fetchJson("/api/workspace/recipes");
-    dispatch({ type: "recipes_loaded", items: payload.items || [] });
   }
 
   async function loadFileChildren(path) {
@@ -491,15 +480,13 @@ function App() {
         dispatch,
         getState: () => stateRef.current,
         getCurrentSessionId: () => readActiveThreadId(stateRef.current),
-        loadWorkspaceData: async (sessionId, assumeWorkspace) => {
+        loadWorkspaceData: async (_sessionId, assumeWorkspace) => {
           await Promise.all([
             loadSessions(),
             loadArtifacts(),
             loadSessionCommandCapabilities({ fetchJson, dispatch }),
-            loadTasks(sessionId || ""),
             loadFileChildren("."),
             loadToolCatalog(),
-            loadWorkspaceRecipes(),
             loadSourceControlStatus(false, assumeWorkspace),
           ]);
         },
@@ -549,15 +536,6 @@ function App() {
 
   async function sendMessage() {
     await submitText(composerDraft);
-  }
-
-  async function runRecipe(recipeId, options = {}) {
-    const target = (options.target || "").trim();
-    const profile = (options.profile || "").trim();
-    const parts = ["/run", recipeId];
-    if (target) parts.push(target);
-    if (profile) parts.push(profile);
-    await submitText(parts.join(" "));
   }
 
   const rightPanelController = useMemo(
@@ -620,7 +598,6 @@ function App() {
     loadActiveWorkspaceData,
     loadSessions,
     loadSession,
-    loadTasks,
     loadArtifacts,
     loadPermissionContext,
     loadFileChildren,
@@ -790,7 +767,6 @@ function App() {
     artifacts: state.artifacts,
     plan: state.plan,
     review: state.review,
-    recipes: state.recipes,
     timeline: runtimeState.timelineItems,
     currentInteraction: runtimeState.currentInteraction,
     interactionNotice,
@@ -807,7 +783,6 @@ function App() {
     },
     onOpenArtifact: openArtifact,
     onOpenReviewEvidence: openReviewEvidence,
-    onRunRecipe: runRecipe,
     onFocusDiffFile: (filePath) => dispatch({ type: "diff_file_focused", filePath }),
     onRefreshSourceControl: () => loadSourceControlStatus(true),
     onSelectSourceControlFile: openSourceControlFile,

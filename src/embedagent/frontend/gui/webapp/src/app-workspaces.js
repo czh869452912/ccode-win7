@@ -35,7 +35,6 @@ export function resetWorkspaceScopedState(state = {}) {
     artifacts: [],
     plan: null,
     review: null,
-    recipes: [],
     permissionContext: null,
     preview: null,
     filePreviewsByPath: {},

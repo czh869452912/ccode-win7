@@ -43,7 +43,6 @@ _SESSION_EVENT_NAMES: frozenset = frozenset(
         "session_error",
     }
 )
-_TASK_INVALIDATION = "tasks"
 _ARTIFACT_INVALIDATION = "artifacts"
 
 
@@ -230,10 +229,6 @@ class CallbackBridge:
                 ),
             )
             self.frontend.on_tool_finish(result)
-            if _TASK_INVALIDATION in read_model_invalidations and hasattr(
-                self.frontend, "on_tasks_refresh"
-            ):
-                self.frontend.on_tasks_refresh()
             if _ARTIFACT_INVALIDATION in read_model_invalidations and hasattr(
                 self.frontend, "on_artifacts_refresh"
             ):

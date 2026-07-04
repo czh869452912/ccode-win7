@@ -52,9 +52,6 @@ export async function runSessionActivationControllerTests() {
       calls.push(["listTerminals", sessionId]);
       return { terminals: [{ terminal_id: "term-1" }] };
     },
-    loadTasks: async (sessionId) => {
-      calls.push(["loadTasks", sessionId]);
-    },
     loadArtifacts: async () => {
       calls.push(["loadArtifacts"]);
     },
@@ -85,10 +82,8 @@ export async function runSessionActivationControllerTests() {
     type: "terminal_summaries_loaded",
     terminals: [{ terminal_id: "term-1" }],
   });
-  assert.deepEqual(calls.slice(-2), [
-    ["loadTasks", "sess-activation"],
-    ["loadArtifacts"],
-  ]);
+  assert.equal(calls.some((item) => item[0] === "loadTasks"), false);
+  assert.deepEqual(calls.at(-1), ["loadArtifacts"]);
 
   const terminalFailureActions = [];
   const terminalFailureController = createSessionActivationController({

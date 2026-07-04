@@ -15,7 +15,6 @@ export function createSessionActivationController({
   createTransportState,
   replaceTransportState,
   listTerminals,
-  loadTasks,
   loadArtifacts,
 } = {}) {
   const fetchBootstrap = typeof fetchJson === "function" ? fetchJson : () => Promise.resolve({});
@@ -51,6 +50,6 @@ export function createSessionActivationController({
     } catch (_) {
       send({ type: "terminal_summaries_loaded", terminals: [] });
     }
-    await Promise.all([invoke(loadTasks, sessionId), invoke(loadArtifacts)]);
+    await invoke(loadArtifacts);
   };
 }

@@ -53,7 +53,6 @@ export default function Inspector({
   artifacts,
   plan,
   review,
-  recipes,
   timeline,
   currentInteraction,
   interactionNotice,
@@ -67,7 +66,6 @@ export default function Inspector({
   onTabChange,
   onOpenArtifact,
   onOpenReviewEvidence,
-  onRunRecipe,
   onFocusDiffFile,
   onRefreshSourceControl,
   onSelectSourceControlFile,
@@ -99,7 +97,6 @@ export default function Inspector({
           <ArtifactPanel artifacts={artifacts} onOpen={onOpenArtifact} lang={lang} />
         )}
         {inspectorTab === "plan" && <PlanPanel plan={plan} lang={lang} />}
-        {inspectorTab === "run" && <RunPanel recipes={recipes} lang={lang} onRunRecipe={onRunRecipe} />}
         {inspectorTab === "problems" && <ProblemsPanel timeline={timeline} lang={lang} />}
         {inspectorTab === "review" && <ReviewPanel review={review} lang={lang} onOpenReviewEvidence={onOpenReviewEvidence} />}
         {inspectorTab === "diff" && (
@@ -132,71 +129,6 @@ export default function Inspector({
         {inspectorTab === "log" && <LogPanel entries={runOutput} lang={lang} />}
       </div>
     </aside>
-  );
-}
-
-function RunPanel({ recipes, lang, onRunRecipe }) {
-  const items = Array.isArray(recipes) ? recipes : [];
-  return (
-    <div className="panel-preview">
-      <h3>{t("inspector.run", lang)}</h3>
-      {items.length > 0 ? (
-        <div className="recipe-list">
-          {items.map((recipe) => (
-            <RecipeCard key={recipe.id} recipe={recipe} lang={lang} onRunRecipe={onRunRecipe} />
-          ))}
-        </div>
-      ) : (
-        <div className="empty-copy">{t("inspector.noRecipes", lang)}</div>
-      )}
-    </div>
-  );
-}
-
-function RecipeCard({ recipe, lang, onRunRecipe }) {
-  const [target, setTarget] = React.useState("");
-  const [profile, setProfile] = React.useState("");
-  const supportsTarget = Boolean(recipe.supports_target);
-  const supportsProfile = Boolean(recipe.supports_profile);
-
-  return (
-    <div className="recipe-card">
-      <div className="recipe-header">
-        <span className="recipe-label">{recipe.label || recipe.id}</span>
-        <span className="recipe-tool">{recipe.recipe_action || recipe.tool_name}</span>
-      </div>
-      <div className="recipe-meta">
-        <span className="rule-chip monospace">{recipe.id}</span>
-        <span className="rule-chip monospace">{recipe.source || "detected"}</span>
-      </div>
-      <code className="recipe-command">{recipe.command || "-"}</code>
-      {(supportsTarget || supportsProfile) ? (
-        <div className="recipe-inputs">
-          {supportsTarget ? (
-            <input
-              className="recipe-input"
-              value={target}
-              onChange={(e) => setTarget(e.target.value)}
-              placeholder={t("inspector.runTarget", lang)}
-            />
-          ) : null}
-          {supportsProfile ? (
-            <input
-              className="recipe-input"
-              value={profile}
-              onChange={(e) => setProfile(e.target.value)}
-              placeholder={t("inspector.runProfile", lang)}
-            />
-          ) : null}
-        </div>
-      ) : null}
-      <button
-        className="primary"
-        onClick={() => onRunRecipe && onRunRecipe(recipe.id, { target, profile })}
-      >
-        {t("inspector.runRecipe", lang)}
-      </button>
-    </div>
   );
 }
 
