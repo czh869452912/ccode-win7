@@ -44,6 +44,31 @@
 
 ## 3. 当前变更记录
 
+### DC-242
+
+- Date: 2026-07-04
+- Change Topic: GUI Diff surface command-result activation is payload-driven
+- Summary:
+  - Removed the GUI WebSocket effect branch that opened the Diff surface only
+    for `commandName === "diff"`.
+  - Command results now open the Diff right-panel whenever they carry a
+    structured `data.diff` payload, allowing specialized agents to expose
+    diff-producing commands without GUI command-name coupling.
+  - Added frontend regression coverage and source/architecture guards to keep
+    command-result Diff activation payload-driven.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js`
+  - `src/embedagent/frontend/gui/webapp/test/socket-message-effects.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-241
 
 - Date: 2026-07-04

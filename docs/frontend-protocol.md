@@ -157,7 +157,9 @@ for the read-only file right-panel surface.
 `capabilities.surfaces.chrome.diff_panel` describes Diff Panel default titles,
 empty-state copy, control titles, file rail labels, collapse labels, and the
 source-control diff title template for the already-projected diff display
-surface. `capabilities.source_control`
+surface. A `command_result` may open the Diff surface from structured
+`data.diff`; renderers must not key that behavior on `command_name`.
+`capabilities.source_control`
 describes the local
 source-control surface: `enabled`, `vcs`, `read_only`, `remote_providers`,
 `network`, `checkpoints`, `requires_active_workspace`, and `chrome` copy for

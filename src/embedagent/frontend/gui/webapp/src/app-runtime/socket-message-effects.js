@@ -103,13 +103,14 @@ function commandResultEffects(data, options) {
       sessionId: data.data.switch_session_id,
     });
   }
-  if (commandName === "diff" && typeof data?.data?.diff === "string" && data.data.diff) {
+  const commandDiff = data?.data?.diff;
+  if (typeof commandDiff === "string" && commandDiff) {
     const diffPanelChrome = options.diffPanelChrome || {};
     effects.actions.push({
       type: "diff_surface_opened",
       diffSurface: createDiffSurfaceState({
         title: diffPanelChrome.defaultTitle,
-        diff: data.data.diff,
+        diff: commandDiff,
         source: "command",
         turnId: data?.turn_id || "",
         chrome: diffPanelChrome,

@@ -254,6 +254,16 @@ export function runSocketMessageEffectsTests() {
     detail: "ok",
   });
 
+  const structuredDiffCommand = derive("command_result", {
+    command_name: "custom_patch",
+    success: true,
+    data: { diff: "--- a/src/custom.c\n+++ b/src/custom.c\n@@ -1 +1 @@\n-old\n+new\n" },
+    turn_id: "turn-custom-diff",
+  });
+  assert.equal(structuredDiffCommand.actions[0].type, "command_result");
+  assert.equal(structuredDiffCommand.actions[1].type, "diff_surface_opened");
+  assert.equal(structuredDiffCommand.actions[1].diffSurface.turnId, "turn-custom-diff");
+
   const commandResume = derive("command_result", {
     command_name: "resume",
     success: true,

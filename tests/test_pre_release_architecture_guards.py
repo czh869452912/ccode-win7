@@ -717,6 +717,15 @@ def test_gui_timeline_tool_preview_is_catalog_driven():
         assert token not in text
 
 
+def test_gui_command_result_diff_surface_is_payload_driven():
+    text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"
+    )
+
+    assert 'type: "diff_surface_opened"' in text
+    assert 'commandName === "diff"' not in text
+
+
 def test_gui_raw_interaction_requests_do_not_synthesize_activity_records():
     files = [
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js",

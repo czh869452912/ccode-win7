@@ -99,6 +99,10 @@
   command results become review rows only when they carry `data.review` or
   `review`, so the GUI no longer treats the slash command name `/review` as a
   row-type policy.
+- Command-result Diff surface activation is now structured-payload driven:
+  WebSocket command results open the Diff right-panel from `data.diff` rather
+  than from the slash command name `/diff`, so specialized agents can expose
+  diff-producing commands without GUI command-name coupling.
 - File Preview right-panel chrome now comes from
   `capabilities.surfaces.chrome.file_preview`: default file/project labels,
   loading/error fallback copy, retry/copy/explorer actions, metadata
