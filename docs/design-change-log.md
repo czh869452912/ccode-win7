@@ -44,6 +44,31 @@
 
 ## 3. 当前变更记录
 
+### DC-243
+
+- Date: 2026-07-04
+- Change Topic: GUI user-input interactions do not default to `ask_user`
+- Summary:
+  - Removed the GUI interaction read-model fallback that filled missing
+    user-input `tool_name` values with the built-in `ask_user` tool name.
+  - Pending user-input display is now driven by `kind` /
+    `sourceActivityKind` and explicit backend payload fields, keeping the GUI
+    adaptable to base or specialized agents that do not expose `ask_user`.
+  - Added frontend regression coverage and source/architecture guards to keep
+    user-input interaction projection free of built-in tool-name defaults.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/interaction-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/interaction-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-242
 
 - Date: 2026-07-04

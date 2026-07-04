@@ -1127,6 +1127,12 @@ async function main() {
   assert.equal(visualFixturesSource.includes('type: "set_inspector"'), false);
   assert.equal(visualFixturesSource.includes("inspectorTab"), false);
 
+  const interactionModelSource = fs.readFileSync(
+    webappSourcePath("session-runtime", "interaction-model.js"),
+    "utf8",
+  );
+  assert.equal(interactionModelSource.includes('|| "ask_user"'), false);
+
   const socketMessageEffectsSource = fs.readFileSync(
     webappSourcePath("app-runtime", "socket-message-effects.js"),
     "utf8",

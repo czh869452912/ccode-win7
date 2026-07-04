@@ -196,4 +196,25 @@ export function runInteractionModelTests() {
   assert.equal(activityInput.kind, "user_input");
   assert.equal(activityInput.interactionId, "ask-activity");
   assert.equal(activityInput.options[0].label, "Continue");
+
+  const activityInputWithoutToolName = currentInteractionFromActivities([
+    {
+      id: "act-input-generic",
+      kind: "interaction",
+      sourceActivityKind: "user-input.requested",
+      requestId: "ask-generic",
+      status: "pending",
+      payload: {
+        questions: [
+          {
+            id: "answer",
+            question: "Continue?",
+            options: [{ index: 1, label: "Continue" }],
+          },
+        ],
+      },
+    },
+  ]);
+  assert.equal(activityInputWithoutToolName.kind, "user_input");
+  assert.equal(activityInputWithoutToolName.toolName, "");
 }

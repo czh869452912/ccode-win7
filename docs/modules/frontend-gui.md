@@ -61,7 +61,7 @@
 
 ## 5. Data / Control Flow
 
-用户通过 `pywebview` 窗口与 React SPA 交互；SPA 通过 WebSocket/HTTP 访问 FastAPI 后端；`GUIBackend` 将 `WebSocketFrontend` 注册为 `AgentCoreAdapter` 的回调目标。权限与 `ask_user` 交互的可见真相来自 `Session.pending_interaction` / `pending_interaction_valid` 快照字段，GUI 通过统一的 `respond_to_interaction(session_id, interaction_id, payload)` 路径提交响应；`HostedInteractionService` 负责 pending ticket glue，实际恢复继续回到 Agent Core 的 action pipeline。
+用户通过 `pywebview` 窗口与 React SPA 交互；SPA 通过 WebSocket/HTTP 访问 FastAPI 后端；`GUIBackend` 将 `WebSocketFrontend` 注册为 `AgentCoreAdapter` 的回调目标。权限与 user-input 交互的可见真相来自 `Session.pending_interaction` / `pending_interaction_valid` 快照字段和 backend-owned interaction session events；GUI 通过统一的 `respond_to_interaction(session_id, interaction_id, payload)` 路径提交响应；`HostedInteractionService` 负责 pending ticket glue，实际恢复继续回到 Agent Core 的 action pipeline。
 
 Preview surface chrome, File Preview chrome, source-control panel chrome,
 bottom drawer run-output chrome, terminal chrome, thread lifecycle actions,
@@ -402,7 +402,9 @@ loading, telemetry, or runtime reducers.
 Pending permission and user-input interactions render in the composer through
 `components/composer/ComposerInteractionPanel.jsx`. The inspector can still
 show interaction diagnostics, but the primary decision surface stays near the
-next user action.
+next user action. User-input rows are classified by `kind` /
+`sourceActivityKind`; if `tool_name` is absent, the renderer leaves the tool
+name empty instead of filling in the built-in `ask_user` name.
 
 Changed-files rows render a T3code-like directory tree derived by
 `t3-timeline.js`. The tree is a frontend-local projection over existing

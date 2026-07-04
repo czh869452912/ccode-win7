@@ -281,7 +281,9 @@ Important session snapshot fields include:
 
 `pending_interaction` is the single frontend-visible pending interaction
 payload. It carries permission and user-input requests through a `kind` field
-instead of parallel permission or user-input snapshot fields.
+instead of parallel permission or user-input snapshot fields. `tool_name` is a
+payload field, not a frontend classification fallback; missing user-input tool
+names must not be synthesized as `ask_user`.
 
 `max_turns`, where present in snapshots or turn-end events, is a compatibility projection for an explicitly supplied runtime/test loop safety limit. Persistent JSON configuration must not set this value. A missing or null value means the default Pi-style continuation path has no fixed turn-count cutoff. Frontends may display explicit safety-limit values for diagnostics, but they must not treat them as required session budgets or infer loop policy from them.
 
@@ -363,7 +365,8 @@ events such as `permission_required` and `user_input_required` are forwarded by
 `permission_request` and `user_input_request` WebSocket messages remain only
 the current blocking interaction UI/response channel; renderer code must not
 synthesize interaction-created transport events, history rows, or activity
-records from those raw request messages.
+records from those raw request messages. User-input display remains
+`kind`/event-kind driven even when the payload omits `tool_name`.
 
 `history.integrity.status` is the official history health signal:
 

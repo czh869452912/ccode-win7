@@ -726,6 +726,15 @@ def test_gui_command_result_diff_surface_is_payload_driven():
     assert 'commandName === "diff"' not in text
 
 
+def test_gui_user_input_interactions_do_not_default_to_ask_user_tool():
+    text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/interaction-model.js"
+    )
+
+    assert 'sourceKind === "user-input.requested"' in text
+    assert '|| "ask_user"' not in text
+
+
 def test_gui_raw_interaction_requests_do_not_synthesize_activity_records():
     files = [
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js",

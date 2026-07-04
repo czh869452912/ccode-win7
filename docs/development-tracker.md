@@ -103,6 +103,10 @@
   WebSocket command results open the Diff right-panel from `data.diff` rather
   than from the slash command name `/diff`, so specialized agents can expose
   diff-producing commands without GUI command-name coupling.
+- GUI user-input interaction projection no longer defaults missing
+  `tool_name` values to the built-in `ask_user` tool. Pending user-input
+  display is driven by `kind` / `sourceActivityKind` and whatever safe payload
+  fields the backend provides.
 - File Preview right-panel chrome now comes from
   `capabilities.surfaces.chrome.file_preview`: default file/project labels,
   loading/error fallback copy, retry/copy/explorer actions, metadata

@@ -269,7 +269,10 @@ GUI live interaction activity must enter the renderer through backend-owned
 `permission_request` / `user_input_request` WebSocket messages exist only to
 drive the current blocking interaction UI and response path; renderer code must
 not synthesize interaction-created activity/history records from those raw
-request messages or maintain a parallel interaction activity stream.
+request messages or maintain a parallel interaction activity stream. User-input
+interaction display must be driven by `kind` / `sourceActivityKind` plus
+payload fields; when `tool_name` is absent, renderer code must not fill in the
+default built-in `ask_user` tool name.
 
 Official durable operation truth is:
 

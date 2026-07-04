@@ -193,7 +193,7 @@ export function currentInteractionFromActivities(activities = []) {
       return normalizeComposerInteraction({
         interaction_id: item.requestId,
         kind: "user_input",
-        tool_name: payload.toolName || payload.tool_name || "ask_user",
+        tool_name: payload.toolName || payload.tool_name,
         questions: Array.isArray(payload.questions) ? payload.questions : [],
         question: payload.question || payload.summary,
         options: Array.isArray(payload.options) ? payload.options : [],
