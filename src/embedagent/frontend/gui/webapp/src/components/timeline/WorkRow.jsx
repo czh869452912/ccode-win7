@@ -50,6 +50,7 @@ export default function WorkRow({
   onToggle = null,
   rowKey = "",
   onOpenFile = null,
+  toolDetailChrome = {},
 }) {
   const presentation = row.presentation || {
     heading: row.label || row.toolName || "Work",
@@ -104,7 +105,13 @@ export default function WorkRow({
       </button>
       {expanded && hasDetail ? (
         <div className="t3-work-detail timeline-work-detail" data-testid="timeline-work-detail">
-          {row.detailModel ? <ToolDetail model={row.detailModel} onOpenFile={onOpenFile} /> : null}
+          {row.detailModel ? (
+            <ToolDetail
+              model={row.detailModel}
+              onOpenFile={onOpenFile}
+              chrome={toolDetailChrome}
+            />
+          ) : null}
           {presentation.expandedBody ? <pre className="t3-work-detail-text">{presentation.expandedBody}</pre> : null}
           {!row.detailModel && !presentation.expandedBody && row.detail ? (
             <pre className="t3-work-detail-text">{row.detail}</pre>

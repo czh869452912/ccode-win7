@@ -167,6 +167,12 @@ export function runAppShellModelTests() {
         timerMinutesSecondsTemplate: "",
         timerHoursMinutesTemplate: "",
       },
+      toolDetail: {
+        defaultSectionTitle: "",
+        fallbackMatchLabel: "",
+        fieldLabels: {},
+        sectionTitles: {},
+      },
     },
   });
   assert.deepEqual(initial.capabilities.surfaces.rightPanel, []);
@@ -517,6 +523,22 @@ export function runAppShellModelTests() {
             timer_seconds_template: "{seconds} sec",
             timer_minutes_seconds_template: "{minutes} min {seconds} sec",
             timer_hours_minutes_template: "{hours} hr {minutes} min",
+          },
+          tool_detail: {
+            default_section_title: "Details",
+            fallback_match_label: "result",
+            field_labels: {
+              path: "Path",
+              pattern: "Pattern",
+              recipe: "Recipe",
+              exit: "Exit",
+            },
+            section_titles: {
+              error: "Failure",
+              preview: "Excerpt",
+              matches: "Results",
+              diff: "Patch",
+            },
           },
         },
       },
@@ -940,6 +962,12 @@ export function runAppShellModelTests() {
     bootstrap.capabilities.chrome.timeline.activityRows.timerHoursMinutesTemplate,
     "{hours} hr {minutes} min",
   );
+  assert.equal(bootstrap.capabilities.chrome.timeline.toolDetail.defaultSectionTitle, "Details");
+  assert.equal(bootstrap.capabilities.chrome.timeline.toolDetail.fallbackMatchLabel, "result");
+  assert.equal(bootstrap.capabilities.chrome.timeline.toolDetail.fieldLabels.path, "Path");
+  assert.equal(bootstrap.capabilities.chrome.timeline.toolDetail.fieldLabels.recipe, "Recipe");
+  assert.equal(bootstrap.capabilities.chrome.timeline.toolDetail.sectionTitles.preview, "Excerpt");
+  assert.equal(bootstrap.capabilities.chrome.timeline.toolDetail.sectionTitles.matches, "Results");
   assert.deepEqual(
     bootstrap.capabilities.surfaces.rightPanel.map((item) => item.kind),
     ["settings", "diagnostics", "source_control"],

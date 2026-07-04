@@ -44,6 +44,42 @@
 
 ## 3. 当前变更记录
 
+### DC-237
+
+- Date: 2026-07-04
+- Change Topic: GUI timeline tool-detail chrome declaration
+- Summary:
+  - Added `/api/app/bootstrap` `capabilities.chrome.timeline.tool_detail`
+    descriptors for tool-detail field labels, section titles, and match
+    fallback labels.
+  - Changed T3 timeline work-detail projection to emit field keys and section
+    kinds without default renderer chrome labels.
+  - Routed `TimelineRows.jsx` / `WorkRow.jsx` / `ToolDetail.jsx` through the
+    app-shell tool-detail chrome so specialized agent shells can replace tool
+    detail copy without changing the renderer.
+  - Extended frontend T3 timeline tests, source checks, app-shell descriptor
+    tests, backend payload assertions, and architecture guards for the
+    tool-detail chrome/data split.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/WorkRow.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/ToolDetail.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/t3-timeline.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-236
 
 - Date: 2026-07-04

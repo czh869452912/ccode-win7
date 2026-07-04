@@ -691,6 +691,19 @@ export function runT3TimelineTests() {
                 stepId: "step-detail",
                 stepIndex: 1,
               },
+              {
+                id: "summary-detail",
+                kind: "tool",
+                toolName: "custom_agent_report",
+                label: "Custom Agent Report",
+                status: "success",
+                data: {
+                  summary: "custom agent summary",
+                },
+                turnId: "turn-detail",
+                stepId: "step-detail",
+                stepIndex: 1,
+              },
             ],
             assistantItem: null,
           },
@@ -705,26 +718,37 @@ export function runT3TimelineTests() {
   });
 
   const detailWorkRows = detailRows.filter((row) => row.kind === T3_ROW_KINDS.WORK);
-  assert.equal(detailWorkRows.length, 4);
+  assert.equal(detailWorkRows.length, 5);
   const readDetail = detailWorkRows.find((row) => row.toolName === "read_file").detailModel;
   assert.equal(readDetail.kind, "tool_detail");
-  assert.equal(readDetail.fields.find((field) => field.label === "path").value, "src/parser.c");
-  assert.equal(readDetail.fields.find((field) => field.label === "lines").value, "12");
-  assert.equal(readDetail.sections.find((section) => section.kind === "preview").content, "int parse(void);");
+  assert.equal(readDetail.fields.find((field) => field.key === "path").value, "src/parser.c");
+  assert.equal(readDetail.fields.find((field) => field.key === "lines").value, "12");
+  assert.equal(readDetail.fields.find((field) => field.key === "path").label, "");
+  const readPreviewSection = readDetail.sections.find((section) => section.kind === "preview");
+  assert.equal(readPreviewSection.content, "int parse(void);");
+  assert.equal(readPreviewSection.title, "");
   assert.equal(readDetail.rawJson, undefined);
 
   const grepDetail = detailWorkRows.find((row) => row.toolName === "grep_text").detailModel;
-  assert.equal(grepDetail.fields.find((field) => field.label === "pattern").value, "parse");
+  assert.equal(grepDetail.fields.find((field) => field.key === "pattern").value, "parse");
   assert.equal(grepDetail.sections.find((section) => section.kind === "matches").items.length, 2);
+  assert.equal(grepDetail.sections.find((section) => section.kind === "matches").title, "");
 
   const editDetail = detailWorkRows.find((row) => row.toolName === "edit_file").detailModel;
   assert.equal(editDetail.sections.find((section) => section.kind === "diff").content.includes("@@ -1 +1 @@"), true);
+  assert.equal(editDetail.sections.find((section) => section.kind === "diff").title, "");
   assert.equal(detailWorkRows.find((row) => row.toolName === "edit_file").changedFiles[0].path, "src/parser.c");
 
   const recipeDetail = detailWorkRows.find((row) => row.toolName === "workflow_task").detailModel;
-  assert.equal(recipeDetail.fields.find((field) => field.label === "recipe").value, "python-test");
-  assert.equal(recipeDetail.fields.find((field) => field.label === "exit").value, "1");
+  assert.equal(recipeDetail.fields.find((field) => field.key === "recipe").value, "python-test");
+  assert.equal(recipeDetail.fields.find((field) => field.key === "exit").value, "1");
   assert.equal(recipeDetail.sections.find((section) => section.kind === "stderr").content.includes("failed"), true);
+  assert.equal(recipeDetail.sections.find((section) => section.kind === "stderr").title, "");
+
+  const summaryDetail = detailWorkRows.find((row) => row.toolName === "custom_agent_report").detailModel;
+  const summarySection = summaryDetail.sections.find((section) => section.kind === "summary");
+  assert.equal(summarySection.content, "custom agent summary");
+  assert.equal(summarySection.title, "");
 
   const changed = summarizeChangedFiles([
     {

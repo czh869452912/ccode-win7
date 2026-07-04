@@ -797,6 +797,18 @@ function normalizeTimelineActivityRowsChrome(input = {}) {
   };
 }
 
+function normalizeTimelineToolDetailChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    defaultSectionTitle: String(
+      value.default_section_title || value.defaultSectionTitle || "",
+    ),
+    fallbackMatchLabel: String(value.fallback_match_label || value.fallbackMatchLabel || ""),
+    fieldLabels: normalizeStringMap(value.field_labels || value.fieldLabels),
+    sectionTitles: normalizeStringMap(value.section_titles || value.sectionTitles),
+  };
+}
+
 function normalizeTimelineChrome(input = {}) {
   const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
   return {
@@ -822,6 +834,7 @@ function normalizeTimelineChrome(input = {}) {
     activityRows: normalizeTimelineActivityRowsChrome(
       value.activity_rows || value.activityRows,
     ),
+    toolDetail: normalizeTimelineToolDetailChrome(value.tool_detail || value.toolDetail),
   };
 }
 

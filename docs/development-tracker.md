@@ -78,6 +78,10 @@
   `capabilities.surfaces.chrome`: aria label, empty output text, and
   termination reason prefix are backend-declared descriptors consumed through
   `surfaceChromeLabels(appCapabilities)`.
+- Timeline structured tool-detail chrome now comes from
+  `capabilities.chrome.timeline.tool_detail`: field labels, section titles, and
+  match fallback labels are backend-declared descriptors, while
+  `t3-timeline.js` only projects field keys, section kinds, and display data.
 - File Preview right-panel chrome now comes from
   `capabilities.surfaces.chrome.file_preview`: default file/project labels,
   loading/error fallback copy, retry/copy/explorer actions, metadata

@@ -64,7 +64,15 @@ function workGroupOverflowLabel({ isExpanded, hiddenCount, chrome = {} }) {
   return formatTemplate(template, { count: hiddenCount });
 }
 
-function WorkGroupSection({ rows, rowUiState, onToggleRow, rowKeyFor, onOpenFile, chrome = {} }) {
+function WorkGroupSection({
+  rows,
+  rowUiState,
+  onToggleRow,
+  rowKeyFor,
+  onOpenFile,
+  chrome = {},
+  toolDetailChrome = {},
+}) {
   const sectionRef = React.useRef(null);
   const anchorBottomBeforeToggleRef = React.useRef(null);
   const [isExpanded, setIsExpanded] = React.useState(false);
@@ -118,6 +126,7 @@ function WorkGroupSection({ rows, rowUiState, onToggleRow, rowKeyFor, onOpenFile
               expanded={Boolean(rowUiState?.expanded?.[key])}
               onToggle={onToggleRow}
               onOpenFile={onOpenFile}
+              toolDetailChrome={toolDetailChrome}
             />
           );
         })}
@@ -507,6 +516,7 @@ function TimelineRowSwitch({
   chrome,
 }) {
   const activityRowsChrome = chrome?.activityRows || {};
+  const toolDetailChrome = chrome?.toolDetail || {};
   if (row.kind === "message") {
     return <MessageRow row={row} markdownComponents={markdownComponents} />;
   }
@@ -520,6 +530,7 @@ function TimelineRowSwitch({
         expanded={Boolean(rowUiState?.expanded?.[key])}
         onToggle={onToggleRow}
         onOpenFile={onOpenFile}
+        toolDetailChrome={toolDetailChrome}
       />
     );
   }
@@ -610,6 +621,7 @@ export default function TimelineRows({
       {sections.map((section) => {
         if (section.kind === "work_group") {
           const workGroupChrome = chrome.workGroup || {};
+          const toolDetailChrome = chrome.toolDetail || {};
           return (
             <WorkGroupSection
               key={section.id}
@@ -619,6 +631,7 @@ export default function TimelineRows({
               rowKeyFor={rowKeyFor}
               onOpenFile={onOpenFile}
               chrome={workGroupChrome}
+              toolDetailChrome={toolDetailChrome}
             />
           );
         }

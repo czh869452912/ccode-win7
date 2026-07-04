@@ -564,10 +564,11 @@ function truncateText(value, limit = DETAIL_TEXT_LIMIT) {
   return `${text.slice(0, limit)}\n...[truncated]`;
 }
 
-function pushField(fields, label, value, options = {}) {
+function pushField(fields, key, value, options = {}) {
   if (value == null || value === "") return;
   fields.push({
-    label,
+    key,
+    label: stringValue(options.label),
     value: stringValue(value),
     mono: options.mono !== false,
   });
@@ -670,7 +671,10 @@ function buildToolDetailModel(item, args, changed) {
   const command = stringValue(data.command || args.command);
   const recipe = stringValue(data.recipe_id || data.recipeId || args.recipe_id || args.recipeId);
   const target = stringValue(data.target || args.target);
-  const preview = firstString(data.content_preview, data.preview, data.summary, data.message);
+  const previewContent = firstString(data.content_preview, data.preview);
+  const summaryContent = firstString(data.summary, data.message);
+  const preview = previewContent || summaryContent;
+  const previewKind = previewContent ? "preview" : summaryContent ? "summary" : "";
   const stdout = firstString(data.stdout_preview, data.stdout);
   const stderr = firstString(data.stderr_preview, data.stderr);
   const diff = diffTextFromItem(item);
@@ -691,63 +695,63 @@ function buildToolDetailModel(item, args, changed) {
     pushField(fields, "returned", `${data.returned_count}/${data.total_count}`);
   }
   for (const [key, value] of publicValuePairs(args, data)) {
-    if (fields.some((field) => field.label === key)) continue;
+    if (fields.some((field) => field.key === key)) continue;
     pushField(fields, key, value);
   }
 
   if (item?.error) {
     sections.push({
       kind: "error",
-      title: "Error",
+      title: "",
       content: truncateText(item.error),
     });
   }
   if (preview) {
     sections.push({
-      kind: "preview",
-      title: toolName === "read_file" ? "Preview" : "Summary",
+      kind: previewKind,
+      title: "",
       content: truncateText(preview),
     });
   }
   if (matches.length > 0) {
     sections.push({
       kind: "matches",
-      title: "Matches",
+      title: "",
       items: matches,
     });
   }
   if (files.length > 0) {
     sections.push({
       kind: "files",
-      title: "Files",
+      title: "",
       items: files,
     });
   }
   if (stdout) {
     sections.push({
       kind: "stdout",
-      title: "stdout",
+      title: "",
       content: truncateText(stdout),
     });
   }
   if (stderr) {
     sections.push({
       kind: "stderr",
-      title: "stderr",
+      title: "",
       content: truncateText(stderr),
     });
   }
   if (diff) {
     sections.push({
       kind: "diff",
-      title: "Diff",
+      title: "",
       content: truncateText(diff),
     });
   }
   if (Array.isArray(changed?.files) && changed.files.length > 0) {
     sections.push({
       kind: "changed_files",
-      title: "Changed files",
+      title: "",
       items: changed.files.map((file) => ({
         id: file.path,
         path: file.path,

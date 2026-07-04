@@ -734,6 +734,15 @@ async function main() {
     '"Thinking"',
     "Context compacted",
     'label: "/review"',
+    'title: "Error"',
+    'title: "Preview"',
+    'title: "Summary"',
+    'title: "Matches"',
+    'title: "Files"',
+    'title: "stdout"',
+    'title: "stderr"',
+    'title: "Diff"',
+    'title: "Changed files"',
   ]) {
     assert.equal(t3TimelineSource.includes(hardcodedProjectionChromeCopy), false);
   }
@@ -757,6 +766,7 @@ async function main() {
   assert.equal(timelineRowsSource.includes("changedFilesChrome"), true);
   assert.equal(timelineRowsSource.includes("workGroupChrome"), true);
   assert.equal(timelineRowsSource.includes("activityRowsChrome"), true);
+  assert.equal(timelineRowsSource.includes("toolDetailChrome"), true);
   assert.equal(timelineRowsSource.includes("chrome.streamingStatus"), true);
   assert.equal(timelineRowsSource.includes("chrome.contextSummarizedTemplate"), true);
   assert.equal(timelineRowsSource.includes("chrome.contextSizeTemplate"), true);
@@ -820,6 +830,7 @@ async function main() {
   assert.equal(workRowSource.includes("data-icon-name={presentation.iconName}"), true);
   assert.equal(workRowSource.includes("data-status-indicator={presentation.statusIndicator}"), true);
   assert.equal(workRowSource.includes("presentation.expandedBody"), true);
+  assert.equal(workRowSource.includes("toolDetailChrome"), true);
   assert.equal(workRowSource.includes("TOOL_ICONS"), false);
   assert.equal(workRowSource.includes("<pre>{row.detail}</pre>"), false);
   assert.equal(fs.existsSync(webappSourcePath("components", "timeline", "ToolDetail.jsx")), true);
@@ -830,6 +841,11 @@ async function main() {
   assert.equal(toolDetailSource.includes("timeline-file-link"), true);
   assert.equal(toolDetailSource.includes("data-testid={`timeline-tool-file-link--"), true);
   assert.equal(toolDetailSource.includes("onOpenFile(item.path, item.line || undefined)"), true);
+  assert.equal(toolDetailSource.includes("fieldLabel"), true);
+  assert.equal(toolDetailSource.includes("sectionTitle"), true);
+  assert.equal(toolDetailSource.includes("fallbackMatchLabel"), true);
+  assert.equal(toolDetailSource.includes('"Detail"'), false);
+  assert.equal(toolDetailSource.includes('|| "match"'), false);
   assert.equal(timelineRowsSource.includes("onOpenFile={onOpenFile}"), true);
 
   assert.equal(fs.existsSync(webappSourcePath("components", "InteractionPanel.jsx")), false);

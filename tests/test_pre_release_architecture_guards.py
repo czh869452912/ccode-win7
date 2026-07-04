@@ -1145,6 +1145,12 @@ def test_gui_timeline_copy_is_app_shell_declared():
     timeline_rows_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx"
     )
+    work_row_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/timeline/WorkRow.jsx"
+    )
+    tool_detail_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/timeline/ToolDetail.jsx"
+    )
     t3_timeline_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js"
     )
@@ -1153,7 +1159,9 @@ def test_gui_timeline_copy_is_app_shell_declared():
     )
 
     assert '"timeline": {' in spec_text
+    assert '"tool_detail": {' in spec_text
     assert "normalizeTimelineChrome" in model_text
+    assert "normalizeTimelineToolDetailChrome" in model_text
     assert "timeline: normalizeTimelineChrome" in model_text
     assert "chrome={appChrome.timeline || {}}" in app_text
     assert "chrome.historyPartialLabel" in timeline_text
@@ -1161,6 +1169,11 @@ def test_gui_timeline_copy_is_app_shell_declared():
     assert "changedFilesChrome" in timeline_rows_text
     assert "workGroupChrome" in timeline_rows_text
     assert "activityRowsChrome" in timeline_rows_text
+    assert "toolDetailChrome" in timeline_rows_text
+    assert "toolDetailChrome" in work_row_text
+    assert "fieldLabel" in tool_detail_text
+    assert "sectionTitle" in tool_detail_text
+    assert "fallbackMatchLabel" in tool_detail_text
     assert "chrome.streamingStatus" in timeline_rows_text
     assert "chrome.contextSummarizedTemplate" in timeline_rows_text
     assert "chrome.contextSizeTemplate" in timeline_rows_text
@@ -1213,8 +1226,23 @@ def test_gui_timeline_copy_is_app_shell_declared():
         '"Thinking"',
         "Context compacted",
         'label: "/review"',
+        'title: "Error"',
+        'title: "Preview"',
+        'title: "Summary"',
+        'title: "Matches"',
+        'title: "Files"',
+        'title: "stdout"',
+        'title: "stderr"',
+        'title: "Diff"',
+        'title: "Changed files"',
     ):
         assert hardcoded_copy not in t3_timeline_text
+
+    for hardcoded_copy in (
+        '"Detail"',
+        '|| "match"',
+    ):
+        assert hardcoded_copy not in tool_detail_text
 
     for hardcoded_copy in (
         "View diff",
