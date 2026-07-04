@@ -30,6 +30,7 @@ class AppShellSpec(object):
     keybindings: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     source_control: Dict[str, Any] = field(default_factory=dict)
     terminal: Dict[str, Any] = field(default_factory=dict)
+    preview: Dict[str, Any] = field(default_factory=dict)
     thread_lifecycle_actions: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     home: Dict[str, Any] = field(default_factory=dict)
 
@@ -51,6 +52,7 @@ class AppShellSpec(object):
             "keybindings": _copy_records(self.keybindings),
             "source_control": _copy_value(self.source_control),
             "terminal": _copy_value(self.terminal),
+            "preview": _copy_value(self.preview),
             "thread_lifecycle": {
                 "actions": _copy_records(self.thread_lifecycle_actions),
             },
@@ -544,6 +546,41 @@ def default_app_shell_spec() -> AppShellSpec:
                 "close_label": "Close",
                 "empty_message": "No terminal sessions for this thread yet.",
                 "empty_action_label": "New terminal",
+            },
+        },
+        preview={
+            "enabled": True,
+            "local_servers": [
+                {"label": "Vite dev server", "url": "localhost:5173", "port": 5173},
+                {"label": "Local app", "url": "127.0.0.1:8000", "port": 8000},
+            ],
+            "chrome": {
+                "refresh_label": "Refresh",
+                "loading_label": "Loading...",
+                "refresh_aria_label": "Refresh preview",
+                "loading_aria_label": "Loading preview",
+                "url_placeholder": "Search or enter URL",
+                "url_aria_label": "Preview URL",
+                "open_external_label": "Open in system browser",
+                "annotate_label": "Annotate preview",
+                "more_actions_label": "More preview actions",
+                "unavailable_title": "Preview unavailable",
+                "unavailable_body": ("This local page cannot be rendered in the embedded preview."),
+                "unreachable_body": "The local preview target did not respond.",
+                "reload_label": "Reload",
+                "failed_notice": "Preview failed",
+                "refresh_failed_notice": "Preview refresh failed",
+                "open_failed_notice": "Open preview failed",
+                "session_required_notice": "Open a session before using preview.",
+                "servers_title": "Local servers",
+                "empty_title": "No preview open",
+                "servers_description": "Choose a local server to open in the preview panel.",
+                "empty_description": "Start a local dev server or enter a localhost URL above.",
+                "local_server_fallback_label": "Local server",
+                "status_loading": "Loading",
+                "status_ready": "Ready",
+                "status_failed": "Preview unavailable",
+                "status_idle": "Idle",
             },
         },
         thread_lifecycle_actions=(

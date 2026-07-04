@@ -43,15 +43,35 @@ export function runPreviewSurfaceModelTests() {
     updatedAt: "2026-06-19T00:00:00Z",
   });
 
-  assert.deepEqual(buildPreviewRuntimeState({ snapshot }), {
+  const chrome = {
+    statusLoading: "Preview loading",
+    statusReady: "Preview ready",
+    statusFailed: "Preview offline",
+    statusIdle: "Preview idle",
+    emptyTitle: "No active preview",
+    serversTitle: "Detected servers",
+    emptyDescription: "Enter a local URL.",
+    serversDescription: "Choose a detected server.",
+    localServerFallbackLabel: "Server",
+  };
+
+  assert.deepEqual(buildPreviewRuntimeState({ snapshot, chrome }), {
     hasSnapshot: true,
     loading: false,
     unreachable: false,
     canRefresh: true,
     canOpenExternal: true,
     displayTitle: "Local App",
-    statusLabel: "Ready",
+    statusLabel: "Preview ready",
   });
+  assert.equal(
+    buildPreviewRuntimeState({
+      snapshot: { ...snapshot, status: "loading" },
+      chrome,
+    }).statusLabel,
+    "Preview loading",
+  );
+  assert.equal(buildPreviewRuntimeState({ snapshot, chrome }).statusLabel, "Preview ready");
   assert.deepEqual(
     buildPreviewRuntimeState({
       snapshot: {
@@ -60,6 +80,7 @@ export function runPreviewSurfaceModelTests() {
         title: "",
         errorDescription: "connection refused",
       },
+      chrome,
     }),
     {
       hasSnapshot: true,
@@ -72,12 +93,17 @@ export function runPreviewSurfaceModelTests() {
     },
   );
 
-  const empty = buildPreviewEmptyStateModel({ servers: [] });
+  const empty = buildPreviewEmptyStateModel({ servers: [], chrome });
   assert.equal(empty.hasServers, false);
-  assert.equal(empty.title, "No preview open");
+  assert.equal(empty.title, "No active preview");
   assert.deepEqual(empty.servers, []);
+  const customEmpty = buildPreviewEmptyStateModel({ servers: [], chrome });
+  assert.equal(customEmpty.hasServers, false);
+  assert.equal(customEmpty.title, "No active preview");
+  assert.equal(customEmpty.description, "Enter a local URL.");
 
   const withServers = buildPreviewEmptyStateModel({
+    chrome,
     servers: [
       { label: "Vite dev server", url: "localhost:5173", port: 5173 },
       { label: "", url: "http://127.0.0.1:8080/docs", port: 8080 },
@@ -85,7 +111,8 @@ export function runPreviewSurfaceModelTests() {
     ],
   });
   assert.equal(withServers.hasServers, true);
-  assert.equal(withServers.title, "Local servers");
+  assert.equal(withServers.title, "Detected servers");
+  assert.equal(withServers.description, "Choose a detected server.");
   assert.deepEqual(withServers.servers, [
     {
       id: "http://localhost:5173",
@@ -96,7 +123,7 @@ export function runPreviewSurfaceModelTests() {
     },
     {
       id: "http://127.0.0.1:8080/docs",
-      label: "127.0.0.1:8080/docs",
+      label: "Server",
       url: "http://127.0.0.1:8080/docs",
       displayUrl: "127.0.0.1:8080/docs",
       port: 8080,

@@ -1123,6 +1123,77 @@ def test_gui_terminal_copy_is_app_shell_declared():
         assert hardcoded_copy not in shell_text
 
 
+def test_gui_preview_copy_is_app_shell_declared():
+    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
+    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    preview_surface_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/PreviewSurface.jsx"
+    )
+    preview_model_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/preview-surface-model.js"
+    )
+    surface_body_text = _read(
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx"
+    )
+
+    assert '"preview": _copy_value(self.preview)' in spec_text
+    assert '"session_required_notice": "Open a session before using preview."' in spec_text
+    assert "normalizePreviewChrome" in model_text
+    assert "preview: normalizePreviewCapability" in model_text
+    assert "previewChrome.sessionRequiredNotice" in app_text
+    assert "previewCapability.localServers" in app_text
+    assert "previewChrome={previewChrome}" in app_text
+    assert "previewServers={previewCapability.localServers" in app_text
+    assert "previewChrome" in surface_body_text
+    assert "previewServers" in surface_body_text
+    assert "previewChrome" in preview_surface_text
+    assert "chrome.statusReady" in preview_model_text
+    assert "chrome.emptyTitle" in preview_model_text
+
+    for hardcoded_copy in (
+        '"Open a session before using preview."',
+        '"Preview failed"',
+        '"Preview refresh failed"',
+        '"Open preview failed"',
+    ):
+        assert hardcoded_copy not in app_text
+
+    for hardcoded_copy in (
+        '"Vite dev server"',
+        '"Local app"',
+        '"Loading..."',
+        '"Refresh"',
+        '"Loading preview"',
+        '"Refresh preview"',
+        '"Search or enter URL"',
+        '"Preview URL"',
+        '"Open in system browser"',
+        '"Annotate preview"',
+        '"More preview actions"',
+        '"Preview unavailable"',
+        '"This local page cannot be rendered in the embedded preview."',
+        '"The local preview target did not respond."',
+        '"Reload"',
+        '"Preview failed"',
+    ):
+        assert hardcoded_copy not in preview_surface_text
+
+    for hardcoded_copy in (
+        '"Loading"',
+        '"Ready"',
+        '"Preview unavailable"',
+        '"Idle"',
+        '"Local server"',
+        '"Local servers"',
+        '"No preview open"',
+        '"Choose a local server to open in the preview panel."',
+        '"Start a local dev server or enter a localhost URL above."',
+    ):
+        assert hardcoded_copy not in preview_model_text
+
+
 def test_gui_thread_lifecycle_actions_are_backend_descriptors():
     spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")

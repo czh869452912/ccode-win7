@@ -65,6 +65,11 @@
   workflow-neutral in `discover_local_resources(...)`; the default C/C++
   workflow recipe list applies its own `run_recipe` normalization only at the
   workflow-owned aggregation boundary.
+- `/api/app/bootstrap` now declares Preview surface chrome and local-server
+  presets under `capabilities.preview`. The renderer uses those descriptors for
+  Preview toolbar labels, empty states, status labels, and failure notices
+  instead of keeping Preview-specific English copy in `App.jsx`,
+  `PreviewSurface.jsx`, or `preview-surface-model.js`.
 
 ### 2026-06-27 - Pi/T3 Residual Debt Cleanup Closed
 

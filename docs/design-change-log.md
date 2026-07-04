@@ -44,6 +44,32 @@
 
 ## 3. 当前变更记录
 
+### DC-223
+
+- Date: 2026-07-04
+- Change Topic: GUI preview chrome descriptor convergence
+- Summary:
+  - Added `/api/app/bootstrap` `capabilities.preview` descriptors for preview
+    local-server presets, toolbar labels, status labels, empty states, and
+    failure notices.
+  - Routed `App.jsx`, `RightPanelSurfaceBody`, `PreviewSurface`, and
+    `preview-surface-model` through normalized preview chrome instead of
+    renderer-local English defaults.
+  - Added frontend source checks and architecture guards so Preview surface
+    copy cannot return to renderer-owned component/model paths.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/PreviewSurface.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/preview-surface-model.js`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-222
 
 - Date: 2026-07-04

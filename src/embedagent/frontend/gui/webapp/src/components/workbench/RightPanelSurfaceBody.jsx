@@ -25,6 +25,8 @@ export default function RightPanelSurfaceBody({
   onTerminalClear,
   onTerminalRestart,
   onTerminalClose,
+  previewChrome,
+  previewServers,
   onPreviewOpenUrl,
   onPreviewRefresh,
   onPreviewOpenExternal,
@@ -58,6 +60,8 @@ export default function RightPanelSurfaceBody({
     return (
       <PreviewSurface
         surface={surface}
+        previewChrome={previewChrome}
+        servers={previewServers}
         onOpenUrl={onPreviewOpenUrl}
         onRefresh={onPreviewRefresh}
         onOpenExternal={onPreviewOpenExternal}

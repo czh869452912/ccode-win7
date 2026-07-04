@@ -142,6 +142,8 @@ function App() {
   runtimeStateRef.current = runtimeState;
   const interactionNotice = state.interactionNotice || runtimeState.interactionNotice;
   const terminalChrome = state.app.capabilities?.terminal?.chrome || {};
+  const previewCapability = state.app.capabilities?.preview || {};
+  const previewChrome = previewCapability.chrome || {};
   const terminalController = useMemo(
     () =>
       createTerminalController({
@@ -643,7 +645,7 @@ function App() {
   async function openPreviewUrl(url) {
     const sessionId = readActiveThreadId(stateRef.current);
     if (!sessionId) {
-      dispatch({ type: "interaction_notice_set", notice: "Open a session before using preview." });
+      dispatch({ type: "interaction_notice_set", notice: previewChrome.sessionRequiredNotice || "" });
       return null;
     }
     try {
@@ -662,7 +664,7 @@ function App() {
     } catch (error) {
       dispatch({
         type: "interaction_notice_set",
-        notice: error instanceof Error ? error.message : "Preview failed",
+        notice: error instanceof Error ? error.message : previewChrome.failedNotice || "",
       });
       throw error;
     }
@@ -688,7 +690,7 @@ function App() {
     } catch (error) {
       dispatch({
         type: "interaction_notice_set",
-        notice: error instanceof Error ? error.message : "Preview refresh failed",
+        notice: error instanceof Error ? error.message : previewChrome.refreshFailedNotice || "",
       });
       throw error;
     }
@@ -700,7 +702,7 @@ function App() {
     } catch (error) {
       dispatch({
         type: "interaction_notice_set",
-        notice: error instanceof Error ? error.message : "Open preview failed",
+        notice: error instanceof Error ? error.message : previewChrome.openFailedNotice || "",
       });
       throw error;
     }
@@ -916,6 +918,8 @@ function App() {
             onTerminalClose={(terminalId) =>
               terminalController.closeRightPanelPane(activeRightPanelSurface, terminalId)
             }
+            previewChrome={previewChrome}
+            previewServers={previewCapability.localServers || []}
             onPreviewOpenUrl={openPreviewUrl}
             onPreviewRefresh={refreshPreview}
             onPreviewOpenExternal={openPreviewInSystemBrowser}

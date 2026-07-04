@@ -153,6 +153,10 @@ export function runAppShellModelTests() {
     emptyMessage: "",
     emptyActionLabel: "",
   });
+  assert.equal(initial.capabilities.preview.enabled, false);
+  assert.deepEqual(initial.capabilities.preview.localServers, []);
+  assert.equal(initial.capabilities.preview.chrome.refreshLabel, "");
+  assert.equal(initial.capabilities.preview.chrome.emptyTitle, "");
   assert.equal(initial.capabilities.sourceControl.enabled, false);
   assert.equal(initial.capabilities.sourceControl.readOnly, true);
   assert.deepEqual(initial.capabilities.threadLifecycle.actions, []);
@@ -410,6 +414,40 @@ export function runAppShellModelTests() {
           empty_action_label: "Start shell",
         },
       },
+      preview: {
+        enabled: true,
+        local_servers: [
+          { label: "Django dev server", url: "localhost:8000", port: 8000 },
+        ],
+        chrome: {
+          refresh_label: "Reload preview",
+          loading_label: "Loading preview",
+          refresh_aria_label: "Reload embedded preview",
+          loading_aria_label: "Preview is loading",
+          url_placeholder: "Preview URL",
+          url_aria_label: "Preview address",
+          open_external_label: "Open outside",
+          annotate_label: "Mark up preview",
+          more_actions_label: "More preview options",
+          unavailable_title: "Preview not available",
+          unavailable_body: "Embedded preview cannot render this page.",
+          unreachable_body: "The preview target is not reachable.",
+          reload_label: "Try again",
+          failed_notice: "Preview request failed.",
+          refresh_failed_notice: "Preview reload failed.",
+          open_failed_notice: "Preview external open failed.",
+          session_required_notice: "Open a run before preview.",
+          servers_title: "Detected servers",
+          empty_title: "No active preview",
+          servers_description: "Choose a server.",
+          empty_description: "Start a server or enter a URL.",
+          local_server_fallback_label: "Server",
+          status_loading: "Loading",
+          status_ready: "Ready",
+          status_failed: "Unavailable",
+          status_idle: "Idle",
+        },
+      },
       thread_lifecycle: {
         actions: [
           {
@@ -521,6 +559,18 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.terminal.chrome.newLabel, "New shell");
   assert.equal(bootstrap.capabilities.terminal.chrome.openFailedNotice, "Shell failed to open.");
   assert.equal(bootstrap.capabilities.terminal.chrome.commandPlaceholder, "Type shell command");
+  assert.equal(bootstrap.capabilities.preview.enabled, true);
+  assert.deepEqual(bootstrap.capabilities.preview.localServers, [
+    {
+      label: "Django dev server",
+      url: "localhost:8000",
+      port: 8000,
+    },
+  ]);
+  assert.equal(bootstrap.capabilities.preview.chrome.refreshLabel, "Reload preview");
+  assert.equal(bootstrap.capabilities.preview.chrome.openExternalLabel, "Open outside");
+  assert.equal(bootstrap.capabilities.preview.chrome.sessionRequiredNotice, "Open a run before preview.");
+  assert.equal(bootstrap.capabilities.preview.chrome.emptyTitle, "No active preview");
   assert.deepEqual(bootstrap.capabilities.keybindings, [
     { key: "mod+k", commandId: "palette.open", when: "not_palette" },
     { key: "mod+,", commandId: "app.settings", when: "always" },
@@ -623,6 +673,14 @@ export function runAppShellModelTests() {
         new_label: "New console",
       },
     },
+    preview: {
+      enabled: true,
+      local_servers: [{ label: "Flask", url: "localhost:5000", port: 5000 }],
+      chrome: {
+        refresh_label: "Refresh preview",
+        empty_title: "No preview",
+      },
+    },
   });
   assert.deepEqual(
     capabilities.appCommands.map((item) => [item.id, item.label, item.group]),
@@ -652,6 +710,12 @@ export function runAppShellModelTests() {
   assert.equal(capabilities.terminal.chrome.titlePrefix, "Console");
   assert.equal(capabilities.terminal.chrome.defaultTitle, "Console");
   assert.equal(capabilities.terminal.chrome.newLabel, "New console");
+  assert.equal(capabilities.preview.enabled, true);
+  assert.deepEqual(capabilities.preview.localServers, [
+    { label: "Flask", url: "localhost:5000", port: 5000 },
+  ]);
+  assert.equal(capabilities.preview.chrome.refreshLabel, "Refresh preview");
+  assert.equal(capabilities.preview.chrome.emptyTitle, "No preview");
 
   const emptyCapabilities = normalizeAppCapabilities({});
   assert.deepEqual(emptyCapabilities.appCommands, []);
@@ -668,6 +732,8 @@ export function runAppShellModelTests() {
     secondary: "",
     pathPlaceholder: "",
   });
+  assert.equal(emptyCapabilities.preview.enabled, false);
+  assert.deepEqual(emptyCapabilities.preview.localServers, []);
 
   const reduced = reduceAppShellState(initial, {
     type: "app_shell_bootstrap_loaded",

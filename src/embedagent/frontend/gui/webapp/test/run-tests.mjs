@@ -52,6 +52,7 @@ import { runComposerStateTests } from "./composer-state.test.mjs";
 import { runComposerTriggerTests } from "./composer-trigger.test.mjs";
 import { runFilePreviewModelTests } from "./file-preview-model.test.mjs";
 import { runPreviewSurfaceModelTests } from "./preview-surface-model.test.mjs";
+import { runPreviewSurfaceSourceTests } from "./preview-surface-source.test.mjs";
 import { runPreviewApiTests } from "./preview-api.test.mjs";
 import { runRightPanelStoreParityTests } from "./right-panel-store-parity.test.mjs";
 import { runRightPanelTabsSourceTests } from "./right-panel-tabs-source.test.mjs";
@@ -1458,6 +1459,7 @@ async function main() {
   runDiffModelTests();
   runFilePreviewModelTests();
   runPreviewSurfaceModelTests();
+  runPreviewSurfaceSourceTests();
   await runPreviewApiTests();
   runWebSocketLifecycleTests();
   await runSessionLoadersTests();

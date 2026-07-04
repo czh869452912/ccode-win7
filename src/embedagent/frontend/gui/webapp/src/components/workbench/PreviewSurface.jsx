@@ -8,12 +8,12 @@ import {
   previewSnapshotFromApi,
 } from "../../session-runtime/preview-surface-model.js";
 
-const DEFAULT_LOCAL_SERVERS = [
-  { label: "Vite dev server", url: "localhost:5173", port: 5173 },
-  { label: "Local app", url: "127.0.0.1:8000", port: 8000 },
-];
+function previewChromeText(chrome, key) {
+  return String((chrome && chrome[key]) || "");
+}
 
 function PreviewChromeRow({
+  chrome = {},
   url,
   onOpenUrl,
   onRefresh,
@@ -40,8 +40,16 @@ function PreviewChromeRow({
       <button
         type="button"
         className="preview-chrome-button"
-        title={loading ? "Loading..." : "Refresh"}
-        aria-label={loading ? "Loading preview" : "Refresh preview"}
+        title={
+          loading
+            ? previewChromeText(chrome, "loadingLabel")
+            : previewChromeText(chrome, "refreshLabel")
+        }
+        aria-label={
+          loading
+            ? previewChromeText(chrome, "loadingAriaLabel")
+            : previewChromeText(chrome, "refreshAriaLabel")
+        }
         disabled={!canRefresh}
         onClick={() => onRefresh && onRefresh()}
         data-testid="preview-refresh-action"
@@ -60,17 +68,17 @@ function PreviewChromeRow({
               event.currentTarget.blur();
             }
           }}
-          placeholder="Search or enter URL"
+          placeholder={previewChromeText(chrome, "urlPlaceholder")}
           spellCheck={false}
-          aria-label="Preview URL"
+          aria-label={previewChromeText(chrome, "urlAriaLabel")}
           data-testid="preview-url-input"
         />
       </div>
       <button
         type="button"
         className="preview-chrome-button"
-        title="Open in system browser"
-        aria-label="Open in system browser"
+        title={previewChromeText(chrome, "openExternalLabel")}
+        aria-label={previewChromeText(chrome, "openExternalLabel")}
         disabled={!canOpenExternal}
         onClick={() => onOpenExternal && onOpenExternal()}
         data-testid="preview-open-external-action"
@@ -80,8 +88,8 @@ function PreviewChromeRow({
       <button
         type="button"
         className="preview-chrome-button"
-        title="Annotate preview"
-        aria-label="Annotate preview"
+        title={previewChromeText(chrome, "annotateLabel")}
+        aria-label={previewChromeText(chrome, "annotateLabel")}
         disabled
       >
         A
@@ -89,8 +97,8 @@ function PreviewChromeRow({
       <button
         type="button"
         className="preview-chrome-button"
-        title="More preview actions"
-        aria-label="More preview actions"
+        title={previewChromeText(chrome, "moreActionsLabel")}
+        aria-label={previewChromeText(chrome, "moreActionsLabel")}
         disabled
       >
         ...
@@ -117,10 +125,10 @@ function PreviewLocalServerCard({ server, onOpen }) {
   );
 }
 
-function PreviewEmptyState({ servers, onOpenUrl }) {
+function PreviewEmptyState({ servers, previewChrome, onOpenUrl }) {
   const model = useMemo(
-    () => buildPreviewEmptyStateModel({ servers }),
-    [servers],
+    () => buildPreviewEmptyStateModel({ servers, chrome: previewChrome }),
+    [servers, previewChrome],
   );
   return (
     <div className="preview-empty-state" data-testid="preview-empty-state">
@@ -143,7 +151,7 @@ function PreviewEmptyState({ servers, onOpenUrl }) {
   );
 }
 
-function PreviewViewport({ url }) {
+function PreviewViewport({ url, previewChrome }) {
   if (!url) return null;
   return (
     <div className="preview-viewport" data-testid="preview-viewport">
@@ -154,19 +162,20 @@ function PreviewViewport({ url }) {
         <strong>{formatPreviewUrlDisplay(url)}</strong>
       </div>
       <div className="preview-unavailable">
-        <h3>Preview unavailable</h3>
-        <p>This local page cannot be rendered in the embedded preview.</p>
+        <h3>{previewChromeText(previewChrome, "unavailableTitle")}</h3>
+        <p>{previewChromeText(previewChrome, "unavailableBody")}</p>
       </div>
     </div>
   );
 }
 
-function PreviewUnreachable({ snapshot, onRefresh }) {
+function PreviewUnreachable({ snapshot, previewChrome, onRefresh }) {
   const displayUrl = formatPreviewUrlDisplay(snapshot?.url || "");
-  const description = snapshot?.errorDescription || "The local preview target did not respond.";
+  const description =
+    snapshot?.errorDescription || previewChromeText(previewChrome, "unreachableBody");
   return (
     <div className="preview-unreachable" data-testid="preview-unreachable">
-      <h3>Preview unavailable</h3>
+      <h3>{previewChromeText(previewChrome, "unavailableTitle")}</h3>
       <p>
         <strong>{displayUrl}</strong>: {description}
       </p>
@@ -175,7 +184,7 @@ function PreviewUnreachable({ snapshot, onRefresh }) {
         className="preview-unreachable-action"
         onClick={() => onRefresh && onRefresh()}
       >
-        Reload
+        {previewChromeText(previewChrome, "reloadLabel")}
       </button>
     </div>
   );
@@ -186,7 +195,7 @@ function previewErrorMessage(error, fallback) {
   return fallback;
 }
 
-function failedPreviewSnapshot(url, error, base = {}) {
+function failedPreviewSnapshot(url, error, base = {}, previewChrome = {}) {
   return previewSnapshotFromApi({
     ...base,
     url,
@@ -195,14 +204,18 @@ function failedPreviewSnapshot(url, error, base = {}) {
     canGoBack: false,
     canGoForward: false,
     errorCode: base.errorCode || -1,
-    errorDescription: previewErrorMessage(error, "Preview failed"),
+    errorDescription: previewErrorMessage(
+      error,
+      previewChromeText(previewChrome, "failedNotice"),
+    ),
     updatedAt: base.updatedAt || "",
   });
 }
 
 export default function PreviewSurface({
   surface,
-  servers = DEFAULT_LOCAL_SERVERS,
+  servers = [],
+  previewChrome = {},
   onOpenUrl,
   onRefresh,
   onOpenExternal,
@@ -230,7 +243,7 @@ export default function PreviewSurface({
       const nextSnapshot = result?.preview || result || null;
       if (nextSnapshot) setSnapshot(previewSnapshotFromApi(nextSnapshot));
     } catch (error) {
-      setSnapshot(failedPreviewSnapshot(next, error));
+      setSnapshot(failedPreviewSnapshot(next, error, {}, previewChrome));
     } finally {
       setLoading(false);
     }
@@ -247,7 +260,7 @@ export default function PreviewSurface({
       const nextSnapshot = result?.preview || result || null;
       if (nextSnapshot) setSnapshot(previewSnapshotFromApi(nextSnapshot));
     } catch (error) {
-      setSnapshot(failedPreviewSnapshot(activeUrl || snapshot.url, error, snapshot));
+      setSnapshot(failedPreviewSnapshot(activeUrl || snapshot.url, error, snapshot, previewChrome));
     } finally {
       setLoading(false);
     }
@@ -259,13 +272,14 @@ export default function PreviewSurface({
     }
   }
 
-  const runtime = buildPreviewRuntimeState({ snapshot });
+  const runtime = buildPreviewRuntimeState({ snapshot, chrome: previewChrome });
   const effectiveLoading = loading || runtime.loading;
   const effectiveUrl = snapshot?.url || activeUrl;
 
   return (
     <section className="right-panel-preview-surface" data-testid="right-panel-preview-surface">
       <PreviewChromeRow
+        chrome={previewChrome}
         url={effectiveUrl}
         onOpenUrl={openUrl}
         onRefresh={refresh}
@@ -275,11 +289,19 @@ export default function PreviewSurface({
         canOpenExternal={runtime.canOpenExternal || Boolean(activeUrl)}
       />
       {runtime.unreachable ? (
-        <PreviewUnreachable snapshot={snapshot} onRefresh={refresh} />
+        <PreviewUnreachable
+          snapshot={snapshot}
+          previewChrome={previewChrome}
+          onRefresh={refresh}
+        />
       ) : effectiveUrl ? (
-        <PreviewViewport url={effectiveUrl} />
+        <PreviewViewport url={effectiveUrl} previewChrome={previewChrome} />
       ) : (
-        <PreviewEmptyState servers={servers} onOpenUrl={openUrl} />
+        <PreviewEmptyState
+          servers={servers}
+          previewChrome={previewChrome}
+          onOpenUrl={openUrl}
+        />
       )}
     </section>
   );

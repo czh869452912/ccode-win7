@@ -247,6 +247,18 @@ class TestGuiAppShellService(unittest.TestCase):
             terminal_capability["chrome"]["command_placeholder"],
             "Type a command",
         )
+        preview_capability = payload["capabilities"]["preview"]
+        self.assertEqual(preview_capability["enabled"], True)
+        self.assertEqual(preview_capability["local_servers"][0]["label"], "Vite dev server")
+        self.assertEqual(preview_capability["chrome"]["refresh_label"], "Refresh")
+        self.assertEqual(
+            preview_capability["chrome"]["session_required_notice"],
+            "Open a session before using preview.",
+        )
+        self.assertEqual(
+            preview_capability["chrome"]["empty_title"],
+            "No preview open",
+        )
         bottom_drawer_surfaces = [
             item["id"] for item in payload["capabilities"]["surfaces"]["bottom_drawer"]
         ]
@@ -347,6 +359,7 @@ class TestGuiAppShellService(unittest.TestCase):
                     ),
                     source_control={"enabled": False},
                     terminal={"enabled": False},
+                    preview={"enabled": False},
                     thread_lifecycle_actions=(),
                     home={
                         "workspace": {
@@ -392,6 +405,7 @@ class TestGuiAppShellService(unittest.TestCase):
             [{"key": "mod+,", "command_id": "app.settings", "when": "always"}],
         )
         self.assertEqual(payload["capabilities"]["source_control"], {"enabled": False})
+        self.assertEqual(payload["capabilities"]["preview"], {"enabled": False})
         self.assertEqual(
             payload["capabilities"]["command_palette"],
             {

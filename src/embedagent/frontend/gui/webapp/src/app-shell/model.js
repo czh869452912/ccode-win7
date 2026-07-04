@@ -148,6 +148,76 @@ function normalizeTerminalChrome(input = {}) {
   };
 }
 
+function normalizePreviewServer(input = {}) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const url = String(input.url || input.href || "").trim();
+  if (!url) return null;
+  const port = Number(input.port);
+  return {
+    label: String(input.label || input.name || "").trim(),
+    url,
+    port: Number.isFinite(port) && port > 0 ? Math.trunc(port) : null,
+  };
+}
+
+function normalizePreviewServers(items) {
+  if (!Array.isArray(items)) return [];
+  const result = [];
+  const seen = new Set();
+  for (const item of items) {
+    const server = normalizePreviewServer(item);
+    if (!server || seen.has(server.url)) continue;
+    seen.add(server.url);
+    result.push(server);
+  }
+  return result;
+}
+
+function normalizePreviewCapability(input = {}) {
+  const value = input.preview && typeof input.preview === "object" ? input.preview : {};
+  return {
+    enabled: value.enabled === true,
+    localServers: normalizePreviewServers(value.local_servers || value.localServers),
+    chrome: normalizePreviewChrome(value.chrome || {}),
+  };
+}
+
+function normalizePreviewChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    refreshLabel: String(value.refresh_label || value.refreshLabel || ""),
+    loadingLabel: String(value.loading_label || value.loadingLabel || ""),
+    refreshAriaLabel: String(value.refresh_aria_label || value.refreshAriaLabel || ""),
+    loadingAriaLabel: String(value.loading_aria_label || value.loadingAriaLabel || ""),
+    urlPlaceholder: String(value.url_placeholder || value.urlPlaceholder || ""),
+    urlAriaLabel: String(value.url_aria_label || value.urlAriaLabel || ""),
+    openExternalLabel: String(value.open_external_label || value.openExternalLabel || ""),
+    annotateLabel: String(value.annotate_label || value.annotateLabel || ""),
+    moreActionsLabel: String(value.more_actions_label || value.moreActionsLabel || ""),
+    unavailableTitle: String(value.unavailable_title || value.unavailableTitle || ""),
+    unavailableBody: String(value.unavailable_body || value.unavailableBody || ""),
+    unreachableBody: String(value.unreachable_body || value.unreachableBody || ""),
+    reloadLabel: String(value.reload_label || value.reloadLabel || ""),
+    failedNotice: String(value.failed_notice || value.failedNotice || ""),
+    refreshFailedNotice: String(value.refresh_failed_notice || value.refreshFailedNotice || ""),
+    openFailedNotice: String(value.open_failed_notice || value.openFailedNotice || ""),
+    sessionRequiredNotice: String(
+      value.session_required_notice || value.sessionRequiredNotice || "",
+    ),
+    serversTitle: String(value.servers_title || value.serversTitle || ""),
+    emptyTitle: String(value.empty_title || value.emptyTitle || ""),
+    serversDescription: String(value.servers_description || value.serversDescription || ""),
+    emptyDescription: String(value.empty_description || value.emptyDescription || ""),
+    localServerFallbackLabel: String(
+      value.local_server_fallback_label || value.localServerFallbackLabel || "",
+    ),
+    statusLoading: String(value.status_loading || value.statusLoading || ""),
+    statusReady: String(value.status_ready || value.statusReady || ""),
+    statusFailed: String(value.status_failed || value.statusFailed || ""),
+    statusIdle: String(value.status_idle || value.statusIdle || ""),
+  };
+}
+
 function normalizeSourceControlCapability(input = {}) {
   const raw = input.source_control || input.sourceControl || {};
   const value = raw && typeof raw === "object" ? raw : {};
@@ -544,6 +614,7 @@ export function normalizeAppCapabilities(input = {}) {
     emptyState: normalizeEmptyState(input.emptyState || input.empty_state),
     sourceControl: normalizeSourceControlCapability(input),
     terminal: normalizeTerminalCapability(input),
+    preview: normalizePreviewCapability(input),
     threadLifecycle: normalizeThreadLifecycle(input),
   };
 }

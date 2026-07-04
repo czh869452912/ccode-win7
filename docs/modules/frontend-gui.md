@@ -23,7 +23,7 @@
 - GUI app-shell hosted source-control read model（`backend/source_control_service.py`、`webapp/src/source-control/`）
 - 协议回调到 WebSocket 广播的实时转换（`backend/server.py`）
 - WebSocket 断线重连与会话事件回放恢复（`webapp/`）
-- T3code-inspired Agent timeline rows、structured tool detail expansion、timeline file-link activation、composer interaction panel、Preview/File/Diff/Files right-panel surface chrome、renderer-local workbench UI state persistence、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/workbench/`、`webapp/src/components/`、`webapp/src/styles.css`）
+- T3code-inspired Agent timeline rows、structured tool detail expansion、timeline file-link activation、composer interaction panel、app-shell-declared Preview/File/Diff/Files right-panel surface chrome、renderer-local workbench UI state persistence、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/workbench/`、`webapp/src/components/`、`webapp/src/styles.css`）
 - 开发机可视调试 harness：启动真实 GUI、执行场景、截图、检查 console/DOM（`scripts/gui-visual-debug.mjs`）
 
 ## 3. Code Mapping
