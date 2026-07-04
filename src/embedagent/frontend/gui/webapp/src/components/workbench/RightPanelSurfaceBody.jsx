@@ -16,6 +16,7 @@ export default function RightPanelSurfaceBody({
   onOpenFilesSurface,
   onLoadFileChildren,
   terminal,
+  terminalChrome,
   onTerminalNew,
   onTerminalSplit,
   onTerminalSplitVertical,
@@ -69,6 +70,7 @@ export default function RightPanelSurfaceBody({
         owner="right-panel"
         surface={surface}
         terminal={terminal}
+        terminalChrome={terminalChrome}
         onNew={onTerminalNew}
         onSplit={onTerminalSplit}
         onSplitVertical={onTerminalSplitVertical}

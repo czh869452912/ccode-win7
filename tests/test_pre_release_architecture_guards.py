@@ -1060,6 +1060,59 @@ def test_gui_chrome_copy_is_app_shell_declared():
     assert "diagnosticGroups[row.group]" in surface_panel_text
 
 
+def test_gui_terminal_copy_is_app_shell_declared():
+    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
+    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js"
+    )
+    labels_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/terminal/terminal-labels.js")
+    shell_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/TerminalShell.jsx"
+    )
+    surface_body_text = _read(
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx"
+    )
+    bottom_drawer_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/BottomDrawer.jsx"
+    )
+
+    assert '"chrome": {' in spec_text
+    assert '"session_required_notice": "Open a session before using the terminal."' in spec_text
+    assert "normalizeTerminalChrome" in model_text
+    assert "chrome: normalizeTerminalChrome" in model_text
+    assert "getTerminalChrome" in app_text
+    assert "terminalChrome={terminalChrome}" in app_text
+    assert "terminalChromeText" in controller_text
+    assert "surfaceDefinitionFor" in controller_text
+    assert "terminalChrome" in shell_text
+    assert "terminalChrome" in surface_body_text
+    assert "terminalChrome" in bottom_drawer_text
+
+    for hardcoded_copy in (
+        '"Open a session before using the terminal."',
+        '"Terminal failed to open."',
+        '"Terminal write failed."',
+        '"Terminal clear failed."',
+        '"Terminal restart failed."',
+        '"Terminal close failed."',
+        '"Terminal"',
+        "`Terminal ${match[1]}`",
+        '"New terminal"',
+        '"Split terminal horizontally"',
+        '"Split terminal vertically"',
+        '"Terminal session is unavailable."',
+        '"Type a command"',
+        '"No terminal sessions for this thread yet."',
+        '"Drawer"',
+    ):
+        assert hardcoded_copy not in controller_text
+        assert hardcoded_copy not in labels_text
+        assert hardcoded_copy not in shell_text
+
+
 def test_gui_thread_lifecycle_actions_are_backend_descriptors():
     spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")

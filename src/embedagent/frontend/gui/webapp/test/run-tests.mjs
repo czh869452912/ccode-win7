@@ -1057,7 +1057,10 @@ async function main() {
   );
   assert.equal(terminalControllerSource.includes("createTerminalController"), true);
   assert.equal(terminalControllerSource.includes("TERMINAL_DIMENSIONS"), true);
-  assert.equal(terminalControllerSource.includes("Open a session before using the terminal."), true);
+  assert.equal(terminalControllerSource.includes("terminalChromeText"), true);
+  assert.equal(terminalControllerSource.includes("surfaceDefinitionFor"), true);
+  assert.equal(terminalControllerSource.includes("Open a session before using the terminal."), false);
+  assert.equal(terminalControllerSource.includes("Terminal failed to open."), false);
   assert.equal(terminalControllerSource.includes("workbench_surface_opened"), true);
   assert.equal(terminalControllerSource.includes("workbench_terminal_surface_split"), true);
   assert.equal(terminalControllerSource.includes("workbench_terminal_surface_terminal_closed"), true);

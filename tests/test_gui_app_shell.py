@@ -231,15 +231,21 @@ class TestGuiAppShellService(unittest.TestCase):
                 "requires_active_workspace": True,
             },
         )
+        terminal_capability = payload["capabilities"]["terminal"]
+        self.assertEqual(terminal_capability["enabled"], True)
+        self.assertEqual(terminal_capability["pty"], False)
+        self.assertEqual(terminal_capability["resize"], False)
+        self.assertEqual(terminal_capability["history_persistent"], False)
+        self.assertEqual(terminal_capability["max_buffer_bytes"], 131072)
+        self.assertEqual(terminal_capability["chrome"]["title_prefix"], "Terminal")
         self.assertEqual(
-            payload["capabilities"]["terminal"],
-            {
-                "enabled": True,
-                "pty": False,
-                "resize": False,
-                "history_persistent": False,
-                "max_buffer_bytes": 131072,
-            },
+            terminal_capability["chrome"]["session_required_notice"],
+            "Open a session before using the terminal.",
+        )
+        self.assertEqual(terminal_capability["chrome"]["new_label"], "New")
+        self.assertEqual(
+            terminal_capability["chrome"]["command_placeholder"],
+            "Type a command",
         )
         bottom_drawer_surfaces = [
             item["id"] for item in payload["capabilities"]["surfaces"]["bottom_drawer"]

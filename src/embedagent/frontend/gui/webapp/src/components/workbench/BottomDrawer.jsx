@@ -32,6 +32,7 @@ export default function BottomDrawer({
   terminationReason,
   terminationMessage,
   terminal,
+  terminalChrome,
   onKindSelect,
   onTerminalNew,
   onTerminalSelect,
@@ -60,6 +61,7 @@ export default function BottomDrawer({
           <TerminalShell
             owner="drawer"
             terminal={terminal}
+            terminalChrome={terminalChrome}
             onNew={onTerminalNew}
             onSelect={onTerminalSelect}
             onSend={(terminalId, text) => {

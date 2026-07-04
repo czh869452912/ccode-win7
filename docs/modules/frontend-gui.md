@@ -267,6 +267,10 @@ add ConPTY, `node-pty`, `pywinpty`, `pexpect`, runtime Node, Electron, Docker,
 WSL, VS Code, or online-service dependencies. Terminal history buffers are
 ephemeral GUI display state; they must not be written to transcript history,
 telemetry, workflow state, source-control checkpoints, or Agent Core reducers.
+Terminal labels, notices, toolbar actions, placeholders, empty states, and
+failure copy are declared under `/api/app/bootstrap`
+`capabilities.terminal.chrome`; renderer terminal modules may consume that
+chrome but must not keep a second terminal string registry.
 
 The Source Control right-panel is a GUI app-shell hosted surface implemented by
 `backend/source_control_service.py`, `backend/routes_source_control.py`, and

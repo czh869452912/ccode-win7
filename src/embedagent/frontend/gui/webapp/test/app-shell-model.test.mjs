@@ -129,6 +129,30 @@ export function runAppShellModelTests() {
   assert.equal(initial.capabilities.terminal.enabled, false);
   assert.equal(initial.capabilities.terminal.pty, false);
   assert.equal(initial.capabilities.terminal.resize, false);
+  assert.deepEqual(initial.capabilities.terminal.chrome, {
+    titlePrefix: "",
+    defaultTitle: "",
+    sessionRequiredNotice: "",
+    openFailedNotice: "",
+    writeFailedNotice: "",
+    clearFailedNotice: "",
+    restartFailedNotice: "",
+    closeFailedNotice: "",
+    newLabel: "",
+    newTitle: "",
+    splitLabel: "",
+    splitTitle: "",
+    splitVerticalLabel: "",
+    splitVerticalTitle: "",
+    drawerLabel: "",
+    unavailableMessage: "",
+    commandPlaceholder: "",
+    clearLabel: "",
+    restartLabel: "",
+    closeLabel: "",
+    emptyMessage: "",
+    emptyActionLabel: "",
+  });
   assert.equal(initial.capabilities.sourceControl.enabled, false);
   assert.equal(initial.capabilities.sourceControl.readOnly, true);
   assert.deepEqual(initial.capabilities.threadLifecycle.actions, []);
@@ -361,6 +385,30 @@ export function runAppShellModelTests() {
         resize: false,
         history_persistent: false,
         max_buffer_bytes: 131072,
+        chrome: {
+          title_prefix: "Shell",
+          default_title: "Shell",
+          session_required_notice: "Open a run before using shell.",
+          open_failed_notice: "Shell failed to open.",
+          write_failed_notice: "Shell write failed.",
+          clear_failed_notice: "Shell clear failed.",
+          restart_failed_notice: "Shell restart failed.",
+          close_failed_notice: "Shell close failed.",
+          new_label: "New shell",
+          new_title: "Create shell",
+          split_label: "Split shell",
+          split_title: "Split shell horizontally",
+          split_vertical_label: "Split V",
+          split_vertical_title: "Split shell vertically",
+          drawer_label: "Shell drawer",
+          unavailable_message: "Shell session unavailable.",
+          command_placeholder: "Type shell command",
+          clear_label: "Clear shell",
+          restart_label: "Restart shell",
+          close_label: "Close shell",
+          empty_message: "No shell sessions.",
+          empty_action_label: "Start shell",
+        },
       },
       thread_lifecycle: {
         actions: [
@@ -469,6 +517,10 @@ export function runAppShellModelTests() {
     bootstrap.capabilities.surfaces.bottomDrawer.map((item) => item.kind),
     ["terminal"],
   );
+  assert.equal(bootstrap.capabilities.terminal.chrome.titlePrefix, "Shell");
+  assert.equal(bootstrap.capabilities.terminal.chrome.newLabel, "New shell");
+  assert.equal(bootstrap.capabilities.terminal.chrome.openFailedNotice, "Shell failed to open.");
+  assert.equal(bootstrap.capabilities.terminal.chrome.commandPlaceholder, "Type shell command");
   assert.deepEqual(bootstrap.capabilities.keybindings, [
     { key: "mod+k", commandId: "palette.open", when: "not_palette" },
     { key: "mod+,", commandId: "app.settings", when: "always" },
@@ -561,7 +613,16 @@ export function runAppShellModelTests() {
       brand_subtitle: "Generic shell",
       composer: { placeholder: "Ask" },
     },
-    terminal: { enabled: true, pty: false, resize: false },
+    terminal: {
+      enabled: true,
+      pty: false,
+      resize: false,
+      chrome: {
+        title_prefix: "Console",
+        default_title: "Console",
+        new_label: "New console",
+      },
+    },
   });
   assert.deepEqual(
     capabilities.appCommands.map((item) => [item.id, item.label, item.group]),
@@ -588,6 +649,9 @@ export function runAppShellModelTests() {
   assert.equal(capabilities.terminal.enabled, true);
   assert.equal(capabilities.terminal.pty, false);
   assert.equal(capabilities.terminal.resize, false);
+  assert.equal(capabilities.terminal.chrome.titlePrefix, "Console");
+  assert.equal(capabilities.terminal.chrome.defaultTitle, "Console");
+  assert.equal(capabilities.terminal.chrome.newLabel, "New console");
 
   const emptyCapabilities = normalizeAppCapabilities({});
   assert.deepEqual(emptyCapabilities.appCommands, []);

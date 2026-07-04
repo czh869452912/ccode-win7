@@ -2,7 +2,29 @@ import assert from "node:assert/strict";
 
 import { createTerminalController } from "../src/app-runtime/terminal-controller.js";
 
-const SESSION_NOTICE = "Open a session before using the terminal.";
+const TERMINAL_CHROME = Object.freeze({
+  sessionRequiredNotice: "Open a run before using shell.",
+  openFailedNotice: "Shell failed to open.",
+  writeFailedNotice: "Shell write failed.",
+  clearFailedNotice: "Shell clear failed.",
+  restartFailedNotice: "Shell restart failed.",
+  closeFailedNotice: "Shell close failed.",
+});
+
+const APP_CAPABILITIES = Object.freeze({
+  surfaces: {
+    rightPanel: [
+      {
+        id: "terminal",
+        kind: "terminal",
+        title: "Shell Surface",
+        launcher: true,
+        launcherOrder: 10,
+        command: true,
+      },
+    ],
+  },
+});
 
 function baseState(overrides = {}) {
   return {
@@ -42,7 +64,7 @@ function createHarness(options = {}) {
     rows: 30,
   });
   const maybeFail = (name) => {
-    if (failures[name]) {
+    if (Object.prototype.hasOwnProperty.call(failures, name)) {
       throw new Error(failures[name]);
     }
   };
@@ -83,6 +105,8 @@ function createHarness(options = {}) {
     dispatch: (action) => actions.push(action),
     api,
     nextTerminalId: (ids) => `term-${ids.length + 1}`,
+    getAppCapabilities: () => APP_CAPABILITIES,
+    getTerminalChrome: () => TERMINAL_CHROME,
   });
   return {
     actions,
@@ -109,7 +133,7 @@ export async function runTerminalControllerTests() {
     assert.equal(result, null);
     assert.deepEqual(harness.apiCalls, []);
     assert.deepEqual(harness.actions, [
-      { type: "interaction_notice_set", notice: SESSION_NOTICE },
+      { type: "interaction_notice_set", notice: TERMINAL_CHROME.sessionRequiredNotice },
     ]);
   }
 
@@ -142,6 +166,16 @@ export async function runTerminalControllerTests() {
       "terminal_active_set",
     ]);
     assert.equal(harness.actions[1].terminalId, "term-2");
+  }
+
+  {
+    const harness = createHarness({ failures: { openTerminal: "" } });
+    const result = await harness.controller.openSession("term-2");
+    assert.equal(result, null);
+    assert.deepEqual(harness.actions.at(-1), {
+      type: "interaction_notice_set",
+      notice: TERMINAL_CHROME.openFailedNotice,
+    });
   }
 
   {
@@ -268,6 +302,7 @@ export async function runTerminalControllerTests() {
     ]);
     assert.equal(harness.actions[2].kind, "terminal");
     assert.equal(harness.actions[2].placement, "right");
+    assert.equal(harness.actions[2].title, "Shell Surface");
     assert.deepEqual(harness.actions[2].terminalIds, ["term-3"]);
     assert.equal(harness.actions.some((action) => action.type === "set_inspector"), false);
   }

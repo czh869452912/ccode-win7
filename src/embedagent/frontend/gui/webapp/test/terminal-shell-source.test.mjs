@@ -20,11 +20,31 @@ export function runTerminalShellSourceTests() {
   assert.equal(shellSource.includes("owner === \"drawer\""), true);
   assert.equal(shellSource.includes("splitDirection === \"vertical\""), true);
   assert.equal(shellSource.includes("terminal-shell-pane"), true);
+  assert.equal(shellSource.includes("terminalChrome.newLabel"), true);
+  assert.equal(shellSource.includes("chrome.commandPlaceholder"), true);
   assert.equal(shellSource.includes("onSplitVertical"), true);
   assert.equal(shellSource.includes("onClose(terminalId)"), true);
+  for (const hardcodedCopy of [
+    '"Terminal"',
+    '"New terminal"',
+    '"Split terminal horizontally"',
+    '"Split terminal vertically"',
+    '"Terminal session is unavailable."',
+    '"Type a command"',
+    '"No terminal sessions for this thread yet."',
+    '"Drawer"',
+    ">New<",
+    ">Clear<",
+    ">Restart<",
+    ">Close<",
+  ]) {
+    assert.equal(shellSource.includes(hardcodedCopy), false);
+  }
   assert.equal(bottomDrawerSource.includes("TerminalShell"), true);
+  assert.equal(bottomDrawerSource.includes("terminalChrome"), true);
   assert.equal(bottomDrawerSource.includes("export function TerminalSurface"), false);
   assert.equal(surfaceBodySource.includes("TerminalShell"), true);
+  assert.equal(surfaceBodySource.includes("terminalChrome"), true);
   assert.equal(surfaceBodySource.includes("RightPanelTerminalSurface"), false);
   assert.equal(cssSource.includes(".terminal-shell"), true);
   assert.equal(cssSource.includes(".terminal-shell-panes.split-vertical"), true);

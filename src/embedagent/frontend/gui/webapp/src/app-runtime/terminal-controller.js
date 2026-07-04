@@ -1,7 +1,7 @@
 import { readActiveThreadId } from "../session-runtime/thread-state.js";
+import { surfaceDefinitionFor } from "../workbench/surfaces.js";
 
 const TERMINAL_DIMENSIONS = Object.freeze({ cols: 100, rows: 30 });
-const SESSION_NOTICE = "Open a session before using the terminal.";
 
 function noop() {}
 
@@ -28,7 +28,33 @@ function noticeFromError(error, fallback) {
 }
 
 function dispatchNotice(dispatch, notice) {
+  if (!notice) return;
   dispatch({ type: "interaction_notice_set", notice });
+}
+
+function readTerminalChrome(deps) {
+  const value =
+    typeof deps.getTerminalChrome === "function"
+      ? deps.getTerminalChrome()
+      : deps.terminalChrome;
+  return value && typeof value === "object" ? value : {};
+}
+
+function terminalChromeText(deps, key) {
+  return String(readTerminalChrome(deps)[key] || "");
+}
+
+function readAppCapabilities(deps) {
+  const value =
+    typeof deps.getAppCapabilities === "function"
+      ? deps.getAppCapabilities()
+      : deps.appCapabilities;
+  return value && typeof value === "object" ? value : null;
+}
+
+function terminalSurfaceTitle(deps, fallback = "") {
+  const definition = surfaceDefinitionFor("terminal", readAppCapabilities(deps));
+  return String((definition && definition.title) || fallback || "");
 }
 
 function normalizeTerminalId(terminalId) {
@@ -75,7 +101,7 @@ export function createTerminalController(deps = {}) {
     const state = getState();
     const sessionId = readSessionId(state);
     if (!sessionId) {
-      dispatchNotice(dispatch, SESSION_NOTICE);
+      dispatchNotice(dispatch, terminalChromeText(deps, "sessionRequiredNotice"));
       return null;
     }
     return { state, sessionId };
@@ -98,7 +124,7 @@ export function createTerminalController(deps = {}) {
       dispatch({ type: "workbench_surface_activated", placement: "bottom", kind: "terminal" });
       return terminalId;
     } catch (error) {
-      dispatchNotice(dispatch, noticeFromError(error, "Terminal failed to open."));
+      dispatchNotice(dispatch, noticeFromError(error, terminalChromeText(deps, "openFailedNotice")));
       return null;
     }
   }
@@ -116,7 +142,7 @@ export function createTerminalController(deps = {}) {
       dispatch({ type: "terminal_active_set", terminalId: targetTerminalId });
       return targetTerminalId;
     } catch (error) {
-      dispatchNotice(dispatch, noticeFromError(error, "Terminal failed to open."));
+      dispatchNotice(dispatch, noticeFromError(error, terminalChromeText(deps, "openFailedNotice")));
       return null;
     }
   }
@@ -147,7 +173,7 @@ export function createTerminalController(deps = {}) {
       await writeTerminal(sessionId, targetTerminalId, text);
       return targetTerminalId;
     } catch (error) {
-      dispatchNotice(dispatch, noticeFromError(error, "Terminal write failed."));
+      dispatchNotice(dispatch, noticeFromError(error, terminalChromeText(deps, "writeFailedNotice")));
       return null;
     }
   }
@@ -170,7 +196,7 @@ export function createTerminalController(deps = {}) {
       dispatch({ type: "terminal_snapshot_loaded", snapshot: payload.terminal });
       return targetTerminalId;
     } catch (error) {
-      dispatchNotice(dispatch, noticeFromError(error, "Terminal clear failed."));
+      dispatchNotice(dispatch, noticeFromError(error, terminalChromeText(deps, "clearFailedNotice")));
       return null;
     }
   }
@@ -193,7 +219,7 @@ export function createTerminalController(deps = {}) {
       dispatch({ type: "terminal_snapshot_loaded", snapshot: payload.terminal });
       return targetTerminalId;
     } catch (error) {
-      dispatchNotice(dispatch, noticeFromError(error, "Terminal restart failed."));
+      dispatchNotice(dispatch, noticeFromError(error, terminalChromeText(deps, "restartFailedNotice")));
       return null;
     }
   }
@@ -219,7 +245,7 @@ export function createTerminalController(deps = {}) {
       });
       return terminalId;
     } catch (error) {
-      dispatchNotice(dispatch, noticeFromError(error, "Terminal close failed."));
+      dispatchNotice(dispatch, noticeFromError(error, terminalChromeText(deps, "closeFailedNotice")));
       return null;
     }
   }
@@ -241,7 +267,7 @@ export function createTerminalController(deps = {}) {
       type: "workbench_surface_opened",
       placement: "right",
       kind: "terminal",
-      title: "Terminal",
+      title: terminalSurfaceTitle(deps, openedTerminalId),
       resourceId: openedTerminalId,
       terminalId: openedTerminalId,
       terminalIds: [openedTerminalId],
@@ -301,7 +327,7 @@ export function createTerminalController(deps = {}) {
       });
       return targetTerminalId;
     } catch (error) {
-      dispatchNotice(dispatch, noticeFromError(error, "Terminal close failed."));
+      dispatchNotice(dispatch, noticeFromError(error, terminalChromeText(deps, "closeFailedNotice")));
       return null;
     }
   }

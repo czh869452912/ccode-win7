@@ -141,10 +141,13 @@ function App() {
   );
   runtimeStateRef.current = runtimeState;
   const interactionNotice = state.interactionNotice || runtimeState.interactionNotice;
+  const terminalChrome = state.app.capabilities?.terminal?.chrome || {};
   const terminalController = useMemo(
     () =>
       createTerminalController({
         getState: () => stateRef.current,
+        getAppCapabilities: () => stateRef.current.app.capabilities || {},
+        getTerminalChrome: () => stateRef.current.app.capabilities?.terminal?.chrome || {},
         dispatch,
         api: {
           listTerminals,
@@ -898,6 +901,7 @@ function App() {
             onOpenFilesSurface={() => openRightPanelSurface("files")}
             onLoadFileChildren={loadFileChildren}
             terminal={state.terminal}
+            terminalChrome={terminalChrome}
             onTerminalNew={() => terminalController.openRightPanelSurface()}
             onTerminalSplit={() => terminalController.splitRightPanelSurface(activeRightPanelSurface)}
             onTerminalSplitVertical={() =>
@@ -926,6 +930,7 @@ function App() {
           terminationReason={state.terminationDisplayReason || state.terminationReason}
           terminationMessage={state.terminationMessage}
           terminal={state.terminal}
+          terminalChrome={terminalChrome}
           onKindSelect={(kind) => {
             void terminalController.selectBottomDrawerKind(kind);
           }}

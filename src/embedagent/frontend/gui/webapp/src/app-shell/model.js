@@ -112,6 +112,39 @@ function normalizeTerminalCapability(input = {}) {
     historyPersistent:
       value.history_persistent === true || value.historyPersistent === true,
     maxBufferBytes: Number(value.max_buffer_bytes || value.maxBufferBytes || 0),
+    chrome: normalizeTerminalChrome(value.chrome || {}),
+  };
+}
+
+function normalizeTerminalChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    titlePrefix: String(value.title_prefix || value.titlePrefix || ""),
+    defaultTitle: String(value.default_title || value.defaultTitle || ""),
+    sessionRequiredNotice: String(
+      value.session_required_notice || value.sessionRequiredNotice || "",
+    ),
+    openFailedNotice: String(value.open_failed_notice || value.openFailedNotice || ""),
+    writeFailedNotice: String(value.write_failed_notice || value.writeFailedNotice || ""),
+    clearFailedNotice: String(value.clear_failed_notice || value.clearFailedNotice || ""),
+    restartFailedNotice: String(
+      value.restart_failed_notice || value.restartFailedNotice || "",
+    ),
+    closeFailedNotice: String(value.close_failed_notice || value.closeFailedNotice || ""),
+    newLabel: String(value.new_label || value.newLabel || ""),
+    newTitle: String(value.new_title || value.newTitle || ""),
+    splitLabel: String(value.split_label || value.splitLabel || ""),
+    splitTitle: String(value.split_title || value.splitTitle || ""),
+    splitVerticalLabel: String(value.split_vertical_label || value.splitVerticalLabel || ""),
+    splitVerticalTitle: String(value.split_vertical_title || value.splitVerticalTitle || ""),
+    drawerLabel: String(value.drawer_label || value.drawerLabel || ""),
+    unavailableMessage: String(value.unavailable_message || value.unavailableMessage || ""),
+    commandPlaceholder: String(value.command_placeholder || value.commandPlaceholder || ""),
+    clearLabel: String(value.clear_label || value.clearLabel || ""),
+    restartLabel: String(value.restart_label || value.restartLabel || ""),
+    closeLabel: String(value.close_label || value.closeLabel || ""),
+    emptyMessage: String(value.empty_message || value.emptyMessage || ""),
+    emptyActionLabel: String(value.empty_action_label || value.emptyActionLabel || ""),
   };
 }
 

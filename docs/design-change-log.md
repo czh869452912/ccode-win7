@@ -44,6 +44,31 @@
 
 ## 3. 当前变更记录
 
+### DC-221
+
+- Date: 2026-07-04
+- Change Topic: GUI terminal chrome descriptor convergence
+- Summary:
+  - Added `/api/app/bootstrap` `capabilities.terminal.chrome` descriptors for
+    terminal pane labels, toolbar actions, input placeholder, empty/unavailable
+    states, and failure notices.
+  - Routed `TerminalShell`, `terminal-controller`, and terminal label fallback
+    logic through the normalized app-shell terminal chrome instead of
+    renderer-local English defaults.
+  - Added frontend and architecture guards so terminal copy cannot return to
+    `TerminalShell.jsx`, `terminal-controller.js`, or `terminal-labels.js`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/TerminalShell.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/terminal/terminal-labels.js`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-220
 
 - Date: 2026-07-04
