@@ -222,6 +222,13 @@ class TestGuiAppShellService(unittest.TestCase):
                     "collapse_label": "Collapse",
                     "view_diff_label": "View diff",
                 },
+                "work_group": {
+                    "singular_label": "1 tool call",
+                    "plural_label_template": "{count} tool calls",
+                    "show_fewer_label": "Show fewer tool calls",
+                    "previous_singular_template": "+{count} previous tool call",
+                    "previous_plural_template": "+{count} previous tool calls",
+                },
             },
         )
         self.assertEqual(

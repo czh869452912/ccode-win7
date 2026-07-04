@@ -737,6 +737,15 @@ async function main() {
   assert.equal(timelineRowsSource.includes("CommandResultRow"), true);
   assert.equal(timelineRowsSource.includes("ReviewResultRow"), true);
   assert.equal(timelineRowsSource.includes("changedFilesChrome"), true);
+  assert.equal(timelineRowsSource.includes("workGroupChrome"), true);
+  for (const hardcodedWorkGroupCopy of [
+    "1 tool call",
+    "tool calls",
+    "Show fewer tool calls",
+    "previous tool",
+  ]) {
+    assert.equal(timelineRowsSource.includes(hardcodedWorkGroupCopy), false);
+  }
   assert.equal(timelineRowsSource.includes("TimelineRowSwitch"), true);
   assert.equal(timelineRowsSource.includes("MAX_VISIBLE_WORK_LOG_ENTRIES"), true);
   assert.equal(timelineRowsSource.includes("WorkGroupSection"), true);

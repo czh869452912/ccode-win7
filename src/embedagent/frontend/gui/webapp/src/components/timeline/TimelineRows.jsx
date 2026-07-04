@@ -45,13 +45,26 @@ function splitRowsIntoSections(rows = []) {
   return sections;
 }
 
-function workGroupLabel(rows) {
-  const count = rows.length;
-  if (count === 1) return "1 tool call";
-  return `${count} tool calls`;
+function formatTemplate(template = "", values = {}) {
+  return String(template || "").replace(/\{(\w+)\}/g, (_match, key) =>
+    String(values[key] ?? ""),
+  );
 }
 
-function WorkGroupSection({ rows, rowUiState, onToggleRow, rowKeyFor, onOpenFile }) {
+function workGroupLabel(rows, chrome = {}) {
+  const count = rows.length;
+  if (count === 1) return chrome.singularLabel || "";
+  return formatTemplate(chrome.pluralLabelTemplate, { count });
+}
+
+function workGroupOverflowLabel({ isExpanded, hiddenCount, chrome = {} }) {
+  if (isExpanded) return chrome.showFewerLabel || "";
+  const template =
+    hiddenCount === 1 ? chrome.previousSingularTemplate : chrome.previousPluralTemplate;
+  return formatTemplate(template, { count: hiddenCount });
+}
+
+function WorkGroupSection({ rows, rowUiState, onToggleRow, rowKeyFor, onOpenFile, chrome = {} }) {
   const sectionRef = React.useRef(null);
   const anchorBottomBeforeToggleRef = React.useRef(null);
   const [isExpanded, setIsExpanded] = React.useState(false);
@@ -91,7 +104,7 @@ function WorkGroupSection({ rows, rowUiState, onToggleRow, rowKeyFor, onOpenFile
       ref={sectionRef}
       className="timeline-work-group"
       data-testid="timeline-work-group"
-      aria-label={workGroupLabel(rows)}
+      aria-label={workGroupLabel(rows, chrome)}
     >
       <div className="timeline-work-group-items">
         {visibleRows.map((row) => {
@@ -119,9 +132,7 @@ function WorkGroupSection({ rows, rowUiState, onToggleRow, rowKeyFor, onOpenFile
         >
           <span aria-hidden="true">{isExpanded ? "^" : "v"}</span>
           <span>
-            {isExpanded
-              ? "Show fewer tool calls"
-              : `+${hiddenCount} previous tool ${hiddenCount === 1 ? "call" : "calls"}`}
+            {workGroupOverflowLabel({ isExpanded, hiddenCount, chrome })}
           </span>
         </button>
       ) : null}
@@ -530,6 +541,7 @@ export default function TimelineRows({
     <>
       {sections.map((section) => {
         if (section.kind === "work_group") {
+          const workGroupChrome = chrome.workGroup || {};
           return (
             <WorkGroupSection
               key={section.id}
@@ -538,6 +550,7 @@ export default function TimelineRows({
               onToggleRow={onToggleRow}
               rowKeyFor={rowKeyFor}
               onOpenFile={onOpenFile}
+              chrome={workGroupChrome}
             />
           );
         }

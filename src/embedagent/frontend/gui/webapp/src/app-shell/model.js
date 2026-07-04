@@ -720,6 +720,21 @@ function normalizeTimelineChangedFilesChrome(input = {}) {
   };
 }
 
+function normalizeTimelineWorkGroupChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    singularLabel: String(value.singular_label || value.singularLabel || ""),
+    pluralLabelTemplate: String(value.plural_label_template || value.pluralLabelTemplate || ""),
+    showFewerLabel: String(value.show_fewer_label || value.showFewerLabel || ""),
+    previousSingularTemplate: String(
+      value.previous_singular_template || value.previousSingularTemplate || "",
+    ),
+    previousPluralTemplate: String(
+      value.previous_plural_template || value.previousPluralTemplate || "",
+    ),
+  };
+}
+
 function normalizeTimelineChrome(input = {}) {
   const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
   return {
@@ -741,6 +756,7 @@ function normalizeTimelineChrome(input = {}) {
     changedFiles: normalizeTimelineChangedFilesChrome(
       value.changed_files || value.changedFiles,
     ),
+    workGroup: normalizeTimelineWorkGroupChrome(value.work_group || value.workGroup),
   };
 }
 

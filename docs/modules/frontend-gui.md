@@ -174,8 +174,8 @@ display is turn-associated display metadata, not Agent Core context policy.
   display state only and does not become durable history truth, workflow state,
   provider/runtime policy, permission policy, telemetry, extension loading, or
   Agent Core behavior.
-- Timeline log aria labels, empty/history/termination copy, and changed-files
-  card summary/action labels are declared under `/api/app/bootstrap`
+- Timeline log aria labels, empty/history/termination copy, work-group labels,
+  and changed-files card summary/action labels are declared under `/api/app/bootstrap`
   `capabilities.chrome.timeline`; renderer Timeline modules may consume that
   chrome but must not keep parallel English defaults for those fields.
 

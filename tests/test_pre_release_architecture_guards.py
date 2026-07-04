@@ -1156,6 +1156,7 @@ def test_gui_timeline_copy_is_app_shell_declared():
     assert "chrome.historyPartialLabel" in timeline_text
     assert "chrome.historyUnavailable" in timeline_text
     assert "changedFilesChrome" in timeline_rows_text
+    assert "workGroupChrome" in timeline_rows_text
     assert "chrome.summaryTemplate" in changed_files_text
     assert "chrome.viewDiffLabel" in changed_files_text
 
@@ -1171,6 +1172,14 @@ def test_gui_timeline_copy_is_app_shell_declared():
         "Cancelled.",
     ):
         assert hardcoded_copy not in timeline_text
+
+    for hardcoded_copy in (
+        "1 tool call",
+        "tool calls",
+        "Show fewer tool calls",
+        "previous tool",
+    ):
+        assert hardcoded_copy not in timeline_rows_text
 
     for hardcoded_copy in (
         "View diff",

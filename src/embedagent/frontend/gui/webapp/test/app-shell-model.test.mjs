@@ -128,6 +128,13 @@ export function runAppShellModelTests() {
         collapseLabel: "",
         viewDiffLabel: "",
       },
+      workGroup: {
+        singularLabel: "",
+        pluralLabelTemplate: "",
+        showFewerLabel: "",
+        previousSingularTemplate: "",
+        previousPluralTemplate: "",
+      },
     },
   });
   assert.deepEqual(initial.capabilities.surfaces.rightPanel, []);
@@ -439,6 +446,13 @@ export function runAppShellModelTests() {
             expand_label: "Open tree",
             collapse_label: "Close tree",
             view_diff_label: "Review patch",
+          },
+          work_group: {
+            singular_label: "1 action",
+            plural_label_template: "{count} actions",
+            show_fewer_label: "Hide older actions",
+            previous_singular_template: "+{count} older action",
+            previous_plural_template: "+{count} older actions",
           },
         },
       },
@@ -791,6 +805,17 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.chrome.timeline.changedFiles.expandLabel, "Open tree");
   assert.equal(bootstrap.capabilities.chrome.timeline.changedFiles.collapseLabel, "Close tree");
   assert.equal(bootstrap.capabilities.chrome.timeline.changedFiles.viewDiffLabel, "Review patch");
+  assert.equal(bootstrap.capabilities.chrome.timeline.workGroup.singularLabel, "1 action");
+  assert.equal(bootstrap.capabilities.chrome.timeline.workGroup.pluralLabelTemplate, "{count} actions");
+  assert.equal(bootstrap.capabilities.chrome.timeline.workGroup.showFewerLabel, "Hide older actions");
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.workGroup.previousSingularTemplate,
+    "+{count} older action",
+  );
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.workGroup.previousPluralTemplate,
+    "+{count} older actions",
+  );
   assert.deepEqual(
     bootstrap.capabilities.surfaces.rightPanel.map((item) => item.kind),
     ["settings", "diagnostics", "source_control"],
