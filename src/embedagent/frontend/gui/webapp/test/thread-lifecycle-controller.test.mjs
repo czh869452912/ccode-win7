@@ -2,16 +2,8 @@ import assert from "node:assert/strict";
 
 import { createThreadLifecycleController } from "../src/app-runtime/thread-lifecycle-controller.js";
 
-function createHarness({ promptValues = [], confirmValues = [] } = {}) {
-  const calls = {
-    fetches: [],
-    prompts: [],
-    confirms: [],
-    notices: [],
-    loadSessions: 0,
-    loadedSessionIds: [],
-  };
-  const actions = [
+function defaultThreadLifecycleActions() {
+  return [
     {
       id: "retitle",
       capability: "rename",
@@ -39,6 +31,17 @@ function createHarness({ promptValues = [], confirmValues = [] } = {}) {
       failureTitle: "Descriptor archive failed",
     },
   ];
+}
+
+function createHarness({ promptValues = [], confirmValues = [], actions = defaultThreadLifecycleActions() } = {}) {
+  const calls = {
+    fetches: [],
+    prompts: [],
+    confirms: [],
+    notices: [],
+    loadSessions: 0,
+    loadedSessionIds: [],
+  };
   const controller = createThreadLifecycleController({
     fetchJson: async (url, options = {}) => {
       calls.fetches.push({ url, options });
@@ -83,6 +86,13 @@ export async function runThreadLifecycleControllerTests() {
     },
   ]);
   assert.equal(blockedRename.calls.fetches.length, 0);
+
+  const missingEmptyCopy = createHarness({
+    promptValues: [""],
+    actions: [{ id: "bare-retitle", capability: "rename", label: "Bare Retitle" }],
+  });
+  await missingEmptyCopy.controller.handleThreadLifecycleAction("bare-retitle", "sess-1");
+  assert.deepEqual(missingEmptyCopy.calls.notices, []);
 
   const renamed = createHarness({ promptValues: ["New title"] });
   await renamed.controller.handleThreadLifecycleAction("retitle", "sess-1");

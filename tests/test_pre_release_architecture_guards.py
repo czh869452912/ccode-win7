@@ -1716,6 +1716,12 @@ def test_gui_thread_lifecycle_actions_are_backend_descriptors():
     assert "promptTitle" in controller_text
     assert "confirmTitle" in controller_text
     assert "successTitle" in controller_text
+    assert "emptyTitle" in controller_text
+    assert "failureTitle" in controller_text
+    assert 'actionText(action, "emptyTitle")' in controller_text
+    assert 'actionText(action, "failureTitle")' in controller_text
+    assert "${action.label} failed" not in controller_text
+    assert "label: id" not in controller_text
     assert '"Rename thread"' not in controller_text
     assert '"Archive this thread?"' not in controller_text
     assert '"Fork thread title"' not in controller_text

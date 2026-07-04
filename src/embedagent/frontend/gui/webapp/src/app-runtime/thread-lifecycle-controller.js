@@ -16,7 +16,7 @@ export function createThreadLifecycleController({
   function actionDescriptor(actionId) {
     const id = String(actionId || "").trim();
     const action = currentActions().find((item) => item?.id === id) || null;
-    return action || { id, capability: id, label: id };
+    return action || { id, capability: id };
   }
 
   function actionText(action, key, fallback = "") {
@@ -45,7 +45,7 @@ export function createThreadLifecycleController({
     const normalizedTitle = String(title || "").trim();
     if (!normalizedTitle) {
       dispatchLifecycleNotice(
-        actionText(action, "emptyTitle", `${action.label} failed`),
+        actionText(action, "emptyTitle"),
         actionText(action, "emptyBody"),
       );
       return;
@@ -97,7 +97,7 @@ export function createThreadLifecycleController({
       if (capability === "fork") return await forkThread(sessionId, action);
     } catch (error) {
       dispatchLifecycleNotice(
-        actionText(action, "failureTitle", `${action.label} failed`),
+        actionText(action, "failureTitle"),
         error?.message || String(error || "thread_lifecycle_failed"),
       );
     }

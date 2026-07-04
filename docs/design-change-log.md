@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-253
+
+- Date: 2026-07-04
+- Change Topic: GUI thread lifecycle notice copy is descriptor-only
+- Summary:
+  - Removed renderer-synthesized thread lifecycle fallback notice titles such
+    as `${action.label} failed`.
+  - Unknown lifecycle actions now keep only minimal id/capability routing data
+    instead of inventing visible labels from action ids.
+  - Added frontend and Python architecture guards so empty-title and failure
+    notices remain app-shell descriptor driven, with missing notice copy left
+    absent instead of locally synthesized.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/thread-lifecycle-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/thread-lifecycle-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-252
 
 - Date: 2026-07-04

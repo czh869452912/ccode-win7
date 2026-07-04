@@ -1062,6 +1062,8 @@ async function main() {
   assert.equal(threadLifecycleControllerSource.includes("/archive"), true);
   assert.equal(threadLifecycleControllerSource.includes("/fork"), true);
   assert.equal(threadLifecycleControllerSource.includes("import React"), false);
+  assert.equal(threadLifecycleControllerSource.includes("${action.label} failed"), false);
+  assert.equal(threadLifecycleControllerSource.includes("label: id"), false);
   const rightPanelControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "right-panel-controller.js"),
     "utf8",

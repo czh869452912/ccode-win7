@@ -165,7 +165,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   references, and fork to copying the transcript to a new session id with fork
   provenance; prompt, confirmation, success, empty-title, and failure copy now
   travels on the same descriptors instead of being hard-coded by the renderer
-  lifecycle controller
+  lifecycle controller, and missing notice copy remains absent rather than
+  being synthesized from action ids or labels
 - GUI command-palette command group metadata now comes from app-shell
   `command_palette.groups` descriptors; the renderer no longer owns a fixed
   `COMMAND_GROUPS`, group title, group description table, palette placeholder,
