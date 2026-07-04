@@ -394,8 +394,8 @@
 ### 2026-06-17 - GUI Thread Lifecycle Boundary
 
 - Session lifecycle facade 现在暴露 `rename` / `archive` / `fork`：rename 只更新 summary/projection thread title metadata，archive 默认隐藏 thread 但保留 transcript、summary 和外置 artifact/tool-result 引用，fork 复制 transcript 到新 session id 并写入 fork provenance。
-- GUI backend 新增 `POST /api/sessions/{id}/rename`、`/archive`、`/fork`，`/api/app/bootstrap` 的 capabilities 暴露 `thread_lifecycle`，让 GUI 只消费显式 backend 能力而不是伪造第二份 session truth。
-- React sidebar thread action rail 已接入真实 backend lifecycle API；frontend 只做 prompt/confirm、状态刷新和 notice，不拥有 transcript、workflow、permission、extension、provider 或 source-control/checkpoint policy。
+- GUI backend 新增 `POST /api/sessions/{id}/rename`、`/archive`、`/fork`，`/api/app/bootstrap` 的 capabilities 暴露 `thread_lifecycle.actions` descriptor records，让 GUI 只消费显式 backend action 声明而不是伪造第二份 session truth 或固定 action list。
+- React sidebar thread action rail 已接入真实 backend lifecycle API；frontend 从 app-shell descriptors 投影 action label/order/danger/enabled 状态，只做 prompt/confirm、状态刷新和 notice，不拥有 transcript、workflow、permission、extension、provider 或 source-control/checkpoint policy。
 
 ### 2026-06-17 - T3code App-Shell Boundary
 
@@ -434,7 +434,7 @@
 - GUI sidebar/no-workspace home 已增加 frontend-local `app-home-model` read model，将现有 app bootstrap workspace records 与 session summaries 投影成 T3code-like project/thread 管理表面；该模型只负责 label、count、active/missing/disabled 状态和紧凑时间展示，不改变 workspace registry、session truth 或 Agent Core lifecycle。
 - Project 管理区改为局部滚动并限制高度，避免最近项目累积时把 Threads 管理区挤出首屏；visual harness 的 app 场景已加入 sidebar bounding-rect 检查，确保 project manager、thread manager 和 empty-thread state 均在真实 GUI 中可见。
 - `scripts/gui-visual-debug.mjs` 现在为每次 run 设置隔离的 `EMBEDAGENT_GUI_APP_HOME=<output>/app-home`，继续走真实 GUI backend registry/app host 路径，但不会污染开发机正常最近项目列表。
-- Thread rows 已增加 T3code-like lifecycle action rail：`Rename` / `Fork` / `Archive` 由 frontend-local read model 投影并通过 explicit lifecycle capabilities 门控；当前动作已接入 backend/Core session lifecycle facade，持久化到 summary/projection thread metadata，仍避免 GUI 伪造第二份 session truth。
+- Thread rows 已增加 T3code-like lifecycle action rail：可见 action 来自 app-shell `thread_lifecycle.actions` descriptors，当前默认声明 `Rename` / `Fork` / `Archive` 并接入 backend/Core session lifecycle facade，持久化到 summary/projection thread metadata，仍避免 GUI 伪造第二份 session truth。
 - visual harness 新增 `thread` 场景，可在真实 GUI 中加载多 thread fixture、验证 action rail 数量/默认禁用状态/侧边栏边界并截图，继续保持 dev-only、Win10/Win11 开发流程内使用。
 
 ### 2026-06-15 - T3code/Pi Workbench Shell

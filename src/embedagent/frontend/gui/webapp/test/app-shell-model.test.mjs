@@ -46,9 +46,7 @@ export function runAppShellModelTests() {
   assert.equal(initial.capabilities.terminal.resize, false);
   assert.equal(initial.capabilities.sourceControl.enabled, false);
   assert.equal(initial.capabilities.sourceControl.readOnly, true);
-  assert.equal(initial.capabilities.threadLifecycle.rename, false);
-  assert.equal(initial.capabilities.threadLifecycle.fork, false);
-  assert.equal(initial.capabilities.threadLifecycle.archive, false);
+  assert.deepEqual(initial.capabilities.threadLifecycle.actions, []);
 
   const bootstrap = normalizeAppBootstrap({
     app: {
@@ -135,7 +133,13 @@ export function runAppShellModelTests() {
         history_persistent: false,
         max_buffer_bytes: 131072,
       },
-      thread_lifecycle: { rename: true, fork: true, archive: true },
+      thread_lifecycle: {
+        actions: [
+          { id: "rename", label: "Retitle", capability: "rename", order: 20 },
+          { id: "archive", label: "Hide", capability: "archive", order: 30, danger: true },
+          { id: "fork", label: "Clone", capability: "fork", order: 10 },
+        ],
+      },
     },
     settings: {
       confirm_workspace_switch: false,
@@ -183,9 +187,20 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.terminal.resize, false);
   assert.equal(bootstrap.capabilities.terminal.historyPersistent, false);
   assert.equal(bootstrap.capabilities.terminal.maxBufferBytes, 131072);
-  assert.equal(bootstrap.capabilities.threadLifecycle.rename, true);
-  assert.equal(bootstrap.capabilities.threadLifecycle.fork, true);
-  assert.equal(bootstrap.capabilities.threadLifecycle.archive, true);
+  assert.deepEqual(
+    bootstrap.capabilities.threadLifecycle.actions.map((item) => ({
+      id: item.id,
+      label: item.label,
+      capability: item.capability,
+      order: item.order,
+      danger: item.danger,
+    })),
+    [
+      { id: "fork", label: "Clone", capability: "fork", order: 10, danger: false },
+      { id: "rename", label: "Retitle", capability: "rename", order: 20, danger: false },
+      { id: "archive", label: "Hide", capability: "archive", order: 30, danger: true },
+    ],
+  );
   assert.equal(bootstrap.diagnostics.host.platform, "win32");
   assert.equal(bootstrap.diagnostics.host.api_key, undefined);
   assert.equal(bootstrap.diagnostics.host.nested.token, undefined);

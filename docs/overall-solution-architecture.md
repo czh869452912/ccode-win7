@@ -88,11 +88,15 @@ Frontend protocol adapters preserve backend-declared mode state. They must not
 import the built-in mode default or inject `explore` when a selected
 application/profile leaves `current_mode` empty.
 
-GUI thread lifecycle operations (`rename`, `fork`, and `archive`) are exposed
-through the session lifecycle facade and consumed by the GUI app shell. They
-update session summary/projection metadata used by app thread lists; they do
-not rewrite transcript history, own workflow state, activate tools, decide
-permissions, load extensions, or create source-control checkpoints.
+GUI thread lifecycle operations are exposed through the session lifecycle facade
+and consumed by the GUI app shell through
+`capabilities.thread_lifecycle.actions` descriptor records rather than a
+renderer-owned fixed action list. The default app shell currently declares
+`rename`, `fork`, and `archive`; alternate shells may omit or relabel those
+entries. Lifecycle actions update session summary/projection metadata used by
+app thread lists; they do not rewrite transcript history, own workflow state,
+activate tools, decide permissions, load extensions, or create source-control
+checkpoints.
 
 The GUI terminal bottom drawer is also app-shell hosted. `GUIBackend` owns an
 in-memory terminal service bound to the active workspace and exposes

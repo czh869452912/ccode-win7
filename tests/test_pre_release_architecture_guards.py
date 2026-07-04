@@ -859,6 +859,22 @@ def test_gui_app_shell_service_uses_injected_spec_not_inline_descriptor_lists():
         assert token not in app_shell_text
 
 
+def test_gui_thread_lifecycle_actions_are_backend_descriptors():
+    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
+    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
+    app_home_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/app-home-model.js"
+    )
+
+    assert "thread_lifecycle_actions" in spec_text
+    assert "normalizeThreadLifecycleAction" in model_text
+    assert "actions: normalizeThreadLifecycleActions" in model_text
+    assert "THREAD_LIFECYCLE_ACTIONS" not in app_home_text
+    assert 'label: "Rename"' not in app_home_text
+    assert 'label: "Fork"' not in app_home_text
+    assert 'label: "Archive"' not in app_home_text
+
+
 def test_agent_core_has_no_harness_prompt_or_command_name_validation_coupling():
     extensions_text = _read(ROOT / "src/embedagent_core/extensions.py")
     turn_experience_text = _read(ROOT / "src/embedagent_core/turn_experience.py")

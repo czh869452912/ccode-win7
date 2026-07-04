@@ -59,13 +59,39 @@ export function normalizeAppSettings(input = {}) {
   };
 }
 
+function normalizeThreadLifecycleAction(input = {}, index = 0) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const id = String(input.id || input.kind || "").trim();
+  if (!id) return null;
+  return {
+    id,
+    label: String(input.label || id).trim() || id,
+    capability: String(input.capability || id).trim() || id,
+    order: numberOrDefault(input.order || input.launcher_order || input.launcherOrder, index * 10),
+    enabled: input.enabled !== false,
+    danger: input.danger === true,
+    description: String(input.description || ""),
+  };
+}
+
+function normalizeThreadLifecycleActions(items) {
+  if (!Array.isArray(items)) return [];
+  const result = [];
+  const seen = new Set();
+  for (let index = 0; index < items.length; index += 1) {
+    const action = normalizeThreadLifecycleAction(items[index], index);
+    if (!action || seen.has(action.id)) continue;
+    seen.add(action.id);
+    result.push(action);
+  }
+  return result.sort((left, right) => left.order - right.order || left.label.localeCompare(right.label));
+}
+
 function normalizeThreadLifecycle(input = {}) {
   const raw = snakeOrCamel(input, "thread_lifecycle", "threadLifecycle", {});
   const value = raw && typeof raw === "object" ? raw : {};
   return {
-    rename: value.rename === true,
-    fork: value.fork === true,
-    archive: value.archive === true,
+    actions: normalizeThreadLifecycleActions(value.actions || value.thread_lifecycle_actions),
   };
 }
 

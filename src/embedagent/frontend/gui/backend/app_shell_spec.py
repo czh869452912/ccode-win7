@@ -25,7 +25,7 @@ class AppShellSpec(object):
     keybindings: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     source_control: Dict[str, Any] = field(default_factory=dict)
     terminal: Dict[str, Any] = field(default_factory=dict)
-    thread_lifecycle: Dict[str, Any] = field(default_factory=dict)
+    thread_lifecycle_actions: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
 
     def capabilities(self) -> Dict[str, Any]:
         return {
@@ -38,7 +38,9 @@ class AppShellSpec(object):
             "keybindings": _copy_records(self.keybindings),
             "source_control": _copy_value(self.source_control),
             "terminal": _copy_value(self.terminal),
-            "thread_lifecycle": _copy_value(self.thread_lifecycle),
+            "thread_lifecycle": {
+                "actions": _copy_records(self.thread_lifecycle_actions),
+            },
         }
 
 
@@ -58,6 +60,22 @@ def _keybinding(key: str, command_id: str, when: str = "always") -> Dict[str, An
         "command_id": command_id,
         "when": when,
     }
+
+
+def _thread_lifecycle_action(
+    action_id: str,
+    label: str,
+    order: int,
+    **metadata: Any,
+) -> Dict[str, Any]:
+    record = {
+        "id": action_id,
+        "label": label,
+        "capability": action_id,
+        "order": order,
+    }
+    record.update(metadata)
+    return record
 
 
 def default_app_shell_spec() -> AppShellSpec:
@@ -240,9 +258,9 @@ def default_app_shell_spec() -> AppShellSpec:
             "history_persistent": False,
             "max_buffer_bytes": 131072,
         },
-        thread_lifecycle={
-            "rename": True,
-            "fork": True,
-            "archive": True,
-        },
+        thread_lifecycle_actions=(
+            _thread_lifecycle_action("rename", "Rename", 10),
+            _thread_lifecycle_action("fork", "Fork", 20),
+            _thread_lifecycle_action("archive", "Archive", 30, danger=True),
+        ),
     )

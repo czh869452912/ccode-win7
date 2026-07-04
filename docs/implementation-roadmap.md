@@ -157,10 +157,13 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   The old `Inspector.jsx` component and `inspectorTab` / `inspectorKind`
   renderer adapter are also retired; right-panel fallback content now renders
   through `SurfacePanel` from the active workbench surface kind.
-- GUI thread lifecycle actions now route through the session lifecycle facade:
-  rename updates summary/projection title metadata, archive hides a session from
-  default thread lists without deleting transcript/summary/artifact references,
-  and fork copies the transcript to a new session id with fork provenance
+- GUI thread lifecycle actions now route through the session lifecycle facade
+  and are displayed from app-shell `thread_lifecycle.actions` descriptors
+  rather than a renderer-owned fixed action list: the default descriptors map
+  rename to summary/projection title metadata updates, archive to hiding a
+  session from default thread lists without deleting transcript/summary/artifact
+  references, and fork to copying the transcript to a new session id with fork
+  provenance
 - GUI terminal bottom drawer is now an app-shell hosted, thread-scoped surface:
   the backend owns a workspace-bound in-memory terminal service using Python
   stdlib subprocess pipes for Win7/offline compatibility, while the React

@@ -11,24 +11,6 @@ function workspaceLabel(workspace = {}) {
     || "Workspace";
 }
 
-export const THREAD_LIFECYCLE_ACTIONS = Object.freeze([
-  Object.freeze({
-    id: "rename",
-    label: "Rename",
-    capability: "rename",
-  }),
-  Object.freeze({
-    id: "fork",
-    label: "Fork",
-    capability: "fork",
-  }),
-  Object.freeze({
-    id: "archive",
-    label: "Archive",
-    capability: "archive",
-  }),
-]);
-
 export function formatSessionUpdatedLabel(value) {
   const text = String(value || "").trim();
   if (!text) return "";
@@ -48,12 +30,22 @@ export function formatSessionUpdatedLabel(value) {
 
 export function buildThreadLifecycleActions(session, capabilities = {}) {
   const sessionId = String(session?.session_id || session?.id || "").trim();
-  return THREAD_LIFECYCLE_ACTIONS.map((action) => {
-    const hasCapability = Boolean(capabilities?.[action.capability]);
-    const enabled = Boolean(sessionId && hasCapability);
+  const actions = Array.isArray(capabilities?.actions) ? capabilities.actions : [];
+  return actions.slice().sort((left, right) => {
+    const leftOrder = Number(left?.order || 0);
+    const rightOrder = Number(right?.order || 0);
+    return leftOrder - rightOrder || String(left?.label || left?.id || "").localeCompare(String(right?.label || right?.id || ""));
+  }).map((action) => {
+    const actionId = String(action?.id || "").trim();
+    const capability = String(action?.capability || actionId).trim();
+    const available = action?.enabled !== false;
+    const enabled = Boolean(sessionId && actionId && available);
     const reason = enabled ? "" : sessionId ? "backend_not_available" : "missing_session";
     return {
       ...action,
+      id: actionId,
+      label: String(action?.label || actionId).trim() || actionId,
+      capability,
       sessionId,
       enabled,
       reason,

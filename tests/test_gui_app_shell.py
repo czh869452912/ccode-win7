@@ -141,8 +141,8 @@ class TestGuiAppShellService(unittest.TestCase):
             10,
         )
         self.assertEqual(
-            payload["capabilities"]["thread_lifecycle"],
-            {"rename": True, "fork": True, "archive": True},
+            [item["id"] for item in payload["capabilities"]["thread_lifecycle"]["actions"]],
+            ["rename", "fork", "archive"],
         )
         self.assertEqual(
             payload["capabilities"]["source_control"],
@@ -235,7 +235,7 @@ class TestGuiAppShellService(unittest.TestCase):
                     ),
                     source_control={"enabled": False},
                     terminal={"enabled": False},
-                    thread_lifecycle={"rename": False, "fork": False, "archive": False},
+                    thread_lifecycle_actions=(),
                 ),
             )
 
@@ -253,6 +253,7 @@ class TestGuiAppShellService(unittest.TestCase):
             [{"key": "mod+,", "command_id": "app.settings", "when": "always"}],
         )
         self.assertEqual(payload["capabilities"]["source_control"], {"enabled": False})
+        self.assertEqual(payload["capabilities"]["thread_lifecycle"], {"actions": []})
 
     def test_open_workspace_returns_app_shell_payload_and_binds_core(self):
         with tempfile.TemporaryDirectory() as root:

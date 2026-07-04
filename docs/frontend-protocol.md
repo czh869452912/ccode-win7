@@ -136,13 +136,16 @@ policy, checkpoint state, extension loading policy, or Agent Core state. The
 current contract does not include remote providers, push/pull, staging, commit,
 or checkpoint mutation.
 
-GUI thread lifecycle operations (`rename`, `fork`, and `archive`) are exposed
-through session lifecycle endpoints and reflected in session summary/projection
-metadata for app thread lists. Frontends may display and invoke these actions,
-but they must not persist their own rename/archive/fork sidecar state or treat
-these metadata fields as transcript history, workflow truth, tool activation
-policy, permission policy, extension loading policy, or source-control
-checkpoints.
+GUI thread lifecycle operations are exposed through session lifecycle endpoints
+and reflected in session summary/projection metadata for app thread lists.
+Visible thread actions must come from
+`capabilities.thread_lifecycle.actions` descriptor records, not a renderer-owned
+fixed action list. The default app shell currently declares `rename`, `fork`,
+and `archive`, but alternate shells may omit or relabel those entries.
+Frontends may display and invoke declared actions, but they must not persist
+their own lifecycle sidecar state or treat these metadata fields as transcript
+history, workflow truth, tool activation policy, permission policy, extension
+loading policy, or source-control checkpoints.
 
 GUI app-shell settings are local shell preferences unless a later documented
 backend contract promotes a specific setting into durable runtime

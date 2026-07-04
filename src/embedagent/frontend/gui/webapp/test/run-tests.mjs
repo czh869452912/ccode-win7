@@ -1153,7 +1153,8 @@ async function main() {
     webappSourcePath("session-runtime", "app-home-model.js"),
     "utf8",
   );
-  assert.equal(appHomeModelSource.includes("THREAD_LIFECYCLE_ACTIONS"), true);
+  assert.equal(appHomeModelSource.includes("THREAD_LIFECYCLE_ACTIONS"), false);
+  assert.equal(appHomeModelSource.includes("capabilities?.actions"), true);
   assert.equal(appHomeModelSource.includes("buildThreadLifecycleActions"), true);
   assert.equal(appHomeModelSource.includes("session.thread?.title"), true);
   assert.equal(sidebarSource.includes("Threads"), true);

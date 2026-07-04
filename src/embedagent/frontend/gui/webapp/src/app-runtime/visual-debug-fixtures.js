@@ -24,7 +24,13 @@ function visualAppBootstrap() {
     active_workspace: VISUAL_WORKSPACE,
     has_active_workspace: true,
     capabilities: {
-      thread_lifecycle: { rename: true, fork: true, archive: true },
+      thread_lifecycle: {
+        actions: [
+          { id: "rename", label: "Rename", capability: "rename", order: 10 },
+          { id: "fork", label: "Fork", capability: "fork", order: 20 },
+          { id: "archive", label: "Archive", capability: "archive", order: 30, danger: true },
+        ],
+      },
       surfaces: {
         right_panel: [
           surface("preview", "Preview", 10),

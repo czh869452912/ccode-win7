@@ -56,7 +56,12 @@ export function runAppHomeModelTests() {
     ],
     currentSessionId: "sess-active",
     defaultMode: "explore",
-    threadLifecycleCapabilities: { rename: true, fork: true, archive: true },
+    threadLifecycleCapabilities: {
+      actions: [
+        { id: "rename", label: "Retitle", capability: "rename", order: 10 },
+        { id: "archive", label: "Hide", capability: "archive", order: 20, danger: true },
+      ],
+    },
   });
 
   assert.equal(model.workspace.hasActiveWorkspace, true);
@@ -74,8 +79,9 @@ export function runAppHomeModelTests() {
   assert.equal(model.threads.rows[0].updated, "not-a-date");
   assert.deepEqual(
     model.threads.rows[0].actions.map((action) => action.id),
-    ["rename", "fork", "archive"],
+    ["rename", "archive"],
   );
+  assert.equal(model.threads.rows[0].actions[0].label, "Retitle");
   assert.equal(model.threads.rows[0].actions[0].enabled, true);
   assert.equal(model.threads.rows[0].actions[0].reason, "");
   assert.equal(model.threads.rows[1].mode, "explore");
@@ -109,22 +115,26 @@ export function runAppHomeModelTests() {
 
   const enabledActions = buildThreadLifecycleActions(
     { session_id: "sess-active" },
-    { rename: true, fork: true, archive: false },
+    {
+      actions: [
+        { id: "fork", label: "Clone", capability: "fork", order: 20 },
+        { id: "rename", label: "Retitle", capability: "rename", order: 10 },
+        { id: "archive", label: "Hide", capability: "archive", order: 30, enabled: false },
+      ],
+    },
   );
   assert.deepEqual(
     enabledActions.map((action) => action.capability),
     ["rename", "fork", "archive"],
   );
-  assert.equal(enabledActions[0].label, "Rename");
+  assert.equal(enabledActions[0].label, "Retitle");
   assert.equal(enabledActions[0].enabled, true);
   assert.equal(enabledActions[1].enabled, true);
   assert.equal(enabledActions[2].enabled, false);
   assert.equal(enabledActions[2].reason, "backend_not_available");
 
   const missingSessionActions = buildThreadLifecycleActions(null, {
-    rename: true,
-    fork: true,
-    archive: true,
+    actions: [{ id: "rename", label: "Retitle", capability: "rename" }],
   });
   assert.equal(missingSessionActions[0].enabled, false);
   assert.equal(missingSessionActions[0].reason, "missing_session");
