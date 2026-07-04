@@ -1039,6 +1039,9 @@ def test_gui_app_shell_commands_are_descriptor_records_not_string_lists():
     spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
     commands_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js")
+    protocol_normalizer_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/protocol-normalizer.js"
+    )
     app_shell_commands_path = ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/commands.js"
 
     assert "def _command(" in spec_text
@@ -1053,6 +1056,10 @@ def test_gui_app_shell_commands_are_descriptor_records_not_string_lists():
     assert "LOCAL_COMMANDS" not in commands_text
     assert "WORKBENCH_COMMANDS" not in commands_text
     assert "workflow.diff" not in commands_text
+    assert "String(input.label || id).trim() || id" not in model_text
+    assert "item.label || item.usage || id" not in commands_text
+    assert "!command.label" in commands_text
+    assert "firstText(data.label, data.usage, id)" not in protocol_normalizer_text
     assert "filterCommandsByCapability" not in commands_text
     assert "APP_COMMANDS" not in commands_text
     assert not app_shell_commands_path.exists()
@@ -1084,6 +1091,8 @@ def test_gui_command_palette_groups_are_app_shell_descriptors():
     assert "GROUP_DESCRIPTIONS" not in palette_model_text
     assert "paletteGroupDescriptors" in palette_model_text
     assert "paletteLabels" in palette_model_text
+    assert "asText(command.label) || asText(command.id)" not in palette_model_text
+    assert "asText(command.group) === targetGroup && asText(command.label)" in palette_model_text
     assert '"Command palette"' not in palette_component_text
     assert '"Search commands, sessions, workspaces"' not in palette_component_text
     assert '"No matching commands, sessions, or workspaces"' not in palette_component_text

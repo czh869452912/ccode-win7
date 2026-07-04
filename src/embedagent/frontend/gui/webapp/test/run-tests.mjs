@@ -1321,12 +1321,29 @@ async function main() {
     webappSourcePath("app-shell", "model.js"),
     "utf8",
   );
+  const workbenchCommandsSource = fs.readFileSync(
+    webappSourcePath("workbench", "commands.js"),
+    "utf8",
+  );
+  const commandPaletteModelSource = fs.readFileSync(
+    webappSourcePath("workbench", "command-palette-model.js"),
+    "utf8",
+  );
+  const protocolNormalizerSource = fs.readFileSync(
+    webappSourcePath("session-runtime", "protocol-normalizer.js"),
+    "utf8",
+  );
   assert.equal(appShellModelSource.includes('"EmbedAgent"'), false);
   assert.equal(appHomeModelSource.includes("THREAD_LIFECYCLE_ACTIONS"), false);
   assert.equal(appHomeModelSource.includes("capabilities?.actions"), true);
   assert.equal(appHomeModelSource.includes("buildThreadLifecycleActions"), true);
   assert.equal(appHomeModelSource.includes("session.thread?.title"), true);
   assert.equal(appShellModelSource.includes("label: String(input.label || id)"), false);
+  assert.equal(appShellModelSource.includes("String(input.label || id).trim() || id"), false);
+  assert.equal(workbenchCommandsSource.includes("item.label || item.usage || id"), false);
+  assert.equal(workbenchCommandsSource.includes("!command.label"), true);
+  assert.equal(commandPaletteModelSource.includes("asText(command.label) || asText(command.id)"), false);
+  assert.equal(protocolNormalizerSource.includes("firstText(data.label, data.usage, id)"), false);
   assert.equal(appHomeModelSource.includes("Backend lifecycle API is not available yet"), false);
   assert.equal(appHomeModelSource.includes("Thread is missing"), false);
   assert.equal(appHomeModelSource.includes("label: String(action?.label || actionId)"), false);

@@ -488,6 +488,26 @@ export function runWorkbenchStateTests() {
   assert.equal(commandById("surface.diagnostics", {}, fullAppCapabilities).surface, "diagnostics");
   assert.equal(commandById("message.send"), null);
   assert.equal(commandById("message.send", {}, fullAppCapabilities).slash, "");
+  assert.equal(commandById("help", { commands: [{ name: "help", usage: "/help" }] }).label, "/help");
+  assert.equal(commandById("raw", { commands: [{ name: "raw" }] }), null);
+
+  const commandLabelCapabilities = {
+    appCommands: [
+      { id: "app.hidden", group: "app", label: "", visibleWhen: "always" },
+      { id: "app.visible", group: "app", label: "Visible", visibleWhen: "always" },
+    ],
+    workbenchCommands: [
+      { id: "message.unlabeled", group: "message", label: "", visibleWhen: "always" },
+    ],
+  };
+  assert.equal(commandById("app.hidden", {}, commandLabelCapabilities), null);
+  assert.equal(commandById("message.unlabeled", {}, commandLabelCapabilities), null);
+  assert.equal(commandById("app.visible", {}, commandLabelCapabilities).label, "Visible");
+  assert.equal(
+    visibleCommands({ hasSession: true, isRunning: false, appCapabilities: commandLabelCapabilities })
+      .some((item) => item.id === "app.hidden"),
+    false,
+  );
 
   const visibleWithoutAppShell = visibleCommands({ hasSession: true, isRunning: false });
   assert.equal(visibleWithoutAppShell.some((item) => item.id === "app.settings"), false);

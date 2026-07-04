@@ -158,5 +158,20 @@ export function runCommandPaletteModelTests() {
   assert.equal(submenu[0].items[0].shortcut, "Ctrl+4");
 
   assert.deepEqual(buildCommandPaletteSubmenuGroups({ commands, groupId: "missing" }), []);
+  assert.deepEqual(
+    flattenPaletteGroups(buildCommandPaletteRootGroups({
+      commands: [{ id: "app.hidden", group: "app", label: "" }],
+      commandPalette,
+    })).filter((item) => item.type === "command"),
+    [],
+  );
+  assert.deepEqual(
+    buildCommandPaletteSubmenuGroups({
+      commands: [{ id: "app.hidden", group: "app", label: "" }],
+      commandPalette,
+      groupId: "app",
+    }),
+    [],
+  );
   assert.deepEqual(flattenPaletteGroups([{ id: "x", items: [{ id: "a" }, { id: "b" }] }]).map((item) => item.id), ["a", "b"]);
 }

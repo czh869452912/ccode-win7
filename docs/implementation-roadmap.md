@@ -136,7 +136,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   registries now provide only known renderer mounting details through derived
   helper functions rather than exported fixed id lists, and do not invent
   visible app entrypoints when the `capabilities` object or relevant descriptor
-  arrays are missing; surface descriptors without explicit titles remain
+  arrays are missing; command descriptors without explicit visible labels stay
+  out of workbench command lists and command-palette rows, and dynamic slash
+  commands require explicit `label`, `usage`, or `slash` metadata rather than
+  command-id fallback copy; surface descriptors without explicit titles remain
   diagnostic capability records and do not enter visible launchers or surface
   commands; persisted workbench surface state is also re-sanitized
   after app bootstrap or workspace switch against those app-shell capabilities;
@@ -187,8 +190,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   app-shell surface descriptor rather than a renderer `"diff"` fallback
 - GUI workbench session/message/view/palette command entries now come from
   app-shell `workbench_commands` descriptors; the renderer no longer owns a
-  `LOCAL_COMMANDS` list, and the retired duplicate `workflow.diff` command is
-  removed in favor of the declared `surface.diff` entrypoint
+  `LOCAL_COMMANDS` list, commands without visible labels are omitted instead of
+  labeled from command ids, and the retired duplicate `workflow.diff` command
+  is removed in favor of the declared `surface.diff` entrypoint
 - GUI home/sidebar workspace and thread copy now comes from app-shell
   `home.workspace` / `home.threads` descriptors plus the selected agent
   `emptyState`; renderer components no longer own the default no-workspace,

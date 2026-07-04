@@ -1249,6 +1249,20 @@ export function runAppShellModelTests() {
     ],
   );
 
+  const commandCapabilities = normalizeAppCapabilities({
+    app_commands: [
+      { id: "app.hidden", group: "app" },
+      { id: "app.visible", label: "Visible command", group: "app" },
+    ],
+  });
+  assert.deepEqual(
+    commandCapabilities.appCommands.map((item) => [item.id, item.label]),
+    [
+      ["app.hidden", ""],
+      ["app.visible", "Visible command"],
+    ],
+  );
+
   const surfaceCapabilities = normalizeAppCapabilities({
     surfaces: {
       right_panel: [

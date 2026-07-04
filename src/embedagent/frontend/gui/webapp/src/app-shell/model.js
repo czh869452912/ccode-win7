@@ -512,7 +512,7 @@ function normalizeAppCommandDescriptor(input = {}, defaultGroup = "app", index =
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
   const id = String(input.id || input.name || "").trim();
   if (!id) return null;
-  const label = String(input.label || id).trim() || id;
+  const label = String(input.label || "").trim();
   return {
     id,
     group: String(input.group || defaultGroup).trim() || defaultGroup,

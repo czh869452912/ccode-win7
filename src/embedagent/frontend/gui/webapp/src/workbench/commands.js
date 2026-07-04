@@ -22,7 +22,7 @@ function commandFromCapability(item = {}) {
   return {
     id,
     group: String(item.group || "command").trim() || "command",
-    label: String(item.label || item.usage || id).trim() || id,
+    label: String(item.label || item.usage || "").trim(),
     slash: String(item.slash || item.usage || "").trim(),
     visibleWhen: String(item.visibleWhen || "always").trim() || "always",
     keywords: [item.name, item.summary, item.sourceType, item.sourceId].filter(Boolean),
@@ -44,7 +44,7 @@ export function buildWorkbenchCommands(capabilities = {}, appCapabilities = null
     ...workspaceCommandDefinitions(appCapabilities),
   ];
   for (const command of builtinCommands.concat(dynamicCommands)) {
-    if (!command || !command.id || seen.has(command.id)) continue;
+    if (!command || !command.id || !command.label || seen.has(command.id)) continue;
     seen.add(command.id);
     commands.push(command);
   }

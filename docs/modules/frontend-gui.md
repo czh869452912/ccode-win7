@@ -71,6 +71,10 @@ consume those descriptors; they must not become a second source of
 agent/workflow-specific display defaults. Frontend API helpers for preview,
 terminal, and source-control do not provide their own request-failure copy when
 the backend omits error details; controllers fall through to app-shell chrome.
+Workbench command labels also come from app-shell or capability descriptors:
+commands without explicit visible labels stay out of the workbench command
+catalog and command palette, and renderer modules must not turn command ids
+into visible row titles.
 Command-result run-output log labels are likewise payload-driven through
 fields such as `log_label` / `log_detail`; the socket effects module must not
 derive visible bottom-drawer log copy from slash command names or success
@@ -325,6 +329,10 @@ labels, slash metadata, launcher ordering, and keywords come only from
 app-shell surface descriptors. Missing `app_commands`, `workspace_commands`,
 `surfaces.right_panel`, or `surfaces.bottom_drawer` arrays are treated as no
 visible app-shell entrypoints rather than silently filling GUI defaults.
+App/workspace/workbench command records without explicit labels are likewise
+omitted from visible command entrypoints, and dynamic slash commands require
+explicit `label`, `usage`, or `slash` metadata rather than command-id fallback
+copy.
 Surface descriptor records that omit `title` remain capability diagnostics and
 do not enter visible launchers or commands; renderer helpers must not fall back
 to surface kind/id strings for tab or launcher titles. Resource surface helper

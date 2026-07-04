@@ -409,6 +409,13 @@ basenames, preview ids/URLs, or terminal ids remain instance data, not
 app-shell defaults; missing preview instance data must not create a renderer
 fallback tab.
 
+GUI workbench command labels are app-shell or capability display descriptors.
+App/workspace/workbench command entries without explicit labels must stay out
+of visible command lists, and dynamic slash commands are visible only when
+their capability descriptors provide explicit `label`, `usage`, or `slash`
+metadata. Renderer command lists and command-palette rows must not synthesize
+visible titles from command ids.
+
 The GUI terminal bottom drawer is an app-shell hosted surface, not Agent Core. It uses Windows 7-compatible Python stdlib subprocess pipes, is not a full PTY, and must not depend on ConPTY, `node-pty`, `pywinpty`, `pexpect`, Electron, runtime Node, Docker, WSL, VS Code, or online services. Terminal output is GUI-local display state only: it must not be written to `transcript.jsonl`, telemetry, workflow state, source-control checkpoints, or permission/runtime reducer truth.
 
 The GUI File Preview right-panel is an app-shell hosted, read-only display surface over already-loaded workspace file content, not Agent Core and not a file editing workflow. Its chrome/copy, metadata labels, fallback messages, and language labels must come from `capabilities.surfaces.chrome.file_preview` rather than renderer-local defaults. It must not save files, write transcript history, own workflow state, decide permissions, load extensions, update telemetry, or become a source-control checkpoint or Agent Core policy path.

@@ -154,12 +154,13 @@ function filterAndRank(items, query) {
 function commandItem(command, shortcutMap, groupDescriptors) {
   const group = asText(command.group);
   const descriptor = groupDescriptor(group, groupDescriptors);
+  const title = asText(command.label);
   return {
     id: `command:${command.id}`,
     type: "command",
     commandId: asText(command.id),
     group,
-    title: asText(command.label) || asText(command.id),
+    title,
     description: commandDescription(command, descriptor),
     meta: asText(command.slash || command.id),
     shortcut: shortcutMap[command.id] || "",
@@ -172,7 +173,7 @@ function commandItem(command, shortcutMap, groupDescriptors) {
 function groupCommandItems(commands = [], shortcutMap = {}, groupDescriptors = {}) {
   const groups = {};
   for (const command of commands || []) {
-    if (!command || !command.id) continue;
+    if (!command || !command.id || !asText(command.label)) continue;
     const group = asText(command.group) || "commands";
     if (!groups[group]) groups[group] = [];
     groups[group].push(commandItem(command, shortcutMap, groupDescriptors));
@@ -303,7 +304,7 @@ export function buildCommandPaletteSubmenuGroups({
   const shortcutMap = shortcutByCommandId(keybindings);
   const groupDescriptors = paletteGroupDescriptors(commandPalette || {});
   const items = (commands || [])
-    .filter((command) => command && asText(command.group) === targetGroup)
+    .filter((command) => command && asText(command.group) === targetGroup && asText(command.label))
     .map((command) => commandItem(command, shortcutMap, groupDescriptors));
   const ranked = filterAndRank(items, query);
   const title = groupDescriptor(targetGroup, groupDescriptors).title || titleCase(targetGroup);

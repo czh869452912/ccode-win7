@@ -44,6 +44,40 @@
 
 ## 3. 当前变更记录
 
+### DC-258
+
+- Date: 2026-07-04
+- Change Topic: GUI workbench command labels are descriptor-driven
+- Summary:
+  - App-shell command normalization now preserves missing command labels as
+    empty instead of synthesizing visible labels from command ids.
+  - Workbench command projection omits app/workbench commands without explicit
+    labels, while dynamic slash commands remain visible only when their
+    capability descriptor provides an explicit `usage`, `slash`, or label.
+  - Command palette rows no longer fall back from missing command labels to
+    command ids, including submenu projection.
+  - Added frontend and Python architecture guards to keep command id strings
+    out of visible workbench command labels.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/protocol-normalizer.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/commands.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-257
 
 - Date: 2026-07-04
