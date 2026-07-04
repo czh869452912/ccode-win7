@@ -40,7 +40,9 @@ surfaces, thread/session selection, composer drafts, terminal display buffers,
 source-control display state, and preview display state. In particular,
 `webapp/src/session-runtime/thread-state.js` owns the active thread id, session
 summary list, and history-integrity display read model, and
-`webapp/src/composer/composer-state.js` owns draft text. These modules are
+`webapp/src/composer/composer-state.js` owns draft text. The retired
+`sidebarTab` / `set_sidebar` sidecar is not part of this renderer state model.
+These modules are
 renderer read models only and must not become session history, workflow truth,
 tool policy, permission policy, extension loading policy, provider
 configuration, telemetry, or Agent Core runtime reducers.

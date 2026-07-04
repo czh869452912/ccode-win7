@@ -101,9 +101,9 @@ export default function Sidebar({
           role="tab"
           aria-selected="true"
           className="sidebar-tab active"
-          data-testid="sidebar-tab--chats"
+          data-testid="sidebar-tab--threads"
         >
-          <span data-testid="sidebar-tab--threads">{threadCopy.sectionTitle}</span>
+          <span>{threadCopy.sectionTitle}</span>
         </button>
       </div>
       <div

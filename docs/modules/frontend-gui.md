@@ -126,7 +126,8 @@ thread id, and history-integrity display state, while
 the command palette, terminal controller, sidebar, timeline, and composer read
 these states through focused read models. `store.js` remains the reducer
 composition point for now, but new GUI code must not add root-level
-`sessions`, `currentSessionId`, `composer`, or `historyIntegrity` state.
+`sessions`, `currentSessionId`, `composer`, `historyIntegrity`, or retired
+sidebar tab sidecar state/actions.
 
 The webapp build continues to target `chrome109` for bundled WebView2 Fixed
 Version 109 and Windows 7 compatibility. GUI runtime deployment must remain
@@ -159,7 +160,8 @@ opens file preview tabs through right-panel surface descriptors. The
 `FilesSurface` panel title is also read from the active surface descriptor, not
 from renderer-local default copy. The sidebar
 must not render a second Files tab or duplicate file tree; file navigation
-remains GUI app-shell display state and must not become workflow truth.
+remains GUI app-shell display state and must not become workflow truth. The
+sidebar no longer has a separate `sidebarTab` / `set_sidebar` reducer sidecar.
 
 ### T3-Style GUI Shell Parity
 

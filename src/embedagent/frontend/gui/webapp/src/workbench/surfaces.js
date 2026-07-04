@@ -522,10 +522,6 @@ function nextActiveAfterClose(items, closedIndex) {
 export function createWorkbenchState() {
   return {
     activeSessionKey: DEFAULT_SESSION_KEY,
-    sidebar: {
-      activeSection: "threads",
-      projectSection: "files",
-    },
     rightPanel: {
       open: true,
       activeKind: "",

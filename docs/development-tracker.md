@@ -153,6 +153,9 @@
   `capabilities.source_control.chrome`: panel title, status/diff fallback
   notices, empty states, count/group/provider labels, runtime labels, and
   refresh action copy are backend-declared descriptors consumed by the renderer.
+- The retired GUI sidebar tab sidecar has been removed: root `sidebarTab`,
+  `set_sidebar`, the old `sidebar-tab--chats` test id, and unused workbench
+  `activeSection` / `projectSection` state are no longer product paths.
 - Composer Branch Toolbar chrome now comes from
   `capabilities.source_control.chrome.branch_toolbar`: checkout labels,
   change/conflict summaries, disabled reasons, action labels, refresh title,

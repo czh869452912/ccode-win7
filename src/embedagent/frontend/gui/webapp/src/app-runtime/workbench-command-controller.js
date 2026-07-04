@@ -36,7 +36,6 @@ export function createWorkbenchCommandController({
         await loadSessions();
         return;
       case "workspace.open":
-        dispatch({ type: "set_sidebar", value: "chats" });
         setTimeoutFn(() => {
           documentObject
             .querySelector('[data-testid="sidebar-workspace-path-input"]')

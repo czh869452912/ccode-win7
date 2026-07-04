@@ -2264,6 +2264,7 @@ def test_gui_runtime_state_does_not_reintroduce_removed_root_session_state():
         r"\n\s+currentSessionId\s*:",
         r"\n\s+connectionState\s*:",
         r"\n\s+historyIntegrity\s*:",
+        r"\n\s+sidebarTab\s*:",
     )
     offenders = []
     for pattern in forbidden_root_state:
@@ -2274,6 +2275,10 @@ def test_gui_runtime_state_does_not_reintroduce_removed_root_session_state():
         "timeline" + "FromEvents",
         "Flat" + "TimelineView",
         "set_connection",
+        "set_sidebar",
+        "sidebar-tab--chats",
+        "activeSection",
+        "projectSection",
     )
     for path in _source_files_under(
         "src/embedagent/frontend/gui/webapp/src", suffixes=(".js", ".jsx")

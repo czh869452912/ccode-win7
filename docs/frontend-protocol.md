@@ -236,8 +236,9 @@ remain under `webapp/src/workbench/`.
 
 `store.js` may dispatch to these focused reducers, but new frontend code must
 not reintroduce root-level `sessions`, `currentSessionId`, `composer`, or
-`historyIntegrity` fields as parallel state. New transport status code must
-not reintroduce root-level `connectionState` / `set_connection`; websocket
+`historyIntegrity` fields as parallel state, and must not reintroduce retired
+sidebar tab sidecars such as `sidebarTab` or `set_sidebar`. New transport
+status code must not reintroduce root-level `connectionState` / `set_connection`; websocket
 connection and reload status feed session transport state and
 `projectTransportView(...)`. React components and runtime controllers should
 consume the focused read models. These renderer modules are GUI-local

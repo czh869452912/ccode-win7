@@ -1264,6 +1264,8 @@ async function main() {
   assert.equal(storeSource.includes("inspectorOpen"), false);
   assert.equal(storeSource.includes('case "set_inspector":'), false);
   assert.equal(storeSource.includes('case "toggle_inspector":'), false);
+  assert.equal(storeSource.includes("sidebarTab"), false);
+  assert.equal(storeSource.includes('case "set_sidebar":'), false);
   assert.equal(storeSource.includes("TOOL_LABELS"), false);
   assert.equal(storeSource.includes("export function toolLabel"), false);
   assert.equal(storeSource.includes("Read  "), false);
@@ -1296,6 +1298,8 @@ async function main() {
   assert.equal(sidebarSource.includes("appHome?.threads"), true);
   assert.equal(sidebarSource.includes("new Date("), false);
   assert.equal(sidebarSource.includes("state.sessions.map"), false);
+  assert.equal(sidebarSource.includes('data-testid="sidebar-tab--chats"'), false);
+  assert.equal(sidebarSource.includes('data-testid="sidebar-tab--threads"'), true);
   assert.equal(sidebarSource.includes('data-testid="sidebar-tab--files"'), false);
   assert.equal(sidebarSource.includes("file-tree-node--"), false);
   assert.equal(sidebarSource.includes("react-arborist"), false);
@@ -1370,6 +1374,8 @@ async function main() {
   assert.equal(workbenchSurfacesSource.includes('commandLabel: "Open Terminal"'), false);
   assert.equal(workbenchSurfacesSource.includes('description: "'), false);
   assert.equal(workbenchSurfacesSource.includes("titleForSurfaceKind(kind, appCapabilities = null)"), true);
+  assert.equal(workbenchSurfacesSource.includes("activeSection"), false);
+  assert.equal(workbenchSurfacesSource.includes("projectSection"), false);
 
   const changedFilesCardSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "ChangedFilesCard.jsx"),

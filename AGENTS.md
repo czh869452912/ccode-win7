@@ -384,8 +384,8 @@ display buffers remain under `src/embedagent/frontend/gui/webapp/src/terminal/`;
 workbench surface persistence remains under
 `src/embedagent/frontend/gui/webapp/src/workbench/`. Do not reintroduce
 root-level `sessions`, `currentSessionId`, `composer`, `historyIntegrity`,
-`connectionState`, `set_connection`, or timeline reload state as parallel GUI
-state.
+`connectionState`, retired sidebar tab state/actions such as `sidebarTab` or
+`set_sidebar`, `set_connection`, or timeline reload state as parallel GUI state.
 
 GUI visual debug fixtures are development-only. `?visual_debug=1` may expose
 `window.__EMBEDAGENT_VISUAL_DEBUG__`, but fixture helpers must expand private

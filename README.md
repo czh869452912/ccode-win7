@@ -101,8 +101,8 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
   `webapp/src/composer/composer-state.js`, terminal display buffers remain in
   `webapp/src/terminal/`, and workbench surface persistence remains in
   `webapp/src/workbench/`. Root-level GUI state must not reintroduce
-  `sessions`, `currentSessionId`, `composer`, or `historyIntegrity` as
-  parallel fields.
+  `sessions`, `currentSessionId`, `composer`, `historyIntegrity`, or retired
+  sidebar tab sidecars as parallel fields.
 - Official GUI visual-debug boundary: `?visual_debug=1` may expose
   `window.__EMBEDAGENT_VISUAL_DEBUG__`, but fixture helpers expand private
   `dev_fixture_*` descriptors into ordinary product reducer actions. Product

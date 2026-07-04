@@ -44,6 +44,39 @@
 
 ## 3. 当前变更记录
 
+### DC-249
+
+- Date: 2026-07-04
+- Change Topic: Retired GUI sidebar sidecar state removed
+- Summary:
+  - Removed unused root `sidebarTab` state and the `set_sidebar` reducer action
+    from the GUI store.
+  - Removed `set_sidebar` dispatches from the workspace command path and visual
+    debug fixtures; workspace open still focuses the workspace path input
+    directly.
+  - Removed unused workbench `activeSection` / `projectSection` sidebar state
+    and renamed the remaining thread tab test id away from the old `chats`
+    vocabulary.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/workbench-command-controller.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/visual-debug-fixtures.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/Sidebar.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/visual-debug-fixtures.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+  - `tests/manual/playwright_example.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-248
 
 - Date: 2026-07-04

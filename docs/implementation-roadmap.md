@@ -210,7 +210,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `App.jsx`, command palette, terminal
   controller, workspace reset, and tests consume those read models instead of
   root-level `sessions`, `currentSessionId`, `composer`, `historyIntegrity`,
-  or `connectionState` fields.
+  `connectionState`, or retired sidebar tab sidecars such as `sidebarTab` /
+  `set_sidebar`.
 - GUI visual-debug fixtures are now outside the product reducer state machine:
   `visual-debug-fixtures.js` keeps private `dev_fixture_*` descriptors and
   expands them into ordinary product actions, while `store.js` and

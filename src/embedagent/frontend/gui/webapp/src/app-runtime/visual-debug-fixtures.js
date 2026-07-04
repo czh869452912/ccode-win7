@@ -320,7 +320,6 @@ function dispatchInteractionFixture(dispatch, action) {
 function dispatchThreadFixture(dispatch, action) {
   ensureVisualWorkspace(dispatch);
   const sessionId = action.sessionId || "visual-thread-active";
-  dispatch({ type: "set_sidebar", value: "chats" });
   dispatch({ type: "sessions_loaded", sessions: Array.isArray(action.sessions) ? action.sessions : [] });
   dispatch({
     type: "session_activated",

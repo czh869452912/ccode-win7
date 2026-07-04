@@ -119,7 +119,7 @@ def test_sidebar_interaction(page):
     print("  - 已截图: 06_sidebar_files.png")
 
     # 切换回 Chats 标签
-    page.click('[data-testid="sidebar-tab--chats"]')
+    page.click('[data-testid="sidebar-tab--threads"]')
     time.sleep(0.3)
     page.screenshot(path="tests/manual/screenshots/07_sidebar_chats.png")
     print("  - 已截图: 07_sidebar_chats.png")
