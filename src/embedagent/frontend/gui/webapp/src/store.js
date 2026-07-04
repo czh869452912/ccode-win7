@@ -22,7 +22,6 @@ export const EMPTY_CAPABILITIES = normalizeProtocolCapabilities({});
 
 export const initialState = {
   sidebarTab: "chats",
-  lang: "en",
   thread: createThreadState(),
   snapshot: null,
   composer: createComposerState(),
@@ -65,8 +64,6 @@ export function reducer(state, action) {
   switch (action.type) {
     case "set_sidebar":
       return { ...state, sidebarTab: action.value };
-    case "set_lang":
-      return { ...state, lang: action.value };
     case "set_composer":
       return {
         ...state,

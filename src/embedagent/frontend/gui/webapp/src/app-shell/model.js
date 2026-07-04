@@ -321,6 +321,120 @@ function normalizeCommandPalette(input = {}) {
   };
 }
 
+function normalizeHeaderChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    commandPaletteLabel: String(value.command_palette_label || value.commandPaletteLabel || ""),
+    commandPaletteShortLabel: String(
+      value.command_palette_short_label || value.commandPaletteShortLabel || "",
+    ),
+    refreshLabel: String(value.refresh_label || value.refreshLabel || ""),
+    bottomDrawerLabel: String(value.bottom_drawer_label || value.bottomDrawerLabel || ""),
+    bottomDrawerTitle: String(value.bottom_drawer_title || value.bottomDrawerTitle || ""),
+    rightPanelLabel: String(value.right_panel_label || value.rightPanelLabel || ""),
+    rightPanelTitle: String(value.right_panel_title || value.rightPanelTitle || ""),
+    turnsLabel: String(value.turns_label || value.turnsLabel || ""),
+  };
+}
+
+function normalizeComposerHints(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([key, item]) => [String(key || ""), String(item || "")])
+      .filter(([key]) => key),
+  );
+}
+
+function normalizeComposerChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    placeholder: String(value.placeholder || ""),
+    commandPaletteLabel: String(value.command_palette_label || value.commandPaletteLabel || ""),
+    sendLabel: String(value.send_label || value.sendLabel || ""),
+    stopLabel: String(value.stop_label || value.stopLabel || ""),
+    hints: normalizeComposerHints(value.hints),
+  };
+}
+
+function normalizeInteractionChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    pendingApprovalKicker: String(
+      value.pending_approval_kicker || value.pendingApprovalKicker || "",
+    ),
+    inputRequiredKicker: String(value.input_required_kicker || value.inputRequiredKicker || ""),
+    commandApprovalSummary: String(
+      value.command_approval_summary || value.commandApprovalSummary || "",
+    ),
+    fileReadApprovalSummary: String(
+      value.file_read_approval_summary || value.fileReadApprovalSummary || "",
+    ),
+    fileChangeApprovalSummary: String(
+      value.file_change_approval_summary || value.fileChangeApprovalSummary || "",
+    ),
+    expiredTitle: String(value.expired_title || value.expiredTitle || ""),
+    expiredBody: String(value.expired_body || value.expiredBody || ""),
+    conflictTitle: String(value.conflict_title || value.conflictTitle || ""),
+    conflictBody: String(value.conflict_body || value.conflictBody || ""),
+    approveOnceLabel: String(value.approve_once_label || value.approveOnceLabel || ""),
+    declineLabel: String(value.decline_label || value.declineLabel || ""),
+    cancelTurnLabel: String(value.cancel_turn_label || value.cancelTurnLabel || ""),
+    alwaysAllowSessionLabel: String(
+      value.always_allow_session_label || value.alwaysAllowSessionLabel || "",
+    ),
+    inputSummary: String(value.input_summary || value.inputSummary || ""),
+    customAnswerPlaceholder: String(
+      value.custom_answer_placeholder || value.customAnswerPlaceholder || "",
+    ),
+    submitLabel: String(value.submit_label || value.submitLabel || ""),
+    modeLabelPrefix: String(value.mode_label_prefix || value.modeLabelPrefix || ""),
+  };
+}
+
+function normalizeSurfacePanelChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  const groups = value.diagnostic_groups || value.diagnosticGroups || {};
+  return {
+    ariaLabel: String(value.aria_label || value.ariaLabel || ""),
+    settingsTitle: String(value.settings_title || value.settingsTitle || ""),
+    confirmWorkspaceSwitchLabel: String(
+      value.confirm_workspace_switch_label || value.confirmWorkspaceSwitchLabel || "",
+    ),
+    showDiagnosticsBadgeLabel: String(
+      value.show_diagnostics_badge_label || value.showDiagnosticsBadgeLabel || "",
+    ),
+    diagnosticsTitle: String(value.diagnostics_title || value.diagnosticsTitle || ""),
+    capabilitiesTitle: String(value.capabilities_title || value.capabilitiesTitle || ""),
+    noDiagnostics: String(value.no_diagnostics || value.noDiagnostics || ""),
+    planTitle: String(value.plan_title || value.planTitle || ""),
+    noPlan: String(value.no_plan || value.noPlan || ""),
+    diagnosticGroups:
+      groups && typeof groups === "object" && !Array.isArray(groups)
+        ? Object.fromEntries(
+            Object.entries(groups)
+              .map(([key, item]) => [String(key || ""), String(item || "")])
+              .filter(([key]) => key),
+          )
+        : {},
+  };
+}
+
+function normalizeChrome(input = {}) {
+  const value = input.chrome && typeof input.chrome === "object" && !Array.isArray(input.chrome)
+    ? input.chrome
+    : {};
+  return {
+    brandSubtitle: String(value.brand_subtitle || value.brandSubtitle || ""),
+    sidebarAriaLabel: String(value.sidebar_aria_label || value.sidebarAriaLabel || ""),
+    threadPanelAriaLabel: String(value.thread_panel_aria_label || value.threadPanelAriaLabel || ""),
+    header: normalizeHeaderChrome(value.header),
+    composer: normalizeComposerChrome(value.composer),
+    interaction: normalizeInteractionChrome(value.interaction),
+    surfacePanel: normalizeSurfacePanelChrome(value.surface_panel || value.surfacePanel),
+  };
+}
+
 function normalizeHomeWorkspaceCopy(input = {}) {
   const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
   return {
@@ -372,6 +486,7 @@ export function normalizeAppCapabilities(input = {}) {
       "workbench",
     ),
     commandPalette: normalizeCommandPalette(input),
+    chrome: normalizeChrome(input),
     home: normalizeHomeCopy(input),
     surfaces: {
       rightPanel: normalizeSurfaceCapabilityList(

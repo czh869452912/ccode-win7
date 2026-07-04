@@ -1,11 +1,10 @@
 import React from "react";
-import { useLang } from "../LangContext.js";
-import { t } from "../strings.js";
 import { modeBadgeLabel, modeBadgeStyle } from "../session-runtime/mode-style.js";
 
 export default function Sidebar({
   app,
   appHome,
+  chrome = {},
   currentSessionId,
   currentMode,
   modeCatalog = {},
@@ -18,7 +17,6 @@ export default function Sidebar({
   onActivateWorkspace,
   onRemoveWorkspace,
 }) {
-  const lang = useLang();
   const workspaceModel = appHome?.workspace || {};
   const threadModel = appHome?.threads || {};
   const workspaceCopy = workspaceModel.copy || {};
@@ -33,10 +31,10 @@ export default function Sidebar({
   }
 
   return (
-    <aside className="sidebar" role="navigation" aria-label="Sidebar" data-testid="sidebar">
+    <aside className="sidebar" role="navigation" aria-label={chrome.sidebarAriaLabel} data-testid="sidebar">
       <div className="brand app-nav-brand">
-        <div className="brand-mark">EmbedAgent</div>
-        <div className="brand-sub">{t("brand.sub", lang)}</div>
+        <div className="brand-mark">{app?.app?.productName}</div>
+        <div className="brand-sub">{chrome.brandSubtitle}</div>
       </div>
       <div className="workspace-switcher app-workspace-manager" data-testid="workspace-switcher">
         <div className="workspace-section-header">
@@ -111,7 +109,7 @@ export default function Sidebar({
       <div
         className="thread-panel"
         role="tabpanel"
-        aria-label={t("sidebar.chats", lang)}
+        aria-label={chrome.threadPanelAriaLabel}
         data-testid="thread-lifecycle-panel"
       >
         <div className="thread-panel-header" data-testid="thread-panel-header">

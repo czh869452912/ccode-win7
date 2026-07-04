@@ -962,6 +962,89 @@ def test_gui_command_palette_groups_are_app_shell_descriptors():
     assert "COMMAND_GROUPS" not in commands_text
 
 
+def test_gui_chrome_copy_is_app_shell_declared():
+    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
+    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
+    header_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/WorkbenchHeader.jsx"
+    )
+    sidebar_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Sidebar.jsx")
+    composer_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Composer.jsx")
+    interaction_model_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/interaction-model.js"
+    )
+    approval_panel_text = _read(
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/components/composer/ComposerPendingApprovalPanel.jsx"
+    )
+    approval_actions_text = _read(
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/components/composer/ComposerPendingApprovalActions.jsx"
+    )
+    user_input_panel_text = _read(
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/components/composer/ComposerPendingUserInputPanel.jsx"
+    )
+    surface_panel_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx"
+    )
+
+    assert "chrome: Dict[str, Any]" in spec_text
+    assert '"chrome": _copy_value(self.chrome)' in spec_text
+    assert '"brand_subtitle": "Local agent workbench"' in spec_text
+    assert "normalizeChrome" in model_text
+    assert "normalizeInteractionChrome" in model_text
+    assert "chrome: normalizeChrome(input)" in model_text
+    assert "appChrome" in app_text
+    assert "chrome={appChrome.header || {}}" in app_text
+    assert "chrome={appChrome}" in app_text
+    assert "chrome={appChrome.composer || {}}" in app_text
+    assert "chrome: appChrome.surfacePanel || {}" in app_text
+    assert "set_lang" not in store_text
+    assert "lang:" not in store_text
+
+    assert not (ROOT / "src/embedagent/frontend/gui/webapp/src/LangContext.js").exists()
+    assert not (ROOT / "src/embedagent/frontend/gui/webapp/src/strings.js").exists()
+    assert not (
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/InteractionPanel.jsx"
+    ).exists()
+
+    for text in (app_text, header_text, sidebar_text, composer_text, surface_panel_text):
+        assert "strings.js" not in text
+        assert "LangContext" not in text
+        assert "useLang" not in text
+
+    assert "lang-toggle" not in header_text
+    assert "chrome.commandPaletteShortLabel" in header_text
+    assert "chrome.brandSubtitle" in sidebar_text
+    assert "chrome.placeholder" in composer_text
+    assert "chrome={chrome.interaction || {}}" in composer_text
+    assert "hintLabels[hint.id]" in composer_text
+    assert "summaryForPermission(kind, copy = {})" in interaction_model_text
+    assert '"Command approval requested"' not in interaction_model_text
+    assert '"Approve once"' not in interaction_model_text
+    assert '"Input requested"' not in interaction_model_text
+    assert "approval.kicker" in approval_panel_text
+    assert "approval.cancelLabel" in approval_actions_text
+    assert "approval.rememberLabel" in approval_actions_text
+    assert "prompt.kicker" in user_input_panel_text
+    assert "prompt.submitLabel" in user_input_panel_text
+    for token in (
+        "PENDING APPROVAL",
+        "INPUT REQUIRED",
+        "Cancel turn",
+        "Always allow this session",
+        "Submit",
+    ):
+        assert token not in approval_panel_text
+        assert token not in approval_actions_text
+        assert token not in user_input_panel_text
+    assert "chrome.settingsTitle" in surface_panel_text
+    assert "diagnosticGroups[row.group]" in surface_panel_text
+
+
 def test_gui_thread_lifecycle_actions_are_backend_descriptors():
     spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
@@ -1207,9 +1290,7 @@ def test_gui_webapp_source_uses_right_panel_surface_vocabulary():
     checked_paths = (
         ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx",
         ROOT / "src/embedagent/frontend/gui/webapp/src/styles.css",
-        ROOT / "src/embedagent/frontend/gui/webapp/src/strings.js",
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx",
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/InteractionPanel.jsx",
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/WorkbenchHeader.jsx",
     )
     forbidden_tokens = (
@@ -1323,7 +1404,6 @@ def test_gui_has_no_retired_workflow_runtime_panel_display_helper():
         assert not path.exists()
 
     runner_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/test/run-tests.mjs")
-    strings_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/strings.js")
 
     for token in (
         "workflow-display",
@@ -1333,7 +1413,6 @@ def test_gui_has_no_retired_workflow_runtime_panel_display_helper():
         "inspector.currentActivity",
     ):
         assert token not in runner_text
-        assert token not in strings_text
 
 
 def test_gui_has_no_split_artifact_refetch_facade():

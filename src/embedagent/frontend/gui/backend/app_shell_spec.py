@@ -23,6 +23,7 @@ class AppShellSpec(object):
     workbench_commands: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     command_palette_groups: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     command_palette_labels: Dict[str, Any] = field(default_factory=dict)
+    chrome: Dict[str, Any] = field(default_factory=dict)
     surface_chrome: Dict[str, Any] = field(default_factory=dict)
     right_panel_surfaces: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     bottom_drawer_surfaces: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
@@ -41,6 +42,7 @@ class AppShellSpec(object):
                 "groups": _copy_records(self.command_palette_groups),
                 "labels": _copy_value(self.command_palette_labels),
             },
+            "chrome": _copy_value(self.chrome),
             "surfaces": {
                 "right_panel": _copy_records(self.right_panel_surfaces),
                 "bottom_drawer": _copy_records(self.bottom_drawer_surfaces),
@@ -260,6 +262,77 @@ def default_app_shell_spec() -> AppShellSpec:
             "workspace_meta": "Workspace",
             "workspace_fallback": "Workspace",
             "session_fallback_prefix": "Session",
+        },
+        chrome={
+            "brand_subtitle": "Local agent workbench",
+            "sidebar_aria_label": "Sidebar",
+            "thread_panel_aria_label": "Chats",
+            "header": {
+                "command_palette_label": "Command palette",
+                "command_palette_short_label": "Cmd",
+                "refresh_label": "Refresh",
+                "bottom_drawer_label": "Run",
+                "bottom_drawer_title": "Toggle run output",
+                "right_panel_label": "Panel",
+                "right_panel_title": "Toggle right panel",
+                "turns_label": "turns",
+            },
+            "composer": {
+                "placeholder": "Message",
+                "command_palette_label": "Open command palette",
+                "send_label": "Send",
+                "stop_label": "Stop",
+                "hints": {
+                    "command": "/ commands",
+                    "file": "@ files",
+                    "select": "select",
+                    "newline": "Shift+Enter newline",
+                    "status.running": "running turns disable editing",
+                    "status.interaction": "interaction pending",
+                },
+            },
+            "interaction": {
+                "pending_approval_kicker": "PENDING APPROVAL",
+                "input_required_kicker": "INPUT REQUIRED",
+                "command_approval_summary": "Command approval requested",
+                "file_read_approval_summary": "File-read approval requested",
+                "file_change_approval_summary": "File-change approval requested",
+                "expired_title": "Interaction expired",
+                "expired_body": (
+                    "This request is no longer active. Trigger the action again to continue."
+                ),
+                "conflict_title": "Interaction already handled",
+                "conflict_body": (
+                    "This request changed in another flow. Refresh the current interaction "
+                    "and try again if needed."
+                ),
+                "approve_once_label": "Approve once",
+                "decline_label": "Decline",
+                "cancel_turn_label": "Cancel turn",
+                "always_allow_session_label": "Always allow this session",
+                "input_summary": "Input requested",
+                "custom_answer_placeholder": "Or type a custom answer...",
+                "submit_label": "Submit",
+                "mode_label_prefix": "mode:",
+            },
+            "surface_panel": {
+                "aria_label": "Surface panel",
+                "settings_title": "Settings",
+                "confirm_workspace_switch_label": "Confirm workspace switch",
+                "show_diagnostics_badge_label": "Show diagnostics badge",
+                "diagnostics_title": "Diagnostics",
+                "capabilities_title": "Capabilities",
+                "no_diagnostics": "No app diagnostics loaded.",
+                "plan_title": "Plan",
+                "no_plan": "No active plan in this session.",
+                "diagnostic_groups": {
+                    "host": "Host",
+                    "runtime": "Runtime",
+                    "renderer": "Renderer",
+                    "workspace_registry": "Workspace Registry",
+                    "active_core": "Active Core",
+                },
+            },
         },
         surface_chrome={
             "right_panel_aria_label": "Right panel",

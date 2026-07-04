@@ -8,6 +8,26 @@ import {
   normalizeComposerInteraction,
 } from "../src/session-runtime/interaction-model.js";
 
+const COPY = Object.freeze({
+  pendingApprovalKicker: "APPROVAL",
+  inputRequiredKicker: "ANSWER",
+  commandApprovalSummary: "Command approval requested",
+  fileReadApprovalSummary: "File-read approval requested",
+  fileChangeApprovalSummary: "File-change approval requested",
+  expiredTitle: "Interaction expired",
+  expiredBody: "Expired body",
+  conflictTitle: "Interaction already handled",
+  conflictBody: "Conflict body",
+  approveOnceLabel: "Approve once",
+  declineLabel: "Decline",
+  cancelTurnLabel: "Cancel turn",
+  alwaysAllowSessionLabel: "Always allow this session",
+  inputSummary: "Input requested",
+  customAnswerPlaceholder: "Or type a custom answer...",
+  submitLabel: "Submit",
+  modeLabelPrefix: "mode:",
+});
+
 export function runInteractionModelTests() {
   const permission = normalizeComposerInteraction({
     interaction_id: "perm-1",
@@ -16,14 +36,16 @@ export function runInteractionModelTests() {
     category: "workspace_write",
     reason: "Edit src/demo.c",
     details: { path: "src/demo.c" },
-  });
+  }, null, COPY);
 
   assert.equal(permission.kind, "permission");
   assert.equal(permission.interactionId, "perm-1");
   assert.equal(permission.requestKind, "file-change");
   assert.equal(permission.summary, "File-change approval requested");
-  assert.equal(permission.primaryLabel, "Approve");
-  assert.equal(permission.secondaryLabel, "Deny");
+  assert.equal(permission.primaryLabel, "Approve once");
+  assert.equal(permission.secondaryLabel, "Decline");
+  assert.equal(permission.cancelLabel, "Cancel turn");
+  assert.equal(permission.rememberLabel, "Always allow this session");
   assert.equal(permission.toolName, "edit_file");
   assert.equal(permission.reason, "Edit src/demo.c");
   assert.equal(permission.detailRows[0].label, "path");
@@ -51,10 +73,14 @@ export function runInteractionModelTests() {
         multi_select: false,
       },
     ],
-  });
+  }, null, COPY);
 
   assert.equal(ask.kind, "user_input");
   assert.equal(ask.summary, "Input requested");
+  assert.equal(ask.kicker, "ANSWER");
+  assert.equal(ask.customPlaceholder, "Or type a custom answer...");
+  assert.equal(ask.submitLabel, "Submit");
+  assert.equal(ask.modeLabelPrefix, "mode:");
   assert.equal(ask.questions[0].id, "answer");
   assert.equal(ask.options[0].shortcut, "1");
   assert.equal(ask.options[1].label, "Switch to debug");
@@ -76,7 +102,7 @@ export function runInteractionModelTests() {
         options: [{ index: 1, label: "Python", value: "python" }],
       },
     ],
-  });
+  }, null, COPY);
   assert.deepEqual(buildUserInputResponse(customQuestion, { option: customQuestion.options[0] }), {
     answers: { target: "python" },
   });
@@ -84,15 +110,23 @@ export function runInteractionModelTests() {
     answers: { target: "embedded" },
   });
 
-  const expired = interactionNoticeView({ kind: "expired", detail: "gone" });
+  const expired = interactionNoticeView({ kind: "expired", detail: "gone" }, COPY);
   assert.equal(expired.kind, "notice");
   assert.equal(expired.tone, "expired");
   assert.equal(expired.title, "Interaction expired");
   assert.equal(expired.detail, "gone");
 
-  const conflict = normalizeComposerInteraction(null, { kind: "conflict" });
+  const conflict = normalizeComposerInteraction(null, { kind: "conflict" }, COPY);
   assert.equal(conflict.kind, "notice");
   assert.equal(conflict.title, "Interaction already handled");
+
+  const noCopy = normalizeComposerInteraction({
+    interaction_id: "perm-no-copy",
+    kind: "permission",
+    category: "workspace_write",
+  });
+  assert.equal(noCopy.summary, "");
+  assert.equal(noCopy.primaryLabel, "");
 
   const activityPermission = currentInteractionFromActivities([
     {
@@ -113,8 +147,12 @@ export function runInteractionModelTests() {
   ]);
   assert.equal(activityPermission.kind, "permission");
   assert.equal(activityPermission.interactionId, "perm-activity");
-  assert.equal(activityPermission.summary, "File-change approval requested");
+  assert.equal(activityPermission.summary, "");
   assert.equal(activityPermission.detailRows[0].value, "src/demo.c");
+  assert.equal(
+    normalizeComposerInteraction(activityPermission, null, COPY).summary,
+    "File-change approval requested",
+  );
 
   const closedPermission = currentInteractionFromActivities([
     {

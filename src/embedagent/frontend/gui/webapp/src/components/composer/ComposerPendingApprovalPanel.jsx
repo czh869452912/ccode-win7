@@ -3,7 +3,7 @@ export default function ComposerPendingApprovalPanel({ approval }) {
   return (
     <>
       <div className="composer-interaction-heading">
-        <span className="composer-interaction-kicker">PENDING APPROVAL</span>
+        <span className="composer-interaction-kicker">{approval.kicker}</span>
         <span className="composer-interaction-summary">{approval.summary}</span>
       </div>
       <div className="composer-interaction-body">

@@ -6,8 +6,8 @@ export default function ComposerPrimaryActions({
   canSend,
   onSend,
   onStop,
-  sendLabel = "Send",
-  stopLabel = "Stop",
+  sendLabel = "",
+  stopLabel = "",
 }) {
   if (isRunning) {
     return (

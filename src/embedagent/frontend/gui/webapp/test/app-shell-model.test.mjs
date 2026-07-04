@@ -49,6 +49,59 @@ export function runAppShellModelTests() {
     workspaceFallback: "",
     sessionFallbackPrefix: "",
   });
+  assert.deepEqual(initial.capabilities.chrome, {
+    brandSubtitle: "",
+    sidebarAriaLabel: "",
+    threadPanelAriaLabel: "",
+    header: {
+      commandPaletteLabel: "",
+      commandPaletteShortLabel: "",
+      refreshLabel: "",
+      bottomDrawerLabel: "",
+      bottomDrawerTitle: "",
+      rightPanelLabel: "",
+      rightPanelTitle: "",
+      turnsLabel: "",
+    },
+    composer: {
+      placeholder: "",
+      commandPaletteLabel: "",
+      sendLabel: "",
+      stopLabel: "",
+      hints: {},
+    },
+    interaction: {
+      pendingApprovalKicker: "",
+      inputRequiredKicker: "",
+      commandApprovalSummary: "",
+      fileReadApprovalSummary: "",
+      fileChangeApprovalSummary: "",
+      expiredTitle: "",
+      expiredBody: "",
+      conflictTitle: "",
+      conflictBody: "",
+      approveOnceLabel: "",
+      declineLabel: "",
+      cancelTurnLabel: "",
+      alwaysAllowSessionLabel: "",
+      inputSummary: "",
+      customAnswerPlaceholder: "",
+      submitLabel: "",
+      modeLabelPrefix: "",
+    },
+    surfacePanel: {
+      ariaLabel: "",
+      settingsTitle: "",
+      confirmWorkspaceSwitchLabel: "",
+      showDiagnosticsBadgeLabel: "",
+      diagnosticsTitle: "",
+      capabilitiesTitle: "",
+      noDiagnostics: "",
+      planTitle: "",
+      noPlan: "",
+      diagnosticGroups: {},
+    },
+  });
   assert.deepEqual(initial.capabilities.surfaces.rightPanel, []);
   assert.deepEqual(initial.capabilities.surfaces.bottomDrawer, []);
   assert.deepEqual(initial.capabilities.surfaces.chrome, {
@@ -167,6 +220,64 @@ export function runAppShellModelTests() {
           workspace_meta: "Project",
           workspace_fallback: "Project",
           session_fallback_prefix: "Thread",
+        },
+      },
+      chrome: {
+        brand_subtitle: "Python agent workbench",
+        sidebar_aria_label: "Project sidebar",
+        thread_panel_aria_label: "Runs",
+        header: {
+          command_palette_label: "Launcher",
+          command_palette_short_label: "Go",
+          refresh_label: "Refresh runs",
+          bottom_drawer_label: "Output",
+          bottom_drawer_title: "Toggle output",
+          right_panel_label: "Views",
+          right_panel_title: "Toggle views",
+          turns_label: "steps",
+        },
+        composer: {
+          placeholder: "Ask the Python agent",
+          command_palette_label: "Open launcher",
+          send_label: "Send prompt",
+          stop_label: "Stop prompt",
+          hints: {
+            command: "/ actions",
+            file: "@ paths",
+          },
+        },
+        interaction: {
+          pending_approval_kicker: "APPROVAL",
+          input_required_kicker: "ANSWER",
+          command_approval_summary: "Command summary",
+          file_read_approval_summary: "Read summary",
+          file_change_approval_summary: "Change summary",
+          expired_title: "Request expired",
+          expired_body: "Request body.",
+          conflict_title: "Request handled",
+          conflict_body: "Conflict body.",
+          approve_once_label: "Approve action",
+          decline_label: "Decline action",
+          cancel_turn_label: "Cancel run",
+          always_allow_session_label: "Always allow",
+          input_summary: "Input summary",
+          custom_answer_placeholder: "Custom answer",
+          submit_label: "Send answer",
+          mode_label_prefix: "mode",
+        },
+        surface_panel: {
+          aria_label: "View panel",
+          settings_title: "Preferences",
+          confirm_workspace_switch_label: "Confirm project switch",
+          show_diagnostics_badge_label: "Show health badge",
+          diagnostics_title: "Health",
+          capabilities_title: "Declared capabilities",
+          no_diagnostics: "No health rows.",
+          plan_title: "Run plan",
+          no_plan: "No run plan.",
+          diagnostic_groups: {
+            host: "Host process",
+          },
         },
       },
       surfaces: {
@@ -332,6 +443,18 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.commandPalette.labels.commandsSection, "Actions");
   assert.equal(bootstrap.capabilities.commandPalette.labels.currentLabel, "Selected");
   assert.equal(bootstrap.capabilities.commandPalette.labels.workspaceMeta, "Project");
+  assert.equal(bootstrap.capabilities.chrome.brandSubtitle, "Python agent workbench");
+  assert.equal(bootstrap.capabilities.chrome.sidebarAriaLabel, "Project sidebar");
+  assert.equal(bootstrap.capabilities.chrome.header.commandPaletteShortLabel, "Go");
+  assert.equal(bootstrap.capabilities.chrome.header.turnsLabel, "steps");
+  assert.equal(bootstrap.capabilities.chrome.composer.placeholder, "Ask the Python agent");
+  assert.equal(bootstrap.capabilities.chrome.composer.hints.command, "/ actions");
+  assert.equal(bootstrap.capabilities.chrome.interaction.pendingApprovalKicker, "APPROVAL");
+  assert.equal(bootstrap.capabilities.chrome.interaction.commandApprovalSummary, "Command summary");
+  assert.equal(bootstrap.capabilities.chrome.interaction.alwaysAllowSessionLabel, "Always allow");
+  assert.equal(bootstrap.capabilities.chrome.interaction.customAnswerPlaceholder, "Custom answer");
+  assert.equal(bootstrap.capabilities.chrome.surfacePanel.ariaLabel, "View panel");
+  assert.equal(bootstrap.capabilities.chrome.surfacePanel.diagnosticGroups.host, "Host process");
   assert.deepEqual(
     bootstrap.capabilities.surfaces.rightPanel.map((item) => item.kind),
     ["settings", "diagnostics", "source_control"],
@@ -434,6 +557,10 @@ export function runAppShellModelTests() {
     agent_application: { application_id: "tests.generic", label: "Generic Agent" },
     agent_applications: [{ application_id: "tests.generic", label: "Generic Agent" }],
     empty_state: { scenario_label: "Generic workspace" },
+    chrome: {
+      brand_subtitle: "Generic shell",
+      composer: { placeholder: "Ask" },
+    },
     terminal: { enabled: true, pty: false, resize: false },
   });
   assert.deepEqual(
@@ -456,6 +583,8 @@ export function runAppShellModelTests() {
   assert.equal(capabilities.agentApplication.applicationId, "tests.generic");
   assert.equal(capabilities.agentApplications[0].label, "Generic Agent");
   assert.equal(capabilities.emptyState.scenarioLabel, "Generic workspace");
+  assert.equal(capabilities.chrome.brandSubtitle, "Generic shell");
+  assert.equal(capabilities.chrome.composer.placeholder, "Ask");
   assert.equal(capabilities.terminal.enabled, true);
   assert.equal(capabilities.terminal.pty, false);
   assert.equal(capabilities.terminal.resize, false);

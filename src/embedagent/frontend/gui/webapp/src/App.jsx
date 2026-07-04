@@ -22,8 +22,6 @@ import { createInteractionResponseController } from "./app-runtime/interaction-r
 import { createWorkbenchCommandController } from "./app-runtime/workbench-command-controller.js";
 import { createWorkspaceController } from "./app-runtime/workspace-controller.js";
 import { installVisualDebugFixtures } from "./app-runtime/visual-debug-fixtures.js";
-import { LangContext } from "./LangContext.js";
-import { t } from "./strings.js";
 import {
   clearTerminal,
   closeTerminal,
@@ -98,6 +96,7 @@ function App() {
   const historyIntegrity = readThreadHistoryIntegrity(state);
   const currentMode = state.snapshot?.current_mode || state.requestedMode;
   const currentStatus = state.snapshot?.status || "idle";
+  const appChrome = state.app.capabilities?.chrome || {};
   const commandContext = useMemo(() => ({
     hasSession: Boolean(currentSessionId),
     hasWorkspace: Boolean(state.app.hasActiveWorkspace),
@@ -708,6 +707,7 @@ function App() {
     diffSurface: state.diffSurface,
     sourceControl: state.sourceControl,
     appShell: state.app,
+    chrome: appChrome.surfacePanel || {},
     onFocusDiffFile: (filePath) => dispatch({ type: "diff_file_focused", filePath }),
     onRefreshSourceControl: () => loadSourceControlStatus(true),
     onSelectSourceControlFile: openSourceControlFile,
@@ -745,11 +745,12 @@ function App() {
   }
 
   return (
-    <LangContext.Provider value={state.lang}>
+    <>
     <AppSidebarLayout
       header={
         <WorkbenchHeader
-          lang={state.lang}
+          productName={state.app.app.productName}
+          chrome={appChrome.header || {}}
           currentMode={currentMode}
           currentStatus={currentStatus}
           currentSessionId={currentSessionId}
@@ -760,7 +761,6 @@ function App() {
           rightPanelOpen={state.workbench.rightPanel.open}
           bottomDrawerOpen={state.workbench.bottomDrawer.open}
           onRefresh={loadSessions}
-          onToggleLang={() => dispatch({ type: "set_lang", value: state.lang === "en" ? "zh" : "en" })}
           onToggleRightPanel={() => dispatch({ type: "workbench_right_panel_toggled" })}
           onToggleBottomDrawer={() => dispatch({ type: "workbench_bottom_drawer_toggled" })}
           onOpenPalette={() => dispatch({ type: "workbench_command_palette_opened" })}
@@ -770,6 +770,7 @@ function App() {
         <Sidebar
           app={state.app}
           appHome={appHomeModel}
+          chrome={appChrome}
           currentSessionId={currentSessionId}
           currentMode={currentMode}
           modeCatalog={state.sessionCapabilities?.modeCatalog || {}}
@@ -804,6 +805,7 @@ function App() {
               onOpenFile={openFile}
             />
             <Composer
+              chrome={appChrome.composer || {}}
               value={composerDraft}
               onChange={(v) => dispatch({ type: "set_composer", value: v })}
               onSend={sendMessage}
@@ -969,7 +971,7 @@ function App() {
         void activateWorkspace(workspaceId);
       }}
     />
-    </LangContext.Provider>
+    </>
   );
 }
 

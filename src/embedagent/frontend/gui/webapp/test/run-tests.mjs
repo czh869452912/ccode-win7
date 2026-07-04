@@ -767,11 +767,9 @@ async function main() {
   assert.equal(toolDetailSource.includes("onOpenFile(item.path, item.line || undefined)"), true);
   assert.equal(timelineRowsSource.includes("onOpenFile={onOpenFile}"), true);
 
-  const interactionPanelSource = fs.readFileSync(
-    webappSourcePath("components", "InteractionPanel.jsx"),
-    "utf8",
-  );
-  assert.equal(interactionPanelSource.includes("notice?.kind"), true);
+  assert.equal(fs.existsSync(webappSourcePath("components", "InteractionPanel.jsx")), false);
+  assert.equal(fs.existsSync(webappSourcePath("LangContext.js")), false);
+  assert.equal(fs.existsSync(webappSourcePath("strings.js")), false);
 
   assert.equal(fs.existsSync(webappSourcePath("components", "Inspector.jsx")), false);
   const surfacePanelSource = fs.readFileSync(
@@ -788,6 +786,9 @@ async function main() {
   assert.equal(surfacePanelSource.includes("SettingsPanel"), true);
   assert.equal(surfacePanelSource.includes("DiagnosticsPanel"), true);
   assert.equal(surfacePanelSource.includes("appShell"), true);
+  assert.equal(surfacePanelSource.includes("chrome"), true);
+  assert.equal(surfacePanelSource.includes("../strings.js"), false);
+  assert.equal(surfacePanelSource.includes("LangContext"), false);
   assert.equal(surfacePanelSource.includes("onAppSettingsChange"), true);
   assert.equal(surfacePanelSource.includes("SourceControlPanel"), true);
   assert.equal(surfacePanelSource.includes("sourceControl={sourceControl}"), true);
@@ -982,6 +983,10 @@ async function main() {
   assert.equal(appSource.includes("appShell: state.app"), true);
   assert.equal(appSource.includes("projectSessionRuntime"), false);
   assert.equal(appSource.includes("buildSessionActivityRuntime"), true);
+  assert.equal(appSource.includes("LangContext"), false);
+  assert.equal(appSource.includes("strings.js"), false);
+  assert.equal(appSource.includes("set_lang"), false);
+  assert.equal(appSource.includes("appChrome"), true);
 
   const visualFixturesSource = fs.readFileSync(
     webappSourcePath("app-runtime", "visual-debug-fixtures.js"),
@@ -1162,6 +1167,9 @@ async function main() {
   assert.equal(appHomeModelSource.includes("session.thread?.title"), true);
   assert.equal(sidebarSource.includes("threadCopy.sectionTitle"), true);
   assert.equal(sidebarSource.includes("Threads"), false);
+  assert.equal(sidebarSource.includes("../strings.js"), false);
+  assert.equal(sidebarSource.includes("useLang"), false);
+  assert.equal(sidebarSource.includes("chrome.brandSubtitle"), true);
 
   const workbenchHeaderSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "WorkbenchHeader.jsx"),
@@ -1172,8 +1180,10 @@ async function main() {
   assert.equal(workbenchHeaderSource.includes("modeBadgeStyle(currentMode, modeCatalog)"), true);
   assert.equal(workbenchHeaderSource.includes("header-status-group"), true);
   assert.equal(workbenchHeaderSource.includes("header-action-group"), true);
-  assert.equal(workbenchHeaderSource.includes("turns {turnsUsed}/{maxTurns}"), true);
+  assert.equal(workbenchHeaderSource.includes("chrome.turnsLabel"), true);
   assert.equal(workbenchHeaderSource.includes("turnsUsed > 0 && maxTurns != null"), true);
+  assert.equal(workbenchHeaderSource.includes("lang-toggle"), false);
+  assert.equal(workbenchHeaderSource.includes("../../strings.js"), false);
 
   const appSidebarLayoutSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "AppSidebarLayout.jsx"),
@@ -1374,6 +1384,11 @@ async function main() {
   assert.equal(composerSource.includes("BranchToolbar"), true);
   assert.equal(composerSource.includes("branchToolbar"), true);
   assert.equal(composerSource.includes("onRefreshSourceControl"), true);
+  assert.equal(composerSource.includes("../strings.js"), false);
+  assert.equal(composerSource.includes("useLang"), false);
+  assert.equal(composerSource.includes("chrome.placeholder"), true);
+  assert.equal(composerSource.includes("chrome={chrome.interaction || {}}"), true);
+  assert.equal(composerSource.includes("hintLabels[hint.id]"), true);
 
   const sessionActivationControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "session-activation-controller.js"),

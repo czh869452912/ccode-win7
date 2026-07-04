@@ -185,6 +185,26 @@ class TestGuiAppShellService(unittest.TestCase):
             payload["capabilities"]["command_palette"]["labels"]["current_label"],
             "Current",
         )
+        self.assertEqual(
+            payload["capabilities"]["chrome"]["brand_subtitle"],
+            "Local agent workbench",
+        )
+        self.assertEqual(
+            payload["capabilities"]["chrome"]["header"]["command_palette_short_label"],
+            "Cmd",
+        )
+        self.assertEqual(
+            payload["capabilities"]["chrome"]["composer"]["placeholder"],
+            "Message",
+        )
+        self.assertEqual(
+            payload["capabilities"]["chrome"]["interaction"]["approve_once_label"],
+            "Approve once",
+        )
+        self.assertEqual(
+            payload["capabilities"]["chrome"]["surface_panel"]["aria_label"],
+            "Surface panel",
+        )
         thread_actions = payload["capabilities"]["thread_lifecycle"]["actions"]
         self.assertEqual(thread_actions[0]["prompt_title"], "Rename thread")
         self.assertEqual(thread_actions[0]["empty_body"], "Thread title cannot be empty.")
@@ -296,6 +316,10 @@ class TestGuiAppShellService(unittest.TestCase):
                         "root_title": "Launcher",
                         "commands_section": "Actions",
                     },
+                    chrome={
+                        "brand_subtitle": "Injected shell",
+                        "composer": {"placeholder": "Ask"},
+                    },
                     surface_chrome={
                         "empty_title": "Open view",
                         "close_all_action_label": "Close views",
@@ -370,6 +394,13 @@ class TestGuiAppShellService(unittest.TestCase):
                     "root_title": "Launcher",
                     "commands_section": "Actions",
                 },
+            },
+        )
+        self.assertEqual(
+            payload["capabilities"]["chrome"],
+            {
+                "brand_subtitle": "Injected shell",
+                "composer": {"placeholder": "Ask"},
             },
         )
         self.assertEqual(payload["capabilities"]["thread_lifecycle"], {"actions": []})

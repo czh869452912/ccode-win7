@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-07-01
+> 更新日期：2026-07-04
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,30 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-219
+
+- Date: 2026-07-04
+- Change Topic: GUI app-shell chrome copy descriptor convergence
+- Summary:
+  - Added `/api/app/bootstrap` `capabilities.chrome` descriptors for workbench
+    header, sidebar, composer, composer interaction, and legacy
+    Settings/Diagnostics/Plan panel copy.
+  - Removed the renderer-local `strings.js` / `LangContext` i18n table,
+    deleted the unused `InteractionPanel.jsx`, and routed active React
+    components through the normalized app-shell chrome read model.
+  - Added architecture guards so command/app/surface copy and GUI chrome copy
+    cannot return as frontend-owned global string registries.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/`
+  - `tests/test_pre_release_architecture_guards.py`
+  - `docs/modules/frontend-gui.md`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
 
 ### DC-218
 

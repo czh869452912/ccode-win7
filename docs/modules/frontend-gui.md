@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-01`
+> 最后同步日期：`2026-07-04`
 > 对应代码范围：`src/embedagent/frontend/gui/`
 
 ## 1. Purpose And Scope
@@ -237,6 +237,16 @@ drives the Settings and Diagnostics right-panel surfaces. This boundary may
 help the GUI feel like a standalone app, but it must not own Agent Core
 sessions, workflow truth, transcript history, tool activation, permission
 policy, extension loading, provider settings, or runtime reducer state.
+
+App-shell chrome copy is also declared by `/api/app/bootstrap` under
+`capabilities.chrome`. Header actions, sidebar brand/thread aria copy, composer
+placeholder/actions/hints, composer interaction labels, and legacy
+Settings/Diagnostics/Plan panel labels are normalized through
+`webapp/src/app-shell/model.js` before React components consume them. The GUI no
+longer keeps a parallel `strings.js`/`LangContext` translation table or an
+unused `InteractionPanel.jsx`; new shell copy that depends on the active
+base/specialized agent must enter through app-shell descriptors rather than a
+renderer-local global string registry.
 
 Workbench command-palette entries, right-panel add-surface launchers,
 bottom-drawer tabs, and keybinding targets are now filtered from the
