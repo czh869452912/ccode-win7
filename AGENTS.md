@@ -251,6 +251,8 @@ Official session-history truth is:
 GUI thread lifecycle operations (`rename`, `fork`, and `archive`) must flow through the session lifecycle facade and update session summary/projection metadata used by app thread lists. They must not rewrite transcript history, own workflow state, activate tools, decide permissions, load extensions, or create source-control checkpoints.
 
 Hosted slash-command dispatch, command result emission, and command-owned tool execution are owned by `HostedCommandService`, not by `InProcessAdapter` or Agent Core. Hosted permission/user-input approve/reject/reply/respond glue and pending ticket state are owned by `HostedInteractionService`. Hosted `/review` synthesis is owned by `ReviewCommandService` underneath the command service. Session tool-evidence extraction, review finding rules, git-diff evidence shaping, and markdown rendering must stay in hosted command services; the adapter only invokes those services and bridges resulting state/events.
+GUI session-load effects from command results must use structured payload
+fields such as `switch_session_id`, not slash command names such as `/resume`.
 
 There is no durable timeline-backed session-history store or timeline-backed
 history replay path, and there is no session event replay HTTP route. GUI

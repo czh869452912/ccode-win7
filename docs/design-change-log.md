@@ -44,6 +44,30 @@
 
 ## 3. 当前变更记录
 
+### DC-244
+
+- Date: 2026-07-04
+- Change Topic: GUI session-load command-result effects are payload-driven
+- Summary:
+  - Removed the GUI WebSocket effect branch that loaded a switched session only
+    for `commandName === "resume"`.
+  - Command results now trigger session load from structured
+    `data.switch_session_id`, allowing specialized resume/session-switch
+    commands without GUI command-name coupling.
+  - Added frontend regression coverage and source/architecture guards to keep
+    command-result session-load effects payload-driven.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js`
+  - `src/embedagent/frontend/gui/webapp/test/socket-message-effects.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-243
 
 - Date: 2026-07-04

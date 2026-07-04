@@ -97,10 +97,11 @@ function commandResultEffects(data, options) {
     stepIndex: data?.step_index || 0,
     createdAt: data?.created_at || nowValue(options.nowIso),
   });
-  if (commandName === "resume" && data?.data?.switch_session_id) {
+  const switchSessionId = data?.data?.switch_session_id;
+  if (switchSessionId) {
     effects.loaderRequests.push({
       name: LOADER_REQUESTS.LOAD_SESSION,
-      sessionId: data.data.switch_session_id,
+      sessionId: switchSessionId,
     });
   }
   const commandDiff = data?.data?.diff;

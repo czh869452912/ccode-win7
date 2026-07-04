@@ -1154,6 +1154,7 @@ async function main() {
   assert.equal(socketMessageEffectsSource.includes("user-input.requested"), true);
   assert.equal(socketMessageEffectsSource.includes("fetch("), false);
   assert.equal(socketMessageEffectsSource.includes('commandName === "diff"'), false);
+  assert.equal(socketMessageEffectsSource.includes('commandName === "resume"'), false);
 
   assert.equal(socketMessageEffectsSource.includes("new WebSocket"), false);
   assert.equal(socketMessageEffectsSource.includes("useEffect"), false);

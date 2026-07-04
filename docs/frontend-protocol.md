@@ -498,6 +498,11 @@ Important pushed event types include:
 - `session_event`
 - `terminal_event`
 
+For `command_result`, GUI follow-up loader effects must be keyed from
+structured payload fields. A result carrying `data.switch_session_id` may load
+that session regardless of command name; renderers must not bind that behavior
+to `/resume`.
+
 There is no session event replay HTTP route. Transport gaps and reconnects ask
 the GUI to reload `GET /api/sessions/{session_id}/bootstrap`; frontend history
 bootstrap must come from `history.activities` in that structured bootstrap

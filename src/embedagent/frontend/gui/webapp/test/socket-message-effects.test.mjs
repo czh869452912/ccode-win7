@@ -273,6 +273,15 @@ export function runSocketMessageEffectsTests() {
     { name: LOADER_REQUESTS.LOAD_SESSION, sessionId: "sess-next" },
   ]);
 
+  const commandSessionSwitch = derive("command_result", {
+    command_name: "custom_resume",
+    success: true,
+    data: { switch_session_id: "sess-specialized" },
+  });
+  assert.deepEqual(commandSessionSwitch.loaderRequests, [
+    { name: LOADER_REQUESTS.LOAD_SESSION, sessionId: "sess-specialized" },
+  ]);
+
   const commandResourcesReload = derive("command_result", {
     command_name: "resources",
     success: true,

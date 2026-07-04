@@ -107,6 +107,10 @@
   `tool_name` values to the built-in `ask_user` tool. Pending user-input
   display is driven by `kind` / `sourceActivityKind` and whatever safe payload
   fields the backend provides.
+- GUI session-load follow-up effects from command results are now
+  structured-payload driven: a command result with `data.switch_session_id`
+  triggers session load regardless of slash command name, so specialized
+  resume/session-switch commands do not need GUI command-name branches.
 - File Preview right-panel chrome now comes from
   `capabilities.surfaces.chrome.file_preview`: default file/project labels,
   loading/error fallback copy, retry/copy/explorer actions, metadata
