@@ -146,6 +146,24 @@ export function runAppShellModelTests() {
       plainLanguageLabel: "",
       languageLabels: {},
     },
+    diffPanel: {
+      defaultTitle: "",
+      emptyMessage: "",
+      selectionAriaLabel: "",
+      controlsAriaLabel: "",
+      stackedTitle: "",
+      splitTitle: "",
+      enableWordWrapTitle: "",
+      disableWordWrapTitle: "",
+      hideWhitespaceTitle: "",
+      showWhitespaceTitle: "",
+      changedFilesAriaLabel: "",
+      filesLabel: "",
+      expandFileLabelTemplate: "",
+      collapseFileLabelTemplate: "",
+      expandDiffLabel: "",
+      sourceControlTitleTemplate: "",
+    },
   });
   assert.deepEqual(initial.capabilities.keybindings, []);
   assert.equal(initial.capabilities.agentApplication, null);
@@ -424,6 +442,24 @@ export function runAppShellModelTests() {
               markdown: "Markdown doc",
               python: "Python file",
             },
+          },
+          diff_panel: {
+            default_title: "Patch",
+            empty_message: "No patch selected.",
+            selection_aria_label: "Patch tabs",
+            controls_aria_label: "Patch controls",
+            stacked_title: "Unified view",
+            split_title: "Side by side",
+            enable_word_wrap_title: "Wrap patch lines",
+            disable_word_wrap_title: "Unwrap patch lines",
+            hide_whitespace_title: "Ignore whitespace",
+            show_whitespace_title: "Show whitespace",
+            changed_files_aria_label: "Patch files",
+            files_label: "Paths",
+            expand_file_label_template: "Open {path}",
+            collapse_file_label_template: "Close {path}",
+            expand_diff_label: "Show patch",
+            source_control_title_template: "Patch: {path}",
           },
         },
         right_panel: [
@@ -726,6 +762,22 @@ export function runAppShellModelTests() {
     "Copy path for {title}",
   );
   assert.equal(bootstrap.capabilities.surfaces.chrome.filePreview.languageLabels.markdown, "Markdown doc");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.defaultTitle, "Patch");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.emptyMessage, "No patch selected.");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.selectionAriaLabel, "Patch tabs");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.controlsAriaLabel, "Patch controls");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.stackedTitle, "Unified view");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.splitTitle, "Side by side");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.enableWordWrapTitle, "Wrap patch lines");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.disableWordWrapTitle, "Unwrap patch lines");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.hideWhitespaceTitle, "Ignore whitespace");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.showWhitespaceTitle, "Show whitespace");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.changedFilesAriaLabel, "Patch files");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.filesLabel, "Paths");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.expandFileLabelTemplate, "Open {path}");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.collapseFileLabelTemplate, "Close {path}");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.expandDiffLabel, "Show patch");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.sourceControlTitleTemplate, "Patch: {path}");
   assert.deepEqual(
     bootstrap.capabilities.surfaces.bottomDrawer.map((item) => item.kind),
     ["terminal"],

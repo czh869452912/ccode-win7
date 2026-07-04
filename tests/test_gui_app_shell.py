@@ -205,6 +205,27 @@ class TestGuiAppShellService(unittest.TestCase):
             },
         )
         self.assertEqual(
+            payload["capabilities"]["surfaces"]["chrome"]["diff_panel"],
+            {
+                "default_title": "Diff",
+                "empty_message": "No diff selected.",
+                "selection_aria_label": "Diff selection",
+                "controls_aria_label": "Diff controls",
+                "stacked_title": "Stacked diff view",
+                "split_title": "Split diff view",
+                "enable_word_wrap_title": "Enable line wrapping",
+                "disable_word_wrap_title": "Disable line wrapping",
+                "hide_whitespace_title": "Hide whitespace changes",
+                "show_whitespace_title": "Show whitespace changes",
+                "changed_files_aria_label": "Changed files",
+                "files_label": "Files",
+                "expand_file_label_template": "Expand {path}",
+                "collapse_file_label_template": "Collapse {path}",
+                "expand_diff_label": "Expand diff",
+                "source_control_title_template": "Git Diff: {path}",
+            },
+        )
+        self.assertEqual(
             [item["id"] for item in payload["capabilities"]["thread_lifecycle"]["actions"]],
             ["rename", "fork", "archive"],
         )

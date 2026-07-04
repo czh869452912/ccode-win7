@@ -393,6 +393,7 @@ function normalizeSurfaceChrome(input = {}) {
       value.termination_reason_prefix || value.terminationReasonPrefix || "",
     ),
     filePreview: normalizeFilePreviewChrome(value.file_preview || value.filePreview),
+    diffPanel: normalizeDiffPanelChrome(value.diff_panel || value.diffPanel),
   };
 }
 
@@ -421,6 +422,44 @@ function normalizeFilePreviewChrome(input = {}) {
     linePluralLabel: String(value.line_plural_label || value.linePluralLabel || ""),
     plainLanguageLabel: String(value.plain_language_label || value.plainLanguageLabel || ""),
     languageLabels: normalizeStringMap(value.language_labels || value.languageLabels),
+  };
+}
+
+function normalizeDiffPanelChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    defaultTitle: String(value.default_title || value.defaultTitle || ""),
+    emptyMessage: String(value.empty_message || value.emptyMessage || ""),
+    selectionAriaLabel: String(value.selection_aria_label || value.selectionAriaLabel || ""),
+    controlsAriaLabel: String(value.controls_aria_label || value.controlsAriaLabel || ""),
+    stackedTitle: String(value.stacked_title || value.stackedTitle || ""),
+    splitTitle: String(value.split_title || value.splitTitle || ""),
+    enableWordWrapTitle: String(
+      value.enable_word_wrap_title || value.enableWordWrapTitle || "",
+    ),
+    disableWordWrapTitle: String(
+      value.disable_word_wrap_title || value.disableWordWrapTitle || "",
+    ),
+    hideWhitespaceTitle: String(
+      value.hide_whitespace_title || value.hideWhitespaceTitle || "",
+    ),
+    showWhitespaceTitle: String(
+      value.show_whitespace_title || value.showWhitespaceTitle || "",
+    ),
+    changedFilesAriaLabel: String(
+      value.changed_files_aria_label || value.changedFilesAriaLabel || "",
+    ),
+    filesLabel: String(value.files_label || value.filesLabel || ""),
+    expandFileLabelTemplate: String(
+      value.expand_file_label_template || value.expandFileLabelTemplate || "",
+    ),
+    collapseFileLabelTemplate: String(
+      value.collapse_file_label_template || value.collapseFileLabelTemplate || "",
+    ),
+    expandDiffLabel: String(value.expand_diff_label || value.expandDiffLabel || ""),
+    sourceControlTitleTemplate: String(
+      value.source_control_title_template || value.sourceControlTitleTemplate || "",
+    ),
   };
 }
 

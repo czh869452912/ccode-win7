@@ -9,6 +9,7 @@ export default function SurfacePanel({
   diffSurface,
   sourceControl,
   sourceControlChrome,
+  diffPanelChrome,
   appShell,
   chrome = {},
   onFocusDiffFile,
@@ -21,7 +22,7 @@ export default function SurfacePanel({
       <div className="surface-panel-body">
         {surfaceKind === "plan" && <PlanPanel plan={plan} chrome={chrome} />}
         {surfaceKind === "diff" && (
-          <DiffPanel surface={diffSurface} onFocusFile={onFocusDiffFile} />
+          <DiffPanel surface={diffSurface} onFocusFile={onFocusDiffFile} chrome={diffPanelChrome} />
         )}
         {surfaceKind === "source_control" && (
           <SourceControlPanel

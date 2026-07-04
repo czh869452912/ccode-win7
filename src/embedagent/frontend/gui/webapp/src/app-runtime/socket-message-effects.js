@@ -104,13 +104,15 @@ function commandResultEffects(data, options) {
     });
   }
   if (commandName === "diff" && typeof data?.data?.diff === "string" && data.data.diff) {
+    const diffPanelChrome = options.diffPanelChrome || {};
     effects.actions.push({
       type: "diff_surface_opened",
       diffSurface: createDiffSurfaceState({
-        title: "Git Diff",
+        title: diffPanelChrome.defaultTitle,
         diff: data.data.diff,
         source: "command",
         turnId: data?.turn_id || "",
+        chrome: diffPanelChrome,
       }),
     });
   }
@@ -128,8 +130,9 @@ export function deriveSocketMessageEffects({
   sessionTransport = null,
   makeId = makeEventId,
   nowIso = () => new Date().toISOString(),
+  diffPanelChrome = {},
 } = {}) {
-  const options = { currentSessionId, sessionTransport, makeId, nowIso };
+  const options = { currentSessionId, sessionTransport, makeId, nowIso, diffPanelChrome };
   const payload = data || {};
   const effects = emptyEffects();
 

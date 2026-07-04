@@ -388,6 +388,8 @@ The GUI Composer slash-command and file-context menu is app-shell display state.
 
 The GUI Source Control right-panel and composer Branch Toolbar are app-shell hosted, active-workspace surfaces, not Agent Core and not the default C/C++ workflow package. They may use bundled/workspace MinGit through the GUI backend for read-only local `status` and `diff` views, and their surface chrome/copy must come from `capabilities.source_control.chrome` and `capabilities.source_control.chrome.branch_toolbar` rather than renderer-local defaults. They must remain local/offline by default and must not implement remote providers, push/pull, staging, commit, checkpoint mutation, transcript writes, workflow state, telemetry, permission policy, runtime reducer truth, provider configuration, extension loading, or hidden network behavior. Future source-control mutations or remote/intranet Git work must enter through explicit hosted extension/provider/workflow-package boundaries with normal permission categories and must not weaken Win7/offline support.
 
+The GUI Diff right-panel is an app-shell hosted display surface over already-projected unified diff text, not Agent Core, not source-control policy, and not a workflow package. Its default title, empty state, controls, file rail labels, collapse labels, and source-control diff title template must come from `capabilities.surfaces.chrome.diff_panel` rather than renderer-local defaults. It must not write transcript history, own workflow state, decide permissions, load extensions, update telemetry, mutate source control, or become an Agent Core policy path.
+
 ## Documentation Maintenance
 
 When changing architecture or workflow assumptions, update the matching source-of-truth documents in the same change:

@@ -44,6 +44,37 @@
 
 ## 3. 当前变更记录
 
+### DC-232
+
+- Date: 2026-07-04
+- Change Topic: GUI Diff Panel chrome descriptor convergence
+- Summary:
+  - Added `/api/app/bootstrap` `capabilities.surfaces.chrome.diff_panel`
+    descriptors for Diff Panel default title, empty state, controls, file rail,
+    collapse labels, and source-control diff title templates.
+  - Routed `DiffPanel`, `createDiffSurfaceState`, source-control diff opening,
+    and `/diff` socket effects through normalized `diffPanel` chrome instead of
+    renderer-local Diff/Git title defaults.
+  - Added webapp source checks, model/socket tests, backend app-shell payload
+    assertions, and pre-release architecture guards for the new boundary.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/diff/DiffPanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/diff-model.js`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-231
 
 - Date: 2026-07-04

@@ -69,6 +69,12 @@ const EMPTY_COMMAND_HINTS = [];
 const EMPTY_COMMAND_GROUPS = [];
 const EMPTY_KEYBINDINGS = [];
 
+function formatTemplate(template = "", values = {}) {
+  return String(template || "").replace(/\{(\w+)\}/g, (_match, key) =>
+    String(values[key] || ""),
+  );
+}
+
 function isTurnInterruptibleStatus(status) {
   return status === "running" || status === "waiting_permission" || status === "waiting_user_input";
 }
@@ -159,6 +165,7 @@ function App() {
   const previewChrome = previewCapability.chrome || {};
   const surfaceChrome = state.app.capabilities?.surfaces?.chrome || {};
   const filePreviewChrome = surfaceChrome.filePreview || {};
+  const diffPanelChrome = surfaceChrome.diffPanel || {};
   const terminalController = useMemo(
     () =>
       createTerminalController({
@@ -322,10 +329,14 @@ function App() {
         dispatch({
           type: "diff_surface_opened",
           diffSurface: createDiffSurfaceState({
-            title: `Git Diff: ${path}`,
+            title:
+              formatTemplate(diffPanelChrome.sourceControlTitleTemplate, { path }) ||
+              path ||
+              diffPanelChrome.defaultTitle,
             diff: diff.diff,
             source: "source-control",
             filePath: path,
+            chrome: diffPanelChrome,
           }),
         });
       } else {
@@ -402,7 +413,7 @@ function App() {
     }
   }
 
-  function openDiffSurface({ title = "diff", diff = "", turnId = "", filePath = "" } = {}) {
+  function openDiffSurface({ title = "", diff = "", turnId = "", filePath = "" } = {}) {
     let resolvedDiff = diff;
     if (!resolvedDiff) {
       const item = runtimeState.timelineItems.find((candidate) => {
@@ -418,11 +429,12 @@ function App() {
     dispatch({
       type: "diff_surface_opened",
       diffSurface: createDiffSurfaceState({
-        title: filePath || title || "diff",
+        title: filePath || title || diffPanelChrome.defaultTitle,
         diff: resolvedDiff,
         source: "gui",
         turnId,
         filePath,
+        chrome: diffPanelChrome,
       }),
     });
   }
@@ -619,6 +631,7 @@ function App() {
       sessionTransport: sessionTransportRef.current,
       makeId: makeEventId,
       nowIso: () => new Date().toISOString(),
+      diffPanelChrome,
     });
     executeSocketEffects(effects);
   }
@@ -738,6 +751,7 @@ function App() {
     diffSurface: state.diffSurface,
     sourceControl: state.sourceControl,
     sourceControlChrome,
+    diffPanelChrome,
     appShell: state.app,
     chrome: appChrome.surfacePanel || {},
     onFocusDiffFile: (filePath) => dispatch({ type: "diff_file_focused", filePath }),

@@ -19,6 +19,7 @@ function derive(type, data, options = {}) {
     sessionTransport: options.sessionTransport || { lastAppliedSeq: 4 },
     makeId: options.makeId || makeDeterministicIdFactory(),
     nowIso: options.nowIso || (() => "2026-06-18T00:00:00.000Z"),
+    diffPanelChrome: options.diffPanelChrome || {},
   });
 }
 
@@ -235,7 +236,18 @@ export function runSocketMessageEffectsTests() {
   assert.equal(commandDiff.actions[0].type, "command_result");
   assert.equal(commandDiff.actions[0].createdAt, "2026-06-18T00:00:00.000Z");
   assert.equal(commandDiff.actions[1].type, "diff_surface_opened");
-  assert.equal(commandDiff.actions[1].diffSurface.title, "Git Diff");
+  assert.equal(commandDiff.actions[1].diffSurface.title, "");
+  const commandDiffWithChrome = derive(
+    "command_result",
+    {
+      command_name: "diff",
+      success: true,
+      data: { diff: "--- a/src/main.c\n+++ b/src/main.c\n@@ -1 +1 @@\n-int a;\n+int b;\n" },
+      turn_id: "turn-1",
+    },
+    { diffPanelChrome: { defaultTitle: "Patch" } },
+  );
+  assert.equal(commandDiffWithChrome.actions[1].diffSurface.title, "Patch");
   assert.deepEqual(commandDiff.actions[commandDiff.actions.length - 1], {
     type: "log_event",
     label: "command: /diff",

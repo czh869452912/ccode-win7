@@ -1255,6 +1255,24 @@ async function main() {
   assert.equal(diffPanelSource.includes('data-testid="diff-whitespace-toggle"'), true);
   assert.equal(diffPanelSource.includes("collapsedDiffFilePaths"), true);
   assert.equal(diffPanelSource.includes("diff-selection-chip-strip"), true);
+  assert.equal(diffPanelSource.includes("chrome.selectionAriaLabel"), true);
+  assert.equal(diffPanelSource.includes("chrome.expandDiffLabel"), true);
+  for (const hardcodedDiffCopy of [
+    "No diff selected.",
+    "Diff selection",
+    "Diff controls",
+    "Stacked diff view",
+    "Split diff view",
+    "Disable line wrapping",
+    "Enable line wrapping",
+    "Show whitespace changes",
+    "Hide whitespace changes",
+    "Changed files",
+    ">Files<",
+    "Expand diff",
+  ]) {
+    assert.equal(diffPanelSource.includes(hardcodedDiffCopy), false);
+  }
 
   const sourceControlPanelSource = fs.readFileSync(
     webappSourcePath("components", "source-control", "SourceControlPanel.jsx"),

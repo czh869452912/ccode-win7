@@ -144,7 +144,11 @@ for `terminal`, `run_output`, and `logs`. `capabilities.terminal` describes the 
 terminal limitations (`enabled`, `pty`, `resize`, `history_persistent`, and
 `max_buffer_bytes`). `capabilities.surfaces.chrome.file_preview` describes
 File Preview chrome, metadata labels, fallback messages, and language labels
-for the read-only file right-panel surface. `capabilities.source_control`
+for the read-only file right-panel surface.
+`capabilities.surfaces.chrome.diff_panel` describes Diff Panel default titles,
+empty-state copy, control titles, file rail labels, collapse labels, and the
+source-control diff title template for the already-projected diff display
+surface. `capabilities.source_control`
 describes the local
 source-control surface: `enabled`, `vcs`, `read_only`, `remote_providers`,
 `network`, `checkpoints`, `requires_active_workspace`, and `chrome` copy for

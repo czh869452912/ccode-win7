@@ -198,6 +198,19 @@ display is turn-associated display metadata, not Agent Core context policy.
   runtime reducers. T3's editing, save coordinator, comment annotation, and
   `@pierre/diffs` editor surfaces are intentionally out of scope.
 
+### T3 Diff Panel Chrome
+
+- The right-panel `DiffPanel` renders already-projected unified diff text from
+  command results, timeline actions, or the GUI-local source-control read-only
+  diff route. It remains a display surface and does not own Git policy,
+  workflow state, transcript history, permissions, reducers, telemetry, or
+  extension loading.
+- Diff default titles, empty-state copy, selection/control aria labels, view
+  toggle titles, file rail labels, collapse labels, and source-control diff
+  title templates are declared under `/api/app/bootstrap`
+  `capabilities.surfaces.chrome.diff_panel`; renderer Diff modules may consume
+  that chrome but must not keep parallel English defaults.
+
 ### T3 Preview Surface Shell
 
 - The right-panel `PreviewSurface` is a T3code-style browser/preview shell in
@@ -306,6 +319,10 @@ provider labels, runtime labels, Branch Toolbar labels, and fallback notices
 are declared under `/api/app/bootstrap`
 `capabilities.source_control.chrome`; renderer source-control modules may
 consume that chrome but must not keep parallel English defaults.
+The Diff surface opened from a selected changed file uses the separate
+`capabilities.surfaces.chrome.diff_panel.source_control_title_template` for
+its right-panel title, keeping Source Control read-model copy separate from the
+generic Diff display chrome.
 
 `backend/server.py` remains the GUI backend composition root. App-shell,
 session/core, terminal, source-control, and preview HTTP route registration is

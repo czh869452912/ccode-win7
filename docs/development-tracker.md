@@ -84,6 +84,11 @@
   separators, line labels, language labels, and file-surface fallback tab title
   copy are backend-declared descriptors consumed by the file-preview model,
   right-panel controller, and surface.
+- Diff right-panel chrome now comes from
+  `capabilities.surfaces.chrome.diff_panel`: default titles, empty-state copy,
+  controls, file rail labels, collapse labels, and source-control diff title
+  templates are backend-declared descriptors consumed by the Diff model,
+  socket effects, App source-control bridge, and surface.
 - Composer slash/path menu chrome now comes from
   `capabilities.chrome.composer.command_menu`, while slash command group labels
   reuse `capabilities.command_palette.groups`; the composer search,

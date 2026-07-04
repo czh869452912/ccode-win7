@@ -1314,6 +1314,54 @@ def test_gui_file_preview_copy_is_app_shell_declared():
         assert hardcoded_copy not in file_preview_model_text
 
 
+def test_gui_diff_panel_copy_is_app_shell_declared():
+    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
+    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    surface_panel_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx"
+    )
+    diff_panel_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/diff/DiffPanel.jsx"
+    )
+    diff_model_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/diff-model.js"
+    )
+    socket_effects_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"
+    )
+
+    assert '"diff_panel": {' in spec_text
+    assert "normalizeDiffPanelChrome" in model_text
+    assert "diffPanel: normalizeDiffPanelChrome" in model_text
+    assert "diffPanelChrome" in app_text
+    assert "diffPanelChrome" in surface_panel_text
+    assert "chrome.selectionAriaLabel" in diff_panel_text
+    assert "chrome.expandDiffLabel" in diff_panel_text
+    assert "chromeDefaultTitle" in diff_model_text
+    assert "diffPanelChrome" in socket_effects_text
+
+    for hardcoded_copy in (
+        "No diff selected.",
+        "Diff selection",
+        "Diff controls",
+        "Stacked diff view",
+        "Split diff view",
+        "Disable line wrapping",
+        "Enable line wrapping",
+        "Show whitespace changes",
+        "Hide whitespace changes",
+        "Changed files",
+        ">Files<",
+        "Expand diff",
+    ):
+        assert hardcoded_copy not in diff_panel_text
+
+    assert '"Git Diff"' not in app_text
+    assert "`Git Diff:" not in app_text
+    assert '"Git Diff"' not in socket_effects_text
+
+
 def test_gui_source_control_copy_is_app_shell_declared():
     spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
