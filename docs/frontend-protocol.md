@@ -50,7 +50,7 @@ diagnostics, app-level command metadata, and GUI-local settings. The canonical
 app activation bootstrap route is `GET /api/app/bootstrap`; app workspace
 routes return the same envelope after mutations.
 
-GUI backend session, workspace, file, task, artifact, and tool-catalog routes
+GUI backend session, workspace, file, task, and tool-catalog routes
 must resolve the active core explicitly through the app host. Backend routes
 must not depend on compatibility proxy objects that hide the active-workspace
 requirement.
@@ -88,7 +88,8 @@ review detail panes, permission-rule panes, runtime panes, workspace previews,
 or event logs. Review results remain timeline activities, permission and user
 input requests remain session interaction state, local file content remains
 file-surface state, and app diagnostics remain the app-shell diagnostics
-surface.
+surface. The split GUI artifact refetch facade is retired as well: there is no
+GUI `/api/artifacts` route or `artifacts_refresh` WebSocket event.
 `capabilities.surfaces.right_panel` may include `files`, `terminal`, `diff`,
 `preview`, `plan`, `source_control`, `settings`, and `diagnostics`;
 `capabilities.surfaces.bottom_drawer` may include `terminal`, `run_output`,
@@ -155,10 +156,11 @@ truth, permission policy, tool activation, extension loading, provider
 configuration, telemetry, or Agent Core runtime reducers.
 
 Live tool-completion refresh uses backend/tool metadata rather than renderer
-tool-name lists. Tool events may carry `read_model_invalidations` values such
-as `workspace_files`, `tasks`, or `artifacts`; GUI loaders may refresh those
-read-only projections, but renderer code must not infer file/task/artifact
-refresh from names like `write_file`, `edit_file`, or workflow-package tools.
+tool-name lists. Tool events may carry `read_model_invalidations` values, but
+the GUI refreshes only read models it owns, such as workspace files, tasks, and
+capabilities. Renderer code must not infer file/task refresh from names like
+`write_file`, `edit_file`, or workflow-package tools, and artifact
+invalidations no longer map to a GUI sidecar refetch path.
 
 Visual debug scenarios are outside the frontend protocol. The React webapp may
 install `window.__EMBEDAGENT_VISUAL_DEBUG__` only when `?visual_debug=1` is
@@ -311,7 +313,6 @@ Key routes include:
 - `POST /api/sessions/{session_id}/terminals/{terminal_id}/resize`
 - `POST /api/sessions/{session_id}/terminals/{terminal_id}/close`
 - `GET /api/workspace`
-- `GET /api/artifacts`
 - file read/tree routes
 
 `GET /api/app/bootstrap` is the GUI app activation bootstrap contract. It
@@ -387,7 +388,6 @@ Important pushed event types include:
 - `turn_start`
 - `turn_end`
 - `session_finished`
-- `artifacts_refresh`
 - `message`
 - `session_event`
 - `terminal_event`

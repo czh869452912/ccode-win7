@@ -183,13 +183,3 @@ def register_session_routes(app: Any, backend: Any) -> None:
             "new_content": diff.new_content,
             "unified_diff": diff.unified_diff,
         }
-
-    @app.get("/api/artifacts")
-    async def list_artifacts(limit: int = 20):
-        core = backend._require_core()
-        return {"items": core.list_artifacts(limit=limit)}
-
-    @app.get("/api/artifacts/{reference:path}")
-    async def read_artifact(reference: str):
-        core = backend._require_core()
-        return core.read_artifact(reference)

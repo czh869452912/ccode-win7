@@ -295,10 +295,6 @@ class FrontendCallbacks(Protocol):
         """计划更新"""
         ...
 
-    def on_artifacts_refresh(self) -> None:
-        """Notify frontend to refetch artifacts list."""
-        ...
-
 
 class CoreInterface(ABC):
     """Core 接口抽象 - Frontend 调用 Core"""
@@ -401,16 +397,6 @@ class CoreInterface(ABC):
     @abstractmethod
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """写入文件"""
-        pass
-
-    @abstractmethod
-    def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
-        """列出工件"""
-        pass
-
-    @abstractmethod
-    def read_artifact(self, reference: str) -> Dict[str, Any]:
-        """读取工件"""
         pass
 
     @abstractmethod

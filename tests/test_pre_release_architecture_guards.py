@@ -1048,6 +1048,26 @@ def test_gui_has_no_retired_workflow_runtime_panel_display_helper():
         assert token not in strings_text
 
 
+def test_gui_has_no_split_artifact_refetch_facade():
+    protocol_text = _read(ROOT / "src/embedagent/protocol/__init__.py")
+    core_adapter_text = _read(ROOT / "src/embedagent/core/adapter.py")
+    gui_server_text = _read(ROOT / "src/embedagent/frontend/gui/backend/server.py")
+    gui_routes_text = _read(ROOT / "src/embedagent/frontend/gui/backend/routes_sessions.py")
+
+    for token in (
+        "on_artifacts_refresh",
+        "artifacts_refresh",
+        "_ARTIFACT_INVALIDATION",
+        "/api/artifacts",
+        "def list_artifacts",
+        "def read_artifact",
+    ):
+        assert token not in protocol_text
+        assert token not in core_adapter_text
+        assert token not in gui_server_text
+        assert token not in gui_routes_text
+
+
 def test_hosted_interactions_do_not_keep_legacy_blocking_frontend_paths():
     banned_tokens = (
         "on_permission_request",

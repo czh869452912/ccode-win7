@@ -42,19 +42,6 @@ _SESSION_EVENT_NAMES: frozenset = frozenset(
         "session_error",
     }
 )
-_ARTIFACT_INVALIDATION = "artifacts"
-
-
-def _read_model_invalidations(payload: Dict[str, Any]) -> List[str]:
-    values = []
-    raw = payload.get("read_model_invalidations")
-    if not raw and isinstance(payload.get("data"), dict):
-        raw = payload["data"].get("read_model_invalidations")
-    for item in list(raw or []):
-        text = str(item or "").strip()
-        if text and text not in values:
-            values.append(text)
-    return values
 
 
 def get_inprocess_adapter(fresh: bool = False):
@@ -210,7 +197,6 @@ class CallbackBridge:
             self.frontend.on_tool_start(call)
 
         elif event_name == "tool_finished":
-            read_model_invalidations = _read_model_invalidations(payload)
             result = ToolResult(
                 tool_name=payload.get("tool_name", ""),
                 success=payload.get("success", False),
@@ -228,10 +214,6 @@ class CallbackBridge:
                 ),
             )
             self.frontend.on_tool_finish(result)
-            if _ARTIFACT_INVALIDATION in read_model_invalidations and hasattr(
-                self.frontend, "on_artifacts_refresh"
-            ):
-                self.frontend.on_artifacts_refresh()
 
         elif event_name == "session_error":
             snapshot = payload.get("session_snapshot", {})
@@ -487,12 +469,6 @@ class AgentCoreAdapter(CoreInterface):
 
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
         return self._adapter.write_workspace_file(path, content)
-
-    def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
-        return self._adapter.list_artifacts(limit=limit)
-
-    def read_artifact(self, reference: str) -> Dict[str, Any]:
-        return self._adapter.read_artifact(reference)
 
     def get_diff_preview(self, path: str, new_content: str) -> DiffPreview:
         old_content = ""

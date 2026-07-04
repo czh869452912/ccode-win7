@@ -138,7 +138,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
 - retired Inspector sidecar loaders/state/actions for artifacts, review panes,
   permission-rule panes, runtime panes, workspace previews, and event logs have
   been removed; the GUI uses active surfaces, session activities, interaction
-  state, and app-shell diagnostics instead
+  state, and app-shell diagnostics instead. The split GUI artifact refetch
+  facade has also been removed: no `/api/artifacts` route, no
+  `artifacts_refresh` WebSocket event, and no frontend callback bridge for
+  artifact invalidation remains.
 - GUI thread lifecycle actions now route through the session lifecycle facade:
   rename updates summary/projection title metadata, archive hides a session from
   default thread lists without deleting transcript/summary/artifact references,
@@ -236,8 +239,8 @@ Recent stabilization work has also completed the agent-core ownership cutover:
 - session snapshots are now built by a pure `SessionSnapshotProjector`
 - live tool-completion refresh has moved to `read_model_invalidations`
   metadata on tool catalog entries and events, so GUI/Core paths no longer
-  maintain parallel tool-name lists for workspace file, task, or artifact
-  refresh
+  maintain parallel tool-name lists for workspace file or task refresh; GUI
+  artifact invalidation no longer opens a sidecar refetch facade
 - transcript sequence allocation uses cached counters instead of rescanning on every append
 
 ## 4. Remaining Near-Term Work

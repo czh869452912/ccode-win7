@@ -56,6 +56,9 @@ Retired Inspector sidecar state for artifacts, review panes, permission-rule
 panes, runtime panes, workspace previews, and event logs has been removed; those
 concerns now appear only through active surfaces, session activities,
 interaction state, or app-shell diagnostics.
+The GUI artifact refetch facade has also been removed: GUI routes no longer
+expose `/api/artifacts`, and WebSocket/frontend callback contracts no longer
+carry `artifacts_refresh`.
 The old GUI workflow-runtime display helper is also removed; renderer workflow
 detail must come from backend-declared session snapshot, capability, or
 activity projections instead of synthesized C/C++ phase rows.
@@ -272,9 +275,10 @@ Managed-session workflow refresh in the product adapter path goes through `Agent
   renderer-synthesized activity/history streams.
 - GUI/TUI read-model refresh after tool completion is metadata-driven. Tool
   catalog entries may declare `read_model_invalidations`; hosted adapters and
-  frontend shells use those hints to refresh safe projections such as
-  workspace files, tasks, or artifacts instead of maintaining parallel
-  tool-name refresh lists.
+  frontend shells use those hints only for safe projections they own, such as
+  workspace files, tasks, or capabilities, instead of maintaining parallel
+  tool-name refresh lists. GUI artifact invalidations no longer create a
+  sidecar refetch event.
 - `SessionSnapshotProjector` reads the generic workflow projection, not default harness internals
 - `runtime_config` in session snapshots is reducer-backed diagnostic state, not frontend-owned policy
 - `compaction_state` in session snapshots is reducer-backed diagnostic state, not frontend-owned context policy

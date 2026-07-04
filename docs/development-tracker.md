@@ -41,6 +41,10 @@
   display helper and its old webapp test; renderer workflow detail now stays on
   backend-declared snapshot/capability/activity projections instead of a
   retired Inspector runtime panel path.
+- The GUI artifact refetch facade has been removed from the current contract:
+  `/api/artifacts`, `artifacts_refresh`, `on_artifacts_refresh`, and the
+  CoreAdapter callback bridge for artifact invalidation are no longer GUI
+  paths.
 
 ### 2026-06-27 - Pi/T3 Residual Debt Cleanup Closed
 
@@ -321,7 +325,7 @@
 
 - React webapp `webapp/src/app-runtime/session-loaders.js` now owns the GUI-private loader request vocabulary, defensive loader request executor, and session bootstrap projection helper.
 - `socket-message-effects.js` shares that loader vocabulary instead of defining a second copy, while remaining a pure frontend effect derivation module.
-- `App.jsx` now delegates session bootstrap projection and loader request execution branching to the app-runtime boundary, but still owns concrete HTTP route calls, reducer dispatch, event-log reset, terminal summary loading, task/artifact refreshes, and render composition.
+- `App.jsx` now delegates session bootstrap projection and loader request execution branching to the app-runtime boundary, but still owns concrete HTTP route calls, reducer dispatch, event-log reset, terminal summary loading, task refreshes, and render composition.
 - This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, runtime reducer, operation reducer, compaction reducer, recovery reducer, terminal execution, or source-control execution semantics changed.
 
 ### 2026-06-18 - GUI App Runtime Controller Boundary
