@@ -19,7 +19,10 @@ def _assert_app_shell_payload(testcase, payload):
     testcase.assertIn("diagnostics", payload)
     testcase.assertIn("capabilities", payload)
     testcase.assertIn("settings", payload)
-    testcase.assertIn("app.settings", payload["capabilities"]["app_commands"])
+    testcase.assertIn(
+        "app.settings",
+        [item["id"] for item in payload["capabilities"]["app_commands"]],
+    )
     testcase.assertIn(
         "palette.open",
         [item["command_id"] for item in payload["capabilities"]["keybindings"]],

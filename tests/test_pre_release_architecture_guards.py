@@ -859,6 +859,24 @@ def test_gui_app_shell_service_uses_injected_spec_not_inline_descriptor_lists():
         assert token not in app_shell_text
 
 
+def test_gui_app_shell_commands_are_descriptor_records_not_string_lists():
+    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
+    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
+    commands_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js")
+    app_shell_commands_path = ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/commands.js"
+
+    assert "def _command(" in spec_text
+    assert '"app_commands": _copy_records(self.app_commands)' in spec_text
+    assert '"workspace_commands": _copy_records(self.workspace_commands)' in spec_text
+    assert "normalizeAppCommandDescriptor" in model_text
+    assert "appCommands: normalizeAppCommandDescriptors" in model_text
+    assert "workspaceCommands: normalizeAppCommandDescriptors" in model_text
+    assert "WORKSPACE_COMMANDS" not in commands_text
+    assert "filterCommandsByCapability" not in commands_text
+    assert "APP_COMMANDS" not in commands_text
+    assert not app_shell_commands_path.exists()
+
+
 def test_gui_thread_lifecycle_actions_are_backend_descriptors():
     spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")

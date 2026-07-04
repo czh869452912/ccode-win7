@@ -199,19 +199,50 @@ function normalizeKeybindings(items) {
   return result;
 }
 
+function normalizeAppCommandDescriptor(input = {}, defaultGroup = "app", index = 0) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const id = String(input.id || input.name || "").trim();
+  if (!id) return null;
+  const label = String(input.label || id).trim() || id;
+  return {
+    id,
+    group: String(input.group || defaultGroup).trim() || defaultGroup,
+    label,
+    slash: String(input.slash || ""),
+    surface: String(input.surface || ""),
+    drawer: String(input.drawer || ""),
+    visibleWhen: String(input.visible_when || input.visibleWhen || "always").trim() || "always",
+    order: numberOrDefault(input.order || input.launcher_order || input.launcherOrder, index * 10),
+    keywords: normalizeKeywords(input.keywords),
+    description: String(input.description || ""),
+    dispatch: input.dispatch && typeof input.dispatch === "object" ? { ...input.dispatch } : {},
+  };
+}
+
+function normalizeAppCommandDescriptors(items, defaultGroup) {
+  if (!Array.isArray(items)) return [];
+  const result = [];
+  const seen = new Set();
+  for (let index = 0; index < items.length; index += 1) {
+    const command = normalizeAppCommandDescriptor(items[index], defaultGroup, index);
+    if (!command || seen.has(command.id)) continue;
+    seen.add(command.id);
+    result.push(command);
+  }
+  return result.sort((left, right) => left.order - right.order || left.label.localeCompare(right.label));
+}
+
 export function normalizeAppCapabilities(input = {}) {
   const surfaces = input.surfaces && typeof input.surfaces === "object" ? input.surfaces : {};
   return {
-    appCommands: Array.isArray(input.app_commands)
-      ? input.app_commands.map(String)
-      : Array.isArray(input.appCommands)
-        ? input.appCommands.map(String)
-        : [],
-    workspaceCommands: Array.isArray(input.workspace_commands)
-      ? input.workspace_commands.map(String)
-      : Array.isArray(input.workspaceCommands)
-        ? input.workspaceCommands.map(String)
-        : [],
+    appCommands: normalizeAppCommandDescriptors(
+      Array.isArray(input.app_commands) ? input.app_commands : input.appCommands,
+      "app",
+    ),
+    workspaceCommands: normalizeAppCommandDescriptors(
+      Array.isArray(input.workspace_commands) ? input.workspace_commands : input.workspaceCommands,
+      "workspace",
+    ),
     surfaces: {
       rightPanel: normalizeSurfaceCapabilityList(
         Array.isArray(surfaces.right_panel) ? surfaces.right_panel : surfaces.rightPanel,

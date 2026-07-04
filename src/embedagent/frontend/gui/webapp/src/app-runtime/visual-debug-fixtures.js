@@ -24,6 +24,17 @@ function visualAppBootstrap() {
     active_workspace: VISUAL_WORKSPACE,
     has_active_workspace: true,
     capabilities: {
+      app_commands: [
+        { id: "app.settings", label: "Open Settings", group: "app", order: 10, surface: "settings" },
+        { id: "app.diagnostics", label: "Open Diagnostics", group: "app", order: 20, surface: "diagnostics" },
+        { id: "app.source_control", label: "Open Source Control", group: "app", order: 30, surface: "source_control" },
+        { id: "app.reload", label: "Reload App Shell", group: "app", order: 40 },
+      ],
+      workspace_commands: [
+        { id: "workspace.open", label: "Open Workspace", group: "workspace", order: 10 },
+        { id: "workspace.refresh", label: "Refresh Workspaces", group: "workspace", order: 20 },
+        { id: "workspace.remove_current", label: "Remove Current Workspace From Recents", group: "workspace", order: 30, visible_when: "has_workspace" },
+      ],
       thread_lifecycle: {
         actions: [
           { id: "rename", label: "Rename", capability: "rename", order: 10 },

@@ -111,7 +111,7 @@ function DiagnosticsPanel({ appShell, lang }) {
       <h3>{t("surface.capabilities", lang)}</h3>
       <div className="rule-chip-list">
         {appCommands.concat(workspaceCommands).map((command) => (
-          <span key={command} className="rule-chip monospace">{command}</span>
+          <span key={command.id} className="rule-chip monospace">{command.id}</span>
         ))}
         {rightPanel.map((surface) => (
           <span key={`surface-${surfaceLabel(surface)}`} className="rule-chip muted monospace">right:{surfaceLabel(surface)}</span>

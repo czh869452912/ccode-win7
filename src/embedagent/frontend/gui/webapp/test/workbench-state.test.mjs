@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 
 import {
-  APP_COMMANDS,
-  isAppCommand,
-} from "../src/app-shell/commands.js";
-import {
   COMMAND_GROUPS,
   WORKBENCH_COMMANDS,
   commandById,
@@ -63,6 +59,19 @@ const KEYBINDING_DESCRIPTORS = Object.freeze([
   { key: "mod+4", commandId: "surface.preview", when: "always" },
 ]);
 
+const APP_COMMAND_DESCRIPTORS = Object.freeze([
+  { id: "app.settings", group: "app", label: "Preferences", visibleWhen: "always", order: 10 },
+  { id: "app.diagnostics", group: "app", label: "Health", visibleWhen: "always", order: 20 },
+  { id: "app.source_control", group: "app", label: "Changes", surface: "source_control", visibleWhen: "always", order: 30 },
+  { id: "app.reload", group: "app", label: "Reload Shell", visibleWhen: "always", order: 40 },
+]);
+
+const WORKSPACE_COMMAND_DESCRIPTORS = Object.freeze([
+  { id: "workspace.open", group: "workspace", label: "Open Project", visibleWhen: "always", order: 10 },
+  { id: "workspace.refresh", group: "workspace", label: "Refresh Projects", visibleWhen: "always", order: 20 },
+  { id: "workspace.remove_current", group: "workspace", label: "Forget Project", visibleWhen: "has_workspace", order: 30 },
+]);
+
 function cloneSurfaces(items) {
   return items.map((item) => ({ ...item }));
 }
@@ -74,13 +83,8 @@ function capabilityIds(items) {
 export function runWorkbenchStateTests() {
   const registryDefinitions = rightPanelSurfaceDefinitions();
   const fullAppCapabilities = {
-    appCommands: APP_COMMANDS.map((item) => item.id),
-    workspaceCommands: [
-      "workspace.open",
-      "workspace.refresh",
-      "workspace.remove_current",
-      "workspace.files",
-    ],
+    appCommands: APP_COMMAND_DESCRIPTORS.map((item) => ({ ...item })),
+    workspaceCommands: WORKSPACE_COMMAND_DESCRIPTORS.map((item) => ({ ...item })),
     surfaces: {
       rightPanel: cloneSurfaces(RIGHT_PANEL_CAPABILITY_DESCRIPTORS),
       bottomDrawer: cloneSurfaces(BOTTOM_DRAWER_CAPABILITY_DESCRIPTORS),
@@ -404,10 +408,6 @@ export function runWorkbenchStateTests() {
   assert.equal(COMMAND_GROUPS.includes("app"), true);
   assert.equal(COMMAND_GROUPS.includes("surface"), true);
   assert.equal(COMMAND_GROUPS.includes("workspace"), true);
-  assert.equal(APP_COMMANDS.some((item) => item.id === "app.settings"), true);
-  assert.equal(isAppCommand("app.diagnostics"), true);
-  assert.equal(isAppCommand("app.source_control"), true);
-  assert.equal(isAppCommand("workspace.open"), false);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.settings"), false);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.diagnostics"), false);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.source_control"), false);
@@ -425,6 +425,8 @@ export function runWorkbenchStateTests() {
     [],
   );
   assert.equal(commandById("surface.preview"), null);
+  assert.equal(commandById("app.settings", {}, fullAppCapabilities).label, "Preferences");
+  assert.equal(commandById("workspace.open", {}, fullAppCapabilities).label, "Open Project");
   assert.equal(commandById("surface.preview", {}, fullAppCapabilities).surface, "preview");
   assert.equal(commandById("surface.diff", {}, fullAppCapabilities).surface, "diff");
   assert.equal(commandById("surface.source_control", {}, fullAppCapabilities).surface, "source_control");
@@ -452,8 +454,12 @@ export function runWorkbenchStateTests() {
   assert.equal(visibleWhenRunning.some((item) => item.id === "message.stop"), true);
 
   const limitedAppCapabilities = {
-    appCommands: ["app.settings"],
-    workspaceCommands: ["workspace.open"],
+    appCommands: [
+      { id: "app.settings", group: "app", label: "Preferences", visibleWhen: "always" },
+    ],
+    workspaceCommands: [
+      { id: "workspace.open", group: "workspace", label: "Open Project", visibleWhen: "always" },
+    ],
     surfaces: {
       rightPanel: [surface("settings", "Settings")],
       bottomDrawer: [surface("logs", "Logs")],

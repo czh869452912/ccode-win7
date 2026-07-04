@@ -18,8 +18,8 @@ def _copy_records(records: Tuple[Dict[str, Any], ...]) -> list:
 
 @dataclass(frozen=True)
 class AppShellSpec(object):
-    app_commands: Tuple[str, ...] = field(default_factory=tuple)
-    workspace_commands: Tuple[str, ...] = field(default_factory=tuple)
+    app_commands: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
+    workspace_commands: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     right_panel_surfaces: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     bottom_drawer_surfaces: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     keybindings: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
@@ -29,8 +29,8 @@ class AppShellSpec(object):
 
     def capabilities(self) -> Dict[str, Any]:
         return {
-            "app_commands": [str(item) for item in self.app_commands],
-            "workspace_commands": [str(item) for item in self.workspace_commands],
+            "app_commands": _copy_records(self.app_commands),
+            "workspace_commands": _copy_records(self.workspace_commands),
             "surfaces": {
                 "right_panel": _copy_records(self.right_panel_surfaces),
                 "bottom_drawer": _copy_records(self.bottom_drawer_surfaces),
@@ -62,6 +62,24 @@ def _keybinding(key: str, command_id: str, when: str = "always") -> Dict[str, An
     }
 
 
+def _command(
+    command_id: str,
+    group: str,
+    label: str,
+    order: int,
+    **metadata: Any,
+) -> Dict[str, Any]:
+    record = {
+        "id": command_id,
+        "group": group,
+        "label": label,
+        "order": order,
+        "visible_when": "always",
+    }
+    record.update(metadata)
+    return record
+
+
 def _thread_lifecycle_action(
     action_id: str,
     label: str,
@@ -81,15 +99,47 @@ def _thread_lifecycle_action(
 def default_app_shell_spec() -> AppShellSpec:
     return AppShellSpec(
         app_commands=(
-            "app.settings",
-            "app.diagnostics",
-            "app.source_control",
-            "app.reload",
+            _command("app.settings", "app", "Open Settings", 10, surface="settings"),
+            _command(
+                "app.diagnostics",
+                "app",
+                "Open Diagnostics",
+                20,
+                surface="diagnostics",
+            ),
+            _command(
+                "app.source_control",
+                "app",
+                "Open Source Control",
+                30,
+                surface="source_control",
+                keywords=["git", "changes", "source", "source_control"],
+            ),
+            _command("app.reload", "app", "Reload App Shell", 40),
         ),
         workspace_commands=(
-            "workspace.open",
-            "workspace.refresh",
-            "workspace.remove_current",
+            _command(
+                "workspace.open",
+                "workspace",
+                "Open Workspace",
+                10,
+                keywords=["project", "folder"],
+            ),
+            _command(
+                "workspace.refresh",
+                "workspace",
+                "Refresh Workspaces",
+                20,
+                keywords=["reload", "recent"],
+            ),
+            _command(
+                "workspace.remove_current",
+                "workspace",
+                "Remove Current Workspace From Recents",
+                30,
+                visible_when="has_workspace",
+                keywords=["forget", "recent"],
+            ),
         ),
         right_panel_surfaces=(
             _surface(

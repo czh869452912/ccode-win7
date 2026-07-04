@@ -158,7 +158,9 @@ async function main() {
       active_workspace: null,
       has_active_workspace: false,
       diagnostics: { host: { platform: "win32" } },
-      capabilities: { app_commands: ["app.settings"] },
+      capabilities: {
+        app_commands: [{ id: "app.settings", label: "Preferences", group: "app" }],
+      },
       settings: { confirm_workspace_switch: true },
     },
   });

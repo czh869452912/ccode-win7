@@ -120,10 +120,11 @@ class TestGuiAppShellService(unittest.TestCase):
         self.assertEqual(payload["has_active_workspace"], False)
         self.assertIsNone(payload["active_workspace"])
         self.assertEqual(payload["workspaces"], [])
-        self.assertIn("app.settings", payload["capabilities"]["app_commands"])
-        self.assertIn("app.diagnostics", payload["capabilities"]["app_commands"])
-        self.assertIn("app.source_control", payload["capabilities"]["app_commands"])
-        self.assertIn("app.reload", payload["capabilities"]["app_commands"])
+        app_command_ids = [item["id"] for item in payload["capabilities"]["app_commands"]]
+        self.assertIn("app.settings", app_command_ids)
+        self.assertIn("app.diagnostics", app_command_ids)
+        self.assertIn("app.source_control", app_command_ids)
+        self.assertIn("app.reload", app_command_ids)
         keybinding_commands = [
             item["command_id"] for item in payload["capabilities"]["keybindings"]
         ]
@@ -216,8 +217,20 @@ class TestGuiAppShellService(unittest.TestCase):
                 registry,
                 [],
                 shell_spec=AppShellSpec(
-                    app_commands=("app.settings",),
-                    workspace_commands=("workspace.open",),
+                    app_commands=(
+                        {
+                            "id": "app.settings",
+                            "label": "Preferences",
+                            "group": "app",
+                        },
+                    ),
+                    workspace_commands=(
+                        {
+                            "id": "workspace.open",
+                            "label": "Open Project",
+                            "group": "workspace",
+                        },
+                    ),
                     right_panel_surfaces=(
                         {
                             "id": "settings",
@@ -241,8 +254,14 @@ class TestGuiAppShellService(unittest.TestCase):
 
             payload = service.bootstrap()
 
-        self.assertEqual(payload["capabilities"]["app_commands"], ["app.settings"])
-        self.assertEqual(payload["capabilities"]["workspace_commands"], ["workspace.open"])
+        self.assertEqual(
+            [item["id"] for item in payload["capabilities"]["app_commands"]],
+            ["app.settings"],
+        )
+        self.assertEqual(
+            [item["id"] for item in payload["capabilities"]["workspace_commands"]],
+            ["workspace.open"],
+        )
         self.assertEqual(
             [item["id"] for item in payload["capabilities"]["surfaces"]["right_panel"]],
             ["settings"],

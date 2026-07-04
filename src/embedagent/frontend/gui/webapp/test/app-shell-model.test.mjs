@@ -83,8 +83,14 @@ export function runAppShellModelTests() {
       active_core: { present: true },
     },
     capabilities: {
-      app_commands: ["app.settings", "app.diagnostics", "app.reload"],
-      workspace_commands: ["workspace.open"],
+      app_commands: [
+        { id: "app.settings", label: "Preferences", group: "app", order: 10 },
+        { id: "app.diagnostics", label: "Health", group: "app", order: 20 },
+        { id: "app.reload", label: "Reload Shell", group: "app", order: 30 },
+      ],
+      workspace_commands: [
+        { id: "workspace.open", label: "Open Project", group: "workspace", order: 10 },
+      ],
       surfaces: {
         right_panel: [
           surface("settings", "Settings", { launcher_order: 10 }),
@@ -156,8 +162,18 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.lastError, "warning");
   assert.equal(bootstrap.settings.confirm_workspace_switch, false);
   assert.equal(bootstrap.settings.ignored_setting, undefined);
-  assert.equal(bootstrap.capabilities.appCommands.includes("app.reload"), true);
-  assert.equal(bootstrap.capabilities.workspaceCommands.includes("workspace.open"), true);
+  assert.deepEqual(
+    bootstrap.capabilities.appCommands.map((item) => [item.id, item.label]),
+    [
+      ["app.settings", "Preferences"],
+      ["app.diagnostics", "Health"],
+      ["app.reload", "Reload Shell"],
+    ],
+  );
+  assert.deepEqual(
+    bootstrap.capabilities.workspaceCommands.map((item) => [item.id, item.label]),
+    [["workspace.open", "Open Project"]],
+  );
   assert.deepEqual(
     bootstrap.capabilities.surfaces.rightPanel.map((item) => item.kind),
     ["settings", "diagnostics", "source_control"],
@@ -227,8 +243,8 @@ export function runAppShellModelTests() {
   assert.equal(settings.extra, undefined);
 
   const capabilities = normalizeAppCapabilities({
-    app_commands: ["app.settings"],
-    workspace_commands: ["workspace.open"],
+    app_commands: [{ id: "app.settings", label: "Preferences", group: "app" }],
+    workspace_commands: [{ id: "workspace.open", label: "Open Project", group: "workspace" }],
     surfaces: {
       right_panel: [surface("settings", "Settings")],
       bottom_drawer: [surface("logs", "Logs")],
@@ -239,8 +255,14 @@ export function runAppShellModelTests() {
     empty_state: { scenario_label: "Generic workspace" },
     terminal: { enabled: true, pty: false, resize: false },
   });
-  assert.deepEqual(capabilities.appCommands, ["app.settings"]);
-  assert.deepEqual(capabilities.workspaceCommands, ["workspace.open"]);
+  assert.deepEqual(
+    capabilities.appCommands.map((item) => [item.id, item.label, item.group]),
+    [["app.settings", "Preferences", "app"]],
+  );
+  assert.deepEqual(
+    capabilities.workspaceCommands.map((item) => [item.id, item.label, item.group]),
+    [["workspace.open", "Open Project", "workspace"]],
+  );
   assert.deepEqual(capabilities.surfaces.rightPanel.map((item) => item.kind), ["settings"]);
   assert.deepEqual(capabilities.surfaces.bottomDrawer.map((item) => item.kind), ["logs"]);
   assert.deepEqual(capabilities.keybindings, [
@@ -302,7 +324,7 @@ export function runAppShellModelTests() {
   assert.equal(reset.workspaceError, "");
   assert.equal(reset.workspacePathInput, "");
   assert.equal(reset.settings.confirm_workspace_switch, true);
-  assert.equal(reset.capabilities.appCommands.includes("app.settings"), true);
+  assert.equal(reset.capabilities.appCommands.some((item) => item.id === "app.settings"), true);
 
   const rows = formatDiagnosticsRows({
     host: { platform: "win32", headless: false },

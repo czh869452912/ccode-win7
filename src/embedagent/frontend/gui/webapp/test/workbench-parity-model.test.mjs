@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 
 import { initialState, reducer } from "../src/store.js";
-import { APP_COMMANDS } from "../src/app-shell/commands.js";
 import {
   bottomDrawerCommandDefinitions,
   surfaceCommandDefinitions,
@@ -24,8 +23,17 @@ function sessionWorkspaceState(patch = {}) {
       hasActiveWorkspace: true,
       activeWorkspace: { id: "ws-1", label: "demo", path: "D:/work/demo" },
       capabilities: {
-        appCommands: APP_COMMANDS.map((command) => command.id),
-        workspaceCommands: ["workspace.open", "workspace.refresh", "workspace.remove_current"],
+        appCommands: [
+          { id: "app.settings", group: "app", label: "Preferences" },
+          { id: "app.diagnostics", group: "app", label: "Health" },
+          { id: "app.source_control", group: "app", label: "Changes", surface: "source_control" },
+          { id: "app.reload", group: "app", label: "Reload Shell" },
+        ],
+        workspaceCommands: [
+          { id: "workspace.open", group: "workspace", label: "Open Project" },
+          { id: "workspace.refresh", group: "workspace", label: "Refresh Projects" },
+          { id: "workspace.remove_current", group: "workspace", label: "Forget Project" },
+        ],
         surfaces: {
           rightPanel: [
             surface("preview", "Preview", 10),

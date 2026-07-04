@@ -1,4 +1,3 @@
-import { APP_COMMANDS } from "../app-shell/commands.js";
 import { normalizeCommandCapabilities } from "../session-runtime/command-capabilities.js";
 import {
   bottomDrawerCommandDefinitions,
@@ -30,13 +29,6 @@ const LOCAL_COMMANDS = [
   { id: "palette.close", group: "view", label: "Close Command Palette", slash: "", visibleWhen: "palette_open" },
 ];
 
-const WORKSPACE_COMMANDS = [
-  { id: "workspace.open", group: "workspace", label: "Open Workspace", slash: "", visibleWhen: "always", keywords: ["project", "folder"] },
-  { id: "workspace.refresh", group: "workspace", label: "Refresh Workspaces", slash: "", visibleWhen: "always", keywords: ["reload", "recent"] },
-  { id: "workspace.remove_current", group: "workspace", label: "Remove Current Workspace From Recents", slash: "", visibleWhen: "always", keywords: ["forget", "recent"] },
-  { id: "workspace.files", group: "workspace", label: "Open Files", slash: "/workspace", visibleWhen: "always" },
-];
-
 export const WORKBENCH_COMMANDS = [
   ...LOCAL_COMMANDS,
 ];
@@ -45,34 +37,12 @@ function localWorkbenchCommands() {
   return LOCAL_COMMANDS;
 }
 
-function capabilityList(appCapabilities, snakeName, camelName) {
-  if (!appCapabilities || typeof appCapabilities !== "object") return [];
-  if (Array.isArray(appCapabilities[camelName])) {
-    return appCapabilities[camelName].map(String);
-  }
-  if (Array.isArray(appCapabilities[snakeName])) {
-    return appCapabilities[snakeName].map(String);
-  }
-  return [];
-}
-
-function filterCommandsByCapability(commands, appCapabilities, snakeName, camelName) {
-  const declared = capabilityList(appCapabilities, snakeName, camelName);
-  const allowed = new Set(declared);
-  return commands.filter((command) => allowed.has(command.id));
-}
-
 function appCommandDefinitions(appCapabilities = null) {
-  return filterCommandsByCapability(APP_COMMANDS, appCapabilities, "app_commands", "appCommands");
+  return Array.isArray(appCapabilities?.appCommands) ? appCapabilities.appCommands : [];
 }
 
 function workspaceCommandDefinitions(appCapabilities = null) {
-  return filterCommandsByCapability(
-    WORKSPACE_COMMANDS,
-    appCapabilities,
-    "workspace_commands",
-    "workspaceCommands",
-  );
+  return Array.isArray(appCapabilities?.workspaceCommands) ? appCapabilities.workspaceCommands : [];
 }
 
 function commandFromCapability(item = {}) {
@@ -127,6 +97,8 @@ function isVisible(command, context) {
       return !view.isRunning;
     case "palette_open":
       return Boolean(view.paletteOpen);
+    case "has_workspace":
+      return Boolean(view.hasWorkspace);
     default:
       return false;
   }
@@ -137,8 +109,5 @@ export function visibleCommands(context) {
   return buildWorkbenchCommands(
     view.capabilities || view.sessionCapabilities || {},
     view.appCapabilities || null,
-  ).filter((command) => {
-    if (command.id === "workspace.remove_current" && !view.hasWorkspace) return false;
-    return isVisible(command, view);
-  });
+  ).filter((command) => isVisible(command, view));
 }
