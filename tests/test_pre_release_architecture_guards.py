@@ -1118,6 +1118,31 @@ def test_gui_manual_and_styles_do_not_keep_artifact_browser_shell():
         assert token not in manual_playwright_text
 
 
+def test_artifact_read_model_invalidation_is_retired():
+    checked_paths = (
+        ROOT / "src/embedagent/tools/runtime.py",
+        ROOT / "tests/test_dynamic_tool_registration.py",
+    )
+    offenders = []
+    for path in checked_paths:
+        for line_no, line in enumerate(_read(path).splitlines(), start=1):
+            if (
+                "read_model_invalidations" in line or "_READ_MODEL_INVALIDATIONS" in line
+            ) and "artifacts" in line:
+                offenders.append("%s:%s:%s" % (path.relative_to(ROOT), line_no, line.strip()))
+
+    assert offenders == []
+
+    tool_contracts_text = _read(ROOT / "docs/tool-contracts.md")
+    development_tracker_text = _read(ROOT / "docs/development-tracker.md")
+    for token in (
+        "`workspace_files`, `tasks`, or `artifacts`",
+        "file/task/artifact refresh",
+    ):
+        assert token not in tool_contracts_text
+        assert token not in development_tracker_text
+
+
 def test_hosted_interactions_do_not_keep_legacy_blocking_frontend_paths():
     banned_tokens = (
         "on_permission_request",

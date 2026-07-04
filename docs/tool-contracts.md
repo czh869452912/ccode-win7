@@ -18,7 +18,7 @@ is classified as `other`, which asks by default.
 
 Catalog metadata may also declare `read_model_invalidations`, a list of safe
 read models that should be refreshed after a tool finishes, such as
-`workspace_files`, `tasks`, or `artifacts`. Hosted adapters and GUI/TUI shells
+`workspace_files`, `tasks`, or `capabilities`. Hosted adapters and GUI/TUI shells
 may use those hints to refresh read-only projections, but they must not infer
 refresh behavior from hard-coded tool-name lists. These hints do not activate
 tools, grant permissions, mutate workflow state, or bypass `PermissionPolicy`.

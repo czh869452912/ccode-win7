@@ -36,7 +36,7 @@ from embedagent.tools._base import ToolContext
 _VALID_TOOL_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _REGISTERABLE_PERMISSION_CATEGORIES = OFFICIAL_PERMISSION_CATEGORIES
 _EXTENSION_REQUIRED_PERMISSION_METADATA = ("permission_category",)
-_READ_MODEL_INVALIDATIONS = frozenset(("workspace_files", "tasks", "artifacts", "capabilities"))
+_READ_MODEL_INVALIDATIONS = frozenset(("workspace_files", "tasks", "capabilities"))
 
 
 def _normalize_read_model_invalidations(tool_name: str, value: Any) -> List[str]:
@@ -90,7 +90,7 @@ _DEFAULT_TOOL_METADATA = {
         "result_budget_policy": "compact-preview",
         "activity_kind": "edit",
         "context_priority": 95,
-        "read_model_invalidations": ["workspace_files", "tasks", "artifacts"],
+        "read_model_invalidations": ["workspace_files", "tasks"],
     },
     "edit_file": {
         "permission_category": "workspace_write",
@@ -107,7 +107,7 @@ _DEFAULT_TOOL_METADATA = {
         "result_budget_policy": "compact-preview",
         "activity_kind": "edit",
         "context_priority": 95,
-        "read_model_invalidations": ["workspace_files", "tasks", "artifacts"],
+        "read_model_invalidations": ["workspace_files", "tasks"],
     },
     "bash": {
         "permission_category": "shell_exec",
@@ -252,7 +252,7 @@ _DEFAULT_TOOL_METADATA = {
         "result_budget_policy": "compact-preview",
         "activity_kind": "edit",
         "context_priority": 82,
-        "read_model_invalidations": ["workspace_files", "tasks", "artifacts"],
+        "read_model_invalidations": ["workspace_files", "tasks"],
     },
 }
 

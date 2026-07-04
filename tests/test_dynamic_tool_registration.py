@@ -175,7 +175,7 @@ def test_builtin_write_tools_declare_read_model_invalidations(tmp_path):
 
     entry = runtime.tool_catalog_entry("write_file")
 
-    assert entry["read_model_invalidations"] == ["workspace_files", "tasks", "artifacts"]
+    assert entry["read_model_invalidations"] == ["workspace_files", "tasks"]
 
 
 def test_register_tool_rejects_invalid_read_model_invalidation_shape(tmp_path):
