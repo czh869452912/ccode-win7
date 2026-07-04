@@ -52,6 +52,10 @@ the backend declaration omits the `capabilities` object or the relevant command
 or surface arrays. Persisted workbench surface state is re-sanitized after app
 bootstrap or workspace switch against the same declaration, so stale local UI
 state cannot reopen surfaces that the active app shell does not expose.
+Retired Inspector sidecar state for artifacts, review panes, permission-rule
+panes, runtime panes, workspace previews, and event logs has been removed; those
+concerns now appear only through active surfaces, session activities,
+interaction state, or app-shell diagnostics.
 Frontend protocol adapters preserve backend-declared mode state. They must not
 import the built-in mode default or inject `explore` when a selected
 application/profile leaves `current_mode` empty.

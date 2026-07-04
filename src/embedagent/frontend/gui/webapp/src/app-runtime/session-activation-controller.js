@@ -15,7 +15,6 @@ export function createSessionActivationController({
   createTransportState,
   replaceTransportState,
   listTerminals,
-  loadArtifacts,
 } = {}) {
   const fetchBootstrap = typeof fetchJson === "function" ? fetchJson : () => Promise.resolve({});
   const send = typeof dispatch === "function" ? dispatch : () => {};
@@ -40,7 +39,6 @@ export function createSessionActivationController({
     });
     replaceTransport(buildTransportState());
     send({ type: "plan_loaded", plan: activation.plan });
-    send({ type: "permission_context_loaded", context: activation.permissionContext });
     try {
       const terminalPayload = await invoke(listTerminals, sessionId);
       send({
@@ -50,6 +48,5 @@ export function createSessionActivationController({
     } catch (_) {
       send({ type: "terminal_summaries_loaded", terminals: [] });
     }
-    await invoke(loadArtifacts);
   };
 }

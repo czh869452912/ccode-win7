@@ -62,11 +62,8 @@ export function runAppWorkspaceTests() {
     snapshot: { session_id: "sess-1" },
     activities: [{ id: "row-1" }],
     tasks: [{ id: 1 }],
-    artifacts: [{ id: "a" }],
-    preview: { title: "README.md" },
     diffSurface: { title: "Diff" },
     fileTree: [{ id: "src" }],
-    permissionContext: { session_id: "sess-1" },
     runOutput: [{ label: "old" }],
     activeTurnId: "turn-1",
     sourceControl: { status: "ready", selectedPath: "src/main.c" },
@@ -78,11 +75,8 @@ export function runAppWorkspaceTests() {
   assert.equal(reset.snapshot, null);
   assert.deepEqual(reset.activities, []);
   assert.deepEqual(reset.tasks, []);
-  assert.deepEqual(reset.artifacts, []);
-  assert.equal(reset.preview, null);
   assert.equal(reset.diffSurface, null);
   assert.deepEqual(reset.fileTree, []);
-  assert.equal(reset.permissionContext, null);
   assert.deepEqual(reset.runOutput, []);
   assert.equal(reset.activeTurnId, "");
   assert.equal(reset.sourceControl.status, "idle");

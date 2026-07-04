@@ -30,7 +30,6 @@ export async function runSessionActivationControllerTests() {
           turns: [],
         },
         plan: { title: "Build plan" },
-        permission_context: { session_id: "sess-activation" },
         capabilities: {
           commands: [
             {
@@ -52,9 +51,6 @@ export async function runSessionActivationControllerTests() {
       calls.push(["listTerminals", sessionId]);
       return { terminals: [{ terminal_id: "term-1" }] };
     },
-    loadArtifacts: async () => {
-      calls.push(["loadArtifacts"]);
-    },
   });
 
   await controller("sess-activation");
@@ -75,15 +71,11 @@ export async function runSessionActivationControllerTests() {
   });
   assert.deepEqual(actions[1], { type: "plan_loaded", plan: { title: "Build plan" } });
   assert.deepEqual(actions[2], {
-    type: "permission_context_loaded",
-    context: { session_id: "sess-activation" },
-  });
-  assert.deepEqual(actions[3], {
     type: "terminal_summaries_loaded",
     terminals: [{ terminal_id: "term-1" }],
   });
   assert.equal(calls.some((item) => item[0] === "loadTasks"), false);
-  assert.deepEqual(calls.at(-1), ["loadArtifacts"]);
+  assert.equal(calls.some((item) => item[0] === "loadArtifacts"), false);
 
   const terminalFailureActions = [];
   const terminalFailureController = createSessionActivationController({

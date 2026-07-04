@@ -24,7 +24,6 @@ export function createInteractionResponseController({
   getRespondingRequestIds,
   setRespondingRequestIds,
   loadSession,
-  loadPermissionContext,
   logEvent,
 } = {}) {
   const send = typeof dispatch === "function" ? dispatch : () => {};
@@ -39,8 +38,6 @@ export function createInteractionResponseController({
   const writeRespondingIds =
     typeof setRespondingRequestIds === "function" ? setRespondingRequestIds : () => {};
   const reloadSession = typeof loadSession === "function" ? loadSession : () => Promise.resolve();
-  const reloadPermissions =
-    typeof loadPermissionContext === "function" ? loadPermissionContext : () => {};
   const recordEvent = typeof logEvent === "function" ? logEvent : () => {};
 
   function respondingIds() {
@@ -91,11 +88,6 @@ export function createInteractionResponseController({
         });
       } else {
         await reloadSession(sessionId);
-      }
-      if (interaction.kind === "permission") {
-        if (payload?.decision === "acceptForSession") {
-          reloadPermissions(sessionId);
-        }
       }
       recordEvent("interaction_response", interactionLogDetail(interaction, payload || {}));
       return response;

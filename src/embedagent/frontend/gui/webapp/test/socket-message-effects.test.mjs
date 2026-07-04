@@ -265,8 +265,10 @@ export function runSocketMessageEffectsTests() {
     success: true,
     data: { active: "D:/work/demo" },
   });
-  assert.equal(commandWorkspace.actions[1].type, "preview_loaded");
-  assert.equal(commandWorkspace.actions[1].preview.kind, "workspace");
+  assert.deepEqual(commandWorkspace.actions.map((item) => item.type), [
+    "command_result",
+    "log_event",
+  ]);
 
   const commandRecipes = derive("command_result", {
     command_name: "recipes",

@@ -83,6 +83,12 @@ Workbench-local persisted surface state is re-sanitized after app bootstrap or
 workspace switch against the same declaration; stale local `preview`,
 `source_control`, `terminal`, or other surfaces must not survive when the
 backend no longer declares their parent surface capability.
+The GUI no longer keeps retired Inspector sidecar state for artifact lists,
+review detail panes, permission-rule panes, runtime panes, workspace previews,
+or event logs. Review results remain timeline activities, permission and user
+input requests remain session interaction state, local file content remains
+file-surface state, and app diagnostics remain the app-shell diagnostics
+surface.
 `capabilities.surfaces.right_panel` may include `files`, `terminal`, `diff`,
 `preview`, `plan`, `source_control`, `settings`, and `diagnostics`;
 `capabilities.surfaces.bottom_drawer` may include `terminal`, `run_output`,

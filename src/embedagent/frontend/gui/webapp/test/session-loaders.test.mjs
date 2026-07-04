@@ -20,8 +20,6 @@ function createRecordedLoaders() {
       loadActiveWorkspaceData: record("loadActiveWorkspaceData"),
       loadSessions: record("loadSessions"),
       loadSession: record("loadSession"),
-      loadArtifacts: record("loadArtifacts"),
-      loadPermissionContext: record("loadPermissionContext"),
       loadFileChildren: record("loadFileChildren"),
       loadSessionCommandCapabilities: record("loadSessionCommandCapabilities"),
     },
@@ -56,12 +54,6 @@ export async function runSessionLoadersTests() {
   await execute({ name: LOADER_REQUESTS.LOAD_SESSION, sessionId: "sess-2" });
   assert.deepEqual(calls.at(-1), { name: "loadSession", args: ["sess-2"] });
 
-  await execute({ name: LOADER_REQUESTS.LOAD_ARTIFACTS });
-  assert.deepEqual(calls.at(-1), { name: "loadArtifacts", args: [] });
-
-  await execute({ name: LOADER_REQUESTS.LOAD_PERMISSION_CONTEXT, sessionId: "sess-4" });
-  assert.deepEqual(calls.at(-1), { name: "loadPermissionContext", args: ["sess-4"] });
-
   await execute({ name: LOADER_REQUESTS.LOAD_FILE_CHILDREN });
   assert.deepEqual(calls.at(-1), { name: "loadFileChildren", args: ["."] });
 
@@ -76,7 +68,6 @@ export async function runSessionLoadersTests() {
   await execute({});
   await execute(null);
   await execute({ name: LOADER_REQUESTS.LOAD_SESSION });
-  await execute({ name: LOADER_REQUESTS.LOAD_PERMISSION_CONTEXT });
   assert.equal(calls.length, beforeNoOps);
 
   const missingOptionalExecutor = createLoaderRequestExecutor({});
@@ -149,7 +140,6 @@ export async function runSessionLoadersTests() {
         ],
       },
       plan: { title: "Parser plan", steps: [] },
-      permission_context: { session_id: "sess-bootstrap", rules: [{ category: "workspace_write" }] },
       capabilities: {
         commands: [
           {
@@ -177,7 +167,6 @@ export async function runSessionLoadersTests() {
   assert.equal(activation.activities[1].projectionSource, "session_state");
   assert.deepEqual(activation.historyIntegrity, { status: "healthy", event_count: 12 });
   assert.equal(activation.plan.title, "Parser plan");
-  assert.equal(activation.permissionContext.rules[0].category, "workspace_write");
   assert.equal(activation.capabilities.commands[0].usage, "/resources [reload]");
 
   const sparseActivation = deriveSessionActivation(null, "sess-empty");
@@ -186,7 +175,6 @@ export async function runSessionLoadersTests() {
   assert.deepEqual(sparseActivation.activities, []);
   assert.equal(sparseActivation.historyIntegrity, null);
   assert.equal(sparseActivation.plan, null);
-  assert.equal(sparseActivation.permissionContext, null);
   assert.deepEqual(sparseActivation.capabilities.commands, []);
   assert.deepEqual(sparseActivation.capabilities.modes, []);
   assert.deepEqual(sparseActivation.capabilities.toolCatalog, {});

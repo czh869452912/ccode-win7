@@ -317,15 +317,6 @@ function App() {
     dispatch({ type: "sessions_loaded", sessions: payload.sessions || [] });
   }
 
-  async function loadPermissionContext(sessionId) {
-    if (!sessionId) {
-      dispatch({ type: "permission_context_loaded", context: null });
-      return;
-    }
-    const payload = await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/permissions`);
-    dispatch({ type: "permission_context_loaded", context: payload });
-  }
-
   async function loadSession(sessionId) {
     const loadSessionController = createSessionActivationController({
       fetchJson,
@@ -334,14 +325,8 @@ function App() {
       createTransportState: createRuntimeSessionTransport,
       replaceTransportState: replaceSessionTransport,
       listTerminals,
-      loadArtifacts,
     });
     await loadSessionController(sessionId);
-  }
-
-  async function loadArtifacts() {
-    const payload = await fetchJson("/api/artifacts");
-    dispatch({ type: "artifacts_loaded", items: payload.items || [] });
   }
 
   async function loadFileChildren(path) {
@@ -385,44 +370,6 @@ function App() {
         error: error.message || "File unavailable",
       });
     }
-  }
-
-  async function openArtifact(reference) {
-    const payload = await fetchJson(`/api/artifacts/${encodeURIComponent(reference)}`);
-    const content =
-      typeof payload.content === "string"
-        ? payload.content
-        : JSON.stringify(payload.content || {}, null, 2);
-    dispatch({
-      type: "preview_loaded",
-      preview: { kind: "artifact", title: payload.path || reference, content },
-    });
-  }
-
-  async function openReviewEvidence(entry) {
-    if (entry?.artifactRef) {
-      await openArtifact(entry.artifactRef);
-      return;
-    }
-    if (entry?.diff) {
-      dispatch({
-        type: "diff_surface_opened",
-        diffSurface: createDiffSurfaceState({
-          title: entry?.title || "Review Diff",
-          diff: entry.diff,
-          source: entry?.kind || "review",
-        }),
-      });
-      return;
-    }
-    dispatch({
-      type: "preview_loaded",
-      preview: {
-        kind: entry?.kind || "review",
-        title: entry?.title || "Review Evidence",
-        content: entry?.content || "",
-      },
-    });
   }
 
   function openDiffSurface({ title = "Diff", diff = "", turnId = "", filePath = "" } = {}) {
@@ -470,7 +417,6 @@ function App() {
         loadWorkspaceData: async (_sessionId, assumeWorkspace) => {
           await Promise.all([
             loadSessions(),
-            loadArtifacts(),
             loadSessionCommandCapabilities({ fetchJson, dispatch }),
             loadFileChildren("."),
             loadSourceControlStatus(false, assumeWorkspace),
@@ -593,8 +539,6 @@ function App() {
     loadActiveWorkspaceData,
     loadSessions,
     loadSession,
-    loadArtifacts,
-    loadPermissionContext,
     loadFileChildren,
     loadSessionCommandCapabilities: () => loadSessionCommandCapabilities({ fetchJson, dispatch }),
   });
@@ -657,7 +601,6 @@ function App() {
         getRespondingRequestIds: () => respondingRequestIdsRef.current,
         setRespondingRequestIds,
         loadSession,
-        loadPermissionContext,
         logEvent,
       }),
     [],
@@ -757,22 +700,10 @@ function App() {
   }
 
   const inspectorProps = {
-    tasks: state.tasks,
-    artifacts: state.artifacts,
     plan: state.plan,
-    review: state.review,
-    timeline: runtimeState.timelineItems,
-    currentInteraction: runtimeState.currentInteraction,
-    interactionNotice,
-    permissionContext: state.permissionContext,
-    preview: state.preview,
     diffSurface: state.diffSurface,
     sourceControl: state.sourceControl,
-    snapshot: state.snapshot,
     appShell: state.app,
-    runOutput: state.runOutput,
-    onOpenArtifact: openArtifact,
-    onOpenReviewEvidence: openReviewEvidence,
     onFocusDiffFile: (filePath) => dispatch({ type: "diff_file_focused", filePath }),
     onRefreshSourceControl: () => loadSourceControlStatus(true),
     onSelectSourceControlFile: openSourceControlFile,

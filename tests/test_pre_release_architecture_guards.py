@@ -978,6 +978,64 @@ def test_gui_has_no_root_inspector_navigation_state():
             assert token not in text
 
 
+def test_gui_has_no_retired_inspector_sidecar_state():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
+    inspector_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Inspector.jsx")
+    loaders_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-loaders.js"
+    )
+    activation_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-activation-controller.js"
+    )
+    socket_effects_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"
+    )
+    interaction_text = _read(
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/app-runtime/interaction-response-controller.js"
+    )
+
+    for token in (
+        "artifacts_loaded",
+        '"preview_loaded"',
+        '"review_loaded"',
+        "permission_context_loaded",
+        "LOAD_ARTIFACTS",
+        "LOAD_PERMISSION_CONTEXT",
+        "loadArtifacts",
+        "loadPermissionContext",
+        "/api/artifacts",
+        "/api/permissions",
+    ):
+        assert token not in app_text
+        assert token not in store_text
+        assert token not in loaders_text
+        assert token not in activation_text
+        assert token not in socket_effects_text
+        assert token not in interaction_text
+
+    for token in (
+        'inspectorTab === "tasks"',
+        'inspectorTab === "artifacts"',
+        'inspectorTab === "problems"',
+        'inspectorTab === "review"',
+        'inspectorTab === "permissions"',
+        'inspectorTab === "runtime"',
+        'inspectorTab === "preview"',
+        'inspectorTab === "log"',
+        "TaskPanel",
+        "ArtifactPanel",
+        "ProblemsPanel",
+        "ReviewPanel",
+        "PermissionsPanel",
+        "RuntimePanel",
+        "PreviewPanel",
+        "LogPanel",
+    ):
+        assert token not in inspector_text
+
+
 def test_hosted_interactions_do_not_keep_legacy_blocking_frontend_paths():
     banned_tokens = (
         "on_permission_request",

@@ -114,28 +114,6 @@ function commandResultEffects(data, options) {
       }),
     });
   }
-  if (commandName === "workspace") {
-    effects.actions.push({
-      type: "preview_loaded",
-      preview: {
-        kind: "workspace",
-        title: "Workspace",
-        content: JSON.stringify(data?.data || {}, null, 2),
-      },
-    });
-  }
-  if (commandName === "permissions") {
-    effects.actions.push({
-      type: "permission_context_loaded",
-      context: data?.data || {},
-    });
-  }
-  if (commandName === "review" && data?.data?.review) {
-    effects.actions.push({
-      type: "review_loaded",
-      review: data.data.review,
-    });
-  }
   if (invalidations.includes(CAPABILITIES_INVALIDATION)) {
     effects.loaderRequests.push({ name: LOADER_REQUESTS.LOAD_SESSION_CAPABILITIES });
   }
@@ -410,11 +388,6 @@ export function deriveSocketMessageEffects({
     }
     effects.loaderRequests.push({ name: LOADER_REQUESTS.LOAD_SESSIONS });
     effects.actions.push(logAction("session_finished", ""));
-    return effects;
-  }
-
-  if (type === "artifacts_refresh") {
-    effects.loaderRequests.push({ name: LOADER_REQUESTS.LOAD_ARTIFACTS });
     return effects;
   }
 

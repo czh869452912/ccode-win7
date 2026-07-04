@@ -135,6 +135,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `capabilities` object or relevant capability arrays are missing; persisted
   workbench surface state is also re-sanitized after app bootstrap or workspace
   switch against those app-shell capabilities
+- retired Inspector sidecar loaders/state/actions for artifacts, review panes,
+  permission-rule panes, runtime panes, workspace previews, and event logs have
+  been removed; the GUI uses active surfaces, session activities, interaction
+  state, and app-shell diagnostics instead
 - GUI thread lifecycle actions now route through the session lifecycle facade:
   rename updates summary/projection title metadata, archive hides a session from
   default thread lists without deleting transcript/summary/artifact references,

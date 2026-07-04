@@ -382,6 +382,7 @@
 - Right panel 新增 Settings / Diagnostics 两个 app-level surfaces，命令 palette 新增 `app.settings` / `app.diagnostics` / `app.reload`，并保持这些命令与 session/workflow commands 分离。
 - 当前收敛：命令 palette、right-panel add-surface launcher、bottom drawer tab 与 keybinding target 现在全部按 `/api/app/bootstrap` 的 `app_commands`、`workspace_commands`、`surfaces.right_panel` 和 `surfaces.bottom_drawer` 过滤；renderer-local surface registry 只保留 label/icon/component metadata，缺失整个 `capabilities` 对象或相关数组时都不再填充 GUI 默认入口。
 - 当前收敛：workbench 持久化 surface 状态在 app bootstrap / workspace switch 后也会按同一份 app-shell capabilities 重新裁剪；旧 localStorage 里的 `preview`、`source_control`、`terminal` 等 surface 不能绕过当前 active app 的声明重新出现。
+- 当前收敛：旧 Inspector sidecar 的 artifacts/review/permissions/runtime/workspace-preview/log state、loader request 和 socket action 已删除；review 结果只作为 timeline activity 呈现，permission/user-input 只走 session interaction state，诊断只走 app-shell diagnostics surface。
 - 当前收敛：工具展示 catalog 现在只来自 session capabilities/bootstrap 的 `toolCatalog`；GUI `/api/tool-catalog` route、root `toolCatalog` fallback state 和 frontend-facing `CoreInterface.get_tool_catalog` facade 已删除。
 - 当前收敛：Inspector 不再保留内部 `RIGHT_PANEL_SURFACES` tab registry、`showTabs` 或 `onTabChange` 导航入口；right-panel surfaces 是唯一的右栏导航真相。
 - 当前收敛：renderer root `inspectorTab` / `inspectorOpen` state 和 `set_inspector` / `toggle_inspector` reducer actions 已删除，socket effects、visual fixtures 与 App 打开面板动作都不再写这条旧状态。

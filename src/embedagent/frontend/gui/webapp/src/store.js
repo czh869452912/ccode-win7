@@ -29,11 +29,7 @@ export const initialState = {
   ...createActivityState(),
   interactionNotice: null,
   tasks: [],
-  artifacts: [],
   plan: null,
-  review: null,
-  permissionContext: null,
-  preview: null,
   filePreviewsByPath: {},
   diffSurface: null,
   fileTree: [],
@@ -61,10 +57,7 @@ export function reducer(state, action) {
       };
     }
     if (action.type === "command_result") {
-      return {
-        ...nextState,
-        review: action.commandName === "review" ? action.data?.review || state.review : state.review,
-      };
+      return nextState;
     }
     return nextState;
   }
@@ -190,8 +183,6 @@ export function reducer(state, action) {
         interactionNotice: null,
         runOutput: reduceRunOutputState(state.runOutput, action),
         plan: null,
-        review: null,
-        permissionContext: null,
         tasks: Array.isArray(action.snapshot?.task_items) ? action.snapshot.task_items : [],
         workbench: reduceWorkbenchState(state.workbench, {
           type: "workbench_session_activated",
@@ -213,13 +204,6 @@ export function reducer(state, action) {
             : state.interactionNotice,
       };
     }
-    case "artifacts_loaded":
-      return { ...state, artifacts: action.items };
-    case "preview_loaded":
-      return {
-        ...state,
-        preview: action.preview,
-      };
     case "file_preview_load_started": {
       const path = String(action.path || "");
       if (!path) return state;
@@ -293,16 +277,6 @@ export function reducer(state, action) {
       return {
         ...state,
         plan: action.plan,
-      };
-    case "review_loaded":
-      return {
-        ...state,
-        review: action.review,
-      };
-    case "permission_context_loaded":
-      return {
-        ...state,
-        permissionContext: action.context,
       };
     case "interaction_notice_set":
       return {

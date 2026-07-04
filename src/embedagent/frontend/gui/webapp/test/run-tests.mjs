@@ -467,7 +467,6 @@ async function main() {
   assert.equal(reviewState.activities.length, 1);
   assert.equal(reviewState.activities[0].kind, "command_result");
   assert.equal(reviewState.activities[0].projectionSource, "raw_events");
-  assert.equal(reviewState.review.summary, "quality summary");
 
   const diffSurfaceState = reducer(initialState, {
     type: "diff_surface_opened",
@@ -490,7 +489,6 @@ async function main() {
   });
   assert.equal(filePreviewLoadingState.filePreviewsByPath["src/main.c"].status, "loading");
   assert.equal(filePreviewLoadingState.filePreviewsByPath["src/main.c"].path, "src/main.c");
-  assert.equal(filePreviewLoadingState.preview, null);
 
   const filePreviewLoadedState = reducer(filePreviewLoadingState, {
     type: "file_preview_loaded",
@@ -500,7 +498,6 @@ async function main() {
   assert.equal(filePreviewLoadedState.filePreviewsByPath["src/main.c"].status, "loaded");
   assert.equal(filePreviewLoadedState.filePreviewsByPath["src/main.c"].title, "main.c");
   assert.equal(filePreviewLoadedState.filePreviewsByPath["src/main.c"].content.includes("return 0"), true);
-  assert.equal(filePreviewLoadedState.preview, null);
 
   const filePreviewFailedState = reducer(filePreviewLoadedState, {
     type: "file_preview_load_failed",
@@ -548,17 +545,6 @@ async function main() {
   assert.equal(compactedState.activities[0].projectionSource, "raw_events");
   assert.equal(compactedState.activities[0].projectionKind, "raw_event");
   assert.equal(compactedState.activities[0].synthetic, false);
-
-  const permissionState = reducer(initialState, {
-    type: "permission_context_loaded",
-    context: {
-      session_id: "sess-1",
-      remembered_categories: ["workspace_write"],
-      rules: [{ decision: "ask", category: "workspace_write", reason: "write" }],
-    },
-  });
-  assert.equal(Object.hasOwn(permissionState, "inspectorTab"), false);
-  assert.deepEqual(permissionState.permissionContext.remembered_categories, ["workspace_write"]);
 
   const pendingPermissionState = reducer(initialState, {
     type: "session_snapshot",
@@ -793,7 +779,7 @@ async function main() {
   assert.equal(inspectorSource.includes("function InspectorTabs"), false);
   assert.equal(inspectorSource.includes("showTabs"), false);
   assert.equal(inspectorSource.includes("onTabChange"), false);
-  assert.equal(inspectorSource.includes('{inspectorTab === "interaction"'), true);
+  assert.equal(inspectorSource.includes('{inspectorTab === "interaction"'), false);
   assert.equal(inspectorSource.includes('{inspectorTab === "diff"'), true);
   assert.equal(inspectorSource.includes("formatDiagnosticsRows"), true);
   assert.equal(inspectorSource.includes("SettingsPanel"), true);
