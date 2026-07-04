@@ -230,6 +230,8 @@ export function runSocketMessageEffectsTests() {
     command_name: "diff",
     success: true,
     message: "diff ready",
+    log_label: "Diff command",
+    log_detail: "ready",
     data: { diff: "--- a/src/main.c\n+++ b/src/main.c\n@@ -1 +1 @@\n-int a;\n+int b;\n" },
     turn_id: "turn-1",
   });
@@ -250,8 +252,8 @@ export function runSocketMessageEffectsTests() {
   assert.equal(commandDiffWithChrome.actions[1].diffSurface.title, "Patch");
   assert.deepEqual(commandDiff.actions[commandDiff.actions.length - 1], {
     type: "log_event",
-    label: "command: /diff",
-    detail: "ok",
+    label: "Diff command",
+    detail: "ready",
   });
 
   const structuredDiffCommand = derive("command_result", {
@@ -298,7 +300,6 @@ export function runSocketMessageEffectsTests() {
   });
   assert.deepEqual(commandWorkspace.actions.map((item) => item.type), [
     "command_result",
-    "log_event",
   ]);
 
   const commandRecipes = derive("command_result", {
@@ -308,7 +309,6 @@ export function runSocketMessageEffectsTests() {
   });
   assert.deepEqual(commandRecipes.actions.map((item) => item.type), [
     "command_result",
-    "log_event",
   ]);
 
   const finished = derive("session_finished", {

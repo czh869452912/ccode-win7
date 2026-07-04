@@ -157,6 +157,9 @@
   local request-failure copy. When backend responses omit `detail` / `error`
   and status text, controllers fall through to app-shell chrome fallback
   notices instead of helper-level English strings.
+- Command-result run-output logging is now payload-driven: WebSocket effects
+  consume optional `log_label` / `log_detail` fields and no longer synthesize
+  visible `command: /...` or ok/error copy from slash command names.
 - The retired GUI sidebar tab sidecar has been removed: root `sidebarTab`,
   `set_sidebar`, the old `sidebar-tab--chats` test id, and unused workbench
   `activeSection` / `projectSection` state are no longer product paths.

@@ -735,6 +735,18 @@ def test_gui_command_result_session_switch_is_payload_driven():
     assert 'commandName === "resume"' not in text
 
 
+def test_gui_command_result_run_output_log_is_payload_driven():
+    text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"
+    )
+
+    assert "function commandLogPayload" in text
+    assert "log_label" in text
+    assert "logLabel" in text
+    assert "command: /" not in text
+    assert 'data?.success ? "ok" : "error"' not in text
+
+
 def test_gui_user_input_interactions_do_not_default_to_ask_user_tool():
     text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/interaction-model.js"

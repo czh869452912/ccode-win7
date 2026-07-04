@@ -261,6 +261,9 @@ GUI thread lifecycle operations (`rename`, `fork`, and `archive`) must flow thro
 Hosted slash-command dispatch, command result emission, and command-owned tool execution are owned by `HostedCommandService`, not by `InProcessAdapter` or Agent Core. Hosted permission/user-input approve/reject/reply/respond glue and pending ticket state are owned by `HostedInteractionService`. Hosted `/review` synthesis is owned by `ReviewCommandService` underneath the command service. Session tool-evidence extraction, review finding rules, git-diff evidence shaping, and markdown rendering must stay in hosted command services; the adapter only invokes those services and bridges resulting state/events.
 GUI session-load effects from command results must use structured payload
 fields such as `switch_session_id`, not slash command names such as `/resume`.
+GUI run-output log labels for command results must also come from explicit
+payload fields such as `log_label` / `log_detail`; renderer code must not
+synthesize visible log copy from slash command names or success booleans.
 GUI session bootstrap serializers and renderer session normalizers must not
 invent a missing workflow-state name such as `chat`; they should preserve the
 explicit snapshot value and render workflow details from the separate generic

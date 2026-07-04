@@ -44,6 +44,32 @@
 
 ## 3. 当前变更记录
 
+### DC-251
+
+- Date: 2026-07-04
+- Change Topic: GUI command-result run-output logs are payload-declared
+- Summary:
+  - Removed renderer-synthesized `command: /...` run-output labels from
+    `socket-message-effects.js`.
+  - Command-result WebSocket effects now write bottom-drawer log entries only
+    when the backend/hosted command payload declares `log_label` / `log_detail`.
+  - Added frontend and Python architecture guards so command-result logging
+    remains payload-driven instead of slash-command-name driven.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js`
+  - `src/embedagent/frontend/gui/webapp/test/socket-message-effects.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-250
 
 - Date: 2026-07-04

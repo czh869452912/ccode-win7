@@ -1150,6 +1150,7 @@ async function main() {
   assert.equal(socketMessageEffectsSource.includes('type === "permission_request"'), true);
   assert.equal(socketMessageEffectsSource.includes('type === "user_input_request"'), true);
   assert.equal(socketMessageEffectsSource.includes("command_result"), true);
+  assert.equal(socketMessageEffectsSource.includes("command: /"), false);
   assert.equal(socketMessageEffectsSource.includes('event_kind: "interaction' + '.created"'), false);
   assert.equal(socketMessageEffectsSource.includes("approval.requested"), true);
   assert.equal(socketMessageEffectsSource.includes("user-input.requested"), true);

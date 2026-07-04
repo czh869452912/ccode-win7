@@ -201,6 +201,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   Preview, terminal, and source-control API helpers no longer carry
   helper-local request-failure copy, so missing backend error text falls through
   to app-shell chrome fallbacks
+- GUI command-result run-output logging is now payload-declared: socket effects
+  write bottom-drawer log entries only when `log_label` / `log_detail` is
+  present, and no longer synthesize `command: /...` or ok/error labels from
+  slash command names and success booleans
 - GUI renderer runtime state has started moving onto focused T3-style modules:
   `session-runtime/thread-state.js` owns thread/session selection, session
   summaries, and history-integrity display state, while

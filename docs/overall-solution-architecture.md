@@ -338,6 +338,10 @@ Managed-session workflow refresh in the product adapter path goes through `Agent
   and permission/user-input response glue lives in `HostedInteractionService`;
   `InProcessAdapter` stays a host facade over those services instead of
   accumulating command/bootstrap/interaction business rules
+- GUI command-result follow-up behavior is payload-driven: session switching
+  uses `switch_session_id`, Diff opening uses structured diff payloads, and
+  run-output log copy uses optional `log_label` / `log_detail` fields rather
+  than renderer-derived slash-command names
 - provider request snapshots and workflow prompt append decisions live behind
   `TurnSnapshotService` and `PromptAssemblyService`; compact payload assembly
   lives in `CompactionJournal`, keeping `QueryEngine` focused on session

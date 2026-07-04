@@ -81,6 +81,22 @@ function normalizeInteractionPayload(payload = {}) {
   };
 }
 
+function commandLogPayload(payload = {}) {
+  const label = text(
+    payload?.log_label || payload?.logLabel || payload?.data?.log_label || payload?.data?.logLabel,
+  );
+  if (!label) return null;
+  return {
+    label,
+    detail: text(
+      payload?.log_detail ||
+        payload?.logDetail ||
+        payload?.data?.log_detail ||
+        payload?.data?.logDetail,
+    ),
+  };
+}
+
 function commandResultEffects(data, options) {
   const effects = emptyEffects();
   const commandName = data?.command_name || "";
@@ -121,7 +137,10 @@ function commandResultEffects(data, options) {
   if (invalidations.includes(CAPABILITIES_INVALIDATION)) {
     effects.loaderRequests.push({ name: LOADER_REQUESTS.LOAD_SESSION_CAPABILITIES });
   }
-  effects.actions.push(logAction(`command: /${commandName || "?"}`, data?.success ? "ok" : "error"));
+  const commandLog = commandLogPayload(data);
+  if (commandLog) {
+    effects.actions.push(logAction(commandLog.label, commandLog.detail));
+  }
   return effects;
 }
 

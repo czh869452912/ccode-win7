@@ -71,6 +71,10 @@ consume those descriptors; they must not become a second source of
 agent/workflow-specific display defaults. Frontend API helpers for preview,
 terminal, and source-control do not provide their own request-failure copy when
 the backend omits error details; controllers fall through to app-shell chrome.
+Command-result run-output log labels are likewise payload-driven through
+fields such as `log_label` / `log_detail`; the socket effects module must not
+derive visible bottom-drawer log copy from slash command names or success
+booleans.
 Session bootstrap projection and renderer session normalization preserve the
 backend snapshot's explicit `workflow_state`; they do not fill missing values
 with the legacy `chat` state name. GUI workflow display uses the separate
