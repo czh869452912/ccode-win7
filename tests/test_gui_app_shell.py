@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.frontend.gui.backend.app_host import GUIAppHost
 from embedagent.frontend.gui.backend.app_shell import AppShellService
+from embedagent.frontend.gui.backend.app_shell_spec import AppShellSpec
 from embedagent.frontend.gui.backend.workspace_registry import WorkspaceRegistry
 
 
@@ -67,7 +68,7 @@ class _FakeCore(object):
 
 
 class TestGuiAppShellService(unittest.TestCase):
-    def _service(self, registry, created, host_diagnostics=None):
+    def _service(self, registry, created, host_diagnostics=None, shell_spec=None):
         def factory(path):
             core = _FakeCore(path)
             created.append(core)
@@ -88,6 +89,7 @@ class TestGuiAppShellService(unittest.TestCase):
                     },
                     "renderer": {"renderer": "edgechromium"},
                 },
+                shell_spec=shell_spec,
             ),
             host,
             frontend,
@@ -165,6 +167,51 @@ class TestGuiAppShellService(unittest.TestCase):
         self.assertEqual(payload["diagnostics"]["active_core"]["present"], False)
         self.assertIs(host.current_core(), None)
         self.assertEqual(frontend.messages, [])
+
+    def test_bootstrap_uses_injected_app_shell_spec(self):
+        with tempfile.TemporaryDirectory() as root:
+            registry = WorkspaceRegistry(storage_path=os.path.join(root, "workspaces.json"))
+            service, _host, _frontend = self._service(
+                registry,
+                [],
+                shell_spec=AppShellSpec(
+                    app_commands=("app.settings",),
+                    workspace_commands=("workspace.open",),
+                    right_panel_surfaces=(
+                        {
+                            "id": "settings",
+                            "title": "Settings",
+                            "launcher_order": 10,
+                        },
+                    ),
+                    bottom_drawer_surfaces=(),
+                    keybindings=(
+                        {
+                            "key": "mod+,",
+                            "command_id": "app.settings",
+                            "when": "always",
+                        },
+                    ),
+                    source_control={"enabled": False},
+                    terminal={"enabled": False},
+                    thread_lifecycle={"rename": False, "fork": False, "archive": False},
+                ),
+            )
+
+            payload = service.bootstrap()
+
+        self.assertEqual(payload["capabilities"]["app_commands"], ["app.settings"])
+        self.assertEqual(payload["capabilities"]["workspace_commands"], ["workspace.open"])
+        self.assertEqual(
+            [item["id"] for item in payload["capabilities"]["surfaces"]["right_panel"]],
+            ["settings"],
+        )
+        self.assertEqual(payload["capabilities"]["surfaces"]["bottom_drawer"], [])
+        self.assertEqual(
+            payload["capabilities"]["keybindings"],
+            [{"key": "mod+,", "command_id": "app.settings", "when": "always"}],
+        )
+        self.assertEqual(payload["capabilities"]["source_control"], {"enabled": False})
 
     def test_open_workspace_returns_app_shell_payload_and_binds_core(self):
         with tempfile.TemporaryDirectory() as root:

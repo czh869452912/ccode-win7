@@ -3,6 +3,11 @@ from __future__ import annotations
 import sys
 from typing import Any, Dict, Optional
 
+from embedagent.frontend.gui.backend.app_shell_spec import (
+    AppShellSpec,
+    default_app_shell_spec,
+)
+
 APP_SHELL_VERSION = 1
 
 _SECRET_KEY_PARTS = (
@@ -47,10 +52,12 @@ class AppShellService(object):
         app_host: Any,
         host_diagnostics: Optional[Dict[str, Any]] = None,
         settings: Optional[Dict[str, Any]] = None,
+        shell_spec: Optional[AppShellSpec] = None,
     ) -> None:
         self._app_host = app_host
         self._host_diagnostics = host_diagnostics if host_diagnostics is not None else {}
         self._settings = dict(settings or {})
+        self._shell_spec = shell_spec or default_app_shell_spec()
 
     def bootstrap(self) -> Dict[str, Any]:
         return self._base_payload(self._app_host.bootstrap())
@@ -100,45 +107,7 @@ class AppShellService(object):
         }
 
     def _capabilities(self) -> Dict[str, Any]:
-        capabilities = {
-            "app_commands": [
-                "app.settings",
-                "app.diagnostics",
-                "app.source_control",
-                "app.reload",
-            ],
-            "workspace_commands": [
-                "workspace.open",
-                "workspace.refresh",
-                "workspace.remove_current",
-            ],
-            "surfaces": {
-                "right_panel": self._right_panel_surfaces(),
-                "bottom_drawer": self._bottom_drawer_surfaces(),
-            },
-            "keybindings": self._keybindings(),
-            "source_control": {
-                "enabled": True,
-                "vcs": ["git"],
-                "read_only": True,
-                "remote_providers": False,
-                "network": False,
-                "checkpoints": False,
-                "requires_active_workspace": True,
-            },
-            "terminal": {
-                "enabled": True,
-                "pty": False,
-                "resize": False,
-                "history_persistent": False,
-                "max_buffer_bytes": 131072,
-            },
-            "thread_lifecycle": {
-                "rename": True,
-                "fork": True,
-                "archive": True,
-            },
-        }
+        capabilities = self._shell_spec.capabilities()
         capabilities.update(self._active_agent_capabilities())
         return capabilities
 
@@ -159,207 +128,6 @@ class AppShellService(object):
             if key in source:
                 projected[key] = _safe_mapping(source.get(key))
         return projected
-
-    def _keybindings(self) -> list:
-        return [
-            {
-                "key": "mod+k",
-                "command_id": "palette.open",
-                "when": "not_palette",
-            },
-            {
-                "key": "escape",
-                "command_id": "palette.close",
-                "when": "palette",
-            },
-            {
-                "key": "escape",
-                "command_id": "message.stop",
-                "when": "running",
-            },
-            {
-                "key": "mod+b",
-                "command_id": "view.toggle_right_panel",
-                "when": "always",
-            },
-            {
-                "key": "mod+,",
-                "command_id": "app.settings",
-                "when": "always",
-            },
-            {
-                "key": "mod+j",
-                "command_id": "view.toggle_bottom_drawer",
-                "when": "always",
-            },
-            {
-                "key": "mod+1",
-                "command_id": "surface.files",
-                "when": "always",
-            },
-            {
-                "key": "mod+2",
-                "command_id": "surface.terminal",
-                "when": "always",
-            },
-            {
-                "key": "mod+3",
-                "command_id": "surface.diff",
-                "when": "always",
-            },
-            {
-                "key": "mod+4",
-                "command_id": "surface.preview",
-                "when": "always",
-            },
-            {
-                "key": "mod+enter",
-                "command_id": "message.send",
-                "when": "composer",
-            },
-        ]
-
-    def _right_panel_surfaces(self) -> list:
-        return [
-            {
-                "id": "preview",
-                "title": "Preview",
-                "icon": "B",
-                "description": "Open a local browser preview.",
-                "launcher_order": 10,
-                "command": True,
-                "slash": "/preview",
-                "visible_when": "always",
-                "default_resource_id": "",
-                "close_behavior": "closable",
-                "keywords": ["browser", "localhost", "web"],
-            },
-            {
-                "id": "files",
-                "title": "Files",
-                "icon": "F",
-                "description": "Browse workspace files.",
-                "launcher_order": 20,
-                "command": True,
-                "slash": "/workspace",
-                "visible_when": "always",
-                "default_resource_id": "",
-                "close_behavior": "closable",
-            },
-            {
-                "id": "terminal",
-                "title": "Terminal",
-                "icon": "T",
-                "description": "Use a shell in this workspace.",
-                "launcher_order": 30,
-                "command": True,
-                "slash": "",
-                "visible_when": "has_session",
-                "default_resource_id": "",
-                "close_behavior": "closable",
-            },
-            {
-                "id": "diff",
-                "title": "Diff",
-                "icon": "D",
-                "description": "Review local changes.",
-                "launcher_order": 40,
-                "command": True,
-                "slash": "/diff",
-                "visible_when": "always",
-                "default_resource_id": "current",
-                "close_behavior": "closable",
-                "keywords": ["git", "changes", "diff"],
-            },
-            {
-                "id": "plan",
-                "title": "Plan",
-                "icon": "P",
-                "description": "Inspect the current plan.",
-                "launcher_order": 50,
-                "command": True,
-                "slash": "/plan",
-                "visible_when": "always",
-                "default_resource_id": "",
-                "close_behavior": "closable",
-            },
-            {
-                "id": "source_control",
-                "title": "Source Control",
-                "icon": "S",
-                "description": "Review local Git status.",
-                "launcher_order": 60,
-                "command": True,
-                "slash": "",
-                "visible_when": "always",
-                "default_resource_id": "",
-                "close_behavior": "closable",
-                "read_only": True,
-                "offline": True,
-                "keywords": ["git", "changes", "local"],
-            },
-            {
-                "id": "settings",
-                "title": "Settings",
-                "icon": "G",
-                "description": "Adjust app-shell preferences.",
-                "launcher_order": 70,
-                "command": True,
-                "slash": "",
-                "visible_when": "always",
-                "default_resource_id": "",
-                "close_behavior": "closable",
-            },
-            {
-                "id": "diagnostics",
-                "title": "Diagnostics",
-                "icon": "I",
-                "description": "Inspect app-shell health.",
-                "launcher_order": 80,
-                "command": True,
-                "slash": "",
-                "visible_when": "always",
-                "default_resource_id": "",
-                "close_behavior": "closable",
-            },
-        ]
-
-    def _bottom_drawer_surfaces(self) -> list:
-        return [
-            {
-                "id": "run_output",
-                "title": "Run Output",
-                "icon": "R",
-                "description": "Show turn and tool output.",
-                "launcher_order": 10,
-                "command": True,
-                "command_label": "Toggle Run Output",
-                "visible_when": "always",
-                "close_behavior": "pinned",
-            },
-            {
-                "id": "terminal",
-                "title": "Terminal",
-                "icon": "T",
-                "description": "Use a shell in this workspace.",
-                "launcher_order": 20,
-                "command": True,
-                "command_label": "Open Terminal",
-                "visible_when": "has_session",
-                "close_behavior": "pinned",
-            },
-            {
-                "id": "logs",
-                "title": "Logs",
-                "icon": "L",
-                "description": "Inspect renderer and runtime logs.",
-                "launcher_order": 30,
-                "command": True,
-                "command_label": "Open Logs",
-                "visible_when": "always",
-                "close_behavior": "pinned",
-            },
-        ]
 
     def _settings_payload(self) -> Dict[str, Any]:
         payload = {

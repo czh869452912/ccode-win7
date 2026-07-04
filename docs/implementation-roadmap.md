@@ -140,7 +140,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   after app bootstrap or workspace switch against those app-shell capabilities;
   when an active core exists, app bootstrap also carries the core's safe
   agent-application registry and empty-state read model so the GUI can adapt
-  for generic or specialized agents before a session is opened
+  for generic or specialized agents before a session is opened. The default
+  descriptor set is now an injected backend `AppShellSpec`, so alternate hosts
+  can provide a smaller or specialized GUI shell without editing
+  `AppShellService`
 - retired Inspector sidecar loaders/state/actions for artifacts, review panes,
   permission-rule panes, runtime panes, workspace previews, and event logs have
   been removed; the GUI uses active surfaces, session activities, interaction

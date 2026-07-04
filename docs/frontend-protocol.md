@@ -85,6 +85,10 @@ bottom-drawer tabs, labels, icons, descriptions, and keybinding targets are
 filtered or merged from this bootstrap declaration. A
 missing `capabilities` object or missing capability descriptor arrays mean no
 app-shell entrypoints, not GUI defaults.
+The default GUI shell descriptor set lives in
+`src/embedagent/frontend/gui/backend/app_shell_spec.py` and is injected into
+`AppShellService`; alternate hosts may provide a smaller or specialized spec
+without modifying the service or Agent Core.
 When a workspace has an active core, app bootstrap may also include the active
 core's safe `agentApplication`, `agentApplications`, and `emptyState`
 projection. The GUI can use that projection for app-level empty-state copy and

@@ -765,16 +765,16 @@ def test_agent_application_capabilities_are_declared_by_backend_not_gui_defaults
 
 
 def test_gui_app_shell_surfaces_are_descriptor_records_not_string_lists():
-    app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
+    app_shell_spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     app_model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
     surfaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js")
 
     for token in (
-        '"id": "files"',
-        '"id": "terminal"',
+        '_surface(\n                "files"',
+        '_surface(\n                "terminal"',
         '"launcher_order"',
     ):
-        assert token in app_shell_text
+        assert token in app_shell_spec_text
     assert "normalizeSurfaceCapability" in app_model_text
     assert "surfaceCapabilityDefinitions" in surfaces_text
     assert 'value.map((item) => String(item || ""))' not in surfaces_text
@@ -800,15 +800,15 @@ def test_gui_surface_registry_does_not_export_fixed_surface_id_lists():
 
 
 def test_gui_keybindings_are_app_shell_declared_not_renderer_defaults():
-    app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
+    app_shell_spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     app_model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
     keybindings_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/keybindings.js"
     )
 
-    assert '"keybindings": self._keybindings()' in app_shell_text
-    assert '"command_id": "palette.open"' in app_shell_text
+    assert '"keybindings": _copy_records(self.keybindings)' in app_shell_spec_text
+    assert '_keybinding("mod+k", "palette.open", "not_palette")' in app_shell_spec_text
     assert "normalizeKeybinding" in app_model_text
     assert "state.app.capabilities.keybindings" in app_text
     assert "DEFAULT_KEYBINDINGS" not in app_text
@@ -825,6 +825,22 @@ def test_gui_app_shell_projects_active_agent_application_capabilities():
     assert '"agentApplications"' in app_shell_text
     assert "normalizeAgentApplicationDescriptor" in app_model_text
     assert "state.app.capabilities?.emptyState" in app_text
+
+
+def test_gui_app_shell_service_uses_injected_spec_not_inline_descriptor_lists():
+    app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
+    spec_path = ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py"
+
+    assert spec_path.exists()
+    assert "default_app_shell_spec" in app_shell_text
+    for token in (
+        "def _keybindings",
+        "def _right_panel_surfaces",
+        "def _bottom_drawer_surfaces",
+        '"app.settings"',
+        '"surface.files"',
+    ):
+        assert token not in app_shell_text
 
 
 def test_agent_core_has_no_harness_prompt_or_command_name_validation_coupling():
