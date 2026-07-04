@@ -108,19 +108,31 @@ class AppShellService(object):
 
     def _capabilities(self) -> Dict[str, Any]:
         capabilities = self._shell_spec.capabilities()
-        capabilities.update(self._active_agent_capabilities())
+        capabilities.update(self._agent_capabilities())
         return capabilities
 
-    def _active_agent_capabilities(self) -> Dict[str, Any]:
+    def _agent_capabilities(self) -> Dict[str, Any]:
         current_core = getattr(self._app_host, "current_core", None)
         core = current_core() if callable(current_core) else None
         get_session_capabilities = getattr(core, "get_session_capabilities", None)
-        if not callable(get_session_capabilities):
+        if callable(get_session_capabilities):
+            try:
+                source = get_session_capabilities("")
+            except (OSError, RuntimeError, TypeError, ValueError, AttributeError):
+                source = {}
+            projected = self._project_agent_capabilities(source)
+            if projected:
+                return projected
+        host_agent_capabilities = getattr(self._app_host, "agent_capabilities", None)
+        if not callable(host_agent_capabilities):
             return {}
         try:
-            source = get_session_capabilities("")
+            source = host_agent_capabilities()
         except (OSError, RuntimeError, TypeError, ValueError, AttributeError):
             return {}
+        return self._project_agent_capabilities(source)
+
+    def _project_agent_capabilities(self, source: Any) -> Dict[str, Any]:
         if not isinstance(source, dict):
             return {}
         projected = {}

@@ -827,6 +827,22 @@ def test_gui_app_shell_projects_active_agent_application_capabilities():
     assert "state.app.capabilities?.emptyState" in app_text
 
 
+def test_gui_app_shell_projects_selected_agent_application_before_workspace():
+    app_host_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_host.py")
+    app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
+    launcher_text = _read(ROOT / "src/embedagent/frontend/gui/launcher.py")
+    adapter_text = _read(ROOT / "src/embedagent_host/inprocess_adapter.py")
+    registry_text = _read(ROOT / "src/embedagent/agent_applications.py")
+
+    assert "def agent_application_capability_payload" in registry_text
+    assert "def agent_capabilities" in app_host_text
+    assert "host_agent_capabilities" in app_shell_text
+    assert "_project_agent_capabilities" in app_shell_text
+    assert "agent_application_capability_payload" in launcher_text
+    assert "agent_application_capability_payload" in adapter_text
+    assert "available_agent_application_manifests" not in adapter_text
+
+
 def test_gui_app_shell_service_uses_injected_spec_not_inline_descriptor_lists():
     app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
     spec_path = ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py"

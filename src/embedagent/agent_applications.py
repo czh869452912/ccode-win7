@@ -74,6 +74,7 @@ class AgentApplicationRecord:
     source_type: str = "builtin"
     source_id: str = ""
     default: bool = False
+    empty_state: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_manifest(self) -> AgentApplicationManifest:
@@ -100,6 +101,12 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
         source_type="builtin",
         source_id="embedagent.workflow_packages.c_cpp",
         default=True,
+        empty_state={
+            "scenario_label": "C/C++ workspace",
+            "primary": "Open a C/C++ project",
+            "secondary": "The selected agent will load its Clang-centered workflow after workspace activation.",
+            "path_placeholder": "Path to C/C++ project",
+        },
     ),
     AgentApplicationRecord(
         application_id=GENERIC_AGENT_APPLICATION_ID,
@@ -108,6 +115,12 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
         profile_kind="generic",
         source_type="builtin",
         source_id="embedagent.agent_profiles",
+        empty_state={
+            "scenario_label": "Generic workspace",
+            "primary": "Open a local project",
+            "secondary": "The selected agent will use generic project modes after workspace activation.",
+            "path_placeholder": "Path to project",
+        },
         metadata={"domain": "generic"},
     ),
     AgentApplicationRecord(
@@ -117,6 +130,12 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
         profile_kind="python",
         source_type="builtin",
         source_id="embedagent.agent_profiles",
+        empty_state={
+            "scenario_label": "Python workspace",
+            "primary": "Open a Python project",
+            "secondary": "The selected agent will use Python project modes after workspace activation.",
+            "path_placeholder": "Path to Python project",
+        },
         metadata={"domain": "python"},
     ),
     AgentApplicationRecord(
@@ -126,6 +145,12 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
         profile_kind="html",
         source_type="builtin",
         source_id="embedagent.agent_profiles",
+        empty_state={
+            "scenario_label": "HTML/Web workspace",
+            "primary": "Open an HTML/Web project",
+            "secondary": "The selected agent will use frontend project modes after workspace activation.",
+            "path_placeholder": "Path to HTML/Web project",
+        },
         metadata={"domain": "html"},
     ),
 )
@@ -179,6 +204,39 @@ def html_agent_application_manifest() -> AgentApplicationManifest:
 
 def available_agent_application_manifests() -> List[AgentApplicationManifest]:
     return [record.to_manifest() for record in BUILTIN_AGENT_APPLICATION_RECORDS]
+
+
+def _copy_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _copy_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_copy_value(item) for item in value]
+    return value
+
+
+def _application_descriptor_payload(
+    record: AgentApplicationRecord,
+    active: bool = False,
+) -> Dict[str, Any]:
+    payload = record.to_manifest().to_dict()
+    payload["active"] = bool(active)
+    return payload
+
+
+def agent_application_capability_payload(application_id: str = "") -> Dict[str, Any]:
+    selected = _record_by_id(application_id)
+    selected_id = selected.application_id
+    return {
+        "agentApplication": _application_descriptor_payload(selected, active=True),
+        "agentApplications": [
+            _application_descriptor_payload(
+                record,
+                active=record.application_id == selected_id,
+            )
+            for record in BUILTIN_AGENT_APPLICATION_RECORDS
+        ],
+        "emptyState": _copy_value(selected.empty_state),
+    }
 
 
 def build_agent_application(application_id: str, tools: Any) -> AgentApplication:

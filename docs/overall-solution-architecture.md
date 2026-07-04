@@ -60,10 +60,13 @@ The default GUI app-shell descriptor set is an injected `AppShellSpec` from
 `src/embedagent/frontend/gui/backend/app_shell_spec.py`; `AppShellService`
 composes that spec with safe active-core projections instead of owning inline
 surface, command, or keybinding lists.
-When a workspace is active, app bootstrap also projects the active Core's safe
-agent application registry and empty-state read model into app-shell
-capabilities; the GUI can adapt labels/copy for generic or specialized agents
-without making app bootstrap a session-history source.
+App bootstrap also projects a safe selected-agent application registry and
+empty-state read model into app-shell capabilities. Before workspace activation
+that projection comes from the backend-selected application registry declared
+by the app host or launcher; after workspace activation the active Core's
+capability projection is authoritative. The GUI can adapt labels/copy for
+generic or specialized agents without creating a core or making app bootstrap a
+session-history source.
 Retired Inspector sidecar state for artifacts, review panes, permission-rule
 panes, runtime panes, workspace previews, and event logs has been removed; those
 concerns now appear only through active surfaces, session activities,
@@ -269,7 +272,7 @@ Explicit user mode-switch requests are routed by `QueryEngine` before provider c
 
 `TurnExperienceReducer` is the replayable turn-experience read model. It reduces safe `tool_result` and `loop_transition` transcript events into completed work, unverified changes, validation failures, blockers, last failure, and suggested next steps. It feeds `ManagedSession.turn_experience`, protocol snapshots, session snapshots, `session_finished` payloads, CLI diagnostics, the TUI inspector, and GUI T3 system notices. It remains display/replay state and must not drive loop continuation, validation policy, active-tool selection, permission decisions, restore rules, extension loading, or session-history truth.
 
-Default bundled workflow assembly is outside `QueryEngine` through `AgentApplication`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the selected application extension manager before constructing session engines. The default C/C++ product application lives in `src/embedagent/workflow_packages/c_cpp/application.py`, while `InProcessAdapter` depends only on the application boundary, selected application id, and injected mode/profile policies. Hosted capability payloads expose the selected application as `agentApplication` and available applications from the same selected registry as `agentApplications`; an injected external application must not leak the bundled C/C++ application into its GUI capability list. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Loaded project extensions receive `api.ExtensionCapability` and must explicitly declare every active hook from `extension_capabilities()`. Public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
+Default bundled workflow assembly is outside `QueryEngine` through `AgentApplication`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the selected application extension manager before constructing session engines. The default C/C++ product application lives in `src/embedagent/workflow_packages/c_cpp/application.py`, while `InProcessAdapter` depends only on the application boundary, selected application id, and injected mode/profile policies. Hosted capability payloads expose the selected application as `agentApplication` and available applications from the same selected registry as `agentApplications`; built-in agent applications share the central `agent_application_capability_payload(...)` projection used by both hosted session capabilities and no-workspace GUI app bootstrap. An injected external application must not leak the bundled C/C++ application into its GUI capability list. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Loaded project extensions receive `api.ExtensionCapability` and must explicitly declare every active hook from `extension_capabilities()`. Public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
 
 Optional enterprise/intranet integrations are hosted capabilities, not Agent Core responsibilities. Intranet Git adapters, custom service providers, model gateways, organization-local catalogs, and telemetry sinks must be explicitly configured, trusted, disableable, and failure-tolerant. They attach through provider, extension, workflow-package, or passive sink boundaries with source metadata and normal permission checks; they must not make startup, default C/C++ workflows, restore, resource reload, or session history depend on network availability.
 
@@ -570,7 +573,9 @@ If a frontend change introduces older terms back into the product shell, that is
 GUI no-workspace copy, mode catalogs, command lists, tool presentation,
 workflow package/application identity, and runtime workflow summary rows must
 come from backend capability/snapshot payloads rather than renderer-side C/C++
-defaults. Tool labels, icon keys, renderer keys, permission categories, and
+defaults. The no-workspace selected-agent display projection comes from the app
+host/launcher and is superseded by active-core capabilities after workspace
+activation. Tool labels, icon keys, renderer keys, permission categories, and
 preview arguments come from the frontend-visible tool catalog, with only a
 generic unknown-tool fallback to the tool id. Runtime workflow rows are declared
 by the selected workflow

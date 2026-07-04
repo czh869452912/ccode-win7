@@ -89,10 +89,13 @@ The default GUI shell descriptor set lives in
 `src/embedagent/frontend/gui/backend/app_shell_spec.py` and is injected into
 `AppShellService`; alternate hosts may provide a smaller or specialized spec
 without modifying the service or Agent Core.
-When a workspace has an active core, app bootstrap may also include the active
-core's safe `agentApplication`, `agentApplications`, and `emptyState`
-projection. The GUI can use that projection for app-level empty-state copy and
-agent-aware shell display without reading session history.
+App bootstrap may also include safe `agentApplication`, `agentApplications`,
+and `emptyState` projections. Before any workspace is active, those values come
+from the backend-selected agent application registry declared by the app host or
+launcher; once a workspace has an active core, the active core's safe
+capability projection is authoritative. The GUI can use that projection for
+app-level empty-state copy and agent-aware shell display without creating a core
+or reading session history.
 Workbench-local persisted surface state is re-sanitized after app bootstrap or
 workspace switch against the same declaration; stale local `preview`,
 `source_control`, `terminal`, or other surfaces must not survive when the
@@ -336,6 +339,12 @@ Key routes include:
 reports app-shell state only. Session activation remains exclusively
 `GET /api/sessions/{session_id}/bootstrap`, whose payload contains session
 snapshot, structured history, plan, and permission context.
+When the launcher or host declares a selected agent application,
+`GET /api/app/bootstrap` may expose that application's safe
+`agentApplication`, `agentApplications`, and `emptyState` descriptors even when
+`has_active_workspace` is false. This is app-shell display metadata only; it
+does not create a session/core, activate workflow tools, or replace
+`GET /api/sessions/{session_id}/bootstrap`.
 
 Frontend task display comes from `snapshot.task_items` in session snapshots and
 bootstrap payloads. There is no split task-list refetch endpoint or

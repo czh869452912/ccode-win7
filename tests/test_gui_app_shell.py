@@ -6,6 +6,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent.agent_applications import agent_application_capability_payload
 from embedagent.frontend.gui.backend.app_host import GUIAppHost
 from embedagent.frontend.gui.backend.app_shell import AppShellService
 from embedagent.frontend.gui.backend.app_shell_spec import AppShellSpec
@@ -68,13 +69,24 @@ class _FakeCore(object):
 
 
 class TestGuiAppShellService(unittest.TestCase):
-    def _service(self, registry, created, host_diagnostics=None, shell_spec=None):
+    def _service(
+        self,
+        registry,
+        created,
+        host_diagnostics=None,
+        shell_spec=None,
+        agent_capabilities=None,
+    ):
         def factory(path):
             core = _FakeCore(path)
             created.append(core)
             return core
 
-        host = GUIAppHost(core_factory=factory, registry=registry)
+        host = GUIAppHost(
+            core_factory=factory,
+            registry=registry,
+            agent_capabilities=agent_capabilities,
+        )
         frontend = _FakeFrontend()
         host.bind_frontend(frontend)
         return (
@@ -167,6 +179,35 @@ class TestGuiAppShellService(unittest.TestCase):
         self.assertEqual(payload["diagnostics"]["active_core"]["present"], False)
         self.assertIs(host.current_core(), None)
         self.assertEqual(frontend.messages, [])
+
+    def test_bootstrap_without_workspace_projects_selected_agent_application(self):
+        with tempfile.TemporaryDirectory() as root:
+            registry = WorkspaceRegistry(storage_path=os.path.join(root, "workspaces.json"))
+            created = []
+            service, host, frontend = self._service(
+                registry,
+                created,
+                agent_capabilities=agent_application_capability_payload("embedagent.python"),
+            )
+
+            payload = service.bootstrap()
+
+        self.assertEqual(created, [])
+        self.assertIs(host.current_core(), None)
+        self.assertEqual(frontend.messages, [])
+        self.assertEqual(payload["has_active_workspace"], False)
+        self.assertEqual(
+            payload["capabilities"]["agentApplication"]["applicationId"],
+            "embedagent.python",
+        )
+        self.assertEqual(
+            payload["capabilities"]["agentApplications"][0]["applicationId"],
+            "embedagent.default_c_cpp",
+        )
+        self.assertEqual(
+            payload["capabilities"]["emptyState"]["scenario_label"],
+            "Python workspace",
+        )
 
     def test_bootstrap_uses_injected_app_shell_spec(self):
         with tempfile.TemporaryDirectory() as root:

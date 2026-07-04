@@ -9,6 +9,14 @@ from embedagent.protocol import CoreInterface
 from .workspace_registry import WorkspaceRegistry, canonical_workspace_path
 
 
+def _copy_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _copy_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_copy_value(item) for item in value]
+    return value
+
+
 class NoActiveWorkspaceError(Exception):
     pass
 
@@ -18,6 +26,7 @@ class GUIAppHost(object):
         self,
         core_factory: Callable[[str], CoreInterface],
         registry: Optional[WorkspaceRegistry] = None,
+        agent_capabilities: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._core_factory = core_factory
         self._registry = registry or WorkspaceRegistry()
@@ -25,6 +34,7 @@ class GUIAppHost(object):
         self._frontend = None
         self._active_core = None  # type: Optional[CoreInterface]
         self._active_workspace = None  # type: Optional[Dict[str, Any]]
+        self._agent_capabilities = _copy_value(agent_capabilities or {})
         self._last_error = ""
 
     def bind_frontend(self, frontend: Any) -> None:
@@ -36,6 +46,10 @@ class GUIAppHost(object):
     def current_core(self) -> Optional[CoreInterface]:
         with self._lock:
             return self._active_core
+
+    def agent_capabilities(self) -> Dict[str, Any]:
+        with self._lock:
+            return _copy_value(self._agent_capabilities)
 
     def require_core(self) -> CoreInterface:
         core = self.current_core()
@@ -134,6 +148,9 @@ class SingleWorkspaceAppHost(object):
 
     def current_core(self) -> Optional[CoreInterface]:
         return self._core
+
+    def agent_capabilities(self) -> Dict[str, Any]:
+        return {}
 
     def require_core(self) -> CoreInterface:
         return self._core

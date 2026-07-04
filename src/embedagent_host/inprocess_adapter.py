@@ -15,7 +15,7 @@ from embedagent_core.capabilities import (
     workflow_package_capability_descriptors,
 )
 from embedagent.agent_applications import (
-    available_agent_application_manifests,
+    agent_application_capability_payload,
     build_agent_application,
 )
 from embedagent_core.compaction_state import CompactionStateReducer
@@ -541,17 +541,22 @@ class InProcessAdapter(object):
         self._ensure_extension_tools_registered(reason="capabilities")
         payload = app_capability_payload(self.capability_snapshot())
         current_application = self._agent_application_capability_payload(active=True)
+        if str(current_application.get("sourceType") or "") == "builtin":
+            try:
+                payload.update(
+                    agent_application_capability_payload(
+                        str(current_application.get("applicationId") or "")
+                    )
+                )
+                return payload
+            except ValueError:
+                pass
         if current_application:
             payload["agentApplication"] = current_application
         registry_payloads = []
         current_id = (
             str(current_application.get("applicationId") or "") if current_application else ""
         )
-        for manifest in available_agent_application_manifests():
-            item = manifest.to_dict()
-            item_id = str(item.get("applicationId") or "")
-            item["active"] = bool(item_id and item_id == current_id)
-            registry_payloads.append(item)
         registry_ids = set(str(item.get("applicationId") or "") for item in registry_payloads)
         if current_id in registry_ids:
             available = registry_payloads

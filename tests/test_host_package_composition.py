@@ -72,6 +72,7 @@ class HostPackageCompositionTests(unittest.TestCase):
 
     def test_agent_application_registry_exposes_builtin_non_c_applications(self):
         from embedagent.agent_applications import (
+            agent_application_capability_payload,
             available_agent_application_manifests,
             build_agent_application,
         )
@@ -97,6 +98,16 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertEqual(html_app.manifest.workflow_package_ids, ())
         self.assertEqual(python_app.extension_manager.package_manifests(), [])
         self.assertEqual(html_app.extension_manager.package_manifests(), [])
+
+        payload = agent_application_capability_payload("embedagent.python")
+        available = dict((item["applicationId"], item) for item in payload["agentApplications"])
+        self.assertEqual(payload["agentApplication"]["applicationId"], "embedagent.python")
+        self.assertEqual(payload["agentApplication"]["profileId"], "embedagent.python")
+        self.assertTrue(payload["agentApplication"]["active"])
+        self.assertTrue(available["embedagent.python"]["active"])
+        self.assertFalse(available["embedagent.default_c_cpp"]["active"])
+        self.assertEqual(payload["emptyState"]["scenario_label"], "Python workspace")
+        self.assertEqual(payload["emptyState"]["primary"], "Open a Python project")
 
     def test_agent_application_registry_is_record_driven_not_builder_tuple(self):
         module_path = os.path.join(
