@@ -55,6 +55,16 @@ const commandPalette = {
     { id: "view", title: "Layout", description: "Change workbench layout", order: 40 },
     { id: "workspace", title: "Projects", description: "Open local projects", order: 50 },
   ],
+  labels: {
+    commandsSection: "Actions",
+    sessionsSection: "Threads",
+    workspacesSection: "Projects",
+    currentLabel: "Selected",
+    missingLabel: "Unavailable",
+    workspaceMeta: "Project",
+    workspaceFallback: "Project",
+    sessionFallbackPrefix: "Thread",
+  },
 };
 
 export function runCommandPaletteModelTests() {
@@ -74,7 +84,11 @@ export function runCommandPaletteModelTests() {
     query: "",
   });
 
-  assert.deepEqual(root.map((group) => group.id), ["commands", "sessions", "workspaces"]);
+  assert.deepEqual(root.map((group) => [group.id, group.title]), [
+    ["commands", "Actions"],
+    ["sessions", "Threads"],
+    ["workspaces", "Projects"],
+  ]);
 
   const commandItems = root.find((group) => group.id === "commands").items;
   assert.equal(commandItems.some((item) => item.type === "submenu" && item.id === "submenu:surface"), true);
@@ -99,18 +113,19 @@ export function runCommandPaletteModelTests() {
   assert.equal(sessionItems[0].id, "session:sess-active");
   assert.equal(sessionItems[0].title, "Fix parser recovery");
   assert.equal(sessionItems[0].description, "debug");
-  assert.equal(sessionItems[0].trailing, "Current");
+  assert.equal(sessionItems[0].trailing, "Selected");
   assert.equal(sessionItems[1].title, "Verify diff rendering");
   assert.equal(sessionItems[1].description, "");
 
   const workspaceItems = root.find((group) => group.id === "workspaces").items;
   assert.equal(workspaceItems.length, 2);
   assert.equal(workspaceItems[0].id, "workspace:ws-active");
-  assert.equal(workspaceItems[0].trailing, "Current");
+  assert.equal(workspaceItems[0].trailing, "Selected");
   assert.equal(workspaceItems[0].disabled, false);
   assert.equal(workspaceItems[1].title, "workspace");
   assert.equal(workspaceItems[1].description, "D:/missing/workspace");
-  assert.equal(workspaceItems[1].trailing, "Missing");
+  assert.equal(workspaceItems[1].meta, "Project");
+  assert.equal(workspaceItems[1].trailing, "Unavailable");
   assert.equal(workspaceItems[1].disabled, true);
 
   const diffRoot = buildCommandPaletteRootGroups({

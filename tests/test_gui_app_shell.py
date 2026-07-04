@@ -162,6 +162,14 @@ class TestGuiAppShellService(unittest.TestCase):
             payload["capabilities"]["command_palette"]["groups"][0]["title"],
             "App",
         )
+        self.assertEqual(
+            payload["capabilities"]["command_palette"]["labels"]["root_title"],
+            "Command palette",
+        )
+        self.assertEqual(
+            payload["capabilities"]["command_palette"]["labels"]["current_label"],
+            "Current",
+        )
         thread_actions = payload["capabilities"]["thread_lifecycle"]["actions"]
         self.assertEqual(thread_actions[0]["prompt_title"], "Rename thread")
         self.assertEqual(thread_actions[0]["empty_body"], "Thread title cannot be empty.")
@@ -262,6 +270,10 @@ class TestGuiAppShellService(unittest.TestCase):
                             "group": "workspace",
                         },
                     ),
+                    command_palette_labels={
+                        "root_title": "Launcher",
+                        "commands_section": "Actions",
+                    },
                     right_panel_surfaces=(
                         {
                             "id": "settings",
@@ -313,7 +325,16 @@ class TestGuiAppShellService(unittest.TestCase):
             [{"key": "mod+,", "command_id": "app.settings", "when": "always"}],
         )
         self.assertEqual(payload["capabilities"]["source_control"], {"enabled": False})
-        self.assertEqual(payload["capabilities"]["command_palette"], {"groups": []})
+        self.assertEqual(
+            payload["capabilities"]["command_palette"],
+            {
+                "groups": [],
+                "labels": {
+                    "root_title": "Launcher",
+                    "commands_section": "Actions",
+                },
+            },
+        )
         self.assertEqual(payload["capabilities"]["thread_lifecycle"], {"actions": []})
         self.assertEqual(
             payload["capabilities"]["home"],

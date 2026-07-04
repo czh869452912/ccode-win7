@@ -21,6 +21,7 @@ class AppShellSpec(object):
     app_commands: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     workspace_commands: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     command_palette_groups: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
+    command_palette_labels: Dict[str, Any] = field(default_factory=dict)
     right_panel_surfaces: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     bottom_drawer_surfaces: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     keybindings: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
@@ -35,6 +36,7 @@ class AppShellSpec(object):
             "workspace_commands": _copy_records(self.workspace_commands),
             "command_palette": {
                 "groups": _copy_records(self.command_palette_groups),
+                "labels": _copy_value(self.command_palette_labels),
             },
             "surfaces": {
                 "right_panel": _copy_records(self.right_panel_surfaces),
@@ -174,6 +176,23 @@ def default_app_shell_spec() -> AppShellSpec:
             _palette_group("workflow", "Workflow", "Run workflow views", 70),
             _palette_group("view", "View", "Toggle workbench layout", 80),
         ),
+        command_palette_labels={
+            "root_title": "Command palette",
+            "submenu_title": "Command group",
+            "search_label": "Command search",
+            "root_placeholder": "Search commands, sessions, workspaces",
+            "submenu_placeholder": "Search this group",
+            "root_empty": "No matching commands, sessions, or workspaces",
+            "submenu_empty": "No matching commands in this group",
+            "commands_section": "Commands",
+            "sessions_section": "Sessions",
+            "workspaces_section": "Workspaces",
+            "current_label": "Current",
+            "missing_label": "Missing",
+            "workspace_meta": "Workspace",
+            "workspace_fallback": "Workspace",
+            "session_fallback_prefix": "Session",
+        },
         right_panel_surfaces=(
             _surface(
                 "preview",

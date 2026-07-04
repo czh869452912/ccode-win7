@@ -82,7 +82,10 @@ descriptors carry `id`, `group`, `label`, ordering metadata, and may also carry
 safe dispatch metadata. Command-palette group descriptors carry `id`, `title`,
 `description`, and ordering metadata, and may also carry `leading`, `meta`, and
 `keywords`; renderer command grouping must consume those descriptors instead of
-owning a fixed group title/description table. Surface descriptors carry `id`,
+owning a fixed group title/description table. `capabilities.command_palette`
+also carries renderer-facing `labels` for the palette title, search label,
+placeholders, empty states, root section titles, current/missing badges,
+workspace meta text, and session/workspace fallback labels. Surface descriptors carry `id`,
 `title`, and ordering metadata, and may also carry `icon`, `description`, `command`,
 `command_label`, `slash`, `visible_when`, `read_only`, `offline`, and
 `keywords`. Keybinding descriptors carry `key`, `command_id`, and `when`. The

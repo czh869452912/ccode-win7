@@ -168,7 +168,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   lifecycle controller
 - GUI command-palette command group metadata now comes from app-shell
   `command_palette.groups` descriptors; the renderer no longer owns a fixed
-  `COMMAND_GROUPS`, group title, or group description table
+  `COMMAND_GROUPS`, group title, group description table, palette placeholder,
+  empty-state, current/missing badge, or root-section copy
 - GUI home/sidebar workspace and thread copy now comes from app-shell
   `home.workspace` / `home.threads` descriptors plus the selected agent
   `emptyState`; renderer components no longer own the default no-workspace,

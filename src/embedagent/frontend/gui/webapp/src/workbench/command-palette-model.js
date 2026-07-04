@@ -68,6 +68,22 @@ function paletteGroupDescriptors(commandPalette = {}) {
   return result;
 }
 
+function paletteLabels(commandPalette = {}) {
+  const labels = commandPalette?.labels && typeof commandPalette.labels === "object"
+    ? commandPalette.labels
+    : {};
+  return {
+    commandsSection: asText(labels.commandsSection),
+    sessionsSection: asText(labels.sessionsSection),
+    workspacesSection: asText(labels.workspacesSection),
+    currentLabel: asText(labels.currentLabel),
+    missingLabel: asText(labels.missingLabel),
+    workspaceMeta: asText(labels.workspaceMeta),
+    workspaceFallback: asText(labels.workspaceFallback),
+    sessionFallbackPrefix: asText(labels.sessionFallbackPrefix),
+  };
+}
+
 function groupDescriptor(groupId, descriptors) {
   const id = asText(groupId);
   return descriptors[id] || {
@@ -182,18 +198,20 @@ function submenuItem(groupId, items, groupDescriptors) {
   };
 }
 
-function sessionTitle(session) {
+function sessionTitle(session, labels = {}) {
   const sessionId = asText(session && (session.session_id || session.id));
+  const fallbackPrefix = asText(labels.sessionFallbackPrefix);
+  const fallback = fallbackPrefix ? `${fallbackPrefix} ${sessionId.slice(0, 8)}` : sessionId.slice(0, 8);
   return (
     asText(session && session.thread && session.thread.title)
     || asText(session && session.title)
     || asText(session && session.user_goal)
     || asText(session && session.summary_text)
-    || `Session ${sessionId.slice(0, 8)}`
+    || fallback
   );
 }
 
-function sessionItems(sessions = [], currentSessionId = "") {
+function sessionItems(sessions = [], currentSessionId = "", labels = {}) {
   return (Array.isArray(sessions) ? sessions : [])
     .filter((session) => session && asText(session.session_id || session.id))
     .slice(0, RECENT_SESSION_LIMIT)
@@ -205,10 +223,10 @@ function sessionItems(sessions = [], currentSessionId = "") {
         id: `session:${sessionId}`,
         type: "session",
         sessionId,
-        title: sessionTitle(session),
+        title: sessionTitle(session, labels),
         description: mode,
         meta: updated,
-        trailing: sessionId === currentSessionId ? "Current" : "",
+        trailing: sessionId === currentSessionId ? labels.currentLabel : "",
         leading: "T",
         disabled: false,
         searchTerms: [sessionId, mode, updated],
@@ -216,11 +234,11 @@ function sessionItems(sessions = [], currentSessionId = "") {
     });
 }
 
-function workspaceTitle(workspace) {
-  return asText(workspace && workspace.label) || basename(workspace && workspace.path) || "Workspace";
+function workspaceTitle(workspace, labels = {}) {
+  return asText(workspace && workspace.label) || basename(workspace && workspace.path) || labels.workspaceFallback;
 }
 
-function workspaceItems(workspaces = [], activeWorkspaceId = "") {
+function workspaceItems(workspaces = [], activeWorkspaceId = "", labels = {}) {
   return (Array.isArray(workspaces) ? workspaces : [])
     .filter((workspace) => workspace && asText(workspace.id))
     .map((workspace) => {
@@ -230,10 +248,10 @@ function workspaceItems(workspaces = [], activeWorkspaceId = "") {
         id: `workspace:${workspaceId}`,
         type: "workspace",
         workspaceId,
-        title: workspaceTitle(workspace),
+        title: workspaceTitle(workspace, labels),
         description: asText(workspace.path),
-        meta: "Workspace",
-        trailing: workspaceId === activeWorkspaceId ? "Current" : exists ? "" : "Missing",
+        meta: labels.workspaceMeta,
+        trailing: workspaceId === activeWorkspaceId ? labels.currentLabel : exists ? "" : labels.missingLabel,
         leading: "W",
         disabled: !exists,
         searchTerms: [workspaceId, workspace.path, workspace.label],
@@ -257,6 +275,7 @@ export function buildCommandPaletteRootGroups({
 } = {}) {
   const shortcutMap = shortcutByCommandId(keybindings);
   const groupDescriptors = paletteGroupDescriptors(commandPalette || {});
+  const labels = paletteLabels(commandPalette || {});
   const commandGroups = groupCommandItems(commands, shortcutMap, groupDescriptors);
   const commandGroupIds = sortedCommandGroupIds(commandGroups, groupDescriptors);
   const submenuItems = commandGroupIds
@@ -265,9 +284,9 @@ export function buildCommandPaletteRootGroups({
     .reduce((items, groupId) => items.concat(commandGroups[groupId]), []);
   const commandRootItems = filterAndRank(submenuItems.concat(allCommandItems), query).slice(0, ROOT_COMMAND_LIMIT);
   const groups = [
-    nonEmptyGroup("commands", "Commands", commandRootItems),
-    nonEmptyGroup("sessions", "Sessions", filterAndRank(sessionItems(sessions, currentSessionId), query)),
-    nonEmptyGroup("workspaces", "Workspaces", filterAndRank(workspaceItems(workspaces, activeWorkspaceId), query)),
+    nonEmptyGroup("commands", labels.commandsSection, commandRootItems),
+    nonEmptyGroup("sessions", labels.sessionsSection, filterAndRank(sessionItems(sessions, currentSessionId, labels), query)),
+    nonEmptyGroup("workspaces", labels.workspacesSection, filterAndRank(workspaceItems(workspaces, activeWorkspaceId, labels), query)),
   ];
   return groups.filter(Boolean);
 }

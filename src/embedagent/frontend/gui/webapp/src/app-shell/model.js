@@ -271,8 +271,28 @@ function normalizePaletteGroups(items) {
 function normalizeCommandPalette(input = {}) {
   const value = input.command_palette || input.commandPalette || {};
   const palette = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const labels = palette.labels && typeof palette.labels === "object" && !Array.isArray(palette.labels)
+    ? palette.labels
+    : {};
   return {
     groups: normalizePaletteGroups(palette.groups || palette.command_groups || palette.commandGroups),
+    labels: {
+      rootTitle: String(labels.root_title || labels.rootTitle || ""),
+      submenuTitle: String(labels.submenu_title || labels.submenuTitle || ""),
+      searchLabel: String(labels.search_label || labels.searchLabel || ""),
+      rootPlaceholder: String(labels.root_placeholder || labels.rootPlaceholder || ""),
+      submenuPlaceholder: String(labels.submenu_placeholder || labels.submenuPlaceholder || ""),
+      rootEmpty: String(labels.root_empty || labels.rootEmpty || ""),
+      submenuEmpty: String(labels.submenu_empty || labels.submenuEmpty || ""),
+      commandsSection: String(labels.commands_section || labels.commandsSection || ""),
+      sessionsSection: String(labels.sessions_section || labels.sessionsSection || ""),
+      workspacesSection: String(labels.workspaces_section || labels.workspacesSection || ""),
+      currentLabel: String(labels.current_label || labels.currentLabel || ""),
+      missingLabel: String(labels.missing_label || labels.missingLabel || ""),
+      workspaceMeta: String(labels.workspace_meta || labels.workspaceMeta || ""),
+      workspaceFallback: String(labels.workspace_fallback || labels.workspaceFallback || ""),
+      sessionFallbackPrefix: String(labels.session_fallback_prefix || labels.sessionFallbackPrefix || ""),
+    },
   };
 }
 

@@ -911,16 +911,28 @@ def test_gui_command_palette_groups_are_app_shell_descriptors():
     palette_model_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js"
     )
+    palette_component_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/CommandPalette.jsx"
+    )
     commands_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js")
 
     assert "command_palette_groups" in spec_text
+    assert "command_palette_labels" in spec_text
     assert '"command_palette": {' in spec_text
     assert "def _palette_group(" in spec_text
     assert "normalizePaletteGroupDescriptor" in model_text
+    assert "rootPlaceholder" in model_text
     assert "commandPalette: normalizeCommandPalette" in model_text
     assert "GROUP_TITLES" not in palette_model_text
     assert "GROUP_DESCRIPTIONS" not in palette_model_text
     assert "paletteGroupDescriptors" in palette_model_text
+    assert "paletteLabels" in palette_model_text
+    assert '"Command palette"' not in palette_component_text
+    assert '"Search commands, sessions, workspaces"' not in palette_component_text
+    assert '"No matching commands, sessions, or workspaces"' not in palette_component_text
+    assert '"Current"' not in palette_model_text
+    assert '"Missing"' not in palette_model_text
+    assert '"Workspace"' not in palette_model_text
     assert "COMMAND_GROUPS" not in commands_text
 
 

@@ -31,6 +31,23 @@ export function runAppShellModelTests() {
   assert.deepEqual(initial.capabilities.appCommands, []);
   assert.deepEqual(initial.capabilities.workspaceCommands, []);
   assert.deepEqual(initial.capabilities.commandPalette.groups, []);
+  assert.deepEqual(initial.capabilities.commandPalette.labels, {
+    rootTitle: "",
+    submenuTitle: "",
+    searchLabel: "",
+    rootPlaceholder: "",
+    submenuPlaceholder: "",
+    rootEmpty: "",
+    submenuEmpty: "",
+    commandsSection: "",
+    sessionsSection: "",
+    workspacesSection: "",
+    currentLabel: "",
+    missingLabel: "",
+    workspaceMeta: "",
+    workspaceFallback: "",
+    sessionFallbackPrefix: "",
+  });
   assert.deepEqual(initial.capabilities.surfaces.rightPanel, []);
   assert.deepEqual(initial.capabilities.surfaces.bottomDrawer, []);
   assert.deepEqual(initial.capabilities.keybindings, []);
@@ -116,6 +133,23 @@ export function runAppShellModelTests() {
           { id: "workspace", title: "Projects", description: "Project commands", order: 20 },
           { id: "app", title: "Application", description: "Application commands", order: 10 },
         ],
+        labels: {
+          root_title: "Command launcher",
+          submenu_title: "Launcher group",
+          search_label: "Search launcher",
+          root_placeholder: "Search launcher entries",
+          submenu_placeholder: "Search group entries",
+          root_empty: "No launcher matches",
+          submenu_empty: "No group matches",
+          commands_section: "Actions",
+          sessions_section: "Threads",
+          workspaces_section: "Projects",
+          current_label: "Selected",
+          missing_label: "Unavailable",
+          workspace_meta: "Project",
+          workspace_fallback: "Project",
+          session_fallback_prefix: "Thread",
+        },
       },
       surfaces: {
         right_panel: [
@@ -255,6 +289,11 @@ export function runAppShellModelTests() {
       ["workspace", "Projects", "Project commands"],
     ],
   );
+  assert.equal(bootstrap.capabilities.commandPalette.labels.rootTitle, "Command launcher");
+  assert.equal(bootstrap.capabilities.commandPalette.labels.rootPlaceholder, "Search launcher entries");
+  assert.equal(bootstrap.capabilities.commandPalette.labels.commandsSection, "Actions");
+  assert.equal(bootstrap.capabilities.commandPalette.labels.currentLabel, "Selected");
+  assert.equal(bootstrap.capabilities.commandPalette.labels.workspaceMeta, "Project");
   assert.deepEqual(
     bootstrap.capabilities.surfaces.rightPanel.map((item) => item.kind),
     ["settings", "diagnostics", "source_control"],

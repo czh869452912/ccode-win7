@@ -48,7 +48,8 @@ Workbench command visibility, right-panel launchers, bottom-drawer tabs, and
 keybinding targets are filtered from GUI app-shell capabilities returned by
 `GET /api/app/bootstrap`. App-shell app/workspace commands, surfaces, and
 keybindings are backend-declared descriptor records rather than bare string ids;
-command-palette group titles/descriptions/order are also app-shell descriptors.
+command-palette group titles/descriptions/order and palette labels/placeholders
+are also app-shell descriptors.
 Labels, descriptions, icon keys, command/slash metadata, ordering, visibility,
 and read-only/offline hints come from the app shell.
 GUI home/sidebar copy for workspace and thread sections is also app-shell

@@ -46,6 +46,23 @@ function visualAppBootstrap() {
           { id: "workflow", title: "Workflow", description: "Run workflow views", order: 70 },
           { id: "view", title: "View", description: "Toggle workbench layout", order: 80 },
         ],
+        labels: {
+          root_title: "Command palette",
+          submenu_title: "Command group",
+          search_label: "Command search",
+          root_placeholder: "Search commands, sessions, workspaces",
+          submenu_placeholder: "Search this group",
+          root_empty: "No matching commands, sessions, or workspaces",
+          submenu_empty: "No matching commands in this group",
+          commands_section: "Commands",
+          sessions_section: "Sessions",
+          workspaces_section: "Workspaces",
+          current_label: "Current",
+          missing_label: "Missing",
+          workspace_meta: "Workspace",
+          workspace_fallback: "Workspace",
+          session_fallback_prefix: "Session",
+        },
       },
       thread_lifecycle: {
         actions: [

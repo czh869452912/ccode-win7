@@ -36,6 +36,7 @@ export default function CommandPalette({
   const [submenuId, setSubmenuId] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef(null);
+  const labels = commandPalette?.labels || {};
 
   useEffect(() => {
     if (!open) return;
@@ -143,14 +144,16 @@ export default function CommandPalette({
     }
   }
 
-  const title = viewKind === "submenu" ? "Command group" : "Command palette";
+  const title = viewKind === "submenu" ? labels.submenuTitle : labels.rootTitle;
+  const placeholder = viewKind === "submenu" ? labels.submenuPlaceholder : labels.rootPlaceholder;
+  const emptyLabel = viewKind === "submenu" ? labels.submenuEmpty : labels.rootEmpty;
 
   return (
     <div className="cmd-palette-backdrop" role="presentation" onMouseDown={onClose}>
       <div
         className="cmd-palette"
         role="dialog"
-        aria-label="Command palette"
+        aria-label={labels.rootTitle}
         onMouseDown={(event) => event.stopPropagation()}
         data-testid="command-palette"
       >
@@ -169,8 +172,8 @@ export default function CommandPalette({
           onChange={(event) => onQueryChange(event.target.value)}
           onKeyDown={handleKeyDown}
           autoFocus
-          aria-label="Command search"
-          placeholder={viewKind === "submenu" ? "Search this group" : "Search commands, sessions, workspaces"}
+          aria-label={labels.searchLabel}
+          placeholder={placeholder}
           data-testid="command-palette-input"
         />
         <CommandPaletteResults
@@ -181,11 +184,7 @@ export default function CommandPalette({
             if (nextIndex >= 0) setSelectedIndex(nextIndex);
           }}
           onSelectItem={activateItem}
-          emptyLabel={
-            viewKind === "submenu"
-              ? "No matching commands in this group"
-              : "No matching commands, sessions, or workspaces"
-          }
+          emptyLabel={emptyLabel}
         />
       </div>
     </div>
