@@ -170,6 +170,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   sessions without an explicit mode leave mode selection to the selected
   backend application/profile instead of injecting `explore` in GUI routes or
   renderer state.
+- GUI tool presentation is now catalog-driven: labels, renderer keys,
+  permission categories, and preview arguments come from backend-declared tool
+  catalog metadata, while unknown tools fall back only to their tool id. The old
+  renderer-owned built-in tool label table has been removed.
 - Offline GUI packaging now includes a native Win32 launcher exe in the portable
   bundle, preserving the one-folder delivery model while improving double-click
   startup.

@@ -7,7 +7,6 @@ import { createSourceControlState, reduceSourceControlState } from "./source-con
 import { createTerminalState, reduceTerminalState } from "./terminal/terminal-state.js";
 import { createRunOutputState, reduceRunOutputState } from "./session-runtime/run-output-state.js";
 import { createThreadState, readActiveThreadId, reduceThreadState } from "./session-runtime/thread-state.js";
-import { resolveToolPresentation } from "./session-runtime/tool-presentation.js";
 import { normalizeProtocolCapabilities } from "./session-runtime/protocol-normalizer.js";
 import {
   ACTIVITY_ACTION_TYPES,
@@ -374,26 +373,6 @@ export function reducer(state, action) {
     default:
       return state;
   }
-}
-
-export const TOOL_LABELS = {
-  read_file: (a) => `Read  ${a.path || ""}`,
-  write_file: (a) => `Write  ${a.path || ""}`,
-  edit_file: (a) => `Edit  ${a.path || ""}`,
-  list_dir: (a) => `List  ${a.path || "."}`,
-  glob_files: (a) => `Glob "${a.pattern || ""}"`,
-  grep_text: (a) => `Grep "${a.pattern || ""}"`,
-  author_local_capability: (a) => `Author capability${a.name ? `: ${a.name}` : ""}`,
-  ask_user: () => "Ask user",
-  bash: (a) => `Bash: ${a.command || ""}`,
-  git_status: () => "Git status",
-  git_diff: (a) => `Git diff${a.path ? `  ${a.path}` : ""}`,
-  git_log: () => "Git log",
-};
-
-export function toolLabel(toolName, args, catalog = {}) {
-  const fn = TOOL_LABELS[toolName];
-  return fn ? fn(args || {}) : resolveToolPresentation(toolName, catalog).label || toolName;
 }
 
 export const STATUS_ICON = { running: "⋯", success: "✓", error: "✗" };

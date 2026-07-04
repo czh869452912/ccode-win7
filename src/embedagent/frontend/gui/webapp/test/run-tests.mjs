@@ -1103,6 +1103,9 @@ async function main() {
   assert.equal(storeSource.includes('case "assistant_delta":'), false);
   assert.equal(storeSource.includes('case "tool_started":'), false);
   assert.equal(storeSource.includes('case "tool_finished":'), false);
+  assert.equal(storeSource.includes("TOOL_LABELS"), false);
+  assert.equal(storeSource.includes("export function toolLabel"), false);
+  assert.equal(storeSource.includes("Read  "), false);
 
   const noWorkspaceSource = fs.readFileSync(
     webappSourcePath("components", "NoWorkspaceState.jsx"),

@@ -529,7 +529,10 @@ If a frontend change introduces older terms back into the product shell, that is
 GUI no-workspace copy, mode catalogs, command lists, tool presentation,
 workflow package/application identity, and runtime workflow summary rows must
 come from backend capability/snapshot payloads rather than renderer-side C/C++
-defaults. Runtime workflow rows are declared by the selected workflow
+defaults. Tool labels, icon keys, renderer keys, permission categories, and
+preview arguments come from the frontend-visible tool catalog, with only a
+generic unknown-tool fallback to the tool id. Runtime workflow rows are declared
+by the selected workflow
 projection under `workflow.metadata.display_rows`; the renderer must not
 synthesize default C/C++ phase, discipline, or activity rows from legacy
 snapshot fields. GUI session creation without an explicit mode leaves mode

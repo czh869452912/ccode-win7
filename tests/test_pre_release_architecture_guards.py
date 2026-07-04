@@ -808,6 +808,21 @@ def test_gui_workflow_display_and_default_mode_are_backend_declared():
     assert "DEFAULT_MODE" not in gui_protocol_text
 
 
+def test_gui_tool_presentation_is_catalog_driven():
+    store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
+    tool_presentation_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/tool-presentation.js"
+    )
+
+    assert "TOOL_LABELS" not in store_text
+    assert "export function toolLabel" not in store_text
+    assert "Read  " not in store_text
+    assert "Write  " not in store_text
+    assert "Git status" not in store_text
+    assert "resolveToolPresentation" in tool_presentation_text
+    assert "label: text(source.label, name)" in tool_presentation_text
+
+
 def test_hosted_interactions_do_not_keep_legacy_blocking_frontend_paths():
     banned_tokens = (
         "on_permission_request",
