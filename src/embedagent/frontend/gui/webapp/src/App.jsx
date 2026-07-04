@@ -699,7 +699,7 @@ function App() {
     }
   }
 
-  const inspectorProps = {
+  const surfacePanelProps = {
     plan: state.plan,
     diffSurface: state.diffSurface,
     sourceControl: state.sourceControl,
@@ -882,7 +882,7 @@ function App() {
         >
           <RightPanelSurfaceBody
             surface={activeRightPanelSurface}
-            inspectorProps={inspectorProps}
+            surfacePanelProps={surfacePanelProps}
             filePreviewsByPath={state.filePreviewsByPath}
             projectName={state.app.activeWorkspace?.label || ""}
             fileTree={state.fileTree}

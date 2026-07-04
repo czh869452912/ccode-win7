@@ -341,8 +341,9 @@ including `toolCatalog`, is consumed from this capability projection and from
 session bootstrap payloads; there is no split GUI `/api/tool-catalog` refetch
 contract or frontend-facing `CoreInterface.get_tool_catalog` facade.
 Right-panel navigation is likewise owned by the app-shell surface capability
-projection. Inspector content components render the active surface only; they do
-not keep a second hard-coded tab registry or `onTabChange` navigation contract.
+projection. Surface panel components render the active surface kind only; they
+do not keep a second hard-coded tab registry, `inspectorTab` adapter, or
+`onTabChange` navigation contract.
 The renderer has no root-level `inspectorTab` / `inspectorOpen` navigation
 state; opening, activating, and closing right-panel content flows through
 workbench surface state.

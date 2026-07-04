@@ -770,28 +770,29 @@ async function main() {
   );
   assert.equal(interactionPanelSource.includes("notice?.kind"), true);
 
-  const inspectorSource = fs.readFileSync(
-    webappSourcePath("components", "Inspector.jsx"),
+  assert.equal(fs.existsSync(webappSourcePath("components", "Inspector.jsx")), false);
+  const surfacePanelSource = fs.readFileSync(
+    webappSourcePath("components", "SurfacePanel.jsx"),
     "utf8",
   );
-  assert.equal(inspectorSource.includes("RIGHT_PANEL_SURFACES"), false);
-  assert.equal(inspectorSource.includes("function InspectorTabs"), false);
-  assert.equal(inspectorSource.includes("showTabs"), false);
-  assert.equal(inspectorSource.includes("onTabChange"), false);
-  assert.equal(inspectorSource.includes('{inspectorTab === "interaction"'), false);
-  assert.equal(inspectorSource.includes('{inspectorTab === "diff"'), true);
-  assert.equal(inspectorSource.includes("formatDiagnosticsRows"), true);
-  assert.equal(inspectorSource.includes("SettingsPanel"), true);
-  assert.equal(inspectorSource.includes("DiagnosticsPanel"), true);
-  assert.equal(inspectorSource.includes("appShell"), true);
-  assert.equal(inspectorSource.includes("onAppSettingsChange"), true);
-  assert.equal(inspectorSource.includes("SourceControlPanel"), true);
-  assert.equal(inspectorSource.includes("sourceControl={sourceControl}"), true);
-  assert.equal(inspectorSource.includes("todo-row"), false);
-  assert.equal(inspectorSource.includes("todo-mark"), false);
-  assert.equal(inspectorSource.includes("RunPanel"), false);
-  assert.equal(inspectorSource.includes("RecipeCard"), false);
-  assert.equal(inspectorSource.includes("onRunRecipe"), false);
+  assert.equal(surfacePanelSource.includes("RIGHT_PANEL_SURFACES"), false);
+  assert.equal(surfacePanelSource.includes("function InspectorTabs"), false);
+  assert.equal(surfacePanelSource.includes("showTabs"), false);
+  assert.equal(surfacePanelSource.includes("onTabChange"), false);
+  assert.equal(surfacePanelSource.includes("inspectorTab"), false);
+  assert.equal(surfacePanelSource.includes('{surfaceKind === "diff"'), true);
+  assert.equal(surfacePanelSource.includes("formatDiagnosticsRows"), true);
+  assert.equal(surfacePanelSource.includes("SettingsPanel"), true);
+  assert.equal(surfacePanelSource.includes("DiagnosticsPanel"), true);
+  assert.equal(surfacePanelSource.includes("appShell"), true);
+  assert.equal(surfacePanelSource.includes("onAppSettingsChange"), true);
+  assert.equal(surfacePanelSource.includes("SourceControlPanel"), true);
+  assert.equal(surfacePanelSource.includes("sourceControl={sourceControl}"), true);
+  assert.equal(surfacePanelSource.includes("todo-row"), false);
+  assert.equal(surfacePanelSource.includes("todo-mark"), false);
+  assert.equal(surfacePanelSource.includes("RunPanel"), false);
+  assert.equal(surfacePanelSource.includes("RecipeCard"), false);
+  assert.equal(surfacePanelSource.includes("onRunRecipe"), false);
 
   const stylesSource = readWebappSourceText("styles.css");
   assert.equal(stylesSource.includes("todo-"), false);
@@ -1263,7 +1264,9 @@ async function main() {
   assert.equal(rightPanelSurfaceBodySource.includes("FilePreviewSurface"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("PreviewSurface"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("TerminalShell"), true);
-  assert.equal(rightPanelSurfaceBodySource.includes("Inspector"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("SurfacePanel"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("Inspector"), false);
+  assert.equal(rightPanelSurfaceBodySource.includes("inspectorTab"), false);
   assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "file"'), true);
   assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "preview"'), true);
   assert.equal(rightPanelSurfaceBodySource.includes("surface.kind === \"terminal\""), true);

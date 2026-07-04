@@ -828,7 +828,9 @@ def test_gui_has_no_split_task_or_recipe_refetch_contracts():
     gui_routes_text = _read(ROOT / "src/embedagent/frontend/gui/backend/routes_sessions.py")
     gui_server_text = _read(ROOT / "src/embedagent/frontend/gui/backend/server.py")
     protocol_text = _read(ROOT / "src/embedagent/protocol/__init__.py")
-    inspector_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Inspector.jsx")
+    inspector_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx"
+    )
     styles_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/styles.css")
 
     for token in (
@@ -901,7 +903,9 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     keybindings_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/keybindings.js"
     )
-    inspector_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Inspector.jsx")
+    inspector_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx"
+    )
     right_panel_tabs_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelTabs.jsx"
     )
@@ -971,7 +975,9 @@ def test_gui_has_no_root_inspector_navigation_state():
 def test_gui_has_no_retired_inspector_sidecar_state():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
-    inspector_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Inspector.jsx")
+    inspector_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx"
+    )
     loaders_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-loaders.js"
     )
@@ -1024,6 +1030,26 @@ def test_gui_has_no_retired_inspector_sidecar_state():
         "LogPanel",
     ):
         assert token not in inspector_text
+
+
+def test_gui_right_panel_body_has_no_inspector_tab_renderer():
+    assert not (ROOT / "src/embedagent/frontend/gui/webapp/src/components/Inspector.jsx").exists()
+
+    checked_paths = (
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx",
+        ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js",
+    )
+    for path in checked_paths:
+        text = _read(path)
+        for token in (
+            "Inspector.jsx",
+            "import Inspector",
+            "<Inspector",
+            "inspectorTab",
+            "inspectorKind",
+        ):
+            assert token not in text
 
 
 def test_gui_has_no_retired_workflow_runtime_panel_display_helper():

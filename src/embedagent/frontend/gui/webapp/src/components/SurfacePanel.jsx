@@ -5,8 +5,8 @@ import { formatDiagnosticsRows } from "../app-shell/diagnostics.js";
 import DiffPanel from "./diff/DiffPanel.jsx";
 import SourceControlPanel from "./source-control/SourceControlPanel.jsx";
 
-export default function Inspector({
-  inspectorTab,
+export default function SurfacePanel({
+  surfaceKind,
   plan,
   diffSurface,
   sourceControl,
@@ -19,27 +19,27 @@ export default function Inspector({
   const lang = useLang();
 
   return (
-    <aside className="inspector" role="complementary" aria-label="Inspector" data-testid="inspector">
+    <aside className="inspector" role="complementary" aria-label="Surface panel" data-testid="surface-panel">
       <div className="inspector-body">
-        {inspectorTab === "plan" && <PlanPanel plan={plan} lang={lang} />}
-        {inspectorTab === "diff" && (
+        {surfaceKind === "plan" && <PlanPanel plan={plan} lang={lang} />}
+        {surfaceKind === "diff" && (
           <DiffPanel surface={diffSurface} onFocusFile={onFocusDiffFile} />
         )}
-        {inspectorTab === "source_control" && (
+        {surfaceKind === "source_control" && (
           <SourceControlPanel
             sourceControl={sourceControl}
             onRefresh={onRefreshSourceControl}
             onSelectFile={onSelectSourceControlFile}
           />
         )}
-        {inspectorTab === "settings" && (
+        {surfaceKind === "settings" && (
           <SettingsPanel
             appShell={appShell}
             lang={lang}
             onAppSettingsChange={onAppSettingsChange}
           />
         )}
-        {inspectorTab === "diagnostics" && (
+        {surfaceKind === "diagnostics" && (
           <DiagnosticsPanel appShell={appShell} lang={lang} />
         )}
       </div>

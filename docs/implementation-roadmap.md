@@ -144,6 +144,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   artifact invalidation remains. The hosted `/artifacts` slash command and TUI
   artifact browser service/surface have also been retired; tool-result stored
   paths remain evidence metadata, not a standalone frontend browse API.
+  The old `Inspector.jsx` component and `inspectorTab` / `inspectorKind`
+  renderer adapter are also retired; right-panel fallback content now renders
+  through `SurfacePanel` from the active workbench surface kind.
 - GUI thread lifecycle actions now route through the session lifecycle facade:
   rename updates summary/projection title metadata, archive hides a session from
   default thread lists without deleting transcript/summary/artifact references,
@@ -202,8 +205,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `toolCatalog` fallback state, and frontend-facing `CoreInterface.get_tool_catalog`
   facade have been removed.
 - Right-panel surface navigation is now the only GUI right-panel entrypoint
-  truth. `Inspector` no longer keeps an internal `RIGHT_PANEL_SURFACES` tab
-  registry, `showTabs` flag, or `onTabChange` navigation contract.
+  truth. `SurfacePanel` receives the active surface kind from
+  `RightPanelSurfaceBody`; the removed `Inspector` component no longer keeps an
+  internal `RIGHT_PANEL_SURFACES` tab registry, `inspectorTab` adapter,
+  `showTabs` flag, or `onTabChange` navigation contract.
 - Root renderer `inspectorTab` / `inspectorOpen` state and `set_inspector` /
   `toggle_inspector` reducer actions have been removed; right-panel navigation
   now flows only through workbench surface state.

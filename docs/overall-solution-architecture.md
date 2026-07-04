@@ -56,6 +56,9 @@ Retired Inspector sidecar state for artifacts, review panes, permission-rule
 panes, runtime panes, workspace previews, and event logs has been removed; those
 concerns now appear only through active surfaces, session activities,
 interaction state, or app-shell diagnostics.
+The old `Inspector.jsx` component and `inspectorTab` / `inspectorKind` dispatch
+path are retired. Right-panel fallback content is rendered by `SurfacePanel`
+from the active workbench surface kind.
 The GUI artifact refetch facade has also been removed: GUI routes no longer
 expose `/api/artifacts`, and WebSocket/frontend callback contracts no longer
 carry `artifacts_refresh`.
@@ -578,9 +581,9 @@ capability/bootstrap projection. The GUI must not call a split
 `/api/tool-catalog` endpoint, keep a root `toolCatalog` fallback state, or
 depend on a frontend-facing `CoreInterface.get_tool_catalog` facade.
 Right-panel navigation is app-shell surface capability driven end to end.
-Inspector content components render whichever supported surface is active, but
-they must not keep their own hard-coded surface tab registry or `onTabChange`
-navigation path that bypasses app capabilities.
+Surface panel components render whichever supported surface is active, but they
+must not keep their own hard-coded surface tab registry, `inspectorTab`
+adapter, or `onTabChange` navigation path that bypasses app capabilities.
 The renderer must not keep parallel root-level `inspectorTab` / `inspectorOpen`
 navigation fields; the right-panel workbench surface state is the single live
 navigation state for this area.

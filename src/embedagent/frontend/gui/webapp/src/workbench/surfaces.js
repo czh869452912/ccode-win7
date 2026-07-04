@@ -59,7 +59,6 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     slash: "/diff",
     visibleWhen: "always",
     keywords: ["git", "changes", "diff"],
-    inspectorKind: "diff",
   }),
   defineSurface({
     kind: "files",
@@ -122,7 +121,6 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     command: true,
     slash: "/plan",
     visibleWhen: "always",
-    inspectorKind: "plan",
   }),
   defineSurface({
     kind: "source_control",
@@ -141,7 +139,6 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     visibleWhen: "always",
     readOnly: true,
     offline: true,
-    inspectorKind: "source_control",
     keywords: ["git", "changes", "local"],
   }),
   defineSurface({
@@ -159,7 +156,6 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     command: true,
     slash: "",
     visibleWhen: "always",
-    inspectorKind: "settings",
   }),
   defineSurface({
     kind: "diagnostics",
@@ -176,7 +172,6 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     command: true,
     slash: "",
     visibleWhen: "always",
-    inspectorKind: "diagnostics",
   }),
 ]);
 

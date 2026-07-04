@@ -1,20 +1,13 @@
 import React from "react";
-import { surfaceDefinitionFor } from "../../workbench/surfaces.js";
-import Inspector from "../Inspector.jsx";
+import SurfacePanel from "../SurfacePanel.jsx";
 import FilePreviewSurface from "./FilePreviewSurface.jsx";
 import FilesSurface from "./FilesSurface.jsx";
 import PreviewSurface from "./PreviewSurface.jsx";
 import TerminalShell from "./TerminalShell.jsx";
 
-function inspectorKindForSurface(surface) {
-  if (!surface) return "";
-  const definition = surfaceDefinitionFor(surface.kind);
-  return definition?.inspectorKind || surface.kind;
-}
-
 export default function RightPanelSurfaceBody({
   surface,
-  inspectorProps,
+  surfacePanelProps,
   filePreviewsByPath,
   projectName,
   fileTree,
@@ -88,9 +81,9 @@ export default function RightPanelSurfaceBody({
     );
   }
   return (
-    <Inspector
-      {...inspectorProps}
-      inspectorTab={inspectorKindForSurface(surface)}
+    <SurfacePanel
+      {...surfacePanelProps}
+      surfaceKind={surface.kind}
     />
   );
 }

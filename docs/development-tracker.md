@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-07-01（superpowers archive closeout）
+> 更新日期：2026-07-04（Pi/T3 decoupling continuation）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -51,6 +51,10 @@
 - GUI webapp source CSS and the manual Playwright example no longer keep the
   retired artifact browser/Inspector-tab shell; manual GUI checks now target
   the current right-panel surface model.
+- The old `Inspector.jsx` right-panel body and `inspectorTab` /
+  `inspectorKind` adapter have been retired. `RightPanelSurfaceBody` now hands
+  the active surface kind to `SurfacePanel`, so the right panel no longer has a
+  hidden tab renderer behind the T3-style surface state.
 
 ### 2026-06-27 - Pi/T3 Residual Debt Cleanup Closed
 
@@ -364,7 +368,7 @@
 ### 2026-06-17 - T3 Right-Panel Surface Tabs
 
 - React webapp right panel 已从固定 Inspector tab 列表改为 T3 Code-like ordered surface descriptors：当前首批 right-panel surfaces 为 `diff`、`files`、`terminal`、`plan`，由 `activeSurfaceId` 驱动激活、关闭、close others、close to right 和 close all。
-- `RightPanelTabs` 现在复制 T3 的 surface tabbar / add menu / empty-state cards 结构；`RightPanelSurfaceBody` 负责把 Diff/Plan 复用 Inspector 内容，把 Files/Terminal 挂到 GUI app-shell hosted surfaces。
+- `RightPanelTabs` 现在复制 T3 的 surface tabbar / add menu / empty-state cards 结构；`RightPanelSurfaceBody` 负责把 Diff/Plan 交给 `SurfacePanel`，把 Files/Terminal 挂到 GUI app-shell hosted surfaces。
 - Command palette 与默认 keybindings 已收敛到 T3 surface workflow：`mod+1` files、`mod+2` terminal、`mod+3` diff；旧 source-control/tasks 作为固定 right-panel tab 的入口不再属于本组 surface shell。
 - 该切片只改变 GUI-local app-shell state 与 presentation，不写 transcript、workflow state、permission/runtime reducers、telemetry、provider config、extension loading、checkpoint/source-control mutation 或 Agent Core policy。
 
@@ -398,7 +402,7 @@
 - 当前收敛：workbench 持久化 surface 状态在 app bootstrap / workspace switch 后也会按同一份 app-shell capabilities 重新裁剪；旧 localStorage 里的 `preview`、`source_control`、`terminal` 等 surface 不能绕过当前 active app 的声明重新出现。
 - 当前收敛：旧 Inspector sidecar 的 artifacts/review/permissions/runtime/workspace-preview/log state、loader request 和 socket action 已删除；review 结果只作为 timeline activity 呈现，permission/user-input 只走 session interaction state，诊断只走 app-shell diagnostics surface。
 - 当前收敛：工具展示 catalog 现在只来自 session capabilities/bootstrap 的 `toolCatalog`；GUI `/api/tool-catalog` route、root `toolCatalog` fallback state 和 frontend-facing `CoreInterface.get_tool_catalog` facade 已删除。
-- 当前收敛：Inspector 不再保留内部 `RIGHT_PANEL_SURFACES` tab registry、`showTabs` 或 `onTabChange` 导航入口；right-panel surfaces 是唯一的右栏导航真相。
+- 当前收敛：旧 `Inspector.jsx` 组件、`inspectorTab` / `inspectorKind` adapter、内部 `RIGHT_PANEL_SURFACES` tab registry、`showTabs` 和 `onTabChange` 导航入口都已删除；right-panel surfaces 是唯一的右栏导航真相。
 - 当前收敛：renderer root `inspectorTab` / `inspectorOpen` state 和 `set_inspector` / `toggle_inspector` reducer actions 已删除，socket effects、visual fixtures 与 App 打开面板动作都不再写这条旧状态。
 - 当前收敛：`AgentCoreAdapter` frontend protocol projection 不再导入 built-in `DEFAULT_MODE`，也不再把缺失 `current_mode` 注入为 `explore`；模式默认值由选中 application/profile 后端声明。
 - 该切片补齐 T3code-like standalone app shell 的第一层边界；terminal 已由后续 bottom-drawer slice 补齐，source-control foundation 已由后续 right-panel slice 补齐，后续 mutation/checkpoint 仍不得把 Agent Core 加厚为 GUI-owned policy layer。
