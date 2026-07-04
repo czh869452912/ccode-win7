@@ -145,6 +145,12 @@ class TestGuiAppShellService(unittest.TestCase):
             [item["id"] for item in payload["capabilities"]["thread_lifecycle"]["actions"]],
             ["rename", "fork", "archive"],
         )
+        thread_actions = payload["capabilities"]["thread_lifecycle"]["actions"]
+        self.assertEqual(thread_actions[0]["prompt_title"], "Rename thread")
+        self.assertEqual(thread_actions[0]["empty_body"], "Thread title cannot be empty.")
+        self.assertEqual(thread_actions[1]["prompt_title"], "Fork thread title")
+        self.assertEqual(thread_actions[2]["confirm_title"], "Archive this thread?")
+        self.assertEqual(thread_actions[2]["success_title"], "Thread archived")
         self.assertEqual(
             payload["capabilities"]["source_control"],
             {

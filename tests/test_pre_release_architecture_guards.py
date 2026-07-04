@@ -883,10 +883,27 @@ def test_gui_thread_lifecycle_actions_are_backend_descriptors():
     app_home_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/app-home-model.js"
     )
+    controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/thread-lifecycle-controller.js"
+    )
 
     assert "thread_lifecycle_actions" in spec_text
+    assert "prompt_title" in spec_text
+    assert "confirm_title" in spec_text
+    assert "success_title" in spec_text
     assert "normalizeThreadLifecycleAction" in model_text
+    assert "promptTitle" in model_text
+    assert "confirmTitle" in model_text
+    assert "successTitle" in model_text
     assert "actions: normalizeThreadLifecycleActions" in model_text
+    assert "getThreadLifecycleCapabilities" in controller_text
+    assert "promptTitle" in controller_text
+    assert "confirmTitle" in controller_text
+    assert "successTitle" in controller_text
+    assert '"Rename thread"' not in controller_text
+    assert '"Archive this thread?"' not in controller_text
+    assert '"Fork thread title"' not in controller_text
+    assert '"Thread archived"' not in controller_text
     assert "THREAD_LIFECYCLE_ACTIONS" not in app_home_text
     assert 'label: "Rename"' not in app_home_text
     assert 'label: "Fork"' not in app_home_text

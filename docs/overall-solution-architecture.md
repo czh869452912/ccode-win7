@@ -94,9 +94,11 @@ and consumed by the GUI app shell through
 `capabilities.thread_lifecycle.actions` descriptor records rather than a
 renderer-owned fixed action list. The default app shell currently declares
 `rename`, `fork`, and `archive`; alternate shells may omit or relabel those
-entries. Lifecycle actions update session summary/projection metadata used by
-app thread lists; they do not rewrite transcript history, own workflow state,
-activate tools, decide permissions, load extensions, or create source-control
+entries. Prompt, confirmation, success, empty-title, and failure copy also live
+on those descriptors rather than in the renderer lifecycle controller.
+Lifecycle actions update session summary/projection metadata used by app thread
+lists; they do not rewrite transcript history, own workflow state, activate
+tools, decide permissions, load extensions, or create source-control
 checkpoints.
 
 The GUI terminal bottom drawer is also app-shell hosted. `GUIBackend` owns an

@@ -71,6 +71,14 @@ function normalizeThreadLifecycleAction(input = {}, index = 0) {
     enabled: input.enabled !== false,
     danger: input.danger === true,
     description: String(input.description || ""),
+    promptTitle: String(input.prompt_title || input.promptTitle || ""),
+    promptInitial: String(input.prompt_initial || input.promptInitial || ""),
+    confirmTitle: String(input.confirm_title || input.confirmTitle || ""),
+    emptyTitle: String(input.empty_title || input.emptyTitle || ""),
+    emptyBody: String(input.empty_body || input.emptyBody || ""),
+    successTitle: String(input.success_title || input.successTitle || ""),
+    successBody: String(input.success_body || input.successBody || ""),
+    failureTitle: String(input.failure_title || input.failureTitle || ""),
   };
 }
 

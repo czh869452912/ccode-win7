@@ -141,9 +141,36 @@ export function runAppShellModelTests() {
       },
       thread_lifecycle: {
         actions: [
-          { id: "rename", label: "Retitle", capability: "rename", order: 20 },
-          { id: "archive", label: "Hide", capability: "archive", order: 30, danger: true },
-          { id: "fork", label: "Clone", capability: "fork", order: 10 },
+          {
+            id: "rename",
+            label: "Retitle",
+            capability: "rename",
+            order: 20,
+            prompt_title: "Rename prompt",
+            empty_title: "Rename blocked",
+            empty_body: "Title required.",
+            failure_title: "Rename failed",
+          },
+          {
+            id: "archive",
+            label: "Hide",
+            capability: "archive",
+            order: 30,
+            danger: true,
+            confirm_title: "Archive prompt",
+            success_title: "Archive complete",
+            success_body: "Archive body.",
+            failure_title: "Archive failed",
+          },
+          {
+            id: "fork",
+            label: "Clone",
+            capability: "fork",
+            order: 10,
+            prompt_title: "Fork prompt",
+            prompt_initial: "copy",
+            failure_title: "Fork failed",
+          },
         ],
       },
     },
@@ -217,6 +244,15 @@ export function runAppShellModelTests() {
       { id: "archive", label: "Hide", capability: "archive", order: 30, danger: true },
     ],
   );
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[0].promptTitle, "Fork prompt");
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[0].promptInitial, "copy");
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[1].promptTitle, "Rename prompt");
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[1].emptyTitle, "Rename blocked");
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[1].emptyBody, "Title required.");
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[2].confirmTitle, "Archive prompt");
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[2].successTitle, "Archive complete");
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[2].successBody, "Archive body.");
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[2].failureTitle, "Archive failed");
   assert.equal(bootstrap.diagnostics.host.platform, "win32");
   assert.equal(bootstrap.diagnostics.host.api_key, undefined);
   assert.equal(bootstrap.diagnostics.host.nested.token, undefined);

@@ -58,7 +58,13 @@ export function runAppHomeModelTests() {
     defaultMode: "explore",
     threadLifecycleCapabilities: {
       actions: [
-        { id: "rename", label: "Retitle", capability: "rename", order: 10 },
+        {
+          id: "rename",
+          label: "Retitle",
+          capability: "rename",
+          order: 10,
+          promptTitle: "Retitle prompt",
+        },
         { id: "archive", label: "Hide", capability: "archive", order: 20, danger: true },
       ],
     },
@@ -82,6 +88,7 @@ export function runAppHomeModelTests() {
     ["rename", "archive"],
   );
   assert.equal(model.threads.rows[0].actions[0].label, "Retitle");
+  assert.equal(model.threads.rows[0].actions[0].promptTitle, "Retitle prompt");
   assert.equal(model.threads.rows[0].actions[0].enabled, true);
   assert.equal(model.threads.rows[0].actions[0].reason, "");
   assert.equal(model.threads.rows[1].mode, "explore");

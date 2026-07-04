@@ -460,6 +460,7 @@ function App() {
         loadSessions,
         loadSession,
         getThreadSessions: () => readThreadSessions(stateRef.current),
+        getThreadLifecycleCapabilities: () => stateRef.current.app.capabilities?.threadLifecycle || {},
         prompt: (message, initialValue) => window.prompt(message, initialValue),
         confirm: (message) => window.confirm(message),
       }),

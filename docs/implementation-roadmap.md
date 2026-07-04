@@ -163,7 +163,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   rename to summary/projection title metadata updates, archive to hiding a
   session from default thread lists without deleting transcript/summary/artifact
   references, and fork to copying the transcript to a new session id with fork
-  provenance
+  provenance; prompt, confirmation, success, empty-title, and failure copy now
+  travels on the same descriptors instead of being hard-coded by the renderer
+  lifecycle controller
 - GUI terminal bottom drawer is now an app-shell hosted, thread-scoped surface:
   the backend owns a workspace-bound in-memory terminal service using Python
   stdlib subprocess pipes for Win7/offline compatibility, while the React

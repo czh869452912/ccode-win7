@@ -26,6 +26,7 @@ import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
 import { runSessionLoadersTests } from "./session-loaders.test.mjs";
 import { runSessionActivationControllerTests } from "./session-activation-controller.test.mjs";
 import { runSessionControllerTests } from "./session-controller.test.mjs";
+import { runThreadLifecycleControllerTests } from "./thread-lifecycle-controller.test.mjs";
 import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
 import { runInteractionResponseControllerTests } from "./interaction-response-controller.test.mjs";
 import { runSocketMessageEffectsTests } from "./socket-message-effects.test.mjs";
@@ -1430,6 +1431,7 @@ async function main() {
   await runSessionLoadersTests();
   await runSessionActivationControllerTests();
   await runSessionControllerTests();
+  await runThreadLifecycleControllerTests();
   await runSessionTransportControllerTests();
   await runInteractionResponseControllerTests();
   runSocketMessageEffectsTests();

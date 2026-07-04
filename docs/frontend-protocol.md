@@ -145,10 +145,12 @@ Visible thread actions must come from
 `capabilities.thread_lifecycle.actions` descriptor records, not a renderer-owned
 fixed action list. The default app shell currently declares `rename`, `fork`,
 and `archive`, but alternate shells may omit or relabel those entries.
-Frontends may display and invoke declared actions, but they must not persist
-their own lifecycle sidecar state or treat these metadata fields as transcript
-history, workflow truth, tool activation policy, permission policy, extension
-loading policy, or source-control checkpoints.
+Lifecycle action descriptors also carry renderer-facing prompt, confirmation,
+success, empty-title, and failure copy. Frontends may display and invoke
+declared actions, but they must not hard-code visible rename/fork/archive copy,
+persist their own lifecycle sidecar state, or treat these metadata fields as
+transcript history, workflow truth, tool activation policy, permission policy,
+extension loading policy, or source-control checkpoints.
 
 GUI app-shell settings are local shell preferences unless a later documented
 backend contract promotes a specific setting into durable runtime

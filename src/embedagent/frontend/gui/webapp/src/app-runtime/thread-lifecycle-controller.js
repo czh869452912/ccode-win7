@@ -4,24 +4,50 @@ export function createThreadLifecycleController({
   loadSessions,
   loadSession,
   getThreadSessions,
+  getThreadLifecycleCapabilities,
   prompt,
   confirm,
 }) {
-  async function renameThread(sessionId) {
+  function currentActions() {
+    const capabilities = getThreadLifecycleCapabilities ? getThreadLifecycleCapabilities() : {};
+    return Array.isArray(capabilities?.actions) ? capabilities.actions : [];
+  }
+
+  function actionDescriptor(actionId) {
+    const id = String(actionId || "").trim();
+    const action = currentActions().find((item) => item?.id === id) || null;
+    return action || { id, capability: id, label: id };
+  }
+
+  function actionText(action, key, fallback = "") {
+    return String(action?.[key] || fallback || "").trim();
+  }
+
+  function dispatchLifecycleNotice(title, body) {
+    const noticeTitle = String(title || "").trim();
+    const noticeBody = String(body || "").trim();
+    if (!noticeTitle && !noticeBody) return;
+    dispatch({
+      type: "interaction_notice_set",
+      notice: {
+        kind: "thread_lifecycle",
+        title: noticeTitle,
+        body: noticeBody,
+      },
+    });
+  }
+
+  async function renameThread(sessionId, action = actionDescriptor("rename")) {
     const current = getThreadSessions().find((item) => item.session_id === sessionId) || {};
     const initialTitle = current.thread?.title || current.title || current.user_goal || "";
-    const title = prompt("Rename thread", initialTitle);
+    const title = prompt(actionText(action, "promptTitle", action.label), initialTitle);
     if (title === null) return;
     const normalizedTitle = String(title || "").trim();
     if (!normalizedTitle) {
-      dispatch({
-        type: "interaction_notice_set",
-        notice: {
-          kind: "thread_lifecycle",
-          title: "Rename failed",
-          body: "Thread title cannot be empty.",
-        },
-      });
+      dispatchLifecycleNotice(
+        actionText(action, "emptyTitle", `${action.label} failed`),
+        actionText(action, "emptyBody"),
+      );
       return;
     }
     await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/rename`, {
@@ -32,24 +58,24 @@ export function createThreadLifecycleController({
     await loadSessions();
   }
 
-  async function archiveThread(sessionId) {
-    if (!confirm("Archive this thread?")) return;
+  async function archiveThread(sessionId, action = actionDescriptor("archive")) {
+    const confirmTitle = actionText(action, "confirmTitle", action.label);
+    if (confirmTitle && !confirm(confirmTitle)) return;
     await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/archive`, {
       method: "POST",
     });
     await loadSessions();
-    dispatch({
-      type: "interaction_notice_set",
-      notice: {
-        kind: "thread_lifecycle",
-        title: "Thread archived",
-        body: "The thread was archived and hidden from the normal thread list.",
-      },
-    });
+    dispatchLifecycleNotice(
+      actionText(action, "successTitle"),
+      actionText(action, "successBody"),
+    );
   }
 
-  async function forkThread(sessionId) {
-    const title = prompt("Fork thread title", "");
+  async function forkThread(sessionId, action = actionDescriptor("fork")) {
+    const title = prompt(
+      actionText(action, "promptTitle", action.label),
+      actionText(action, "promptInitial"),
+    );
     if (title === null) return;
     const payload = await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/fork`, {
       method: "POST",
@@ -63,19 +89,17 @@ export function createThreadLifecycleController({
   }
 
   async function handleThreadLifecycleAction(actionId, sessionId) {
+    const action = actionDescriptor(actionId);
+    const capability = actionText(action, "capability", action.id);
     try {
-      if (actionId === "rename") return await renameThread(sessionId);
-      if (actionId === "archive") return await archiveThread(sessionId);
-      if (actionId === "fork") return await forkThread(sessionId);
+      if (capability === "rename") return await renameThread(sessionId, action);
+      if (capability === "archive") return await archiveThread(sessionId, action);
+      if (capability === "fork") return await forkThread(sessionId, action);
     } catch (error) {
-      dispatch({
-        type: "interaction_notice_set",
-        notice: {
-          kind: "thread_lifecycle",
-          title: "Thread action failed",
-          body: error?.message || String(error || "thread_lifecycle_failed"),
-        },
-      });
+      dispatchLifecycleNotice(
+        actionText(action, "failureTitle", `${action.label} failed`),
+        error?.message || String(error || "thread_lifecycle_failed"),
+      );
     }
   }
 
