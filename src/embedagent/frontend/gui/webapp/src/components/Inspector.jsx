@@ -6,46 +6,10 @@ import {
   buildWorkflowRuntimeRows,
   workflowTaskSummary,
 } from "../session-runtime/workflow-display.js";
-import { RIGHT_PANEL_SURFACES } from "../workbench/surfaces.js";
 import DiffView from "./DiffView.jsx";
 import InteractionPanel from "./InteractionPanel.jsx";
 import DiffPanel from "./diff/DiffPanel.jsx";
 import SourceControlPanel from "./source-control/SourceControlPanel.jsx";
-
-const ALL_TABS = RIGHT_PANEL_SURFACES;
-
-function InspectorTabs({ active, onChange, interactionCount, tasksCount, artifactsCount }) {
-  const lang = useLang();
-  const tabsRef = React.useRef(null);
-  const activeRef = React.useRef(null);
-  const badges = { interaction: interactionCount, tasks: tasksCount, artifacts: artifactsCount };
-
-  // Scroll active tab into view when it changes
-  React.useEffect(() => {
-    if (activeRef.current) {
-      activeRef.current.scrollIntoView({ block: "nearest", inline: "nearest" });
-    }
-  }, [active]);
-
-  return (
-    <div className="inspector-tabs" role="tablist" ref={tabsRef}>
-      {ALL_TABS.map((id) => (
-        <button
-          key={id}
-          role="tab"
-          aria-selected={active === id}
-          ref={active === id ? activeRef : null}
-          className={`insp-tab${active === id ? " active" : ""}`}
-          onClick={() => onChange(id)}
-          data-testid={`inspector-tab--${id}`}
-        >
-          {t(`inspector.${id}`, lang)}
-          {badges[id] > 0 && <span className="tab-badge">{badges[id]}</span>}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 export default function Inspector({
   inspectorTab,
@@ -63,28 +27,17 @@ export default function Inspector({
   snapshot,
   appShell,
   runOutput,
-  onTabChange,
   onOpenArtifact,
   onOpenReviewEvidence,
   onFocusDiffFile,
   onRefreshSourceControl,
   onSelectSourceControlFile,
   onAppSettingsChange,
-  showTabs = true,
 }) {
   const lang = useLang();
 
   return (
     <aside className="inspector" role="complementary" aria-label="Inspector" data-testid="inspector">
-      {showTabs ? (
-        <InspectorTabs
-          active={inspectorTab}
-          onChange={onTabChange}
-          interactionCount={currentInteraction || interactionNotice ? 1 : 0}
-          tasksCount={tasks.length}
-          artifactsCount={artifacts.length}
-        />
-      ) : null}
       <div className="inspector-body">
         {inspectorTab === "interaction" && (
           <InteractionPanel

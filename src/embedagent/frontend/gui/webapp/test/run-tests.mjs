@@ -788,9 +788,10 @@ async function main() {
     webappSourcePath("components", "Inspector.jsx"),
     "utf8",
   );
-  assert.equal(inspectorSource.includes("RIGHT_PANEL_SURFACES"), true);
-  assert.equal(inspectorSource.includes("showTabs = true"), true);
-  assert.equal(inspectorSource.includes("{showTabs ? ("), true);
+  assert.equal(inspectorSource.includes("RIGHT_PANEL_SURFACES"), false);
+  assert.equal(inspectorSource.includes("function InspectorTabs"), false);
+  assert.equal(inspectorSource.includes("showTabs"), false);
+  assert.equal(inspectorSource.includes("onTabChange"), false);
   assert.equal(inspectorSource.includes('{inspectorTab === "interaction"'), true);
   assert.equal(inspectorSource.includes('{inspectorTab === "diff"'), true);
   assert.equal(inspectorSource.includes("formatDiagnosticsRows"), true);
@@ -983,6 +984,7 @@ async function main() {
   assert.equal(appSource.includes('kind: "file"'), true);
   assert.equal(appSource.includes('preview: { kind: "file"'), false);
   assert.equal(appSource.includes("showTabs={false}"), false);
+  assert.equal(appSource.includes("onTabChange:"), false);
   assert.equal(appSource.includes("activeKind={state.inspectorTab}"), false);
   assert.equal(appSource.includes("appShell: state.app"), true);
   assert.equal(appSource.includes("projectSessionRuntime"), false);

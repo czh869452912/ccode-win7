@@ -189,6 +189,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `toolCatalog`; the old `/api/tool-catalog` route, root renderer
   `toolCatalog` fallback state, and frontend-facing `CoreInterface.get_tool_catalog`
   facade have been removed.
+- Right-panel surface navigation is now the only GUI right-panel entrypoint
+  truth. `Inspector` no longer keeps an internal `RIGHT_PANEL_SURFACES` tab
+  registry, `showTabs` flag, or `onTabChange` navigation contract.
 - Offline GUI packaging now includes a native Win32 launcher exe in the portable
   bundle, preserving the one-folder delivery model while improving double-click
   startup.

@@ -91,7 +91,6 @@ export default function RightPanelSurfaceBody({
     <Inspector
       {...inspectorProps}
       inspectorTab={inspectorKindForSurface(surface)}
-      showTabs={false}
     />
   );
 }

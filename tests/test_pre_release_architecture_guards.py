@@ -901,10 +901,12 @@ def test_gui_has_no_split_tool_catalog_facade():
 
 
 def test_gui_workbench_entrypoints_are_app_capability_driven():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     commands_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js")
     keybindings_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/keybindings.js"
     )
+    inspector_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Inspector.jsx")
     right_panel_tabs_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelTabs.jsx"
     )
@@ -921,6 +923,14 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert "appCapabilities" in keybindings_text
     assert "rightPanelLauncherSurfaceDefinitions(appCapabilities)" in right_panel_tabs_text
     assert "bottomDrawerSurfaceDefinitions(appCapabilities)" in bottom_drawer_text
+    for token in (
+        "RIGHT_PANEL_SURFACES",
+        "function InspectorTabs",
+        "showTabs",
+        "onTabChange",
+    ):
+        assert token not in inspector_text
+        assert token not in app_text
     for token in (
         'onKindSelect("terminal")',
         'onKindSelect("run_output")',

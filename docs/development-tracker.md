@@ -382,6 +382,7 @@
 - Right panel 新增 Settings / Diagnostics 两个 app-level surfaces，命令 palette 新增 `app.settings` / `app.diagnostics` / `app.reload`，并保持这些命令与 session/workflow commands 分离。
 - 当前收敛：命令 palette、right-panel add-surface launcher、bottom drawer tab 与 keybinding target 现在全部按 `/api/app/bootstrap` 的 `app_commands`、`workspace_commands`、`surfaces.right_panel` 和 `surfaces.bottom_drawer` 过滤；renderer-local surface registry 只保留 label/icon/component metadata，不再在 capability 缺失时填充 GUI 默认入口。
 - 当前收敛：工具展示 catalog 现在只来自 session capabilities/bootstrap 的 `toolCatalog`；GUI `/api/tool-catalog` route、root `toolCatalog` fallback state 和 frontend-facing `CoreInterface.get_tool_catalog` facade 已删除。
+- 当前收敛：Inspector 不再保留内部 `RIGHT_PANEL_SURFACES` tab registry、`showTabs` 或 `onTabChange` 导航入口；right-panel surfaces 是唯一的右栏导航真相。
 - 该切片补齐 T3code-like standalone app shell 的第一层边界；terminal 已由后续 bottom-drawer slice 补齐，source-control foundation 已由后续 right-panel slice 补齐，后续 mutation/checkpoint 仍不得把 Agent Core 加厚为 GUI-owned policy layer。
 
 ### 2026-06-15 - T3code Timeline / Diff / Visual Debug Harness

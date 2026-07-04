@@ -326,6 +326,9 @@ not inherit bundled C/C++ defaults in the GUI. Tool presentation metadata,
 including `toolCatalog`, is consumed from this capability projection and from
 session bootstrap payloads; there is no split GUI `/api/tool-catalog` refetch
 contract or frontend-facing `CoreInterface.get_tool_catalog` facade.
+Right-panel navigation is likewise owned by the app-shell surface capability
+projection. Inspector content components render the active surface only; they do
+not keep a second hard-coded tab registry or `onTabChange` navigation contract.
 
 `POST /api/sessions` without an explicit mode leaves mode selection to the selected backend application/profile. Frontends should not inject `explore` or `build` as an implicit entry mode.
 

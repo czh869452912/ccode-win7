@@ -556,6 +556,10 @@ Tool presentation metadata for timeline/tool rows is also part of session
 capability/bootstrap projection. The GUI must not call a split
 `/api/tool-catalog` endpoint, keep a root `toolCatalog` fallback state, or
 depend on a frontend-facing `CoreInterface.get_tool_catalog` facade.
+Right-panel navigation is app-shell surface capability driven end to end.
+Inspector content components render whichever supported surface is active, but
+they must not keep their own hard-coded surface tab registry or `onTabChange`
+navigation path that bypasses app capabilities.
 
 ## 10. Bundling Model
 

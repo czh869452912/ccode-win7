@@ -775,10 +775,6 @@ function App() {
     snapshot: state.snapshot,
     appShell: state.app,
     runOutput: state.runOutput,
-    onTabChange: (v) => {
-      dispatch({ type: "set_inspector", value: v });
-      openRightPanelSurface(v);
-    },
     onOpenArtifact: openArtifact,
     onOpenReviewEvidence: openReviewEvidence,
     onFocusDiffFile: (filePath) => dispatch({ type: "diff_file_focused", filePath }),
