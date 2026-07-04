@@ -303,7 +303,7 @@ def serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
         "current_mode": str(read_value(snapshot, "current_mode", "") or ""),
         "started_at": str(read_value(snapshot, "started_at", "", aliases=("created_at",)) or ""),
         "updated_at": str(read_value(snapshot, "updated_at", "") or ""),
-        "workflow_state": str(read_value(snapshot, "workflow_state", "chat") or "chat"),
+        "workflow_state": str(read_value(snapshot, "workflow_state", "") or ""),
         "has_active_plan": bool(read_value(snapshot, "has_active_plan", False)),
         "active_plan_ref": str(read_value(snapshot, "active_plan_ref", "") or ""),
         "current_command_context": str(read_value(snapshot, "current_command_context", "") or ""),

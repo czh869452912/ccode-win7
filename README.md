@@ -47,6 +47,9 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Default task system: `TaskGraph` projected through `task_status` and session task snapshots
 - Generic workflow state carrier: `Session.workflow_state`
 - Frontend workflow projection: `Session.workflow_state["workflow"]` is the source for `current_phase`, `discipline_profile`, `current_activity`, `task_summary`, and `task_items`
+- GUI session bootstrap and renderer normalization must not invent a missing
+  workflow-state name such as `chat`; they forward the explicit snapshot value
+  and use the separate generic `workflow` payload for frontend workflow display.
 - Default C/C++ task graph ownership: `CHarnessWorkflowExtension` keeps harness graph state behind the extension boundary; `Session` no longer exposes `task_graph`
 - Default C/C++ workflow projection adapter: `src/embedagent/workflow_packages/c_cpp/workflow_projection.py` maps harness internals into the generic workflow payload
 - Official build/verify execution: `list_recipes` + `run_recipe` + `report_quality_v2`

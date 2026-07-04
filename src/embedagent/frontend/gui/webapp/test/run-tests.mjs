@@ -284,6 +284,7 @@ async function main() {
 
   const defaultModeSnapshot = normalizeSessionPayload({ session_id: "sess-default" });
   assert.equal(defaultModeSnapshot.current_mode, "");
+  assert.equal(defaultModeSnapshot.workflow_state, "");
 
   const pendingTurnAnchor = resolveActivityAnchor({
     explicitTurnId: "",
@@ -1179,6 +1180,7 @@ async function main() {
     webappSourcePath("state-helpers.js"),
     "utf8",
   );
+  assert.equal(stateHelpersSource.includes('workflow_state: payload.workflow_state || "chat"'), false);
   assert.equal(stateHelpersSource.includes("timeline" + "FromEvents"), false);
   assert.equal(stateHelpersSource.includes("timeline" + "FromTurns"), false);
   assert.equal(stateHelpersSource.includes("summarizeTimelineProjection"), false);

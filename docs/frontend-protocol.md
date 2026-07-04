@@ -279,6 +279,11 @@ Important session snapshot fields include:
 
 `task_items` is the official frontend task list payload.
 
+GUI session bootstrap serializers and renderer normalizers must not invent a
+missing `workflow_state` value. If the backend snapshot omits the state name,
+the frontend-visible snapshot keeps it empty; workflow display continues to use
+the separate generic `workflow` payload.
+
 `pending_interaction` is the single frontend-visible pending interaction
 payload. It carries permission and user-input requests through a `kind` field
 instead of parallel permission or user-input snapshot fields. `tool_name` is a

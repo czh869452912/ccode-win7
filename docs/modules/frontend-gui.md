@@ -69,6 +69,10 @@ command palette copy, and surface descriptors are declared by
 `/api/app/bootstrap` app-shell capabilities. Renderer modules normalize and
 consume those descriptors; they must not become a second source of
 agent/workflow-specific display defaults.
+Session bootstrap projection and renderer session normalization preserve the
+backend snapshot's explicit `workflow_state`; they do not fill missing values
+with the legacy `chat` state name. GUI workflow display uses the separate
+generic `workflow` payload.
 
 ```mermaid
 flowchart TD

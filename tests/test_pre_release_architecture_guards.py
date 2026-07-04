@@ -744,6 +744,15 @@ def test_gui_user_input_interactions_do_not_default_to_ask_user_tool():
     assert '|| "ask_user"' not in text
 
 
+def test_gui_session_payloads_do_not_invent_chat_workflow_state():
+    backend_text = _read(ROOT / "src/embedagent/frontend/gui/backend/protocol_payloads.py")
+    frontend_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/state-helpers.js")
+
+    assert 'read_value(snapshot, "workflow_state", "chat")' not in backend_text
+    assert 'or "chat"' not in backend_text
+    assert 'workflow_state: payload.workflow_state || "chat"' not in frontend_text
+
+
 def test_gui_raw_interaction_requests_do_not_synthesize_activity_records():
     files = [
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js",

@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-245
+
+- Date: 2026-07-04
+- Change Topic: GUI session workflow-state defaults are not invented
+- Summary:
+  - Removed GUI protocol/backend and renderer fallbacks that filled missing
+    session `workflow_state` values with the legacy `chat` state name.
+  - Session bootstrap now preserves the explicit snapshot value and leaves
+    omitted workflow-state names empty, while workflow display uses the
+    separate generic `workflow` payload.
+  - Added Python and frontend regressions plus source/architecture guards to
+    keep GUI session payloads free of invented workflow-state defaults.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/protocol_payloads.py`
+  - `src/embedagent/frontend/gui/webapp/src/state-helpers.js`
+  - `src/embedagent/frontend/gui/webapp/test/state-helpers.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_protocol_projection.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-244
 
 - Date: 2026-07-04

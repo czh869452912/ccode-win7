@@ -111,6 +111,10 @@
   structured-payload driven: a command result with `data.switch_session_id`
   triggers session load regardless of slash command name, so specialized
   resume/session-switch commands do not need GUI command-name branches.
+- GUI session bootstrap projection and renderer session normalization no
+  longer invent `workflow_state: "chat"` when a backend snapshot omits the
+  state name; workflow display stays on explicit snapshot values plus the
+  separate generic `workflow` payload.
 - File Preview right-panel chrome now comes from
   `capabilities.surfaces.chrome.file_preview`: default file/project labels,
   loading/error fallback copy, retry/copy/explorer actions, metadata

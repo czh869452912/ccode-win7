@@ -49,6 +49,15 @@ test("normalizeSessionPayload keeps status, mode, and transition display fields 
   assert.equal(snapshot.recentTransitions[0].displayReason, "cancelled");
 });
 
+test("normalizeSessionPayload does not invent missing workflow state", () => {
+  const snapshot = normalizeSessionPayload({
+    session_id: "sess-generic",
+    current_mode: "python-build",
+  });
+
+  assert.equal(snapshot.workflow_state, "");
+});
+
 test("resolveActivityAnchor prefers explicit, active, then pending local user turns", () => {
   assert.equal(
     resolveActivityAnchor({
