@@ -167,6 +167,37 @@ export function runWorkbenchStateTests() {
     capabilityIds(BOTTOM_DRAWER_CAPABILITY_DESCRIPTORS),
   );
 
+  const untitledAppCapabilities = {
+    surfaces: {
+      rightPanel: [
+        { id: "settings", title: "", commandLabel: "Open Preferences", launcherOrder: 10 },
+        { id: "diagnostics", title: "Health", commandLabel: "Open Health", launcherOrder: 20 },
+      ],
+      bottomDrawer: [
+        { id: "logs", title: "", commandLabel: "Open Logs", launcherOrder: 10 },
+        { id: "terminal", title: "Shell", commandLabel: "Open Shell", launcherOrder: 20 },
+      ],
+    },
+  };
+  assert.deepEqual(
+    rightPanelLauncherSurfaceDefinitions(untitledAppCapabilities).map((definition) => definition.kind),
+    ["diagnostics"],
+  );
+  assert.deepEqual(
+    surfaceCommandDefinitions(untitledAppCapabilities).map((definition) => definition.id),
+    ["surface.diagnostics"],
+  );
+  assert.deepEqual(
+    bottomDrawerSurfaceDefinitions(untitledAppCapabilities).map((definition) => definition.kind),
+    ["terminal"],
+  );
+  assert.deepEqual(
+    bottomDrawerCommandDefinitions(untitledAppCapabilities).map((definition) => definition.id),
+    ["drawer.terminal"],
+  );
+  assert.equal(surfaceDefinitionFor("settings", untitledAppCapabilities), null);
+  assert.equal(surfaceDefinitionFor("diagnostics", untitledAppCapabilities).title, "Health");
+
   const initial = createWorkbenchState();
   assert.equal(initial.rightPanel.open, true);
   assert.equal(initial.rightPanel.activeSurfaceId, null);
@@ -337,7 +368,7 @@ export function runWorkbenchStateTests() {
       id: "right:terminal:term-1",
       placement: "right",
       kind: "terminal",
-      title: "terminal",
+      title: "",
       resourceId: "term-1",
       filePath: "",
       terminalId: "term-1",
@@ -350,7 +381,7 @@ export function runWorkbenchStateTests() {
       id: "right:terminal:term-2",
       placement: "right",
       kind: "terminal",
-      title: "terminal",
+      title: "",
       resourceId: "term-2",
       filePath: "",
       terminalId: "term-2",

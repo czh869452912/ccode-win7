@@ -883,8 +883,15 @@ def test_gui_app_shell_surfaces_are_descriptor_records_not_string_lists():
     assert "surfaceCapabilityDefinitions" in surfaces_text
     assert "surfaceChromeLabels" in surfaces_text
     assert "surfaceChromeLabels(appCapabilities)" in right_panel_tabs_text
+    assert "hasDisplayTitle" in surfaces_text
+    assert "&& hasDisplayTitle(definition)" in surfaces_text
     assert "label: definition.commandLabel" in surfaces_text
     assert "`Open ${definition.title}`" not in surfaces_text
+    assert "String(input.title || kind)" not in app_model_text
+    assert (
+        'return definition && definition.title ? definition.title : String(kind || "");'
+        not in surfaces_text
+    )
     assert 'value.map((item) => String(item || ""))' not in surfaces_text
     for registry_copy in (
         'title: "Preview"',

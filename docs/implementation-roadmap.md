@@ -136,7 +136,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   registries now provide only known renderer mounting details through derived
   helper functions rather than exported fixed id lists, and do not invent
   visible app entrypoints when the `capabilities` object or relevant descriptor
-  arrays are missing; persisted workbench surface state is also re-sanitized
+  arrays are missing; surface descriptors without explicit titles remain
+  diagnostic capability records and do not enter visible launchers or surface
+  commands; persisted workbench surface state is also re-sanitized
   after app bootstrap or workspace switch against those app-shell capabilities;
   app bootstrap now also carries a safe selected-agent application registry and
   empty-state read model before a workspace/core exists, then defers to the
@@ -177,7 +179,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   label, empty-state text, surface action menu labels, close labels, or
   surface command-label string concatenation. Surface-owned panel headings,
   including the Files surface header, use the active app-shell surface
-  descriptor title instead of renderer-local defaults
+  descriptor title instead of renderer-local defaults, and missing descriptor
+  titles are not synthesized from surface kind/id values
 - GUI workbench session/message/view/palette command entries now come from
   app-shell `workbench_commands` descriptors; the renderer no longer owns a
   `LOCAL_COMMANDS` list, and the retired duplicate `workflow.diff` command is

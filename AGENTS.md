@@ -400,6 +400,13 @@ current release artifacts. When webapp source changes, rebuild them through the
 webapp build command, but normal review and architecture reasoning should use
 `src/embedagent/frontend/gui/webapp/src/` as source of truth.
 
+GUI workbench surface titles are app-shell display descriptors. Renderer-local
+surface registries may keep known renderer kind, resource, close-behavior, and
+persistence metadata, but visible launcher/command entries require explicit
+app-shell `title` metadata, and renderer helpers must not synthesize surface
+titles from surface kind or id values. Resource instance titles such as file
+basenames, URLs, or terminal ids remain instance data, not app-shell defaults.
+
 The GUI terminal bottom drawer is an app-shell hosted surface, not Agent Core. It uses Windows 7-compatible Python stdlib subprocess pipes, is not a full PTY, and must not depend on ConPTY, `node-pty`, `pywinpty`, `pexpect`, Electron, runtime Node, Docker, WSL, VS Code, or online services. Terminal output is GUI-local display state only: it must not be written to `transcript.jsonl`, telemetry, workflow state, source-control checkpoints, or permission/runtime reducer truth.
 
 The GUI File Preview right-panel is an app-shell hosted, read-only display surface over already-loaded workspace file content, not Agent Core and not a file editing workflow. Its chrome/copy, metadata labels, fallback messages, and language labels must come from `capabilities.surfaces.chrome.file_preview` rather than renderer-local defaults. It must not save files, write transcript history, own workflow state, decide permissions, load extensions, update telemetry, or become a source-control checkpoint or Agent Core policy path.

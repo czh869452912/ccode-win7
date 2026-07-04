@@ -344,7 +344,7 @@ function normalizeSurfaceCapability(input = {}, placement = "right") {
   if (!input || typeof input !== "object" || Array.isArray(input)) return null;
   const kind = String(input.id || input.kind || "").trim();
   if (!kind) return null;
-  const title = String(input.title || kind).trim() || kind;
+  const title = String(input.title || "").trim();
   return {
     id: kind,
     kind,

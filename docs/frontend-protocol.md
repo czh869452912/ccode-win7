@@ -95,7 +95,10 @@ and fallback command group label. Surface descriptors carry `id`,
 `command_label`, `slash`, `visible_when`, `read_only`, `offline`, and
 `keywords`. Right-panel surface titles and surface-owned panel headings,
 including the Files surface header, must consume those descriptors instead of
-renderer-local default copy. Surface chrome descriptors carry the right-panel aria label,
+renderer-local default copy. Surface descriptors that omit `title` remain
+diagnostic capability records only; they do not enter visible launchers or
+commands, and renderer helpers must not derive a title from the surface kind or
+id. Surface chrome descriptors carry the right-panel aria label,
 add-surface label, empty-state title/body, tab action labels, close-label
 prefixes, and default icon fallback. Keybinding descriptors carry `key`,
 `command_id`, and `when`. The

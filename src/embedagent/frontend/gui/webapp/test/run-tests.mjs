@@ -1363,6 +1363,10 @@ async function main() {
     webappSourcePath("workbench", "surfaces.js"),
     "utf8",
   );
+  const appShellSurfaceModelSource = fs.readFileSync(
+    webappSourcePath("app-shell", "model.js"),
+    "utf8",
+  );
   assert.equal(rightPanelTabsSource.includes("right-panel-empty-state"), true);
   assert.equal(rightPanelTabsSource.includes("right-panel-add-surface"), true);
   assert.equal(rightPanelTabsSource.includes("right-panel-add-menu-popup"), true);
@@ -1384,6 +1388,13 @@ async function main() {
   assert.equal(workbenchSurfacesSource.includes('commandLabel: "Open Terminal"'), false);
   assert.equal(workbenchSurfacesSource.includes('description: "'), false);
   assert.equal(workbenchSurfacesSource.includes("titleForSurfaceKind(kind, appCapabilities = null)"), true);
+  assert.equal(appShellSurfaceModelSource.includes("String(input.title || kind)"), false);
+  assert.equal(
+    workbenchSurfacesSource.includes(
+      'return definition && definition.title ? definition.title : String(kind || "");',
+    ),
+    false,
+  );
   assert.equal(workbenchSurfacesSource.includes("activeSection"), false);
   assert.equal(workbenchSurfacesSource.includes("projectSection"), false);
 

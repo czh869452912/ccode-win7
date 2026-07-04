@@ -254,6 +254,10 @@ function mergedSurfaceDefinition(definition, capability) {
   };
 }
 
+function hasDisplayTitle(definition) {
+  return Boolean(String(definition && definition.title || "").trim());
+}
+
 function filterSurfaceDefinitions(definitions, placement, appCapabilities) {
   const capabilities = surfaceCapabilityDefinitions(appCapabilities, placement);
   if (capabilities.length === 0) return [];
@@ -263,7 +267,7 @@ function filterSurfaceDefinitions(definitions, placement, appCapabilities) {
       const definition = byKind.get(capability.kind);
       return definition ? mergedSurfaceDefinition(definition, capability) : null;
     })
-    .filter((definition) => definition && definition.launcher)
+    .filter((definition) => definition && definition.launcher && hasDisplayTitle(definition))
     .sort((left, right) => (left.launcherOrder || 0) - (right.launcherOrder || 0));
 }
 
@@ -277,7 +281,9 @@ export function surfaceDefinitionFor(kind, appCapabilities = null) {
   if (!definition || !appCapabilities) return definition;
   const capability = surfaceCapabilityDefinitions(appCapabilities, "right")
     .find((item) => item.kind === normalized);
-  return capability ? mergedSurfaceDefinition(definition, capability) : null;
+  if (!capability) return null;
+  const merged = mergedSurfaceDefinition(definition, capability);
+  return hasDisplayTitle(merged) ? merged : null;
 }
 
 export function rightPanelLauncherSurfaceDefinitions(appCapabilities = null) {
@@ -290,7 +296,7 @@ export function bottomDrawerSurfaceDefinitions(appCapabilities = null) {
 
 export function surfaceCommandDefinitions(appCapabilities = null) {
   return rightPanelLauncherSurfaceDefinitions(appCapabilities)
-    .filter((definition) => definition.command !== false)
+    .filter((definition) => definition.command !== false && definition.commandLabel)
     .map((definition) => ({
       id: `surface.${definition.kind}`,
       group: "surface",
@@ -304,7 +310,7 @@ export function surfaceCommandDefinitions(appCapabilities = null) {
 
 export function bottomDrawerCommandDefinitions(appCapabilities = null) {
   return bottomDrawerSurfaceDefinitions(appCapabilities)
-    .filter((definition) => definition.command !== false)
+    .filter((definition) => definition.command !== false && definition.commandLabel)
     .map((definition) => ({
       id: `drawer.${definition.kind}`,
       group: "surface",
@@ -447,7 +453,7 @@ function makeSurface(input) {
 
 export function titleForSurfaceKind(kind, appCapabilities = null) {
   const definition = surfaceDefinitionFor(kind, appCapabilities);
-  return definition && definition.title ? definition.title : String(kind || "");
+  return definition && definition.title ? definition.title : "";
 }
 
 function emptySessionSurfaces() {

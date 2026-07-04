@@ -44,6 +44,34 @@
 
 ## 3. 当前变更记录
 
+### DC-255
+
+- Date: 2026-07-04
+- Change Topic: GUI surface launcher titles are descriptor-only
+- Summary:
+  - Removed app-shell normalization fallback that synthesized surface titles
+    from surface kind/id values.
+  - Workbench surface launchers and surface commands now require explicit
+    app-shell descriptor titles before becoming visible entrypoints.
+  - `titleForSurfaceKind` now returns an empty title when no descriptor title is
+    available instead of exposing a renderer-local kind fallback.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-254
 
 - Date: 2026-07-04

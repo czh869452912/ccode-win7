@@ -57,7 +57,10 @@ aria labels, empty-state text, and default surface icon fallback come from
 Labels, descriptions, icon keys, command/slash metadata, ordering, visibility,
 and read-only/offline hints come from the app shell. Surface-owned panel
 headings, including the right-panel Files surface header, use the active
-surface descriptor title rather than renderer-local defaults.
+surface descriptor title rather than renderer-local defaults. Surface
+capability records without explicit app-shell titles remain diagnostics only;
+they do not become visible launchers or surface commands, and the renderer does
+not derive titles from surface kind/id strings.
 GUI home/sidebar copy for workspace and thread sections is also app-shell
 declared through `capabilities.home`; renderer components consume that read
 model instead of owning the default workspace/thread wording.

@@ -1249,6 +1249,22 @@ export function runAppShellModelTests() {
     ],
   );
 
+  const surfaceCapabilities = normalizeAppCapabilities({
+    surfaces: {
+      right_panel: [
+        { id: "settings", command_label: "Open Preferences" },
+        { id: "diagnostics", title: "Health", command_label: "Open Health" },
+      ],
+    },
+  });
+  assert.deepEqual(
+    surfaceCapabilities.surfaces.rightPanel.map((item) => [item.kind, item.title, item.commandLabel]),
+    [
+      ["settings", "", "Open Preferences"],
+      ["diagnostics", "Health", "Open Health"],
+    ],
+  );
+
   const emptyCapabilities = normalizeAppCapabilities({});
   assert.deepEqual(emptyCapabilities.appCommands, []);
   assert.deepEqual(emptyCapabilities.workspaceCommands, []);
