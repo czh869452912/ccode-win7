@@ -72,14 +72,18 @@ Current app-shell v1 fields include `app`, `workspaces`,
 `settings`, and `last_error`. Diagnostics are safe read-model fields for host,
 runtime, renderer, workspace registry, and active-core presence only.
 `capabilities.app_commands`, `capabilities.workspace_commands`,
+`capabilities.command_palette.groups`,
 `capabilities.surfaces.right_panel`,
 `capabilities.surfaces.bottom_drawer`, and `capabilities.keybindings` are the
 app-shell entrypoint contract for the renderer workbench. App/workspace command
 entries and surface entries are descriptor records, not bare ids. Command
 descriptors carry `id`, `group`, `label`, ordering metadata, and may also carry
 `slash`, `visible_when`, `surface`, `drawer`, `keywords`, `description`, and
-safe dispatch metadata. Surface descriptors carry `id`, `title`, and ordering
-metadata, and may also carry `icon`, `description`, `command`,
+safe dispatch metadata. Command-palette group descriptors carry `id`, `title`,
+`description`, and ordering metadata, and may also carry `leading`, `meta`, and
+`keywords`; renderer command grouping must consume those descriptors instead of
+owning a fixed group title/description table. Surface descriptors carry `id`,
+`title`, and ordering metadata, and may also carry `icon`, `description`, `command`,
 `command_label`, `slash`, `visible_when`, `read_only`, `offline`, and
 `keywords`. Keybinding descriptors carry `key`, `command_id`, and `when`. The
 renderer may keep local metadata for React components, but visible

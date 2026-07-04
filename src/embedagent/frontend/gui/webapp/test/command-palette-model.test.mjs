@@ -47,6 +47,16 @@ const keybindings = [
   { key: "mod+b", commandId: "view.toggle_right_panel", when: "always" },
 ];
 
+const commandPalette = {
+  groups: [
+    { id: "surface", title: "Panels", description: "Open declared workbench panels", order: 10, leading: "P", meta: "Group" },
+    { id: "session", title: "Threads", description: "Create and resume threads", order: 20 },
+    { id: "mode", title: "Modes", description: "Switch agent mode", order: 30 },
+    { id: "view", title: "Layout", description: "Change workbench layout", order: 40 },
+    { id: "workspace", title: "Projects", description: "Open local projects", order: 50 },
+  ],
+};
+
 export function runCommandPaletteModelTests() {
   assert.equal(normalizePaletteQuery("  Diff  "), "diff");
   assert.equal(normalizePaletteQuery(null), "");
@@ -60,6 +70,7 @@ export function runCommandPaletteModelTests() {
     workspaces,
     activeWorkspaceId: "ws-active",
     keybindings,
+    commandPalette,
     query: "",
   });
 
@@ -67,6 +78,12 @@ export function runCommandPaletteModelTests() {
 
   const commandItems = root.find((group) => group.id === "commands").items;
   assert.equal(commandItems.some((item) => item.type === "submenu" && item.id === "submenu:surface"), true);
+  assert.equal(commandItems.find((item) => item.id === "submenu:surface").title, "Panels");
+  assert.equal(
+    commandItems.find((item) => item.id === "submenu:surface").description,
+    "Open declared workbench panels",
+  );
+  assert.equal(commandItems.find((item) => item.id === "submenu:surface").leading, "P");
   assert.equal(commandItems.some((item) => item.type === "command" && item.commandId === "surface.preview"), true);
   assert.equal(
     commandItems.find((item) => item.commandId === "surface.preview").shortcut,
@@ -103,6 +120,7 @@ export function runCommandPaletteModelTests() {
     workspaces,
     activeWorkspaceId: "ws-active",
     keybindings,
+    commandPalette,
     query: "diff",
   });
   const diffItems = flattenPaletteGroups(diffRoot);
@@ -113,11 +131,12 @@ export function runCommandPaletteModelTests() {
   const submenu = buildCommandPaletteSubmenuGroups({
     commands,
     keybindings,
+    commandPalette,
     groupId: "surface",
     query: "browser",
   });
   assert.deepEqual(submenu.map((group) => group.id), ["surface"]);
-  assert.equal(submenu[0].title, "Surface");
+  assert.equal(submenu[0].title, "Panels");
   assert.equal(submenu[0].items.length, 1);
   assert.equal(submenu[0].items[0].commandId, "surface.preview");
   assert.equal(submenu[0].items[0].meta, "/preview");

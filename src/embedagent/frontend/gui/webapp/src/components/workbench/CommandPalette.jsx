@@ -25,6 +25,7 @@ export default function CommandPalette({
   workspaces = [],
   activeWorkspaceId = "",
   keybindings = [],
+  commandPalette = null,
   onQueryChange,
   onClose,
   onSelect,
@@ -49,6 +50,7 @@ export default function CommandPalette({
       return buildCommandPaletteSubmenuGroups({
         commands,
         keybindings,
+        commandPalette,
         groupId: submenuId,
         query,
       });
@@ -60,9 +62,10 @@ export default function CommandPalette({
       workspaces,
       activeWorkspaceId,
       keybindings,
+      commandPalette,
       query,
     });
-  }, [activeWorkspaceId, commands, currentSessionId, keybindings, query, sessions, submenuId, viewKind, workspaces]);
+  }, [activeWorkspaceId, commandPalette, commands, currentSessionId, keybindings, query, sessions, submenuId, viewKind, workspaces]);
 
   const items = useMemo(() => flattenPaletteGroups(groups), [groups]);
   const activeIndex = clampIndex(selectedIndex, items.length);

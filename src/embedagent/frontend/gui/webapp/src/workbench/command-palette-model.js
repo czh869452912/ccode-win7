@@ -1,28 +1,6 @@
 const ROOT_COMMAND_LIMIT = 8;
 const RECENT_SESSION_LIMIT = 12;
 
-const GROUP_TITLES = {
-  app: "App",
-  session: "Sessions",
-  message: "Message",
-  mode: "Mode",
-  surface: "Surface",
-  workspace: "Workspace",
-  workflow: "Workflow",
-  view: "View",
-};
-
-const GROUP_DESCRIPTIONS = {
-  app: "App shell commands",
-  session: "Create, refresh, and resume threads",
-  message: "Send or stop the current turn",
-  mode: "Switch the active agent mode",
-  surface: "Open workbench surfaces",
-  workspace: "Open or refresh local workspaces",
-  workflow: "Run workflow views",
-  view: "Toggle workbench layout",
-};
-
 function asText(value) {
   return String(value || "").trim();
 }
@@ -71,11 +49,52 @@ function shortcutByCommandId(keybindings = []) {
   return result;
 }
 
-function commandDescription(command = {}) {
+function paletteGroupDescriptors(commandPalette = {}) {
+  const groups = Array.isArray(commandPalette?.groups) ? commandPalette.groups : [];
+  const result = {};
+  for (const group of groups) {
+    const id = asText(group?.id);
+    if (!id || result[id]) continue;
+    result[id] = {
+      id,
+      title: asText(group.title) || titleCase(id),
+      description: asText(group.description),
+      order: Number.isFinite(Number(group.order)) ? Number(group.order) : 0,
+      leading: asText(group.leading),
+      meta: asText(group.meta),
+      keywords: Array.isArray(group.keywords) ? group.keywords.map(asText).filter(Boolean) : [],
+    };
+  }
+  return result;
+}
+
+function groupDescriptor(groupId, descriptors) {
+  const id = asText(groupId);
+  return descriptors[id] || {
+    id,
+    title: titleCase(id),
+    description: "",
+    order: 1000,
+    leading: "",
+    meta: "",
+    keywords: [],
+  };
+}
+
+function sortedCommandGroupIds(groups, descriptors) {
+  return Object.keys(groups).sort((left, right) => {
+    const leftDescriptor = groupDescriptor(left, descriptors);
+    const rightDescriptor = groupDescriptor(right, descriptors);
+    return leftDescriptor.order - rightDescriptor.order || left.localeCompare(right);
+  });
+}
+
+function commandDescription(command = {}, descriptor = {}) {
+  if (command.description) return command.description;
   if (command.slash) return command.slash;
   if (command.surface) return `Open ${command.surface}`;
   if (command.drawer) return `Open ${command.drawer}`;
-  return GROUP_DESCRIPTIONS[command.group] || command.id;
+  return descriptor.description || command.id;
 }
 
 function searchableText(item = {}) {
@@ -116,48 +135,50 @@ function filterAndRank(items, query) {
     .map((entry) => entry.item);
 }
 
-function commandItem(command, shortcutMap) {
+function commandItem(command, shortcutMap, groupDescriptors) {
   const group = asText(command.group);
+  const descriptor = groupDescriptor(group, groupDescriptors);
   return {
     id: `command:${command.id}`,
     type: "command",
     commandId: asText(command.id),
     group,
     title: asText(command.label) || asText(command.id),
-    description: commandDescription(command),
+    description: commandDescription(command, descriptor),
     meta: asText(command.slash || command.id),
     shortcut: shortcutMap[command.id] || "",
-    leading: titleCase(group).slice(0, 1) || ">",
+    leading: descriptor.leading || descriptor.title.slice(0, 1) || ">",
     disabled: false,
-    searchTerms: [asText(command.slash), ...(command.keywords || [])],
+    searchTerms: [asText(command.slash), descriptor.title, ...(descriptor.keywords || []), ...(command.keywords || [])],
   };
 }
 
-function groupCommandItems(commands = [], shortcutMap = {}) {
+function groupCommandItems(commands = [], shortcutMap = {}, groupDescriptors = {}) {
   const groups = {};
   for (const command of commands || []) {
     if (!command || !command.id) continue;
     const group = asText(command.group) || "commands";
     if (!groups[group]) groups[group] = [];
-    groups[group].push(commandItem(command, shortcutMap));
+    groups[group].push(commandItem(command, shortcutMap, groupDescriptors));
   }
   return groups;
 }
 
-function submenuItem(groupId, items) {
-  const title = GROUP_TITLES[groupId] || titleCase(groupId);
+function submenuItem(groupId, items, groupDescriptors) {
+  const descriptor = groupDescriptor(groupId, groupDescriptors);
+  const title = descriptor.title || titleCase(groupId);
   return {
     id: `submenu:${groupId}`,
     type: "submenu",
     submenuId: groupId,
     group: groupId,
     title,
-    description: GROUP_DESCRIPTIONS[groupId] || `${title} commands`,
-    meta: "Commands",
+    description: descriptor.description,
+    meta: descriptor.meta,
     trailing: String(items.length),
-    leading: title.slice(0, 1) || ">",
+    leading: descriptor.leading || title.slice(0, 1) || ">",
     disabled: items.length === 0,
-    searchTerms: [groupId, title],
+    searchTerms: [groupId, title, descriptor.description, ...(descriptor.keywords || [])],
   };
 }
 
@@ -231,15 +252,16 @@ export function buildCommandPaletteRootGroups({
   workspaces = [],
   activeWorkspaceId = "",
   keybindings = [],
+  commandPalette = null,
   query = "",
 } = {}) {
   const shortcutMap = shortcutByCommandId(keybindings);
-  const commandGroups = groupCommandItems(commands, shortcutMap);
-  const submenuItems = Object.keys(commandGroups)
-    .sort()
-    .map((groupId) => submenuItem(groupId, commandGroups[groupId]));
-  const allCommandItems = Object.keys(commandGroups)
-    .sort()
+  const groupDescriptors = paletteGroupDescriptors(commandPalette || {});
+  const commandGroups = groupCommandItems(commands, shortcutMap, groupDescriptors);
+  const commandGroupIds = sortedCommandGroupIds(commandGroups, groupDescriptors);
+  const submenuItems = commandGroupIds
+    .map((groupId) => submenuItem(groupId, commandGroups[groupId], groupDescriptors));
+  const allCommandItems = commandGroupIds
     .reduce((items, groupId) => items.concat(commandGroups[groupId]), []);
   const commandRootItems = filterAndRank(submenuItems.concat(allCommandItems), query).slice(0, ROOT_COMMAND_LIMIT);
   const groups = [
@@ -253,17 +275,19 @@ export function buildCommandPaletteRootGroups({
 export function buildCommandPaletteSubmenuGroups({
   commands = [],
   keybindings = [],
+  commandPalette = null,
   groupId = "",
   query = "",
 } = {}) {
   const targetGroup = asText(groupId);
   if (!targetGroup) return [];
   const shortcutMap = shortcutByCommandId(keybindings);
+  const groupDescriptors = paletteGroupDescriptors(commandPalette || {});
   const items = (commands || [])
     .filter((command) => command && asText(command.group) === targetGroup)
-    .map((command) => commandItem(command, shortcutMap));
+    .map((command) => commandItem(command, shortcutMap, groupDescriptors));
   const ranked = filterAndRank(items, query);
-  const title = GROUP_TITLES[targetGroup] || titleCase(targetGroup);
+  const title = groupDescriptor(targetGroup, groupDescriptors).title || titleCase(targetGroup);
   return ranked.length > 0 ? [{ id: targetGroup, title, items: ranked }] : [];
 }
 

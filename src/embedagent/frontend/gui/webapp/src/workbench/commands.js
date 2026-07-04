@@ -4,17 +4,6 @@ import {
   surfaceCommandDefinitions,
 } from "./surfaces.js";
 
-export const COMMAND_GROUPS = [
-  "app",
-  "session",
-  "message",
-  "mode",
-  "surface",
-  "workspace",
-  "workflow",
-  "view",
-];
-
 const LOCAL_COMMANDS = [
   { id: "session.new", group: "session", label: "New Session", slash: "/new", visibleWhen: "always" },
   { id: "thread.new", group: "session", label: "New Thread", slash: "", visibleWhen: "always", keywords: ["session", "chat"] },

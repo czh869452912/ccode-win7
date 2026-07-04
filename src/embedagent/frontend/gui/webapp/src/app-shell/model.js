@@ -240,6 +240,42 @@ function normalizeAppCommandDescriptors(items, defaultGroup) {
   return result.sort((left, right) => left.order - right.order || left.label.localeCompare(right.label));
 }
 
+function normalizePaletteGroupDescriptor(input = {}, index = 0) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const id = String(input.id || input.group || "").trim();
+  if (!id) return null;
+  return {
+    id,
+    title: String(input.title || id).trim() || id,
+    description: String(input.description || ""),
+    order: numberOrDefault(input.order || input.launcher_order || input.launcherOrder, index * 10),
+    leading: String(input.leading || input.icon || "").trim(),
+    meta: String(input.meta || ""),
+    keywords: normalizeKeywords(input.keywords),
+  };
+}
+
+function normalizePaletteGroups(items) {
+  if (!Array.isArray(items)) return [];
+  const result = [];
+  const seen = new Set();
+  for (let index = 0; index < items.length; index += 1) {
+    const group = normalizePaletteGroupDescriptor(items[index], index);
+    if (!group || seen.has(group.id)) continue;
+    seen.add(group.id);
+    result.push(group);
+  }
+  return result.sort((left, right) => left.order - right.order || left.title.localeCompare(right.title));
+}
+
+function normalizeCommandPalette(input = {}) {
+  const value = input.command_palette || input.commandPalette || {};
+  const palette = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return {
+    groups: normalizePaletteGroups(palette.groups || palette.command_groups || palette.commandGroups),
+  };
+}
+
 export function normalizeAppCapabilities(input = {}) {
   const surfaces = input.surfaces && typeof input.surfaces === "object" ? input.surfaces : {};
   return {
@@ -251,6 +287,7 @@ export function normalizeAppCapabilities(input = {}) {
       Array.isArray(input.workspace_commands) ? input.workspace_commands : input.workspaceCommands,
       "workspace",
     ),
+    commandPalette: normalizeCommandPalette(input),
     surfaces: {
       rightPanel: normalizeSurfaceCapabilityList(
         Array.isArray(surfaces.right_panel) ? surfaces.right_panel : surfaces.rightPanel,

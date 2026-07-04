@@ -47,9 +47,10 @@ configuration, telemetry, or Agent Core runtime reducers.
 Workbench command visibility, right-panel launchers, bottom-drawer tabs, and
 keybinding targets are filtered from GUI app-shell capabilities returned by
 `GET /api/app/bootstrap`. App-shell app/workspace commands, surfaces, and
-keybindings are backend-declared descriptor records rather than bare string ids,
-so labels, descriptions, icon keys, command/slash metadata, ordering,
-visibility, and read-only/offline hints come from the app shell.
+keybindings are backend-declared descriptor records rather than bare string ids;
+command-palette group titles/descriptions/order are also app-shell descriptors.
+Labels, descriptions, icon keys, command/slash metadata, ordering, visibility,
+and read-only/offline hints come from the app shell.
 Renderer-local surface registries describe only how a known
 surface renderer is mounted and are exposed through derived helpers rather than
 fixed surface id lists; they do not grant app-shell entrypoints when the backend

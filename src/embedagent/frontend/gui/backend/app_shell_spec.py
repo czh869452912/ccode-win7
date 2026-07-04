@@ -20,6 +20,7 @@ def _copy_records(records: Tuple[Dict[str, Any], ...]) -> list:
 class AppShellSpec(object):
     app_commands: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     workspace_commands: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
+    command_palette_groups: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     right_panel_surfaces: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     bottom_drawer_surfaces: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
     keybindings: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
@@ -31,6 +32,9 @@ class AppShellSpec(object):
         return {
             "app_commands": _copy_records(self.app_commands),
             "workspace_commands": _copy_records(self.workspace_commands),
+            "command_palette": {
+                "groups": _copy_records(self.command_palette_groups),
+            },
             "surfaces": {
                 "right_panel": _copy_records(self.right_panel_surfaces),
                 "bottom_drawer": _copy_records(self.bottom_drawer_surfaces),
@@ -75,6 +79,23 @@ def _command(
         "label": label,
         "order": order,
         "visible_when": "always",
+    }
+    record.update(metadata)
+    return record
+
+
+def _palette_group(
+    group_id: str,
+    title: str,
+    description: str,
+    order: int,
+    **metadata: Any,
+) -> Dict[str, Any]:
+    record = {
+        "id": group_id,
+        "title": title,
+        "description": description,
+        "order": order,
     }
     record.update(metadata)
     return record
@@ -140,6 +161,16 @@ def default_app_shell_spec() -> AppShellSpec:
                 visible_when="has_workspace",
                 keywords=["forget", "recent"],
             ),
+        ),
+        command_palette_groups=(
+            _palette_group("app", "App", "App shell commands", 10),
+            _palette_group("session", "Sessions", "Create, refresh, and resume threads", 20),
+            _palette_group("message", "Message", "Send or stop the current turn", 30),
+            _palette_group("mode", "Mode", "Switch the active agent mode", 40),
+            _palette_group("surface", "Surface", "Open workbench surfaces", 50),
+            _palette_group("workspace", "Workspace", "Open or refresh local workspaces", 60),
+            _palette_group("workflow", "Workflow", "Run workflow views", 70),
+            _palette_group("view", "View", "Toggle workbench layout", 80),
         ),
         right_panel_surfaces=(
             _surface(

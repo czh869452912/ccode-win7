@@ -145,6 +145,23 @@ class TestGuiAppShellService(unittest.TestCase):
             [item["id"] for item in payload["capabilities"]["thread_lifecycle"]["actions"]],
             ["rename", "fork", "archive"],
         )
+        self.assertEqual(
+            [item["id"] for item in payload["capabilities"]["command_palette"]["groups"]],
+            [
+                "app",
+                "session",
+                "message",
+                "mode",
+                "surface",
+                "workspace",
+                "workflow",
+                "view",
+            ],
+        )
+        self.assertEqual(
+            payload["capabilities"]["command_palette"]["groups"][0]["title"],
+            "App",
+        )
         thread_actions = payload["capabilities"]["thread_lifecycle"]["actions"]
         self.assertEqual(thread_actions[0]["prompt_title"], "Rename thread")
         self.assertEqual(thread_actions[0]["empty_body"], "Thread title cannot be empty.")
@@ -278,6 +295,7 @@ class TestGuiAppShellService(unittest.TestCase):
             [{"key": "mod+,", "command_id": "app.settings", "when": "always"}],
         )
         self.assertEqual(payload["capabilities"]["source_control"], {"enabled": False})
+        self.assertEqual(payload["capabilities"]["command_palette"], {"groups": []})
         self.assertEqual(payload["capabilities"]["thread_lifecycle"], {"actions": []})
 
     def test_open_workspace_returns_app_shell_payload_and_binds_core(self):

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 
 import {
-  COMMAND_GROUPS,
   WORKBENCH_COMMANDS,
   commandById,
   visibleCommands,
@@ -404,10 +403,6 @@ export function runWorkbenchStateTests() {
   });
   assert.equal(unknownRightSurface, initial);
 
-  assert.equal(COMMAND_GROUPS.includes("session"), true);
-  assert.equal(COMMAND_GROUPS.includes("app"), true);
-  assert.equal(COMMAND_GROUPS.includes("surface"), true);
-  assert.equal(COMMAND_GROUPS.includes("workspace"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.settings"), false);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.diagnostics"), false);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.source_control"), false);

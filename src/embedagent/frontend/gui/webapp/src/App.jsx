@@ -949,6 +949,7 @@ function App() {
       workspaces={state.app.workspaces}
       activeWorkspaceId={activeWorkspaceId}
       keybindings={keybindings}
+      commandPalette={state.app.capabilities?.commandPalette || {}}
       onQueryChange={(query) => dispatch({ type: "workbench_command_palette_query_changed", query })}
       onClose={() => dispatch({ type: "workbench_command_palette_closed" })}
       onSelect={(command) => {

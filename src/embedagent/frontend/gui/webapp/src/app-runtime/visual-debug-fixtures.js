@@ -35,6 +35,18 @@ function visualAppBootstrap() {
         { id: "workspace.refresh", label: "Refresh Workspaces", group: "workspace", order: 20 },
         { id: "workspace.remove_current", label: "Remove Current Workspace From Recents", group: "workspace", order: 30, visible_when: "has_workspace" },
       ],
+      command_palette: {
+        groups: [
+          { id: "app", title: "App", description: "App shell commands", order: 10 },
+          { id: "session", title: "Sessions", description: "Create, refresh, and resume threads", order: 20 },
+          { id: "message", title: "Message", description: "Send or stop the current turn", order: 30 },
+          { id: "mode", title: "Mode", description: "Switch the active agent mode", order: 40 },
+          { id: "surface", title: "Surface", description: "Open workbench surfaces", order: 50 },
+          { id: "workspace", title: "Workspace", description: "Open or refresh local workspaces", order: 60 },
+          { id: "workflow", title: "Workflow", description: "Run workflow views", order: 70 },
+          { id: "view", title: "View", description: "Toggle workbench layout", order: 80 },
+        ],
+      },
       thread_lifecycle: {
         actions: [
           {

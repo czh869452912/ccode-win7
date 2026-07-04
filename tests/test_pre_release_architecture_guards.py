@@ -877,6 +877,25 @@ def test_gui_app_shell_commands_are_descriptor_records_not_string_lists():
     assert not app_shell_commands_path.exists()
 
 
+def test_gui_command_palette_groups_are_app_shell_descriptors():
+    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
+    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
+    palette_model_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js"
+    )
+    commands_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js")
+
+    assert "command_palette_groups" in spec_text
+    assert '"command_palette": {' in spec_text
+    assert "def _palette_group(" in spec_text
+    assert "normalizePaletteGroupDescriptor" in model_text
+    assert "commandPalette: normalizeCommandPalette" in model_text
+    assert "GROUP_TITLES" not in palette_model_text
+    assert "GROUP_DESCRIPTIONS" not in palette_model_text
+    assert "paletteGroupDescriptors" in palette_model_text
+    assert "COMMAND_GROUPS" not in commands_text
+
+
 def test_gui_thread_lifecycle_actions_are_backend_descriptors():
     spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
