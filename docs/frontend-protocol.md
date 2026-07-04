@@ -142,7 +142,7 @@ terminal limitations (`enabled`, `pty`, `resize`, `history_persistent`, and
 source-control surface: `enabled`, `vcs`, `read_only`, `remote_providers`,
 `network`, `checkpoints`, `requires_active_workspace`, and `chrome` copy for
 status/diff errors, empty states, counts, groups, providers, runtime labels,
-and panel actions.
+panel actions, and the composer Branch Toolbar under `chrome.branch_toolbar`.
 The renderer may keep a local registry of supported component kinds, but that
 registry is not a frontend capability source and must not be exposed as a fixed
 surface id list.
@@ -154,15 +154,15 @@ they are not transcript history, workflow truth, telemetry, provider/runtime
 configuration, permission policy, source-control checkpoint state, or Agent
 Core state.
 
-The GUI Source Control right-panel is app-shell hosted and active-workspace
-bound. It is read-only and local-only in the current contract: the GUI backend
-may invoke bundled/workspace MinGit for local `status` and `diff` views, and
-the frontend may display file paths, counts, and explicitly requested unified
-diff text. These payloads are not app bootstrap diagnostics, transcript
-history, workflow truth, telemetry, provider/runtime configuration, permission
-policy, checkpoint state, extension loading policy, or Agent Core state. The
-current contract does not include remote providers, push/pull, staging, commit,
-or checkpoint mutation.
+The GUI Source Control right-panel and composer Branch Toolbar are app-shell
+hosted and active-workspace bound. They are read-only and local-only in the
+current contract: the GUI backend may invoke bundled/workspace MinGit for local
+`status` and `diff` views, and the frontend may display file paths, counts,
+toolbar checkout labels, and explicitly requested unified diff text. These
+payloads are not app bootstrap diagnostics, transcript history, workflow truth,
+telemetry, provider/runtime configuration, permission policy, checkpoint state,
+extension loading policy, or Agent Core state. The current contract does not
+include remote providers, push/pull, staging, commit, or checkpoint mutation.
 
 GUI thread lifecycle operations are exposed through session lifecycle endpoints
 and reflected in session summary/projection metadata for app thread lists.

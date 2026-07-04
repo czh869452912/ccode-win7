@@ -271,6 +271,56 @@ function normalizeSourceControlChrome(input = {}) {
     countLabels: normalizeStringMap(value.count_labels || value.countLabels),
     groupLabels: normalizeStringMap(value.group_labels || value.groupLabels),
     providerLabels: normalizeStringMap(value.provider_labels || value.providerLabels),
+    branchToolbar: normalizeBranchToolbarChrome(value.branch_toolbar || value.branchToolbar),
+  };
+}
+
+function normalizeBranchToolbarChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    defaultWorkspaceLabel: String(
+      value.default_workspace_label || value.defaultWorkspaceLabel || "",
+    ),
+    loadingLabel: String(value.loading_label || value.loadingLabel || ""),
+    errorLabel: String(value.error_label || value.errorLabel || ""),
+    gitUnavailableLabel: String(
+      value.git_unavailable_label || value.gitUnavailableLabel || "",
+    ),
+    notRepositoryLabel: String(
+      value.not_repository_label || value.notRepositoryLabel || "",
+    ),
+    unknownRefLabel: String(value.unknown_ref_label || value.unknownRefLabel || ""),
+    detachedPrefix: String(value.detached_prefix || value.detachedPrefix || ""),
+    cleanLabel: String(value.clean_label || value.cleanLabel || ""),
+    changeSingular: String(value.change_singular || value.changeSingular || ""),
+    changePlural: String(value.change_plural || value.changePlural || ""),
+    conflictSingular: String(value.conflict_singular || value.conflictSingular || ""),
+    conflictPlural: String(value.conflict_plural || value.conflictPlural || ""),
+    currentCheckoutLabel: String(
+      value.current_checkout_label || value.currentCheckoutLabel || "",
+    ),
+    currentCheckoutDescription: String(
+      value.current_checkout_description || value.currentCheckoutDescription || "",
+    ),
+    gitUnavailableReason: String(
+      value.git_unavailable_reason || value.gitUnavailableReason || "",
+    ),
+    notRepositoryReason: String(
+      value.not_repository_reason || value.notRepositoryReason || "",
+    ),
+    errorReasonFallback: String(
+      value.error_reason_fallback || value.errorReasonFallback || "",
+    ),
+    readOnlyActionTitle: String(
+      value.read_only_action_title || value.readOnlyActionTitle || "",
+    ),
+    worktreeActionLabel: String(
+      value.worktree_action_label || value.worktreeActionLabel || "",
+    ),
+    branchActionLabel: String(value.branch_action_label || value.branchActionLabel || ""),
+    refreshLabel: String(value.refresh_label || value.refreshLabel || ""),
+    refreshTitle: String(value.refresh_title || value.refreshTitle || ""),
+    metadataSeparator: String(value.metadata_separator || value.metadataSeparator || ""),
   };
 }
 

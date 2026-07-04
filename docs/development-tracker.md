@@ -82,6 +82,11 @@
   `capabilities.source_control.chrome`: panel title, status/diff fallback
   notices, empty states, count/group/provider labels, runtime labels, and
   refresh action copy are backend-declared descriptors consumed by the renderer.
+- Composer Branch Toolbar chrome now comes from
+  `capabilities.source_control.chrome.branch_toolbar`: checkout labels,
+  change/conflict summaries, disabled reasons, action labels, refresh title,
+  and metadata separators are backend-declared descriptors consumed by the
+  source-control toolbar model.
 
 ### 2026-06-27 - Pi/T3 Residual Debt Cleanup Closed
 

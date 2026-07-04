@@ -44,6 +44,38 @@
 
 ## 3. 当前变更记录
 
+### DC-227
+
+- Date: 2026-07-04
+- Change Topic: GUI Branch Toolbar chrome descriptor convergence
+- Summary:
+  - Extended `/api/app/bootstrap` `capabilities.source_control.chrome` with a
+    `branch_toolbar` descriptor for checkout labels, change/conflict summary
+    words, disabled reasons, action labels, refresh title, and metadata
+    separator.
+  - Routed `App.jsx`, `branch-toolbar-model.js`, and `BranchToolbar.jsx`
+    through normalized source-control chrome so the composer toolbar no longer
+    owns renderer-local English defaults.
+  - Added focused app-shell, webapp model/source, and architecture guard
+    coverage for Branch Toolbar chrome ownership.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/BranchToolbar.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/source-control/branch-toolbar-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/branch-toolbar-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-226
 
 - Date: 2026-07-04

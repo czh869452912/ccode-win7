@@ -1222,17 +1222,28 @@ def test_gui_source_control_copy_is_app_shell_declared():
         ROOT
         / "src/embedagent/frontend/gui/webapp/src/source-control/source-control-presentation.js"
     )
+    branch_toolbar_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/BranchToolbar.jsx"
+    )
+    branch_toolbar_model_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/source-control/branch-toolbar-model.js"
+    )
 
     assert '"source_control": _copy_value(self.source_control)' in spec_text
     assert '"status_unavailable_notice": "Source control unavailable."' in spec_text
+    assert '"branch_toolbar": {' in spec_text
     assert "normalizeSourceControlChrome" in model_text
     assert "chrome: normalizeSourceControlChrome" in model_text
+    assert "branchToolbar: normalizeBranchToolbarChrome" in model_text
     assert "sourceControlChrome.statusUnavailableNotice" in app_text
     assert "sourceControlChrome.diffUnavailableNotice" in app_text
+    assert "sourceControlChrome" in app_text
     assert "sourceControlChrome" in surface_panel_text
     assert "sourceControlChrome" in source_control_panel_text
     assert "chrome.groupLabels" in source_control_presentation_text
     assert "chrome.providerLabels" in source_control_presentation_text
+    assert "model.branchMetaLabel" in branch_toolbar_text
+    assert "sourceControlChrome?.branchToolbar" in branch_toolbar_model_text
 
     for hardcoded_copy in (
         '"Source control unavailable"',
@@ -1251,6 +1262,29 @@ def test_gui_source_control_copy_is_app_shell_declared():
         '"Refresh"',
     ):
         assert hardcoded_copy not in source_control_panel_text
+
+    for hardcoded_copy in (
+        '"Checking Git..."',
+        '"Git status unavailable"',
+        '"Git unavailable"',
+        '"No repository"',
+        '"Unknown ref"',
+        '"Clean"',
+        '"Current checkout"',
+        '"Run in the active workspace checkout."',
+        '"Git is unavailable in this offline bundle or workspace."',
+        '"This workspace is not a Git repository."',
+        '"Git status is unavailable."',
+    ):
+        assert hardcoded_copy not in branch_toolbar_model_text
+
+    for hardcoded_copy in (
+        '"This action is read-only in the current GUI shell."',
+        ">Worktree<",
+        ">Branch<",
+        '"Refresh local Git status"',
+    ):
+        assert hardcoded_copy not in branch_toolbar_text
 
 
 def test_gui_thread_lifecycle_actions_are_backend_descriptors():

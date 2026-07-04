@@ -645,8 +645,9 @@ function App() {
       buildBranchToolbarModel({
         activeWorkspace: state.app.activeWorkspace,
         sourceControl: state.sourceControl,
+        sourceControlChrome,
       }),
-    [state.app.activeWorkspace, state.sourceControl],
+    [sourceControlChrome, state.app.activeWorkspace, state.sourceControl],
   );
 
   const rightPanelSurfaces = state.workbench.rightPanel.surfaces || [];

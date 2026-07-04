@@ -275,6 +275,35 @@ class TestGuiAppShellService(unittest.TestCase):
                         "local": "Local Git",
                         "fallback": "Local Git",
                     },
+                    "branch_toolbar": {
+                        "default_workspace_label": "Workspace",
+                        "loading_label": "Checking Git...",
+                        "error_label": "Git status unavailable",
+                        "git_unavailable_label": "Git unavailable",
+                        "not_repository_label": "No repository",
+                        "unknown_ref_label": "Unknown ref",
+                        "detached_prefix": "detached",
+                        "clean_label": "Clean",
+                        "change_singular": "change",
+                        "change_plural": "changes",
+                        "conflict_singular": "conflict",
+                        "conflict_plural": "conflicts",
+                        "current_checkout_label": "Current checkout",
+                        "current_checkout_description": ("Run in the active workspace checkout."),
+                        "git_unavailable_reason": (
+                            "Git is unavailable in this offline bundle or workspace."
+                        ),
+                        "not_repository_reason": ("This workspace is not a Git repository."),
+                        "error_reason_fallback": "Git status is unavailable.",
+                        "read_only_action_title": (
+                            "This action is read-only in the current GUI shell."
+                        ),
+                        "worktree_action_label": "Worktree",
+                        "branch_action_label": "Branch",
+                        "refresh_label": "Refresh",
+                        "refresh_title": "Refresh local Git status",
+                        "metadata_separator": " / ",
+                    },
                 },
             },
         )

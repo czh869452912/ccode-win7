@@ -18,8 +18,7 @@ function ToolbarButton({ children, title, disabled = false, onClick, testId }) {
 export default function BranchToolbar({ model, onRefresh }) {
   if (!model?.visible) return null;
 
-  const disabledTitle =
-    model.disabledReason || "This action is read-only in the current GUI shell.";
+  const disabledTitle = model.disabledReason || model.readOnlyActionTitle || "";
 
   return (
     <div
@@ -46,24 +45,22 @@ export default function BranchToolbar({ model, onRefresh }) {
         </span>
         <span className="branch-toolbar-main">
           <span className="branch-toolbar-label">{model.branchLabel}</span>
-          <span className="branch-toolbar-subtle">
-            {model.providerLabel} · {model.changeCountLabel}
-          </span>
+          <span className="branch-toolbar-subtle">{model.branchMetaLabel}</span>
         </span>
       </div>
       <ToolbarButton title={disabledTitle} disabled testId="branch-toolbar-worktree">
-        Worktree
+        {model.worktreeLabel}
       </ToolbarButton>
       <ToolbarButton title={disabledTitle} disabled testId="branch-toolbar-actions">
-        Branch
+        {model.branchActionLabel}
       </ToolbarButton>
       {model.canRefresh ? (
         <ToolbarButton
-          title="Refresh local Git status"
+          title={model.refreshTitle}
           onClick={onRefresh}
           testId="branch-toolbar-refresh"
         >
-          Refresh
+          {model.refreshLabel}
         </ToolbarButton>
       ) : null}
     </div>

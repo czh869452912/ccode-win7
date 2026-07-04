@@ -278,22 +278,23 @@ failure copy are declared under `/api/app/bootstrap`
 `capabilities.terminal.chrome`; renderer terminal modules may consume that
 chrome but must not keep a second terminal string registry.
 
-The Source Control right-panel is a GUI app-shell hosted surface implemented by
-`backend/source_control_service.py`, `backend/routes_source_control.py`, and
-the React `webapp/src/source-control/` model/API helpers plus
-`components/source-control/SourceControlPanel.jsx`. It is active-workspace
-bound and read-only: the backend invokes bundled/workspace MinGit for local
-status and staged/unstaged diff views, while the frontend displays grouped
-changes and opens the existing Diff surface for selected files. It does not
-implement remote providers, push/pull, staging, commit, checkpoint mutation, or
-network behavior, and it must not write transcript history, workflow state,
-telemetry, permission policy, provider/runtime configuration, extension loading
-state, or Agent Core reducers.
+The Source Control right-panel and composer Branch Toolbar are GUI app-shell
+hosted surfaces implemented by `backend/source_control_service.py`,
+`backend/routes_source_control.py`, and the React `webapp/src/source-control/`
+model/API helpers plus `components/source-control/SourceControlPanel.jsx` and
+`components/workbench/BranchToolbar.jsx`. They are active-workspace bound and
+read-only: the backend invokes bundled/workspace MinGit for local status and
+staged/unstaged diff views, while the frontend displays grouped changes,
+checkout context, and opens the existing Diff surface for selected files. They
+do not implement remote providers, push/pull, staging, commit, checkpoint
+mutation, or network behavior, and they must not write transcript history,
+workflow state, telemetry, permission policy, provider/runtime configuration,
+extension loading state, or Agent Core reducers.
 Source-control panel labels, empty states, count labels, group labels,
-provider labels, runtime labels, and fallback notices are declared under
-`/api/app/bootstrap` `capabilities.source_control.chrome`; renderer
-source-control modules may consume that chrome but must not keep parallel
-English defaults.
+provider labels, runtime labels, Branch Toolbar labels, and fallback notices
+are declared under `/api/app/bootstrap`
+`capabilities.source_control.chrome`; renderer source-control modules may
+consume that chrome but must not keep parallel English defaults.
 
 `backend/server.py` remains the GUI backend composition root. App-shell,
 session/core, terminal, source-control, and preview HTTP route registration is

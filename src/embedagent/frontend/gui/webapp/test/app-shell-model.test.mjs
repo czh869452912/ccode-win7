@@ -177,6 +177,31 @@ export function runAppShellModelTests() {
     countLabels: {},
     groupLabels: {},
     providerLabels: {},
+    branchToolbar: {
+      defaultWorkspaceLabel: "",
+      loadingLabel: "",
+      errorLabel: "",
+      gitUnavailableLabel: "",
+      notRepositoryLabel: "",
+      unknownRefLabel: "",
+      detachedPrefix: "",
+      cleanLabel: "",
+      changeSingular: "",
+      changePlural: "",
+      conflictSingular: "",
+      conflictPlural: "",
+      currentCheckoutLabel: "",
+      currentCheckoutDescription: "",
+      gitUnavailableReason: "",
+      notRepositoryReason: "",
+      errorReasonFallback: "",
+      readOnlyActionTitle: "",
+      worktreeActionLabel: "",
+      branchActionLabel: "",
+      refreshLabel: "",
+      refreshTitle: "",
+      metadataSeparator: "",
+    },
   });
   assert.deepEqual(initial.capabilities.threadLifecycle.actions, []);
   assert.deepEqual(initial.capabilities.home.workspace, {
@@ -434,6 +459,31 @@ export function runAppShellModelTests() {
             local: "Local Git",
             fallback: "Local provider",
           },
+          branch_toolbar: {
+            default_workspace_label: "Project",
+            loading_label: "Scanning Git",
+            error_label: "Git check failed",
+            git_unavailable_label: "Git missing",
+            not_repository_label: "Not a repository",
+            unknown_ref_label: "Unknown checkout",
+            detached_prefix: "at",
+            clean_label: "Settled",
+            change_singular: "delta",
+            change_plural: "deltas",
+            conflict_singular: "collision",
+            conflict_plural: "collisions",
+            current_checkout_label: "Checkout",
+            current_checkout_description: "Use the active checkout.",
+            git_unavailable_reason: "No local Git runtime.",
+            not_repository_reason: "Open a repository workspace.",
+            error_reason_fallback: "Git status failed.",
+            read_only_action_title: "Read-only shell action.",
+            worktree_action_label: "Tree",
+            branch_action_label: "Ref",
+            refresh_label: "Poll",
+            refresh_title: "Poll Git status",
+            metadata_separator: " / ",
+          },
         },
       },
       terminal: {
@@ -666,6 +716,19 @@ export function runAppShellModelTests() {
   assert.equal(
     bootstrap.capabilities.sourceControl.chrome.providerLabels.fallback,
     "Local provider",
+  );
+  assert.equal(
+    bootstrap.capabilities.sourceControl.chrome.branchToolbar.defaultWorkspaceLabel,
+    "Project",
+  );
+  assert.equal(bootstrap.capabilities.sourceControl.chrome.branchToolbar.detachedPrefix, "at");
+  assert.equal(
+    bootstrap.capabilities.sourceControl.chrome.branchToolbar.currentCheckoutLabel,
+    "Checkout",
+  );
+  assert.equal(
+    bootstrap.capabilities.sourceControl.chrome.branchToolbar.metadataSeparator,
+    " / ",
   );
   assert.equal(bootstrap.capabilities.terminal.enabled, true);
   assert.equal(bootstrap.capabilities.terminal.pty, false);

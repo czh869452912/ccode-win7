@@ -967,6 +967,7 @@ async function main() {
   assert.equal(appSource.includes("openSourceControlFile"), true);
   assert.equal(appSource.includes("buildBranchToolbarModel"), true);
   assert.equal(appSource.includes("branchToolbarModel"), true);
+  assert.equal(appSource.includes("sourceControlChrome"), true);
   assert.equal(appSource.includes("onRefreshSourceControl"), true);
   assert.equal(appSource.includes("RightPanelSurfaceBody"), true);
   assert.equal(appSource.includes("onOpenFile={openFile}"), true);
@@ -1279,8 +1280,41 @@ async function main() {
   assert.equal(branchToolbarSource.includes('data-testid="branch-toolbar-mode"'), true);
   assert.equal(branchToolbarSource.includes('data-testid="branch-toolbar-branch"'), true);
   assert.equal(branchToolbarSource.includes("onRefresh"), true);
+  assert.equal(branchToolbarSource.includes("model.worktreeLabel"), true);
+  assert.equal(branchToolbarSource.includes("model.branchActionLabel"), true);
+  assert.equal(branchToolbarSource.includes("model.refreshLabel"), true);
+  assert.equal(branchToolbarSource.includes("model.branchMetaLabel"), true);
   assert.equal(branchToolbarSource.includes("fetch("), false);
   assert.equal(branchToolbarSource.includes("transcript"), false);
+  for (const hardcodedBranchToolbarCopy of [
+    "This action is read-only in the current GUI shell.",
+    ">Worktree<",
+    ">Branch<",
+    "Refresh local Git status",
+    ">Refresh<",
+  ]) {
+    assert.equal(branchToolbarSource.includes(hardcodedBranchToolbarCopy), false);
+  }
+  const branchToolbarModelSource = fs.readFileSync(
+    webappSourcePath("source-control", "branch-toolbar-model.js"),
+    "utf8",
+  );
+  assert.equal(branchToolbarModelSource.includes("sourceControlChrome?.branchToolbar"), true);
+  for (const hardcodedBranchToolbarModelCopy of [
+    "Checking Git...",
+    "Git status unavailable",
+    "Git unavailable",
+    "No repository",
+    "Unknown ref",
+    "Clean",
+    "Current checkout",
+    "Run in the active workspace checkout.",
+    "Git is unavailable in this offline bundle or workspace.",
+    "This workspace is not a Git repository.",
+    "Git status is unavailable.",
+  ]) {
+    assert.equal(branchToolbarModelSource.includes(hardcodedBranchToolbarModelCopy), false);
+  }
 
   const bottomDrawerSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "BottomDrawer.jsx"),
