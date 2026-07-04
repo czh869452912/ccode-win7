@@ -1395,6 +1395,9 @@ async function main() {
     ),
     false,
   );
+  assert.equal(workbenchSurfacesSource.includes('|| "file"'), false);
+  assert.equal(workbenchSurfacesSource.includes('|| "preview"'), false);
+  assert.equal(workbenchSurfacesSource.includes('|| "terminal"'), false);
   assert.equal(workbenchSurfacesSource.includes("activeSection"), false);
   assert.equal(workbenchSurfacesSource.includes("projectSection"), false);
 

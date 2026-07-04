@@ -60,7 +60,9 @@ headings, including the right-panel Files surface header, use the active
 surface descriptor title rather than renderer-local defaults. Surface
 capability records without explicit app-shell titles remain diagnostics only;
 they do not become visible launchers or surface commands, and the renderer does
-not derive titles from surface kind/id strings.
+not derive titles from surface kind/id strings. Resource surface helper titles
+use only instance data such as file basenames, preview ids/URLs, and terminal
+ids; missing preview instance data does not create a fallback tab.
 GUI home/sidebar copy for workspace and thread sections is also app-shell
 declared through `capabilities.home`; renderer components consume that read
 model instead of owning the default workspace/thread wording.

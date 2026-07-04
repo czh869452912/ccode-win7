@@ -98,7 +98,9 @@ including the Files surface header, must consume those descriptors instead of
 renderer-local default copy. Surface descriptors that omit `title` remain
 diagnostic capability records only; they do not enter visible launchers or
 commands, and renderer helpers must not derive a title from the surface kind or
-id. Surface chrome descriptors carry the right-panel aria label,
+id. Resource surface helper titles may use only instance data such as file
+basenames, preview ids/URLs, and terminal ids; missing preview instance data
+does not create a fallback tab. Surface chrome descriptors carry the right-panel aria label,
 add-surface label, empty-state title/body, tab action labels, close-label
 prefixes, and default icon fallback. Keybinding descriptors carry `key`,
 `command_id`, and `when`. The

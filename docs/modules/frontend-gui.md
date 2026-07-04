@@ -327,7 +327,9 @@ app-shell surface descriptors. Missing `app_commands`, `workspace_commands`,
 visible app-shell entrypoints rather than silently filling GUI defaults.
 Surface descriptor records that omit `title` remain capability diagnostics and
 do not enter visible launchers or commands; renderer helpers must not fall back
-to surface kind/id strings for tab or launcher titles.
+to surface kind/id strings for tab or launcher titles. Resource surface helper
+titles are limited to instance data such as file basenames, preview ids/URLs,
+and terminal ids; missing preview instance data does not create a fallback tab.
 
 The terminal bottom drawer is a GUI app-shell hosted surface implemented by
 `backend/terminal_service.py`, `backend/routes_terminal.py`, and the React

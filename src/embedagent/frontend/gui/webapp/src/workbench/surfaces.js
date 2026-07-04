@@ -655,18 +655,20 @@ export function openFileSurface(state, input = {}) {
     kind: "file",
     filePath,
     resourceId: filePath,
-    title: basenameForPath(filePath) || "file",
+    title: basenameForPath(filePath),
   });
 }
 
 export function openPreviewSurface(state, input = {}) {
   const previewId = String(input.previewId || input.resourceId || "").trim();
+  const title = String(input.title || previewId).trim();
+  if (!title) return state || createWorkbenchState();
   return openSurface(state, {
     ...input,
     placement: "right",
     kind: "preview",
     resourceId: previewId,
-    title: input.title || previewId || "preview",
+    title,
   });
 }
 
@@ -677,7 +679,7 @@ export function openTerminalSurface(state, input = {}) {
     ...input,
     placement: "right",
     kind: "terminal",
-    title: input.title || terminalId || "terminal",
+    title: input.title || terminalId,
     resourceId: terminalId,
     terminalId,
     terminalIds: [terminalId],

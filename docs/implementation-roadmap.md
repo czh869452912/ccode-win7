@@ -180,7 +180,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   surface command-label string concatenation. Surface-owned panel headings,
   including the Files surface header, use the active app-shell surface
   descriptor title instead of renderer-local defaults, and missing descriptor
-  titles are not synthesized from surface kind/id values
+  titles are not synthesized from surface kind/id values. Resource surface
+  helper titles use only instance data such as file basenames, preview ids/URLs,
+  and terminal ids; missing preview instance data does not create a fallback tab
 - GUI workbench session/message/view/palette command entries now come from
   app-shell `workbench_commands` descriptors; the renderer no longer owns a
   `LOCAL_COMMANDS` list, and the retired duplicate `workflow.diff` command is

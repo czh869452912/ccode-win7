@@ -405,7 +405,9 @@ surface registries may keep known renderer kind, resource, close-behavior, and
 persistence metadata, but visible launcher/command entries require explicit
 app-shell `title` metadata, and renderer helpers must not synthesize surface
 titles from surface kind or id values. Resource instance titles such as file
-basenames, URLs, or terminal ids remain instance data, not app-shell defaults.
+basenames, preview ids/URLs, or terminal ids remain instance data, not
+app-shell defaults; missing preview instance data must not create a renderer
+fallback tab.
 
 The GUI terminal bottom drawer is an app-shell hosted surface, not Agent Core. It uses Windows 7-compatible Python stdlib subprocess pipes, is not a full PTY, and must not depend on ConPTY, `node-pty`, `pywinpty`, `pexpect`, Electron, runtime Node, Docker, WSL, VS Code, or online services. Terminal output is GUI-local display state only: it must not be written to `transcript.jsonl`, telemetry, workflow state, source-control checkpoints, or permission/runtime reducer truth.
 

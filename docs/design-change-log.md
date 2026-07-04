@@ -44,6 +44,32 @@
 
 ## 3. 当前变更记录
 
+### DC-256
+
+- Date: 2026-07-04
+- Change Topic: GUI resource surface titles use instance data only
+- Summary:
+  - Removed renderer-local `"file"`, `"preview"`, and `"terminal"` fallback
+    titles from workbench resource surface helpers.
+  - Preview surface helper calls without an explicit title or preview
+    id/resource no longer create a visible fallback tab.
+  - Added frontend and Python guards so resource surface titles stay limited to
+    instance data such as file basenames, preview ids/URLs, and terminal ids.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/test/right-panel-store-parity.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-255
 
 - Date: 2026-07-04

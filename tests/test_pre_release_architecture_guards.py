@@ -892,6 +892,9 @@ def test_gui_app_shell_surfaces_are_descriptor_records_not_string_lists():
         'return definition && definition.title ? definition.title : String(kind || "");'
         not in surfaces_text
     )
+    assert '|| "file"' not in surfaces_text
+    assert '|| "preview"' not in surfaces_text
+    assert '|| "terminal"' not in surfaces_text
     assert 'value.map((item) => String(item || ""))' not in surfaces_text
     for registry_copy in (
         'title: "Preview"',
