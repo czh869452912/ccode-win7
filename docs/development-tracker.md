@@ -95,6 +95,10 @@
   `write_file` and `edit_file` declare safe `metadata.changed_path_arg`, and
   the GUI T3 timeline no longer keeps a `WRITE_TOOLS` or command-name diff
   table for changed-file summaries.
+- Timeline review-result classification is now structured-payload driven:
+  command results become review rows only when they carry `data.review` or
+  `review`, so the GUI no longer treats the slash command name `/review` as a
+  row-type policy.
 - File Preview right-panel chrome now comes from
   `capabilities.surfaces.chrome.file_preview`: default file/project labels,
   loading/error fallback copy, retry/copy/explorer actions, metadata

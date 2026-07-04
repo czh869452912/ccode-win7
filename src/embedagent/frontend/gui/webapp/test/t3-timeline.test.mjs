@@ -1109,6 +1109,33 @@ export function runT3TimelineTests() {
   assert.equal(experienceRows[0].kind, "system_notice");
   assert.equal(experienceRows[0].content.includes("Unverified: validation_missing Created files have not been validated."), true);
 
+  const reviewNameOnlyRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-review-name-only",
+        userItem: { id: "u-review-name-only", kind: "user", content: "run review command", turnId: "turn-review-name-only" },
+        leadingSystemItems: [],
+        steps: [],
+        trailingTurnItems: [
+          {
+            id: "review-name-only",
+            kind: "command_result",
+            commandName: "review",
+            success: true,
+            content: "Command completed without structured review payload.",
+            turnId: "turn-review-name-only",
+          },
+        ],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "idle",
+  });
+  const reviewNameOnlyRow = reviewNameOnlyRows.find((row) => row.id === "review-name-only");
+  assert.ok(reviewNameOnlyRow);
+  assert.equal(reviewNameOnlyRow.kind, T3_ROW_KINDS.COMMAND_RESULT);
+  assert.equal(reviewNameOnlyRows.some((row) => row.kind === T3_ROW_KINDS.REVIEW_RESULT), false);
+
   const richRows = projectT3TimelineRows({
     turnGroups: [
       {

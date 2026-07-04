@@ -1077,8 +1077,7 @@ function activityRowForItem(item, context = {}) {
   if (item.kind === "reasoning") return item.streaming ? null : reasoningRow(item);
   if (item.kind === "compact") return contextSummaryRow(item);
   if (item.kind === "command_result" || item.kind === "command_result_fallback") {
-    const commandName = stringValue(item?.commandName || item?.command_name);
-    if (commandName === "review" || item?.data?.review || item?.review) {
+    if (item?.data?.review || item?.review) {
       return reviewResultRow(item);
     }
     return commandResultRow(item);

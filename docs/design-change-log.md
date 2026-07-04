@@ -44,6 +44,31 @@
 
 ## 3. 当前变更记录
 
+### DC-241
+
+- Date: 2026-07-04
+- Change Topic: GUI timeline review rows are payload-driven
+- Summary:
+  - Removed the T3 timeline projection branch that treated
+    `commandName === "review"` as review-result semantics.
+  - Review result rows are now selected only from structured `data.review` or
+    `review` payload fields, allowing alternate command names and specialized
+    agents without GUI command-name coupling.
+  - Added frontend regression coverage and source/architecture guards so the
+    renderer cannot reintroduce `/review` command-name row classification.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/test/t3-timeline.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-240
 
 - Date: 2026-07-04

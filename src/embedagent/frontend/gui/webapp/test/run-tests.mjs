@@ -760,6 +760,7 @@ async function main() {
     "const WRITE_TOOLS",
     "WRITE_TOOLS.has",
     'commandName === "diff"',
+    'commandName === "review"',
   ]) {
     assert.equal(t3TimelineSource.includes(hardcodedChangedFileCopy), false);
   }

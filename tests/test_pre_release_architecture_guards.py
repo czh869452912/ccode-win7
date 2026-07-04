@@ -712,6 +712,7 @@ def test_gui_timeline_tool_preview_is_catalog_driven():
         "const WRITE_TOOLS",
         "WRITE_TOOLS.has",
         'commandName === "diff"',
+        'commandName === "review"',
     ):
         assert token not in text
 
