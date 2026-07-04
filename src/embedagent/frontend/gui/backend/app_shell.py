@@ -113,7 +113,16 @@ class AppShellService(object):
                 "workspace.remove_current",
             ],
             "surfaces": {
-                "right_panel": ["settings", "diagnostics", "source_control"],
+                "right_panel": [
+                    "files",
+                    "terminal",
+                    "diff",
+                    "preview",
+                    "plan",
+                    "source_control",
+                    "settings",
+                    "diagnostics",
+                ],
                 "bottom_drawer": ["terminal", "run_output", "logs"],
             },
             "source_control": {

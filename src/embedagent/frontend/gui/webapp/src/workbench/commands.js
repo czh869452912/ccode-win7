@@ -1,6 +1,9 @@
 import { APP_COMMANDS } from "../app-shell/commands.js";
 import { normalizeCommandCapabilities } from "../session-runtime/command-capabilities.js";
-import { surfaceCommandDefinitions } from "./surfaces.js";
+import {
+  bottomDrawerCommandDefinitions,
+  surfaceCommandDefinitions,
+} from "./surfaces.js";
 
 export const COMMAND_GROUPS = [
   "app",
@@ -13,27 +16,69 @@ export const COMMAND_GROUPS = [
   "view",
 ];
 
-export const WORKBENCH_COMMANDS = [
-  ...APP_COMMANDS,
+const LOCAL_COMMANDS = [
   { id: "session.new", group: "session", label: "New Session", slash: "/new", visibleWhen: "always" },
   { id: "thread.new", group: "session", label: "New Thread", slash: "", visibleWhen: "always", keywords: ["session", "chat"] },
   { id: "session.refresh", group: "session", label: "Refresh Sessions", slash: "/sessions", visibleWhen: "always" },
   { id: "session.resume", group: "session", label: "Resume Session", slash: "/resume", visibleWhen: "always" },
   { id: "message.send", group: "message", label: "Send Message", slash: "", visibleWhen: "composer_ready" },
   { id: "message.stop", group: "message", label: "Stop Running Turn", slash: "", visibleWhen: "running" },
-  ...surfaceCommandDefinitions(),
-  { id: "drawer.run_output", group: "surface", label: "Toggle Run Output", slash: "", drawer: "run_output", visibleWhen: "always" },
-  { id: "drawer.terminal", group: "surface", label: "Open Terminal", slash: "", drawer: "terminal", visibleWhen: "has_session" },
-  { id: "workspace.open", group: "workspace", label: "Open Workspace", slash: "", visibleWhen: "always", keywords: ["project", "folder"] },
-  { id: "workspace.refresh", group: "workspace", label: "Refresh Workspaces", slash: "", visibleWhen: "always", keywords: ["reload", "recent"] },
-  { id: "workspace.remove_current", group: "workspace", label: "Remove Current Workspace From Recents", slash: "", visibleWhen: "always", keywords: ["forget", "recent"] },
-  { id: "workspace.files", group: "workspace", label: "Open Files", slash: "/workspace", visibleWhen: "always" },
   { id: "workflow.diff", group: "workflow", label: "Review Diff", slash: "/diff", visibleWhen: "has_session" },
   { id: "view.toggle_right_panel", group: "view", label: "Toggle Right Panel", slash: "", visibleWhen: "always" },
   { id: "view.toggle_bottom_drawer", group: "view", label: "Toggle Bottom Drawer", slash: "", visibleWhen: "always" },
   { id: "palette.open", group: "view", label: "Open Command Palette", slash: "", visibleWhen: "always" },
   { id: "palette.close", group: "view", label: "Close Command Palette", slash: "", visibleWhen: "palette_open" },
 ];
+
+const WORKSPACE_COMMANDS = [
+  { id: "workspace.open", group: "workspace", label: "Open Workspace", slash: "", visibleWhen: "always", keywords: ["project", "folder"] },
+  { id: "workspace.refresh", group: "workspace", label: "Refresh Workspaces", slash: "", visibleWhen: "always", keywords: ["reload", "recent"] },
+  { id: "workspace.remove_current", group: "workspace", label: "Remove Current Workspace From Recents", slash: "", visibleWhen: "always", keywords: ["forget", "recent"] },
+  { id: "workspace.files", group: "workspace", label: "Open Files", slash: "/workspace", visibleWhen: "always" },
+];
+
+export const WORKBENCH_COMMANDS = [
+  ...APP_COMMANDS,
+  ...LOCAL_COMMANDS,
+  ...surfaceCommandDefinitions(),
+  ...bottomDrawerCommandDefinitions(),
+  ...WORKSPACE_COMMANDS,
+];
+
+function localWorkbenchCommands() {
+  return LOCAL_COMMANDS;
+}
+
+function capabilityList(appCapabilities, snakeName, camelName) {
+  if (!appCapabilities || typeof appCapabilities !== "object") return null;
+  if (Array.isArray(appCapabilities[camelName])) {
+    return appCapabilities[camelName].map(String);
+  }
+  if (Array.isArray(appCapabilities[snakeName])) {
+    return appCapabilities[snakeName].map(String);
+  }
+  return null;
+}
+
+function filterCommandsByCapability(commands, appCapabilities, snakeName, camelName) {
+  const declared = capabilityList(appCapabilities, snakeName, camelName);
+  if (declared === null) return commands;
+  const allowed = new Set(declared);
+  return commands.filter((command) => allowed.has(command.id));
+}
+
+function appCommandDefinitions(appCapabilities = null) {
+  return filterCommandsByCapability(APP_COMMANDS, appCapabilities, "app_commands", "appCommands");
+}
+
+function workspaceCommandDefinitions(appCapabilities = null) {
+  return filterCommandsByCapability(
+    WORKSPACE_COMMANDS,
+    appCapabilities,
+    "workspace_commands",
+    "workspaceCommands",
+  );
+}
 
 function commandFromCapability(item = {}) {
   const id = String(item.id || item.name || "").trim();
@@ -49,13 +94,20 @@ function commandFromCapability(item = {}) {
   };
 }
 
-export function buildWorkbenchCommands(capabilities = {}) {
+export function buildWorkbenchCommands(capabilities = {}, appCapabilities = null) {
   const dynamicCommands = normalizeCommandCapabilities(capabilities).commands
     .map(commandFromCapability)
     .filter(Boolean);
   const commands = [];
   const seen = new Set();
-  for (const command of WORKBENCH_COMMANDS.concat(dynamicCommands)) {
+  const builtinCommands = [
+    ...appCommandDefinitions(appCapabilities),
+    ...localWorkbenchCommands(),
+    ...surfaceCommandDefinitions(appCapabilities),
+    ...bottomDrawerCommandDefinitions(appCapabilities),
+    ...workspaceCommandDefinitions(appCapabilities),
+  ];
+  for (const command of builtinCommands.concat(dynamicCommands)) {
     if (!command || !command.id || seen.has(command.id)) continue;
     seen.add(command.id);
     commands.push(command);
@@ -63,8 +115,8 @@ export function buildWorkbenchCommands(capabilities = {}) {
   return commands;
 }
 
-export function commandById(id, capabilities = {}) {
-  return buildWorkbenchCommands(capabilities).find((item) => item.id === id) || null;
+export function commandById(id, capabilities = {}, appCapabilities = null) {
+  return buildWorkbenchCommands(capabilities, appCapabilities).find((item) => item.id === id) || null;
 }
 
 function isVisible(command, context) {
@@ -87,7 +139,10 @@ function isVisible(command, context) {
 
 export function visibleCommands(context) {
   const view = context || {};
-  return buildWorkbenchCommands(view.capabilities || view.sessionCapabilities || {}).filter((command) => {
+  return buildWorkbenchCommands(
+    view.capabilities || view.sessionCapabilities || {},
+    view.appCapabilities || null,
+  ).filter((command) => {
     if (command.id === "workspace.remove_current" && !view.hasWorkspace) return false;
     return isVisible(command, view);
   });

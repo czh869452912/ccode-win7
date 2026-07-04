@@ -71,13 +71,21 @@ Current app-shell v1 fields include `app`, `workspaces`,
 `active_workspace`, `has_active_workspace`, `diagnostics`, `capabilities`,
 `settings`, and `last_error`. Diagnostics are safe read-model fields for host,
 runtime, renderer, workspace registry, and active-core presence only.
-`capabilities.surfaces.bottom_drawer` may include `terminal`, `run_output`,
-and `logs`; `capabilities.terminal` describes the GUI terminal limitations
-(`enabled`, `pty`, `resize`, `history_persistent`, and `max_buffer_bytes`).
-`capabilities.surfaces.right_panel` may include `source_control`, and
-`capabilities.source_control` describes the local source-control surface:
-`enabled`, `vcs`, `read_only`, `remote_providers`, `network`, `checkpoints`,
-and `requires_active_workspace`.
+`capabilities.app_commands`, `capabilities.workspace_commands`,
+`capabilities.surfaces.right_panel`, and
+`capabilities.surfaces.bottom_drawer` are the app-shell entrypoint contract for
+the renderer workbench. The renderer may keep local metadata for labels,
+icons, keybindings, and React components, but visible command-palette entries,
+right-panel launchers, bottom-drawer tabs, and keybinding targets are filtered
+from this bootstrap declaration. Missing capability arrays mean no app-shell
+entrypoints, not GUI defaults. `capabilities.surfaces.right_panel` may include
+`files`, `terminal`, `diff`, `preview`, `plan`, `source_control`, `settings`,
+and `diagnostics`; `capabilities.surfaces.bottom_drawer` may include
+`terminal`, `run_output`, and `logs`. `capabilities.terminal` describes the GUI
+terminal limitations (`enabled`, `pty`, `resize`, `history_persistent`, and
+`max_buffer_bytes`). `capabilities.source_control` describes the local
+source-control surface: `enabled`, `vcs`, `read_only`, `remote_providers`,
+`network`, `checkpoints`, and `requires_active_workspace`.
 
 The GUI terminal bottom drawer is app-shell hosted and workspace-bound. It is
 implemented with Windows 7-compatible Python stdlib subprocess pipes, not a

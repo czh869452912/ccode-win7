@@ -180,6 +180,72 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
   }),
 ]);
 
+export const BOTTOM_DRAWER_SURFACE_REGISTRY = Object.freeze([
+  defineSurface({
+    kind: "run_output",
+    title: "Run Output",
+    icon: "R",
+    description: "Show turn and tool output.",
+    placement: "bottom",
+    closeBehavior: "pinned",
+    launcher: true,
+    launcherOrder: 10,
+    command: true,
+    commandLabel: "Toggle Run Output",
+    visibleWhen: "always",
+  }),
+  defineSurface({
+    kind: "terminal",
+    title: "Terminal",
+    icon: "T",
+    description: "Use a shell in this workspace.",
+    placement: "bottom",
+    closeBehavior: "pinned",
+    launcher: true,
+    launcherOrder: 20,
+    command: true,
+    commandLabel: "Open Terminal",
+    visibleWhen: "has_session",
+  }),
+  defineSurface({
+    kind: "logs",
+    title: "Logs",
+    icon: "L",
+    description: "Inspect renderer and runtime logs.",
+    placement: "bottom",
+    closeBehavior: "pinned",
+    launcher: true,
+    launcherOrder: 30,
+    command: true,
+    commandLabel: "Open Logs",
+    visibleWhen: "always",
+  }),
+]);
+
+function surfaceCapabilityList(appCapabilities, placement) {
+  if (!appCapabilities || typeof appCapabilities !== "object") return null;
+  const surfaces = appCapabilities.surfaces && typeof appCapabilities.surfaces === "object"
+    ? appCapabilities.surfaces
+    : {};
+  const value =
+    placement === "bottom"
+      ? (surfaces.bottomDrawer || surfaces.bottom_drawer)
+      : (surfaces.rightPanel || surfaces.right_panel);
+  if (!Array.isArray(value)) return null;
+  return value.map((item) => String(item || "")).filter(Boolean);
+}
+
+function filterSurfaceDefinitions(definitions, placement, appCapabilities) {
+  const allowed = surfaceCapabilityList(appCapabilities, placement);
+  const ordered = definitions
+    .filter((definition) => definition.launcher)
+    .slice()
+    .sort((left, right) => (left.launcherOrder || 0) - (right.launcherOrder || 0));
+  if (allowed === null) return ordered;
+  const allowedSet = new Set(allowed);
+  return ordered.filter((definition) => allowedSet.has(definition.kind));
+}
+
 export function rightPanelSurfaceDefinitions() {
   return RIGHT_PANEL_SURFACE_REGISTRY;
 }
@@ -189,15 +255,16 @@ export function surfaceDefinitionFor(kind) {
   return RIGHT_PANEL_SURFACE_REGISTRY.find((definition) => definition.kind === normalized) || null;
 }
 
-export function rightPanelLauncherSurfaceDefinitions() {
-  return RIGHT_PANEL_SURFACE_REGISTRY
-    .filter((definition) => definition.launcher)
-    .slice()
-    .sort((left, right) => (left.launcherOrder || 0) - (right.launcherOrder || 0));
+export function rightPanelLauncherSurfaceDefinitions(appCapabilities = null) {
+  return filterSurfaceDefinitions(RIGHT_PANEL_SURFACE_REGISTRY, "right", appCapabilities);
 }
 
-export function surfaceCommandDefinitions() {
-  return rightPanelLauncherSurfaceDefinitions()
+export function bottomDrawerSurfaceDefinitions(appCapabilities = null) {
+  return filterSurfaceDefinitions(BOTTOM_DRAWER_SURFACE_REGISTRY, "bottom", appCapabilities);
+}
+
+export function surfaceCommandDefinitions(appCapabilities = null) {
+  return rightPanelLauncherSurfaceDefinitions(appCapabilities)
     .filter((definition) => definition.command !== false)
     .map((definition) => ({
       id: `surface.${definition.kind}`,
@@ -210,10 +277,24 @@ export function surfaceCommandDefinitions() {
     }));
 }
 
+export function bottomDrawerCommandDefinitions(appCapabilities = null) {
+  return bottomDrawerSurfaceDefinitions(appCapabilities)
+    .filter((definition) => definition.command !== false)
+    .map((definition) => ({
+      id: `drawer.${definition.kind}`,
+      group: "surface",
+      label: definition.commandLabel || `Open ${definition.title}`,
+      slash: definition.slash || "",
+      drawer: definition.kind,
+      visibleWhen: definition.visibleWhen || "always",
+      ...(definition.keywords.length > 0 ? { keywords: Array.from(definition.keywords) } : {}),
+    }));
+}
+
 export const RIGHT_PANEL_KINDS = RIGHT_PANEL_SURFACE_REGISTRY.map((definition) => definition.kind);
 export const RIGHT_PANEL_SURFACES = rightPanelLauncherSurfaceDefinitions()
   .map((definition) => definition.kind);
-export const BOTTOM_DRAWER_SURFACES = ["terminal", "run_output", "logs"];
+export const BOTTOM_DRAWER_SURFACES = BOTTOM_DRAWER_SURFACE_REGISTRY.map((definition) => definition.kind);
 
 export const DEFAULT_SESSION_KEY = "__global__";
 

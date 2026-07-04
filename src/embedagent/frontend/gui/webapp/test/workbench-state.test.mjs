@@ -21,6 +21,8 @@ import {
   RIGHT_PANEL_SURFACE_REGISTRY,
   RIGHT_PANEL_SURFACES,
   activateSurface,
+  bottomDrawerCommandDefinitions,
+  bottomDrawerSurfaceDefinitions,
   closeAllSurfaces,
   closeOtherSurfaces,
   closeSurface,
@@ -80,6 +82,7 @@ export function runWorkbenchStateTests() {
   ]);
   assert.equal(BOTTOM_DRAWER_SURFACES.includes("terminal"), true);
   assert.equal(BOTTOM_DRAWER_SURFACES.includes("run_output"), true);
+  assert.deepEqual(bottomDrawerSurfaceDefinitions().map((definition) => definition.kind), BOTTOM_DRAWER_SURFACES);
 
   const initial = createWorkbenchState();
   assert.equal(initial.rightPanel.open, true);
@@ -379,6 +382,11 @@ export function runWorkbenchStateTests() {
       .map((item) => item.id),
     surfaceCommandDefinitions().map((item) => item.id),
   );
+  assert.deepEqual(
+    WORKBENCH_COMMANDS.filter((item) => item.group === "surface" && item.drawer)
+      .map((item) => item.id),
+    bottomDrawerCommandDefinitions().map((item) => item.id),
+  );
   assert.equal(commandById("surface.preview").surface, "preview");
   assert.equal(commandById("surface.diff").surface, "diff");
   assert.equal(commandById("surface.source_control").surface, "source_control");
@@ -404,6 +412,43 @@ export function runWorkbenchStateTests() {
 
   const visibleWhenRunning = visibleCommands({ hasSession: true, isRunning: true });
   assert.equal(visibleWhenRunning.some((item) => item.id === "message.stop"), true);
+
+  const limitedAppCapabilities = {
+    appCommands: ["app.settings"],
+    workspaceCommands: ["workspace.open"],
+    surfaces: {
+      rightPanel: ["settings"],
+      bottomDrawer: ["logs"],
+    },
+  };
+  assert.deepEqual(
+    rightPanelLauncherSurfaceDefinitions(limitedAppCapabilities).map((item) => item.kind),
+    ["settings"],
+  );
+  assert.deepEqual(
+    surfaceCommandDefinitions(limitedAppCapabilities).map((item) => item.id),
+    ["surface.settings"],
+  );
+  assert.deepEqual(
+    bottomDrawerCommandDefinitions(limitedAppCapabilities).map((item) => item.id),
+    ["drawer.logs"],
+  );
+  const limitedVisible = visibleCommands({
+    hasSession: true,
+    hasWorkspace: true,
+    isRunning: false,
+    appCapabilities: limitedAppCapabilities,
+  }).map((item) => item.id);
+  assert.equal(limitedVisible.includes("app.settings"), true);
+  assert.equal(limitedVisible.includes("app.diagnostics"), false);
+  assert.equal(limitedVisible.includes("app.source_control"), false);
+  assert.equal(limitedVisible.includes("workspace.open"), true);
+  assert.equal(limitedVisible.includes("workspace.refresh"), false);
+  assert.equal(limitedVisible.includes("surface.settings"), true);
+  assert.equal(limitedVisible.includes("surface.diagnostics"), false);
+  assert.equal(limitedVisible.includes("surface.preview"), false);
+  assert.equal(limitedVisible.includes("drawer.logs"), true);
+  assert.equal(limitedVisible.includes("drawer.terminal"), false);
 
   const syntheticEvent = {
     key: "k",

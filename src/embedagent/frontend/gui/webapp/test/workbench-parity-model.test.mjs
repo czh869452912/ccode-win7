@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import { initialState, reducer } from "../src/store.js";
+import { APP_COMMANDS } from "../src/app-shell/commands.js";
 import { surfaceCommandDefinitions } from "../src/workbench/surfaces.js";
 import { buildWorkbenchParityModel } from "../src/workbench/workbench-parity-model.js";
 
@@ -15,6 +16,26 @@ function sessionWorkspaceState(patch = {}) {
       ...initialState.app,
       hasActiveWorkspace: true,
       activeWorkspace: { id: "ws-1", label: "demo", path: "D:/work/demo" },
+      capabilities: {
+        appCommands: APP_COMMANDS.map((command) => command.id),
+        workspaceCommands: ["workspace.open", "workspace.refresh", "workspace.remove_current"],
+        surfaces: {
+          rightPanel: [
+            "files",
+            "terminal",
+            "diff",
+            "preview",
+            "plan",
+            "source_control",
+            "settings",
+            "diagnostics",
+          ],
+          bottomDrawer: ["terminal", "run_output", "logs"],
+        },
+        sourceControl: initialState.app.capabilities.sourceControl,
+        terminal: initialState.app.capabilities.terminal,
+        threadLifecycle: initialState.app.capabilities.threadLifecycle,
+      },
     },
     thread: {
       ...initialState.thread,
@@ -59,6 +80,7 @@ export function runWorkbenchParityModelTests() {
     ...surfaceCommandDefinitions().map((command) => command.id),
     "drawer.run_output",
     "drawer.terminal",
+    "drawer.logs",
   ]);
 
   let narrow = sessionWorkspaceState({ snapshot: { status: "running" } });

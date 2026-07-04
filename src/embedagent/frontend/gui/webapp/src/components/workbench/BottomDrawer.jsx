@@ -1,4 +1,5 @@
 import React from "react";
+import { bottomDrawerSurfaceDefinitions } from "../../workbench/surfaces.js";
 import TerminalShell from "./TerminalShell.jsx";
 
 function RunOutputDrawer({ runOutput, terminationReason, terminationMessage }) {
@@ -25,6 +26,7 @@ function RunOutputDrawer({ runOutput, terminationReason, terminationMessage }) {
 }
 
 export default function BottomDrawer({
+  appCapabilities,
   activeKind,
   runOutput,
   terminationReason,
@@ -38,30 +40,20 @@ export default function BottomDrawer({
   onTerminalRestart,
   onTerminalClose,
 }) {
+  const drawerSurfaces = bottomDrawerSurfaceDefinitions(appCapabilities);
   return (
     <section className="bottom-drawer" aria-label="Bottom drawer" data-testid="bottom-drawer">
       <div className="bottom-drawer-tabs" role="tablist">
-        <button
-          className={`bottom-drawer-tab${activeKind === "terminal" ? " active" : ""}`}
-          type="button"
-          onClick={() => onKindSelect("terminal")}
-        >
-          Terminal
-        </button>
-        <button
-          className={`bottom-drawer-tab${activeKind === "run_output" ? " active" : ""}`}
-          type="button"
-          onClick={() => onKindSelect("run_output")}
-        >
-          Run Output
-        </button>
-        <button
-          className={`bottom-drawer-tab${activeKind === "logs" ? " active" : ""}`}
-          type="button"
-          onClick={() => onKindSelect("logs")}
-        >
-          Logs
-        </button>
+        {drawerSurfaces.map((definition) => (
+          <button
+            key={definition.kind}
+            className={`bottom-drawer-tab${activeKind === definition.kind ? " active" : ""}`}
+            type="button"
+            onClick={() => onKindSelect(definition.kind)}
+          >
+            {definition.title}
+          </button>
+        ))}
       </div>
       <div className="bottom-drawer-body">
         {activeKind === "terminal" ? (

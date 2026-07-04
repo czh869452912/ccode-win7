@@ -864,6 +864,41 @@ def test_gui_has_no_split_task_or_recipe_refetch_contracts():
         assert token not in styles_text
 
 
+def test_gui_workbench_entrypoints_are_app_capability_driven():
+    commands_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js")
+    keybindings_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/keybindings.js"
+    )
+    right_panel_tabs_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelTabs.jsx"
+    )
+    bottom_drawer_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/BottomDrawer.jsx"
+    )
+    controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/workbench-command-controller.js"
+    )
+
+    assert "appCapabilities" in commands_text
+    assert "surfaceCommandDefinitions(appCapabilities)" in commands_text
+    assert "bottomDrawerCommandDefinitions(appCapabilities)" in commands_text
+    assert "appCapabilities" in keybindings_text
+    assert "rightPanelLauncherSurfaceDefinitions(appCapabilities)" in right_panel_tabs_text
+    assert "bottomDrawerSurfaceDefinitions(appCapabilities)" in bottom_drawer_text
+    for token in (
+        'onKindSelect("terminal")',
+        'onKindSelect("run_output")',
+        'onKindSelect("logs")',
+    ):
+        assert token not in bottom_drawer_text
+    for token in (
+        'case "app.settings"',
+        'case "app.diagnostics"',
+        'case "app.source_control"',
+    ):
+        assert token not in controller_text
+
+
 def test_hosted_interactions_do_not_keep_legacy_blocking_frontend_paths():
     banned_tokens = (
         "on_permission_request",

@@ -103,9 +103,11 @@ function App() {
     isRunning: isTurnInterruptibleStatus(currentStatus),
     paletteOpen: state.workbench.commandPalette.open,
     capabilities: state.sessionCapabilities || {},
+    appCapabilities: state.app.capabilities || {},
   }), [
     currentStatus,
     currentSessionId,
+    state.app.capabilities,
     state.app.hasActiveWorkspace,
     state.workbench.commandPalette.open,
     state.sessionCapabilities,
@@ -580,6 +582,8 @@ function App() {
         paletteOpen: state.workbench.commandPalette.open,
         isRunning: isTurnInterruptibleStatus(currentStatus),
         composerFocused: document.activeElement?.dataset?.testid === "composer-input",
+        capabilities: state.sessionCapabilities || {},
+        appCapabilities: state.app.capabilities || {},
       });
       if (!command) return;
       event.preventDefault();
@@ -587,7 +591,14 @@ function App() {
     }
     window.addEventListener("keydown", onWorkbenchKeyDown);
     return () => window.removeEventListener("keydown", onWorkbenchKeyDown);
-  }, [state.workbench.commandPalette.open, currentStatus, composerDraft, currentSessionId]);
+  }, [
+    state.workbench.commandPalette.open,
+    currentStatus,
+    composerDraft,
+    currentSessionId,
+    state.sessionCapabilities,
+    state.app.capabilities,
+  ]);
 
   function logEvent(label, detail) {
     dispatch({ type: "log_event", label, detail });
@@ -917,6 +928,7 @@ function App() {
       }
       rightPanel={
         <RightPanelTabs
+          appCapabilities={state.app.capabilities}
           surfaces={rightPanelSurfaces}
           activeSurfaceId={state.workbench.rightPanel.activeSurfaceId}
           onActivateSurface={(surface) => {
@@ -992,6 +1004,7 @@ function App() {
       }
       bottomDrawer={
         <BottomDrawer
+          appCapabilities={state.app.capabilities}
           activeKind={state.workbench.bottomDrawer.activeKind}
           runOutput={state.runOutput}
           terminationReason={state.terminationDisplayReason || state.terminationReason}
@@ -1027,7 +1040,11 @@ function App() {
       onClose={() => dispatch({ type: "workbench_command_palette_closed" })}
       onSelect={(command) => {
         dispatch({ type: "workbench_command_palette_closed" });
-        void executeWorkbenchCommand(commandById(command.id, state.sessionCapabilities || {}));
+        void executeWorkbenchCommand(commandById(
+          command.id,
+          state.sessionCapabilities || {},
+          state.app.capabilities || {},
+        ));
       }}
       onSelectSession={(sessionId) => {
         dispatch({ type: "workbench_command_palette_closed" });

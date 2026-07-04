@@ -44,6 +44,11 @@ summary list, and history-integrity display read model, and
 renderer read models only and must not become session history, workflow truth,
 tool policy, permission policy, extension loading policy, provider
 configuration, telemetry, or Agent Core runtime reducers.
+Workbench command visibility, right-panel launchers, bottom-drawer tabs, and
+keybinding targets are filtered from GUI app-shell capabilities returned by
+`GET /api/app/bootstrap`. Renderer-local surface registries may describe how a
+known surface is displayed, but they do not grant app-shell entrypoints when
+the backend declaration omits them.
 
 GUI thread lifecycle operations (`rename`, `fork`, and `archive`) are exposed
 through the session lifecycle facade and consumed by the GUI app shell. They

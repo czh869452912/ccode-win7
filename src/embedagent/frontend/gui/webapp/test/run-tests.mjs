@@ -952,9 +952,9 @@ async function main() {
     "utf8",
   );
   assert.equal(workbenchCommandControllerSource.includes("export function createWorkbenchCommandController"), true);
-  assert.equal(workbenchCommandControllerSource.includes('case "app.settings"'), true);
-  assert.equal(workbenchCommandControllerSource.includes('case "app.diagnostics"'), true);
-  assert.equal(workbenchCommandControllerSource.includes('case "app.source_control"'), true);
+  assert.equal(workbenchCommandControllerSource.includes('case "app.settings"'), false);
+  assert.equal(workbenchCommandControllerSource.includes('case "app.diagnostics"'), false);
+  assert.equal(workbenchCommandControllerSource.includes('case "app.source_control"'), false);
   assert.equal(workbenchCommandControllerSource.includes('case "app.reload"'), true);
   assert.equal(workbenchCommandControllerSource.includes('case "surface.preview"'), false);
   assert.equal(workbenchCommandControllerSource.includes("command.surface"), true);
@@ -1235,7 +1235,7 @@ async function main() {
     "utf8",
   );
   assert.equal(bottomDrawerSource.includes("TerminalShell"), true);
-  assert.equal(bottomDrawerSource.includes("run_output"), true);
+  assert.equal(bottomDrawerSource.includes("bottomDrawerSurfaceDefinitions"), true);
   assert.equal(bottomDrawerSource.includes("export function TerminalSurface"), false);
 
   const filesSurfaceSource = fs.readFileSync(

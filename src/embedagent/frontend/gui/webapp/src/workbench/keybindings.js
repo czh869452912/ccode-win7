@@ -50,10 +50,15 @@ function matchesWhen(rule, context) {
 }
 
 export function resolveKeybinding(bindings, key, context) {
+  const view = context || {};
   const normalizedKey = String(key || "").toLowerCase();
   const match = (bindings || []).find(
-    (binding) => binding.key === normalizedKey && matchesWhen(binding.when, context || {}),
+    (binding) => binding.key === normalizedKey && matchesWhen(binding.when, view),
   );
   if (!match) return null;
-  return commandById(match.commandId);
+  return commandById(
+    match.commandId,
+    view.capabilities || view.sessionCapabilities || {},
+    view.appCapabilities || null,
+  );
 }

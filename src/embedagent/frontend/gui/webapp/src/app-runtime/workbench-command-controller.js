@@ -54,15 +54,6 @@ export function createWorkbenchCommandController({
         }
         return;
       }
-      case "app.settings":
-        openRightPanelSurface("settings", command.label);
-        return;
-      case "app.diagnostics":
-        openRightPanelSurface("diagnostics", command.label);
-        return;
-      case "app.source_control":
-        openRightPanelSurface("source_control", command.label);
-        return;
       case "message.send":
         await sendMessage();
         return;

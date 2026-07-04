@@ -97,10 +97,11 @@ function SurfaceTabMenu({
   );
 }
 
-function SurfaceAddMenu({ onAddSurface }) {
+function SurfaceAddMenu({ appCapabilities, onAddSurface }) {
   const [open, setOpen] = React.useState(false);
   const buttonRef = React.useRef(null);
-  const availableSurfaces = rightPanelLauncherSurfaceDefinitions();
+  const availableSurfaces = rightPanelLauncherSurfaceDefinitions(appCapabilities);
+  if (availableSurfaces.length === 0) return null;
   return (
     <span className="right-panel-add-menu">
       <button
@@ -141,8 +142,8 @@ function SurfaceAddMenu({ onAddSurface }) {
   );
 }
 
-function RightPanelEmptyState({ onAddSurface }) {
-  const availableSurfaces = rightPanelLauncherSurfaceDefinitions();
+function RightPanelEmptyState({ appCapabilities, onAddSurface }) {
+  const availableSurfaces = rightPanelLauncherSurfaceDefinitions(appCapabilities);
   return (
     <div className="right-panel-empty-state" data-testid="right-panel-empty-state">
       <div className="right-panel-empty-copy">
@@ -171,6 +172,7 @@ function RightPanelEmptyState({ onAddSurface }) {
 }
 
 export default function RightPanelTabs({
+  appCapabilities,
   surfaces,
   activeSurfaceId,
   onActivateSurface,
@@ -233,12 +235,16 @@ export default function RightPanelTabs({
                 </div>
               );
             })}
-            {items.length > 0 ? <SurfaceAddMenu onAddSurface={onAddSurface} /> : null}
+            {items.length > 0 ? (
+              <SurfaceAddMenu appCapabilities={appCapabilities} onAddSurface={onAddSurface} />
+            ) : null}
           </div>
         </div>
       </div>
       <div className="right-panel-body">
-        {activeSurface ? children : <RightPanelEmptyState onAddSurface={onAddSurface} />}
+        {activeSurface ? children : (
+          <RightPanelEmptyState appCapabilities={appCapabilities} onAddSurface={onAddSurface} />
+        )}
       </div>
     </aside>
   );

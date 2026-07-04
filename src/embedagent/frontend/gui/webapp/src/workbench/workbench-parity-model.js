@@ -80,9 +80,11 @@ function surfaceCommands(state, status) {
     paletteOpen: Boolean(
       state && state.workbench && state.workbench.commandPalette && state.workbench.commandPalette.open,
     ),
+    appCapabilities: state && state.app ? state.app.capabilities : null,
+    capabilities: state ? state.sessionCapabilities : null,
   });
   return commands
-    .filter((command) => command && (command.group === "surface" || command.surface || command.drawer))
+    .filter((command) => command && (command.group === "surface" || command.drawer))
     .map((command) => command.id);
 }
 

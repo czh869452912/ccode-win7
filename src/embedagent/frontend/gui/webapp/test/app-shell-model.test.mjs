@@ -24,8 +24,10 @@ export function runAppShellModelTests() {
   assert.equal(initial.settings.confirm_workspace_switch, true);
   assert.equal(initial.settings.show_diagnostics_badge, true);
   assert.deepEqual(initial.diagnostics.host, {});
-  assert.equal(initial.capabilities.appCommands.includes("app.settings"), true);
-  assert.equal(initial.capabilities.surfaces.rightPanel.includes("diagnostics"), true);
+  assert.deepEqual(initial.capabilities.appCommands, []);
+  assert.deepEqual(initial.capabilities.workspaceCommands, []);
+  assert.deepEqual(initial.capabilities.surfaces.rightPanel, []);
+  assert.deepEqual(initial.capabilities.surfaces.bottomDrawer, []);
   assert.equal(initial.capabilities.terminal.enabled, false);
   assert.equal(initial.capabilities.terminal.pty, false);
   assert.equal(initial.capabilities.terminal.resize, false);
@@ -164,6 +166,12 @@ export function runAppShellModelTests() {
   assert.equal(capabilities.terminal.enabled, true);
   assert.equal(capabilities.terminal.pty, false);
   assert.equal(capabilities.terminal.resize, false);
+
+  const emptyCapabilities = normalizeAppCapabilities({});
+  assert.deepEqual(emptyCapabilities.appCommands, []);
+  assert.deepEqual(emptyCapabilities.workspaceCommands, []);
+  assert.deepEqual(emptyCapabilities.surfaces.rightPanel, []);
+  assert.deepEqual(emptyCapabilities.surfaces.bottomDrawer, []);
 
   const reduced = reduceAppShellState(initial, {
     type: "app_shell_bootstrap_loaded",
