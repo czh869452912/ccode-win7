@@ -1258,6 +1258,18 @@ async function main() {
   assert.equal(sourceControlPanelSource.includes("groupSourceControlFiles"), true);
   assert.equal(sourceControlPanelSource.includes("fileStatusLabel"), true);
   assert.equal(sourceControlPanelSource.includes("onRefresh"), true);
+  assert.equal(sourceControlPanelSource.includes("sourceControlChrome"), true);
+  for (const hardcodedSourceControlCopy of [
+    "Source control unavailable.",
+    "Loading changes...",
+    "Git runtime is not available for this workspace.",
+    "The active workspace is not a Git repository.",
+    "No local changes.",
+    "No branch",
+    '"Refresh"',
+  ]) {
+    assert.equal(sourceControlPanelSource.includes(hardcodedSourceControlCopy), false);
+  }
 
   const branchToolbarSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "BranchToolbar.jsx"),

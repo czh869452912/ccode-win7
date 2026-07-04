@@ -179,7 +179,7 @@ export function reduceSourceControlState(state, action = {}) {
     case "source_control_load_started":
       return { ...current, status: "loading", error: "" };
     case "source_control_load_failed":
-      return { ...current, status: "error", error: asText(action.error || "Source control unavailable") };
+      return { ...current, status: "error", error: asText(action.error || "") };
     case "source_control_status_loaded": {
       const data = normalizeSourceControlStatus(action.status || action.sourceControl || {});
       const existingSelection = data.files.find((file) => file.path === current.selectedPath);
@@ -221,7 +221,7 @@ export function reduceSourceControlState(state, action = {}) {
     case "source_control_diff_started":
       return { ...current, diffStatus: "loading", diffError: "" };
     case "source_control_diff_failed":
-      return { ...current, diffStatus: "error", diffError: asText(action.error || "Diff unavailable") };
+      return { ...current, diffStatus: "error", diffError: asText(action.error || "") };
     case "source_control_diff_loaded":
       return {
         ...current,

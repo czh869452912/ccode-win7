@@ -9,35 +9,23 @@ const STATUS_LABELS = {
   conflicted: "C",
 };
 
-const GROUP_LABELS = {
-  staged: "Staged",
-  unstaged: "Changes",
-  untracked: "Untracked",
-  conflicted: "Conflicts",
-};
-
-const PROVIDER_LABELS = {
-  azure: "Azure Repos",
-  bitbucket: "Bitbucket",
-  gitea: "Gitea",
-  github: "GitHub",
-  gitlab: "GitLab",
-  local: "Local Git",
-};
-
 export function fileStatusLabel(file = {}) {
   const status = String(file.status || "").toLowerCase();
   if (STATUS_LABELS[status]) return STATUS_LABELS[status];
   return status ? status.slice(0, 1).toUpperCase() : "?";
 }
 
-export function groupLabel(group) {
-  return GROUP_LABELS[String(group || "").toLowerCase()] || "Changes";
+export function groupLabel(group, chrome = {}) {
+  const normalized = String(group || "").toLowerCase();
+  const labels = chrome.groupLabels || {};
+  return String(labels[normalized] || labels.fallback || normalized || "");
 }
 
-export function providerLabel(provider = {}) {
+export function providerLabel(provider = {}, chrome = {}) {
   if (provider.name) return String(provider.name);
-  return PROVIDER_LABELS[String(provider.kind || "").toLowerCase()] || "Local Git";
+  const normalized = String(provider.kind || "").toLowerCase();
+  const labels = chrome.providerLabels || {};
+  return String(labels[normalized] || labels.fallback || normalized || "");
 }
 
 export function changeSummary(file = {}) {

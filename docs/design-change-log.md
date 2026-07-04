@@ -44,6 +44,37 @@
 
 ## 3. 当前变更记录
 
+### DC-226
+
+- Date: 2026-07-04
+- Change Topic: GUI source-control chrome descriptor convergence
+- Summary:
+  - Extended `/api/app/bootstrap` `capabilities.source_control.chrome` with
+    source-control panel labels, notices, count labels, group labels, provider
+    labels, and runtime labels.
+  - Routed `App.jsx`, `SourceControlPanel.jsx`, and source-control
+    presentation helpers through normalized app-shell source-control chrome
+    instead of renderer-local English defaults.
+  - Added app-shell, frontend source, presentation-helper, and architecture
+    guard coverage for source-control chrome ownership.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/source-control/SourceControlPanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/source-control/source-control-presentation.js`
+  - `src/embedagent/frontend/gui/webapp/src/source-control/source-control-state.js`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-225
 
 - Date: 2026-07-04

@@ -140,7 +140,9 @@ for `terminal`, `run_output`, and `logs`. `capabilities.terminal` describes the 
 terminal limitations (`enabled`, `pty`, `resize`, `history_persistent`, and
 `max_buffer_bytes`). `capabilities.source_control` describes the local
 source-control surface: `enabled`, `vcs`, `read_only`, `remote_providers`,
-`network`, `checkpoints`, and `requires_active_workspace`.
+`network`, `checkpoints`, `requires_active_workspace`, and `chrome` copy for
+status/diff errors, empty states, counts, groups, providers, runtime labels,
+and panel actions.
 The renderer may keep a local registry of supported component kinds, but that
 registry is not a frontend capability source and must not be exposed as a fixed
 surface id list.

@@ -142,6 +142,8 @@ function App() {
   runtimeStateRef.current = runtimeState;
   const interactionNotice = state.interactionNotice || runtimeState.interactionNotice;
   const terminalChrome = state.app.capabilities?.terminal?.chrome || {};
+  const sourceControlCapability = state.app.capabilities?.sourceControl || {};
+  const sourceControlChrome = sourceControlCapability.chrome || {};
   const previewCapability = state.app.capabilities?.preview || {};
   const previewChrome = previewCapability.chrome || {};
   const terminalController = useMemo(
@@ -286,7 +288,10 @@ function App() {
       dispatch({ type: "source_control_status_loaded", status: payload });
       return payload;
     } catch (error) {
-      dispatch({ type: "source_control_load_failed", error: error.message || "Source control unavailable" });
+      dispatch({
+        type: "source_control_load_failed",
+        error: error.message || sourceControlChrome.statusUnavailableNotice,
+      });
       return null;
     }
   }
@@ -311,10 +316,16 @@ function App() {
           }),
         });
       } else {
-        dispatch({ type: "source_control_diff_failed", error: diff.reason || "Diff unavailable" });
+        dispatch({
+          type: "source_control_diff_failed",
+          error: diff.reason || sourceControlChrome.diffUnavailableNotice,
+        });
       }
     } catch (error) {
-      dispatch({ type: "source_control_diff_failed", error: error.message || "Diff unavailable" });
+      dispatch({
+        type: "source_control_diff_failed",
+        error: error.message || sourceControlChrome.diffUnavailableNotice,
+      });
     }
   }
 
@@ -712,6 +723,7 @@ function App() {
     plan: state.plan,
     diffSurface: state.diffSurface,
     sourceControl: state.sourceControl,
+    sourceControlChrome,
     appShell: state.app,
     chrome: appChrome.surfacePanel || {},
     onFocusDiffFile: (filePath) => dispatch({ type: "diff_file_focused", filePath }),

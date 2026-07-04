@@ -9,6 +9,7 @@ import {
 } from "../src/source-control/source-control-state.js";
 import {
   fileStatusLabel,
+  groupLabel,
   providerLabel,
 } from "../src/source-control/source-control-presentation.js";
 
@@ -100,4 +101,9 @@ export function runSourceControlStateTests() {
 
   assert.equal(fileStatusLabel({ status: "modified" }), "M");
   assert.equal(providerLabel(normalized.provider), "GitHub");
+  assert.equal(groupLabel("unstaged", { groupLabels: { unstaged: "Modified" } }), "Modified");
+  assert.equal(
+    providerLabel({ kind: "local" }, { providerLabels: { local: "Workspace Git" } }),
+    "Workspace Git",
+  );
 }

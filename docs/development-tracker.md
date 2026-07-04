@@ -78,6 +78,10 @@
   `capabilities.surfaces.chrome`: aria label, empty output text, and
   termination reason prefix are backend-declared descriptors consumed through
   `surfaceChromeLabels(appCapabilities)`.
+- Source Control right-panel chrome now comes from
+  `capabilities.source_control.chrome`: panel title, status/diff fallback
+  notices, empty states, count/group/provider labels, runtime labels, and
+  refresh action copy are backend-declared descriptors consumed by the renderer.
 
 ### 2026-06-27 - Pi/T3 Residual Debt Cleanup Closed
 

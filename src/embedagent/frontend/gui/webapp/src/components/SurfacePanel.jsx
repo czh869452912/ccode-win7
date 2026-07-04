@@ -8,6 +8,7 @@ export default function SurfacePanel({
   plan,
   diffSurface,
   sourceControl,
+  sourceControlChrome,
   appShell,
   chrome = {},
   onFocusDiffFile,
@@ -25,6 +26,7 @@ export default function SurfacePanel({
         {surfaceKind === "source_control" && (
           <SourceControlPanel
             sourceControl={sourceControl}
+            sourceControlChrome={sourceControlChrome}
             onRefresh={onRefreshSourceControl}
             onSelectFile={onSelectSourceControlFile}
           />

@@ -30,12 +30,12 @@ function FileRow({ file, active, onSelectFile }) {
   );
 }
 
-function FileGroup({ group, files, selectedPath, onSelectFile }) {
+function FileGroup({ group, files, selectedPath, sourceControlChrome, onSelectFile }) {
   if (!files.length) return null;
   return (
     <section className="source-control-group">
       <div className="source-control-group-title">
-        <span>{groupLabel(group)}</span>
+        <span>{groupLabel(group, sourceControlChrome)}</span>
         <span>{files.length}</span>
       </div>
       <div className="source-control-files">
@@ -54,26 +54,28 @@ function FileGroup({ group, files, selectedPath, onSelectFile }) {
 
 export default function SourceControlPanel({
   sourceControl,
+  sourceControlChrome = {},
   onRefresh,
   onSelectFile,
 }) {
   const state = sourceControl || {};
   const data = state.data || {};
   const counts = data.counts || {};
+  const countLabels = sourceControlChrome.countLabels || {};
   const grouped = groupSourceControlFiles(data.files || []);
   const busy = state.status === "loading";
   let body = null;
 
   if (state.status === "error") {
-    body = <EmptyState>{state.error || "Source control unavailable."}</EmptyState>;
+    body = <EmptyState>{state.error || sourceControlChrome.statusUnavailableNotice}</EmptyState>;
   } else if (busy) {
-    body = <EmptyState>Loading changes...</EmptyState>;
+    body = <EmptyState>{sourceControlChrome.loadingMessage}</EmptyState>;
   } else if (!data.gitAvailable) {
-    body = <EmptyState>Git runtime is not available for this workspace.</EmptyState>;
+    body = <EmptyState>{sourceControlChrome.gitUnavailableMessage}</EmptyState>;
   } else if (!data.isRepo) {
-    body = <EmptyState>The active workspace is not a Git repository.</EmptyState>;
+    body = <EmptyState>{sourceControlChrome.notRepositoryMessage}</EmptyState>;
   } else if (!counts.total) {
-    body = <EmptyState>No local changes.</EmptyState>;
+    body = <EmptyState>{sourceControlChrome.cleanMessage}</EmptyState>;
   } else {
     body = (
       <div className="source-control-list">
@@ -83,6 +85,7 @@ export default function SourceControlPanel({
             group={group}
             files={grouped[group] || []}
             selectedPath={state.selectedPath}
+            sourceControlChrome={sourceControlChrome}
             onSelectFile={onSelectFile}
           />
         ))}
@@ -94,11 +97,18 @@ export default function SourceControlPanel({
     <section className="source-control-panel" data-testid="source-control-panel">
       <header className="source-control-header">
         <div className="source-control-title">
-          <strong>Source Control</strong>
+          <strong>{sourceControlChrome.title}</strong>
           <div className="source-control-meta">
-            <span className="source-control-branch">{data.branch || data.head || "No branch"}</span>
-            <span>{providerLabel(data.provider)}</span>
-            <span>{data.runtimeSource || (data.gitAvailable ? "git" : "missing")}</span>
+            <span className="source-control-branch">
+              {data.branch || data.head || sourceControlChrome.noBranchLabel}
+            </span>
+            <span>{providerLabel(data.provider, sourceControlChrome)}</span>
+            <span>
+              {data.runtimeSource ||
+                (data.gitAvailable
+                  ? sourceControlChrome.runtimeGitLabel
+                  : sourceControlChrome.missingRuntimeLabel)}
+            </span>
           </div>
         </div>
         <div className="source-control-actions">
@@ -109,16 +119,16 @@ export default function SourceControlPanel({
             disabled={busy}
             data-testid="source-control-refresh"
           >
-            Refresh
+            {sourceControlChrome.refreshLabel}
           </button>
         </div>
       </header>
       {data.isRepo && data.gitAvailable ? (
         <div className="source-control-counts">
-          <span>{counts.total || 0} files</span>
-          <span>{counts.staged || 0} staged</span>
-          <span>{counts.unstaged || 0} changed</span>
-          <span>{counts.untracked || 0} untracked</span>
+          <span>{counts.total || 0} {countLabels.files}</span>
+          <span>{counts.staged || 0} {countLabels.staged}</span>
+          <span>{counts.unstaged || 0} {countLabels.changed}</span>
+          <span>{counts.untracked || 0} {countLabels.untracked}</span>
         </div>
       ) : null}
       {state.diffStatus === "error" && state.diffError ? (

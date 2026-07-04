@@ -218,6 +218,15 @@ function normalizePreviewChrome(input = {}) {
   };
 }
 
+function normalizeStringMap(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([key, item]) => [String(key || ""), String(item || "")])
+      .filter(([key]) => key),
+  );
+}
+
 function normalizeSourceControlCapability(input = {}) {
   const raw = input.source_control || input.sourceControl || {};
   const value = raw && typeof raw === "object" ? raw : {};
@@ -231,6 +240,37 @@ function normalizeSourceControlCapability(input = {}) {
     checkpoints: value.checkpoints === true,
     requiresActiveWorkspace:
       value.requires_active_workspace === true || value.requiresActiveWorkspace === true,
+    chrome: normalizeSourceControlChrome(value.chrome || {}),
+  };
+}
+
+function normalizeSourceControlChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    title: String(value.title || ""),
+    statusUnavailableNotice: String(
+      value.status_unavailable_notice || value.statusUnavailableNotice || "",
+    ),
+    diffUnavailableNotice: String(
+      value.diff_unavailable_notice || value.diffUnavailableNotice || "",
+    ),
+    loadingMessage: String(value.loading_message || value.loadingMessage || ""),
+    gitUnavailableMessage: String(
+      value.git_unavailable_message || value.gitUnavailableMessage || "",
+    ),
+    notRepositoryMessage: String(
+      value.not_repository_message || value.notRepositoryMessage || "",
+    ),
+    cleanMessage: String(value.clean_message || value.cleanMessage || ""),
+    noBranchLabel: String(value.no_branch_label || value.noBranchLabel || ""),
+    runtimeGitLabel: String(value.runtime_git_label || value.runtimeGitLabel || ""),
+    missingRuntimeLabel: String(
+      value.missing_runtime_label || value.missingRuntimeLabel || "",
+    ),
+    refreshLabel: String(value.refresh_label || value.refreshLabel || ""),
+    countLabels: normalizeStringMap(value.count_labels || value.countLabels),
+    groupLabels: normalizeStringMap(value.group_labels || value.groupLabels),
+    providerLabels: normalizeStringMap(value.provider_labels || value.providerLabels),
   };
 }
 

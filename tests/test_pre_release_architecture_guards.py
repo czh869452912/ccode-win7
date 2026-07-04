@@ -1204,6 +1204,55 @@ def test_gui_preview_copy_is_app_shell_declared():
         assert hardcoded_copy not in preview_model_text
 
 
+def test_gui_source_control_copy_is_app_shell_declared():
+    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
+    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    surface_panel_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx"
+    )
+    source_control_panel_text = _read(
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/components/source-control/SourceControlPanel.jsx"
+    )
+    source_control_state_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/source-control/source-control-state.js"
+    )
+    source_control_presentation_text = _read(
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/source-control/source-control-presentation.js"
+    )
+
+    assert '"source_control": _copy_value(self.source_control)' in spec_text
+    assert '"status_unavailable_notice": "Source control unavailable."' in spec_text
+    assert "normalizeSourceControlChrome" in model_text
+    assert "chrome: normalizeSourceControlChrome" in model_text
+    assert "sourceControlChrome.statusUnavailableNotice" in app_text
+    assert "sourceControlChrome.diffUnavailableNotice" in app_text
+    assert "sourceControlChrome" in surface_panel_text
+    assert "sourceControlChrome" in source_control_panel_text
+    assert "chrome.groupLabels" in source_control_presentation_text
+    assert "chrome.providerLabels" in source_control_presentation_text
+
+    for hardcoded_copy in (
+        '"Source control unavailable"',
+        '"Diff unavailable"',
+    ):
+        assert hardcoded_copy not in app_text
+        assert hardcoded_copy not in source_control_state_text
+
+    for hardcoded_copy in (
+        '"Source control unavailable."',
+        '"Loading changes..."',
+        '"Git runtime is not available for this workspace."',
+        '"The active workspace is not a Git repository."',
+        '"No local changes."',
+        '"No branch"',
+        '"Refresh"',
+    ):
+        assert hardcoded_copy not in source_control_panel_text
+
+
 def test_gui_thread_lifecycle_actions_are_backend_descriptors():
     spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")

@@ -162,6 +162,22 @@ export function runAppShellModelTests() {
   assert.equal(initial.capabilities.preview.chrome.emptyTitle, "");
   assert.equal(initial.capabilities.sourceControl.enabled, false);
   assert.equal(initial.capabilities.sourceControl.readOnly, true);
+  assert.deepEqual(initial.capabilities.sourceControl.chrome, {
+    title: "",
+    statusUnavailableNotice: "",
+    diffUnavailableNotice: "",
+    loadingMessage: "",
+    gitUnavailableMessage: "",
+    notRepositoryMessage: "",
+    cleanMessage: "",
+    noBranchLabel: "",
+    runtimeGitLabel: "",
+    missingRuntimeLabel: "",
+    refreshLabel: "",
+    countLabels: {},
+    groupLabels: {},
+    providerLabels: {},
+  });
   assert.deepEqual(initial.capabilities.threadLifecycle.actions, []);
   assert.deepEqual(initial.capabilities.home.workspace, {
     sectionTitle: "",
@@ -388,6 +404,37 @@ export function runAppShellModelTests() {
         network: false,
         checkpoints: false,
         requires_active_workspace: true,
+        chrome: {
+          title: "Git Changes",
+          status_unavailable_notice: "Git status failed.",
+          diff_unavailable_notice: "No diff available.",
+          loading_message: "Checking changes...",
+          git_unavailable_message: "Git missing.",
+          not_repository_message: "Not a Git repository.",
+          clean_message: "Working tree clean.",
+          no_branch_label: "No ref",
+          runtime_git_label: "git",
+          missing_runtime_label: "missing",
+          refresh_label: "Reload",
+          count_labels: {
+            files: "paths",
+            staged: "indexed",
+            changed: "modified",
+            untracked: "new",
+          },
+          group_labels: {
+            staged: "Indexed",
+            unstaged: "Modified",
+            untracked: "New files",
+            conflicted: "Conflicted",
+            fallback: "Modified",
+          },
+          provider_labels: {
+            github: "GitHub",
+            local: "Local Git",
+            fallback: "Local provider",
+          },
+        },
       },
       terminal: {
         enabled: true,
@@ -603,6 +650,23 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.sourceControl.network, false);
   assert.equal(bootstrap.capabilities.sourceControl.checkpoints, false);
   assert.equal(bootstrap.capabilities.sourceControl.requiresActiveWorkspace, true);
+  assert.equal(bootstrap.capabilities.sourceControl.chrome.title, "Git Changes");
+  assert.equal(
+    bootstrap.capabilities.sourceControl.chrome.statusUnavailableNotice,
+    "Git status failed.",
+  );
+  assert.equal(
+    bootstrap.capabilities.sourceControl.chrome.diffUnavailableNotice,
+    "No diff available.",
+  );
+  assert.equal(bootstrap.capabilities.sourceControl.chrome.loadingMessage, "Checking changes...");
+  assert.equal(bootstrap.capabilities.sourceControl.chrome.noBranchLabel, "No ref");
+  assert.equal(bootstrap.capabilities.sourceControl.chrome.countLabels.files, "paths");
+  assert.equal(bootstrap.capabilities.sourceControl.chrome.groupLabels.unstaged, "Modified");
+  assert.equal(
+    bootstrap.capabilities.sourceControl.chrome.providerLabels.fallback,
+    "Local provider",
+  );
   assert.equal(bootstrap.capabilities.terminal.enabled, true);
   assert.equal(bootstrap.capabilities.terminal.pty, false);
   assert.equal(bootstrap.capabilities.terminal.resize, false);
