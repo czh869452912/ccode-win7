@@ -2737,13 +2737,6 @@ body {
 
 .inspector-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: var(--sp-3); }
 
-.artifact-item {
-  padding: 7px var(--sp-2); border-radius: var(--r-sm); cursor: pointer;
-  border: 1px solid var(--border-default); margin-bottom: var(--sp-2);
-  background: var(--bg-subtle);
-}
-.artifact-item:hover { border-color: var(--color-info); }
-
 .plan-block {
   background: rgba(188,140,255,.07);
   border: 1px solid rgba(188,140,255,.2);
@@ -3554,7 +3547,6 @@ body {
 .thread-card,
 .session-item.active,
 .task-row,
-.artifact-row,
 .runtime-row,
 .permission-rule-card,
 .review-finding,
@@ -3573,7 +3565,6 @@ body {
 
 .thread-card:hover,
 .thread-card.selected,
-.artifact-row:hover,
 .option-card:hover {
   border-color: var(--border-focus);
   background: rgba(255,255,255,.045);
@@ -5255,7 +5246,6 @@ body {
   color: var(--color-danger);
 }
 .task-row,
-.artifact-row,
 .runtime-row {
   display: flex;
   align-items: center;
@@ -5264,30 +5254,6 @@ body {
   border: 1px solid var(--border-default);
   border-radius: var(--r-sm);
   background: var(--bg-subtle);
-}
-.artifact-row {
-  justify-content: space-between;
-  color: var(--text-primary);
-  background: var(--bg-subtle);
-  cursor: pointer;
-  text-align: left;
-  min-width: 0;
-}
-.artifact-row > span:first-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-.artifact-row > small {
-  flex-shrink: 0;
-  color: var(--text-muted);
-  font-size: 10px;
-  font-family: var(--font-mono);
-  margin-left: 6px;
-}
-.artifact-row:hover {
-  border-color: var(--color-info);
 }
 .task-mark {
   font-size: 10px;

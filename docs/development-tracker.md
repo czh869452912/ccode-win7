@@ -48,6 +48,9 @@
 - The hosted `/artifacts` slash command and TUI artifact browser surface/service
   have also been removed; current frontends consume transcript/session evidence
   projections instead of a standalone artifact browse API.
+- GUI webapp source CSS and the manual Playwright example no longer keep the
+  retired artifact browser/Inspector-tab shell; manual GUI checks now target
+  the current right-panel surface model.
 
 ### 2026-06-27 - Pi/T3 Residual Debt Cleanup Closed
 

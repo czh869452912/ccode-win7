@@ -1101,6 +1101,23 @@ def test_no_hosted_or_tui_artifact_browser_facade():
     assert not (tui_services_dir / "artifacts.py").exists()
 
 
+def test_gui_manual_and_styles_do_not_keep_artifact_browser_shell():
+    styles_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/styles.css")
+    manual_playwright_text = _read(ROOT / "tests/manual/playwright_example.py")
+
+    for token in (
+        ".artifact-item",
+        ".artifact-row",
+    ):
+        assert token not in styles_text
+
+    for token in (
+        "inspector-tab--",
+        '"artifacts"',
+    ):
+        assert token not in manual_playwright_text
+
+
 def test_hosted_interactions_do_not_keep_legacy_blocking_frontend_paths():
     banned_tokens = (
         "on_permission_request",
