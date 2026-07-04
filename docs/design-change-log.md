@@ -44,6 +44,26 @@
 
 ## 3. 当前变更记录
 
+### DC-231
+
+- Date: 2026-07-04
+- Change Topic: GUI File surface tab title fallback convergence
+- Summary:
+  - Routed `fileSurfaceTitle(...)` through normalized
+    `capabilities.surfaces.chrome.file_preview.default_file_title`.
+  - Removed the remaining renderer-local `"File"` fallback from the right-panel
+    controller.
+  - Added frontend source and architecture guard coverage for the App/controller
+    handoff.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-230
 
 - Date: 2026-07-04

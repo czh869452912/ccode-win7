@@ -10,9 +10,9 @@ export function normalizeFileSurfacePath(path) {
   return String(path || "").replace(/\\/g, "/").replace(/^\/+/, "");
 }
 
-export function fileSurfaceTitle(path) {
+export function fileSurfaceTitle(path, filePreviewChrome = {}) {
   const normalized = normalizeFileSurfacePath(path);
-  if (!normalized) return "File";
+  if (!normalized) return filePreviewChrome.defaultFileTitle || "";
   const parts = normalized.split("/");
   return parts[parts.length - 1] || normalized;
 }

@@ -944,6 +944,8 @@ async function main() {
   );
   assert.equal(rightPanelControllerSource.includes("export function createRightPanelController"), true);
   assert.equal(rightPanelControllerSource.includes("rightPanelSurfaceTitle"), true);
+  assert.equal(rightPanelControllerSource.includes("fileSurfaceTitle(path, filePreviewChrome"), true);
+  assert.equal(rightPanelControllerSource.includes('return "File"'), false);
   assert.equal(rightPanelControllerSource.includes("getAppCapabilities"), true);
   assert.equal(rightPanelControllerSource.includes("surfaceDefinitionFor(surfaceKind, appCapabilities)"), true);
   assert.equal(rightPanelControllerSource.includes("rightPanelSurfaceTitle(surfaceKind, title, appCapabilities)"), true);
@@ -979,6 +981,7 @@ async function main() {
   assert.equal(appSource.includes("file_preview_loaded"), true);
   assert.equal(appSource.includes("file_preview_load_failed"), true);
   assert.equal(appSource.includes("filePreviewChrome.unavailableMessage"), true);
+  assert.equal(appSource.includes("fileSurfaceTitle(filePath, filePreviewChrome)"), true);
   assert.equal(appSource.includes('kind: "file"'), true);
   assert.equal(appSource.includes('preview: { kind: "file"'), false);
   assert.equal(appSource.includes("showTabs={false}"), false);

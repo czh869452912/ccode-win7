@@ -81,8 +81,9 @@
 - File Preview right-panel chrome now comes from
   `capabilities.surfaces.chrome.file_preview`: default file/project labels,
   loading/error fallback copy, retry/copy/explorer actions, metadata
-  separators, line labels, and language labels are backend-declared descriptors
-  consumed by the file-preview model and surface.
+  separators, line labels, language labels, and file-surface fallback tab title
+  copy are backend-declared descriptors consumed by the file-preview model,
+  right-panel controller, and surface.
 - Composer slash/path menu chrome now comes from
   `capabilities.chrome.composer.command_menu`, while slash command group labels
   reuse `capabilities.command_palette.groups`; the composer search,

@@ -376,7 +376,7 @@ function App() {
       type: "workbench_surface_opened",
       placement: "right",
       kind: "file",
-      title: fileSurfaceTitle(filePath),
+      title: fileSurfaceTitle(filePath, filePreviewChrome),
       resourceId: filePath,
       filePath,
       revealLine: line,
