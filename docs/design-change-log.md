@@ -44,6 +44,24 @@
 
 ## 3. 当前变更记录
 
+### DC-230
+
+- Date: 2026-07-04
+- Change Topic: GUI Command Palette empty-state copy hardening
+- Summary:
+  - Removed the renderer-local English default from `CommandPaletteResults`.
+  - Kept Command Palette empty-state copy owned by `/api/app/bootstrap`
+    `capabilities.command_palette.labels`.
+  - Added frontend source and architecture guard coverage so missing app-shell
+    labels no longer revive a built-in GUI fallback.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/CommandPaletteResults.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-source.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-229
 
 - Date: 2026-07-04

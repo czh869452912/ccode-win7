@@ -21,7 +21,7 @@ export default function CommandPaletteResults({
   activeItemId = "",
   onHoverItem,
   onSelectItem,
-  emptyLabel = "No matching commands, sessions, or workspaces",
+  emptyLabel = "",
 }) {
   const hasItems = groups.some((group) => (group.items || []).length > 0);
   if (!hasItems) {

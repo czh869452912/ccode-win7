@@ -88,6 +88,9 @@
   reuse `capabilities.command_palette.groups`; the composer search,
   interaction, and menu components no longer keep a parallel command/path menu
   copy table.
+- Command Palette empty-state copy is now entirely descriptor-owned through
+  `capabilities.command_palette.labels`; `CommandPaletteResults` no longer
+  carries a renderer-local English fallback for missing app-shell labels.
 - Source Control right-panel chrome now comes from
   `capabilities.source_control.chrome`: panel title, status/diff fallback
   notices, empty states, count/group/provider labels, runtime labels, and

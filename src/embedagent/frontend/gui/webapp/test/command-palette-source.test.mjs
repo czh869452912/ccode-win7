@@ -21,6 +21,8 @@ export function runCommandPaletteSourceTests() {
   assert.equal(resultsSource.includes("cmd-palette-row-shortcut"), true);
   assert.equal(resultsSource.includes("cmd-palette-row-chevron"), true);
   assert.equal(resultsSource.includes("aria-disabled"), true);
+  assert.equal(resultsSource.includes('emptyLabel = ""'), true);
+  assert.equal(resultsSource.includes("No matching commands, sessions, or workspaces"), false);
   assert.equal(resultsSource.includes("fetch("), false);
   assert.equal(resultsSource.includes("transcript"), false);
   assert.equal(resultsSource.includes("embedagent"), false);
