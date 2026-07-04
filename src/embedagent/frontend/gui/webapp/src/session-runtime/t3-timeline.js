@@ -515,12 +515,12 @@ function workEntryIconName(entry) {
   if (itemType === "dynamic_tool_call" || itemType === "collab_agent_tool_call") return "hammer";
   if (entry?.tone === "thinking") return "bot";
   if (entry?.tone === "info") return "check";
-  return "zap";
+  return "";
 }
 
 function workEntryHeading(entry) {
   const base = entry?.toolTitle ? entry.toolTitle : entry?.label;
-  return capitalizePhrase(normalizeCompactToolLabel(base || "Tool"));
+  return base ? capitalizePhrase(normalizeCompactToolLabel(base)) : "";
 }
 
 export function buildWorkPresentation(entry = {}) {
@@ -834,8 +834,7 @@ export function normalizeWorkEntry(item, options = {}) {
         item?.toolTitle ||
         item?.tool_title ||
         toolPresentation.label ||
-        toolName ||
-        "Work",
+        toolName,
     ),
     detail,
     command,

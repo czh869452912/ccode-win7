@@ -610,6 +610,19 @@ export function runT3TimelineTests() {
       expandedBody: "TODO",
     },
   );
+  assert.deepEqual(
+    buildWorkPresentation({}),
+    {
+      heading: "",
+      preview: "",
+      iconName: "",
+      statusIndicator: "",
+      headingTone: "normal",
+      iconTone: "normal",
+      canExpand: false,
+      expandedBody: "",
+    },
+  );
 
   const detailRows = projectT3TimelineRows({
     turnGroups: [

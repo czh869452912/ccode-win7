@@ -173,6 +173,11 @@ export function runAppShellModelTests() {
         fieldLabels: {},
         sectionTitles: {},
       },
+      workRow: {
+        defaultHeading: "",
+        defaultIconName: "",
+        statusLabels: {},
+      },
     },
   });
   assert.deepEqual(initial.capabilities.surfaces.rightPanel, []);
@@ -538,6 +543,17 @@ export function runAppShellModelTests() {
               preview: "Excerpt",
               matches: "Results",
               diff: "Patch",
+            },
+          },
+          work_row: {
+            default_heading: "Action",
+            default_icon_name: "spark",
+            status_labels: {
+              failure: "errored",
+              success: "done",
+              neutral: "idle",
+              interrupted: "stopped",
+              discarded: "discarded",
             },
           },
         },
@@ -968,6 +984,11 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.chrome.timeline.toolDetail.fieldLabels.recipe, "Recipe");
   assert.equal(bootstrap.capabilities.chrome.timeline.toolDetail.sectionTitles.preview, "Excerpt");
   assert.equal(bootstrap.capabilities.chrome.timeline.toolDetail.sectionTitles.matches, "Results");
+  assert.equal(bootstrap.capabilities.chrome.timeline.workRow.defaultHeading, "Action");
+  assert.equal(bootstrap.capabilities.chrome.timeline.workRow.defaultIconName, "spark");
+  assert.equal(bootstrap.capabilities.chrome.timeline.workRow.statusLabels.failure, "errored");
+  assert.equal(bootstrap.capabilities.chrome.timeline.workRow.statusLabels.success, "done");
+  assert.equal(bootstrap.capabilities.chrome.timeline.workRow.statusLabels.interrupted, "stopped");
   assert.deepEqual(
     bootstrap.capabilities.surfaces.rightPanel.map((item) => item.kind),
     ["settings", "diagnostics", "source_control"],

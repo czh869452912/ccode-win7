@@ -44,6 +44,39 @@
 
 ## 3. 当前变更记录
 
+### DC-238
+
+- Date: 2026-07-04
+- Change Topic: GUI timeline work-row chrome declaration
+- Summary:
+  - Added `/api/app/bootstrap` `capabilities.chrome.timeline.work_row`
+    descriptors for fallback work-row heading, fallback icon name, and status
+    aria labels.
+  - Removed renderer/projection fallback work-row copy from `WorkRow.jsx` and
+    `t3-timeline.js`; projection now leaves missing heading/icon presentation
+    data empty for the app-shell renderer to fill.
+  - Extended frontend projection tests, source checks, backend payload
+    assertions, app-shell descriptor tests, and architecture guards for the
+    work-row chrome/data split.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/WorkRow.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/t3-timeline.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-237
 
 - Date: 2026-07-04

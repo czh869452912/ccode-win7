@@ -429,6 +429,17 @@ def default_app_shell_spec() -> AppShellSpec:
                         "changed_files": "Changed files",
                     },
                 },
+                "work_row": {
+                    "default_heading": "Work",
+                    "default_icon_name": "zap",
+                    "status_labels": {
+                        "failure": "failed",
+                        "success": "completed",
+                        "neutral": "empty",
+                        "interrupted": "cancelled",
+                        "discarded": "skipped",
+                    },
+                },
             },
         },
         surface_chrome={

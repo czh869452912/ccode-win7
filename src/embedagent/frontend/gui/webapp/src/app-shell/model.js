@@ -809,6 +809,15 @@ function normalizeTimelineToolDetailChrome(input = {}) {
   };
 }
 
+function normalizeTimelineWorkRowChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    defaultHeading: String(value.default_heading || value.defaultHeading || ""),
+    defaultIconName: String(value.default_icon_name || value.defaultIconName || ""),
+    statusLabels: normalizeStringMap(value.status_labels || value.statusLabels),
+  };
+}
+
 function normalizeTimelineChrome(input = {}) {
   const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
   return {
@@ -835,6 +844,7 @@ function normalizeTimelineChrome(input = {}) {
       value.activity_rows || value.activityRows,
     ),
     toolDetail: normalizeTimelineToolDetailChrome(value.tool_detail || value.toolDetail),
+    workRow: normalizeTimelineWorkRowChrome(value.work_row || value.workRow),
   };
 }
 

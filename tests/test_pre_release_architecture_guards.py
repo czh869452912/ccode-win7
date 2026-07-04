@@ -1160,8 +1160,10 @@ def test_gui_timeline_copy_is_app_shell_declared():
 
     assert '"timeline": {' in spec_text
     assert '"tool_detail": {' in spec_text
+    assert '"work_row": {' in spec_text
     assert "normalizeTimelineChrome" in model_text
     assert "normalizeTimelineToolDetailChrome" in model_text
+    assert "normalizeTimelineWorkRowChrome" in model_text
     assert "timeline: normalizeTimelineChrome" in model_text
     assert "chrome={appChrome.timeline || {}}" in app_text
     assert "chrome.historyPartialLabel" in timeline_text
@@ -1170,7 +1172,12 @@ def test_gui_timeline_copy_is_app_shell_declared():
     assert "workGroupChrome" in timeline_rows_text
     assert "activityRowsChrome" in timeline_rows_text
     assert "toolDetailChrome" in timeline_rows_text
+    assert "workRowChrome" in timeline_rows_text
     assert "toolDetailChrome" in work_row_text
+    assert "workRowChrome" in work_row_text
+    assert "statusLabels" in work_row_text
+    assert "defaultHeading" in work_row_text
+    assert "defaultIconName" in work_row_text
     assert "fieldLabel" in tool_detail_text
     assert "sectionTitle" in tool_detail_text
     assert "fallbackMatchLabel" in tool_detail_text
@@ -1239,10 +1246,28 @@ def test_gui_timeline_copy_is_app_shell_declared():
         assert hardcoded_copy not in t3_timeline_text
 
     for hardcoded_copy in (
+        'base || "Tool"',
+        '"Work"',
+        'return "zap"',
+    ):
+        assert hardcoded_copy not in t3_timeline_text
+
+    for hardcoded_copy in (
         '"Detail"',
         '|| "match"',
     ):
         assert hardcoded_copy not in tool_detail_text
+
+    for hardcoded_copy in (
+        'return "failed"',
+        'return "completed"',
+        'return "empty"',
+        'return "cancelled"',
+        'return "skipped"',
+        '"Work"',
+        'iconName: "zap"',
+    ):
+        assert hardcoded_copy not in work_row_text
 
     for hardcoded_copy in (
         "View diff",

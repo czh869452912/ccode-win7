@@ -144,11 +144,12 @@ for `terminal`, `run_output`, and `logs`. `capabilities.terminal` describes the 
 terminal limitations (`enabled`, `pty`, `resize`, `history_persistent`, and
 `max_buffer_bytes`). `capabilities.chrome.timeline` describes Timeline log
 aria labels, empty/history/termination copy, work-group labels,
-activity-row labels/status/timer templates, changed-files card labels, and
-structured tool-detail field/section labels under `tool_detail`. Frontend T3
-timeline rows may carry display data such as timestamps, interruption flags,
-detail field keys, and detail section kinds, but fallback labels and templates
-remain app-shell chrome.
+activity-row labels/status/timer templates, work-row default heading/icon/status
+labels under `work_row`, changed-files card labels, and structured tool-detail
+field/section labels under `tool_detail`. Frontend T3 timeline rows may carry
+display data such as timestamps, interruption flags, detail field keys, and
+detail section kinds, but fallback labels and templates remain app-shell
+chrome.
 `capabilities.surfaces.chrome.file_preview` describes
 File Preview chrome, metadata labels, fallback messages, and language labels
 for the read-only file right-panel surface.

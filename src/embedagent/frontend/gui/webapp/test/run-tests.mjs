@@ -767,6 +767,7 @@ async function main() {
   assert.equal(timelineRowsSource.includes("workGroupChrome"), true);
   assert.equal(timelineRowsSource.includes("activityRowsChrome"), true);
   assert.equal(timelineRowsSource.includes("toolDetailChrome"), true);
+  assert.equal(timelineRowsSource.includes("workRowChrome"), true);
   assert.equal(timelineRowsSource.includes("chrome.streamingStatus"), true);
   assert.equal(timelineRowsSource.includes("chrome.contextSummarizedTemplate"), true);
   assert.equal(timelineRowsSource.includes("chrome.contextSizeTemplate"), true);
@@ -831,8 +832,30 @@ async function main() {
   assert.equal(workRowSource.includes("data-status-indicator={presentation.statusIndicator}"), true);
   assert.equal(workRowSource.includes("presentation.expandedBody"), true);
   assert.equal(workRowSource.includes("toolDetailChrome"), true);
+  assert.equal(workRowSource.includes("workRowChrome"), true);
+  assert.equal(workRowSource.includes("statusLabels"), true);
+  assert.equal(workRowSource.includes("defaultHeading"), true);
+  assert.equal(workRowSource.includes("defaultIconName"), true);
   assert.equal(workRowSource.includes("TOOL_ICONS"), false);
   assert.equal(workRowSource.includes("<pre>{row.detail}</pre>"), false);
+  for (const hardcodedWorkRowCopy of [
+    'return "failed"',
+    'return "completed"',
+    'return "empty"',
+    'return "cancelled"',
+    'return "skipped"',
+    '"Work"',
+    'iconName: "zap"',
+  ]) {
+    assert.equal(workRowSource.includes(hardcodedWorkRowCopy), false);
+  }
+  for (const hardcodedWorkProjectionCopy of [
+    'base || "Tool"',
+    '"Work"',
+    'return "zap"',
+  ]) {
+    assert.equal(t3TimelineSource.includes(hardcodedWorkProjectionCopy), false);
+  }
   assert.equal(fs.existsSync(webappSourcePath("components", "timeline", "ToolDetail.jsx")), true);
   const toolDetailSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "ToolDetail.jsx"),

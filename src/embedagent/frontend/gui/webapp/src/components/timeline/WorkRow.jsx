@@ -15,20 +15,22 @@ const WORK_ENTRY_ICONS = {
   zap: "M12 2 5 12h6l-1 8 7-11h-6l1-7Z",
 };
 
-function statusLabel(row) {
+function statusLabel(row, workRowChrome = {}) {
   const indicator = row.presentation?.statusIndicator || "";
-  if (indicator === "failure") return "failed";
-  if (indicator === "success") return "completed";
-  if (indicator === "neutral") return "empty";
-  if (row.tone === "interrupted") return "cancelled";
-  if (row.tone === "discarded") return "skipped";
-  if (row.status === "success") return "completed";
-  if (row.status === "error") return "failed";
+  const labels = workRowChrome.statusLabels || {};
+  if (indicator === "failure") return labels.failure || "";
+  if (indicator === "success") return labels.success || "";
+  if (indicator === "neutral") return labels.neutral || "";
+  if (row.tone === "interrupted") return labels.interrupted || "";
+  if (row.tone === "discarded") return labels.discarded || "";
+  if (row.status === "success") return labels.success || "";
+  if (row.status === "error") return labels.failure || "";
   return row.status || "";
 }
 
 function WorkEntryIcon({ name }) {
-  const path = WORK_ENTRY_ICONS[name] || WORK_ENTRY_ICONS.zap;
+  const path = WORK_ENTRY_ICONS[name];
+  if (!path) return null;
   return (
     <svg viewBox="0 0 22 22" aria-hidden="true" focusable="false">
       <path d={path} />
@@ -51,11 +53,12 @@ export default function WorkRow({
   rowKey = "",
   onOpenFile = null,
   toolDetailChrome = {},
+  workRowChrome = {},
 }) {
   const presentation = row.presentation || {
-    heading: row.label || row.toolName || "Work",
+    heading: row.label || row.toolName || workRowChrome.defaultHeading || "",
     preview: row.commandPreview || "",
-    iconName: "zap",
+    iconName: workRowChrome.defaultIconName || "",
     statusIndicator: row.status === "error" ? "failure" : row.status === "success" ? "success" : "",
     headingTone: row.status === "error" ? "error" : "normal",
     iconTone: row.status === "error" ? "error" : "normal",
@@ -96,7 +99,7 @@ export default function WorkRow({
         </span>
         <span className={`t3-work-label ${presentation.headingTone || "normal"}`}>{presentation.heading}</span>
         {presentation.preview ? <span className="t3-work-preview">{presentation.preview}</span> : <span />}
-        <span className="t3-work-status-slot" aria-label={statusLabel(row) || undefined}>
+        <span className="t3-work-status-slot" aria-label={statusLabel(row, workRowChrome) || undefined}>
           {hasDetail ? <span className={`t3-work-chevron${expanded ? " expanded" : ""}`} aria-hidden="true">v</span> : null}
           <span className={`t3-work-status-indicator ${presentation.statusIndicator || "none"}`} aria-hidden="true">
             <StatusIndicator indicator={presentation.statusIndicator} />

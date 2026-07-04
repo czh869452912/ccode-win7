@@ -82,6 +82,10 @@
   `capabilities.chrome.timeline.tool_detail`: field labels, section titles, and
   match fallback labels are backend-declared descriptors, while
   `t3-timeline.js` only projects field keys, section kinds, and display data.
+- Timeline work-row chrome now comes from
+  `capabilities.chrome.timeline.work_row`: fallback headings, fallback icon
+  names, and status aria labels are backend-declared descriptors rather than
+  renderer-local work-row defaults.
 - File Preview right-panel chrome now comes from
   `capabilities.surfaces.chrome.file_preview`: default file/project labels,
   loading/error fallback copy, retry/copy/explorer actions, metadata

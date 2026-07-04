@@ -72,6 +72,7 @@ function WorkGroupSection({
   onOpenFile,
   chrome = {},
   toolDetailChrome = {},
+  workRowChrome = {},
 }) {
   const sectionRef = React.useRef(null);
   const anchorBottomBeforeToggleRef = React.useRef(null);
@@ -127,6 +128,7 @@ function WorkGroupSection({
               onToggle={onToggleRow}
               onOpenFile={onOpenFile}
               toolDetailChrome={toolDetailChrome}
+              workRowChrome={workRowChrome}
             />
           );
         })}
@@ -517,6 +519,7 @@ function TimelineRowSwitch({
 }) {
   const activityRowsChrome = chrome?.activityRows || {};
   const toolDetailChrome = chrome?.toolDetail || {};
+  const workRowChrome = chrome?.workRow || {};
   if (row.kind === "message") {
     return <MessageRow row={row} markdownComponents={markdownComponents} />;
   }
@@ -531,6 +534,7 @@ function TimelineRowSwitch({
         onToggle={onToggleRow}
         onOpenFile={onOpenFile}
         toolDetailChrome={toolDetailChrome}
+        workRowChrome={workRowChrome}
       />
     );
   }
@@ -622,6 +626,7 @@ export default function TimelineRows({
         if (section.kind === "work_group") {
           const workGroupChrome = chrome.workGroup || {};
           const toolDetailChrome = chrome.toolDetail || {};
+          const workRowChrome = chrome.workRow || {};
           return (
             <WorkGroupSection
               key={section.id}
@@ -632,6 +637,7 @@ export default function TimelineRows({
               onOpenFile={onOpenFile}
               chrome={workGroupChrome}
               toolDetailChrome={toolDetailChrome}
+              workRowChrome={workRowChrome}
             />
           );
         }
