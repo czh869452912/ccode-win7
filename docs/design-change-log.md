@@ -44,6 +44,29 @@
 
 ## 3. 当前变更记录
 
+### DC-222
+
+- Date: 2026-07-04
+- Change Topic: Local resource discovery workflow default decoupling
+- Summary:
+  - Removed the default C/C++ workflow `run_recipe` tool-name import from
+    generic `local_resources` discovery.
+  - Local `.embedagent/recipes/*.json` resources now keep an empty `tool_name`
+    unless the resource explicitly declares one; the default C/C++ workflow
+    recipe list still normalizes runnable workspace recipes to its own
+    `run_recipe` tool boundary.
+  - Added local-resource behavior coverage and an architecture guard preventing
+    `local_resources.py` from importing C/C++ workflow defaults.
+- Impacted Scope:
+  - `src/embedagent/local_resources.py`
+  - `src/embedagent/workspace_recipes.py`
+  - `tests/test_local_resources.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/tools-and-tooling.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-221
 
 - Date: 2026-07-04

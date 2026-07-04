@@ -5,8 +5,8 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-12`
-> 对应代码范围：`src/embedagent/tools/`, `src/embedagent/tooling/`
+> 最后同步日期：`2026-07-04`
+> 对应代码范围：`src/embedagent/tools/`, `src/embedagent/tooling/`, `src/embedagent/local_resources.py`, `src/embedagent/workspace_recipes.py`
 
 ## 1. Purpose And Scope
 
@@ -21,6 +21,7 @@
 - explicit active schema projection through `ToolRuntime.schemas_for(...)`
 - source-aware dynamic tool registration
 - file-only local resource reload
+- workflow-neutral local resource discovery
 - extension tool catalog metadata and permission categories
 
 本模块的目标是保证产品路径只围绕官方工具集合工作，不重新引入平行 runtime 或 legacy duplicate tools。
@@ -54,6 +55,12 @@
 ## 5. Data / Control Flow
 
 `AgentExtensionHost` 把 workflow-neutral mode contract 与 shared `ExtensionManager` 的 active tools 合并后，通过 `ToolRuntime.schemas_for(..., tool_names=...)` 请求显式 schema。`ExtensionManager` 只消费扩展通过 `extension_capabilities()` 返回的 `ExtensionCapability` 记录；动态工具注册、active tool names 和 extension-owned tools 都必须显式声明。`AgentToolActionService` 在执行时先走 `PermissionPolicy` 与 extension hooks，再由 `ToolRuntime` 调度具体 tool ops；产出的 observations 进入 transcript、context 和前端可见工具结果投影。
+
+`src/embedagent/local_resources.py` 是 workflow-neutral file-resource
+discovery：skills、prompts 和 `.embedagent/recipes/*.json` 只按资源声明投影，
+不会注入默认 C/C++ workflow tool names。默认 C/C++ 工作流的 runnable recipe
+聚合与 `run_recipe` 归一化位于 `src/embedagent/workspace_recipes.py` 及
+`src/embedagent/workflow_packages/c_cpp/` 边界内。
 
 ```mermaid
 flowchart TD

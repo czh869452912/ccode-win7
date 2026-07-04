@@ -60,6 +60,11 @@
   titles, icons, ordering, command/slash metadata, and safety hints with local
   supported renderers, so visible right-panel/bottom-drawer entrypoints are no
   longer presented from a GUI-owned surface id list.
+- Generic local resource discovery no longer imports default C/C++ workflow
+  tool names. Workspace-local recipes without an explicit `tool_name` stay
+  workflow-neutral in `discover_local_resources(...)`; the default C/C++
+  workflow recipe list applies its own `run_recipe` normalization only at the
+  workflow-owned aggregation boundary.
 
 ### 2026-06-27 - Pi/T3 Residual Debt Cleanup Closed
 

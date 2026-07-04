@@ -131,6 +131,26 @@ class TestLocalResources(unittest.TestCase):
         self.assertEqual(payload["recipes"][0]["source"], "local_resource")
         self.assertEqual(payload["diagnostics"], [])
 
+    def test_local_recipe_discovery_does_not_inject_workflow_tool_defaults(self):
+        from embedagent.local_resources import discover_local_resources
+
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "recipes", "custom.json"),
+            json.dumps(
+                {
+                    "id": "local.custom",
+                    "label": "Local Custom",
+                    "command": "cmd /c echo custom-ok",
+                }
+            ),
+        )
+
+        payload = discover_local_resources(self.workspace)
+
+        self.assertEqual(payload["counts"]["recipes"], 1)
+        self.assertEqual(payload["recipes"][0]["id"], "local.custom")
+        self.assertEqual(payload["recipes"][0]["tool_name"], "")
+
     def test_discovers_pi_style_skill_frontmatter(self):
         from embedagent.local_resources import discover_local_resources
         from embedagent.skills import format_skills_for_prompt
@@ -462,7 +482,6 @@ class TestLocalResources(unittest.TestCase):
             json.dumps(
                 {
                     "id": "local.build",
-                    "tool_name": "run_recipe",
                     "recipe_action": "build",
                     "label": "Local Build",
                     "command": "cmd /c echo build-ok",
