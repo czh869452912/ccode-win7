@@ -9,6 +9,10 @@ const VISUAL_WORKSPACE = Object.freeze({
   last_opened_at: "",
 });
 
+function surface(id, title, launcherOrder) {
+  return { id, title, launcher_order: launcherOrder };
+}
+
 function visualAppBootstrap() {
   return {
     app: { shell_version: 1, product_name: "EmbedAgent", protocol: "gui_app_shell_v1" },
@@ -18,8 +22,21 @@ function visualAppBootstrap() {
     capabilities: {
       thread_lifecycle: { rename: true, fork: true, archive: true },
       surfaces: {
-        right_panel: ["preview", "files", "terminal", "diff", "plan", "source_control", "settings", "diagnostics"],
-        bottom_drawer: ["terminal", "run_output", "logs"],
+        right_panel: [
+          surface("preview", "Preview", 10),
+          surface("files", "Files", 20),
+          surface("terminal", "Terminal", 30),
+          surface("diff", "Diff", 40),
+          surface("plan", "Plan", 50),
+          surface("source_control", "Source Control", 60),
+          surface("settings", "Settings", 70),
+          surface("diagnostics", "Diagnostics", 80),
+        ],
+        bottom_drawer: [
+          surface("run_output", "Run Output", 10),
+          surface("terminal", "Terminal", 20),
+          surface("logs", "Logs", 30),
+        ],
       },
       terminal: { enabled: true, pty: false, resize: false, history_persistent: false, max_buffer_bytes: 200000 },
       source_control: {

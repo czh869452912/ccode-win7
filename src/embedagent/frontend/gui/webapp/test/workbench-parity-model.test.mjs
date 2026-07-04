@@ -12,6 +12,10 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function surface(id, title = id, launcherOrder = 0) {
+  return { id, title, launcherOrder };
+}
+
 function sessionWorkspaceState(patch = {}) {
   return {
     ...initialState,
@@ -24,16 +28,20 @@ function sessionWorkspaceState(patch = {}) {
         workspaceCommands: ["workspace.open", "workspace.refresh", "workspace.remove_current"],
         surfaces: {
           rightPanel: [
-            "files",
-            "terminal",
-            "diff",
-            "preview",
-            "plan",
-            "source_control",
-            "settings",
-            "diagnostics",
+            surface("preview", "Preview", 10),
+            surface("files", "Files", 20),
+            surface("terminal", "Terminal", 30),
+            surface("diff", "Diff", 40),
+            surface("plan", "Plan", 50),
+            surface("source_control", "Source Control", 60),
+            surface("settings", "Settings", 70),
+            surface("diagnostics", "Diagnostics", 80),
           ],
-          bottomDrawer: ["terminal", "run_output", "logs"],
+          bottomDrawer: [
+            surface("run_output", "Run Output", 10),
+            surface("terminal", "Terminal", 20),
+            surface("logs", "Logs", 30),
+          ],
         },
         sourceControl: initialState.app.capabilities.sourceControl,
         terminal: initialState.app.capabilities.terminal,

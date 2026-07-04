@@ -20,7 +20,10 @@ def _assert_app_shell_payload(testcase, payload):
     testcase.assertIn("capabilities", payload)
     testcase.assertIn("settings", payload)
     testcase.assertIn("app.settings", payload["capabilities"]["app_commands"])
-    testcase.assertIn("settings", payload["capabilities"]["surfaces"]["right_panel"])
+    testcase.assertIn(
+        "settings",
+        [item["id"] for item in payload["capabilities"]["surfaces"]["right_panel"]],
+    )
 
 
 class _FakeCore(object):

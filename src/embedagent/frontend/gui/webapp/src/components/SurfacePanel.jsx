@@ -91,6 +91,7 @@ function DiagnosticsPanel({ appShell, lang }) {
     : [];
   const surfaces = capabilities.surfaces || {};
   const rightPanel = Array.isArray(surfaces.rightPanel) ? surfaces.rightPanel : [];
+  const surfaceLabel = (surface) => String(surface?.kind || surface?.id || "");
   return (
     <div className="panel-preview">
       <h3>{t("inspector.diagnostics", lang)}</h3>
@@ -113,7 +114,7 @@ function DiagnosticsPanel({ appShell, lang }) {
           <span key={command} className="rule-chip monospace">{command}</span>
         ))}
         {rightPanel.map((surface) => (
-          <span key={`surface-${surface}`} className="rule-chip muted monospace">right:{surface}</span>
+          <span key={`surface-${surfaceLabel(surface)}`} className="rule-chip muted monospace">right:{surfaceLabel(surface)}</span>
         ))}
       </div>
     </div>

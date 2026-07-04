@@ -86,9 +86,16 @@ class TestGuiAppShellService(unittest.TestCase):
         self.assertIn("app.diagnostics", payload["capabilities"]["app_commands"])
         self.assertIn("app.source_control", payload["capabilities"]["app_commands"])
         self.assertIn("app.reload", payload["capabilities"]["app_commands"])
-        self.assertIn("settings", payload["capabilities"]["surfaces"]["right_panel"])
-        self.assertIn("diagnostics", payload["capabilities"]["surfaces"]["right_panel"])
-        self.assertIn("source_control", payload["capabilities"]["surfaces"]["right_panel"])
+        right_panel_surfaces = [
+            item["id"] for item in payload["capabilities"]["surfaces"]["right_panel"]
+        ]
+        self.assertIn("settings", right_panel_surfaces)
+        self.assertIn("diagnostics", right_panel_surfaces)
+        self.assertIn("source_control", right_panel_surfaces)
+        self.assertEqual(
+            payload["capabilities"]["surfaces"]["right_panel"][0]["launcher_order"],
+            10,
+        )
         self.assertEqual(
             payload["capabilities"]["thread_lifecycle"],
             {"rename": True, "fork": True, "archive": True},
@@ -115,7 +122,10 @@ class TestGuiAppShellService(unittest.TestCase):
                 "max_buffer_bytes": 131072,
             },
         )
-        self.assertIn("terminal", payload["capabilities"]["surfaces"]["bottom_drawer"])
+        bottom_drawer_surfaces = [
+            item["id"] for item in payload["capabilities"]["surfaces"]["bottom_drawer"]
+        ]
+        self.assertIn("terminal", bottom_drawer_surfaces)
         self.assertTrue(payload["settings"]["confirm_workspace_switch"])
         self.assertIn("host", payload["diagnostics"])
         self.assertIn("runtime", payload["diagnostics"])

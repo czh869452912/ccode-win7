@@ -92,6 +92,56 @@ function normalizeSourceControlCapability(input = {}) {
   };
 }
 
+function numberOrDefault(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function normalizeKeywords(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item || "").trim()).filter(Boolean);
+}
+
+function normalizeSurfaceCapability(input = {}, placement = "right") {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const kind = String(input.id || input.kind || "").trim();
+  if (!kind) return null;
+  const title = String(input.title || kind).trim() || kind;
+  return {
+    id: kind,
+    kind,
+    title,
+    icon: String(input.icon || "S").trim() || "S",
+    description: String(input.description || ""),
+    placement,
+    resourceId: String(input.resource_id || input.resourceId || ""),
+    defaultResourceId: String(input.default_resource_id || input.defaultResourceId || ""),
+    closeBehavior: String(input.close_behavior || input.closeBehavior || (placement === "bottom" ? "pinned" : "closable")),
+    launcher: input.launcher !== false,
+    launcherOrder: numberOrDefault(input.launcher_order || input.launcherOrder, 0),
+    command: input.command !== false,
+    commandLabel: String(input.command_label || input.commandLabel || ""),
+    slash: String(input.slash || ""),
+    visibleWhen: String(input.visible_when || input.visibleWhen || "always"),
+    readOnly: input.read_only === true || input.readOnly === true,
+    offline: input.offline === true,
+    keywords: normalizeKeywords(input.keywords),
+  };
+}
+
+function normalizeSurfaceCapabilityList(items, placement) {
+  if (!Array.isArray(items)) return [];
+  const result = [];
+  const seen = new Set();
+  for (const item of items) {
+    const surface = normalizeSurfaceCapability(item, placement);
+    if (!surface || seen.has(surface.kind)) continue;
+    seen.add(surface.kind);
+    result.push(surface);
+  }
+  return result;
+}
+
 export function normalizeAppCapabilities(input = {}) {
   const surfaces = input.surfaces && typeof input.surfaces === "object" ? input.surfaces : {};
   return {
@@ -106,16 +156,14 @@ export function normalizeAppCapabilities(input = {}) {
         ? input.workspaceCommands.map(String)
         : [],
     surfaces: {
-      rightPanel: Array.isArray(surfaces.right_panel)
-        ? surfaces.right_panel.map(String)
-        : Array.isArray(surfaces.rightPanel)
-          ? surfaces.rightPanel.map(String)
-          : [],
-      bottomDrawer: Array.isArray(surfaces.bottom_drawer)
-        ? surfaces.bottom_drawer.map(String)
-        : Array.isArray(surfaces.bottomDrawer)
-          ? surfaces.bottomDrawer.map(String)
-          : [],
+      rightPanel: normalizeSurfaceCapabilityList(
+        Array.isArray(surfaces.right_panel) ? surfaces.right_panel : surfaces.rightPanel,
+        "right",
+      ),
+      bottomDrawer: normalizeSurfaceCapabilityList(
+        Array.isArray(surfaces.bottom_drawer) ? surfaces.bottom_drawer : surfaces.bottomDrawer,
+        "bottom",
+      ),
     },
     sourceControl: normalizeSourceControlCapability(input),
     terminal: normalizeTerminalCapability(input),

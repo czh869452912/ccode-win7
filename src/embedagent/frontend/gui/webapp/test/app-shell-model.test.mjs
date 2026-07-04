@@ -13,6 +13,10 @@ import {
   resetAppShellWorkspaceState,
 } from "../src/app-shell/reducer.js";
 
+function surface(id, title = id, extra = {}) {
+  return { id, title, ...extra };
+}
+
 export function runAppShellModelTests() {
   const initial = createAppShellState();
   assert.equal(initial.bootstrapLoaded, false);
@@ -74,7 +78,14 @@ export function runAppShellModelTests() {
     capabilities: {
       app_commands: ["app.settings", "app.diagnostics", "app.reload"],
       workspace_commands: ["workspace.open"],
-      surfaces: { right_panel: ["settings", "diagnostics", "source_control"], bottom_drawer: ["terminal"] },
+      surfaces: {
+        right_panel: [
+          surface("settings", "Settings", { launcher_order: 10 }),
+          surface("diagnostics", "Diagnostics", { launcher_order: 20 }),
+          surface("source_control", "Source Control", { launcher_order: 30 }),
+        ],
+        bottom_drawer: [surface("terminal", "Terminal", { launcher_order: 10 })],
+      },
       source_control: {
         enabled: true,
         vcs: ["git"],
@@ -110,9 +121,15 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.settings.ignored_setting, undefined);
   assert.equal(bootstrap.capabilities.appCommands.includes("app.reload"), true);
   assert.equal(bootstrap.capabilities.workspaceCommands.includes("workspace.open"), true);
-  assert.equal(bootstrap.capabilities.surfaces.rightPanel.includes("settings"), true);
-  assert.equal(bootstrap.capabilities.surfaces.rightPanel.includes("source_control"), true);
-  assert.equal(bootstrap.capabilities.surfaces.bottomDrawer.includes("terminal"), true);
+  assert.deepEqual(
+    bootstrap.capabilities.surfaces.rightPanel.map((item) => item.kind),
+    ["settings", "diagnostics", "source_control"],
+  );
+  assert.equal(bootstrap.capabilities.surfaces.rightPanel[0].title, "Settings");
+  assert.deepEqual(
+    bootstrap.capabilities.surfaces.bottomDrawer.map((item) => item.kind),
+    ["terminal"],
+  );
   assert.equal(bootstrap.capabilities.sourceControl.enabled, true);
   assert.deepEqual(bootstrap.capabilities.sourceControl.vcs, ["git"]);
   assert.equal(bootstrap.capabilities.sourceControl.readOnly, true);
@@ -156,13 +173,16 @@ export function runAppShellModelTests() {
   const capabilities = normalizeAppCapabilities({
     app_commands: ["app.settings"],
     workspace_commands: ["workspace.open"],
-    surfaces: { right_panel: ["settings"], bottom_drawer: ["logs"] },
+    surfaces: {
+      right_panel: [surface("settings", "Settings")],
+      bottom_drawer: [surface("logs", "Logs")],
+    },
     terminal: { enabled: true, pty: false, resize: false },
   });
   assert.deepEqual(capabilities.appCommands, ["app.settings"]);
   assert.deepEqual(capabilities.workspaceCommands, ["workspace.open"]);
-  assert.deepEqual(capabilities.surfaces.rightPanel, ["settings"]);
-  assert.deepEqual(capabilities.surfaces.bottomDrawer, ["logs"]);
+  assert.deepEqual(capabilities.surfaces.rightPanel.map((item) => item.kind), ["settings"]);
+  assert.deepEqual(capabilities.surfaces.bottomDrawer.map((item) => item.kind), ["logs"]);
   assert.equal(capabilities.terminal.enabled, true);
   assert.equal(capabilities.terminal.pty, false);
   assert.equal(capabilities.terminal.resize, false);

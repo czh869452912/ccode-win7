@@ -74,11 +74,15 @@ runtime, renderer, workspace registry, and active-core presence only.
 `capabilities.app_commands`, `capabilities.workspace_commands`,
 `capabilities.surfaces.right_panel`, and
 `capabilities.surfaces.bottom_drawer` are the app-shell entrypoint contract for
-the renderer workbench. The renderer may keep local metadata for labels,
-icons, keybindings, and React components, but visible command-palette entries,
-right-panel launchers, bottom-drawer tabs, and keybinding targets are filtered
-from this bootstrap declaration. A missing `capabilities` object or missing
-capability arrays mean no app-shell entrypoints, not GUI defaults.
+the renderer workbench. Surface entries are descriptor records, not bare ids:
+at minimum they carry `id`, `title`, and ordering metadata, and may also carry
+`icon`, `description`, `command`, `command_label`, `slash`, `visible_when`,
+`read_only`, `offline`, and `keywords`. The renderer may keep local metadata
+for keybindings and React components, but visible command-palette entries,
+right-panel launchers, bottom-drawer tabs, labels, icons, descriptions, and
+keybinding targets are filtered or merged from this bootstrap declaration. A
+missing `capabilities` object or missing capability descriptor arrays mean no
+app-shell entrypoints, not GUI defaults.
 Workbench-local persisted surface state is re-sanitized after app bootstrap or
 workspace switch against the same declaration; stale local `preview`,
 `source_control`, `terminal`, or other surfaces must not survive when the
@@ -90,10 +94,10 @@ input requests remain session interaction state, local file content remains
 file-surface state, and app diagnostics remain the app-shell diagnostics
 surface. The split GUI artifact refetch facade is retired as well: there is no
 GUI `/api/artifacts` route or `artifacts_refresh` WebSocket event.
-`capabilities.surfaces.right_panel` may include `files`, `terminal`, `diff`,
-`preview`, `plan`, `source_control`, `settings`, and `diagnostics`;
-`capabilities.surfaces.bottom_drawer` may include `terminal`, `run_output`,
-and `logs`. `capabilities.terminal` describes the GUI
+`capabilities.surfaces.right_panel` may declare descriptors for `files`,
+`terminal`, `diff`, `preview`, `plan`, `source_control`, `settings`, and
+`diagnostics`; `capabilities.surfaces.bottom_drawer` may declare descriptors
+for `terminal`, `run_output`, and `logs`. `capabilities.terminal` describes the GUI
 terminal limitations (`enabled`, `pty`, `resize`, `history_persistent`, and
 `max_buffer_bytes`). `capabilities.source_control` describes the local
 source-control surface: `enabled`, `vcs`, `read_only`, `remote_providers`,
@@ -342,6 +346,7 @@ session bootstrap payloads; there is no split GUI `/api/tool-catalog` refetch
 contract or frontend-facing `CoreInterface.get_tool_catalog` facade.
 Right-panel navigation is likewise owned by the app-shell surface capability
 projection. Surface panel components render the active surface kind only; they
+merge backend-declared descriptor metadata with locally supported renderers and
 do not keep a second hard-coded tab registry, `inspectorTab` adapter, or
 `onTabChange` navigation contract.
 The renderer has no root-level `inspectorTab` / `inspectorOpen` navigation

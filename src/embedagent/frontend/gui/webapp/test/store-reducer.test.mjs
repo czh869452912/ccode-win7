@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 
 import { initialState, reducer } from "../src/store.js";
 
+function surface(id, title = id) {
+  return { id, title };
+}
+
 export function runStoreReducerTests() {
   const limitedState = {
     ...initialState,
@@ -112,8 +116,8 @@ export function runStoreReducerTests() {
     bootstrap: {
       capabilities: {
         surfaces: {
-          right_panel: ["files"],
-          bottom_drawer: ["logs"],
+          right_panel: [surface("files", "Files")],
+          bottom_drawer: [surface("logs", "Logs")],
         },
       },
     },

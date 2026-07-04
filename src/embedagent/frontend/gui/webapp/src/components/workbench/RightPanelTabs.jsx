@@ -17,9 +17,9 @@ function surfaceTitle(surface) {
   return titleForSurfaceKind(surface.kind);
 }
 
-function SurfaceIcon({ kind }) {
-  const definition = surfaceDefinitionFor(kind);
-  return <span className="right-panel-surface-icon" aria-hidden="true">{definition?.icon || "S"}</span>;
+function SurfaceIcon({ kind, definition = null, appCapabilities = null }) {
+  const resolved = definition || surfaceDefinitionFor(kind, appCapabilities);
+  return <span className="right-panel-surface-icon" aria-hidden="true">{resolved?.icon || "S"}</span>;
 }
 
 function SurfaceTabMenu({
@@ -132,7 +132,7 @@ function SurfaceAddMenu({ appCapabilities, onAddSurface }) {
                 onAddSurface(definition.kind);
               }}
             >
-              <SurfaceIcon kind={definition.kind} />
+              <SurfaceIcon definition={definition} />
               <span>{definition.title}</span>
             </button>
           );
@@ -160,7 +160,7 @@ function RightPanelEmptyState({ appCapabilities, onAddSurface }) {
               onClick={() => onAddSurface(definition.kind)}
               data-testid={`right-panel-empty-surface--${definition.kind}`}
             >
-              <SurfaceIcon kind={definition.kind} />
+              <SurfaceIcon definition={definition} />
               <span>{definition.title}</span>
               <small>{definition.description}</small>
             </button>
@@ -214,7 +214,7 @@ export default function RightPanelTabs({
                     title={title}
                     onClick={() => onActivateSurface(surface)}
                   >
-                    <SurfaceIcon kind={surface.kind} />
+                    <SurfaceIcon kind={surface.kind} appCapabilities={appCapabilities} />
                     <span>{title}</span>
                   </button>
                   <SurfaceTabMenu

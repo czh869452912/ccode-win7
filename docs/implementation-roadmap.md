@@ -130,11 +130,12 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `webapp/src/app-shell/` and drive Settings/Diagnostics right-panel surfaces
 - GUI workbench commands, right-panel launchers, bottom-drawer tabs, and
   keybinding targets are filtered from `/api/app/bootstrap` app-shell
-  capabilities; renderer-local surface registries now provide presentation
-  metadata only and do not invent visible app entrypoints when the
-  `capabilities` object or relevant capability arrays are missing; persisted
-  workbench surface state is also re-sanitized after app bootstrap or workspace
-  switch against those app-shell capabilities
+  capabilities; app-shell surfaces are descriptor records carrying display,
+  ordering, command, slash, and safety metadata, while renderer-local surface
+  registries now provide only known renderer mounting details and do not invent
+  visible app entrypoints when the `capabilities` object or relevant descriptor
+  arrays are missing; persisted workbench surface state is also re-sanitized
+  after app bootstrap or workspace switch against those app-shell capabilities
 - retired Inspector sidecar loaders/state/actions for artifacts, review panes,
   permission-rule panes, runtime panes, workspace previews, and event logs have
   been removed; the GUI uses active surfaces, session activities, interaction

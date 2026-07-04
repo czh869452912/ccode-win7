@@ -36,6 +36,14 @@ import {
   surfaceDefinitionFor,
 } from "../src/workbench/surfaces.js";
 
+function surface(id, title = id, launcherOrder = 0) {
+  return { id, title, launcherOrder };
+}
+
+function surfaceList(ids, titleFor = (id) => id) {
+  return ids.map((id, index) => surface(id, titleFor(id), (index + 1) * 10));
+}
+
 export function runWorkbenchStateTests() {
   const registryDefinitions = rightPanelSurfaceDefinitions();
   const fullAppCapabilities = {
@@ -47,8 +55,8 @@ export function runWorkbenchStateTests() {
       "workspace.files",
     ],
     surfaces: {
-      rightPanel: RIGHT_PANEL_SURFACES,
-      bottomDrawer: BOTTOM_DRAWER_SURFACES,
+      rightPanel: surfaceList(RIGHT_PANEL_SURFACES, (id) => surfaceDefinitionFor(id)?.title || id),
+      bottomDrawer: surfaceList(BOTTOM_DRAWER_SURFACES, (id) => id),
     },
   };
   assert.equal(registryDefinitions, RIGHT_PANEL_SURFACE_REGISTRY);
@@ -439,8 +447,8 @@ export function runWorkbenchStateTests() {
     appCommands: ["app.settings"],
     workspaceCommands: ["workspace.open"],
     surfaces: {
-      rightPanel: ["settings"],
-      bottomDrawer: ["logs"],
+      rightPanel: [surface("settings", "Settings")],
+      bottomDrawer: [surface("logs", "Logs")],
     },
   };
   assert.deepEqual(

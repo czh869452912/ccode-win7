@@ -46,10 +46,13 @@ tool policy, permission policy, extension loading policy, provider
 configuration, telemetry, or Agent Core runtime reducers.
 Workbench command visibility, right-panel launchers, bottom-drawer tabs, and
 keybinding targets are filtered from GUI app-shell capabilities returned by
-`GET /api/app/bootstrap`. Renderer-local surface registries may describe how a
-known surface is displayed, but they do not grant app-shell entrypoints when
-the backend declaration omits the `capabilities` object or the relevant command
-or surface arrays. Persisted workbench surface state is re-sanitized after app
+`GET /api/app/bootstrap`. App-shell surface capabilities are backend-declared
+descriptor records rather than bare string ids, so labels, descriptions, icon
+keys, command/slash metadata, ordering, and read-only/offline hints come from
+the app shell. Renderer-local surface registries describe only how a known
+surface renderer is mounted; they do not grant app-shell entrypoints when the
+backend declaration omits the `capabilities` object or the relevant command or
+surface descriptor arrays. Persisted workbench surface state is re-sanitized after app
 bootstrap or workspace switch against the same declaration, so stale local UI
 state cannot reopen surfaces that the active app shell does not expose.
 Retired Inspector sidecar state for artifacts, review panes, permission-rule
@@ -582,7 +585,8 @@ capability/bootstrap projection. The GUI must not call a split
 depend on a frontend-facing `CoreInterface.get_tool_catalog` facade.
 Right-panel navigation is app-shell surface capability driven end to end.
 Surface panel components render whichever supported surface is active, but they
-must not keep their own hard-coded surface tab registry, `inspectorTab`
+must merge backend-declared descriptor metadata with locally supported renderers
+instead of keeping their own hard-coded surface tab registry, `inspectorTab`
 adapter, or `onTabChange` navigation path that bypasses app capabilities.
 The renderer must not keep parallel root-level `inspectorTab` / `inspectorOpen`
 navigation fields; the right-panel workbench surface state is the single live

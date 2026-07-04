@@ -764,6 +764,22 @@ def test_agent_application_capabilities_are_declared_by_backend_not_gui_defaults
         assert token not in no_workspace_text
 
 
+def test_gui_app_shell_surfaces_are_descriptor_records_not_string_lists():
+    app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
+    app_model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
+    surfaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js")
+
+    for token in (
+        '"id": "files"',
+        '"id": "terminal"',
+        '"launcher_order"',
+    ):
+        assert token in app_shell_text
+    assert "normalizeSurfaceCapability" in app_model_text
+    assert "surfaceCapabilityDefinitions" in surfaces_text
+    assert 'value.map((item) => String(item || ""))' not in surfaces_text
+
+
 def test_agent_core_has_no_harness_prompt_or_command_name_validation_coupling():
     extensions_text = _read(ROOT / "src/embedagent_core/extensions.py")
     turn_experience_text = _read(ROOT / "src/embedagent_core/turn_experience.py")

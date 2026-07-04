@@ -217,7 +217,12 @@ export const BOTTOM_DRAWER_SURFACE_REGISTRY = Object.freeze([
   }),
 ]);
 
-function surfaceCapabilityList(appCapabilities, placement) {
+function normalizeKeywords(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item || "").trim()).filter(Boolean);
+}
+
+function surfaceCapabilityRecords(appCapabilities, placement) {
   if (!appCapabilities || typeof appCapabilities !== "object") return [];
   const surfaces = appCapabilities.surfaces && typeof appCapabilities.surfaces === "object"
     ? appCapabilities.surfaces
@@ -227,7 +232,39 @@ function surfaceCapabilityList(appCapabilities, placement) {
       ? (surfaces.bottomDrawer || surfaces.bottom_drawer)
       : (surfaces.rightPanel || surfaces.right_panel);
   if (!Array.isArray(value)) return [];
-  return value.map((item) => String(item || "")).filter(Boolean);
+  return value;
+}
+
+function normalizeSurfaceCapabilityRecord(input, placement, index) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const kind = String(input.kind || input.id || "").trim();
+  if (!kind) return null;
+  const launcherOrder = Number(input.launcherOrder ?? input.launcher_order ?? index);
+  return {
+    kind,
+    title: String(input.title || ""),
+    icon: String(input.icon || ""),
+    description: String(input.description || ""),
+    placement,
+    resourceId: String(input.resourceId || input.resource_id || ""),
+    defaultResourceId: String(input.defaultResourceId || input.default_resource_id || ""),
+    closeBehavior: String(input.closeBehavior || input.close_behavior || ""),
+    launcher: input.launcher !== false,
+    launcherOrder: Number.isFinite(launcherOrder) ? launcherOrder : index,
+    command: input.command !== false,
+    commandLabel: String(input.commandLabel || input.command_label || ""),
+    slash: String(input.slash || ""),
+    visibleWhen: String(input.visibleWhen || input.visible_when || ""),
+    readOnly: input.readOnly === true || input.read_only === true,
+    offline: input.offline === true,
+    keywords: normalizeKeywords(input.keywords),
+  };
+}
+
+export function surfaceCapabilityDefinitions(appCapabilities, placement) {
+  return surfaceCapabilityRecords(appCapabilities, placement)
+    .map((item, index) => normalizeSurfaceCapabilityRecord(item, placement, index))
+    .filter(Boolean);
 }
 
 function launcherDefinitions(definitions) {
@@ -237,20 +274,53 @@ function launcherDefinitions(definitions) {
     .sort((left, right) => (left.launcherOrder || 0) - (right.launcherOrder || 0));
 }
 
+function mergedSurfaceDefinition(definition, capability) {
+  return {
+    ...definition,
+    title: capability.title || definition.title,
+    icon: capability.icon || definition.icon,
+    description: capability.description || definition.description,
+    resourceId: capability.resourceId || definition.resourceId,
+    defaultResourceId: capability.defaultResourceId || definition.defaultResourceId,
+    closeBehavior: capability.closeBehavior || definition.closeBehavior,
+    launcher: capability.launcher && definition.launcher !== false,
+    launcherOrder: capability.launcherOrder,
+    command: capability.command && definition.command !== false,
+    commandLabel: capability.commandLabel || definition.commandLabel || "",
+    slash: capability.slash || definition.slash || "",
+    visibleWhen: capability.visibleWhen || definition.visibleWhen || "always",
+    readOnly: capability.readOnly || definition.readOnly === true,
+    offline: capability.offline || definition.offline === true,
+    keywords: Object.freeze(
+      Array.from(new Set([...(definition.keywords || []), ...(capability.keywords || [])])),
+    ),
+  };
+}
+
 function filterSurfaceDefinitions(definitions, placement, appCapabilities) {
-  const allowed = surfaceCapabilityList(appCapabilities, placement);
-  const ordered = launcherDefinitions(definitions);
-  const allowedSet = new Set(allowed);
-  return ordered.filter((definition) => allowedSet.has(definition.kind));
+  const capabilities = surfaceCapabilityDefinitions(appCapabilities, placement);
+  if (capabilities.length === 0) return [];
+  const byKind = new Map(definitions.map((definition) => [definition.kind, definition]));
+  return capabilities
+    .map((capability) => {
+      const definition = byKind.get(capability.kind);
+      return definition ? mergedSurfaceDefinition(definition, capability) : null;
+    })
+    .filter((definition) => definition && definition.launcher)
+    .sort((left, right) => (left.launcherOrder || 0) - (right.launcherOrder || 0));
 }
 
 export function rightPanelSurfaceDefinitions() {
   return RIGHT_PANEL_SURFACE_REGISTRY;
 }
 
-export function surfaceDefinitionFor(kind) {
+export function surfaceDefinitionFor(kind, appCapabilities = null) {
   const normalized = String(kind || "");
-  return RIGHT_PANEL_SURFACE_REGISTRY.find((definition) => definition.kind === normalized) || null;
+  const definition = RIGHT_PANEL_SURFACE_REGISTRY.find((item) => item.kind === normalized) || null;
+  if (!definition || !appCapabilities) return definition;
+  const capability = surfaceCapabilityDefinitions(appCapabilities, "right")
+    .find((item) => item.kind === normalized);
+  return capability ? mergedSurfaceDefinition(definition, capability) : definition;
 }
 
 export function rightPanelLauncherSurfaceDefinitions(appCapabilities = null) {
