@@ -547,6 +547,16 @@ def test_local_resources_do_not_import_c_cpp_workflow_defaults():
     assert offenders == []
 
 
+def test_self_extension_authoring_does_not_import_c_cpp_workflow_defaults():
+    text = _read(ROOT / "src/embedagent/self_extension_authoring.py")
+    forbidden = (
+        "embedagent.workflow_packages.c_cpp",
+        "C_WORKFLOW_TOOL_RUN_RECIPE",
+    )
+    offenders = [token for token in forbidden if token in text]
+    assert offenders == []
+
+
 def _active_contract_doc_files():
     roots = [
         ROOT / "README.md",

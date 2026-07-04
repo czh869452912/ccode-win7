@@ -56,7 +56,7 @@ owning adapter-local resource command spec builders.
 
 Allowed-tool gating is not a runtime wrapper. Hosted product paths use `AgentExtensionHost.allowed_tool_names(...)` through the shared extension host and request runtime schemas with explicit active tool names.
 
-`author_local_capability` is a workflow-neutral write tool for local self-extension authoring. It creates workspace-bound skills, prompts, recipes, and disabled-by-default project extension skeletons under `.embedagent`; it does not reload resource caches and does not load, enable, import, or trust generated Python extension code.
+`author_local_capability` is a workflow-neutral write tool for local self-extension authoring. It creates workspace-bound skills, prompts, workflow-neutral recipe JSON, and disabled-by-default project extension skeletons under `.embedagent`; it does not reload resource caches, stamp generated recipe files with default C/C++ workflow tool names, or load, enable, import, or trust generated Python extension code.
 
 Runtime-invoked external binaries are governed by `scripts/offline-runtime-contract.json`. If a tool implementation, recipe path, or workflow package starts invoking a new bundled binary, the runtime contract and packaging validators must be updated in the same change. The contract currently covers Python, Bash from MinGit, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables.
 
@@ -113,7 +113,7 @@ Workspace-local resources are file-only inputs to the runtime:
 
 `ToolRuntime.reload_resources()` refreshes the cached resource snapshot. Hosted product paths expose the same operation through `InProcessAdapter.reload_resources(...)`, `/resources reload`, and `POST /api/sessions/{session_id}/resources/reload`.
 
-Recipe JSON resources feed the existing `list_recipes` and `run_recipe` contract. Skills and prompts are discovered and surfaced with diagnostics, but they are not executed as project-local Python code. Skill Markdown may include Agent Skills-style frontmatter (`name`, `description`, `disable-model-invocation`). Skills with valid names, descriptions, and no disable flag are summarized once through the hosted local skill listing prompt unit; disabled skills remain discoverable resources but are omitted from model-invocation listings. Prompt resources are never inlined into default system prompts.
+Recipe JSON resources are workflow-neutral file resources. The default C/C++ workflow package feeds them into its `list_recipes` and `run_recipe` contract only after applying package-owned recipe normalization. Skills and prompts are discovered and surfaced with diagnostics, but they are not executed as project-local Python code. Skill Markdown may include Agent Skills-style frontmatter (`name`, `description`, `disable-model-invocation`). Skills with valid names, descriptions, and no disable flag are summarized once through the hosted local skill listing prompt unit; disabled skills remain discoverable resources but are omitted from model-invocation listings. Prompt resources are never inlined into default system prompts.
 
 Skill discovery under `.embedagent/skills` honors local `.gitignore`, `.ignore`, and `.fdignore` files with a dependency-free subset: blank lines and `#` comments, exact relative paths, directory rules ending in `/`, `fnmatch`-style globs, and `!` negation. Ignore handling is a file-discovery filter only; it does not execute ignore-file logic, load extensions, grant permissions, or change workspace-bound path checks.
 
@@ -137,7 +137,7 @@ grant tool activation, permission, or history authority.
 
 Generated extension skeletons from `author_local_capability` start disabled. They become executable only through the existing hosted project-extension loading path after a manifest is explicitly enabled and passes validation.
 
-Generated extension validation recipes must remain offline-friendly. They should execute through `run_recipe` and managed bundle commands such as `python -m py_compile ...`, not through dependency installers or remote package managers.
+Generated extension validation recipes must remain offline-friendly and workflow-neutral on disk. When the bundled C/C++ workflow package is active, they execute through that package's `run_recipe` projection with managed bundle commands such as `python -m py_compile ...`, not through dependency installers or remote package managers.
 
 ## 2. Official Workflow Tools
 

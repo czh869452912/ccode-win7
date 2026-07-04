@@ -44,6 +44,30 @@
 
 ## 3. 当前变更记录
 
+### DC-225
+
+- Date: 2026-07-04
+- Change Topic: Self-extension authoring workflow default decoupling
+- Summary:
+  - Removed the default C/C++ workflow `run_recipe` tool-name import from
+    `SelfExtensionAuthoringService`.
+  - Generated local recipe files and generated extension validation recipes no
+    longer write a default workflow `tool_name`; selected workflow packages
+    project runnable recipe tools at their own boundaries.
+  - Added behavior coverage and an architecture guard preventing
+    `self_extension_authoring.py` from importing C/C++ workflow defaults.
+- Impacted Scope:
+  - `src/embedagent/self_extension_authoring.py`
+  - `tests/test_self_extension_authoring.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/tool-contracts.md`
+  - `docs/modules/tools-and-tooling.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-224
 
 - Date: 2026-07-04

@@ -6,7 +6,7 @@
 > 类型：`module`
 > 负责人：`project maintainers`
 > 最后同步日期：`2026-07-04`
-> 对应代码范围：`src/embedagent/tools/`, `src/embedagent/tooling/`, `src/embedagent/local_resources.py`, `src/embedagent/workspace_recipes.py`
+> 对应代码范围：`src/embedagent/tools/`, `src/embedagent/tooling/`, `src/embedagent/local_resources.py`, `src/embedagent/self_extension_authoring.py`, `src/embedagent/workspace_recipes.py`
 
 ## 1. Purpose And Scope
 
@@ -61,6 +61,11 @@ discovery：skills、prompts 和 `.embedagent/recipes/*.json` 只按资源声明
 不会注入默认 C/C++ workflow tool names。默认 C/C++ 工作流的 runnable recipe
 聚合与 `run_recipe` 归一化位于 `src/embedagent/workspace_recipes.py` 及
 `src/embedagent/workflow_packages/c_cpp/` 边界内。
+
+`src/embedagent/self_extension_authoring.py` 同样保持 workflow-neutral：生成
+recipe 与 extension validation recipe 时不写入默认 C/C++ `tool_name`。这些
+文件只有在被选定 workflow package 聚合后，才会被映射到该 workflow 的可运行
+tool boundary。
 
 ```mermaid
 flowchart TD

@@ -65,6 +65,10 @@
   workflow-neutral in `discover_local_resources(...)`; the default C/C++
   workflow recipe list applies its own `run_recipe` normalization only at the
   workflow-owned aggregation boundary.
+- Local self-extension authoring now follows the same boundary: generated
+  `.embedagent/recipes/*.json` and extension validation recipes no longer carry
+  a default C/C++ `tool_name`, while active workflow packages remain responsible
+  for projecting runnable recipe tools.
 - `/api/app/bootstrap` now declares Preview surface chrome and local-server
   presets under `capabilities.preview`. The renderer uses those descriptors for
   Preview toolbar labels, empty states, status labels, and failure notices
