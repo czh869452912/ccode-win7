@@ -110,7 +110,7 @@ function commandDescription(command = {}, descriptor = {}) {
   if (command.slash) return command.slash;
   if (command.surface) return `Open ${command.surface}`;
   if (command.drawer) return `Open ${command.drawer}`;
-  return descriptor.description || command.id;
+  return descriptor.description || "";
 }
 
 function searchableText(item = {}) {
@@ -162,7 +162,7 @@ function commandItem(command, shortcutMap, groupDescriptors) {
     group,
     title,
     description: commandDescription(command, descriptor),
-    meta: asText(command.slash || command.id),
+    meta: asText(command.slash),
     shortcut: shortcutMap[command.id] || "",
     leading: descriptor.leading || descriptor.title.slice(0, 1) || ">",
     disabled: false,

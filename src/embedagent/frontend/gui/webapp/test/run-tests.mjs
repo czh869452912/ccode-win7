@@ -1343,6 +1343,8 @@ async function main() {
   assert.equal(workbenchCommandsSource.includes("item.label || item.usage || id"), false);
   assert.equal(workbenchCommandsSource.includes("!command.label"), true);
   assert.equal(commandPaletteModelSource.includes("asText(command.label) || asText(command.id)"), false);
+  assert.equal(commandPaletteModelSource.includes("descriptor.description || command.id"), false);
+  assert.equal(commandPaletteModelSource.includes("command.slash || command.id"), false);
   assert.equal(commandPaletteModelSource.includes("title: asText(group.title) || titleCase(id)"), false);
   assert.equal(commandPaletteModelSource.includes("title: titleCase(id)"), false);
   assert.equal(commandPaletteModelSource.includes("descriptor.title || titleCase"), false);

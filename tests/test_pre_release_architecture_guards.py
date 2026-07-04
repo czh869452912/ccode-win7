@@ -1092,6 +1092,8 @@ def test_gui_command_palette_groups_are_app_shell_descriptors():
     assert "paletteGroupDescriptors" in palette_model_text
     assert "paletteLabels" in palette_model_text
     assert "asText(command.label) || asText(command.id)" not in palette_model_text
+    assert "descriptor.description || command.id" not in palette_model_text
+    assert "command.slash || command.id" not in palette_model_text
     assert "asText(command.group) === targetGroup && asText(command.label)" in palette_model_text
     assert "title: asText(group.title) || titleCase(id)" not in palette_model_text
     assert "title: titleCase(id)" not in palette_model_text

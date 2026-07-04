@@ -204,5 +204,16 @@ export function runCommandPaletteModelTests() {
     }),
     [],
   );
+  const noCopyItems = flattenPaletteGroups(buildCommandPaletteRootGroups({
+    commands: [{ id: "app.no_copy", group: "app", label: "Visible Command", slash: "" }],
+    commandPalette: {
+      groups: [{ id: "app", title: "App", description: "", order: 1 }],
+      labels: { commandsSection: "Actions" },
+    },
+  }));
+  const noCopyCommand = noCopyItems.find((item) => item.commandId === "app.no_copy");
+  assert.equal(noCopyCommand.title, "Visible Command");
+  assert.equal(noCopyCommand.description, "");
+  assert.equal(noCopyCommand.meta, "");
   assert.deepEqual(flattenPaletteGroups([{ id: "x", items: [{ id: "a" }, { id: "b" }] }]).map((item) => item.id), ["a", "b"]);
 }

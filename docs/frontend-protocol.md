@@ -91,7 +91,8 @@ metadata. Renderer command lists and command-palette rows must not synthesize
 labels or titles from command ids. Commands whose groups are missing from
 `capabilities.command_palette.groups`, or whose group descriptors omit `title`,
 do not become visible palette rows; renderers must not title-case group ids as
-fallback group titles. `capabilities.command_palette`
+fallback group titles. Missing command row description/meta copy remains empty
+instead of falling back to command ids. `capabilities.command_palette`
 also carries renderer-facing `labels` for the palette title, search label,
 placeholders, empty states, root section titles, current/missing badges,
 workspace meta text, and session/workspace fallback labels. Composer

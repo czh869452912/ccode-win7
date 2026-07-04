@@ -140,8 +140,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   out of workbench command lists and command-palette rows, and dynamic slash
   commands require explicit `label`, `usage`, or `slash` metadata rather than
   command-id fallback copy; commands in undeclared or untitled palette groups
-  remain hidden rather than using title-cased group ids; surface descriptors
-  without explicit titles remain
+  remain hidden rather than using title-cased group ids; missing command row
+  description/meta copy remains empty rather than falling back to command ids;
+  surface descriptors without explicit titles remain
   diagnostic capability records and do not enter visible launchers or surface
   commands; persisted workbench surface state is also re-sanitized
   after app bootstrap or workspace switch against those app-shell capabilities;

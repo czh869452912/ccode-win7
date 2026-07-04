@@ -44,6 +44,32 @@
 
 ## 3. 当前变更记录
 
+### DC-260
+
+- Date: 2026-07-04
+- Change Topic: GUI command-palette command rows avoid command-id copy
+- Summary:
+  - Removed command-palette command row description and meta fallbacks that
+    displayed command ids when slash/description descriptors were absent.
+  - Commands with explicit labels but no secondary copy now render empty
+    secondary fields instead of leaking implementation ids into the UI.
+  - Added frontend and Python architecture guards for command row
+    description/meta no-fallback behavior.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-259
 
 - Date: 2026-07-04
