@@ -1390,6 +1390,13 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert "appCapabilities" in keybindings_text
     assert "rightPanelLauncherSurfaceDefinitions(appCapabilities)" in right_panel_tabs_text
     assert "bottomDrawerSurfaceDefinitions(appCapabilities)" in bottom_drawer_text
+    assert "surfaceChromeLabels" in bottom_drawer_text
+    assert "chrome.bottomDrawerAriaLabel" in bottom_drawer_text
+    assert "chrome.runOutputEmptyMessage" in bottom_drawer_text
+    assert "chrome.terminationReasonPrefix" in bottom_drawer_text
+    assert '"Bottom drawer"' not in bottom_drawer_text
+    assert '"No run output yet."' not in bottom_drawer_text
+    assert "reason={terminationReason}" not in bottom_drawer_text
     assert "if (allowed === null) return ordered" not in _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js"
     )

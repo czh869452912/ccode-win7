@@ -116,6 +116,9 @@ export function runAppShellModelTests() {
     closeToRightActionLabel: "",
     closeAllActionLabel: "",
     defaultIcon: "",
+    bottomDrawerAriaLabel: "",
+    runOutputEmptyMessage: "",
+    terminationReasonPrefix: "",
   });
   assert.deepEqual(initial.capabilities.keybindings, []);
   assert.equal(initial.capabilities.agentApplication, null);
@@ -321,6 +324,9 @@ export function runAppShellModelTests() {
           close_to_right_action_label: "Close views to the right",
           close_all_action_label: "Close all views",
           default_icon: "V",
+          bottom_drawer_aria_label: "Output drawer",
+          run_output_empty_message: "No output yet.",
+          termination_reason_prefix: "finished",
         },
         right_panel: [
           surface("settings", "Settings", { launcher_order: 10 }),
@@ -551,6 +557,9 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.surfaces.chrome.emptyTitle, "Open a workspace view");
   assert.equal(bootstrap.capabilities.surfaces.chrome.closeAllActionLabel, "Close all views");
   assert.equal(bootstrap.capabilities.surfaces.chrome.defaultIcon, "V");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.bottomDrawerAriaLabel, "Output drawer");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.runOutputEmptyMessage, "No output yet.");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.terminationReasonPrefix, "finished");
   assert.deepEqual(
     bootstrap.capabilities.surfaces.bottomDrawer.map((item) => item.kind),
     ["terminal"],

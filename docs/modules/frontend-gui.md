@@ -63,6 +63,12 @@
 
 用户通过 `pywebview` 窗口与 React SPA 交互；SPA 通过 WebSocket/HTTP 访问 FastAPI 后端；`GUIBackend` 将 `WebSocketFrontend` 注册为 `AgentCoreAdapter` 的回调目标。权限与 `ask_user` 交互的可见真相来自 `Session.pending_interaction` / `pending_interaction_valid` 快照字段，GUI 通过统一的 `respond_to_interaction(session_id, interaction_id, payload)` 路径提交响应；`HostedInteractionService` 负责 pending ticket glue，实际恢复继续回到 Agent Core 的 action pipeline。
 
+Preview surface chrome, bottom drawer run-output chrome, terminal chrome,
+thread lifecycle actions, command palette copy, and surface descriptors are
+declared by `/api/app/bootstrap` app-shell capabilities. Renderer modules
+normalize and consume those descriptors; they must not become a second source
+of agent/workflow-specific display defaults.
+
 ```mermaid
 flowchart TD
     User["User"] --> Window["PyWebView Window"]

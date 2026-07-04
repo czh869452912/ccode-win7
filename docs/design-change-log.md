@@ -44,6 +44,29 @@
 
 ## 3. 当前变更记录
 
+### DC-224
+
+- Date: 2026-07-04
+- Change Topic: GUI bottom drawer chrome descriptor convergence
+- Summary:
+  - Extended `/api/app/bootstrap` `capabilities.surfaces.chrome` with bottom
+    drawer aria label, run-output empty text, and termination reason prefix.
+  - Routed `BottomDrawer.jsx` through `surfaceChromeLabels(appCapabilities)`
+    instead of renderer-local run-output copy.
+  - Added app-shell, frontend source, and architecture guard coverage for the
+    bottom drawer chrome fields.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/BottomDrawer.jsx`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-223
 
 - Date: 2026-07-04

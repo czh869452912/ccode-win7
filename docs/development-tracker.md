@@ -70,6 +70,10 @@
   Preview toolbar labels, empty states, status labels, and failure notices
   instead of keeping Preview-specific English copy in `App.jsx`,
   `PreviewSurface.jsx`, or `preview-surface-model.js`.
+- Bottom drawer run-output chrome now comes from
+  `capabilities.surfaces.chrome`: aria label, empty output text, and
+  termination reason prefix are backend-declared descriptors consumed through
+  `surfaceChromeLabels(appCapabilities)`.
 
 ### 2026-06-27 - Pi/T3 Residual Debt Cleanup Closed
 

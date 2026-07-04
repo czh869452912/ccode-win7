@@ -348,6 +348,9 @@ def default_app_shell_spec() -> AppShellSpec:
             "close_to_right_action_label": "Close to the right",
             "close_all_action_label": "Close all",
             "default_icon": "S",
+            "bottom_drawer_aria_label": "Bottom drawer",
+            "run_output_empty_message": "No run output yet.",
+            "termination_reason_prefix": "reason",
         },
         right_panel_surfaces=(
             _surface(

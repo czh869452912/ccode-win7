@@ -223,6 +223,9 @@ export function surfaceChromeLabels(appCapabilities = null) {
     closeToRightActionLabel: String(chrome.closeToRightActionLabel || ""),
     closeAllActionLabel: String(chrome.closeAllActionLabel || ""),
     defaultIcon: String(chrome.defaultIcon || ""),
+    bottomDrawerAriaLabel: String(chrome.bottomDrawerAriaLabel || ""),
+    runOutputEmptyMessage: String(chrome.runOutputEmptyMessage || ""),
+    terminationReasonPrefix: String(chrome.terminationReasonPrefix || ""),
   };
 }
 

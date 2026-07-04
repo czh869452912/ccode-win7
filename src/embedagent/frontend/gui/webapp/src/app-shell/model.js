@@ -293,6 +293,15 @@ function normalizeSurfaceChrome(input = {}) {
     ),
     closeAllActionLabel: String(value.close_all_action_label || value.closeAllActionLabel || ""),
     defaultIcon: String(value.default_icon || value.defaultIcon || ""),
+    bottomDrawerAriaLabel: String(
+      value.bottom_drawer_aria_label || value.bottomDrawerAriaLabel || "",
+    ),
+    runOutputEmptyMessage: String(
+      value.run_output_empty_message || value.runOutputEmptyMessage || "",
+    ),
+    terminationReasonPrefix: String(
+      value.termination_reason_prefix || value.terminationReasonPrefix || "",
+    ),
   };
 }
 

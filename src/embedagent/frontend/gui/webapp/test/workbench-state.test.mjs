@@ -111,6 +111,9 @@ export function runWorkbenchStateTests() {
         closeToRightActionLabel: "Close views to the right",
         closeAllActionLabel: "Close all views",
         defaultIcon: "V",
+        bottomDrawerAriaLabel: "Output drawer",
+        runOutputEmptyMessage: "No output yet.",
+        terminationReasonPrefix: "finished",
       },
       rightPanel: cloneSurfaces(RIGHT_PANEL_CAPABILITY_DESCRIPTORS),
       bottomDrawer: cloneSurfaces(BOTTOM_DRAWER_CAPABILITY_DESCRIPTORS),
@@ -126,6 +129,9 @@ export function runWorkbenchStateTests() {
   );
   assert.equal(surfaceChromeLabels(fullAppCapabilities).emptyTitle, "Open workspace view");
   assert.equal(surfaceChromeLabels(fullAppCapabilities).closeAllActionLabel, "Close all views");
+  assert.equal(surfaceChromeLabels(fullAppCapabilities).bottomDrawerAriaLabel, "Output drawer");
+  assert.equal(surfaceChromeLabels(fullAppCapabilities).runOutputEmptyMessage, "No output yet.");
+  assert.equal(surfaceChromeLabels(fullAppCapabilities).terminationReasonPrefix, "finished");
   assert.equal(rightPanelLauncherSurfaceDefinitions(fullAppCapabilities)[0].title, "Preview");
   assert.equal(rightPanelLauncherSurfaceDefinitions(fullAppCapabilities)[0].commandLabel, "Show Preview");
   assert.equal(bottomDrawerSurfaceDefinitions(fullAppCapabilities)[0].title, "Run Output");

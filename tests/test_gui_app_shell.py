@@ -157,6 +157,18 @@ class TestGuiAppShellService(unittest.TestCase):
             "Close all",
         )
         self.assertEqual(
+            payload["capabilities"]["surfaces"]["chrome"]["bottom_drawer_aria_label"],
+            "Bottom drawer",
+        )
+        self.assertEqual(
+            payload["capabilities"]["surfaces"]["chrome"]["run_output_empty_message"],
+            "No run output yet.",
+        )
+        self.assertEqual(
+            payload["capabilities"]["surfaces"]["chrome"]["termination_reason_prefix"],
+            "reason",
+        )
+        self.assertEqual(
             [item["id"] for item in payload["capabilities"]["thread_lifecycle"]["actions"]],
             ["rename", "fork", "archive"],
         )
@@ -341,6 +353,7 @@ class TestGuiAppShellService(unittest.TestCase):
                     surface_chrome={
                         "empty_title": "Open view",
                         "close_all_action_label": "Close views",
+                        "bottom_drawer_aria_label": "Output",
                     },
                     right_panel_surfaces=(
                         {
@@ -398,6 +411,7 @@ class TestGuiAppShellService(unittest.TestCase):
             {
                 "empty_title": "Open view",
                 "close_all_action_label": "Close views",
+                "bottom_drawer_aria_label": "Output",
             },
         )
         self.assertEqual(

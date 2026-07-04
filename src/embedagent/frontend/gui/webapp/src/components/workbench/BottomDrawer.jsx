@@ -1,14 +1,20 @@
 import React from "react";
-import { bottomDrawerSurfaceDefinitions } from "../../workbench/surfaces.js";
+import {
+  bottomDrawerSurfaceDefinitions,
+  surfaceChromeLabels,
+} from "../../workbench/surfaces.js";
 import TerminalShell from "./TerminalShell.jsx";
 
-function RunOutputDrawer({ runOutput, terminationReason, terminationMessage }) {
+function RunOutputDrawer({ runOutput, terminationReason, terminationMessage, chrome }) {
   const entries = Array.isArray(runOutput) ? runOutput.slice(-80) : [];
+  const reasonPrefix = chrome.terminationReasonPrefix
+    ? `${chrome.terminationReasonPrefix}=`
+    : "";
   return (
     <>
       {terminationReason ? (
         <div className="drawer-line">
-          reason={terminationReason} {terminationMessage || ""}
+          {reasonPrefix}{terminationReason} {terminationMessage || ""}
         </div>
       ) : null}
       {entries.length > 0 ? (
@@ -19,7 +25,7 @@ function RunOutputDrawer({ runOutput, terminationReason, terminationMessage }) {
           </div>
         ))
       ) : (
-        <div className="drawer-line muted">No run output yet.</div>
+        <div className="drawer-line muted">{chrome.runOutputEmptyMessage}</div>
       )}
     </>
   );
@@ -42,8 +48,13 @@ export default function BottomDrawer({
   onTerminalClose,
 }) {
   const drawerSurfaces = bottomDrawerSurfaceDefinitions(appCapabilities);
+  const chrome = surfaceChromeLabels(appCapabilities);
   return (
-    <section className="bottom-drawer" aria-label="Bottom drawer" data-testid="bottom-drawer">
+    <section
+      className="bottom-drawer"
+      aria-label={chrome.bottomDrawerAriaLabel}
+      data-testid="bottom-drawer"
+    >
       <div className="bottom-drawer-tabs" role="tablist">
         {drawerSurfaces.map((definition) => (
           <button
@@ -86,6 +97,7 @@ export default function BottomDrawer({
             runOutput={runOutput}
             terminationReason={terminationReason}
             terminationMessage={terminationMessage}
+            chrome={chrome}
           />
         )}
       </div>

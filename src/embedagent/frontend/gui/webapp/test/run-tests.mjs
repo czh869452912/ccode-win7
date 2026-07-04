@@ -1276,6 +1276,13 @@ async function main() {
   );
   assert.equal(bottomDrawerSource.includes("TerminalShell"), true);
   assert.equal(bottomDrawerSource.includes("bottomDrawerSurfaceDefinitions"), true);
+  assert.equal(bottomDrawerSource.includes("surfaceChromeLabels"), true);
+  assert.equal(bottomDrawerSource.includes("chrome.bottomDrawerAriaLabel"), true);
+  assert.equal(bottomDrawerSource.includes("chrome.runOutputEmptyMessage"), true);
+  assert.equal(bottomDrawerSource.includes("chrome.terminationReasonPrefix"), true);
+  assert.equal(bottomDrawerSource.includes('"Bottom drawer"'), false);
+  assert.equal(bottomDrawerSource.includes('"No run output yet."'), false);
+  assert.equal(bottomDrawerSource.includes("reason={terminationReason}"), false);
   assert.equal(bottomDrawerSource.includes("export function TerminalSurface"), false);
 
   const filesSurfaceSource = fs.readFileSync(
