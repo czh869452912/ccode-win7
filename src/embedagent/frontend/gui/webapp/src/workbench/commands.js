@@ -38,11 +38,7 @@ const WORKSPACE_COMMANDS = [
 ];
 
 export const WORKBENCH_COMMANDS = [
-  ...APP_COMMANDS,
   ...LOCAL_COMMANDS,
-  ...surfaceCommandDefinitions(),
-  ...bottomDrawerCommandDefinitions(),
-  ...WORKSPACE_COMMANDS,
 ];
 
 function localWorkbenchCommands() {
@@ -50,19 +46,18 @@ function localWorkbenchCommands() {
 }
 
 function capabilityList(appCapabilities, snakeName, camelName) {
-  if (!appCapabilities || typeof appCapabilities !== "object") return null;
+  if (!appCapabilities || typeof appCapabilities !== "object") return [];
   if (Array.isArray(appCapabilities[camelName])) {
     return appCapabilities[camelName].map(String);
   }
   if (Array.isArray(appCapabilities[snakeName])) {
     return appCapabilities[snakeName].map(String);
   }
-  return null;
+  return [];
 }
 
 function filterCommandsByCapability(commands, appCapabilities, snakeName, camelName) {
   const declared = capabilityList(appCapabilities, snakeName, camelName);
-  if (declared === null) return commands;
   const allowed = new Set(declared);
   return commands.filter((command) => allowed.has(command.id));
 }

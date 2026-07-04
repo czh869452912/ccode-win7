@@ -77,11 +77,12 @@ runtime, renderer, workspace registry, and active-core presence only.
 the renderer workbench. The renderer may keep local metadata for labels,
 icons, keybindings, and React components, but visible command-palette entries,
 right-panel launchers, bottom-drawer tabs, and keybinding targets are filtered
-from this bootstrap declaration. Missing capability arrays mean no app-shell
-entrypoints, not GUI defaults. `capabilities.surfaces.right_panel` may include
-`files`, `terminal`, `diff`, `preview`, `plan`, `source_control`, `settings`,
-and `diagnostics`; `capabilities.surfaces.bottom_drawer` may include
-`terminal`, `run_output`, and `logs`. `capabilities.terminal` describes the GUI
+from this bootstrap declaration. A missing `capabilities` object or missing
+capability arrays mean no app-shell entrypoints, not GUI defaults.
+`capabilities.surfaces.right_panel` may include `files`, `terminal`, `diff`,
+`preview`, `plan`, `source_control`, `settings`, and `diagnostics`;
+`capabilities.surfaces.bottom_drawer` may include `terminal`, `run_output`,
+and `logs`. `capabilities.terminal` describes the GUI
 terminal limitations (`enabled`, `pty`, `resize`, `history_persistent`, and
 `max_buffer_bytes`). `capabilities.source_control` describes the local
 source-control surface: `enabled`, `vcs`, `read_only`, `remote_providers`,

@@ -48,7 +48,8 @@ Workbench command visibility, right-panel launchers, bottom-drawer tabs, and
 keybinding targets are filtered from GUI app-shell capabilities returned by
 `GET /api/app/bootstrap`. Renderer-local surface registries may describe how a
 known surface is displayed, but they do not grant app-shell entrypoints when
-the backend declaration omits them.
+the backend declaration omits the `capabilities` object or the relevant command
+or surface arrays.
 Frontend protocol adapters preserve backend-declared mode state. They must not
 import the built-in mode default or inject `explore` when a selected
 application/profile leaves `current_mode` empty.

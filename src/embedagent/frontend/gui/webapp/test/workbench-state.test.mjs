@@ -38,9 +38,26 @@ import {
 
 export function runWorkbenchStateTests() {
   const registryDefinitions = rightPanelSurfaceDefinitions();
+  const fullAppCapabilities = {
+    appCommands: APP_COMMANDS.map((item) => item.id),
+    workspaceCommands: [
+      "workspace.open",
+      "workspace.refresh",
+      "workspace.remove_current",
+      "workspace.files",
+    ],
+    surfaces: {
+      rightPanel: RIGHT_PANEL_SURFACES,
+      bottomDrawer: BOTTOM_DRAWER_SURFACES,
+    },
+  };
   assert.equal(registryDefinitions, RIGHT_PANEL_SURFACE_REGISTRY);
   assert.deepEqual(registryDefinitions.map((definition) => definition.kind), RIGHT_PANEL_KINDS);
-  assert.deepEqual(rightPanelLauncherSurfaceDefinitions().map((definition) => definition.kind), RIGHT_PANEL_SURFACES);
+  assert.deepEqual(rightPanelLauncherSurfaceDefinitions().map((definition) => definition.kind), []);
+  assert.deepEqual(
+    rightPanelLauncherSurfaceDefinitions(fullAppCapabilities).map((definition) => definition.kind),
+    RIGHT_PANEL_SURFACES,
+  );
   for (const definition of registryDefinitions) {
     assert.equal(definition.placement, "right");
     assert.equal(typeof definition.kind, "string");
@@ -82,7 +99,11 @@ export function runWorkbenchStateTests() {
   ]);
   assert.equal(BOTTOM_DRAWER_SURFACES.includes("terminal"), true);
   assert.equal(BOTTOM_DRAWER_SURFACES.includes("run_output"), true);
-  assert.deepEqual(bottomDrawerSurfaceDefinitions().map((definition) => definition.kind), BOTTOM_DRAWER_SURFACES);
+  assert.deepEqual(bottomDrawerSurfaceDefinitions().map((definition) => definition.kind), []);
+  assert.deepEqual(
+    bottomDrawerSurfaceDefinitions(fullAppCapabilities).map((definition) => definition.kind),
+    BOTTOM_DRAWER_SURFACES,
+  );
 
   const initial = createWorkbenchState();
   assert.equal(initial.rightPanel.open, true);
@@ -371,43 +392,44 @@ export function runWorkbenchStateTests() {
   assert.equal(isAppCommand("app.diagnostics"), true);
   assert.equal(isAppCommand("app.source_control"), true);
   assert.equal(isAppCommand("workspace.open"), false);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.settings"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.diagnostics"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.source_control"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.reload"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.files"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.preview"), true);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.settings"), false);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.diagnostics"), false);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.source_control"), false);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.reload"), false);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.files"), false);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.preview"), false);
   assert.deepEqual(
     WORKBENCH_COMMANDS.filter((item) => item.group === "surface" && item.surface)
       .map((item) => item.id),
-    surfaceCommandDefinitions().map((item) => item.id),
+    [],
   );
   assert.deepEqual(
     WORKBENCH_COMMANDS.filter((item) => item.group === "surface" && item.drawer)
       .map((item) => item.id),
-    bottomDrawerCommandDefinitions().map((item) => item.id),
+    [],
   );
-  assert.equal(commandById("surface.preview").surface, "preview");
-  assert.equal(commandById("surface.diff").surface, "diff");
-  assert.equal(commandById("surface.source_control").surface, "source_control");
-  assert.equal(commandById("surface.settings").surface, "settings");
-  assert.equal(commandById("surface.diagnostics").surface, "diagnostics");
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.open"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.refresh"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.remove_current"), true);
+  assert.equal(commandById("surface.preview"), null);
+  assert.equal(commandById("surface.preview", {}, fullAppCapabilities).surface, "preview");
+  assert.equal(commandById("surface.diff", {}, fullAppCapabilities).surface, "diff");
+  assert.equal(commandById("surface.source_control", {}, fullAppCapabilities).surface, "source_control");
+  assert.equal(commandById("surface.settings", {}, fullAppCapabilities).surface, "settings");
+  assert.equal(commandById("surface.diagnostics", {}, fullAppCapabilities).surface, "diagnostics");
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.open"), false);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.refresh"), false);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.remove_current"), false);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "thread.new"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "drawer.terminal"), true);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "drawer.terminal"), false);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id.includes("code")), false);
   assert.equal(commandById("message.send").slash, "");
 
   const visibleWhenIdle = visibleCommands({ hasSession: true, isRunning: false });
-  assert.equal(visibleWhenIdle.some((item) => item.id === "app.settings"), true);
-  assert.equal(visibleWhenIdle.some((item) => item.id === "app.source_control"), true);
+  assert.equal(visibleWhenIdle.some((item) => item.id === "app.settings"), false);
+  assert.equal(visibleWhenIdle.some((item) => item.id === "app.source_control"), false);
   assert.equal(visibleWhenIdle.some((item) => item.id === "message.send"), true);
   assert.equal(visibleWhenIdle.some((item) => item.id === "message.stop"), false);
 
   const visibleWithoutSession = visibleCommands({ hasSession: false, isRunning: false });
-  assert.equal(visibleWithoutSession.some((item) => item.id === "app.settings"), true);
+  assert.equal(visibleWithoutSession.some((item) => item.id === "app.settings"), false);
   assert.equal(visibleWithoutSession.some((item) => item.id === "mode.build"), false);
 
   const visibleWhenRunning = visibleCommands({ hasSession: true, isRunning: true });
@@ -474,8 +496,16 @@ export function runWorkbenchStateTests() {
   const settingsCommand = resolveKeybinding(DEFAULT_KEYBINDINGS, "mod+,", {
     paletteOpen: false,
     isRunning: false,
+    appCapabilities: fullAppCapabilities,
   });
   assert.equal(settingsCommand.id, "app.settings");
+  assert.equal(
+    resolveKeybinding(DEFAULT_KEYBINDINGS, "mod+,", {
+      paletteOpen: false,
+      isRunning: false,
+    }),
+    null,
+  );
 
   const blocked = resolveKeybinding(DEFAULT_KEYBINDINGS, "enter", {
     paletteOpen: false,

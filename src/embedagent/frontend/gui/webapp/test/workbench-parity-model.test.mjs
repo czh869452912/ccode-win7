@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 
 import { initialState, reducer } from "../src/store.js";
 import { APP_COMMANDS } from "../src/app-shell/commands.js";
-import { surfaceCommandDefinitions } from "../src/workbench/surfaces.js";
+import {
+  bottomDrawerCommandDefinitions,
+  surfaceCommandDefinitions,
+} from "../src/workbench/surfaces.js";
 import { buildWorkbenchParityModel } from "../src/workbench/workbench-parity-model.js";
 
 function clone(value) {
@@ -77,11 +80,21 @@ export function runWorkbenchParityModelTests() {
   assert.equal(desktopModel.composer.mode, "command-ready");
   assert.equal(desktopModel.timeline.density, "compact");
   assert.deepEqual(desktopModel.commandPalette.availableSurfaceCommands, [
-    ...surfaceCommandDefinitions().map((command) => command.id),
-    "drawer.run_output",
-    "drawer.terminal",
-    "drawer.logs",
+    ...surfaceCommandDefinitions(desktop.app.capabilities).map((command) => command.id),
+    ...bottomDrawerCommandDefinitions(desktop.app.capabilities).map((command) => command.id),
   ]);
+
+  const undeclaredModel = buildWorkbenchParityModel(
+    {
+      ...desktop,
+      app: {
+        ...desktop.app,
+        capabilities: null,
+      },
+    },
+    { width: 1440, height: 900 },
+  );
+  assert.deepEqual(undeclaredModel.commandPalette.availableSurfaceCommands, []);
 
   let narrow = sessionWorkspaceState({ snapshot: { status: "running" } });
   narrow = openRightSurface(narrow, "terminal", {

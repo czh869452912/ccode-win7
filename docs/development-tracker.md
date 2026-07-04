@@ -380,7 +380,7 @@
 - GUI backend route 依赖已从兼容 `_ActiveCoreProxy` 收敛为显式 app-host active-core resolution；workspace-bound routes 通过 `GUIAppHost.require_core()` 取得当前 core，不再在 backend 上保留 `self.core` 代理状态。
 - React webapp 新增 `webapp/src/app-shell/` 纯 read-model/reducer helpers，并把现有 app bootstrap / workspace switch legacy actions 统一路由到 app-shell reducer；root `resetWorkspaceScopedState` 仍只负责清空 session/timeline/task 等 workspace-scoped GUI 状态。
 - Right panel 新增 Settings / Diagnostics 两个 app-level surfaces，命令 palette 新增 `app.settings` / `app.diagnostics` / `app.reload`，并保持这些命令与 session/workflow commands 分离。
-- 当前收敛：命令 palette、right-panel add-surface launcher、bottom drawer tab 与 keybinding target 现在全部按 `/api/app/bootstrap` 的 `app_commands`、`workspace_commands`、`surfaces.right_panel` 和 `surfaces.bottom_drawer` 过滤；renderer-local surface registry 只保留 label/icon/component metadata，不再在 capability 缺失时填充 GUI 默认入口。
+- 当前收敛：命令 palette、right-panel add-surface launcher、bottom drawer tab 与 keybinding target 现在全部按 `/api/app/bootstrap` 的 `app_commands`、`workspace_commands`、`surfaces.right_panel` 和 `surfaces.bottom_drawer` 过滤；renderer-local surface registry 只保留 label/icon/component metadata，缺失整个 `capabilities` 对象或相关数组时都不再填充 GUI 默认入口。
 - 当前收敛：工具展示 catalog 现在只来自 session capabilities/bootstrap 的 `toolCatalog`；GUI `/api/tool-catalog` route、root `toolCatalog` fallback state 和 frontend-facing `CoreInterface.get_tool_catalog` facade 已删除。
 - 当前收敛：Inspector 不再保留内部 `RIGHT_PANEL_SURFACES` tab registry、`showTabs` 或 `onTabChange` 导航入口；right-panel surfaces 是唯一的右栏导航真相。
 - 当前收敛：renderer root `inspectorTab` / `inspectorOpen` state 和 `set_inspector` / `toggle_inspector` reducer actions 已删除，socket effects、visual fixtures 与 App 打开面板动作都不再写这条旧状态。

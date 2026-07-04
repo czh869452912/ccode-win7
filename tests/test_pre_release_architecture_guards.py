@@ -923,9 +923,13 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert "appCapabilities" in commands_text
     assert "surfaceCommandDefinitions(appCapabilities)" in commands_text
     assert "bottomDrawerCommandDefinitions(appCapabilities)" in commands_text
+    assert "if (declared === null) return commands" not in commands_text
     assert "appCapabilities" in keybindings_text
     assert "rightPanelLauncherSurfaceDefinitions(appCapabilities)" in right_panel_tabs_text
     assert "bottomDrawerSurfaceDefinitions(appCapabilities)" in bottom_drawer_text
+    assert "if (allowed === null) return ordered" not in _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js"
+    )
     for token in (
         "RIGHT_PANEL_SURFACES",
         "function InspectorTabs",

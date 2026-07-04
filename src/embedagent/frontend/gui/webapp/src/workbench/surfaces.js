@@ -223,7 +223,7 @@ export const BOTTOM_DRAWER_SURFACE_REGISTRY = Object.freeze([
 ]);
 
 function surfaceCapabilityList(appCapabilities, placement) {
-  if (!appCapabilities || typeof appCapabilities !== "object") return null;
+  if (!appCapabilities || typeof appCapabilities !== "object") return [];
   const surfaces = appCapabilities.surfaces && typeof appCapabilities.surfaces === "object"
     ? appCapabilities.surfaces
     : {};
@@ -231,17 +231,20 @@ function surfaceCapabilityList(appCapabilities, placement) {
     placement === "bottom"
       ? (surfaces.bottomDrawer || surfaces.bottom_drawer)
       : (surfaces.rightPanel || surfaces.right_panel);
-  if (!Array.isArray(value)) return null;
+  if (!Array.isArray(value)) return [];
   return value.map((item) => String(item || "")).filter(Boolean);
+}
+
+function launcherDefinitions(definitions) {
+  return definitions
+    .filter((definition) => definition.launcher)
+    .slice()
+    .sort((left, right) => (left.launcherOrder || 0) - (right.launcherOrder || 0));
 }
 
 function filterSurfaceDefinitions(definitions, placement, appCapabilities) {
   const allowed = surfaceCapabilityList(appCapabilities, placement);
-  const ordered = definitions
-    .filter((definition) => definition.launcher)
-    .slice()
-    .sort((left, right) => (left.launcherOrder || 0) - (right.launcherOrder || 0));
-  if (allowed === null) return ordered;
+  const ordered = launcherDefinitions(definitions);
   const allowedSet = new Set(allowed);
   return ordered.filter((definition) => allowedSet.has(definition.kind));
 }
@@ -292,7 +295,7 @@ export function bottomDrawerCommandDefinitions(appCapabilities = null) {
 }
 
 export const RIGHT_PANEL_KINDS = RIGHT_PANEL_SURFACE_REGISTRY.map((definition) => definition.kind);
-export const RIGHT_PANEL_SURFACES = rightPanelLauncherSurfaceDefinitions()
+export const RIGHT_PANEL_SURFACES = launcherDefinitions(RIGHT_PANEL_SURFACE_REGISTRY)
   .map((definition) => definition.kind);
 export const BOTTOM_DRAWER_SURFACES = BOTTOM_DRAWER_SURFACE_REGISTRY.map((definition) => definition.kind);
 
