@@ -16,10 +16,7 @@ import {
   resolveKeybinding,
 } from "../src/workbench/keybindings.js";
 import {
-  BOTTOM_DRAWER_SURFACES,
-  RIGHT_PANEL_KINDS,
   RIGHT_PANEL_SURFACE_REGISTRY,
-  RIGHT_PANEL_SURFACES,
   activateSurface,
   bottomDrawerCommandDefinitions,
   bottomDrawerSurfaceDefinitions,
@@ -34,14 +31,36 @@ import {
   rightPanelSurfaceDefinitions,
   surfaceCommandDefinitions,
   surfaceDefinitionFor,
+  supportedSurfaceKinds,
 } from "../src/workbench/surfaces.js";
 
 function surface(id, title = id, launcherOrder = 0) {
   return { id, title, launcherOrder };
 }
 
-function surfaceList(ids, titleFor = (id) => id) {
-  return ids.map((id, index) => surface(id, titleFor(id), (index + 1) * 10));
+const RIGHT_PANEL_CAPABILITY_DESCRIPTORS = Object.freeze([
+  surface("preview", "Preview", 10),
+  surface("files", "Files", 20),
+  surface("terminal", "Terminal", 30),
+  surface("diff", "Diff", 40),
+  surface("plan", "Plan", 50),
+  surface("source_control", "Source Control", 60),
+  surface("settings", "Settings", 70),
+  surface("diagnostics", "Diagnostics", 80),
+]);
+
+const BOTTOM_DRAWER_CAPABILITY_DESCRIPTORS = Object.freeze([
+  surface("run_output", "Run Output", 10),
+  surface("terminal", "Terminal", 20),
+  surface("logs", "Logs", 30),
+]);
+
+function cloneSurfaces(items) {
+  return items.map((item) => ({ ...item }));
+}
+
+function capabilityIds(items) {
+  return items.map((item) => item.id);
 }
 
 export function runWorkbenchStateTests() {
@@ -55,16 +74,16 @@ export function runWorkbenchStateTests() {
       "workspace.files",
     ],
     surfaces: {
-      rightPanel: surfaceList(RIGHT_PANEL_SURFACES, (id) => surfaceDefinitionFor(id)?.title || id),
-      bottomDrawer: surfaceList(BOTTOM_DRAWER_SURFACES, (id) => id),
+      rightPanel: cloneSurfaces(RIGHT_PANEL_CAPABILITY_DESCRIPTORS),
+      bottomDrawer: cloneSurfaces(BOTTOM_DRAWER_CAPABILITY_DESCRIPTORS),
     },
   };
   assert.equal(registryDefinitions, RIGHT_PANEL_SURFACE_REGISTRY);
-  assert.deepEqual(registryDefinitions.map((definition) => definition.kind), RIGHT_PANEL_KINDS);
+  assert.deepEqual(registryDefinitions.map((definition) => definition.kind), supportedSurfaceKinds("right"));
   assert.deepEqual(rightPanelLauncherSurfaceDefinitions().map((definition) => definition.kind), []);
   assert.deepEqual(
     rightPanelLauncherSurfaceDefinitions(fullAppCapabilities).map((definition) => definition.kind),
-    RIGHT_PANEL_SURFACES,
+    capabilityIds(RIGHT_PANEL_CAPABILITY_DESCRIPTORS),
   );
   for (const definition of registryDefinitions) {
     assert.equal(definition.placement, "right");
@@ -84,33 +103,13 @@ export function runWorkbenchStateTests() {
   assert.equal(surfaceDefinitionFor("file").command, false);
   assert.equal(surfaceDefinitionFor("diff").defaultResourceId, "current");
 
-  assert.deepEqual(RIGHT_PANEL_KINDS, [
-    "preview",
-    "diff",
-    "files",
-    "file",
-    "terminal",
-    "plan",
-    "source_control",
-    "settings",
-    "diagnostics",
-  ]);
-  assert.deepEqual(RIGHT_PANEL_SURFACES, [
-    "preview",
-    "files",
-    "terminal",
-    "diff",
-    "plan",
-    "source_control",
-    "settings",
-    "diagnostics",
-  ]);
-  assert.equal(BOTTOM_DRAWER_SURFACES.includes("terminal"), true);
-  assert.equal(BOTTOM_DRAWER_SURFACES.includes("run_output"), true);
+  assert.equal(supportedSurfaceKinds("right").includes("file"), true);
+  assert.equal(supportedSurfaceKinds("bottom").includes("terminal"), true);
+  assert.equal(supportedSurfaceKinds("bottom").includes("run_output"), true);
   assert.deepEqual(bottomDrawerSurfaceDefinitions().map((definition) => definition.kind), []);
   assert.deepEqual(
     bottomDrawerSurfaceDefinitions(fullAppCapabilities).map((definition) => definition.kind),
-    BOTTOM_DRAWER_SURFACES,
+    capabilityIds(BOTTOM_DRAWER_CAPABILITY_DESCRIPTORS),
   );
 
   const initial = createWorkbenchState();

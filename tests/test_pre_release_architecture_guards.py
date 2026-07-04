@@ -780,6 +780,25 @@ def test_gui_app_shell_surfaces_are_descriptor_records_not_string_lists():
     assert 'value.map((item) => String(item || ""))' not in surfaces_text
 
 
+def test_gui_surface_registry_does_not_export_fixed_surface_id_lists():
+    surfaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js")
+    ui_state_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/ui-state.js")
+
+    for token in (
+        "export const RIGHT_PANEL_KINDS",
+        "export const RIGHT_PANEL_SURFACES",
+        "export const BOTTOM_DRAWER_SURFACES",
+    ):
+        assert token not in surfaces_text
+    for token in (
+        "RIGHT_PANEL_KINDS",
+        "RIGHT_PANEL_SURFACES",
+        "BOTTOM_DRAWER_SURFACES",
+    ):
+        assert token not in ui_state_text
+    assert "supportedSurfaceKinds(" in ui_state_text
+
+
 def test_agent_core_has_no_harness_prompt_or_command_name_validation_coupling():
     extensions_text = _read(ROOT / "src/embedagent_core/extensions.py")
     turn_experience_text = _read(ROOT / "src/embedagent_core/turn_experience.py")

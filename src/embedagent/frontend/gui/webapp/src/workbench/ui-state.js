@@ -1,11 +1,10 @@
 import {
-  BOTTOM_DRAWER_SURFACES,
   DEFAULT_SESSION_KEY,
-  RIGHT_PANEL_KINDS,
   bottomDrawerSurfaceDefinitions,
   createWorkbenchState,
   rightPanelLauncherSurfaceDefinitions,
   surfaceDefinitionFor,
+  supportedSurfaceKinds,
   titleForSurfaceKind,
 } from "./surfaces.js";
 
@@ -65,7 +64,7 @@ function uniqueStrings(values) {
 function sanitizeSurface(input, fallbackPlacement) {
   const source = asObject(input);
   const placement = normalizePlacement(source.placement || fallbackPlacement);
-  const allowed = placement === "bottom" ? BOTTOM_DRAWER_SURFACES : RIGHT_PANEL_KINDS;
+  const allowed = supportedSurfaceKinds(placement);
   const kind = asString(source.kind);
   if (!allowed.includes(kind)) return null;
   const definition = placement === "right" ? surfaceDefinitionFor(kind) : null;
@@ -262,7 +261,7 @@ export function parsePersistedWorkbenchUiState(value) {
     bottomDrawer: {
       ...base.bottomDrawer,
       open: Boolean(source.bottomDrawer?.open),
-      activeKind: BOTTOM_DRAWER_SURFACES.includes(source.bottomDrawer?.activeKind)
+      activeKind: supportedSurfaceKinds("bottom").includes(source.bottomDrawer?.activeKind)
         ? source.bottomDrawer.activeKind
         : base.bottomDrawer.activeKind,
       height: clampNumber(source.bottomDrawer?.height, base.bottomDrawer.height, 140, 520),
@@ -287,7 +286,7 @@ export function serializeWorkbenchUiState(state) {
     },
     bottomDrawer: {
       open: Boolean(current.bottomDrawer?.open),
-      activeKind: BOTTOM_DRAWER_SURFACES.includes(current.bottomDrawer?.activeKind)
+      activeKind: supportedSurfaceKinds("bottom").includes(current.bottomDrawer?.activeKind)
         ? current.bottomDrawer.activeKind
         : createWorkbenchState().bottomDrawer.activeKind,
       height: clampNumber(current.bottomDrawer?.height, createWorkbenchState().bottomDrawer.height, 140, 520),

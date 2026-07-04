@@ -132,7 +132,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   keybinding targets are filtered from `/api/app/bootstrap` app-shell
   capabilities; app-shell surfaces are descriptor records carrying display,
   ordering, command, slash, and safety metadata, while renderer-local surface
-  registries now provide only known renderer mounting details and do not invent
+  registries now provide only known renderer mounting details through derived
+  helper functions rather than exported fixed id lists, and do not invent
   visible app entrypoints when the `capabilities` object or relevant descriptor
   arrays are missing; persisted workbench surface state is also re-sanitized
   after app bootstrap or workspace switch against those app-shell capabilities

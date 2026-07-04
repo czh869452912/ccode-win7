@@ -267,11 +267,8 @@ export function surfaceCapabilityDefinitions(appCapabilities, placement) {
     .filter(Boolean);
 }
 
-function launcherDefinitions(definitions) {
-  return definitions
-    .filter((definition) => definition.launcher)
-    .slice()
-    .sort((left, right) => (left.launcherOrder || 0) - (right.launcherOrder || 0));
+function surfaceDefinitionsForPlacement(placement) {
+  return placement === "bottom" ? BOTTOM_DRAWER_SURFACE_REGISTRY : RIGHT_PANEL_SURFACE_REGISTRY;
 }
 
 function mergedSurfaceDefinition(definition, capability) {
@@ -359,10 +356,9 @@ export function bottomDrawerCommandDefinitions(appCapabilities = null) {
     }));
 }
 
-export const RIGHT_PANEL_KINDS = RIGHT_PANEL_SURFACE_REGISTRY.map((definition) => definition.kind);
-export const RIGHT_PANEL_SURFACES = launcherDefinitions(RIGHT_PANEL_SURFACE_REGISTRY)
-  .map((definition) => definition.kind);
-export const BOTTOM_DRAWER_SURFACES = BOTTOM_DRAWER_SURFACE_REGISTRY.map((definition) => definition.kind);
+export function supportedSurfaceKinds(placement = "right") {
+  return surfaceDefinitionsForPlacement(placement).map((definition) => definition.kind);
+}
 
 export const DEFAULT_SESSION_KEY = "__global__";
 
@@ -380,7 +376,7 @@ function defaultActiveKind(placement) {
 }
 
 function allowedKinds(placement) {
-  return placement === "bottom" ? BOTTOM_DRAWER_SURFACES : RIGHT_PANEL_KINDS;
+  return supportedSurfaceKinds(placement);
 }
 
 function normalizeFilePath(path) {

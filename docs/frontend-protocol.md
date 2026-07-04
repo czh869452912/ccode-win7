@@ -102,6 +102,9 @@ terminal limitations (`enabled`, `pty`, `resize`, `history_persistent`, and
 `max_buffer_bytes`). `capabilities.source_control` describes the local
 source-control surface: `enabled`, `vcs`, `read_only`, `remote_providers`,
 `network`, `checkpoints`, and `requires_active_workspace`.
+The renderer may keep a local registry of supported component kinds, but that
+registry is not a frontend capability source and must not be exposed as a fixed
+surface id list.
 
 The GUI terminal bottom drawer is app-shell hosted and workspace-bound. It is
 implemented with Windows 7-compatible Python stdlib subprocess pipes, not a

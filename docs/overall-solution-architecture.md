@@ -50,9 +50,10 @@ keybinding targets are filtered from GUI app-shell capabilities returned by
 descriptor records rather than bare string ids, so labels, descriptions, icon
 keys, command/slash metadata, ordering, and read-only/offline hints come from
 the app shell. Renderer-local surface registries describe only how a known
-surface renderer is mounted; they do not grant app-shell entrypoints when the
-backend declaration omits the `capabilities` object or the relevant command or
-surface descriptor arrays. Persisted workbench surface state is re-sanitized after app
+surface renderer is mounted and are exposed through derived helpers rather than
+fixed surface id lists; they do not grant app-shell entrypoints when the backend
+declaration omits the `capabilities` object or the relevant command or surface
+descriptor arrays. Persisted workbench surface state is re-sanitized after app
 bootstrap or workspace switch against the same declaration, so stale local UI
 state cannot reopen surfaces that the active app shell does not expose.
 Retired Inspector sidecar state for artifacts, review panes, permission-rule
