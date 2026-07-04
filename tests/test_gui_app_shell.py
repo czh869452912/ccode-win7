@@ -169,6 +169,14 @@ class TestGuiAppShellService(unittest.TestCase):
         self.assertEqual(thread_actions[2]["confirm_title"], "Archive this thread?")
         self.assertEqual(thread_actions[2]["success_title"], "Thread archived")
         self.assertEqual(
+            payload["capabilities"]["home"]["workspace"]["inactive_label"],
+            "No workspace",
+        )
+        self.assertEqual(
+            payload["capabilities"]["home"]["threads"]["empty_title"],
+            "No threads yet",
+        )
+        self.assertEqual(
             payload["capabilities"]["source_control"],
             {
                 "enabled": True,
@@ -272,6 +280,16 @@ class TestGuiAppShellService(unittest.TestCase):
                     source_control={"enabled": False},
                     terminal={"enabled": False},
                     thread_lifecycle_actions=(),
+                    home={
+                        "workspace": {
+                            "section_title": "Projects",
+                            "open_label": "Open Project",
+                        },
+                        "threads": {
+                            "section_title": "Runs",
+                            "new_label": "Start",
+                        },
+                    },
                 ),
             )
 
@@ -297,6 +315,19 @@ class TestGuiAppShellService(unittest.TestCase):
         self.assertEqual(payload["capabilities"]["source_control"], {"enabled": False})
         self.assertEqual(payload["capabilities"]["command_palette"], {"groups": []})
         self.assertEqual(payload["capabilities"]["thread_lifecycle"], {"actions": []})
+        self.assertEqual(
+            payload["capabilities"]["home"],
+            {
+                "workspace": {
+                    "section_title": "Projects",
+                    "open_label": "Open Project",
+                },
+                "threads": {
+                    "section_title": "Runs",
+                    "new_label": "Start",
+                },
+            },
+        )
 
     def test_open_workspace_returns_app_shell_payload_and_binds_core(self):
         with tempfile.TemporaryDirectory() as root:

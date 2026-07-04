@@ -276,6 +276,41 @@ function normalizeCommandPalette(input = {}) {
   };
 }
 
+function normalizeHomeWorkspaceCopy(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    sectionTitle: String(value.section_title || value.sectionTitle || ""),
+    inactiveLabel: String(value.inactive_label || value.inactiveLabel || ""),
+    inactivePath: String(value.inactive_path || value.inactivePath || ""),
+    pathPlaceholder: String(value.path_placeholder || value.pathPlaceholder || ""),
+    openLabel: String(value.open_label || value.openLabel || ""),
+    openAriaLabel: String(value.open_aria_label || value.openAriaLabel || ""),
+    recentsLabel: String(value.recents_label || value.recentsLabel || ""),
+    missingPathLabel: String(value.missing_path_label || value.missingPathLabel || ""),
+    removeLabel: String(value.remove_label || value.removeLabel || ""),
+  };
+}
+
+function normalizeHomeThreadsCopy(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    sectionTitle: String(value.section_title || value.sectionTitle || ""),
+    newLabel: String(value.new_label || value.newLabel || ""),
+    emptyTitle: String(value.empty_title || value.emptyTitle || ""),
+    emptyBody: String(value.empty_body || value.emptyBody || ""),
+    activeLabel: String(value.active_label || value.activeLabel || ""),
+    actionsLabelPrefix: String(value.actions_label_prefix || value.actionsLabelPrefix || ""),
+  };
+}
+
+function normalizeHomeCopy(input = {}) {
+  const value = input.home && typeof input.home === "object" && !Array.isArray(input.home) ? input.home : {};
+  return {
+    workspace: normalizeHomeWorkspaceCopy(value.workspace),
+    threads: normalizeHomeThreadsCopy(value.threads),
+  };
+}
+
 export function normalizeAppCapabilities(input = {}) {
   const surfaces = input.surfaces && typeof input.surfaces === "object" ? input.surfaces : {};
   return {
@@ -288,6 +323,7 @@ export function normalizeAppCapabilities(input = {}) {
       "workspace",
     ),
     commandPalette: normalizeCommandPalette(input),
+    home: normalizeHomeCopy(input),
     surfaces: {
       rightPanel: normalizeSurfaceCapabilityList(
         Array.isArray(surfaces.right_panel) ? surfaces.right_panel : surfaces.rightPanel,

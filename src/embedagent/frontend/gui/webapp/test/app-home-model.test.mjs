@@ -31,6 +31,35 @@ export function runAppHomeModelTests() {
         },
       ],
       activatingWorkspace: false,
+      capabilities: {
+        home: {
+          workspace: {
+            sectionTitle: "Projects",
+            inactiveLabel: "No project",
+            inactivePath: "Choose a project",
+            pathPlaceholder: "Project path",
+            openLabel: "Open Project",
+            openAriaLabel: "Open project",
+            recentsLabel: "Recent projects",
+            missingPathLabel: "Missing project path",
+            removeLabel: "Forget",
+          },
+          threads: {
+            sectionTitle: "Runs",
+            newLabel: "Start",
+            emptyTitle: "No runs",
+            emptyBody: "Start a run for this project.",
+            activeLabel: "current",
+            actionsLabelPrefix: "Run actions for",
+          },
+        },
+        emptyState: {
+          scenarioLabel: "Python workspace",
+          primary: "Open a Python project",
+          secondary: "Choose a Python project folder.",
+          pathPlaceholder: "Python project path",
+        },
+      },
     },
     sessions: [
       {
@@ -72,12 +101,19 @@ export function runAppHomeModelTests() {
 
   assert.equal(model.workspace.hasActiveWorkspace, true);
   assert.equal(model.workspace.activeLabel, "parser");
+  assert.equal(model.workspace.copy.sectionTitle, "Projects");
+  assert.equal(model.workspace.copy.pathPlaceholder, "Project path");
+  assert.equal(model.workspace.copy.openLabel, "Open Project");
+  assert.equal(model.workspace.copy.missingPathLabel, "Missing project path");
   assert.equal(model.workspace.rows.length, 2);
   assert.equal(model.workspace.rows[0].isActive, true);
   assert.equal(model.workspace.rows[0].status, "active");
   assert.equal(model.workspace.rows[1].status, "missing");
+  assert.equal(model.workspace.rows[1].pathLabel, "Missing project path");
   assert.equal(model.workspace.rows[1].disabled, true);
   assert.equal(model.threads.canCreateThread, true);
+  assert.equal(model.threads.copy.sectionTitle, "Runs");
+  assert.equal(model.threads.copy.activeLabel, "current");
   assert.equal(model.threads.count, 3);
   assert.equal(model.threads.rows[0].title, "Fix parser recovery");
   assert.equal(model.threads.rows[0].isActive, true);
@@ -108,13 +144,36 @@ export function runAppHomeModelTests() {
         },
       ],
       activatingWorkspace: true,
+      capabilities: {
+        home: {
+          workspace: {
+            inactiveLabel: "No project",
+            inactivePath: "Choose a project",
+            pathPlaceholder: "Project path",
+            openLabel: "Open Project",
+            recentsLabel: "Recent projects",
+            missingPathLabel: "Missing project path",
+          },
+          threads: {
+            emptyTitle: "No runs",
+            emptyBody: "Start a run for this project.",
+          },
+        },
+        emptyState: {
+          scenarioLabel: "Python workspace",
+          primary: "Open a Python project",
+          secondary: "Choose a Python project folder.",
+          pathPlaceholder: "Python project path",
+        },
+      },
     },
     sessions: [],
     currentSessionId: "",
   });
 
   assert.equal(emptyHome.workspace.hasActiveWorkspace, false);
-  assert.equal(emptyHome.workspace.activeLabel, "No workspace");
+  assert.equal(emptyHome.workspace.activeLabel, "No project");
+  assert.equal(emptyHome.workspace.activePath, "Choose a project");
   assert.equal(emptyHome.workspace.rows[0].label, "demo");
   assert.equal(emptyHome.workspace.rows[0].disabled, true);
   assert.equal(emptyHome.threads.canCreateThread, false);

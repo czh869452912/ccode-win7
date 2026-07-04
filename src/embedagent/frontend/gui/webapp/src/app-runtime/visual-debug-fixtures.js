@@ -81,6 +81,27 @@ function visualAppBootstrap() {
           },
         ],
       },
+      home: {
+        workspace: {
+          section_title: "Project",
+          inactive_label: "No workspace",
+          inactive_path: "Open a local project",
+          path_placeholder: "Workspace path",
+          open_label: "Open",
+          open_aria_label: "Open workspace",
+          recents_label: "Recent projects",
+          missing_path_label: "Missing path",
+          remove_label: "Remove",
+        },
+        threads: {
+          section_title: "Threads",
+          new_label: "New",
+          empty_title: "No threads yet",
+          empty_body: "Start one for this project.",
+          active_label: "active",
+          actions_label_prefix: "Thread actions for",
+        },
+      },
       surfaces: {
         right_panel: [
           surface("preview", "Preview", 10),

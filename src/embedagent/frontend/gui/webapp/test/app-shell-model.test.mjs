@@ -48,6 +48,25 @@ export function runAppShellModelTests() {
   assert.equal(initial.capabilities.sourceControl.enabled, false);
   assert.equal(initial.capabilities.sourceControl.readOnly, true);
   assert.deepEqual(initial.capabilities.threadLifecycle.actions, []);
+  assert.deepEqual(initial.capabilities.home.workspace, {
+    sectionTitle: "",
+    inactiveLabel: "",
+    inactivePath: "",
+    pathPlaceholder: "",
+    openLabel: "",
+    openAriaLabel: "",
+    recentsLabel: "",
+    missingPathLabel: "",
+    removeLabel: "",
+  });
+  assert.deepEqual(initial.capabilities.home.threads, {
+    sectionTitle: "",
+    newLabel: "",
+    emptyTitle: "",
+    emptyBody: "",
+    activeLabel: "",
+    actionsLabelPrefix: "",
+  });
 
   const bootstrap = normalizeAppBootstrap({
     app: {
@@ -129,6 +148,27 @@ export function runAppShellModelTests() {
       emptyState: {
         scenario_label: "Python workspace",
         primary: "Open a Python project",
+      },
+      home: {
+        workspace: {
+          section_title: "Projects",
+          inactive_label: "No project",
+          inactive_path: "Choose a Python project",
+          path_placeholder: "Python project path",
+          open_label: "Open Project",
+          open_aria_label: "Open Python project",
+          recents_label: "Recent Python projects",
+          missing_path_label: "Missing project path",
+          remove_label: "Forget",
+        },
+        threads: {
+          section_title: "Runs",
+          new_label: "Start",
+          empty_title: "No runs",
+          empty_body: "Start a run for this project.",
+          active_label: "current",
+          actions_label_prefix: "Run actions for",
+        },
       },
       source_control: {
         enabled: true,
@@ -232,6 +272,14 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.agentApplications[0].profileId, "tests.python.profile");
   assert.equal(bootstrap.capabilities.emptyState.scenarioLabel, "Python workspace");
   assert.equal(bootstrap.capabilities.emptyState.primary, "Open a Python project");
+  assert.equal(bootstrap.capabilities.home.workspace.sectionTitle, "Projects");
+  assert.equal(bootstrap.capabilities.home.workspace.inactiveLabel, "No project");
+  assert.equal(bootstrap.capabilities.home.workspace.pathPlaceholder, "Python project path");
+  assert.equal(bootstrap.capabilities.home.workspace.openLabel, "Open Project");
+  assert.equal(bootstrap.capabilities.home.workspace.missingPathLabel, "Missing project path");
+  assert.equal(bootstrap.capabilities.home.threads.sectionTitle, "Runs");
+  assert.equal(bootstrap.capabilities.home.threads.newLabel, "Start");
+  assert.equal(bootstrap.capabilities.home.threads.activeLabel, "current");
   assert.equal(bootstrap.capabilities.sourceControl.enabled, true);
   assert.deepEqual(bootstrap.capabilities.sourceControl.vcs, ["git"]);
   assert.equal(bootstrap.capabilities.sourceControl.readOnly, true);

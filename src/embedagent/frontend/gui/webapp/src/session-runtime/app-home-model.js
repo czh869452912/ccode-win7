@@ -4,11 +4,35 @@ function basename(path) {
   return parts.length > 0 ? parts[parts.length - 1] : text;
 }
 
-function workspaceLabel(workspace = {}) {
+function firstText(...values) {
+  for (const value of values) {
+    const text = String(value || "").trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+function workspaceLabel(workspace = {}, workspaceCopy = {}) {
   return String(workspace.label || "").trim()
     || basename(workspace.path)
     || String(workspace.path || "").trim()
-    || "Workspace";
+    || firstText(workspaceCopy.inactiveLabel);
+}
+
+function workspaceDisplayPath(workspace = {}, workspaceCopy = {}) {
+  return workspace.exists === false
+    ? firstText(workspaceCopy.missingPathLabel)
+    : String(workspace.path || "");
+}
+
+function homeCopy(app = {}) {
+  const copy = app.capabilities?.home || {};
+  return copy && typeof copy === "object" ? copy : {};
+}
+
+function emptyStateCopy(app = {}) {
+  const copy = app.capabilities?.emptyState || {};
+  return copy && typeof copy === "object" ? copy : {};
 }
 
 export function formatSessionUpdatedLabel(value) {
@@ -68,6 +92,10 @@ export function buildAppHomeModel({
 } = {}) {
   const activeWorkspace = app.activeWorkspace || null;
   const activatingWorkspace = Boolean(app.activatingWorkspace);
+  const home = homeCopy(app);
+  const workspaceCopy = home.workspace || {};
+  const threadCopy = home.threads || {};
+  const emptyState = emptyStateCopy(app);
   const workspaceRows = (Array.isArray(app.workspaces) ? app.workspaces : [])
     .filter((workspace) => workspace && workspace.id)
     .map((workspace) => {
@@ -75,8 +103,9 @@ export function buildAppHomeModel({
       const exists = workspace.exists !== false;
       return {
         id: String(workspace.id || ""),
-        label: workspaceLabel(workspace),
+        label: workspaceLabel(workspace, workspaceCopy),
         path: String(workspace.path || ""),
+        pathLabel: workspaceDisplayPath(workspace, workspaceCopy),
         exists,
         isActive,
         status: isActive ? "active" : exists ? "available" : "missing",
@@ -108,16 +137,37 @@ export function buildAppHomeModel({
     workspace: {
       hasActiveWorkspace,
       activeId: activeWorkspace ? String(activeWorkspace.id || "") : "",
-      activeLabel: activeWorkspace ? workspaceLabel(activeWorkspace) : "No workspace",
-      activePath: activeWorkspace ? String(activeWorkspace.path || "") : "Open a local project",
+      activeLabel: activeWorkspace
+        ? workspaceLabel(activeWorkspace, workspaceCopy)
+        : firstText(workspaceCopy.inactiveLabel, emptyState.scenarioLabel, emptyState.primary),
+      activePath: activeWorkspace
+        ? String(activeWorkspace.path || "")
+        : firstText(workspaceCopy.inactivePath, emptyState.secondary, emptyState.pathPlaceholder),
       activating: activatingWorkspace,
       count: workspaceRows.length,
+      copy: {
+        sectionTitle: firstText(workspaceCopy.sectionTitle),
+        pathPlaceholder: firstText(workspaceCopy.pathPlaceholder, emptyState.pathPlaceholder),
+        openLabel: firstText(workspaceCopy.openLabel),
+        openAriaLabel: firstText(workspaceCopy.openAriaLabel),
+        recentsLabel: firstText(workspaceCopy.recentsLabel),
+        missingPathLabel: firstText(workspaceCopy.missingPathLabel),
+        removeLabel: firstText(workspaceCopy.removeLabel),
+      },
       rows: workspaceRows,
     },
     threads: {
       count: threadRows.length,
       empty: threadRows.length === 0,
       canCreateThread: hasActiveWorkspace && !activatingWorkspace,
+      copy: {
+        sectionTitle: firstText(threadCopy.sectionTitle),
+        newLabel: firstText(threadCopy.newLabel),
+        emptyTitle: firstText(threadCopy.emptyTitle),
+        emptyBody: firstText(threadCopy.emptyBody),
+        activeLabel: firstText(threadCopy.activeLabel),
+        actionsLabelPrefix: firstText(threadCopy.actionsLabelPrefix),
+      },
       rows: threadRows,
     },
   };

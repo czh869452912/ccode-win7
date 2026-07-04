@@ -27,6 +27,7 @@ class AppShellSpec(object):
     source_control: Dict[str, Any] = field(default_factory=dict)
     terminal: Dict[str, Any] = field(default_factory=dict)
     thread_lifecycle_actions: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
+    home: Dict[str, Any] = field(default_factory=dict)
 
     def capabilities(self) -> Dict[str, Any]:
         return {
@@ -45,6 +46,7 @@ class AppShellSpec(object):
             "thread_lifecycle": {
                 "actions": _copy_records(self.thread_lifecycle_actions),
             },
+            "home": _copy_value(self.home),
         }
 
 
@@ -368,4 +370,25 @@ def default_app_shell_spec() -> AppShellSpec:
                 failure_title="Archive failed",
             ),
         ),
+        home={
+            "workspace": {
+                "section_title": "Project",
+                "inactive_label": "No workspace",
+                "inactive_path": "Open a local project",
+                "path_placeholder": "Workspace path",
+                "open_label": "Open",
+                "open_aria_label": "Open workspace",
+                "recents_label": "Recent projects",
+                "missing_path_label": "Missing path",
+                "remove_label": "Remove",
+            },
+            "threads": {
+                "section_title": "Threads",
+                "new_label": "New",
+                "empty_title": "No threads yet",
+                "empty_body": "Start one for this project.",
+                "active_label": "active",
+                "actions_label_prefix": "Thread actions for",
+            },
+        },
     )

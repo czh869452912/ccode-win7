@@ -92,6 +92,14 @@ icons, descriptions, and keybinding targets are filtered or merged from this
 bootstrap declaration. A
 missing `capabilities` object or missing capability descriptor arrays mean no
 app-shell entrypoints, not GUI defaults.
+`capabilities.home` carries GUI home/sidebar copy for workspace and thread
+sections, including inactive-workspace labels, path placeholder text, open and
+recent-workspace labels, missing-path labels, thread empty-state copy, and
+thread action aria prefixes. Renderer home/sidebar components should consume
+that copy from the app-shell read model instead of hard-coding the default
+EmbedAgent wording. This copy remains presentation metadata only and must not
+drive session history, workspace activation policy, workflow state, tool
+visibility, permissions, or extension loading.
 The default GUI shell descriptor set lives in
 `src/embedagent/frontend/gui/backend/app_shell_spec.py` and is injected into
 `AppShellService`; alternate hosts may provide a smaller or specialized spec

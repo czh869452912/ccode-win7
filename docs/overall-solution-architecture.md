@@ -51,6 +51,9 @@ keybindings are backend-declared descriptor records rather than bare string ids;
 command-palette group titles/descriptions/order are also app-shell descriptors.
 Labels, descriptions, icon keys, command/slash metadata, ordering, visibility,
 and read-only/offline hints come from the app shell.
+GUI home/sidebar copy for workspace and thread sections is also app-shell
+declared through `capabilities.home`; renderer components consume that read
+model instead of owning the default workspace/thread wording.
 Renderer-local surface registries describe only how a known
 surface renderer is mounted and are exposed through derived helpers rather than
 fixed surface id lists; they do not grant app-shell entrypoints when the backend

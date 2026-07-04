@@ -843,6 +843,34 @@ def test_gui_app_shell_projects_selected_agent_application_before_workspace():
     assert "available_agent_application_manifests" not in adapter_text
 
 
+def test_gui_app_home_copy_is_app_shell_declared():
+    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
+    app_model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
+    app_home_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/app-home-model.js"
+    )
+    sidebar_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Sidebar.jsx")
+    no_workspace_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/NoWorkspaceState.jsx"
+    )
+
+    assert '"home": _copy_value(self.home)' in spec_text
+    assert "normalizeHomeCopy" in app_model_text
+    assert "home: normalizeHomeCopy" in app_model_text
+    assert "app.capabilities?.home" in app_home_text
+    for hardcoded_copy in (
+        '"No workspace"',
+        '"Open a local project"',
+        '"Workspace path"',
+        '"Missing path"',
+        '"No threads yet"',
+        '"Start one for this project."',
+    ):
+        assert hardcoded_copy not in app_home_text
+        assert hardcoded_copy not in sidebar_text
+        assert hardcoded_copy not in no_workspace_text
+
+
 def test_gui_app_shell_service_uses_injected_spec_not_inline_descriptor_lists():
     app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
     spec_path = ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py"

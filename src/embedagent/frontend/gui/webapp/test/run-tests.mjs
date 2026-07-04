@@ -1160,7 +1160,8 @@ async function main() {
   assert.equal(appHomeModelSource.includes("capabilities?.actions"), true);
   assert.equal(appHomeModelSource.includes("buildThreadLifecycleActions"), true);
   assert.equal(appHomeModelSource.includes("session.thread?.title"), true);
-  assert.equal(sidebarSource.includes("Threads"), true);
+  assert.equal(sidebarSource.includes("threadCopy.sectionTitle"), true);
+  assert.equal(sidebarSource.includes("Threads"), false);
 
   const workbenchHeaderSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "WorkbenchHeader.jsx"),

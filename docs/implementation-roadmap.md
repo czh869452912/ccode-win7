@@ -169,6 +169,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
 - GUI command-palette command group metadata now comes from app-shell
   `command_palette.groups` descriptors; the renderer no longer owns a fixed
   `COMMAND_GROUPS`, group title, or group description table
+- GUI home/sidebar workspace and thread copy now comes from app-shell
+  `home.workspace` / `home.threads` descriptors plus the selected agent
+  `emptyState`; renderer components no longer own the default no-workspace,
+  workspace path, missing-path, or empty-thread wording
 - GUI terminal bottom drawer is now an app-shell hosted, thread-scoped surface:
   the backend owns a workspace-bound in-memory terminal service using Python
   stdlib subprocess pipes for Win7/offline compatibility, while the React
