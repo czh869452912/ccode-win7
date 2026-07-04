@@ -472,9 +472,6 @@ class AgentCoreAdapter(CoreInterface):
             dir_count=tree_info.get("dir_count", 0),
         )
 
-    def list_workspace_recipes(self) -> Dict[str, Any]:
-        return self._adapter.list_workspace_recipes()
-
     def reload_resources(self, session_id: str = "", reason: str = "api") -> Dict[str, Any]:
         return self._adapter.reload_resources(session_id=session_id, reason=reason)
 
@@ -519,10 +516,6 @@ class AgentCoreAdapter(CoreInterface):
         return DiffPreview(
             path=path, old_content=old_content, new_content=new_content, unified_diff=unified_diff
         )
-
-    def list_tasks(self, session_id: str = "") -> List[Dict[str, Any]]:
-        result = self._adapter.list_tasks(session_id=session_id)
-        return result.get("tasks", [])
 
     def get_session_plan(self, session_id: str) -> Optional[PlanSnapshot]:
         payload = self._adapter.get_session_plan(session_id)

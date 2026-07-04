@@ -309,9 +309,11 @@ snapshot, structured history, plan, and permission context.
 
 Frontend task display comes from `snapshot.task_items` in session snapshots and
 bootstrap payloads. There is no split task-list refetch endpoint or
-`tasks_refresh` WebSocket contract. Workspace recipes are local workflow
+`tasks_refresh` WebSocket contract, and `CoreInterface` no longer exposes a
+frontend-facing `list_tasks` facade. Workspace recipes are local workflow
 resources and tool/command capabilities; the GUI must not treat them as a
-renderer-owned `/api/workspace/recipes` feed.
+renderer-owned `/api/workspace/recipes` feed or depend on a frontend-facing
+`list_workspace_recipes` facade.
 
 `GET /api/sessions/capabilities` exposes the active workspace/session command
 capability projection used by GUI composer slash-command menus. It is a

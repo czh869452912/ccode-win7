@@ -864,6 +864,18 @@ def test_gui_has_no_split_task_or_recipe_refetch_contracts():
         assert token not in styles_text
 
 
+def test_gui_core_interface_has_no_split_task_or_recipe_facade():
+    protocol_text = _read(ROOT / "src/embedagent/protocol/__init__.py")
+    core_adapter_text = _read(ROOT / "src/embedagent/core/adapter.py")
+
+    for token in (
+        "def list_workspace_recipes",
+        "def list_tasks",
+    ):
+        assert token not in protocol_text
+        assert token not in core_adapter_text
+
+
 def test_gui_workbench_entrypoints_are_app_capability_driven():
     commands_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js")
     keybindings_text = _read(

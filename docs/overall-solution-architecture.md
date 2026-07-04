@@ -546,10 +546,12 @@ renderer or route-level default.
 
 GUI task display is a session snapshot/bootstrap projection. The renderer must
 not call a split `/api/tasks` endpoint, listen for `tasks_refresh`, or maintain a
-separate `tasks_loaded` action path. Workspace recipes are workflow resources
-and tool capabilities, not a GUI-owned `/api/workspace/recipes` panel feed;
-workflow-specific quick actions must be declared through backend capability or
-command metadata rather than a renderer-owned recipe list.
+separate `tasks_loaded` action path; `CoreInterface` likewise no longer exposes
+a frontend-facing `list_tasks` facade. Workspace recipes are workflow resources
+and tool capabilities, not a GUI-owned `/api/workspace/recipes` panel feed or
+frontend-facing `list_workspace_recipes` facade; workflow-specific quick actions
+must be declared through backend capability or command metadata rather than a
+renderer-owned recipe list.
 
 ## 10. Bundling Model
 

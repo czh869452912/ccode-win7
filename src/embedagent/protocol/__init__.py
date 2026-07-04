@@ -379,11 +379,6 @@ class CoreInterface(ABC):
         pass
 
     @abstractmethod
-    def list_workspace_recipes(self) -> Dict[str, Any]:
-        """列出工作区 recipe"""
-        pass
-
-    @abstractmethod
     def reload_resources(self, session_id: str = "", reason: str = "api") -> Dict[str, Any]:
         """重新发现本地资源"""
         pass
@@ -421,11 +416,6 @@ class CoreInterface(ABC):
     @abstractmethod
     def get_diff_preview(self, path: str, new_content: str) -> DiffPreview:
         """获取 diff 预览"""
-        pass
-
-    @abstractmethod
-    def list_tasks(self, session_id: str = "") -> List[Dict[str, Any]]:
-        """列出当前会话任务"""
         pass
 
     @abstractmethod
