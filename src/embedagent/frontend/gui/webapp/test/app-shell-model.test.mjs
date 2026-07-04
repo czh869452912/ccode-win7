@@ -139,6 +139,9 @@ export function runAppShellModelTests() {
         workingLabel: "",
         workingActivePrefix: "",
         turnFoldLabel: "",
+        turnFoldDurationTemplate: "",
+        turnFoldStoppedDurationTemplate: "",
+        turnFoldStoppedLabel: "",
         turnFoldStepSingularTemplate: "",
         turnFoldStepPluralTemplate: "",
         interactionLabel: "",
@@ -487,6 +490,9 @@ export function runAppShellModelTests() {
             working_label: "Running...",
             working_active_prefix: "Running for",
             turn_fold_label: "Work for this run",
+            turn_fold_duration_template: "Work took {duration}",
+            turn_fold_stopped_duration_template: "Stopped after {duration}",
+            turn_fold_stopped_label: "Stopped by user",
             turn_fold_step_singular_template: "{count} step",
             turn_fold_step_plural_template: "{count} steps",
             interaction_label: "request",
@@ -877,6 +883,15 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.workingLabel, "Running...");
   assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.workingActivePrefix, "Running for");
   assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.turnFoldLabel, "Work for this run");
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.turnFoldDurationTemplate,
+    "Work took {duration}",
+  );
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.turnFoldStoppedDurationTemplate,
+    "Stopped after {duration}",
+  );
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.turnFoldStoppedLabel, "Stopped by user");
   assert.equal(
     bootstrap.capabilities.chrome.timeline.activityRows.turnFoldStepSingularTemplate,
     "{count} step",

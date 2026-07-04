@@ -741,6 +741,15 @@ function normalizeTimelineActivityRowsChrome(input = {}) {
     workingLabel: String(value.working_label || value.workingLabel || ""),
     workingActivePrefix: String(value.working_active_prefix || value.workingActivePrefix || ""),
     turnFoldLabel: String(value.turn_fold_label || value.turnFoldLabel || ""),
+    turnFoldDurationTemplate: String(
+      value.turn_fold_duration_template || value.turnFoldDurationTemplate || "",
+    ),
+    turnFoldStoppedDurationTemplate: String(
+      value.turn_fold_stopped_duration_template || value.turnFoldStoppedDurationTemplate || "",
+    ),
+    turnFoldStoppedLabel: String(
+      value.turn_fold_stopped_label || value.turnFoldStoppedLabel || "",
+    ),
     turnFoldStepSingularTemplate: String(
       value.turn_fold_step_singular_template || value.turnFoldStepSingularTemplate || "",
     ),

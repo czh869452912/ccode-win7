@@ -100,7 +100,9 @@
 - Timeline chrome now comes from `capabilities.chrome.timeline`: log aria label,
   empty/history/termination copy, work-group labels, activity-row labels/status
   and timer templates, and changed-files card labels are backend-declared
-  descriptors consumed by Timeline, TimelineRows, and ChangedFilesCard.
+  descriptors consumed by Timeline, TimelineRows, and ChangedFilesCard. The T3
+  timeline projection now carries turn-fold timing/interruption data without
+  precomputing renderer chrome labels.
 - Source Control right-panel chrome now comes from
   `capabilities.source_control.chrome`: panel title, status/diff fallback
   notices, empty states, count/group/provider labels, runtime labels, and

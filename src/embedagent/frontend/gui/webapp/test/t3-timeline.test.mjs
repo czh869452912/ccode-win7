@@ -74,7 +74,10 @@ export function runT3TimelineTests() {
     });
     assert.deepEqual(rows.map((row) => row.kind), ["message", "turn_fold", "message"]);
     const fold = rows.find((row) => row.kind === "turn_fold");
-    assert.equal(fold.label, "Worked for 8s");
+    assert.equal(fold.label, "");
+    assert.equal(fold.createdAt, "2026-06-22T00:00:00.000Z");
+    assert.equal(fold.completedAt, "2026-06-22T00:00:08.000Z");
+    assert.equal(fold.interrupted, false);
     assert.equal(fold.entries.some((entry) => entry.kind === "work"), true);
     assert.equal(fold.entries.some((entry) => entry.kind === "context_summary"), true);
     assert.equal(rows.some((row) => row.kind === "compact"), false);
@@ -247,7 +250,10 @@ export function runT3TimelineTests() {
     });
     assert.deepEqual(rows.map((row) => row.kind), ["message", "turn_fold", "message"]);
     const fold = rows.find((row) => row.kind === "turn_fold");
-    assert.equal(fold.label, "Worked for 12s");
+    assert.equal(fold.label, "");
+    assert.equal(fold.createdAt, "2026-06-22T00:03:00.000Z");
+    assert.equal(fold.completedAt, "2026-06-22T00:03:12.000Z");
+    assert.equal(fold.interrupted, false);
     assert.equal(fold.workCount, 2);
     assert.equal(fold.entries.some((entry) => entry.status === "error"), true);
   }
@@ -345,7 +351,9 @@ export function runT3TimelineTests() {
     currentStatus: "idle",
   });
   assert.equal(timedFoldRows[1].kind, T3_ROW_KINDS.TURN_FOLD);
-  assert.equal(timedFoldRows[1].label, "Worked for 4s");
+  assert.equal(timedFoldRows[1].label, "");
+  assert.equal(timedFoldRows[1].createdAt, "2026-06-18T00:00:00.000Z");
+  assert.equal(timedFoldRows[1].completedAt, "2026-06-18T00:00:04.000Z");
 
   const runningRows = projectT3TimelineRows({
     turnGroups: [
@@ -962,7 +970,7 @@ export function runT3TimelineTests() {
   assert.equal(thinkingRows.some((row) => row.kind === T3_ROW_KINDS.WORKING), true);
   const thinkingRow = thinkingRows.find((row) => row.kind === T3_ROW_KINDS.WORKING);
   assert.equal(thinkingRow.turnId, "turn-thinking");
-  assert.equal(thinkingRow.label, "Working");
+  assert.equal(thinkingRow.label, undefined);
 
   const streamingReasoningRows = projectT3TimelineRows({
     turnGroups: [

@@ -1145,6 +1145,9 @@ def test_gui_timeline_copy_is_app_shell_declared():
     timeline_rows_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx"
     )
+    t3_timeline_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js"
+    )
     changed_files_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/timeline/ChangedFilesCard.jsx"
     )
@@ -1164,6 +1167,8 @@ def test_gui_timeline_copy_is_app_shell_declared():
     assert "chrome.commandCompletedStatus" in timeline_rows_text
     assert "chrome.summaryTemplate" in changed_files_text
     assert "chrome.viewDiffLabel" in changed_files_text
+    assert "completedAt: turnEndTimestamp" in t3_timeline_text
+    assert "interrupted: hasInterruptedWork" in t3_timeline_text
 
     for hardcoded_copy in (
         "Conversation",
@@ -1193,12 +1198,23 @@ def test_gui_timeline_copy_is_app_shell_declared():
         " retained",
         " tokens",
         "failed",
-        "completed",
+        '"completed"',
         "1 finding",
         " findings",
         "0s",
     ):
         assert hardcoded_copy not in timeline_rows_text
+
+    for hardcoded_copy in (
+        "Worked for ",
+        "Worked for this turn",
+        "You stopped after",
+        "You stopped this response",
+        '"Thinking"',
+        "Context compacted",
+        'label: "/review"',
+    ):
+        assert hardcoded_copy not in t3_timeline_text
 
     for hardcoded_copy in (
         "View diff",

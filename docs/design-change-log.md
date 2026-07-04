@@ -44,6 +44,38 @@
 
 ## 3. 当前变更记录
 
+### DC-236
+
+- Date: 2026-07-04
+- Change Topic: GUI T3 timeline projection chrome/data split
+- Summary:
+  - Stopped `t3-timeline.js` from precomputing Timeline renderer chrome labels
+    such as turn-fold elapsed/stopped copy, reasoning fallback copy, compact
+    fallback copy, and review fallback labels.
+  - Added turn-fold `completedAt` and `interrupted` display data so
+    `TimelineRows` can format elapsed/stopped labels from
+    `capabilities.chrome.timeline.activity_rows` templates.
+  - Extended frontend T3 timeline tests, source checks, app-shell descriptor
+    tests, backend payload assertions, and architecture guards for the
+    projection/data split.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/t3-timeline.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-235
 
 - Date: 2026-07-04

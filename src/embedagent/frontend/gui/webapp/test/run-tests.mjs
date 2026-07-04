@@ -720,6 +720,24 @@ async function main() {
     assert.equal(timelineSource.includes(hardcodedTimelineCopy), false);
   }
 
+  const t3TimelineSource = fs.readFileSync(
+    webappSourcePath("session-runtime", "t3-timeline.js"),
+    "utf8",
+  );
+  assert.equal(t3TimelineSource.includes("completedAt: turnEndTimestamp"), true);
+  assert.equal(t3TimelineSource.includes("interrupted: hasInterruptedWork"), true);
+  for (const hardcodedProjectionChromeCopy of [
+    "Worked for ",
+    "Worked for this turn",
+    "You stopped after",
+    "You stopped this response",
+    '"Thinking"',
+    "Context compacted",
+    'label: "/review"',
+  ]) {
+    assert.equal(t3TimelineSource.includes(hardcodedProjectionChromeCopy), false);
+  }
+
   const timelineRowsSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "TimelineRows.jsx"),
     "utf8",
@@ -762,7 +780,7 @@ async function main() {
     " retained",
     " tokens",
     "failed",
-    "completed",
+    '"completed"',
     "1 finding",
     " findings",
     "0s",

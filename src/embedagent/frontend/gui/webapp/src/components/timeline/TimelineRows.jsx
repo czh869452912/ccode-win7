@@ -211,6 +211,23 @@ function WorkingRow({ row, chrome = {} }) {
   );
 }
 
+function turnFoldDisplayLabel(row, chrome = {}) {
+  const explicitLabel = String(row?.label || "");
+  if (explicitLabel) return explicitLabel;
+  const duration =
+    row?.createdAt && row?.completedAt
+      ? formatWorkingTimer(row.createdAt, row.completedAt, chrome)
+      : "";
+  if (row?.interrupted) {
+    return duration
+      ? formatTemplate(chrome.turnFoldStoppedDurationTemplate, { duration })
+      : chrome.turnFoldStoppedLabel || "";
+  }
+  return duration
+    ? formatTemplate(chrome.turnFoldDurationTemplate, { duration })
+    : chrome.turnFoldLabel || "";
+}
+
 function MessageRow({ row, markdownComponents }) {
   if (row.role === "assistant") {
     return (
@@ -271,7 +288,7 @@ function TurnFoldRow({
         aria-expanded={open}
         onClick={() => onToggleRow && onToggleRow(key)}
       >
-        <span>{row.label || activityChrome.turnFoldLabel || ""}</span>
+        <span>{turnFoldDisplayLabel(row, activityChrome)}</span>
         <span>{formatTemplate(stepTemplate, { count: workCount })}</span>
       </button>
       {open ? (

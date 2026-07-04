@@ -911,7 +911,7 @@ function reasoningRow(item) {
     stepIndex: numberValue(item?.stepIndex || item?.step_index),
     createdAt: timestampValue(item?.createdAt, item?.created_at),
     completedAt: timestampValue(item?.completedAt, item?.completed_at),
-    label: "Thinking",
+    label: stringValue(item?.label),
     content,
     wordCount,
     streaming: Boolean(item?.streaming),
@@ -927,8 +927,8 @@ function contextSummaryRow(item, placement = "fold_body") {
     createdAt: timestampValue(item?.createdAt, item?.created_at),
     placement,
     tone: "context",
-    label: stringValue(item?.label || "Context"),
-    content: stringValue(item?.content || item?.summary || "Context compacted"),
+    label: stringValue(item?.label),
+    content: stringValue(item?.content || item?.summary),
     summarizedTurns:
       item?.summarizedTurns !== undefined
         ? numberValue(item.summarizedTurns)
@@ -963,14 +963,14 @@ function commandResultContent(item) {
 }
 
 function commandResultRow(item) {
-  const commandName = stringValue(item?.commandName || item?.command_name || "command");
+  const commandName = stringValue(item?.commandName || item?.command_name);
   return {
     id: stringValue(item?.id || `command-${commandName}-${item?.turnId || item?.turn_id || "row"}`),
     kind: T3_ROW_KINDS.COMMAND_RESULT,
     turnId: stringValue(item?.turnId || item?.turn_id),
     createdAt: timestampValue(item?.createdAt, item?.created_at),
     commandName,
-    label: `/${commandName}`,
+    label: stringValue(item?.label || (commandName ? `/${commandName}` : "")),
     success: item?.success !== false,
     tone: item?.success === false ? "error" : "context",
     content: commandResultContent(item),
@@ -984,7 +984,7 @@ function normalizeReviewFinding(finding, index) {
     id: stringValue(finding?.id || `finding-${index + 1}`),
     severity: stringValue(finding?.severity || ""),
     priority: finding?.priority !== undefined ? numberValue(finding.priority) : undefined,
-    title: stringValue(finding?.title || finding?.message || "Review finding"),
+    title: stringValue(finding?.title || finding?.message),
     body: stringValue(finding?.body || finding?.detail || finding?.description || ""),
     file: stringValue(finding?.file || finding?.path || ""),
     line: finding?.line !== undefined ? numberValue(finding.line) : undefined,
@@ -1004,8 +1004,8 @@ function reviewResultRow(item) {
   return {
     ...commandResultRow(item),
     kind: T3_ROW_KINDS.REVIEW_RESULT,
-    commandName: "review",
-    label: "/review",
+    commandName: stringValue(item?.commandName || item?.command_name),
+    label: stringValue(item?.label),
     findings,
     residualRisks,
   };
@@ -1017,7 +1017,6 @@ function workingRow({ activeTurnId, idSuffix = "active", createdAt = "" } = {}) 
     kind: T3_ROW_KINDS.WORKING,
     turnId: stringValue(activeTurnId),
     createdAt: timestampValue(createdAt),
-    label: "Working",
     streaming: true,
   };
 }
@@ -1300,20 +1299,6 @@ function maxTimestamp(...values) {
   return best;
 }
 
-function formatElapsedDuration(startIso, endIso) {
-  const start = timestampMs(startIso);
-  const end = timestampMs(endIso);
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return "";
-  const totalSeconds = Math.max(0, Math.floor((end - start) / 1000));
-  if (totalSeconds < 60) return `${totalSeconds}s`;
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  if (minutes < 60) return `${minutes}m ${seconds}s`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return `${hours}h ${remainingMinutes}m`;
-}
-
 function turnStartTimestamp(group, entries) {
   const candidates = [
     group?.startedAt,
@@ -1334,14 +1319,6 @@ function turnEndTimestamp(group, entries) {
     ...(entries || []).map((entry) => entry.completedAt || entry.createdAt),
   ];
   return maxTimestamp(candidates);
-}
-
-function turnFoldLabel(group, entries) {
-  const duration = formatElapsedDuration(turnStartTimestamp(group, entries), turnEndTimestamp(group, entries));
-  if (hasInterruptedWork(entries)) {
-    return duration ? `You stopped after ${duration}` : "You stopped this response";
-  }
-  return duration ? `Worked for ${duration}` : "Worked for this turn";
 }
 
 export function isTurnFoldedByDefault(group, context = {}) {
@@ -1426,7 +1403,9 @@ export function projectT3TimelineRows({
           kind: T3_ROW_KINDS.TURN_FOLD,
           turnId: stringValue(group.turnId),
           createdAt: turnStartTimestamp(group, entries),
-          label: turnFoldLabel(group, entries),
+          completedAt: turnEndTimestamp(group, entries),
+          interrupted: hasInterruptedWork(entries),
+          label: stringValue(group?.label),
           workCount: entries.filter((entry) => entry.kind === T3_ROW_KINDS.WORK).length,
           reasoningCount: entries.filter((entry) => entry.kind === "reasoning").length,
           entryCount: foldEntries.length,
@@ -1503,7 +1482,6 @@ export function projectT3TimelineRows({
     pushRow({
       id: "working",
       kind: T3_ROW_KINDS.WORKING,
-      label: "Working",
       createdAt: "",
     });
   }

@@ -179,6 +179,9 @@ display is turn-associated display metadata, not Agent Core context policy.
   summary/action labels are declared under `/api/app/bootstrap`
   `capabilities.chrome.timeline`; renderer Timeline modules may consume that
   chrome but must not keep parallel English defaults for those fields.
+- `webapp/src/session-runtime/t3-timeline.js` may project display data such as
+  turn-fold `createdAt`, `completedAt`, and `interrupted`, but must not
+  precompute renderer chrome labels that belong to `capabilities.chrome.timeline`.
 
 ### T3 File Preview Chrome
 
@@ -358,6 +361,9 @@ session history truth or backend policy.
 - Timeline markdown file links, grep match rows, changed-file/file rows, and review findings may call the existing GUI `openFile(path, line)` callback and open the right-panel `FilePreviewSurface` with the T3code-style reveal-line marker pair. Remote URLs and hash-only anchors remain normal markdown links.
 - `TimelineRows.jsx` mirrors T3code's work-log grouping behavior for visible work rows: consecutive work/tool rows are rendered by a local `WorkGroupSection`, collapsed groups show the latest entry, backend-declared overflow labels expand older entries, and the component preserves the nearest vertical scroller's anchor during expand/collapse.
 - Running timeline display uses T3code-style pulsing dots and a self-updating `WorkingTimer` label when GUI-local timestamps are available. Activity-row labels, status text, count templates, and timer templates come from `capabilities.chrome.timeline.activity_rows` rather than renderer-local English defaults.
+- Turn-fold rows expose timing/interruption data to the renderer; their elapsed
+  and stopped labels are formatted from `activity_rows` templates in
+  `TimelineRows.jsx`, not in the T3 timeline projection.
 - Timeline and right-panel CSS keep stable scrollbars visible, avoid fixed narrow-layout center-column pressure, and allow surface tabs/source-control actions to shrink or wrap under zoomed or narrow layouts.
 - `TimelineRows.jsx` renders these rows; `timeline-ui-state.js` owns transient expansion state only.
 - Frontend-local `createdAt` / `completedAt` values used by these labels are GUI display/read-model state only. This projection is not session-history truth, does not write `transcript.jsonl`, does not read `timeline.jsonl` as history, and does not change Agent Core, backend protocol truth, workflow packages, permission policy, provider configuration, extension loading, telemetry, or runtime reducers.
