@@ -135,6 +135,35 @@ export function runAppShellModelTests() {
         previousSingularTemplate: "",
         previousPluralTemplate: "",
       },
+      activityRows: {
+        workingLabel: "",
+        workingActivePrefix: "",
+        turnFoldLabel: "",
+        turnFoldStepSingularTemplate: "",
+        turnFoldStepPluralTemplate: "",
+        interactionLabel: "",
+        interactionPendingStatus: "",
+        reasoningLabel: "",
+        thinkingLabel: "",
+        streamingStatus: "",
+        wordSingularTemplate: "",
+        wordPluralTemplate: "",
+        contextUpdated: "",
+        contextSummarizedTemplate: "",
+        contextRetainedTemplate: "",
+        contextSizeTemplate: "",
+        metadataSeparator: "",
+        commandDefaultName: "",
+        commandFailedStatus: "",
+        commandCompletedStatus: "",
+        reviewLabel: "",
+        reviewSingularFinding: "",
+        reviewPluralFindingsTemplate: "",
+        timerZeroLabel: "",
+        timerSecondsTemplate: "",
+        timerMinutesSecondsTemplate: "",
+        timerHoursMinutesTemplate: "",
+      },
     },
   });
   assert.deepEqual(initial.capabilities.surfaces.rightPanel, []);
@@ -453,6 +482,35 @@ export function runAppShellModelTests() {
             show_fewer_label: "Hide older actions",
             previous_singular_template: "+{count} older action",
             previous_plural_template: "+{count} older actions",
+          },
+          activity_rows: {
+            working_label: "Running...",
+            working_active_prefix: "Running for",
+            turn_fold_label: "Work for this run",
+            turn_fold_step_singular_template: "{count} step",
+            turn_fold_step_plural_template: "{count} steps",
+            interaction_label: "request",
+            interaction_pending_status: "waiting",
+            reasoning_label: "Planning",
+            thinking_label: "Planning",
+            streaming_status: "streaming now",
+            word_singular_template: "{count} term",
+            word_plural_template: "{count} terms",
+            context_updated: "Context refreshed",
+            context_summarized_template: "{count} summarized turns",
+            context_retained_template: "{count} retained turns",
+            context_size_template: "~{count} model units",
+            metadata_separator: " | ",
+            command_default_name: "action",
+            command_failed_status: "errored",
+            command_completed_status: "done",
+            review_label: "/inspect",
+            review_singular_finding: "1 issue",
+            review_plural_findings_template: "{count} issues",
+            timer_zero_label: "0 sec",
+            timer_seconds_template: "{seconds} sec",
+            timer_minutes_seconds_template: "{minutes} min {seconds} sec",
+            timer_hours_minutes_template: "{hours} hr {minutes} min",
           },
         },
       },
@@ -815,6 +873,57 @@ export function runAppShellModelTests() {
   assert.equal(
     bootstrap.capabilities.chrome.timeline.workGroup.previousPluralTemplate,
     "+{count} older actions",
+  );
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.workingLabel, "Running...");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.workingActivePrefix, "Running for");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.turnFoldLabel, "Work for this run");
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.turnFoldStepSingularTemplate,
+    "{count} step",
+  );
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.turnFoldStepPluralTemplate,
+    "{count} steps",
+  );
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.interactionLabel, "request");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.interactionPendingStatus, "waiting");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.reasoningLabel, "Planning");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.thinkingLabel, "Planning");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.streamingStatus, "streaming now");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.wordSingularTemplate, "{count} term");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.wordPluralTemplate, "{count} terms");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.contextUpdated, "Context refreshed");
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.contextSummarizedTemplate,
+    "{count} summarized turns",
+  );
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.contextRetainedTemplate,
+    "{count} retained turns",
+  );
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.contextSizeTemplate,
+    "~{count} model units",
+  );
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.metadataSeparator, " | ");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.commandDefaultName, "action");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.commandFailedStatus, "errored");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.commandCompletedStatus, "done");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.reviewLabel, "/inspect");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.reviewSingularFinding, "1 issue");
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.reviewPluralFindingsTemplate,
+    "{count} issues",
+  );
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.timerZeroLabel, "0 sec");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.timerSecondsTemplate, "{seconds} sec");
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.timerMinutesSecondsTemplate,
+    "{minutes} min {seconds} sec",
+  );
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.timerHoursMinutesTemplate,
+    "{hours} hr {minutes} min",
   );
   assert.deepEqual(
     bootstrap.capabilities.surfaces.rightPanel.map((item) => item.kind),

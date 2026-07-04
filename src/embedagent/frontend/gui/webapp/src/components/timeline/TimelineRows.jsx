@@ -140,35 +140,48 @@ function WorkGroupSection({ rows, rowUiState, onToggleRow, rowKeyFor, onOpenFile
   );
 }
 
-function formatWorkingTimer(startIso, endIso = new Date().toISOString()) {
+function formatWorkingTimer(startIso, endIso = new Date().toISOString(), chrome = {}) {
   const start = Date.parse(startIso);
   const end = Date.parse(endIso);
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return "0s";
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return chrome.timerZeroLabel || "";
   const totalSeconds = Math.max(0, Math.floor((end - start) / 1000));
-  if (totalSeconds < 60) return `${totalSeconds}s`;
+  if (totalSeconds < 60) {
+    return formatTemplate(chrome.timerSecondsTemplate, { seconds: totalSeconds });
+  }
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  if (minutes < 60) return `${minutes}m ${seconds}s`;
+  if (minutes < 60) {
+    return formatTemplate(chrome.timerMinutesSecondsTemplate, { minutes, seconds });
+  }
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
-  return `${hours}h ${remainingMinutes}m`;
+  return formatTemplate(chrome.timerHoursMinutesTemplate, {
+    hours,
+    minutes: remainingMinutes,
+  });
 }
 
-function WorkingTimer({ createdAt }) {
+function WorkingTimer({ createdAt, chrome = {} }) {
   const textRef = React.useRef(null);
-  const initialText = createdAt ? formatWorkingTimer(createdAt) : "0s";
+  const initialText = createdAt
+    ? formatWorkingTimer(createdAt, new Date().toISOString(), chrome)
+    : chrome.timerZeroLabel || "";
 
   React.useEffect(() => {
     if (!createdAt) return undefined;
     function updateText() {
       if (textRef.current) {
-        textRef.current.textContent = formatWorkingTimer(createdAt);
+        textRef.current.textContent = formatWorkingTimer(
+          createdAt,
+          new Date().toISOString(),
+          chrome,
+        );
       }
     }
     updateText();
     const timerId = window.setInterval(updateText, 1000);
     return () => window.clearInterval(timerId);
-  }, [createdAt]);
+  }, [createdAt, chrome]);
 
   return (
     <span ref={textRef} className="timeline-working-timer">
@@ -177,7 +190,7 @@ function WorkingTimer({ createdAt }) {
   );
 }
 
-function WorkingRow({ row }) {
+function WorkingRow({ row, chrome = {} }) {
   return (
     <div className="t3-working-row" data-testid="timeline-working-row" data-row-kind="working">
       <span className="timeline-working-dots" aria-hidden="true">
@@ -188,10 +201,10 @@ function WorkingRow({ row }) {
       <span>
         {row.createdAt ? (
           <>
-            Working for <WorkingTimer createdAt={row.createdAt} />
+            {chrome.workingActivePrefix || ""} <WorkingTimer createdAt={row.createdAt} chrome={chrome} />
           </>
         ) : (
-          "Working..."
+          chrome.workingLabel || ""
         )}
       </span>
     </div>
@@ -235,10 +248,16 @@ function TurnFoldRow({
   onOpenFile,
   markdownComponents,
   chrome,
+  activityChrome,
 }) {
   const entries = Array.isArray(row.entries) ? row.entries : [];
   const key = rowKeyFor(row);
   const open = Boolean(rowUiState?.expanded?.[key]);
+  const workCount = row.workCount || entries.length;
+  const stepTemplate =
+    workCount === 1
+      ? activityChrome.turnFoldStepSingularTemplate
+      : activityChrome.turnFoldStepPluralTemplate;
   return (
     <section
       className="t3-turn-fold-row"
@@ -252,8 +271,8 @@ function TurnFoldRow({
         aria-expanded={open}
         onClick={() => onToggleRow && onToggleRow(key)}
       >
-        <span>{row.label || "Worked for this turn"}</span>
-        <span>{row.workCount || entries.length} steps</span>
+        <span>{row.label || activityChrome.turnFoldLabel || ""}</span>
+        <span>{formatTemplate(stepTemplate, { count: workCount })}</span>
       </button>
       {open ? (
         <div className="t3-turn-fold-body">
@@ -276,11 +295,12 @@ function TurnFoldRow({
   );
 }
 
-function InteractionRow({ row }) {
+function InteractionRow({ row, chrome = {} }) {
+  const status = row.status || chrome.interactionPendingStatus || "";
   return (
     <div className={`t3-interaction-row ${row.status || "pending"}`} data-row-kind="interaction">
-      <span className="t3-interaction-label">{row.label || row.interactionKind || "interaction"}</span>
-      <span className="t3-interaction-status">{row.status || "pending"}</span>
+      <span className="t3-interaction-label">{row.label || row.interactionKind || chrome.interactionLabel || ""}</span>
+      <span className="t3-interaction-status">{status}</span>
       {row.detail ? <span className="t3-interaction-detail">{row.detail}</span> : null}
     </div>
   );
@@ -312,8 +332,13 @@ function ExpandableShell({ row, rowKeyFor, rowUiState, onToggleRow, className, l
   );
 }
 
-function ReasoningRow({ row, rowUiState, onToggleRow, rowKeyFor }) {
-  const meta = row.streaming ? "streaming" : `${row.wordCount || 0} words`;
+function ReasoningRow({ row, rowUiState, onToggleRow, rowKeyFor, chrome = {} }) {
+  const wordCount = row.wordCount || 0;
+  const wordTemplate =
+    wordCount === 1 ? chrome.wordSingularTemplate : chrome.wordPluralTemplate;
+  const meta = row.streaming
+    ? chrome.streamingStatus || ""
+    : formatTemplate(wordTemplate, { count: wordCount });
   return (
     <ExpandableShell
       row={row}
@@ -322,7 +347,7 @@ function ReasoningRow({ row, rowUiState, onToggleRow, rowKeyFor }) {
       rowKeyFor={rowKeyFor}
       className={`t3-reasoning-row${row.streaming ? " streaming" : ""}`}
       data-testid="timeline-reasoning-row"
-      label={row.label || "Thinking"}
+      label={row.label || chrome.reasoningLabel || ""}
       meta={meta}
     >
       <pre>{row.content || ""}</pre>
@@ -330,29 +355,41 @@ function ReasoningRow({ row, rowUiState, onToggleRow, rowKeyFor }) {
   );
 }
 
-function ThinkingRow({ row }) {
+function ThinkingRow({ row, chrome = {} }) {
   return (
     <div className="t3-thinking-row" data-testid="timeline-thinking-row" data-row-kind="thinking" aria-live="polite">
       <span className="t3-thinking-pulse" aria-hidden="true" />
-      <span>{row.label || "Thinking"}</span>
+      <span>{row.label || chrome.thinkingLabel || ""}</span>
     </div>
   );
 }
 
-function ContextSummaryRow({ row }) {
+function ContextSummaryRow({ row, chrome = {} }) {
   const parts = [];
-  if (row.summarizedTurns !== undefined) parts.push(`${row.summarizedTurns} summarized`);
-  if (row.recentTurns !== undefined) parts.push(`${row.recentTurns} retained`);
-  if (row.approxTokensAfter !== undefined) parts.push(`~${Number(row.approxTokensAfter).toLocaleString()} tokens`);
+  if (row.summarizedTurns !== undefined) {
+    parts.push(formatTemplate(chrome.contextSummarizedTemplate, { count: row.summarizedTurns }));
+  }
+  if (row.recentTurns !== undefined) {
+    parts.push(formatTemplate(chrome.contextRetainedTemplate, { count: row.recentTurns }));
+  }
+  if (row.approxTokensAfter !== undefined) {
+    parts.push(
+      formatTemplate(chrome.contextSizeTemplate, {
+        count: Number(row.approxTokensAfter).toLocaleString(),
+      }),
+    );
+  }
   return (
     <div className="t3-context-summary-row system-card context" data-testid="timeline-context-summary-row" data-row-kind="context_summary" role="status">
-      <span>{row.content || "Context updated"}</span>
-      {parts.length > 0 ? <span className="t3-rich-row-meta">{parts.join(" / ")}</span> : null}
+      <span>{row.content || chrome.contextUpdated || ""}</span>
+      {parts.length > 0 ? (
+        <span className="t3-rich-row-meta">{parts.join(chrome.metadataSeparator || "")}</span>
+      ) : null}
     </div>
   );
 }
 
-function CommandResultRow({ row, markdownComponents, rowUiState, onToggleRow, rowKeyFor, onOpenFile }) {
+function CommandResultRow({ row, markdownComponents, rowUiState, onToggleRow, rowKeyFor, onOpenFile, chrome = {} }) {
   return (
     <ExpandableShell
       row={row}
@@ -361,8 +398,8 @@ function CommandResultRow({ row, markdownComponents, rowUiState, onToggleRow, ro
       rowKeyFor={rowKeyFor}
       className={`t3-command-result-row ${row.success === false ? "error" : "success"}`}
       data-testid="timeline-command-result-row"
-      label={row.label || `/${row.commandName || "command"}`}
-      meta={row.success === false ? "failed" : "completed"}
+      label={row.label || `/${row.commandName || chrome.commandDefaultName || ""}`}
+      meta={row.success === false ? chrome.commandFailedStatus || "" : chrome.commandCompletedStatus || ""}
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
@@ -376,8 +413,10 @@ function CommandResultRow({ row, markdownComponents, rowUiState, onToggleRow, ro
   );
 }
 
-function ReviewResultRow({ row, markdownComponents, rowUiState, onToggleRow, rowKeyFor, onOpenFile }) {
+function ReviewResultRow({ row, markdownComponents, rowUiState, onToggleRow, rowKeyFor, onOpenFile, chrome = {} }) {
   const findingCount = Array.isArray(row.findings) ? row.findings.length : 0;
+  const findingTemplate =
+    findingCount === 1 ? chrome.reviewSingularFinding : chrome.reviewPluralFindingsTemplate;
   return (
     <ExpandableShell
       row={row}
@@ -386,8 +425,8 @@ function ReviewResultRow({ row, markdownComponents, rowUiState, onToggleRow, row
       rowKeyFor={rowKeyFor}
       className={`t3-review-result-row ${row.success === false ? "error" : "success"}`}
       data-testid="timeline-review-result-row"
-      label="/review"
-      meta={findingCount === 1 ? "1 finding" : `${findingCount} findings`}
+      label={row.label || chrome.reviewLabel || ""}
+      meta={formatTemplate(findingTemplate, { count: findingCount })}
     >
       {row.content ? (
         <ReactMarkdown
@@ -450,6 +489,7 @@ function TimelineRowSwitch({
   rowKeyFor,
   chrome,
 }) {
+  const activityRowsChrome = chrome?.activityRows || {};
   if (row.kind === "message") {
     return <MessageRow row={row} markdownComponents={markdownComponents} />;
   }
@@ -477,10 +517,11 @@ function TimelineRowSwitch({
         onOpenFile={onOpenFile}
         markdownComponents={markdownComponents}
         chrome={chrome}
+        activityChrome={activityRowsChrome}
       />
     );
   }
-  if (row.kind === "interaction") return <InteractionRow row={row} />;
+  if (row.kind === "interaction") return <InteractionRow row={row} chrome={activityRowsChrome} />;
   if (row.kind === "diff_summary") {
     const changedFilesChrome = chrome?.changedFiles || {};
     return (
@@ -492,10 +533,18 @@ function TimelineRowSwitch({
     );
   }
   if (row.kind === "reasoning") {
-    return <ReasoningRow row={row} rowUiState={rowUiState} onToggleRow={onToggleRow} rowKeyFor={rowKeyFor} />;
+    return (
+      <ReasoningRow
+        row={row}
+        rowUiState={rowUiState}
+        onToggleRow={onToggleRow}
+        rowKeyFor={rowKeyFor}
+        chrome={activityRowsChrome}
+      />
+    );
   }
-  if (row.kind === "thinking") return <ThinkingRow row={row} />;
-  if (row.kind === "context_summary") return <ContextSummaryRow row={row} />;
+  if (row.kind === "thinking") return <ThinkingRow row={row} chrome={activityRowsChrome} />;
+  if (row.kind === "context_summary") return <ContextSummaryRow row={row} chrome={activityRowsChrome} />;
   if (row.kind === "command_result") {
     return (
       <CommandResultRow
@@ -505,6 +554,7 @@ function TimelineRowSwitch({
         onToggleRow={onToggleRow}
         rowKeyFor={rowKeyFor}
         onOpenFile={onOpenFile}
+        chrome={activityRowsChrome}
       />
     );
   }
@@ -517,11 +567,12 @@ function TimelineRowSwitch({
         onToggleRow={onToggleRow}
         rowKeyFor={rowKeyFor}
         onOpenFile={onOpenFile}
+        chrome={activityRowsChrome}
       />
     );
   }
   if (row.kind === "working") {
-    return <WorkingRow row={row} />;
+    return <WorkingRow row={row} chrome={activityRowsChrome} />;
   }
   return <SystemNoticeRow row={row} />;
 }

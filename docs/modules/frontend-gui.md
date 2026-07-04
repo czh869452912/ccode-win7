@@ -175,7 +175,8 @@ display is turn-associated display metadata, not Agent Core context policy.
   provider/runtime policy, permission policy, telemetry, extension loading, or
   Agent Core behavior.
 - Timeline log aria labels, empty/history/termination copy, work-group labels,
-  and changed-files card summary/action labels are declared under `/api/app/bootstrap`
+  activity-row labels/status/timer templates, and changed-files card
+  summary/action labels are declared under `/api/app/bootstrap`
   `capabilities.chrome.timeline`; renderer Timeline modules may consume that
   chrome but must not keep parallel English defaults for those fields.
 
@@ -355,8 +356,8 @@ session history truth or backend policy.
 - Thinking, reasoning, compact boundaries, command results, review results, tool/work rows, diff summaries, interactions, and system notices are display rows derived from existing session bootstrap/timeline/WebSocket state.
 - Tool/work rows project a frontend-local `detailModel` for tool-aware fields and sections; `components/timeline/ToolDetail.jsx` renders paths, grep matches, file previews, recipe output, diff/change summaries, stdout, and stderr as structured details instead of raw JSON for normal tool data. Plain text fallback is reserved for simple error/string summaries.
 - Timeline markdown file links, grep match rows, changed-file/file rows, and review findings may call the existing GUI `openFile(path, line)` callback and open the right-panel `FilePreviewSurface` with the T3code-style reveal-line marker pair. Remote URLs and hash-only anchors remain normal markdown links.
-- `TimelineRows.jsx` mirrors T3code's work-log grouping behavior for visible work rows: consecutive work/tool rows are rendered by a local `WorkGroupSection`, collapsed groups show the latest entry, `+N previous tool calls` expands older entries, and the component preserves the nearest vertical scroller's anchor during expand/collapse.
-- Running timeline display uses T3code-style pulsing dots and a self-updating `WorkingTimer` label when GUI-local timestamps are available. Fold labels may show `Worked for ...` from frontend display timestamps, falling back to the existing static label when timing data is unavailable.
+- `TimelineRows.jsx` mirrors T3code's work-log grouping behavior for visible work rows: consecutive work/tool rows are rendered by a local `WorkGroupSection`, collapsed groups show the latest entry, backend-declared overflow labels expand older entries, and the component preserves the nearest vertical scroller's anchor during expand/collapse.
+- Running timeline display uses T3code-style pulsing dots and a self-updating `WorkingTimer` label when GUI-local timestamps are available. Activity-row labels, status text, count templates, and timer templates come from `capabilities.chrome.timeline.activity_rows` rather than renderer-local English defaults.
 - Timeline and right-panel CSS keep stable scrollbars visible, avoid fixed narrow-layout center-column pressure, and allow surface tabs/source-control actions to shrink or wrap under zoomed or narrow layouts.
 - `TimelineRows.jsx` renders these rows; `timeline-ui-state.js` owns transient expansion state only.
 - Frontend-local `createdAt` / `completedAt` values used by these labels are GUI display/read-model state only. This projection is not session-history truth, does not write `transcript.jsonl`, does not read `timeline.jsonl` as history, and does not change Agent Core, backend protocol truth, workflow packages, permission policy, provider configuration, extension loading, telemetry, or runtime reducers.

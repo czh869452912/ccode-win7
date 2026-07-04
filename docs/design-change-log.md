@@ -44,6 +44,36 @@
 
 ## 3. 当前变更记录
 
+### DC-235
+
+- Date: 2026-07-04
+- Change Topic: GUI Timeline activity-row chrome descriptor convergence
+- Summary:
+  - Extended `/api/app/bootstrap` `capabilities.chrome.timeline.activity_rows`
+    descriptors for Timeline working, turn-fold, interaction, reasoning,
+    thinking, context-summary, command-result, review-result, and timer copy.
+  - Routed `TimelineRows` activity-row labels, status text, count templates, and
+    timer templates through normalized app-shell chrome instead of
+    renderer-local English defaults.
+  - Extended frontend source checks, app-shell normalizer assertions, backend
+    payload assertions, and pre-release architecture guards for the
+    activity-row copy boundary.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-234
 
 - Date: 2026-07-04

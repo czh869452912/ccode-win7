@@ -738,6 +738,11 @@ async function main() {
   assert.equal(timelineRowsSource.includes("ReviewResultRow"), true);
   assert.equal(timelineRowsSource.includes("changedFilesChrome"), true);
   assert.equal(timelineRowsSource.includes("workGroupChrome"), true);
+  assert.equal(timelineRowsSource.includes("activityRowsChrome"), true);
+  assert.equal(timelineRowsSource.includes("chrome.streamingStatus"), true);
+  assert.equal(timelineRowsSource.includes("chrome.contextSummarizedTemplate"), true);
+  assert.equal(timelineRowsSource.includes("chrome.contextSizeTemplate"), true);
+  assert.equal(timelineRowsSource.includes("chrome.commandCompletedStatus"), true);
   for (const hardcodedWorkGroupCopy of [
     "1 tool call",
     "tool calls",
@@ -745,6 +750,24 @@ async function main() {
     "previous tool",
   ]) {
     assert.equal(timelineRowsSource.includes(hardcodedWorkGroupCopy), false);
+  }
+  for (const hardcodedActivityRowCopy of [
+    "Working...",
+    "Working for",
+    "Worked for this turn",
+    " steps",
+    '"Thinking"',
+    "Context updated",
+    " summarized",
+    " retained",
+    " tokens",
+    "failed",
+    "completed",
+    "1 finding",
+    " findings",
+    "0s",
+  ]) {
+    assert.equal(timelineRowsSource.includes(hardcodedActivityRowCopy), false);
   }
   assert.equal(timelineRowsSource.includes("TimelineRowSwitch"), true);
   assert.equal(timelineRowsSource.includes("MAX_VISIBLE_WORK_LOG_ENTRIES"), true);

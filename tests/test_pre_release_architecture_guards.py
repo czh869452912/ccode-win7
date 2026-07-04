@@ -1157,6 +1157,11 @@ def test_gui_timeline_copy_is_app_shell_declared():
     assert "chrome.historyUnavailable" in timeline_text
     assert "changedFilesChrome" in timeline_rows_text
     assert "workGroupChrome" in timeline_rows_text
+    assert "activityRowsChrome" in timeline_rows_text
+    assert "chrome.streamingStatus" in timeline_rows_text
+    assert "chrome.contextSummarizedTemplate" in timeline_rows_text
+    assert "chrome.contextSizeTemplate" in timeline_rows_text
+    assert "chrome.commandCompletedStatus" in timeline_rows_text
     assert "chrome.summaryTemplate" in changed_files_text
     assert "chrome.viewDiffLabel" in changed_files_text
 
@@ -1178,6 +1183,20 @@ def test_gui_timeline_copy_is_app_shell_declared():
         "tool calls",
         "Show fewer tool calls",
         "previous tool",
+        "Working...",
+        "Working for",
+        "Worked for this turn",
+        " steps",
+        '"Thinking"',
+        "Context updated",
+        " summarized",
+        " retained",
+        " tokens",
+        "failed",
+        "completed",
+        "1 finding",
+        " findings",
+        "0s",
     ):
         assert hardcoded_copy not in timeline_rows_text
 

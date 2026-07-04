@@ -735,6 +735,59 @@ function normalizeTimelineWorkGroupChrome(input = {}) {
   };
 }
 
+function normalizeTimelineActivityRowsChrome(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return {
+    workingLabel: String(value.working_label || value.workingLabel || ""),
+    workingActivePrefix: String(value.working_active_prefix || value.workingActivePrefix || ""),
+    turnFoldLabel: String(value.turn_fold_label || value.turnFoldLabel || ""),
+    turnFoldStepSingularTemplate: String(
+      value.turn_fold_step_singular_template || value.turnFoldStepSingularTemplate || "",
+    ),
+    turnFoldStepPluralTemplate: String(
+      value.turn_fold_step_plural_template || value.turnFoldStepPluralTemplate || "",
+    ),
+    interactionLabel: String(value.interaction_label || value.interactionLabel || ""),
+    interactionPendingStatus: String(
+      value.interaction_pending_status || value.interactionPendingStatus || "",
+    ),
+    reasoningLabel: String(value.reasoning_label || value.reasoningLabel || ""),
+    thinkingLabel: String(value.thinking_label || value.thinkingLabel || ""),
+    streamingStatus: String(value.streaming_status || value.streamingStatus || ""),
+    wordSingularTemplate: String(value.word_singular_template || value.wordSingularTemplate || ""),
+    wordPluralTemplate: String(value.word_plural_template || value.wordPluralTemplate || ""),
+    contextUpdated: String(value.context_updated || value.contextUpdated || ""),
+    contextSummarizedTemplate: String(
+      value.context_summarized_template || value.contextSummarizedTemplate || "",
+    ),
+    contextRetainedTemplate: String(
+      value.context_retained_template || value.contextRetainedTemplate || "",
+    ),
+    contextSizeTemplate: String(
+      value.context_size_template || value.contextSizeTemplate || "",
+    ),
+    metadataSeparator: String(value.metadata_separator || value.metadataSeparator || ""),
+    commandDefaultName: String(value.command_default_name || value.commandDefaultName || ""),
+    commandFailedStatus: String(value.command_failed_status || value.commandFailedStatus || ""),
+    commandCompletedStatus: String(
+      value.command_completed_status || value.commandCompletedStatus || "",
+    ),
+    reviewLabel: String(value.review_label || value.reviewLabel || ""),
+    reviewSingularFinding: String(value.review_singular_finding || value.reviewSingularFinding || ""),
+    reviewPluralFindingsTemplate: String(
+      value.review_plural_findings_template || value.reviewPluralFindingsTemplate || "",
+    ),
+    timerZeroLabel: String(value.timer_zero_label || value.timerZeroLabel || ""),
+    timerSecondsTemplate: String(value.timer_seconds_template || value.timerSecondsTemplate || ""),
+    timerMinutesSecondsTemplate: String(
+      value.timer_minutes_seconds_template || value.timerMinutesSecondsTemplate || "",
+    ),
+    timerHoursMinutesTemplate: String(
+      value.timer_hours_minutes_template || value.timerHoursMinutesTemplate || "",
+    ),
+  };
+}
+
 function normalizeTimelineChrome(input = {}) {
   const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
   return {
@@ -757,6 +810,9 @@ function normalizeTimelineChrome(input = {}) {
       value.changed_files || value.changedFiles,
     ),
     workGroup: normalizeTimelineWorkGroupChrome(value.work_group || value.workGroup),
+    activityRows: normalizeTimelineActivityRowsChrome(
+      value.activity_rows || value.activityRows,
+    ),
   };
 }
 
