@@ -37,6 +37,10 @@
   callbacks are not product paths.
 - `docs/modules/frontend-gui.md` has been synchronized away from the removed
   synchronous callback model.
+- Current Pi/T3 decoupling continuation has removed the GUI workflow-runtime
+  display helper and its old webapp test; renderer workflow detail now stays on
+  backend-declared snapshot/capability/activity projections instead of a
+  retired Inspector runtime panel path.
 
 ### 2026-06-27 - Pi/T3 Residual Debt Cleanup Closed
 

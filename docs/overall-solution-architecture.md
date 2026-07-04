@@ -56,6 +56,9 @@ Retired Inspector sidecar state for artifacts, review panes, permission-rule
 panes, runtime panes, workspace previews, and event logs has been removed; those
 concerns now appear only through active surfaces, session activities,
 interaction state, or app-shell diagnostics.
+The old GUI workflow-runtime display helper is also removed; renderer workflow
+detail must come from backend-declared session snapshot, capability, or
+activity projections instead of synthesized C/C++ phase rows.
 Frontend protocol adapters preserve backend-declared mode state. They must not
 import the built-in mode default or inject `explore` when a selected
 application/profile leaves `current_mode` empty.

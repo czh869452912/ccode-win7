@@ -175,12 +175,13 @@ Recent GUI app-shell work has established the first standalone-app boundary:
 - Generated GUI static assets remain committed release artifacts for the
   current offline packaging model; source review should use `webapp/src/`, and
   `npm run build` refreshes `frontend/gui/static/` after source changes.
-- GUI workflow runtime rows are now declared by the selected workflow projection
-  through `workflow.metadata.display_rows`; the renderer no longer synthesizes
-  C/C++ phase, discipline, or activity rows from legacy snapshot fields. New
-  sessions without an explicit mode leave mode selection to the selected
-  backend application/profile instead of injecting `explore` in GUI routes or
-  renderer state.
+- The retired GUI workflow-runtime display helper and its tests have been
+  removed; workflow detail now stays in backend-declared session snapshot,
+  capability, or activity projections, and the renderer no longer synthesizes
+  C/C++ phase, discipline, or activity rows from compatibility snapshot
+  fields. New sessions without an explicit mode leave mode selection to the
+  selected backend application/profile instead of injecting `explore` in GUI
+  routes or renderer state.
 - GUI tool presentation is now catalog-driven: labels, renderer keys,
   permission categories, and preview arguments come from backend-declared tool
   catalog metadata, while unknown tools fall back only to their tool id. The old

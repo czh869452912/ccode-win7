@@ -25,9 +25,6 @@ const STRINGS = {
     "inspector.diagnostics.renderer": "Renderer",
     "inspector.diagnostics.workspace_registry": "Workspace Registry",
     "inspector.diagnostics.active_core": "Active Core",
-    "inspector.currentPhase": "Current phase",
-    "inspector.disciplineProfile": "Discipline",
-    "inspector.currentActivity": "Activity",
 
     // Panel empty states
     "inspector.noInteraction": "No pending interaction.",
@@ -106,9 +103,6 @@ const STRINGS = {
 
     "inspector.plan": "计划",
     "inspector.diff": "差异",
-    "inspector.currentPhase": "当前阶段",
-    "inspector.disciplineProfile": "工程纪律",
-    "inspector.currentActivity": "当前活动",
 
     "inspector.noInteraction": "当前没有待处理交互。",
     "inspector.noPlan": "当前会话暂无计划。",

@@ -774,10 +774,7 @@ def test_agent_core_has_no_harness_prompt_or_command_name_validation_coupling():
         assert command_marker not in turn_experience_text
 
 
-def test_gui_workflow_display_and_default_mode_are_backend_declared():
-    workflow_display_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/workflow-display.js"
-    )
+def test_gui_default_mode_is_backend_declared():
     store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
     state_helpers_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/state-helpers.js")
     session_loaders_text = _read(
@@ -793,13 +790,6 @@ def test_gui_workflow_display_and_default_mode_are_backend_declared():
     gui_protocol_text = _read(ROOT / "src/embedagent/frontend/gui/backend/protocol_payloads.py")
     core_adapter_text = _read(ROOT / "src/embedagent/core/adapter.py")
 
-    for token in (
-        "snapshot.current_phase",
-        "snapshot.discipline_profile",
-        "workflow.current_phase",
-        "workflow.discipline_profile",
-    ):
-        assert token not in workflow_display_text
     assert 'DEFAULT_MODE = "explore"' not in store_text
     assert 'defaultMode = "explore"' not in state_helpers_text
     assert 'options.defaultMode || "explore"' not in session_loaders_text
@@ -1034,6 +1024,28 @@ def test_gui_has_no_retired_inspector_sidecar_state():
         "LogPanel",
     ):
         assert token not in inspector_text
+
+
+def test_gui_has_no_retired_workflow_runtime_panel_display_helper():
+    removed_paths = (
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/workflow-display.js",
+        ROOT / "src/embedagent/frontend/gui/webapp/test/workflow-display.test.mjs",
+    )
+    for path in removed_paths:
+        assert not path.exists()
+
+    runner_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/test/run-tests.mjs")
+    strings_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/strings.js")
+
+    for token in (
+        "workflow-display",
+        "runWorkflowDisplayTests",
+        "inspector.currentPhase",
+        "inspector.disciplineProfile",
+        "inspector.currentActivity",
+    ):
+        assert token not in runner_text
+        assert token not in strings_text
 
 
 def test_hosted_interactions_do_not_keep_legacy_blocking_frontend_paths():

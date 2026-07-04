@@ -236,9 +236,11 @@ Visible skills and prompt files are projected to frontend-adjacent surfaces as l
 `workflow` is the generic workflow projection. For the default C/C++ harness, `current_phase`, `discipline_profile`, `current_activity`, `task_summary`, and `task_items` are compatibility fields projected from `workflow`.
 
 Frontend shells should not read or infer default harness internals such as task graph state. They consume the snapshot fields and, where a richer shape is needed, the `workflow` payload.
-GUI runtime panels must render workflow summary rows only when the snapshot or
-`workflow.metadata.display_rows` provides values; a non-C application with no
-workflow package must not show empty C/C++ phase/discipline rows by default.
+The GUI no longer owns a workflow runtime panel display helper. It must not
+synthesize C/C++ phase, discipline, or activity rows from compatibility
+snapshot fields for non-C applications; workflow package detail belongs in the
+generic session snapshot, capability, or activity projections supplied by the
+selected backend application.
 
 Session activation additionally depends on one bootstrap payload containing:
 

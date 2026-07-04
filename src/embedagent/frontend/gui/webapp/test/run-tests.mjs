@@ -58,7 +58,6 @@ import { runTerminalShellSourceTests } from "./terminal-shell-source.test.mjs";
 import { runThreadStateTests } from "./thread-state.test.mjs";
 import { runRunOutputStateTests } from "./run-output-state.test.mjs";
 import { runStoreReducerTests } from "./store-reducer.test.mjs";
-import { runWorkflowDisplayTests } from "./workflow-display.test.mjs";
 import { createComposerState, readComposerDraft } from "../src/composer/composer-state.js";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -1400,7 +1399,6 @@ async function main() {
   runThreadStateTests();
   runRunOutputStateTests();
   runStoreReducerTests();
-  runWorkflowDisplayTests();
   runComposerTriggerTests();
   runComposerCommandSearchTests();
   runComposerPathContextTests();
