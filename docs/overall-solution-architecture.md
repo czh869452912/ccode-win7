@@ -68,7 +68,8 @@ dispatch descriptors; the Terminal drawer opens through
 `terminal.ensure_open`, not through a renderer branch on the drawer kind.
 Bottom-drawer body mounting is renderer-local `bodyKind` metadata on supported
 surface definitions, and the default shell does not expose drawer surfaces
-without an implemented body.
+without an implemented body. Supported body kinds route through
+`BOTTOM_DRAWER_BODY_RENDERERS`, not a component switch.
 Bottom-drawer activation side effects use renderer-local `activationKind`
 metadata, so selecting the terminal drawer is not inferred from a fixed drawer
 kind in the terminal controller. Supported bottom-drawer activation kinds route

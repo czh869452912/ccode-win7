@@ -2045,6 +2045,9 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert "chrome.runOutputEmptyMessage" in bottom_drawer_text
     assert "chrome.terminationReasonPrefix" in bottom_drawer_text
     assert "activeDefinition.bodyKind" in bottom_drawer_text
+    assert "BOTTOM_DRAWER_BODY_RENDERERS" in bottom_drawer_text
+    assert "BOTTOM_DRAWER_BODY_RENDERERS[activeBodyKind]" in bottom_drawer_text
+    assert "switch (activeBodyKind)" not in bottom_drawer_text
     assert "bottomDrawerSurfaceDefinitionFor" in terminal_controller_text
     assert "definition.activationKind" in terminal_controller_text
     assert "BOTTOM_DRAWER_ACTIVATION_HANDLERS" in terminal_controller_text

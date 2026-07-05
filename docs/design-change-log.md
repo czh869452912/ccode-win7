@@ -44,6 +44,32 @@
 
 ## 3. 当前变更记录
 
+### DC-287
+
+- Date: 2026-07-05
+- Change Topic: GUI bottom-drawer body mounting uses a renderer registry
+- Summary:
+  - Replaced `BottomDrawer`'s `bodyKind` switch with a renderer-local
+    `BOTTOM_DRAWER_BODY_RENDERERS` registry.
+  - Bottom drawer descriptors still provide `bodyKind` metadata, but Run
+    Output and Terminal body mounting now route through table lookup.
+  - Frontend and architecture guards now prevent reintroducing
+    `switch (activeBodyKind)` in the bottom drawer body.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/BottomDrawer.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New bottom-drawer body kinds must add explicit renderer registry entries
+    rather than component switch branches.
+
 ### DC-286
 
 - Date: 2026-07-05

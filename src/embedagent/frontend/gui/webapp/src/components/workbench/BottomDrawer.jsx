@@ -31,60 +31,55 @@ function RunOutputDrawer({ runOutput, terminationReason, terminationMessage, chr
   );
 }
 
-function drawerBody(activeDefinition, {
-  runOutput,
-  terminationReason,
-  terminationMessage,
-  chrome,
-  terminal,
-  terminalChrome,
-  onTerminalNew,
-  onTerminalSelect,
-  onTerminalSend,
-  onTerminalClear,
-  onTerminalRestart,
-  onTerminalClose,
-}) {
+const BOTTOM_DRAWER_BODY_RENDERERS = Object.freeze({
+  terminal: ({
+    terminal,
+    terminalChrome,
+    onTerminalNew,
+    onTerminalSelect,
+    onTerminalSend,
+    onTerminalClear,
+    onTerminalRestart,
+    onTerminalClose,
+  }) => (
+    <TerminalShell
+      owner="drawer"
+      terminal={terminal}
+      terminalChrome={terminalChrome}
+      onNew={onTerminalNew}
+      onSelect={onTerminalSelect}
+      onSend={(terminalId, text) => {
+        onTerminalSelect(terminalId);
+        onTerminalSend(text);
+      }}
+      onClear={(terminalId) => {
+        onTerminalSelect(terminalId);
+        onTerminalClear();
+      }}
+      onRestart={(terminalId) => {
+        onTerminalSelect(terminalId);
+        onTerminalRestart();
+      }}
+      onClose={(terminalId) => {
+        onTerminalSelect(terminalId);
+        onTerminalClose();
+      }}
+    />
+  ),
+  run_output: ({ runOutput, terminationReason, terminationMessage, chrome }) => (
+    <RunOutputDrawer
+      runOutput={runOutput}
+      terminationReason={terminationReason}
+      terminationMessage={terminationMessage}
+      chrome={chrome}
+    />
+  ),
+});
+
+function drawerBody(activeDefinition, props) {
   const activeBodyKind = activeDefinition ? activeDefinition.bodyKind : "";
-  switch (activeBodyKind) {
-    case "terminal":
-      return (
-        <TerminalShell
-          owner="drawer"
-          terminal={terminal}
-          terminalChrome={terminalChrome}
-          onNew={onTerminalNew}
-          onSelect={onTerminalSelect}
-          onSend={(terminalId, text) => {
-            onTerminalSelect(terminalId);
-            onTerminalSend(text);
-          }}
-          onClear={(terminalId) => {
-            onTerminalSelect(terminalId);
-            onTerminalClear();
-          }}
-          onRestart={(terminalId) => {
-            onTerminalSelect(terminalId);
-            onTerminalRestart();
-          }}
-          onClose={(terminalId) => {
-            onTerminalSelect(terminalId);
-            onTerminalClose();
-          }}
-        />
-      );
-    case "run_output":
-      return (
-        <RunOutputDrawer
-          runOutput={runOutput}
-          terminationReason={terminationReason}
-          terminationMessage={terminationMessage}
-          chrome={chrome}
-        />
-      );
-    default:
-      return null;
-  }
+  const renderBody = BOTTOM_DRAWER_BODY_RENDERERS[activeBodyKind] || null;
+  return renderBody ? renderBody(props) : null;
 }
 
 export default function BottomDrawer({

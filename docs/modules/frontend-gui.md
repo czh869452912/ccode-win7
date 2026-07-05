@@ -368,7 +368,9 @@ Terminal bottom-drawer command uses `terminal.ensure_open`, so renderer code
 must not treat `drawer: "terminal"` as a special execution policy.
 Bottom-drawer body mounting is renderer-local metadata on supported surface
 definitions (`bodyKind`); the default app shell exposes only surfaces that have
-a matching renderer body, currently Run Output and Terminal.
+a matching renderer body, currently Run Output and Terminal. Supported body
+kinds are mounted through `BOTTOM_DRAWER_BODY_RENDERERS`, not a component
+switch.
 Bottom-drawer activation side effects use renderer-local `activationKind`
 metadata; terminal drawer selection is not inferred from a fixed drawer kind in
 the terminal controller. Supported activation kinds route through

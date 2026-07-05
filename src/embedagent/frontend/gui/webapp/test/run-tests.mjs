@@ -1621,6 +1621,9 @@ async function main() {
   assert.equal(bottomDrawerSource.includes("chrome.runOutputEmptyMessage"), true);
   assert.equal(bottomDrawerSource.includes("chrome.terminationReasonPrefix"), true);
   assert.equal(bottomDrawerSource.includes("activeDefinition.bodyKind"), true);
+  assert.equal(bottomDrawerSource.includes("BOTTOM_DRAWER_BODY_RENDERERS"), true);
+  assert.equal(bottomDrawerSource.includes("BOTTOM_DRAWER_BODY_RENDERERS[activeBodyKind]"), true);
+  assert.equal(bottomDrawerSource.includes("switch (activeBodyKind)"), false);
   assert.equal(bottomDrawerSource.includes('activeKind === "terminal"'), false);
   assert.equal(bottomDrawerSource.includes('"Bottom drawer"'), false);
   assert.equal(bottomDrawerSource.includes('"No run output yet."'), false);

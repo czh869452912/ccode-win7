@@ -517,6 +517,8 @@ Bottom drawer selection uses the same renderer metadata path: drawer activation
 side effects come from bottom surface `activationKind` records, not drawer-kind
 conditionals in the terminal controller. Supported activation kinds route
 through a renderer-local handler registry rather than a controller switch.
+Supported bottom drawer `bodyKind` values route through a renderer-local body
+renderer registry rather than a component switch.
 The renderer has no root-level `inspectorTab` / `inspectorOpen` navigation
 state; opening, activating, and closing right-panel content flows through
 workbench surface state.

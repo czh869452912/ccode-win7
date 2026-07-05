@@ -163,7 +163,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   than a renderer branch on `drawer: "terminal"`;
   bottom-drawer body selection uses renderer-local `bodyKind` metadata for
   supported surfaces, and stale declarations without a renderer body are
-  removed instead of being shown through a misleading fallback;
+  removed instead of being shown through a misleading fallback; supported body
+  kinds route through `BOTTOM_DRAWER_BODY_RENDERERS` rather than a component
+  switch;
   bottom-drawer activation side effects use renderer-local `activationKind`
   metadata instead of drawer-kind branches in the terminal controller, and
   supported activation kinds route through a handler registry rather than a
