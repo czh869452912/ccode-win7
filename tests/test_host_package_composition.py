@@ -127,7 +127,7 @@ class HostPackageCompositionTests(unittest.TestCase):
             ["preview"],
         )
 
-    def test_agent_application_registry_is_record_driven_not_builder_tuple(self):
+    def test_agent_application_registry_uses_lazy_builder_paths_not_workflow_kind_branch(self):
         module_path = os.path.join(
             os.path.dirname(__file__),
             "..",
@@ -140,10 +140,14 @@ class HostPackageCompositionTests(unittest.TestCase):
 
         self.assertIn("class AgentApplicationRecord", source)
         self.assertIn("BUILTIN_AGENT_APPLICATION_RECORDS", source)
-        self.assertNotIn("class AgentApplicationDefinition", source)
-        self.assertNotIn("_builtin_agent_application_definitions", source)
-        self.assertNotIn("manifest_loader", source)
-        self.assertNotIn("builder:", source)
+        self.assertIn("builder_path", source)
+        self.assertNotIn("workflow_kind", source)
+        self.assertNotIn('== "c_cpp"', source)
+        self.assertNotIn(
+            "from embedagent.workflow_packages.c_cpp.application import "
+            "build_c_cpp_agent_application",
+            source,
+        )
 
     def test_default_application_compatibility_wrapper_is_removed(self):
         import embedagent.agent_applications as agent_applications

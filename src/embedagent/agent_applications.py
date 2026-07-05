@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -70,7 +71,7 @@ class AgentApplicationRecord:
     profile_id: str
     profile_kind: str
     workflow_package_ids: Tuple[str, ...] = field(default_factory=tuple)
-    workflow_kind: str = ""
+    builder_path: str = ""
     source_type: str = "builtin"
     source_id: str = ""
     default: bool = False
@@ -234,7 +235,9 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
         profile_id=DEFAULT_AGENT_APPLICATION_ID,
         profile_kind="default_c_cpp",
         workflow_package_ids=("embedagent.c_workflow",),
-        workflow_kind="c_cpp",
+        builder_path=(
+            "embedagent.workflow_packages.c_cpp.application:" "build_c_cpp_agent_application"
+        ),
         source_type="builtin",
         source_id="embedagent.workflow_packages.c_cpp",
         default=True,
@@ -331,6 +334,17 @@ def _build_profile_application(
     )
 
 
+def _load_application_builder(path: str) -> Any:
+    module_name, separator, function_name = str(path or "").partition(":")
+    if not module_name or separator != ":" or not function_name:
+        raise ValueError("Invalid agent application builder path %r" % (path,))
+    module = importlib.import_module(module_name)
+    builder = getattr(module, function_name, None)
+    if not callable(builder):
+        raise ValueError("Agent application builder is not callable: %s" % (path,))
+    return builder
+
+
 def generic_agent_application_manifest() -> AgentApplicationManifest:
     return _record_by_id(GENERIC_AGENT_APPLICATION_ID).to_manifest()
 
@@ -382,10 +396,6 @@ def agent_application_capability_payload(application_id: str = "") -> Dict[str, 
 
 def build_agent_application(application_id: str, tools: Any) -> AgentApplication:
     record = _record_by_id(application_id)
-    if record.workflow_kind == "c_cpp":
-        from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
-
-        return build_c_cpp_agent_application(tools)
-    if record.workflow_kind:
-        raise ValueError("Unknown workflow kind %r" % (record.workflow_kind,))
+    if record.builder_path:
+        return _load_application_builder(record.builder_path)(tools)
     return _build_profile_application(record, _profile_for_record(record))

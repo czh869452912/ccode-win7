@@ -69,6 +69,11 @@
   `.embedagent/recipes/*.json` and extension validation recipes no longer carry
   a default C/C++ `tool_name`, while active workflow packages remain responsible
   for projecting runnable recipe tools.
+- Agent application loading no longer branches on a generic `workflow_kind`
+  string. Built-in profile-only agents build from their `AgentApplicationRecord`
+  profile data, while workflow-backed specialized agents declare a lazy
+  package-owned `builder_path`; the default C/C++ agent is therefore one
+  registered specialized agent rather than a hard-coded loader branch.
 - `/api/app/bootstrap` now declares Preview surface chrome and local-server
   presets under `capabilities.preview`. The renderer uses those descriptors for
   Preview toolbar labels, empty states, status labels, and failure notices
