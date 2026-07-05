@@ -928,10 +928,13 @@ async function main() {
   assert.equal(surfacePanelSource.includes("onRunRecipe"), false);
 
   const stylesSource = readWebappSourceText("styles.css");
+  const modeStyleSource = readWebappSourceText("session-runtime", "mode-style.js");
   assert.equal(stylesSource.includes("todo-"), false);
   assert.equal(stylesSource.includes("recipe-"), false);
   assert.equal(stylesSource.includes("mode-code"), false);
   assert.equal(stylesSource.includes("mode-build"), false);
+  assert.equal(stylesSource.includes("--color-verify"), false);
+  assert.equal(modeStyleSource.includes("verify:"), false);
   assert.equal(stylesSource.includes("--mode-badge-color"), true);
   assert.equal(stylesSource.includes("--mode-badge-rgb"), true);
   assert.equal(stylesSource.includes(".t3-work-row.error"), true);

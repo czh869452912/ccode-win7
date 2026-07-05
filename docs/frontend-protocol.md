@@ -388,6 +388,9 @@ Session capability payloads expose:
 Renderer code must consume these backend-declared descriptors. It must not
 hard-code the default C/C++ application, mode list, workflow-package labels, or
 no-workspace copy when the backend has not provided them.
+Mode descriptor `colorToken` values are generic visual tokens such as `info`,
+`accent`, `success`, or `warning`; renderer code must not treat concrete mode
+names such as `verify` as color-token policy.
 Tool descriptors in `tools` carry GUI presentation fields such as `name`,
 `label`, `renderer_key`, `permission_category`, `source_type`, `source_id`,
 and safe `metadata`. `metadata.preview_arg` is the current display contract

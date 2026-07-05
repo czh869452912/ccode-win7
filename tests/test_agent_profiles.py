@@ -42,6 +42,24 @@ class AgentProfileTests(unittest.TestCase):
         self.assertEqual(build["source_type"], "agent_profile")
         self.assertEqual(build["source_id"], profile.profile_id)
 
+    def test_builtin_profile_color_tokens_are_generic_not_mode_names(self):
+        from embedagent.agent_profiles import (
+            default_c_cpp_agent_profile,
+            generic_agent_profile,
+            html_agent_profile,
+            python_agent_profile,
+        )
+
+        profiles = [
+            default_c_cpp_agent_profile(),
+            generic_agent_profile(),
+            python_agent_profile(),
+            html_agent_profile(),
+        ]
+        for profile in profiles:
+            tokens = [item.color_token for item in profile.modes]
+            self.assertNotIn("verify", tokens)
+
     def test_unknown_mode_raises_in_profile_lookup(self):
         from embedagent.agent_profiles import default_c_cpp_agent_profile
 

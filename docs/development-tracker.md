@@ -100,6 +100,10 @@
   `write_file` and `edit_file` declare safe `metadata.changed_path_arg`, and
   the GUI T3 timeline no longer keeps a `WRITE_TOOLS` or command-name diff
   table for changed-file summaries.
+- GUI mode badges no longer keep a renderer-local `verify` color token or CSS
+  variable. Agent profiles emit only generic color tokens, so specialized
+  agents can choose mode labels and ordering without the renderer carrying a
+  specific product mode palette.
 - Timeline review-result classification is now structured-payload driven:
   command results become review rows only when they carry `data.review` or
   `review`, so the GUI no longer treats the slash command name `/review` as a

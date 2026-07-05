@@ -230,7 +230,7 @@ def _standard_profile_modes(
             allowed_tools=list(BASE_VERIFY_TOOLS),
             writable_globs=[],
             icon_key="badge-check",
-            color_token="verify",
+            color_token="info",
         ),
     ]
 
@@ -353,7 +353,7 @@ def default_c_cpp_agent_profile() -> AgentProfile:
                 allowed_tools=list(BASE_VERIFY_TOOLS),
                 writable_globs=[],
                 icon_key="badge-check",
-                color_token="verify",
+                color_token="info",
             ),
         ],
     )
