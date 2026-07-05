@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 
-import {
-  createPanelResizeController,
-  RESIZE_DIRECTIONS,
-} from "../src/app-runtime/panel-resize-controller.js";
+import { createPanelResizeController } from "../src/app-runtime/panel-resize-controller.js";
 
 function createHandle() {
   const listeners = {};
@@ -53,7 +50,7 @@ export function runPanelResizeControllerTests() {
   const handle = createHandle();
   let prevented = false;
 
-  controller.startResize(
+  controller.startSidebarResize(
     {
       preventDefault() {
         prevented = true;
@@ -62,8 +59,6 @@ export function runPanelResizeControllerTests() {
       clientX: 100,
       pointerId: 7,
     },
-    "--sidebar-w-raw",
-    RESIZE_DIRECTIONS.RIGHT,
   );
 
   assert.equal(prevented, true);
@@ -83,15 +78,13 @@ export function runPanelResizeControllerTests() {
   assert.equal(handle.listeners.pointercancel, undefined);
 
   const rightHandle = createHandle();
-  controller.startResize(
+  controller.startRightPanelResize(
     {
       preventDefault() {},
       currentTarget: rightHandle,
       clientX: 100,
       pointerId: 8,
     },
-    "--right-panel-w-raw",
-    RESIZE_DIRECTIONS.LEFT,
   );
   rightHandle.listeners.pointermove({ clientX: 60 });
   assert.deepEqual(styleWrites[2], ["--right-panel-w-raw", "260px"]);

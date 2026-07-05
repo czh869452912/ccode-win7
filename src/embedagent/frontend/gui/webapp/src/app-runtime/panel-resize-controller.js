@@ -1,4 +1,4 @@
-export const RESIZE_DIRECTIONS = Object.freeze({
+const RESIZE_DIRECTIONS = Object.freeze({
   RIGHT: 1,
   LEFT: -1,
 });
@@ -54,5 +54,13 @@ export function createPanelResizeController({ documentObject, getComputedStyleFn
     handle.addEventListener("pointercancel", onEnd);
   }
 
-  return { startResize };
+  function startSidebarResize(event) {
+    startResize(event, "--sidebar-w-raw", RESIZE_DIRECTIONS.RIGHT);
+  }
+
+  function startRightPanelResize(event) {
+    startResize(event, "--right-panel-w-raw", RESIZE_DIRECTIONS.LEFT);
+  }
+
+  return { startRightPanelResize, startSidebarResize };
 }

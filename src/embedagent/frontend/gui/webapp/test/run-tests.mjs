@@ -2282,12 +2282,22 @@ async function main() {
   assert.equal(activeWorkspaceDataLoaderSource.includes("invoke(loadStatus, false,"), true);
   assert.equal(activeWorkspaceDataLoaderSource.includes("import React"), false);
   assert.equal(appSource.includes("createPanelResizeController"), true);
-  assert.equal(appSource.includes("panelResizeController.startResize"), true);
+  assert.equal(appSource.includes("onResizeSidebar={panelResizeController.startSidebarResize}"), true);
+  assert.equal(
+    appSource.includes("onResizeRightPanel={panelResizeController.startRightPanelResize}"),
+    true,
+  );
+  assert.equal(appSource.includes("panelResizeController.startResize"), false);
+  assert.equal(appSource.includes("RESIZE_DIRECTIONS"), false);
   assert.equal(appSource.includes("function startResize"), false);
   assert.equal(appSource.includes("setPointerCapture"), false);
   assert.equal(appSource.includes("document.documentElement.style.setProperty"), false);
   assert.equal(appSource.includes("getComputedStyle(document.documentElement)"), false);
   assert.equal(panelResizeControllerSource.includes("export function createPanelResizeController"), true);
+  assert.equal(panelResizeControllerSource.includes("function startSidebarResize"), true);
+  assert.equal(panelResizeControllerSource.includes("function startRightPanelResize"), true);
+  assert.equal(panelResizeControllerSource.includes("return { startResize"), false);
+  assert.equal(panelResizeControllerSource.includes("export const RESIZE_DIRECTIONS"), false);
   assert.equal(panelResizeControllerSource.includes("RESIZE_DIRECTIONS"), true);
   assert.equal(panelResizeControllerSource.includes("setPointerCapture"), true);
   assert.equal(panelResizeControllerSource.includes("documentRef.documentElement.style.setProperty"), true);

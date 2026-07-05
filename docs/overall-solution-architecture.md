@@ -292,7 +292,9 @@ fanout.
 GUI panel resize pointer handling is owned by
 `app-runtime/panel-resize-controller.js`. The controller clamps panel widths,
 tracks pointer drag state, and mutates the CSS variables on the document root;
-`App.jsx` only wires sidebar and right-panel resize callbacks.
+`App.jsx` only wires the controller's `startSidebarResize` and
+`startRightPanelResize` callbacks, and must not pass CSS variables or resize
+direction constants through the component tree.
 
 GUI Timeline bottom-follow scrolling is owned by
 `app-runtime/timeline-scroll-controller.js`. The controller owns the

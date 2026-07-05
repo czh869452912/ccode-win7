@@ -155,9 +155,10 @@
   longer leaves a root-component `Promise.all` fanout for sessions,
   capabilities, file tree, and local status surfaces.
 - GUI panel resize pointer/DOM handling now lives in
-  `app-runtime/panel-resize-controller.js`. `App.jsx` wires resize callbacks
-  but no longer owns `documentElement.style` mutation or pointer listener
-  cleanup for the sidebar/right-panel handles.
+  `app-runtime/panel-resize-controller.js`. `App.jsx` wires
+  `startSidebarResize` / `startRightPanelResize` directly but no longer owns
+  CSS variable names, resize direction constants, `documentElement.style`
+  mutation, or pointer listener cleanup for the sidebar/right-panel handles.
 - GUI Timeline bottom-follow scroll behavior now lives in
   `app-runtime/timeline-scroll-controller.js`. `App.jsx` wires the Timeline ref
   and direct controller scroll handler but no longer owns `handleTimelineScroll`,

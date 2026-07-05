@@ -3018,12 +3018,19 @@ def test_gui_panel_resize_dom_logic_is_controller_owned():
     )
 
     assert "createPanelResizeController" in app_text
-    assert "panelResizeController.startResize" in app_text
+    assert "onResizeSidebar={panelResizeController.startSidebarResize}" in app_text
+    assert "onResizeRightPanel={panelResizeController.startRightPanelResize}" in app_text
+    assert "panelResizeController.startResize" not in app_text
+    assert "RESIZE_DIRECTIONS" not in app_text
     assert "function startResize" not in app_text
     assert "setPointerCapture" not in app_text
     assert "document.documentElement.style.setProperty" not in app_text
     assert "getComputedStyle(document.documentElement)" not in app_text
     assert "export function createPanelResizeController" in controller_text
+    assert "function startSidebarResize" in controller_text
+    assert "function startRightPanelResize" in controller_text
+    assert "return { startResize" not in controller_text
+    assert "export const RESIZE_DIRECTIONS" not in controller_text
     assert "RESIZE_DIRECTIONS" in controller_text
     assert "setPointerCapture" in controller_text
     assert "documentRef.documentElement.style.setProperty" in controller_text

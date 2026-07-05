@@ -36,6 +36,11 @@ right-panel surfaces, bottom drawers, command-palette query, keybindings, and
 layout density. This state is not session-history truth and is not an
 activation or permission policy.
 
+GUI panel resizing is a local shell concern, but renderer-facing resize entry
+points must stay semantic: `App.jsx` wires `startSidebarResize` /
+`startRightPanelResize`, while CSS variable names, direction constants, and
+document-root style mutation remain inside `panel-resize-controller.js`.
+
 Frontend shell state must not decide tool visibility, execute tools, approve
 permissions, change durable modes, infer transcript history, load extensions,
 or mutate workflow state. Those decisions remain owned by Agent Core,

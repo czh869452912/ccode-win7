@@ -175,6 +175,12 @@ composition point for now, but new GUI code must not add root-level
 `sessions`, `currentSessionId`, `composer`, `historyIntegrity`, or retired
 sidebar tab sidecar state/actions.
 
+Workbench panel resizing is also controller-owned:
+`webapp/src/app-runtime/panel-resize-controller.js` exposes
+`startSidebarResize` and `startRightPanelResize` as the only renderer-facing
+resize handlers. `App.jsx` must not pass resize CSS variable names, import
+resize direction constants, or mutate `documentElement.style` directly.
+
 The webapp build continues to target `chrome109` for bundled WebView2 Fixed
 Version 109 and Windows 7 compatibility. GUI runtime deployment must remain
 offline and must not require Electron, CDN assets, runtime Node, Docker, WSL,

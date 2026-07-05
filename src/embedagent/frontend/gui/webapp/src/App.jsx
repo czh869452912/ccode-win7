@@ -16,10 +16,7 @@ import { createFilePreviewController } from "./app-runtime/file-preview-controll
 import { createLoaderRequestExecutor, loadSessionCommandCapabilities } from "./app-runtime/session-loaders.js";
 import { createPreviewController } from "./app-runtime/preview-controller.js";
 import { createRespondingRequestIdsHandle } from "./app-runtime/responding-request-ids-handle.js";
-import {
-  createPanelResizeController,
-  RESIZE_DIRECTIONS,
-} from "./app-runtime/panel-resize-controller.js";
+import { createPanelResizeController } from "./app-runtime/panel-resize-controller.js";
 import { createRightPanelController } from "./app-runtime/right-panel-controller.js";
 import { createSessionActivationController } from "./app-runtime/session-activation-controller.js";
 import { createSessionController } from "./app-runtime/session-controller.js";
@@ -758,12 +755,8 @@ function App() {
       rightPanelOpen={state.workbench.rightPanel.open}
       bottomDrawerOpen={state.workbench.bottomDrawer.open}
       bottomDrawerHeight={state.workbench.bottomDrawer.height}
-      onResizeSidebar={(e) =>
-        panelResizeController.startResize(e, "--sidebar-w-raw", RESIZE_DIRECTIONS.RIGHT)
-      }
-      onResizeRightPanel={(e) =>
-        panelResizeController.startResize(e, "--right-panel-w-raw", RESIZE_DIRECTIONS.LEFT)
-      }
+      onResizeSidebar={panelResizeController.startSidebarResize}
+      onResizeRightPanel={panelResizeController.startRightPanelResize}
     />
     <CommandPalette
       open={state.workbench.commandPalette.open}

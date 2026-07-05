@@ -372,7 +372,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `app-runtime/active-workspace-data-loader.js` owns active-workspace read-model
   refresh fanout, and
   `app-runtime/panel-resize-controller.js` owns pointer/DOM resizing for
-  workbench panels, `app-runtime/timeline-scroll-controller.js` owns Timeline
+  workbench panels through `startSidebarResize` / `startRightPanelResize`
+  instead of root-level CSS variable or direction parameters,
+  `app-runtime/timeline-scroll-controller.js` owns Timeline
   bottom-follow scroll DOM handling, and `app-runtime/browser-dialog-service.js`
   owns native prompt/confirm access for thread lifecycle prompts, while
   `app-runtime/workbench-keyboard-controller.js` owns global workbench keydown

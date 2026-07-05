@@ -44,6 +44,37 @@
 
 ## 3. 当前变更记录
 
+### DC-300
+
+- Date: 2026-07-05
+- Change Topic: GUI panel resize handlers are controller-owned
+- Summary:
+  - `panel-resize-controller.js` now exposes semantic
+    `startSidebarResize` / `startRightPanelResize` handlers for the workbench
+    panel handles.
+  - `App.jsx` wires those handlers directly instead of passing CSS variable
+    names, resize direction constants, or the generic resize helper through
+    inline callbacks.
+  - Frontend and architecture guards reject root-level resize parameterization
+    and the exported resize-direction compatibility path.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/panel-resize-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/panel-resize-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue shrinking remaining root-level App composition glue around
+    interaction event logging and non-semantic dependency adapters.
+
 ### DC-299
 
 - Date: 2026-07-05
