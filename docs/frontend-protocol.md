@@ -555,8 +555,12 @@ split/activate/close action handlers must not repeat surface-kind checks.
 Right-panel tab activation side effects use renderer metadata
 (`activationKind`) through the `right-panel-controller.js`
 `RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]` registry; App
-delegates to `rightPanelController.activateSurface(surface)` and does not
-inspect activation metadata or call terminal-session side effects directly.
+delegates to `rightPanelController.activateSurface` and does not inspect
+activation metadata or call terminal-session side effects directly.
+Right-panel tab lifecycle commands for close, close others, close to right,
+close all, add surface, and Files-surface opening are also direct
+`right-panel-controller.js` method wiring rather than App-owned reducer
+dispatch payloads.
 Bottom drawer selection uses the same renderer metadata path: drawer activation
 side effects come from bottom surface `activationKind` records, not drawer-kind
 conditionals in the terminal controller. Supported activation kinds route

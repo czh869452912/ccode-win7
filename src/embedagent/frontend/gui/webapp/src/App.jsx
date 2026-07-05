@@ -687,36 +687,12 @@ function App() {
           appCapabilities={state.app.capabilities}
           surfaces={rightPanelSurfaces}
           activeSurfaceId={state.workbench.rightPanel.activeSurfaceId}
-          onActivateSurface={(surface) => {
-            rightPanelController.activateSurface(surface);
-          }}
-          onCloseSurface={(surface) => {
-            dispatch({
-              type: "workbench_surface_closed",
-              placement: "right",
-              surfaceId: surface.id,
-              kind: surface.kind,
-              resourceId: surface.resourceId,
-            });
-          }}
-          onCloseOtherSurfaces={(surface) => {
-            dispatch({
-              type: "workbench_surface_close_others",
-              placement: "right",
-              surfaceId: surface.id,
-            });
-          }}
-          onCloseSurfacesToRight={(surface) => {
-            dispatch({
-              type: "workbench_surface_close_to_right",
-              placement: "right",
-              surfaceId: surface.id,
-            });
-          }}
-          onCloseAllSurfaces={() => {
-            dispatch({ type: "workbench_surface_close_all", placement: "right" });
-          }}
-          onAddSurface={(kind) => openRightPanelSurface(kind)}
+          onActivateSurface={rightPanelController.activateSurface}
+          onCloseSurface={rightPanelController.closeSurface}
+          onCloseOtherSurfaces={rightPanelController.closeOtherSurfaces}
+          onCloseSurfacesToRight={rightPanelController.closeSurfacesToRight}
+          onCloseAllSurfaces={rightPanelController.closeAllSurfaces}
+          onAddSurface={openRightPanelSurface}
         >
           <RightPanelSurfaceBody
             appCapabilities={state.app.capabilities}
@@ -728,7 +704,7 @@ function App() {
             fileTree={state.fileTree}
             treeHeight={treeHeight}
             onOpenFile={filePreviewController.openFile}
-            onOpenFilesSurface={() => rightPanelController.openFilesSurface()}
+            onOpenFilesSurface={rightPanelController.openFilesSurface}
             onLoadFileChildren={loadFileChildren}
             terminal={state.terminal}
             terminalChrome={terminalChrome}

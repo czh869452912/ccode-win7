@@ -114,8 +114,7 @@
     `right-panel-controller.js` and routed supported right-panel activation
     side effects through `definition.activationKind`.
   - Moved the terminal right-panel re-open side effect out of `App.jsx`;
-    `App.jsx` now delegates tab activation to
-    `rightPanelController.activateSurface(surface)`.
+    `App.jsx` now delegates tab activation to the right-panel controller.
   - Updated frontend and architecture guards so App-level
     `surfaceDefinitionFor(...)`, `definition.activationKind`, and
     `terminalController.openSession(...)` paths fail.

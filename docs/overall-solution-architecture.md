@@ -138,6 +138,10 @@ right-panel Terminal surface. Right-panel activation side effects use
 renderer-local `activationKind` metadata through the
 `right-panel-controller.js` `RIGHT_PANEL_ACTIVATION_HANDLERS` registry, not
 inline App checks for terminal surface ids or direct terminal-session calls.
+Right-panel tab lifecycle actions are also controller-owned: activate, close,
+close others, close to right, close all, add surface, and Files-surface opening
+are wired from `App.jsx` directly to `right-panel-controller.js` methods rather
+than inline reducer dispatch blocks in the root component.
 Surface
 capability records without explicit app-shell titles remain diagnostics only;
 they do not become visible launchers or surface commands, and the renderer does

@@ -187,7 +187,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `activationKind` metadata through
   `RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]` in
   `right-panel-controller.js` rather than inline App surface-id or terminal
-  session branches;
+  session branches; right-panel tab close/add/Files-open lifecycle actions are
+  wired directly to `right-panel-controller.js` methods instead of inline App
+  reducer dispatch blocks;
   bottom-drawer surface commands may also carry descriptor-owned dispatch
   records, and the Terminal drawer opens through `terminal.ensure_open` rather
   than a renderer branch on `drawer: "terminal"`;

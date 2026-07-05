@@ -436,9 +436,13 @@ repeat surface-kind checks.
 Right-panel tab activation side effects use renderer-local `activationKind`
 metadata through `right-panel-controller.js`
 `RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]`; App-level
-activation code only delegates to `rightPanelController.activateSurface(surface)`
+activation code only delegates to `rightPanelController.activateSurface`
 and must not branch on terminal surface ids, inspect activation metadata, or
 call terminal-session side effects directly.
+Right-panel tab lifecycle commands for close, close others, close to right,
+close all, add surface, and Files-surface opening are also direct
+`right-panel-controller.js` method wiring; App must not inline those reducer
+dispatch payloads.
 Surface descriptor records that omit `title` remain capability diagnostics and
 do not enter visible launchers or commands; renderer helpers must not fall back
 to surface kind/id strings for tab or launcher titles. Resource surface helper

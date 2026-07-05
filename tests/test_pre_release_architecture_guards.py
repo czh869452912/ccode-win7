@@ -2599,7 +2599,16 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     assert 'switch (definition ? definition.openKind : "")' not in controller_text
     assert "RIGHT_PANEL_ACTIVATION_HANDLERS" in controller_text
     assert "RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]" in controller_text
-    assert "rightPanelController.activateSurface(surface)" in app_text
+    assert "onActivateSurface={rightPanelController.activateSurface}" in app_text
+    assert "onCloseSurface={rightPanelController.closeSurface}" in app_text
+    assert "onCloseOtherSurfaces={rightPanelController.closeOtherSurfaces}" in app_text
+    assert "onCloseSurfacesToRight={rightPanelController.closeSurfacesToRight}" in app_text
+    assert "onCloseAllSurfaces={rightPanelController.closeAllSurfaces}" in app_text
+    assert "onAddSurface={openRightPanelSurface}" in app_text
+    assert 'type: "workbench_surface_closed"' not in app_text
+    assert 'type: "workbench_surface_close_others"' not in app_text
+    assert 'type: "workbench_surface_close_to_right"' not in app_text
+    assert 'type: "workbench_surface_close_all"' not in app_text
     assert "definition.activationKind" not in app_text
     assert 'definition.activationKind === "terminal.open_active"' not in app_text
     assert "surfaceDefinitionFor(" not in app_text
@@ -2617,7 +2626,7 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     assert "rightPanelController.canOpenPreviewSurface()" not in app_text
     assert "canOpenPreviewSurface" in preview_controller_text
     assert "openPreviewSurface" in preview_controller_text
-    assert "rightPanelController.openFilesSurface()" in app_text
+    assert "onOpenFilesSurface={rightPanelController.openFilesSurface}" in app_text
     assert "openKind" in surfaces_text
     assert "activationKind" in surfaces_text
     assert "RIGHT_PANEL_RESOURCE_SURFACES.file" in controller_text
@@ -2632,6 +2641,14 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     assert "canOpenPreviewSurface" in controller_text
     assert "openPreviewSurface" in controller_text
     assert "openFilesSurface" in controller_text
+    assert "function closeSurface" in controller_text
+    assert "function closeOtherSurfaces" in controller_text
+    assert "function closeSurfacesToRight" in controller_text
+    assert "function closeAllSurfaces" in controller_text
+    assert 'type: "workbench_surface_closed"' in controller_text
+    assert 'type: "workbench_surface_close_others"' in controller_text
+    assert 'type: "workbench_surface_close_to_right"' in controller_text
+    assert 'type: "workbench_surface_close_all"' in controller_text
     assert "terminalController.openSession" not in app_text
     for token in (
         'surfaceKind === "file"',

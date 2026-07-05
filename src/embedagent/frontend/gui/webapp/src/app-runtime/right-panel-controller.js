@@ -143,9 +143,46 @@ export function createRightPanelController({
     }
   }
 
+  function closeSurface(surface) {
+    if (!surface) return;
+    dispatch({
+      type: "workbench_surface_closed",
+      placement: "right",
+      surfaceId: surface.id,
+      kind: surface.kind,
+      resourceId: surface.resourceId,
+    });
+  }
+
+  function closeOtherSurfaces(surface) {
+    if (!surface) return;
+    dispatch({
+      type: "workbench_surface_close_others",
+      placement: "right",
+      surfaceId: surface.id,
+    });
+  }
+
+  function closeSurfacesToRight(surface) {
+    if (!surface) return;
+    dispatch({
+      type: "workbench_surface_close_to_right",
+      placement: "right",
+      surfaceId: surface.id,
+    });
+  }
+
+  function closeAllSurfaces() {
+    dispatch({ type: "workbench_surface_close_all", placement: "right" });
+  }
+
   return {
     activateSurface,
     canOpenPreviewSurface,
+    closeAllSurfaces,
+    closeOtherSurfaces,
+    closeSurface,
+    closeSurfacesToRight,
     fileSurfaceTitle,
     normalizeFileSurfacePath,
     openFileSurface,
