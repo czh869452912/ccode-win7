@@ -1804,6 +1804,9 @@ def test_gui_source_control_copy_is_app_shell_declared():
     source_control_api_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/source-control/source-control-api.js"
     )
+    source_control_capability_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/source-control/source-control-capability.js"
+    )
     branch_toolbar_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/BranchToolbar.jsx"
     )
@@ -1824,6 +1827,9 @@ def test_gui_source_control_copy_is_app_shell_declared():
     assert "sourceControlChrome.statusUnavailableNotice" in app_text
     assert "sourceControlChrome.diffUnavailableNotice" in app_text
     assert "sourceControlChrome" in app_text
+    assert "sourceControlCapabilityEnabled" in app_text
+    assert "!sourceControlCapabilityEnabled(stateRef.current.app.capabilities)" in app_text
+    assert "sourceControl.enabled === true" in source_control_capability_text
     assert "sourceControlChrome" in surface_panel_text
     assert "sourceControlChrome" in source_control_panel_text
     assert "sourceControlChrome.groupOrder" in source_control_panel_text

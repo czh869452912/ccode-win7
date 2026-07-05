@@ -164,7 +164,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   app-shell surface declaration before opening File Preview, Preview, or
   right-panel Terminal; File Preview callers also stop file-content loading
   when the semantic open returns false, and Preview API callers preflight the
-  same semantic Preview capability before invoking preview routes;
+  same semantic Preview capability before invoking preview routes; Source
+  Control status/diff callers similarly require the active app-shell Source
+  Control capability before invoking source-control routes;
   right-panel tab activation side effects are selected by renderer-local
   `activationKind` metadata through
   `RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]` in

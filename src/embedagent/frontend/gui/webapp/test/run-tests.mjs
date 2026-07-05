@@ -16,6 +16,7 @@ import { runInteractionModelTests } from "./interaction-model.test.mjs";
 import { runActivityStateTests } from "./activity-state.test.mjs";
 import { runSessionRuntimeTests } from "./session-runtime.test.mjs";
 import { runT3TimelineTests } from "./t3-timeline.test.mjs";
+import { runSourceControlCapabilityTests } from "./source-control-capability.test.mjs";
 import { runSourceControlStateTests } from "./source-control-state.test.mjs";
 import { runTerminalStateTests } from "./terminal-state.test.mjs";
 import { runTerminalControllerTests } from "./terminal-controller.test.mjs";
@@ -85,6 +86,7 @@ async function main() {
   assert.deepEqual(initialState.sessionCapabilities.commands, []);
   assert.deepEqual(initialState.sessionCapabilities.modes, []);
   assert.deepEqual(initialState.sessionCapabilities.toolCatalog, {});
+  runSourceControlCapabilityTests();
   assert.equal(Object.hasOwn(initialState, "toolCatalog"), false);
   assert.equal(Object.hasOwn(initialState, "inspectorTab"), false);
   assert.equal(Object.hasOwn(initialState, "inspectorOpen"), false);
@@ -1147,6 +1149,8 @@ async function main() {
   assert.equal(appSource.includes("getSourceControlStatus"), true);
   assert.equal(appSource.includes("loadSourceControlStatus"), true);
   assert.equal(appSource.includes("openSourceControlFile"), true);
+  assert.equal(appSource.includes("sourceControlCapabilityEnabled"), true);
+  assert.equal(appSource.includes("!sourceControlCapabilityEnabled(stateRef.current.app.capabilities)"), true);
   assert.equal(appSource.includes("buildBranchToolbarModel"), true);
   assert.equal(appSource.includes("branchToolbarModel"), true);
   assert.equal(appSource.includes("sourceControlChrome"), true);

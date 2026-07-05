@@ -36,6 +36,7 @@ import {
   getSourceControlStatus,
   refreshSourceControlStatus,
 } from "./source-control/source-control-api.js";
+import { sourceControlCapabilityEnabled } from "./source-control/source-control-capability.js";
 import {
   openPreviewExternal,
   openPreviewSession,
@@ -300,7 +301,7 @@ function App() {
   }
 
   async function loadSourceControlStatus(refresh = false, assumeWorkspace = state.app.hasActiveWorkspace) {
-    if (!assumeWorkspace) {
+    if (!assumeWorkspace || !sourceControlCapabilityEnabled(stateRef.current.app.capabilities)) {
       dispatch({ type: "source_control_reset" });
       return null;
     }
@@ -319,6 +320,7 @@ function App() {
   }
 
   async function openSourceControlFile(file, scope = "unstaged") {
+    if (!sourceControlCapabilityEnabled(stateRef.current.app.capabilities)) return null;
     const path = file?.path || "";
     if (!path) return;
     const selectedScope = scope || file?.diffScopes?.[0] || "unstaged";
