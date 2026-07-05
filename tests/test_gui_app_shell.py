@@ -428,6 +428,7 @@ class TestGuiAppShellService(unittest.TestCase):
                         "changed": "changed",
                         "untracked": "untracked",
                     },
+                    "group_order": ["conflicted", "staged", "unstaged", "untracked"],
                     "group_labels": {
                         "staged": "Staged",
                         "unstaged": "Changes",

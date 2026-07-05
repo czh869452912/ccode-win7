@@ -275,6 +275,7 @@ function normalizeSourceControlChrome(input = {}) {
     ),
     refreshLabel: String(value.refresh_label || value.refreshLabel || ""),
     countLabels: normalizeStringMap(value.count_labels || value.countLabels),
+    groupOrder: normalizeStringList(value.group_order || value.groupOrder),
     groupLabels: normalizeStringMap(value.group_labels || value.groupLabels),
     providerLabels: normalizeStringMap(value.provider_labels || value.providerLabels),
     fileStatusLabels: normalizeStringMap(value.file_status_labels || value.fileStatusLabels),
@@ -336,7 +337,7 @@ function numberOrDefault(value, fallback = 0) {
   return Number.isFinite(number) ? number : fallback;
 }
 
-function normalizeKeywords(value) {
+function normalizeStringList(value) {
   if (!Array.isArray(value)) return [];
   return value.map((item) => String(item || "").trim()).filter(Boolean);
 }
@@ -364,7 +365,7 @@ function normalizeSurfaceCapability(input = {}, placement = "right") {
     visibleWhen: String(input.visible_when || input.visibleWhen || "always"),
     readOnly: input.read_only === true || input.readOnly === true,
     offline: input.offline === true,
-    keywords: normalizeKeywords(input.keywords),
+    keywords: normalizeStringList(input.keywords),
   };
 }
 
@@ -523,7 +524,7 @@ function normalizeAppCommandDescriptor(input = {}, defaultGroup = "app", index =
     drawer: String(input.drawer || ""),
     visibleWhen: String(input.visible_when || input.visibleWhen || "always").trim() || "always",
     order: numberOrDefault(input.order || input.launcher_order || input.launcherOrder, index * 10),
-    keywords: normalizeKeywords(input.keywords),
+    keywords: normalizeStringList(input.keywords),
     description: String(input.description || ""),
     dispatch: input.dispatch && typeof input.dispatch === "object" ? { ...input.dispatch } : {},
   };
@@ -553,7 +554,7 @@ function normalizePaletteGroupDescriptor(input = {}, index = 0) {
     order: numberOrDefault(input.order || input.launcher_order || input.launcherOrder, index * 10),
     leading: String(input.leading || input.icon || "").trim(),
     meta: String(input.meta || ""),
-    keywords: normalizeKeywords(input.keywords),
+    keywords: normalizeStringList(input.keywords),
   };
 }
 

@@ -290,6 +290,7 @@ export function runAppShellModelTests() {
     missingRuntimeLabel: "",
     refreshLabel: "",
     countLabels: {},
+    groupOrder: [],
     groupLabels: {},
     providerLabels: {},
     fileStatusLabels: {},
@@ -696,6 +697,7 @@ export function runAppShellModelTests() {
             changed: "modified",
             untracked: "new",
           },
+          group_order: ["untracked", "unstaged"],
           group_labels: {
             staged: "Indexed",
             unstaged: "Modified",
@@ -1091,6 +1093,10 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.sourceControl.chrome.loadingMessage, "Checking changes...");
   assert.equal(bootstrap.capabilities.sourceControl.chrome.noBranchLabel, "No ref");
   assert.equal(bootstrap.capabilities.sourceControl.chrome.countLabels.files, "paths");
+  assert.deepEqual(bootstrap.capabilities.sourceControl.chrome.groupOrder, [
+    "untracked",
+    "unstaged",
+  ]);
   assert.equal(bootstrap.capabilities.sourceControl.chrome.groupLabels.unstaged, "Modified");
   assert.equal(bootstrap.capabilities.sourceControl.chrome.fileStatusLabels.modified, "~");
   assert.equal(

@@ -726,6 +726,7 @@ def default_app_shell_spec() -> AppShellSpec:
                     "changed": "changed",
                     "untracked": "untracked",
                 },
+                "group_order": ["conflicted", "staged", "unstaged", "untracked"],
                 "group_labels": {
                     "staged": "Staged",
                     "unstaged": "Changes",

@@ -1492,6 +1492,11 @@ async function main() {
   assert.equal(sourceControlPanelSource.includes('data-testid="source-control-panel"'), true);
   assert.equal(sourceControlPanelSource.includes("groupSourceControlFiles"), true);
   assert.equal(sourceControlPanelSource.includes("fileStatusLabel(file, sourceControlChrome)"), true);
+  assert.equal(sourceControlPanelSource.includes("sourceControlChrome.groupOrder"), true);
+  assert.equal(
+    sourceControlPanelSource.includes('["conflicted", "staged", "unstaged", "untracked"]'),
+    false,
+  );
   assert.equal(sourceControlPanelSource.includes("onRefresh"), true);
   assert.equal(sourceControlPanelSource.includes("sourceControlChrome"), true);
   const sourceControlPresentationSource = fs.readFileSync(

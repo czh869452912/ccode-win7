@@ -216,8 +216,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   surface: the backend owns a read-only `SourceControlService` over bundled or
   workspace MinGit, while the React source-control model/panel displays local
   status and opens existing Diff views for selected files. File status badges
-  are declared by app-shell chrome instead of synthesized from Git status
-  initials in the renderer
+  and group order are declared by app-shell chrome instead of synthesized from
+  Git status initials or fixed group arrays in the renderer
 - GUI Preview runtime boundary is now app-shell hosted and local-only: the
   backend owns a `PreviewService` that opens/probes loopback HTTP URLs, while
   the React preview model/API/chrome surface renders loading, success, and

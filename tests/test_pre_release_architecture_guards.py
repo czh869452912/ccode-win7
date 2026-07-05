@@ -1680,8 +1680,10 @@ def test_gui_source_control_copy_is_app_shell_declared():
     assert '"status_unavailable_notice": "Source control unavailable."' in spec_text
     assert '"branch_toolbar": {' in spec_text
     assert '"file_status_labels": {' in spec_text
+    assert '"group_order": [' in spec_text
     assert "normalizeSourceControlChrome" in model_text
     assert "chrome: normalizeSourceControlChrome" in model_text
+    assert "groupOrder:" in model_text
     assert "fileStatusLabels: normalizeStringMap" in model_text
     assert "branchToolbar: normalizeBranchToolbarChrome" in model_text
     assert "sourceControlChrome.statusUnavailableNotice" in app_text
@@ -1689,6 +1691,8 @@ def test_gui_source_control_copy_is_app_shell_declared():
     assert "sourceControlChrome" in app_text
     assert "sourceControlChrome" in surface_panel_text
     assert "sourceControlChrome" in source_control_panel_text
+    assert "sourceControlChrome.groupOrder" in source_control_panel_text
+    assert '["conflicted", "staged", "unstaged", "untracked"]' not in source_control_panel_text
     assert "chrome.groupLabels" in source_control_presentation_text
     assert "chrome.providerLabels" in source_control_presentation_text
     assert "chrome.fileStatusLabels" in source_control_presentation_text

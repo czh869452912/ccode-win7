@@ -64,6 +64,9 @@ export default function SourceControlPanel({
   const counts = data.counts || {};
   const countLabels = sourceControlChrome.countLabels || {};
   const grouped = groupSourceControlFiles(data.files || []);
+  const groupOrder = Array.isArray(sourceControlChrome.groupOrder)
+    ? sourceControlChrome.groupOrder
+    : [];
   const busy = state.status === "loading";
   let body = null;
 
@@ -80,7 +83,7 @@ export default function SourceControlPanel({
   } else {
     body = (
       <div className="source-control-list">
-        {["conflicted", "staged", "unstaged", "untracked"].map((group) => (
+        {groupOrder.map((group) => (
           <FileGroup
             key={group}
             group={group}

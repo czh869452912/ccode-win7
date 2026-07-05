@@ -44,6 +44,39 @@
 
 ## 3. 当前变更记录
 
+### DC-265
+
+- Date: 2026-07-04
+- Change Topic: GUI source-control group order is app-shell chrome
+- Summary:
+  - `/api/app/bootstrap` `capabilities.source_control.chrome` now declares
+    `group_order` for Source Control file grouping order.
+  - The renderer normalizes that descriptor to `groupOrder` and
+    `SourceControlPanel` maps over it instead of owning a fixed
+    `conflicted/staged/unstaged/untracked` array.
+  - Added frontend and Python architecture guards for descriptor-owned Source
+    Control group ordering.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/source-control/SourceControlPanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue removing renderer-local GUI semantic fallbacks that prevent app
+    shells from adapting cleanly to different base or specialized agents.
+
 ### DC-264
 
 - Date: 2026-07-04
