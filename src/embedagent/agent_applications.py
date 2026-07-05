@@ -225,7 +225,6 @@ def _default_c_cpp_application_record() -> AgentApplicationRecord:
 
 
 BUILTIN_AGENT_APPLICATION_RECORDS = (
-    _default_c_cpp_application_record(),
     AgentApplicationRecord(
         application_id=GENERIC_AGENT_APPLICATION_ID,
         label="Generic Agent",
@@ -277,9 +276,20 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
 )
 
 
+def _lazy_agent_application_records() -> Tuple[AgentApplicationRecord, ...]:
+    return (_default_c_cpp_application_record(),)
+
+
+def _all_builtin_agent_application_records() -> Tuple[AgentApplicationRecord, ...]:
+    return _lazy_agent_application_records() + tuple(BUILTIN_AGENT_APPLICATION_RECORDS)
+
+
 def _record_by_id(application_id: str) -> AgentApplicationRecord:
     requested = str(application_id or "").strip() or DEFAULT_AGENT_APPLICATION_ID
     for record in BUILTIN_AGENT_APPLICATION_RECORDS:
+        if requested == record.application_id:
+            return record
+    for record in _lazy_agent_application_records():
         if requested == record.application_id:
             return record
     raise ValueError("Unknown agent application %r" % (application_id,))
@@ -333,7 +343,7 @@ def html_agent_application_manifest() -> AgentApplicationManifest:
 
 
 def available_agent_application_manifests() -> List[AgentApplicationManifest]:
-    return [record.to_manifest() for record in BUILTIN_AGENT_APPLICATION_RECORDS]
+    return [record.to_manifest() for record in _all_builtin_agent_application_records()]
 
 
 def _copy_value(value: Any) -> Any:
@@ -363,7 +373,7 @@ def agent_application_capability_payload(application_id: str = "") -> Dict[str, 
                 record,
                 active=record.application_id == selected_id,
             )
-            for record in BUILTIN_AGENT_APPLICATION_RECORDS
+            for record in _all_builtin_agent_application_records()
         ],
         "emptyState": _copy_value(selected.empty_state),
     }

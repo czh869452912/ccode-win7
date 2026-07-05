@@ -86,6 +86,7 @@ flowchart TD
 - hosted product paths 通过 selected `AgentApplication` 安装 bundled/default workflow packages，并通过 `AgentApplication.refresh_managed_session()` 刷新应用拥有的 workflow/session projection；也可通过 `project_extensions.py` 加载 manifest-gated local extensions。
 - selected agent profile 的 prompt、write-glob、base-tool 和 mode-switch runtime policy 由 `src/embedagent/agent_profile_runtime.py` 提供；`InProcessAdapter` 只组合这些策略，不内联专用 agent 行为。
 - selected `AgentApplication.workspace_profile_detectors` 可向 hosted workspace profile 注入专用文件信号；通用 workspace profile 不持有 C/C++ 文件或构建系统常量。
+- hosted application registry 直接持有 profile-only base records，workflow-backed built-in records 通过 lazy record list 暴露；构建通用/非 C agent 不会导入默认 C/C++ workflow package。
 - runtime host 负责承载，而不是替代 engine 执行逻辑。
 
 ## 6. Verification And Tests

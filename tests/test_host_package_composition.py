@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -140,14 +141,44 @@ class HostPackageCompositionTests(unittest.TestCase):
 
         self.assertIn("class AgentApplicationRecord", source)
         self.assertIn("BUILTIN_AGENT_APPLICATION_RECORDS", source)
+        self.assertIn("_lazy_agent_application_records", source)
         self.assertIn("builder_path", source)
         self.assertNotIn("workflow_kind", source)
         self.assertNotIn('== "c_cpp"', source)
+        eager_default_record = "\n".join(
+            (
+                "BUILTIN_AGENT_APPLICATION_RECORDS = (",
+                "    _default_c_cpp_application_record(),",
+            )
+        )
+        self.assertNotIn(eager_default_record, source)
         self.assertNotIn(
             "from embedagent.workflow_packages.c_cpp.application import "
             "build_c_cpp_agent_application",
             source,
         )
+
+    def test_importing_base_agent_application_registry_does_not_load_c_workflow(self):
+        repo_src = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "src"))
+        script = (
+            "import sys, tempfile\n"
+            "sys.path.insert(0, %r)\n"
+            "from embedagent.agent_applications import build_agent_application\n"
+            "from embedagent.tools import ToolRuntime\n"
+            "with tempfile.TemporaryDirectory() as workspace:\n"
+            "    build_agent_application('embedagent.generic', ToolRuntime(workspace))\n"
+            "loaded = any(name.startswith('embedagent.workflow_packages.c_cpp') for name in sys.modules)\n"
+            "raise SystemExit(1 if loaded else 0)\n"
+        ) % repo_src
+
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_default_c_cpp_application_record_is_package_owned(self):
         root = os.path.join(os.path.dirname(__file__), "..")

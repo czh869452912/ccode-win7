@@ -74,6 +74,10 @@
   profile data, while workflow-backed specialized agents declare a lazy
   package-owned `builder_path`; the default C/C++ agent is therefore one
   registered specialized agent rather than a hard-coded loader branch.
+- The base application registry now keeps only profile-only records directly.
+  Workflow-backed built-in records are loaded through a lazy record list, so
+  constructing Generic/Python/HTML agents does not import
+  `embedagent.workflow_packages.c_cpp`.
 - `/api/app/bootstrap` now declares Preview surface chrome and local-server
   presets under `capabilities.preview`. The renderer uses those descriptors for
   Preview toolbar labels, empty states, status labels, and failure notices

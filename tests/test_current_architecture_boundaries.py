@@ -421,6 +421,14 @@ def test_default_c_cpp_application_record_lives_in_c_workflow_package():
     ):
         assert token not in registry_text
     assert "default_c_cpp_agent_application_record" in registry_text
+    assert "_lazy_agent_application_records" in registry_text
+    eager_default_record = "\n".join(
+        (
+            "BUILTIN_AGENT_APPLICATION_RECORDS = (",
+            "    _default_c_cpp_application_record(),",
+        )
+    )
+    assert eager_default_record not in registry_text
     assert "C_WORKFLOW_PACKAGE_ID" in record_text
     assert '"Default C/C++ Agent"' in record_text
     assert 'profile_kind="workflow_package"' in record_text

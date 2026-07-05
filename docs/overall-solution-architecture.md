@@ -314,8 +314,11 @@ application registry stores built-in applications as `AgentApplicationRecord`
 data. Profile-only applications build directly from profile records; workflow
 backed specialized applications declare a lazy `builder_path` that resolves to
 the package-owned application factory, so the generic loader does not contain
-C/C++ workflow branches. The default C/C++ application record and app-shell
-overlay live in
+C/C++ workflow branches. Profile-only records stay in the base registry and can
+be built without importing the bundled C/C++ workflow package. Workflow-backed
+built-ins, including the default C/C++ product application, are loaded through a
+lazy record list only when selected directly or when safe manifest enumeration is
+requested. The default C/C++ application record and app-shell overlay live in
 `src/embedagent/workflow_packages/c_cpp/application_record.py`; the generic
 registry only includes that package-owned record. The registry exposes safe
 `AgentApplicationManifest` records for GUI capability projection. Agent
@@ -346,9 +349,11 @@ as the default packaged product application plus profile-only
 `embedagent.generic`, `embedagent.python`, and `embedagent.html` applications.
 Those non-C applications share the same Agent Core, hosted runtime, protocol,
 and GUI shell while carrying no C/C++ workflow package manifest or harness
-refresh path. Base configuration and bundled config templates do not pin the
-default C/C++ application id; when `agent_application_id` is omitted, hosted
-application selection falls through to the registry default.
+refresh path, and constructing them does not import
+`embedagent.workflow_packages.c_cpp`. Base configuration and bundled config
+templates do not pin the default C/C++ application id; when
+`agent_application_id` is omitted, hosted application selection falls through to
+the registry default.
 
 ### Default C/C++ Workflow Package
 
