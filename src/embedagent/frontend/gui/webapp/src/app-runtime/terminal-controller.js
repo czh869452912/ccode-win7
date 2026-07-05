@@ -1,5 +1,6 @@
 import { readActiveThreadId } from "../session-runtime/thread-state.js";
 import { terminalCapabilityEnabled } from "../terminal/terminal-capability.js";
+import { nextTerminalId as defaultNextTerminalId } from "../terminal/terminal-labels.js";
 import {
   bottomDrawerSurfaceDefinitionFor,
   surfaceDefinitionFor,
@@ -121,10 +122,9 @@ function allKnownTerminalIds(state) {
 }
 
 function nextId(deps, ids) {
-  if (typeof deps.nextTerminalId === "function") {
-    return normalizeTerminalId(deps.nextTerminalId(ids));
-  }
-  return `terminal-${ids.length + 1}`;
+  const makeNextId =
+    typeof deps.nextTerminalId === "function" ? deps.nextTerminalId : defaultNextTerminalId;
+  return normalizeTerminalId(makeNextId(ids));
 }
 
 export function createTerminalController(deps = {}) {
@@ -299,6 +299,18 @@ export function createTerminalController(deps = {}) {
     return handler ? handler({ dispatch, ensureOpen, kind }) : null;
   }
 
+  async function openNewBottomDrawerTerminal() {
+    const terminal = readTerminalState(getState());
+    return ensureOpen(nextId(deps, terminal.terminalIds || []));
+  }
+
+  function activateBottomDrawerTerminal(terminalId) {
+    const targetTerminalId = normalizeTerminalId(terminalId);
+    if (!targetTerminalId) return null;
+    dispatch({ type: "terminal_active_set", terminalId: targetTerminalId });
+    return targetTerminalId;
+  }
+
   async function openRightPanelSurface(preferredId = "") {
     const definition = rightPanelTerminalSurfaceDefinition(deps);
     if (!definition) return null;
@@ -389,6 +401,8 @@ export function createTerminalController(deps = {}) {
     restartById,
     closeActive,
     selectBottomDrawerKind,
+    openNewBottomDrawerTerminal,
+    activateBottomDrawerTerminal,
     openRightPanelSurface,
     splitRightPanelSurface,
     activateRightPanelPane,

@@ -3575,7 +3575,7 @@
 - 变更主题：GUI terminal runtime controller boundary
 - 变更摘要：
   - React webapp 新增 `webapp/src/app-runtime/terminal-controller.js`，集中管理 GUI terminal action orchestration，包括 bottom drawer terminal open/send/clear/restart/close 和 right-panel terminal open/split/activate/close。
-  - `App.jsx` 通过注入 state reader、dispatch、terminal API helpers 和 `nextTerminalId` 来装配 controller，不再承载大段 inline terminal action cluster。
+  - `App.jsx` 通过注入 state reader、dispatch 和 terminal API helpers 来装配 controller；terminal id generation 和 bottom drawer terminal open/select actions 归入 controller，不再承载大段 inline terminal action cluster。
   - Terminal HTTP route helpers 仍位于 `webapp/src/terminal/terminal-api.js`，terminal snapshot/event normalization 仍位于 `webapp/src/terminal/terminal-state.js`。
 - 影响范围：
   - `src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js`

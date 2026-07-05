@@ -42,7 +42,6 @@ import {
   restartTerminal,
   writeTerminal,
 } from "./terminal/terminal-api.js";
-import { nextTerminalId } from "./terminal/terminal-labels.js";
 import { buildBranchToolbarModel } from "./source-control/branch-toolbar-model.js";
 import { readComposerDraft } from "./composer/composer-state.js";
 import {
@@ -213,7 +212,6 @@ function App() {
           restartTerminal,
           closeTerminal,
         },
-        nextTerminalId,
       }),
     [],
   );
@@ -739,11 +737,9 @@ function App() {
           terminationMessage={state.terminationMessage}
           terminal={state.terminal}
           terminalChrome={terminalChrome}
-          onKindSelect={(kind) => {
-            void terminalController.selectBottomDrawerKind(kind);
-          }}
-          onTerminalNew={() => terminalController.ensureOpen(nextTerminalId(state.terminal.terminalIds))}
-          onTerminalSelect={(terminalId) => dispatch({ type: "terminal_active_set", terminalId })}
+          onKindSelect={terminalController.selectBottomDrawerKind}
+          onTerminalNew={terminalController.openNewBottomDrawerTerminal}
+          onTerminalSelect={terminalController.activateBottomDrawerTerminal}
           onTerminalSend={terminalController.sendActive}
           onTerminalClear={terminalController.clearActive}
           onTerminalRestart={terminalController.restartActive}

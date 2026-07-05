@@ -540,6 +540,8 @@ lifecycle and reload-by-bootstrap recovery; it must not call
 session event replay HTTP routes as history APIs. `terminal-controller.js`
 coordinates existing terminal API helpers and reducer actions for bottom-drawer
 terminal actions plus right-panel terminal open/split/activate/close behavior.
+Bottom drawer terminal new/select actions and terminal id generation stay in
+that controller rather than App-level inline callbacks.
 `App.jsx` remains the composition layer for HTTP route calls, reducer dispatch,
 session activation wiring, task/artifact refreshes, and render composition in
 this slice. `visual-debug-fixtures.js` owns the

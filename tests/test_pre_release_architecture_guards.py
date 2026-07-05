@@ -2340,6 +2340,15 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert (
         "BOTTOM_DRAWER_ACTIVATION_HANDLERS[definition.activationKind]" in terminal_controller_text
     )
+    assert "defaultNextTerminalId" in terminal_controller_text
+    assert "openNewBottomDrawerTerminal" in terminal_controller_text
+    assert "activateBottomDrawerTerminal" in terminal_controller_text
+    assert "onKindSelect={terminalController.selectBottomDrawerKind}" in app_text
+    assert "onTerminalNew={terminalController.openNewBottomDrawerTerminal}" in app_text
+    assert "onTerminalSelect={terminalController.activateBottomDrawerTerminal}" in app_text
+    assert "terminalController.ensureOpen" not in app_text
+    assert "nextTerminalId" not in app_text
+    assert 'type: "terminal_active_set"' not in app_text
     assert 'switch (definition ? definition.activationKind : "")' not in terminal_controller_text
     assert 'kind === "terminal"' not in terminal_controller_text
     assert 'surface.kind !== "terminal"' not in terminal_controller_text

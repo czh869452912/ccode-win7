@@ -132,6 +132,10 @@ so `App.jsx` does not construct diff surface state or dispatch
 Terminal service calls require the active app shell's Terminal capability
 before opening, listing, writing, clearing, restarting, closing, or attaching
 terminal panes, even when stale terminal UI state still exists locally.
+Bottom drawer terminal new/select callbacks and terminal id generation are
+owned by `app-runtime/terminal-controller.js`; `App.jsx` wires the controller
+methods directly instead of importing `nextTerminalId` or dispatching
+`terminal_active_set` inline.
 Right-panel terminal surface creation follows the same rule
 and refuses to start a terminal session when the active app shell omits the
 right-panel Terminal surface. Right-panel activation side effects use

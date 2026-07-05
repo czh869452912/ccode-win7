@@ -1005,7 +1005,15 @@ async function main() {
   );
   assert.equal(appSource.includes("createTerminalController"), true);
   assert.equal(appSource.includes("stateRef.current = state"), true);
-  assert.equal(appSource.includes("terminalController.ensureOpen"), true);
+  assert.equal(appSource.includes("terminalController.ensureOpen"), false);
+  assert.equal(appSource.includes("nextTerminalId"), false);
+  assert.equal(appSource.includes("onKindSelect={terminalController.selectBottomDrawerKind}"), true);
+  assert.equal(appSource.includes("onTerminalNew={terminalController.openNewBottomDrawerTerminal}"), true);
+  assert.equal(
+    appSource.includes("onTerminalSelect={terminalController.activateBottomDrawerTerminal}"),
+    true,
+  );
+  assert.equal(appSource.includes('type: "terminal_active_set"'), false);
   assert.equal(appSource.includes("terminalController.openSession"), false);
   assert.equal(appSource.includes("terminalController.openRightPanelSurface"), true);
   assert.equal(appSource.includes("terminalController.splitRightPanelSurface"), true);
@@ -1438,6 +1446,10 @@ async function main() {
   assert.equal(terminalControllerSource.includes("appCapabilities?.terminal?.enabled === true"), false);
   assert.equal(terminalControllerSource.includes("TERMINAL_SURFACE_KIND"), true);
   assert.equal(terminalControllerSource.includes("terminalSurfaceActionInput"), true);
+  assert.equal(terminalControllerSource.includes("defaultNextTerminalId"), true);
+  assert.equal(terminalControllerSource.includes("openNewBottomDrawerTerminal"), true);
+  assert.equal(terminalControllerSource.includes("activateBottomDrawerTerminal"), true);
+  assert.equal(terminalControllerSource.includes('type: "terminal_active_set"'), true);
   assert.equal(terminalControllerSource.includes("surfaceDefinitionFor"), true);
   assert.equal(terminalControllerSource.includes("bottomDrawerSurfaceDefinitionFor"), true);
   assert.equal(terminalControllerSource.includes("definition.activationKind"), true);

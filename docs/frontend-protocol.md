@@ -565,6 +565,9 @@ Bottom drawer selection uses the same renderer metadata path: drawer activation
 side effects come from bottom surface `activationKind` records, not drawer-kind
 conditionals in the terminal controller. Supported activation kinds route
 through a renderer-local handler registry rather than a controller switch.
+Bottom drawer terminal new/select actions and terminal id generation remain
+inside `terminal-controller.js`; App wires controller methods directly and does
+not import terminal id helpers or dispatch `terminal_active_set` inline.
 Supported bottom drawer `bodyKind` values route through a renderer-local body
 renderer registry rather than a component switch.
 The renderer has no root-level `inspectorTab` / `inspectorOpen` navigation
