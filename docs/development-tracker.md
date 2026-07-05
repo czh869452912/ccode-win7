@@ -582,6 +582,12 @@
 - `CommandPalette.jsx` remains a display component for root/submenu navigation, Escape, and backdrop close; selected command/session/workspace items hand intent to the controller-owned callbacks.
 - This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, terminal backend service, source-control execution, provider configuration, extension loading, telemetry, or runtime reducer semantics changed.
 
+### 2026-06-18 - GUI Workspace Path Input Controller Boundary
+
+- React webapp `webapp/src/app-runtime/workspace-controller.js` now owns workspace-path input updates in addition to app bootstrap and workspace open/activate/remove flows.
+- `App.jsx` wires `setWorkspacePath` directly into Sidebar and NoWorkspaceState instead of dispatching `workspace_path_changed` inline.
+- This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, source-control execution, provider configuration, extension loading, telemetry, or runtime reducer semantics changed.
+
 ### 2026-06-18 - GUI Session/App Loader Runtime Boundary
 
 - React webapp `webapp/src/app-runtime/session-loaders.js` now owns the GUI-private loader request vocabulary, defensive loader request executor, and session bootstrap projection helper.

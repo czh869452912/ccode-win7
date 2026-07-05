@@ -245,6 +245,13 @@ isolated in `app-runtime/browser-dialog-service.js`; `App.jsx` injects that
 service into the lifecycle controller rather than calling browser dialog APIs
 directly.
 
+GUI app bootstrap, workspace lifecycle, and workspace-path input state updates
+are owned by `app-runtime/workspace-controller.js`. The controller fetches app
+bootstrap/workspace routes, applies workspace switch payloads, and dispatches
+`workspace_path_changed`; `App.jsx` wires `setWorkspacePath`, `openWorkspace`,
+`activateWorkspace`, and `removeWorkspace` directly instead of inline reducer
+dispatch or workspace lifecycle HTTP calls.
+
 GUI session list loading is owned by the renderer
 `app-runtime/session-list-controller.js`. The controller is the only webapp
 module that fetches `/api/sessions` for the thread list and dispatches

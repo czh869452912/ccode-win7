@@ -535,6 +535,10 @@ execution against injected GUI callbacks, while
 official `/api/sessions/{id}/bootstrap` payload. `socket-message-effects.js`
 maps existing WebSocket messages into private webapp descriptors: reducer
 actions, session transport events, and loader requests.
+`workspace-controller.js` owns app bootstrap, workspace open/activate/remove,
+workspace switch application, and workspace-path input updates; App wires
+`setWorkspacePath` directly instead of dispatching `workspace_path_changed`
+inline.
 `session-transport-controller.js` owns WebSocket connect/reconnect/error
 lifecycle and reload-by-bootstrap recovery; it must not call
 session event replay HTTP routes as history APIs. `terminal-controller.js`

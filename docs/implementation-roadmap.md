@@ -172,7 +172,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   Diff surface opening is delegated to `diff-surface-controller.js` instead of
   `App.jsx` constructing diff surface state directly; `App.jsx` wires
   file/diff/preview controller methods directly instead of retaining
-  `openFile`, `openDiffSurface`, or `openPreview*` wrappers; session list loading is
+  `openFile`, `openDiffSurface`, or `openPreview*` wrappers; workspace path
+  input updates are delegated to `workspace-controller.js`
+  instead of inline `workspace_path_changed` dispatches; session list loading is
   delegated to `session-list-controller.js` as a direct controller handle instead of
   `App.jsx` keeping a `loadSessions` wrapper, directly fetching `/api/sessions`,
   or dispatching `sessions_loaded`; session bootstrap activation is delegated to

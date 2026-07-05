@@ -2925,6 +2925,7 @@ def test_gui_workspace_lifecycle_stays_in_workspace_controller():
         "async function removeWorkspace",
         "canSwitchWorkspace",
         "normalizeAppBootstrap",
+        "workspace_path_changed",
         '"/api/app/bootstrap"',
         '"/api/app/workspaces"',
     )
@@ -2934,6 +2935,8 @@ def test_gui_workspace_lifecycle_stays_in_workspace_controller():
             offenders.append("App.jsx owns workspace lifecycle token %s" % token)
     required_controller_tokens = (
         "export function createWorkspaceController",
+        "function setWorkspacePath",
+        'type: "workspace_path_changed"',
         "normalizeAppBootstrap",
         '"/api/app/bootstrap"',
         '"/api/app/workspaces"',
@@ -2941,6 +2944,8 @@ def test_gui_workspace_lifecycle_stays_in_workspace_controller():
     for token in required_controller_tokens:
         if token not in controller_text:
             offenders.append("workspace-controller.js missing %s" % token)
+    assert "onWorkspacePathChange={setWorkspacePath}" in app_text
+    assert "onChange={setWorkspacePath}" in app_text
     assert "import React" not in controller_text
     assert offenders == []
 

@@ -153,6 +153,9 @@ that copy from the app-shell read model instead of hard-coding the default
 EmbedAgent wording. This copy remains presentation metadata only and must not
 drive session history, workspace activation policy, workflow state, tool
 visibility, permissions, or extension loading.
+Workspace path input changes are GUI app-shell state updates owned by
+`webapp/src/app-runtime/workspace-controller.js`; root App composition wires
+`setWorkspacePath` and does not inline `workspace_path_changed` dispatches.
 The default GUI shell descriptor set lives in
 `src/embedagent/frontend/gui/backend/app_shell_spec.py` and is injected into
 `AppShellService`; alternate hosts may provide a smaller or specialized spec

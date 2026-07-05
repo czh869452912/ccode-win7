@@ -63,6 +63,10 @@ export function createWorkspaceController({
     await loadWorkspaceScopedData(sessionId, assumeWorkspace, appCapabilities);
   }
 
+  function setWorkspacePath(value) {
+    send({ type: "workspace_path_changed", value });
+  }
+
   function assertCanSwitch() {
     const switchState = canSwitchWorkspace(readState());
     if (switchState.allowed) {
@@ -119,5 +123,6 @@ export function createWorkspaceController({
     loadAppBootstrap,
     openWorkspace,
     removeWorkspace,
+    setWorkspacePath,
   };
 }

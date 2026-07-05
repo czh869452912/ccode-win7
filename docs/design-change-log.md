@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-298
+
+- Date: 2026-07-05
+- Change Topic: GUI workspace path input is controller-owned
+- Summary:
+  - `workspace-controller.js` now exposes `setWorkspacePath(...)` and owns the
+    `workspace_path_changed` reducer action.
+  - `App.jsx` wires `setWorkspacePath` directly into Sidebar and
+    NoWorkspaceState instead of inline-dispatching workspace path input
+    changes.
+  - Frontend and architecture guards now reject root-level
+    `workspace_path_changed` dispatches.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/workspace-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/workspace-controller.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Move surface-panel action wiring out of `App.jsx` once that controller
+    boundary is isolated.
+
 ### DC-297
 
 - Date: 2026-07-05

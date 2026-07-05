@@ -64,6 +64,12 @@ export async function runWorkspaceControllerTests() {
   assert.deepEqual(calls[1].slice(0, 3), ["loadWorkspaceData", "", true]);
   assert.equal(calls[1][3]?.terminal?.enabled === true, true);
 
+  controller.setWorkspacePath("D:/work/typed");
+  assert.deepEqual(actions.at(-1), {
+    type: "workspace_path_changed",
+    value: "D:/work/typed",
+  });
+
   await controller.openWorkspace();
   assert.equal(actions.at(-1).type, "workspace_switched");
   assert.deepEqual(calls.find((call) => call[1] === "/api/app/workspaces").slice(0, 4), [
@@ -97,12 +103,17 @@ export async function runWorkspaceControllerTests() {
   assert.equal(appSource.includes("async function activateWorkspace"), false);
   assert.equal(appSource.includes("async function removeWorkspace"), false);
   assert.equal(appSource.includes("async function loadAppBootstrap"), false);
+  assert.equal(appSource.includes("workspace_path_changed"), false);
+  assert.equal(appSource.includes("onWorkspacePathChange={setWorkspacePath}"), true);
+  assert.equal(appSource.includes("onChange={setWorkspacePath}"), true);
   assert.equal(appSource.includes("createWorkspaceController"), true);
   assert.equal(appSource.includes("createWorkspaceFilesController"), true);
   assert.equal(appSource.includes("fetchJson(`/api/files/tree?path="), false);
 
   const controllerSource = readSource("app-runtime", "workspace-controller.js");
   assert.equal(controllerSource.includes("export function createWorkspaceController"), true);
+  assert.equal(controllerSource.includes("function setWorkspacePath"), true);
+  assert.equal(controllerSource.includes('type: "workspace_path_changed"'), true);
   assert.equal(controllerSource.includes("/api/app/bootstrap"), true);
   assert.equal(controllerSource.includes("/api/app/workspaces"), true);
   assert.equal(controllerSource.includes("import React"), false);

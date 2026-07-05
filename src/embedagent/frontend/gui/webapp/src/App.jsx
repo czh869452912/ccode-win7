@@ -394,6 +394,7 @@ function App() {
     loadAppBootstrap,
     openWorkspace,
     removeWorkspace,
+    setWorkspacePath,
   } = workspaceController;
 
   const sessionController = useMemo(
@@ -616,7 +617,7 @@ function App() {
           currentMode={currentMode}
           modeCatalog={state.sessionCapabilities?.modeCatalog || {}}
           workspacePathInput={state.app.workspacePathInput}
-          onWorkspacePathChange={(value) => dispatch({ type: "workspace_path_changed", value })}
+          onWorkspacePathChange={setWorkspacePath}
           onLoadSession={loadSession}
           onCreateSession={createSession}
           onThreadLifecycleAction={handleThreadLifecycleAction}
@@ -678,7 +679,7 @@ function App() {
             workspaces={state.app.workspaces}
             appHome={appHomeModel}
             emptyState={state.app.capabilities?.emptyState || state.sessionCapabilities?.emptyState}
-            onChange={(value) => dispatch({ type: "workspace_path_changed", value })}
+            onChange={setWorkspacePath}
             onOpen={openWorkspace}
             onActivate={activateWorkspace}
           />
