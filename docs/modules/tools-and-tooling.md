@@ -5,8 +5,8 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-04`
-> 对应代码范围：`src/embedagent/tools/`, `src/embedagent/tooling/`, `src/embedagent/local_resources.py`, `src/embedagent/self_extension_authoring.py`, `src/embedagent/workspace_recipes.py`
+> 最后同步日期：`2026-07-05`
+> 对应代码范围：`src/embedagent/tools/`, `src/embedagent/tooling/`, `src/embedagent/local_resources.py`, `src/embedagent/self_extension_authoring.py`, `src/embedagent/workspace_recipes.py`, `src/embedagent/workflow_packages/c_cpp/recipe_ops.py`, `src/embedagent/workflow_packages/c_cpp/session_ops.py`, `src/embedagent/workflow_packages/c_cpp/workspace_recipes.py`
 
 ## 1. Purpose And Scope
 
@@ -17,7 +17,7 @@
 - official tool runtime facade
 - tool packs and contracts
 - schema / catalog metadata
-- recipe execution and quality reporting
+- workflow-neutral built-in tools plus workflow-owned recipe/quality tools
 - explicit active schema projection through `ToolRuntime.schemas_for(...)`
 - source-aware dynamic tool registration
 - file-only local resource reload
@@ -28,10 +28,10 @@
 
 ## 3. Code Mapping
 
-- 目录：`src/embedagent/tools/`, `src/embedagent/tooling/`
+- 目录：`src/embedagent/tools/`, `src/embedagent/tooling/`, `src/embedagent/workflow_packages/c_cpp/`
 - 入口文件：`src/embedagent/tools/runtime.py`
 - 核心对象：`ToolRuntime`、`ToolDefinition`、tool ops modules、tool pack registry functions (`register_pack`, `list_packs`)
-- 上游依赖：harness、query engine、`AgentExtensionHost`、`AgentToolActionService`
+- 上游依赖：`AgentExtensionHost`、`AgentToolActionService`、default C/C++ workflow extension
 - 下游影响：tool execution、context reduction、frontend tool catalog
 - 相关测试：`tests/test_tools_package.py`、`tests/test_tools_v2_runtime.py`、`tests/test_tool_execution.py`、`tests/test_tool_commit.py`、`tests/test_tooling_budget_v2.py`、`tests/test_dynamic_tool_registration.py`、`tests/test_local_resources.py`、`tests/test_project_extensions.py`、`tests/test_workflow_extensions.py`
 - 相关契约：`docs/tool-contracts.md`、`docs/overall-solution-architecture.md`
@@ -58,9 +58,14 @@
 
 `src/embedagent/local_resources.py` 是 workflow-neutral file-resource
 discovery：skills、prompts 和 `.embedagent/recipes/*.json` 只按资源声明投影，
-不会注入默认 C/C++ workflow tool names。默认 C/C++ 工作流的 runnable recipe
-聚合与 `run_recipe` 归一化位于 `src/embedagent/workspace_recipes.py` 及
-`src/embedagent/workflow_packages/c_cpp/` 边界内。
+不会注入默认 C/C++ workflow tool names。`src/embedagent/workspace_recipes.py`
+是 workflow-neutral file-resource/read-model facade：它只合并显式项目、本地
+资源与历史 recipe 记录，不做 CMake/Make/Ninja 检测，也不写入默认
+`run_recipe` tool name。默认 C/C++ 工作流的 runnable recipe 聚合、CMake/Make/Ninja
+检测、`run_recipe` 归一化与 recipe resolution 位于
+`src/embedagent/workflow_packages/c_cpp/workspace_recipes.py`，并由
+`CHarnessWorkflowExtension` 的 `workspace_recipes` capability 暴露给 hosted API
+和 runtime provider。
 
 `src/embedagent/self_extension_authoring.py` 同样保持 workflow-neutral：生成
 recipe 与 extension validation recipe 时不写入默认 C/C++ `tool_name`。这些

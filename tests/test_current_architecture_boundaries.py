@@ -420,3 +420,13 @@ def test_generic_workspace_recipe_facade_does_not_import_c_cpp_workflow_constant
             if token in text:
                 offenders.append("%s contains %s" % (rel, token))
     assert offenders == []
+
+
+def test_tools_module_docs_keep_workspace_recipes_workflow_neutral():
+    text = _read(ROOT / "docs/modules/tools-and-tooling.md")
+
+    assert "聚合与 `run_recipe` 归一化位于 `src/embedagent/workspace_recipes.py`" not in text
+    assert "`src/embedagent/workspace_recipes.py`" in text
+    assert "workflow-neutral file-resource/read-model facade" in text
+    assert "不做 CMake/Make/Ninja 检测" in text
+    assert "src/embedagent/workflow_packages/c_cpp/workspace_recipes.py" in text
