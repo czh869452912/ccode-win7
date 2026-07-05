@@ -337,9 +337,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   state, `session-runtime/session-transport-state.js` owns active session
   transport connection/reload projection,
   `app-runtime/session-transport-controller.js` owns WebSocket lifecycle, and
-  `app-runtime/session-activation-controller.js` owns bootstrap activation,
-  `app-runtime/socket-effect-executor.js` owns application of derived socket
-  transport/action/loader effects, while `app-runtime/session-list-controller.js`
+  `app-runtime/session-transport-handle.js` owns the React-facing transport
+  state bridge, `app-runtime/session-activation-controller.js` owns bootstrap
+  activation, `app-runtime/socket-effect-executor.js` owns application of derived
+  socket transport/action/loader effects, while `app-runtime/session-list-controller.js`
   owns session list loading and `app-runtime/http-client.js` owns shared JSON
   request/error handling; `app-runtime/active-workspace-data-loader.js` owns
   active-workspace read-model refresh fanout, and

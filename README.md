@@ -113,6 +113,11 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official GUI session-list loading boundary: renderer session list loading is owned by `webapp/src/app-runtime/session-list-controller.js`; `App.jsx` composes that controller and must not directly fetch `/api/sessions` or dispatch `sessions_loaded`.
 - Official GUI HTTP client boundary: shared JSON request/error handling lives in `webapp/src/app-runtime/http-client.js`; `App.jsx` imports `fetchJson` and must not define an inline HTTP helper or call browser `fetch` directly.
 - Official GUI socket-effect execution boundary: WebSocket payload normalization may derive transport events, reducer actions, and loader requests, but applying those effects is owned by `webapp/src/app-runtime/socket-effect-executor.js`; `App.jsx` must not directly append session transport events, branch on reload recovery, or loop over effect actions/loaders.
+- Official GUI session-transport state bridge: current transport-state read,
+  sync, replace, update, and runtime reset construction live in
+  `webapp/src/app-runtime/session-transport-handle.js`; `App.jsx` owns the
+  React state cell but must not keep a parallel `sessionTransportRef` or inline
+  transport replace/update helpers.
 - Official GUI active-workspace data boundary: the post-activation read-model refresh fanout for sessions, session capabilities, workspace files, and local status surfaces is owned by `webapp/src/app-runtime/active-workspace-data-loader.js`; `App.jsx` wires dependencies but must not inline that reload `Promise.all`.
 - Official GUI panel-resize boundary: pointer/DOM logic for sidebar and right-panel resizing lives in `webapp/src/app-runtime/panel-resize-controller.js`; `App.jsx` wires resize handlers but must not mutate `documentElement.style` directly.
 - Official GUI timeline-scroll boundary: Timeline bottom-follow state and

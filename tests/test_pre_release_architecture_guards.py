@@ -816,6 +816,25 @@ def test_gui_socket_effect_execution_is_controller_owned():
     assert "executeLoaderRequest" in executor_text
 
 
+def test_gui_session_transport_state_bridge_is_handle_owned():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    handle_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-transport-handle.js"
+    )
+
+    assert "createSessionTransportHandle" in app_text
+    assert "sessionTransportRef" not in app_text
+    assert "function replaceSessionTransport" not in app_text
+    assert "function updateSessionTransport" not in app_text
+    assert "function createRuntimeSessionTransport" not in app_text
+    assert "export function createSessionTransportHandle" in handle_text
+    assert "createRuntimeTransport" in handle_text
+    assert "function replace" in handle_text
+    assert "function update" in handle_text
+    assert "function sync" in handle_text
+    assert "createSessionTransportState" in handle_text
+
+
 def test_gui_command_result_run_output_log_is_payload_driven():
     text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"

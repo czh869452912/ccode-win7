@@ -276,6 +276,11 @@ events, reducer actions, and loader requests from backend messages, while
 active session transport read model, dispatching reducer actions, invoking
 loader requests, and triggering reload recovery. `App.jsx` stays the
 composition root and does not own transport append/recovery loops.
+The React-facing session transport state bridge is
+`app-runtime/session-transport-handle.js`: it owns current transport reads,
+sync, replace, update, and runtime reset construction for session activation
+and socket recovery. `App.jsx` keeps the React state cell but does not maintain
+a parallel `sessionTransportRef` or inline transport mutation helpers.
 
 The GUI terminal bottom drawer is also app-shell hosted. `GUIBackend` owns an
 in-memory terminal service bound to the active workspace and exposes

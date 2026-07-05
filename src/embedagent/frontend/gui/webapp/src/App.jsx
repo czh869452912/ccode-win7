@@ -23,6 +23,7 @@ import {
 import { createRightPanelController } from "./app-runtime/right-panel-controller.js";
 import { createSessionActivationController } from "./app-runtime/session-activation-controller.js";
 import { createSessionController } from "./app-runtime/session-controller.js";
+import { createSessionTransportHandle } from "./app-runtime/session-transport-handle.js";
 import { createSessionListController } from "./app-runtime/session-list-controller.js";
 import { createSessionTransportController } from "./app-runtime/session-transport-controller.js";
 import { createSourceControlController } from "./app-runtime/source-control-controller.js";
@@ -87,10 +88,17 @@ function App() {
   const currentSessionIdRef = useRef("");
   const respondingRequestIdsRef = useRef([]);
   const runtimeStateRef = useRef(null);
-  const sessionTransportRef = useRef(sessionTransport);
   const sessionTransportControllerRef = useRef(null);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const sessionTransportHandle = useMemo(
+    () =>
+      createSessionTransportHandle({
+        initialTransport: sessionTransport,
+        setTransport: setSessionTransport,
+      }),
+    [],
+  );
 
   const currentSessionId = readActiveThreadId(state);
   const threadSessions = readThreadSessions(state);
@@ -213,21 +221,8 @@ function App() {
   }, [state.workbench]);
 
   useEffect(() => {
-    sessionTransportRef.current = sessionTransport;
-  }, [sessionTransport]);
-
-  function replaceSessionTransport(nextTransport) {
-    sessionTransportRef.current = nextTransport;
-    setSessionTransport(nextTransport);
-    return nextTransport;
-  }
-
-  function updateSessionTransport(updater) {
-    const nextTransport = updater(sessionTransportRef.current);
-    sessionTransportRef.current = nextTransport;
-    setSessionTransport(nextTransport);
-    return nextTransport;
-  }
+    sessionTransportHandle.sync(sessionTransport);
+  }, [sessionTransport, sessionTransportHandle]);
 
   function setRespondingRequestIds(value) {
     const nextValue =
@@ -237,14 +232,6 @@ function App() {
       : [];
     respondingRequestIdsRef.current = normalized;
     setRespondingRequestIdsState(normalized);
-  }
-
-  function createRuntimeSessionTransport() {
-    const connectionState = sessionTransportRef.current?.connectionState || "connecting";
-    return createSessionTransportState({
-      connectionState,
-      reloadState: "healthy",
-    });
   }
 
   // initial app/workspace data load
@@ -257,8 +244,8 @@ function App() {
   useEffect(() => {
     const controller = createSessionTransportController({
       getCurrentSessionId: () => currentSessionIdRef.current,
-      getTransportState: () => sessionTransportRef.current,
-      updateTransportState: updateSessionTransport,
+      getTransportState: sessionTransportHandle.read,
+      updateTransportState: sessionTransportHandle.update,
       loadSession,
       handleMessage: (message) => {
         startTransition(() => handleSocketMessage(message.type, message.data || {}));
@@ -307,8 +294,8 @@ function App() {
       fetchJson,
       dispatch,
       defaultMode: INITIAL_REQUESTED_MODE,
-      createTransportState: createRuntimeSessionTransport,
-      replaceTransportState: replaceSessionTransport,
+      createTransportState: sessionTransportHandle.createRuntimeTransport,
+      replaceTransportState: sessionTransportHandle.replace,
       getAppCapabilities: () => stateRef.current.app.capabilities || {},
       listTerminals,
     });
@@ -526,8 +513,8 @@ function App() {
     dispatch,
     executeLoaderRequest,
     getSessionTransportController: () => sessionTransportControllerRef.current,
-    getSessionTransportState: () => sessionTransportRef.current,
-    updateSessionTransportState: updateSessionTransport,
+    getSessionTransportState: sessionTransportHandle.read,
+    updateSessionTransportState: sessionTransportHandle.update,
     getCurrentSessionId: () => currentSessionIdRef.current,
     loadSession,
   });
@@ -537,7 +524,7 @@ function App() {
       type,
       data: data || {},
       currentSessionId: currentSessionIdRef.current,
-      sessionTransport: sessionTransportRef.current,
+      sessionTransport: sessionTransportHandle.read(),
       makeId: makeEventId,
       nowIso: () => new Date().toISOString(),
       diffPanelChrome,

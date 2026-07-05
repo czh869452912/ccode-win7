@@ -39,6 +39,7 @@ import { runBrowserDialogServiceTests } from "./browser-dialog-service.test.mjs"
 import { runWorkbenchKeyboardControllerTests } from "./workbench-keyboard-controller.test.mjs";
 import { runWorkbenchCommandControllerTests } from "./workbench-command-controller.test.mjs";
 import { runThreadLifecycleControllerTests } from "./thread-lifecycle-controller.test.mjs";
+import { runSessionTransportHandleTests } from "./session-transport-handle.test.mjs";
 import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
 import { runSocketEffectExecutorTests } from "./socket-effect-executor.test.mjs";
 import { runInteractionResponseControllerTests } from "./interaction-response-controller.test.mjs";
@@ -2028,6 +2029,10 @@ async function main() {
     webappSourcePath("app-runtime", "session-transport-controller.js"),
     "utf8",
   );
+  const sessionTransportHandleSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "session-transport-handle.js"),
+    "utf8",
+  );
   const socketEffectExecutorSource = fs.readFileSync(
     webappSourcePath("app-runtime", "socket-effect-executor.js"),
     "utf8",
@@ -2051,6 +2056,18 @@ async function main() {
   assert.equal(sessionTransportControllerSource.includes("shouldReconnectSocket"), true);
   assert.equal(sessionTransportControllerSource.includes("appendSessionTransportEvent"), true);
   assert.equal(sessionTransportControllerSource.includes("/events?after_seq"), false);
+  assert.equal(appSource.includes("createSessionTransportHandle"), true);
+  assert.equal(appSource.includes("sessionTransportRef"), false);
+  assert.equal(appSource.includes("function replaceSessionTransport"), false);
+  assert.equal(appSource.includes("function updateSessionTransport"), false);
+  assert.equal(appSource.includes("function createRuntimeSessionTransport"), false);
+  assert.equal(sessionTransportHandleSource.includes("export function createSessionTransportHandle"), true);
+  assert.equal(sessionTransportHandleSource.includes("createRuntimeTransport"), true);
+  assert.equal(sessionTransportHandleSource.includes("function replace"), true);
+  assert.equal(sessionTransportHandleSource.includes("function update"), true);
+  assert.equal(sessionTransportHandleSource.includes("function sync"), true);
+  assert.equal(sessionTransportHandleSource.includes("createSessionTransportState"), true);
+  assert.equal(sessionTransportHandleSource.includes("import React"), false);
   assert.equal(appSource.includes("createSocketEffectExecutor"), true);
   assert.equal(appSource.includes("const executeSocketEffects = createSocketEffectExecutor"), true);
   assert.equal(appSource.includes("appendSessionTransportEvent"), false);
@@ -2177,6 +2194,7 @@ async function main() {
   runWorkbenchKeyboardControllerTests();
   await runWorkbenchCommandControllerTests();
   await runThreadLifecycleControllerTests();
+  runSessionTransportHandleTests();
   await runSessionTransportControllerTests();
   await runSocketEffectExecutorTests();
   await runInteractionResponseControllerTests();

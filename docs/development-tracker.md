@@ -125,6 +125,10 @@
   `app-runtime/socket-effect-executor.js`. `App.jsx` no longer owns the
   transport-event append loop, reload recovery branch, reducer-action loop, or
   loader-request loop after `socket-message-effects.js` derives effects.
+- GUI session transport state bridging now lives in
+  `app-runtime/session-transport-handle.js`. `App.jsx` keeps the React state
+  cell but no longer owns `sessionTransportRef`, transport replace/update
+  helpers, or runtime transport reset construction.
 - GUI shared JSON HTTP handling now lives in `app-runtime/http-client.js`.
   `App.jsx` imports `fetchJson` instead of defining an inline fetch wrapper, so
   request/error normalization is no longer rooted in the GUI composition
