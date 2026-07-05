@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from embedagent.agent_profiles import (
     AgentProfile,
-    default_c_cpp_agent_profile,
     generic_agent_profile,
     html_agent_profile,
     python_agent_profile,
@@ -309,8 +308,6 @@ def _record_by_id(application_id: str) -> AgentApplicationRecord:
 
 
 def _profile_for_record(record: AgentApplicationRecord) -> AgentProfile:
-    if record.profile_kind == "default_c_cpp":
-        return default_c_cpp_agent_profile()
     if record.profile_kind == "generic":
         return generic_agent_profile()
     if record.profile_kind == "python":

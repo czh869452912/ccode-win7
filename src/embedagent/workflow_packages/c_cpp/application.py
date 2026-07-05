@@ -7,7 +7,7 @@ from embedagent.agent_applications import (
     AgentApplication,
     AgentApplicationManifest,
 )
-from embedagent.agent_profiles import default_c_cpp_agent_profile
+from embedagent.workflow_packages.c_cpp.agent_profile import default_c_cpp_agent_profile
 from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
 from embedagent.workflow_packages.c_cpp.package_manifest import C_WORKFLOW_PACKAGE_ID
 from embedagent_core.extensions import ExtensionManager

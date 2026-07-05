@@ -254,7 +254,7 @@ def test_workflow_package_capability_descriptors_project_manifest():
 
 
 def test_mode_capability_descriptors_project_agent_profile_modes():
-    from embedagent.agent_profiles import default_c_cpp_agent_profile
+    from embedagent.workflow_packages.c_cpp.agent_profile import default_c_cpp_agent_profile
     from embedagent_core.capabilities import mode_capability_descriptors
 
     descriptors = mode_capability_descriptors(default_c_cpp_agent_profile())

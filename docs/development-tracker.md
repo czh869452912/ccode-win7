@@ -131,8 +131,9 @@
   can narrow or extend the shell through capability data.
 - The global `embedagent.modes` facade now uses the Generic Agent profile
   instead of importing `default_c_cpp_agent_profile()`. C/C++ writable globs,
-  prompt copy, mode descriptors, and base tool policy now enter hosted runtime
-  only through the selected default C/C++ `AgentApplication`.
+  prompt copy, mode descriptors, and base tool policy now live in
+  `src/embedagent/workflow_packages/c_cpp/agent_profile.py` and enter hosted
+  runtime only through the selected default C/C++ `AgentApplication`.
 - Hosted review, project memory, and workspace intelligence now consume the
   generic `tool_evidence` payload schema for recipe/test/coverage/diagnostic
   and quality-gate classification. These services no longer import default

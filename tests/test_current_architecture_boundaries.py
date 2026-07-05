@@ -378,6 +378,32 @@ def test_c_workflow_tools_are_declared_only_by_c_workflow_package_or_tests():
     assert offenders == []
 
 
+def test_c_cpp_agent_profile_lives_in_c_workflow_package():
+    base_profile = ROOT / "src/embedagent/agent_profiles.py"
+    c_profile = ROOT / "src/embedagent/workflow_packages/c_cpp/agent_profile.py"
+    application = ROOT / "src/embedagent/workflow_packages/c_cpp/application.py"
+    loader = ROOT / "src/embedagent/agent_applications.py"
+
+    assert c_profile.is_file()
+
+    base_text = _read(base_profile)
+    forbidden_base_tokens = (
+        "default_c_cpp_agent_profile",
+        "DEVELOPMENT_WRITABLE_GLOBS",
+        "CMakeLists.txt",
+        "**/*.cpp",
+        "**/*.hpp",
+    )
+    offenders = []
+    for token in forbidden_base_tokens:
+        if token in base_text:
+            offenders.append("src/embedagent/agent_profiles.py contains %s" % token)
+    assert offenders == []
+
+    assert "default_c_cpp_agent_profile" not in _read(loader)
+    assert "embedagent.workflow_packages.c_cpp.agent_profile" in _read(application)
+
+
 def test_product_evidence_helpers_do_not_import_c_cpp_workflow_constants():
     files = (
         ROOT / "src/embedagent/review_command.py",

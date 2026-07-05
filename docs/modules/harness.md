@@ -25,13 +25,14 @@
 
 Harness 的职责是把 workflow 结构从 ad-hoc prompt 行为中抽离出来，形成稳定的 `mode + discipline_profile + execution_phase + TaskGraph` 正式模型。
 
-The default C/C++ harness is the bundled built-in workflow package. Hosted product paths install it through the default C/C++ `AgentApplication` in `src/embedagent/workflow_packages/c_cpp/application.py`; a bare `QueryEngine` does not import or construct it. The legacy/global `embedagent.modes` facade is backed by the Generic Agent profile, while the C/C++ application supplies the C/C++ profile to hosted runtime mode policy. Harness internals may own `TaskGraph`, C/C++ recipe detection, and `run_recipe` projection, but Agent Core and frontend consumers receive only generic workflow/read-model payloads. Harness hooks, package manifest collection, context reducer registration, workspace recipe projection, active tools, tool registration, task loading, managed-session refresh, and extension-owned `task_status` handling are declared through explicit `ExtensionCapability` records returned by `CHarnessWorkflowExtension.extension_capabilities()`, then reached from host code through `AgentApplication.refresh_managed_session()`.
+The default C/C++ harness is the bundled built-in workflow package. Hosted product paths install it through the default C/C++ `AgentApplication` in `src/embedagent/workflow_packages/c_cpp/application.py`; a bare `QueryEngine` does not import or construct it. The legacy/global `embedagent.modes` facade is backed by the Generic Agent profile, while the C/C++ application supplies the package-owned profile from `src/embedagent/workflow_packages/c_cpp/agent_profile.py` to hosted runtime mode policy. Harness internals may own `TaskGraph`, C/C++ recipe detection, and `run_recipe` projection, but Agent Core and frontend consumers receive only generic workflow/read-model payloads. Harness hooks, package manifest collection, context reducer registration, workspace recipe projection, active tools, tool registration, task loading, managed-session refresh, and extension-owned `task_status` handling are declared through explicit `ExtensionCapability` records returned by `CHarnessWorkflowExtension.extension_capabilities()`, then reached from host code through `AgentApplication.refresh_managed_session()`.
 
 ## 3. Code Mapping
 
 - 目录：`src/embedagent/workflow_packages/c_cpp/`
 - 入口文件：`src/embedagent/workflow_packages/c_cpp/extension.py`
-- 核心对象：`CHarnessWorkflowExtension`、`HarnessRunner`、`TaskGraph`、`build_workflow_projection()`、`advance_phase()` / `advance_until_stable()`
+- profile：`src/embedagent/workflow_packages/c_cpp/agent_profile.py`
+- 核心对象：`default_c_cpp_agent_profile()`、`CHarnessWorkflowExtension`、`HarnessRunner`、`TaskGraph`、`build_workflow_projection()`、`advance_phase()` / `advance_until_stable()`
 - 上游依赖：`AgentApplication`、`ExtensionManager`、agent profile mode policy
 - 下游影响：`task_status`、session snapshots、frontend runtime
 - workflow-owned recipes：`src/embedagent/workflow_packages/c_cpp/workspace_recipes.py`、`recipe_ops.py`
