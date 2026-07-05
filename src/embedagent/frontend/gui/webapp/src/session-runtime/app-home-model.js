@@ -35,6 +35,12 @@ function emptyStateCopy(app = {}) {
   return copy && typeof copy === "object" ? copy : {};
 }
 
+function fallbackSessionTitle(sessionId, threadCopy = {}) {
+  const shortId = String(sessionId || "").slice(0, 8);
+  const prefix = firstText(threadCopy.sessionFallbackPrefix);
+  return prefix && shortId ? `${prefix} ${shortId}` : shortId;
+}
+
 export function formatSessionUpdatedLabel(value) {
   const text = String(value || "").trim();
   if (!text) return "";
@@ -122,7 +128,7 @@ export function buildAppHomeModel({
           || String(session.title || "").trim()
           || String(session.user_goal || "").trim()
           || String(session.summary_text || "").trim()
-          || `Session ${sessionId.slice(0, 8)}`,
+          || fallbackSessionTitle(sessionId, threadCopy),
         mode: String(session.current_mode || defaultMode || ""),
         updated: formatSessionUpdatedLabel(session.updated_at),
         isActive: sessionId === currentSessionId,
@@ -166,6 +172,7 @@ export function buildAppHomeModel({
         emptyBody: firstText(threadCopy.emptyBody),
         activeLabel: firstText(threadCopy.activeLabel),
         actionsLabelPrefix: firstText(threadCopy.actionsLabelPrefix),
+        sessionFallbackPrefix: firstText(threadCopy.sessionFallbackPrefix),
       },
       rows: threadRows,
     },

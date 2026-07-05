@@ -44,6 +44,36 @@
 
 ## 3. 当前变更记录
 
+### DC-270
+
+- Date: 2026-07-05
+- Change Topic: GUI App Home untitled thread fallback is descriptor-owned
+- Summary:
+  - Added `home.threads.session_fallback_prefix` to the default app-shell
+    capability payload.
+  - `app-home-model` now uses the app-shell prefix for untitled thread rows
+    and falls back only to the safe session id fragment when the descriptor is
+    absent.
+  - Added frontend and Python guards so renderer-local ``Session ${id}``
+    fallback copy cannot return.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/app-home-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/app-home-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue auditing app-home/workbench display fallbacks that still derive
+    visible copy from renderer-local English defaults.
+
 ### DC-269
 
 - Date: 2026-07-05

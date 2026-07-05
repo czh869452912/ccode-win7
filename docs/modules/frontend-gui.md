@@ -165,7 +165,9 @@ truth, workspace registry persistence, workflow policy, or Core lifecycle.
 The no-workspace screen reads its product kicker from backend app metadata
 (`app.productName`) and its copy from `capabilities.home` /
 `capabilities.emptyState`; it must not hard-code the default product or agent
-name, and app-shell normalization preserves missing product names as empty.
+name. Untitled thread fallback prefixes also come from
+`capabilities.home.threads`, and app-shell normalization preserves missing
+product names as empty.
 The project list is locally scroll-bounded so accumulated recent projects do
 not push thread management out of the visible workbench.
 

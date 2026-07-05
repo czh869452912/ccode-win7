@@ -340,6 +340,7 @@ export function runAppShellModelTests() {
     emptyBody: "",
     activeLabel: "",
     actionsLabelPrefix: "",
+    sessionFallbackPrefix: "",
   });
 
   const bootstrap = normalizeAppBootstrap({
@@ -670,14 +671,15 @@ export function runAppShellModelTests() {
           missing_path_label: "Missing project path",
           remove_label: "Forget",
         },
-        threads: {
-          section_title: "Runs",
-          new_label: "Start",
-          empty_title: "No runs",
-          empty_body: "Start a run for this project.",
-          active_label: "current",
-          actions_label_prefix: "Run actions for",
-        },
+          threads: {
+            section_title: "Runs",
+            new_label: "Start",
+            empty_title: "No runs",
+            empty_body: "Start a run for this project.",
+            active_label: "current",
+            actions_label_prefix: "Run actions for",
+            session_fallback_prefix: "Run",
+          },
       },
       source_control: {
         enabled: true,
@@ -1098,6 +1100,7 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.home.threads.sectionTitle, "Runs");
   assert.equal(bootstrap.capabilities.home.threads.newLabel, "Start");
   assert.equal(bootstrap.capabilities.home.threads.activeLabel, "current");
+  assert.equal(bootstrap.capabilities.home.threads.sessionFallbackPrefix, "Run");
   assert.equal(bootstrap.capabilities.sourceControl.enabled, true);
   assert.deepEqual(bootstrap.capabilities.sourceControl.vcs, ["git"]);
   assert.equal(bootstrap.capabilities.sourceControl.readOnly, true);

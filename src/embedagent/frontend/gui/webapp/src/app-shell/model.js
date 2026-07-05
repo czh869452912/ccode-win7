@@ -911,6 +911,9 @@ function normalizeHomeThreadsCopy(input = {}) {
     emptyBody: String(value.empty_body || value.emptyBody || ""),
     activeLabel: String(value.active_label || value.activeLabel || ""),
     actionsLabelPrefix: String(value.actions_label_prefix || value.actionsLabelPrefix || ""),
+    sessionFallbackPrefix: String(
+      value.session_fallback_prefix || value.sessionFallbackPrefix || "",
+    ),
   };
 }
 

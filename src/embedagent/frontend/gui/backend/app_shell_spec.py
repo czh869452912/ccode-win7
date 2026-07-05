@@ -915,6 +915,7 @@ def default_app_shell_spec() -> AppShellSpec:
                 "empty_body": "Start one for this project.",
                 "active_label": "active",
                 "actions_label_prefix": "Thread actions for",
+                "session_fallback_prefix": "Session",
             },
         },
     )

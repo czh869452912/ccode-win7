@@ -217,7 +217,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `emptyState`; renderer components no longer own the default no-workspace,
   workspace path, missing-path, or empty-thread wording, and renderer
   app-shell normalizers do not invent the bundled product name when backend
-  app metadata omits it
+  app metadata omits it. Untitled thread fallback prefixes are also declared
+  by `home.threads` instead of hard-coded in the renderer
 - GUI terminal bottom drawer is now an app-shell hosted, thread-scoped surface:
   the backend owns a workspace-bound in-memory terminal service using Python
   stdlib subprocess pipes for Win7/offline compatibility, while the React

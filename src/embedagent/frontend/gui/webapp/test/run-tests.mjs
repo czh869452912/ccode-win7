@@ -1338,6 +1338,8 @@ async function main() {
   assert.equal(appHomeModelSource.includes("capabilities?.actions"), true);
   assert.equal(appHomeModelSource.includes("buildThreadLifecycleActions"), true);
   assert.equal(appHomeModelSource.includes("session.thread?.title"), true);
+  assert.equal(appHomeModelSource.includes("sessionFallbackPrefix"), true);
+  assert.equal(appHomeModelSource.includes("`Session ${sessionId.slice(0, 8)}`"), false);
   assert.equal(appShellModelSource.includes("label: String(input.label || id)"), false);
   assert.equal(appShellModelSource.includes("String(input.label || id).trim() || id"), false);
   assert.equal(workbenchCommandsSource.includes("item.label || item.usage || id"), false);

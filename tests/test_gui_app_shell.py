@@ -441,6 +441,10 @@ class TestGuiAppShellService(unittest.TestCase):
             "No threads yet",
         )
         self.assertEqual(
+            payload["capabilities"]["home"]["threads"]["session_fallback_prefix"],
+            "Session",
+        )
+        self.assertEqual(
             payload["capabilities"]["source_control"],
             {
                 "enabled": True,

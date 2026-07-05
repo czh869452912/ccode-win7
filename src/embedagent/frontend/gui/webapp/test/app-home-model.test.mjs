@@ -54,6 +54,7 @@ export function runAppHomeModelTests() {
             emptyBody: "Start a run for this project.",
             activeLabel: "current",
             actionsLabelPrefix: "Run actions for",
+            sessionFallbackPrefix: "Run",
           },
         },
         emptyState: {
@@ -83,6 +84,11 @@ export function runAppHomeModelTests() {
         thread: { title: "Thread metadata title" },
         user_goal: "Should not win",
         current_mode: "verify",
+        updated_at: "",
+      },
+      {
+        session_id: "sess-untitled",
+        current_mode: "",
         updated_at: "",
       },
     ],
@@ -118,7 +124,7 @@ export function runAppHomeModelTests() {
   assert.equal(model.threads.canCreateThread, true);
   assert.equal(model.threads.copy.sectionTitle, "Runs");
   assert.equal(model.threads.copy.activeLabel, "current");
-  assert.equal(model.threads.count, 3);
+  assert.equal(model.threads.count, 4);
   assert.equal(model.threads.rows[0].title, "Fix parser recovery");
   assert.equal(model.threads.rows[0].isActive, true);
   assert.equal(model.threads.rows[0].mode, "build");
@@ -134,6 +140,7 @@ export function runAppHomeModelTests() {
   assert.equal(model.threads.rows[1].mode, "explore");
   assert.equal(model.threads.rows[2].title, "Thread metadata title");
   assert.equal(model.threads.rows[2].mode, "verify");
+  assert.equal(model.threads.rows[3].title, "Run sess-unt");
 
   const emptyHome = buildAppHomeModel({
     app: {
