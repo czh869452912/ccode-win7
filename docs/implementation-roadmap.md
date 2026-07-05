@@ -216,8 +216,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
 - GUI workbench session/message/view/palette command entries now come from
   app-shell `workbench_commands` descriptors; the renderer no longer owns a
   `LOCAL_COMMANDS` list, commands without visible labels are omitted instead of
-  labeled from command ids, and the retired duplicate `workflow.diff` command
-  is removed in favor of the declared `surface.diff` entrypoint
+  labeled from command ids, built-in shell actions route through
+  descriptor-owned `dispatch.kind` records instead of command-id switches, and
+  the retired duplicate `workflow.diff` command is removed in favor of the
+  declared `surface.diff` entrypoint
 - GUI home/sidebar workspace and thread copy now comes from app-shell
   `home.workspace` / `home.threads` descriptors plus the selected agent
   `emptyState`; renderer components no longer own the default no-workspace,

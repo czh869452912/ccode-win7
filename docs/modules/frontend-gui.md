@@ -355,6 +355,8 @@ explicit `label`, `usage`, or `slash` metadata rather than command-id fallback
 copy. Commands in undeclared or untitled command-palette groups remain hidden
 instead of using title-cased group ids, and missing command row
 description/meta copy remains empty instead of falling back to command ids.
+Built-in GUI shell command execution uses descriptor-owned `dispatch.kind`
+records; the controller must not switch on fixed command ids to infer actions.
 Surface command row descriptions are passed through from surface descriptors
 rather than generated from surface or drawer ids. Session/workspace palette row
 leading markers are descriptor-owned and empty when absent. Command-palette

@@ -2020,6 +2020,7 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     controller_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/workbench-command-controller.js"
     )
+    app_shell_spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
 
     assert "appCapabilities" in commands_text
     assert "surfaceCommandDefinitions(appCapabilities)" in commands_text
@@ -2039,6 +2040,11 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert '"Bottom drawer"' not in bottom_drawer_text
     assert '"No run output yet."' not in bottom_drawer_text
     assert "reason={terminationReason}" not in bottom_drawer_text
+    assert '_dispatch("command_palette.open")' in app_shell_spec_text
+    assert '_dispatch("workspace.focus_path_input")' in app_shell_spec_text
+    assert '_dispatch("session.create")' in app_shell_spec_text
+    assert "command.dispatch" in controller_text
+    assert "switch (command.id)" not in controller_text
     assert "if (allowed === null) return ordered" not in _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js"
     )
@@ -2060,6 +2066,11 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
         'case "app.settings"',
         'case "app.diagnostics"',
         'case "app.source_control"',
+        'case "app.reload"',
+        'case "palette.open"',
+        'case "workspace.open"',
+        'case "session.new"',
+        'case "message.send"',
     ):
         assert token not in controller_text
 

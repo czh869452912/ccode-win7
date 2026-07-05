@@ -17,52 +17,53 @@ export function createWorkbenchCommandController({
 }) {
   async function execute(command) {
     if (!command) return;
-    if (command.dispatch?.kind === "mode.set" && command.dispatch.mode) {
-      await setMode(command.dispatch.mode);
-      return;
-    }
-    switch (command.id) {
-      case "palette.open":
+    const dispatchDescriptor =
+      command.dispatch && typeof command.dispatch === "object" ? command.dispatch : {};
+    switch (dispatchDescriptor.kind) {
+      case "mode.set":
+        if (dispatchDescriptor.mode) {
+          await setMode(dispatchDescriptor.mode);
+        }
+        return;
+      case "command_palette.open":
         dispatch({ type: "workbench_command_palette_opened" });
         return;
-      case "palette.close":
+      case "command_palette.close":
         dispatch({ type: "workbench_command_palette_closed" });
         return;
-      case "session.new":
-      case "thread.new":
+      case "session.create":
         await createSession(getCurrentMode());
         return;
-      case "session.refresh":
+      case "sessions.reload":
         await loadSessions();
         return;
-      case "workspace.open":
+      case "workspace.focus_path_input":
         setTimeoutFn(() => {
           documentObject
             .querySelector('[data-testid="sidebar-workspace-path-input"]')
             ?.focus();
         }, 0);
         return;
-      case "workspace.refresh":
-      case "app.reload":
+      case "app_shell.reload":
         await loadAppBootstrap();
         return;
-      case "workspace.remove_current": {
+      case "workspace.remove_active_recent": {
         const workspaceId = getActiveWorkspaceId();
         if (workspaceId) {
           await removeWorkspace(workspaceId);
         }
         return;
       }
-      case "message.send":
+      case "message.submit":
         await sendMessage();
         return;
-      case "message.stop":
+      case "turn.cancel":
         await cancelSession();
         return;
-      case "view.toggle_right_panel":
+      case "workbench.toggle_right_panel":
         dispatch({ type: "workbench_right_panel_toggled" });
         return;
-      case "view.toggle_bottom_drawer":
+      case "workbench.toggle_bottom_drawer":
         dispatch({ type: "workbench_bottom_drawer_toggled" });
         return;
       default:

@@ -78,6 +78,12 @@ def _keybinding(key: str, command_id: str, when: str = "always") -> Dict[str, An
     }
 
 
+def _dispatch(kind: str, **metadata: Any) -> Dict[str, Any]:
+    record = {"kind": kind}
+    record.update(metadata)
+    return record
+
+
 def _command(
     command_id: str,
     group: str,
@@ -148,7 +154,9 @@ def default_app_shell_spec() -> AppShellSpec:
                 surface="source_control",
                 keywords=["git", "changes", "source", "source_control"],
             ),
-            _command("app.reload", "app", "Reload App Shell", 40),
+            _command(
+                "app.reload", "app", "Reload App Shell", 40, dispatch=_dispatch("app_shell.reload")
+            ),
         ),
         workspace_commands=(
             _command(
@@ -156,6 +164,7 @@ def default_app_shell_spec() -> AppShellSpec:
                 "workspace",
                 "Open Workspace",
                 10,
+                dispatch=_dispatch("workspace.focus_path_input"),
                 keywords=["project", "folder"],
             ),
             _command(
@@ -163,6 +172,7 @@ def default_app_shell_spec() -> AppShellSpec:
                 "workspace",
                 "Refresh Workspaces",
                 20,
+                dispatch=_dispatch("app_shell.reload"),
                 keywords=["reload", "recent"],
             ),
             _command(
@@ -170,17 +180,26 @@ def default_app_shell_spec() -> AppShellSpec:
                 "workspace",
                 "Remove Current Workspace From Recents",
                 30,
+                dispatch=_dispatch("workspace.remove_active_recent"),
                 visible_when="has_workspace",
                 keywords=["forget", "recent"],
             ),
         ),
         workbench_commands=(
-            _command("session.new", "session", "New Session", 10, slash="/new"),
+            _command(
+                "session.new",
+                "session",
+                "New Session",
+                10,
+                dispatch=_dispatch("session.create"),
+                slash="/new",
+            ),
             _command(
                 "thread.new",
                 "session",
                 "New Thread",
                 20,
+                dispatch=_dispatch("session.create"),
                 slash="",
                 keywords=["session", "chat"],
             ),
@@ -189,6 +208,7 @@ def default_app_shell_spec() -> AppShellSpec:
                 "session",
                 "Refresh Sessions",
                 30,
+                dispatch=_dispatch("sessions.reload"),
                 slash="/sessions",
             ),
             _command(
@@ -203,6 +223,7 @@ def default_app_shell_spec() -> AppShellSpec:
                 "message",
                 "Send Message",
                 10,
+                dispatch=_dispatch("message.submit"),
                 visible_when="composer_ready",
             ),
             _command(
@@ -210,6 +231,7 @@ def default_app_shell_spec() -> AppShellSpec:
                 "message",
                 "Stop Running Turn",
                 20,
+                dispatch=_dispatch("turn.cancel"),
                 visible_when="running",
             ),
             _command(
@@ -217,24 +239,28 @@ def default_app_shell_spec() -> AppShellSpec:
                 "view",
                 "Toggle Right Panel",
                 10,
+                dispatch=_dispatch("workbench.toggle_right_panel"),
             ),
             _command(
                 "view.toggle_bottom_drawer",
                 "view",
                 "Toggle Bottom Drawer",
                 20,
+                dispatch=_dispatch("workbench.toggle_bottom_drawer"),
             ),
             _command(
                 "palette.open",
                 "view",
                 "Open Command Palette",
                 30,
+                dispatch=_dispatch("command_palette.open"),
             ),
             _command(
                 "palette.close",
                 "view",
                 "Close Command Palette",
                 40,
+                dispatch=_dispatch("command_palette.close"),
                 visible_when="palette_open",
             ),
         ),

@@ -26,6 +26,7 @@ import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
 import { runSessionLoadersTests } from "./session-loaders.test.mjs";
 import { runSessionActivationControllerTests } from "./session-activation-controller.test.mjs";
 import { runSessionControllerTests } from "./session-controller.test.mjs";
+import { runWorkbenchCommandControllerTests } from "./workbench-command-controller.test.mjs";
 import { runThreadLifecycleControllerTests } from "./thread-lifecycle-controller.test.mjs";
 import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
 import { runInteractionResponseControllerTests } from "./interaction-response-controller.test.mjs";
@@ -1085,10 +1086,16 @@ async function main() {
     "utf8",
   );
   assert.equal(workbenchCommandControllerSource.includes("export function createWorkbenchCommandController"), true);
+  assert.equal(workbenchCommandControllerSource.includes("command.dispatch"), true);
+  assert.equal(workbenchCommandControllerSource.includes("switch (command.id)"), false);
   assert.equal(workbenchCommandControllerSource.includes('case "app.settings"'), false);
   assert.equal(workbenchCommandControllerSource.includes('case "app.diagnostics"'), false);
   assert.equal(workbenchCommandControllerSource.includes('case "app.source_control"'), false);
-  assert.equal(workbenchCommandControllerSource.includes('case "app.reload"'), true);
+  assert.equal(workbenchCommandControllerSource.includes('case "app.reload"'), false);
+  assert.equal(workbenchCommandControllerSource.includes('case "palette.open"'), false);
+  assert.equal(workbenchCommandControllerSource.includes('case "workspace.open"'), false);
+  assert.equal(workbenchCommandControllerSource.includes('case "session.new"'), false);
+  assert.equal(workbenchCommandControllerSource.includes('case "message.send"'), false);
   assert.equal(workbenchCommandControllerSource.includes('case "surface.preview"'), false);
   assert.equal(workbenchCommandControllerSource.includes("command.surface"), true);
   assert.equal(workbenchCommandControllerSource.includes("import React"), false);
@@ -1840,6 +1847,7 @@ async function main() {
   await runSessionLoadersTests();
   await runSessionActivationControllerTests();
   await runSessionControllerTests();
+  await runWorkbenchCommandControllerTests();
   await runThreadLifecycleControllerTests();
   await runSessionTransportControllerTests();
   await runInteractionResponseControllerTests();

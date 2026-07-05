@@ -120,18 +120,44 @@ class TestGuiAppShellService(unittest.TestCase):
         self.assertEqual(payload["has_active_workspace"], False)
         self.assertIsNone(payload["active_workspace"])
         self.assertEqual(payload["workspaces"], [])
-        app_command_ids = [item["id"] for item in payload["capabilities"]["app_commands"]]
+        app_commands = {item["id"]: item for item in payload["capabilities"]["app_commands"]}
+        app_command_ids = list(app_commands.keys())
         self.assertIn("app.settings", app_command_ids)
         self.assertIn("app.diagnostics", app_command_ids)
         self.assertIn("app.source_control", app_command_ids)
         self.assertIn("app.reload", app_command_ids)
-        workbench_command_ids = [
-            item["id"] for item in payload["capabilities"]["workbench_commands"]
-        ]
+        self.assertEqual(app_commands["app.reload"]["dispatch"], {"kind": "app_shell.reload"})
+        workspace_commands = {
+            item["id"]: item for item in payload["capabilities"]["workspace_commands"]
+        }
+        self.assertEqual(
+            workspace_commands["workspace.open"]["dispatch"],
+            {"kind": "workspace.focus_path_input"},
+        )
+        self.assertEqual(
+            workspace_commands["workspace.remove_current"]["dispatch"],
+            {"kind": "workspace.remove_active_recent"},
+        )
+        workbench_commands = {
+            item["id"]: item for item in payload["capabilities"]["workbench_commands"]
+        }
+        workbench_command_ids = list(workbench_commands.keys())
         self.assertIn("message.send", workbench_command_ids)
         self.assertIn("palette.open", workbench_command_ids)
         self.assertIn("view.toggle_right_panel", workbench_command_ids)
         self.assertNotIn("workflow.diff", workbench_command_ids)
+        self.assertEqual(
+            workbench_commands["palette.open"]["dispatch"],
+            {"kind": "command_palette.open"},
+        )
+        self.assertEqual(
+            workbench_commands["session.new"]["dispatch"],
+            {"kind": "session.create"},
+        )
+        self.assertEqual(
+            workbench_commands["view.toggle_right_panel"]["dispatch"],
+            {"kind": "workbench.toggle_right_panel"},
+        )
         keybinding_commands = [
             item["command_id"] for item in payload["capabilities"]["keybindings"]
         ]

@@ -386,14 +386,33 @@ export function runAppShellModelTests() {
       app_commands: [
         { id: "app.settings", label: "Preferences", group: "app", order: 10 },
         { id: "app.diagnostics", label: "Health", group: "app", order: 20 },
-        { id: "app.reload", label: "Reload Shell", group: "app", order: 30 },
+        { id: "app.reload", label: "Reload Shell", group: "app", order: 30, dispatch: { kind: "app_shell.reload" } },
       ],
       workspace_commands: [
-        { id: "workspace.open", label: "Open Project", group: "workspace", order: 10 },
+        {
+          id: "workspace.open",
+          label: "Open Project",
+          group: "workspace",
+          order: 10,
+          dispatch: { kind: "workspace.focus_path_input" },
+        },
       ],
       workbench_commands: [
-        { id: "message.send", label: "Send", group: "message", visible_when: "composer_ready", order: 10 },
-        { id: "palette.open", label: "Launch", group: "view", order: 20 },
+        {
+          id: "message.send",
+          label: "Send",
+          group: "message",
+          visible_when: "composer_ready",
+          order: 10,
+          dispatch: { kind: "message.submit" },
+        },
+        {
+          id: "palette.open",
+          label: "Launch",
+          group: "view",
+          order: 20,
+          dispatch: { kind: "command_palette.open" },
+        },
       ],
       command_palette: {
         groups: [
@@ -888,8 +907,16 @@ export function runAppShellModelTests() {
     ],
   );
   assert.deepEqual(
+    bootstrap.capabilities.appCommands.find((item) => item.id === "app.reload").dispatch,
+    { kind: "app_shell.reload" },
+  );
+  assert.deepEqual(
     bootstrap.capabilities.workspaceCommands.map((item) => [item.id, item.label]),
     [["workspace.open", "Open Project"]],
+  );
+  assert.deepEqual(
+    bootstrap.capabilities.workspaceCommands.find((item) => item.id === "workspace.open").dispatch,
+    { kind: "workspace.focus_path_input" },
   );
   assert.deepEqual(
     bootstrap.capabilities.workbenchCommands.map((item) => [item.id, item.label, item.visibleWhen]),
@@ -897,6 +924,14 @@ export function runAppShellModelTests() {
       ["message.send", "Send", "composer_ready"],
       ["palette.open", "Launch", "always"],
     ],
+  );
+  assert.deepEqual(
+    bootstrap.capabilities.workbenchCommands.find((item) => item.id === "message.send").dispatch,
+    { kind: "message.submit" },
+  );
+  assert.deepEqual(
+    bootstrap.capabilities.workbenchCommands.find((item) => item.id === "palette.open").dispatch,
+    { kind: "command_palette.open" },
   );
   assert.deepEqual(
     bootstrap.capabilities.commandPalette.groups.map((item) => [item.id, item.title, item.description]),

@@ -59,8 +59,10 @@ Workbench command labels are visible descriptors too: app/workspace/workbench
 commands without explicit labels are omitted from visible command entrypoints,
 dynamic slash commands must provide explicit `label`, `usage`, or `slash`
 metadata, and command-palette rows must not fall back to command ids for
-titles. Commands in undeclared or untitled palette groups remain hidden rather
-than using title-cased group ids, and missing command row description/meta copy
+titles. Built-in GUI shell command execution is also descriptor-owned through
+`dispatch.kind`; renderer controllers do not switch on fixed command ids to
+infer actions. Commands in undeclared or untitled palette groups remain hidden
+rather than using title-cased group ids, and missing command row description/meta copy
 remains empty instead of falling back to command ids. Surface command row
 descriptions come from surface descriptors rather than surface/drawer ids.
 Session/workspace palette row leading markers also come from command-palette

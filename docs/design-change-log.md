@@ -44,6 +44,38 @@
 
 ## 3. 当前变更记录
 
+### DC-274
+
+- Date: 2026-07-05
+- Change Topic: GUI workbench command dispatch is descriptor-driven
+- Summary:
+  - Added `dispatch.kind` descriptors to default app/workspace/workbench
+    command records for built-in GUI shell actions.
+  - `workbench-command-controller` now routes command execution by
+    descriptor-owned action kinds such as `command_palette.open`,
+    `app_shell.reload`, and `message.submit` instead of switching on fixed
+    command ids.
+  - Surface, drawer, and slash command execution remains descriptor-field
+    driven, and frontend/Python guards now prevent the old command-id switch
+    from returning.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/workbench-command-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-command-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving remaining GUI shell behavior that is app-specific into
+    explicit app-shell descriptors while keeping renderer mounting local.
+
 ### DC-273
 
 - Date: 2026-07-05
