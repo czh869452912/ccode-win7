@@ -120,7 +120,9 @@ stops loading when File Preview is not declared so unsupported agents do not
 fetch preview content behind a hidden UI. Preview session
 open/refresh/external-open orchestration is delegated to
 `preview-controller.js`, which preflights the same semantic Preview capability
-before invoking backend preview routes.
+before invoking backend preview routes. `App.jsx` wires file, diff, and preview
+controller methods directly into Timeline and right-panel props rather than
+retaining `openFile`, `openDiffSurface`, or `openPreview*` forwarding wrappers.
 Source Control status refresh and file-diff requests likewise require the
 active app shell's Source Control capability before invoking backend
 source-control routes.

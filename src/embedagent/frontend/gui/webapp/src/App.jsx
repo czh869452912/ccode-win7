@@ -357,23 +357,15 @@ function App() {
   );
   const { loadFileChildren } = workspaceFilesController;
 
-  async function openFile(path, line) {
-    return filePreviewController.openFile(path, line);
-  }
-
-  function openDiffSurface({ title = "", diff = "", turnId = "", filePath = "" } = {}) {
-    return diffSurfaceController.open({ title, diff, turnId, filePath });
-  }
-
   const visualDebugController = useMemo(
     () =>
       createVisualDebugController({
         windowObject: typeof window === "undefined" ? null : window,
         dispatch,
-        openDiffFixture: openDiffSurface,
+        openDiffFixture: diffSurfaceController.open,
         getCurrentMode: () => stateRef.current.requestedMode || INITIAL_REQUESTED_MODE,
       }),
-    [],
+    [diffSurfaceController],
   );
 
   useEffect(() => {
@@ -575,18 +567,6 @@ function App() {
   const activeRightPanelSurface =
     rightPanelSurfaces.find((surface) => surface.id === state.workbench.rightPanel.activeSurfaceId) || null;
 
-  async function openPreviewUrl(url) {
-    return previewController.openUrl(url);
-  }
-
-  async function refreshPreview(snapshot) {
-    return previewController.refresh(snapshot);
-  }
-
-  async function openPreviewInSystemBrowser(url) {
-    return previewController.openExternal(url);
-  }
-
   const surfacePanelProps = {
     plan: state.plan,
     diffSurface: state.diffSurface,
@@ -667,8 +647,8 @@ function App() {
               turnsUsed={state.turnsUsed}
               maxTurns={state.maxTurns}
               onScroll={handleTimelineScroll}
-              onOpenDiff={openDiffSurface}
-              onOpenFile={openFile}
+              onOpenDiff={diffSurfaceController.open}
+              onOpenFile={filePreviewController.openFile}
               chrome={appChrome.timeline || {}}
             />
             <Composer
@@ -754,7 +734,7 @@ function App() {
             projectName={state.app.activeWorkspace?.label || ""}
             fileTree={state.fileTree}
             treeHeight={treeHeight}
-            onOpenFile={openFile}
+            onOpenFile={filePreviewController.openFile}
             onOpenFilesSurface={() => rightPanelController.openFilesSurface()}
             onLoadFileChildren={loadFileChildren}
             terminal={state.terminal}
@@ -775,9 +755,9 @@ function App() {
             }
             previewChrome={previewChrome}
             previewServers={previewCapability.localServers || []}
-            onPreviewOpenUrl={openPreviewUrl}
-            onPreviewRefresh={refreshPreview}
-            onPreviewOpenExternal={openPreviewInSystemBrowser}
+            onPreviewOpenUrl={previewController.openUrl}
+            onPreviewRefresh={previewController.refresh}
+            onPreviewOpenExternal={previewController.openExternal}
           />
         </RightPanelTabs>
       }

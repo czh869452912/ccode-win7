@@ -642,6 +642,10 @@
 - 当前收敛：Right-panel semantic open methods now return whether the surface actually opened; `file-preview-controller.js` 的文件打开流程在 `openFileSurface(...)` 返回 false 时停止 `file_preview_load_started` 与 `/api/files/...` 内容加载，避免未声明 File Preview 的 agent 仍触发隐藏预览副作用。
 - 当前收敛：Preview open / refresh / external-open flows now live in `preview-controller.js`, which calls `rightPanelController.canOpenPreviewSurface()` before invoking backend preview routes, so agents that do not declare the Preview surface do not trigger hidden preview service calls and `App.jsx` no longer imports Preview API helpers directly.
 - 当前收敛：Timeline/manual Diff surface opening now lives in `diff-surface-controller.js`; `App.jsx` no longer imports `createDiffSurfaceState`, scans timeline items for `data.diff` / `diff_preview`, or dispatches `diff_surface_opened` directly.
+- 当前收敛：App-level file/diff/preview open props now directly wire
+  `filePreviewController.openFile`, `diffSurfaceController.open`, and
+  `previewController.openUrl/refresh/openExternal`; root forwarding wrappers
+  such as `openFile`, `openDiffSurface`, and `openPreview*` are removed.
 - 当前收敛：Source Control status refresh and file-diff flows now require `sourceControlCapabilityEnabled(stateRef.current.app.capabilities)` before invoking backend source-control routes, so agents that do not declare Source Control do not trigger hidden VCS service calls during workspace bootstrap or panel callbacks.
 - 当前收敛：Terminal controller service calls now require `capabilities.terminal.enabled === true` before opening, listing, writing, clearing, restarting, closing, or attaching terminal panes, so hidden/stale Terminal UI state cannot reach backend terminal routes when the active agent omits Terminal.
 - 当前收敛：Right-panel body lookup 也使用 active app-shell capabilities：`RightPanelSurfaceBody` 通过 `surfaceDefinitionFor(surface.kind, appCapabilities)` 解析 body metadata；backend app-shell spec 显式声明 hidden `file` resource surface，并通过 `launcher=False` / `command=False` 防止它进入可见 launcher 或 command。

@@ -1024,9 +1024,9 @@ async function main() {
   assert.equal(appSource.includes("rightPanelController.openPreviewSurface("), false);
   assert.equal(appSource.includes("rightPanelController.canOpenPreviewSurface()"), false);
   assert.equal(appSource.includes("createPreviewController"), true);
-  assert.equal(appSource.includes("previewController.openUrl(url)"), true);
-  assert.equal(appSource.includes("previewController.refresh(snapshot)"), true);
-  assert.equal(appSource.includes("previewController.openExternal(url)"), true);
+  assert.equal(appSource.includes("onPreviewOpenUrl={previewController.openUrl}"), true);
+  assert.equal(appSource.includes("onPreviewRefresh={previewController.refresh}"), true);
+  assert.equal(appSource.includes("onPreviewOpenExternal={previewController.openExternal}"), true);
   assert.equal(appSource.includes("openPreviewSession"), false);
   assert.equal(appSource.includes("refreshPreviewSession"), false);
   assert.equal(appSource.includes("openPreviewExternal"), false);
@@ -1254,13 +1254,23 @@ async function main() {
     (appSource.match(/appCapabilities=\{state\.app\.capabilities\}/g) || []).length >= 3,
     true,
   );
-  assert.equal(appSource.includes("onOpenFile={openFile}"), true);
+  assert.equal(appSource.includes("onOpenFile={filePreviewController.openFile}"), true);
+  assert.equal(appSource.includes("onOpenDiff={diffSurfaceController.open}"), true);
+  assert.equal(appSource.includes("openDiffFixture: diffSurfaceController.open"), true);
+  assert.equal(appSource.includes("onPreviewOpenUrl={previewController.openUrl}"), true);
+  assert.equal(appSource.includes("onPreviewRefresh={previewController.refresh}"), true);
+  assert.equal(appSource.includes("onPreviewOpenExternal={previewController.openExternal}"), true);
+  assert.equal(appSource.includes("async function openFile"), false);
+  assert.equal(appSource.includes("function openDiffSurface"), false);
+  assert.equal(appSource.includes("async function openPreviewUrl"), false);
+  assert.equal(appSource.includes("async function refreshPreview"), false);
+  assert.equal(appSource.includes("async function openPreviewInSystemBrowser"), false);
   assert.equal(appSource.includes("activeRightPanelSurface"), true);
   assert.equal(appSource.includes("workbench_surface_close_others"), true);
   assert.equal(appSource.includes("workbench_surface_close_to_right"), true);
   assert.equal(appSource.includes("workbench_surface_close_all"), true);
   assert.equal(appSource.includes("createFilePreviewController"), true);
-  assert.equal(appSource.includes("filePreviewController.openFile(path, line)"), true);
+  assert.equal(appSource.includes("filePreviewController.openFile(path, line)"), false);
   assert.equal(appSource.includes("file_preview_load_started"), false);
   assert.equal(appSource.includes("file_preview_loaded"), false);
   assert.equal(appSource.includes("file_preview_load_failed"), false);
@@ -1282,7 +1292,8 @@ async function main() {
   assert.equal(previewControllerSource.includes("chrome.openFailedNotice"), true);
   assert.equal(previewControllerSource.includes("import React"), false);
   assert.equal(appSource.includes("createDiffSurfaceController"), true);
-  assert.equal(appSource.includes("diffSurfaceController.open({ title, diff, turnId, filePath })"), true);
+  assert.equal(appSource.includes("onOpenDiff={diffSurfaceController.open}"), true);
+  assert.equal(appSource.includes("openDiffFixture: diffSurfaceController.open"), true);
   assert.equal(appSource.includes("createDiffSurfaceState"), false);
   assert.equal(appSource.includes('type: "diff_surface_opened"'), false);
   assert.equal(diffSurfaceControllerSource.includes("export function createDiffSurfaceController"), true);

@@ -1759,7 +1759,12 @@ def test_gui_preview_copy_is_app_shell_declared():
     assert "normalizePreviewChrome" in model_text
     assert "preview: normalizePreviewCapability" in model_text
     assert "createPreviewController" in app_text
-    assert "previewController.openUrl(url)" in app_text
+    assert "onPreviewOpenUrl={previewController.openUrl}" in app_text
+    assert "onPreviewRefresh={previewController.refresh}" in app_text
+    assert "onPreviewOpenExternal={previewController.openExternal}" in app_text
+    assert "async function openPreviewUrl" not in app_text
+    assert "async function refreshPreview" not in app_text
+    assert "async function openPreviewInSystemBrowser" not in app_text
     assert "previewChrome.sessionRequiredNotice" not in app_text
     assert "chrome.sessionRequiredNotice" in preview_controller_text
     assert "chrome.failedNotice" in preview_controller_text
@@ -1847,7 +1852,13 @@ def test_gui_file_preview_copy_is_app_shell_declared():
     assert "normalizeFilePreviewChrome" in model_text
     assert "filePreview: normalizeFilePreviewChrome" in model_text
     assert "createFilePreviewController" in app_text
-    assert "filePreviewController.openFile(path, line)" in app_text
+    assert "onOpenFile={filePreviewController.openFile}" in app_text
+    assert "async function openFile" not in app_text
+    assert "filePreviewController.openFile(path, line)" not in app_text
+    assert "function openDiffSurface" not in app_text
+    assert "async function openPreviewUrl" not in app_text
+    assert "async function refreshPreview" not in app_text
+    assert "async function openPreviewInSystemBrowser" not in app_text
     assert "filePreviewChrome.unavailableMessage" not in app_text
     assert "filePreviewChrome.unavailableMessage" not in file_preview_controller_text
     assert "chrome.unavailableMessage" in file_preview_controller_text

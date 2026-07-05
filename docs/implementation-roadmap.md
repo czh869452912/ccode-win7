@@ -170,7 +170,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   Control status/diff callers similarly require the active app-shell Source
   Control capability before invoking source-control routes; timeline/manual
   Diff surface opening is delegated to `diff-surface-controller.js` instead of
-  `App.jsx` constructing diff surface state directly; session list loading is
+  `App.jsx` constructing diff surface state directly; `App.jsx` wires
+  file/diff/preview controller methods directly instead of retaining
+  `openFile`, `openDiffSurface`, or `openPreview*` wrappers; session list loading is
   delegated to `session-list-controller.js` instead of `App.jsx` directly
   fetching `/api/sessions` or dispatching `sessions_loaded`; Terminal service calls
   require the active app-shell Terminal capability before invoking
