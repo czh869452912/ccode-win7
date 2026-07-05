@@ -2382,6 +2382,26 @@ def test_gui_has_no_root_inspector_navigation_state():
             assert token not in text
 
 
+def test_gui_visual_debug_installation_is_controller_owned():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/visual-debug-controller.js"
+    )
+    fixtures_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/visual-debug-fixtures.js"
+    )
+
+    assert "createVisualDebugController" in app_text
+    assert "installVisualDebugFixtures" not in app_text
+    assert "__EMBEDAGENT_VISUAL_DEBUG__" not in app_text
+    assert "window.location.search" not in app_text
+    assert "export function createVisualDebugController" in controller_text
+    assert "installVisualDebugFixtures" in controller_text
+    assert "getLocationSearch" in controller_text
+    assert "getCurrentMode" in controller_text
+    assert "export function installVisualDebugFixtures" in fixtures_text
+
+
 def test_gui_webapp_source_uses_right_panel_surface_vocabulary():
     checked_paths = (
         ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx",

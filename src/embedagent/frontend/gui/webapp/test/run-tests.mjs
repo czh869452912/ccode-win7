@@ -24,6 +24,7 @@ import { runTerminalControllerTests } from "./terminal-controller.test.mjs";
 import { runTimelineUiStateTests } from "./timeline-ui-state.test.mjs";
 import { runVisualLanguageCssTests } from "./visual-language-css.test.mjs";
 import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
+import { runVisualDebugControllerTests } from "./visual-debug-controller.test.mjs";
 import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
 import { runHttpClientTests } from "./http-client.test.mjs";
 import { runInitialAppLoadControllerTests } from "./initial-app-load-controller.test.mjs";
@@ -1056,7 +1057,9 @@ async function main() {
   assert.equal(appSource.includes("deriveSocketMessageEffects"), false);
   assert.equal(appSource.includes("executeSocketEffects"), false);
   assert.equal(appSource.includes("executeLoaderRequest"), true);
-  assert.equal(appSource.includes("installVisualDebugFixtures"), true);
+  assert.equal(appSource.includes("createVisualDebugController"), true);
+  assert.equal(appSource.includes("installVisualDebugFixtures"), false);
+  assert.equal(appSource.includes("window.location.search"), false);
   assert.equal(appSource.includes("/api/tasks"), false);
   assert.equal(appSource.includes("/api/workspace/recipes"), false);
   assert.equal(appSource.includes("/api/tool-catalog"), false);
@@ -1425,6 +1428,15 @@ async function main() {
     webappSourcePath("app-runtime", "visual-debug-fixtures.js"),
     "utf8",
   );
+  const visualDebugControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "visual-debug-controller.js"),
+    "utf8",
+  );
+  assert.equal(visualDebugControllerSource.includes("export function createVisualDebugController"), true);
+  assert.equal(visualDebugControllerSource.includes("installVisualDebugFixtures"), true);
+  assert.equal(visualDebugControllerSource.includes("getLocationSearch"), true);
+  assert.equal(visualDebugControllerSource.includes("getCurrentMode"), true);
+  assert.equal(visualDebugControllerSource.includes("import React"), false);
   assert.equal(visualDebugFixturesSource.includes("__EMBEDAGENT_VISUAL_DEBUG__"), true);
   assert.equal(visualDebugFixturesSource.includes("visual_debug"), true);
   assert.equal(visualDebugFixturesSource.includes("loadTimelineFixture"), true);
@@ -2252,6 +2264,7 @@ async function main() {
   await runInteractionResponseControllerTests();
   runRespondingRequestIdsHandleTests();
   runSocketMessageEffectsTests();
+  runVisualDebugControllerTests();
   runVisualDebugFixturesTests();
   await runVisualDebugRunnerTests();
 

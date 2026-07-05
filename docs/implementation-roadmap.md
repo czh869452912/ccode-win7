@@ -362,9 +362,11 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `connectionState`, or retired sidebar tab sidecars such as `sidebarTab` /
   `set_sidebar`.
 - GUI visual-debug fixtures are now outside the product reducer state machine:
+  `visual-debug-controller.js` owns the URL-gated installer bridge,
   `visual-debug-fixtures.js` keeps private `dev_fixture_*` descriptors and
-  expands them into ordinary product actions, while `store.js` and
-  `thread-state.js` no longer define `visual_*fixture` cases.
+  expands them into ordinary product actions, while `App.jsx`, `store.js`, and
+  `thread-state.js` no longer define fixture install logic or
+  `visual_*fixture` cases.
 - Generated GUI static assets remain committed release artifacts for the
   current offline packaging model; source review should use `webapp/src/`, and
   `npm run build` refreshes `frontend/gui/static/` after source changes.

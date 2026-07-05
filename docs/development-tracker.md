@@ -574,7 +574,9 @@
 ### 2026-06-18 - GUI App Runtime Controller Boundary
 
 - React webapp now has a GUI-only `webapp/src/app-runtime/` boundary: socket messages are interpreted by pure descriptor derivation before `App.jsx` executes reducer actions, session event-log entries, and existing loader requests.
-- Dev-only visual timeline/interaction/thread fixtures moved out of `App.jsx` into `visual-debug-fixtures.js`, while remaining gated by `?visual_debug=1`.
+- Dev-only visual timeline/interaction/thread fixtures moved out of `App.jsx`:
+  `visual-debug-controller.js` now owns the `?visual_debug=1` installer bridge,
+  and `visual-debug-fixtures.js` owns private fixture descriptor expansion.
 - This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, runtime reducer, operation reducer, compaction reducer, recovery reducer, terminal execution, or source-control execution semantics changed.
 
 ### 2026-06-18 - T3 Timeline Rich Projection

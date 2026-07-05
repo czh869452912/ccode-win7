@@ -156,9 +156,12 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
   `sessions`, `currentSessionId`, `composer`, `historyIntegrity`, or retired
   sidebar tab sidecars as parallel fields.
 - Official GUI visual-debug boundary: `?visual_debug=1` may expose
-  `window.__EMBEDAGENT_VISUAL_DEBUG__`, but fixture helpers expand private
-  `dev_fixture_*` descriptors into ordinary product reducer actions. Product
-  reducers do not define `visual_*fixture` cases.
+  `window.__EMBEDAGENT_VISUAL_DEBUG__`, but URL-gated fixture installation is
+  owned by `webapp/src/app-runtime/visual-debug-controller.js`; fixture helpers
+  expand private `dev_fixture_*` descriptors into ordinary product reducer
+  actions. `App.jsx` must not import `installVisualDebugFixtures` or read
+  `window.location.search` for this hook, and product reducers do not define
+  `visual_*fixture` cases.
 - Official GUI static asset policy: generated files under
   `src/embedagent/frontend/gui/static/` remain committed release artifacts for
   the current offline packaging model; `webapp/src/` is the review source of

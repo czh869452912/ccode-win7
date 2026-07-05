@@ -32,7 +32,7 @@ import { createWorkspaceFilesController } from "./app-runtime/workspace-files-co
 import { createInteractionResponseController } from "./app-runtime/interaction-response-controller.js";
 import { createWorkbenchCommandController } from "./app-runtime/workbench-command-controller.js";
 import { createWorkspaceController } from "./app-runtime/workspace-controller.js";
-import { installVisualDebugFixtures } from "./app-runtime/visual-debug-fixtures.js";
+import { createVisualDebugController } from "./app-runtime/visual-debug-controller.js";
 import {
   clearTerminal,
   closeTerminal,
@@ -365,15 +365,20 @@ function App() {
     return diffSurfaceController.open({ title, diff, turnId, filePath });
   }
 
+  const visualDebugController = useMemo(
+    () =>
+      createVisualDebugController({
+        windowObject: typeof window === "undefined" ? null : window,
+        dispatch,
+        openDiffFixture: openDiffSurface,
+        getCurrentMode: () => stateRef.current.requestedMode || INITIAL_REQUESTED_MODE,
+      }),
+    [],
+  );
+
   useEffect(() => {
-    return installVisualDebugFixtures({
-      windowObject: typeof window === "undefined" ? null : window,
-      locationSearch: typeof window === "undefined" ? "" : window.location.search || "",
-      dispatch,
-      openDiffFixture: openDiffSurface,
-      currentMode: state.requestedMode || INITIAL_REQUESTED_MODE,
-    });
-  }, [runtimeState.timelineItems, state.requestedMode]);
+    return visualDebugController.install();
+  }, [runtimeState.timelineItems, state.requestedMode, visualDebugController]);
 
   const activeWorkspaceDataLoader = useMemo(
     () =>

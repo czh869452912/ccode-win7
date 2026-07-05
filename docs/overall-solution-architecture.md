@@ -289,6 +289,13 @@ sync, replace, update, and runtime reset construction for session activation
 and socket recovery. `App.jsx` keeps the React state cell but does not maintain
 a parallel `sessionTransportRef` or inline transport mutation helpers.
 
+Dev-only GUI visual fixtures are isolated from the product app shell:
+`app-runtime/visual-debug-controller.js` owns the `?visual_debug=1` installation
+bridge and browser query access, while `app-runtime/visual-debug-fixtures.js`
+expands private `dev_fixture_*` descriptors into normal reducer actions.
+`App.jsx` does not import the fixture installer, read `window.location.search`
+for visual debugging, or define product reducer cases for visual fixture actions.
+
 The GUI terminal bottom drawer is also app-shell hosted. `GUIBackend` owns an
 in-memory terminal service bound to the active workspace and exposes
 thread-scoped terminal HTTP routes plus `terminal_event` WebSocket messages.
