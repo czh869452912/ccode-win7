@@ -255,6 +255,12 @@ function surfaceDefinitionsForPlacement(placement) {
   return placement === "bottom" ? BOTTOM_DRAWER_SURFACE_REGISTRY : RIGHT_PANEL_SURFACE_REGISTRY;
 }
 
+function surfaceDefinitionForPlacement(kind, placement) {
+  const normalized = String(kind || "");
+  return surfaceDefinitionsForPlacement(normalizePlacement(placement))
+    .find((item) => item.kind === normalized) || null;
+}
+
 function mergedSurfaceDefinition(definition, capability) {
   return {
     ...definition,
@@ -306,7 +312,7 @@ export function rightPanelSurfaceDefinitions() {
 
 export function surfaceDefinitionFor(kind, appCapabilities = null) {
   const normalized = String(kind || "");
-  const definition = RIGHT_PANEL_SURFACE_REGISTRY.find((item) => item.kind === normalized) || null;
+  const definition = surfaceDefinitionForPlacement(normalized, "right");
   if (!definition || !appCapabilities) return definition;
   const capability = surfaceCapabilityDefinitions(appCapabilities, "right")
     .find((item) => item.kind === normalized);
@@ -317,7 +323,7 @@ export function surfaceDefinitionFor(kind, appCapabilities = null) {
 
 export function bottomDrawerSurfaceDefinitionFor(kind, appCapabilities = null) {
   const normalized = String(kind || "");
-  const definition = BOTTOM_DRAWER_SURFACE_REGISTRY.find((item) => item.kind === normalized) || null;
+  const definition = surfaceDefinitionForPlacement(normalized, "bottom");
   if (!definition || !appCapabilities) return definition;
   const capability = surfaceCapabilityDefinitions(appCapabilities, "bottom")
     .find((item) => item.kind === normalized);
@@ -402,6 +408,7 @@ function basenameForPath(path) {
 }
 
 function normalizeRevealLine(line) {
+  if (line === null || line === undefined || line === "") return null;
   const value = Number(line);
   if (!Number.isFinite(value)) return null;
   return Math.max(1, Math.trunc(value));
@@ -429,7 +436,7 @@ function surfaceIdFor(input) {
 function makeSurface(input) {
   const placement = normalizePlacement(input && input.placement);
   const kind = String((input && input.kind) || defaultActiveKind(placement));
-  const definition = placement === "right" ? surfaceDefinitionFor(kind) : null;
+  const definition = surfaceDefinitionForPlacement(kind, placement);
   const filePath =
     kind === "file"
       ? normalizeFilePath(input && (input.filePath || input.resourceId))
@@ -453,7 +460,7 @@ function makeSurface(input) {
   const terminalId =
     kind === "terminal"
       ? String((input && input.terminalId) || resourceId || terminalIds[0] || activeTerminalId)
-      : String((input && input.terminalId) || resourceId || "");
+      : String((input && input.terminalId) || "");
   const effectiveResourceId = kind === "terminal" ? terminalId : resourceId;
   const base = {
     id: String(
@@ -491,9 +498,31 @@ function makeSurface(input) {
   return {
     ...base,
     terminalIds: normalizedTerminalIds,
-    activeTerminalId: activeTerminalId || terminalId,
+    activeTerminalId: normalizedTerminalIds.includes(activeTerminalId)
+      ? activeTerminalId
+      : normalizedTerminalIds[0] || terminalId,
     ...(input && input.splitDirection === "vertical" ? { splitDirection: "vertical" } : {}),
   };
+}
+
+function pickSurfaceFields(surface, fields) {
+  const result = {};
+  for (const field of fields || []) {
+    if (Object.prototype.hasOwnProperty.call(surface, field) && surface[field] !== undefined) {
+      result[field] = surface[field];
+    }
+  }
+  return result;
+}
+
+export function persistedSurfaceFrom(input, fallbackPlacement = "right") {
+  const source = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  const placement = normalizePlacement(source.placement || fallbackPlacement);
+  const kind = String(source.kind || "").trim();
+  if (!allowedKinds(placement).includes(kind)) return null;
+  const definition = surfaceDefinitionForPlacement(kind, placement);
+  const surface = makeSurface({ ...source, placement, kind });
+  return definition ? pickSurfaceFields(surface, definition.persistFields) : surface;
 }
 
 export function titleForSurfaceKind(kind, appCapabilities = null) {

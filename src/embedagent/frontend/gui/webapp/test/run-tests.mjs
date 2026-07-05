@@ -1423,6 +1423,10 @@ async function main() {
     webappSourcePath("workbench", "surfaces.js"),
     "utf8",
   );
+  const workbenchUiStateSource = fs.readFileSync(
+    webappSourcePath("workbench", "ui-state.js"),
+    "utf8",
+  );
   const appShellSurfaceModelSource = fs.readFileSync(
     webappSourcePath("app-shell", "model.js"),
     "utf8",
@@ -1460,6 +1464,10 @@ async function main() {
   assert.equal(workbenchSurfacesSource.includes('|| "terminal"'), false);
   assert.equal(workbenchSurfacesSource.includes("activeSection"), false);
   assert.equal(workbenchSurfacesSource.includes("projectSection"), false);
+  assert.equal(workbenchUiStateSource.includes("persistedSurfaceFrom"), true);
+  assert.equal(workbenchUiStateSource.includes('kind === "file"'), false);
+  assert.equal(workbenchUiStateSource.includes('kind === "terminal"'), false);
+  assert.equal(workbenchUiStateSource.includes('kind !== "terminal"'), false);
 
   const changedFilesCardSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "ChangedFilesCard.jsx"),

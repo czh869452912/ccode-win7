@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-282
+
+- Date: 2026-07-05
+- Change Topic: GUI persisted workbench surfaces use registry normalization
+- Summary:
+  - Added `persistedSurfaceFrom(...)` to the renderer-local workbench surface
+    model.
+  - `ui-state.js` now sanitizes persisted surface descriptors through that
+    registry-owned normalizer instead of branching on fixed `file` or
+    `terminal` surface kinds.
+  - The normalizer preserves the existing shallow persistence contract while
+    keeping file/terminal field rules inside `surfaces.js`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/ui-state.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New persisted surface fields must be declared and normalized by the
+    renderer-local surface model, not by localStorage state code.
+
 ### DC-281
 
 - Date: 2026-07-05

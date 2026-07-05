@@ -164,6 +164,11 @@ Workbench-local persisted surface state is re-sanitized after app bootstrap or
 workspace switch against the same declaration; stale local `preview`,
 `source_control`, `terminal`, or other surfaces must not survive when the
 backend no longer declares their parent surface capability.
+Persisted workbench surface descriptors are normalized through the
+renderer-local surface registry's `persistedSurfaceFrom(...)` helper. The
+localStorage UI-state module must not branch on fixed file or terminal surface
+kinds to decide resource fields, tab ids, titles, reveal markers, or terminal
+pane metadata.
 The GUI no longer keeps retired Inspector sidecar state for artifact lists,
 review detail panes, permission-rule panes, runtime panes, workspace previews,
 or event logs. Review results remain timeline activities, permission and user

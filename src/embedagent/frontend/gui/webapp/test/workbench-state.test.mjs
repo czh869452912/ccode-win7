@@ -20,6 +20,7 @@ import {
   closeSurfacesToRight,
   createWorkbenchState,
   openSurface,
+  persistedSurfaceFrom,
   reduceWorkbenchState,
   rightPanelLauncherSurfaceDefinitions,
   rightPanelSurfaceDefinitions,
@@ -206,6 +207,28 @@ export function runWorkbenchStateTests() {
   assert.equal(surfaceDefinitionFor("source_control").panelKind, "source_control");
   assert.equal(surfaceDefinitionFor("settings").panelKind, "settings");
   assert.equal(surfaceDefinitionFor("diagnostics").panelKind, "diagnostics");
+  assert.deepEqual(
+    persistedSurfaceFrom(
+      {
+        placement: "right",
+        kind: "file",
+        resourceId: "src/main.c",
+        content: "must not persist",
+      },
+      "right",
+    ),
+    {
+      id: "right:file:src/main.c",
+      placement: "right",
+      kind: "file",
+      title: "main.c",
+      resourceId: "src/main.c",
+      filePath: "src/main.c",
+      terminalId: "",
+      revealLine: null,
+      revealRequestId: 0,
+    },
+  );
 
   assert.equal(supportedSurfaceKinds("right").includes("file"), true);
   assert.equal(supportedSurfaceKinds("bottom").includes("terminal"), true);

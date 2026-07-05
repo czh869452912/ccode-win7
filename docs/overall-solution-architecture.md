@@ -110,6 +110,9 @@ declaration omits the `capabilities` object or the relevant command, surface,
 or keybinding descriptor arrays. Persisted workbench surface state is re-sanitized after app
 bootstrap or workspace switch against the same declaration, so stale local UI
 state cannot reopen surfaces that the active app shell does not expose.
+Shallow persisted surface descriptors are normalized by the renderer-local
+surface registry through `persistedSurfaceFrom(...)`; the browser localStorage
+state module must not own fixed file/terminal surface field rules.
 The default GUI app-shell descriptor set is an injected `AppShellSpec` from
 `src/embedagent/frontend/gui/backend/app_shell_spec.py`; `AppShellService`
 composes that spec with safe active-core projections instead of owning inline

@@ -2,10 +2,9 @@ import {
   DEFAULT_SESSION_KEY,
   bottomDrawerSurfaceDefinitions,
   createWorkbenchState,
+  persistedSurfaceFrom,
   rightPanelLauncherSurfaceDefinitions,
-  surfaceDefinitionFor,
   supportedSurfaceKinds,
-  titleForSurfaceKind,
 } from "./surfaces.js";
 
 export const WORKBENCH_UI_STATE_KEY = "embedagent:workbench-ui-state:v1";
@@ -24,108 +23,8 @@ function clampNumber(value, fallback, min, max) {
   return Math.max(min, Math.min(max, Math.trunc(number)));
 }
 
-function clampOptionalNumber(value, min, max) {
-  if (value === null || value === undefined || value === "") return null;
-  return clampNumber(value, null, min, max);
-}
-
 function normalizePlacement(placement) {
   return placement === "bottom" ? "bottom" : "right";
-}
-
-function normalizeFilePath(path) {
-  return asString(path).replace(/\\/g, "/").replace(/^\/+/, "");
-}
-
-function titleFor(kind, title, resourceId) {
-  const explicit = asString(title);
-  if (explicit) return explicit;
-  if (kind === "file") {
-    const parts = normalizeFilePath(resourceId).split("/");
-    return parts[parts.length - 1] || kind;
-  }
-  return titleForSurfaceKind(kind);
-}
-
-function surfaceIdFor(placement, kind, resourceId) {
-  const idResource = asString(resourceId);
-  return idResource ? `${placement}:${kind}:${idResource}` : `${placement}:${kind}`;
-}
-
-function uniqueStrings(values) {
-  const result = [];
-  for (const value of values || []) {
-    const item = asString(value);
-    if (item && !result.includes(item)) result.push(item);
-  }
-  return result;
-}
-
-function sanitizeSurface(input, fallbackPlacement) {
-  const source = asObject(input);
-  const placement = normalizePlacement(source.placement || fallbackPlacement);
-  const allowed = supportedSurfaceKinds(placement);
-  const kind = asString(source.kind);
-  if (!allowed.includes(kind)) return null;
-  const definition = placement === "right" ? surfaceDefinitionFor(kind) : null;
-
-  const filePath = kind === "file" ? normalizeFilePath(source.filePath || source.resourceId) : "";
-  const resourceId =
-    kind === "file"
-      ? filePath
-      : kind === "terminal"
-        ? asString(source.terminalId || source.resourceId)
-        : asString(source.resourceId);
-  const terminalIds =
-    kind === "terminal"
-      ? uniqueStrings(
-          Array.isArray(source.terminalIds)
-            ? source.terminalIds
-            : [source.terminalId || source.resourceId],
-        )
-      : [];
-  const terminalId =
-    kind === "terminal" ? asString(source.terminalId || resourceId || terminalIds[0]) : "";
-  const revealLine = kind === "file" ? clampOptionalNumber(source.revealLine, 1, 1000000) : null;
-  const revealRequestId = kind === "file" ? clampNumber(source.revealRequestId, 0, 0, 1000000) : 0;
-
-  const base = {
-    id: surfaceIdFor(placement, kind, resourceId),
-    placement,
-    kind,
-    title: titleFor(kind, source.title, resourceId),
-    resourceId,
-    filePath,
-    terminalId,
-    revealLine,
-    revealRequestId,
-  };
-
-  if (kind !== "terminal") {
-    return definition ? pickSurfaceFields(base, definition.persistFields) : base;
-  }
-  const normalizedTerminalIds = terminalIds.length > 0 ? terminalIds : [terminalId].filter(Boolean);
-  const activeTerminalId = asString(source.activeTerminalId);
-  const terminalSurface = {
-    ...base,
-    terminalIds: normalizedTerminalIds,
-    activeTerminalId: normalizedTerminalIds.includes(activeTerminalId)
-      ? activeTerminalId
-      : normalizedTerminalIds[0] || terminalId,
-    ...(source.splitDirection === "vertical" ? { splitDirection: "vertical" } : {}),
-  };
-  if (!definition) return terminalSurface;
-  return pickSurfaceFields(terminalSurface, definition.persistFields);
-}
-
-function pickSurfaceFields(surface, fields) {
-  const result = {};
-  for (const field of fields || []) {
-    if (Object.prototype.hasOwnProperty.call(surface, field) && surface[field] !== undefined) {
-      result[field] = surface[field];
-    }
-  }
-  return result;
 }
 
 function sanitizeSurfaceList(items, placement) {
@@ -133,7 +32,7 @@ function sanitizeSurfaceList(items, placement) {
   const result = [];
   const seen = new Set();
   for (const item of items) {
-    const surface = sanitizeSurface(item, placement);
+    const surface = persistedSurfaceFrom(item, placement);
     if (!surface || seen.has(surface.id)) continue;
     seen.add(surface.id);
     result.push(surface);

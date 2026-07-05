@@ -137,6 +137,10 @@ workflow state, permission state, and runtime reducer state. `store.js`
 activates the saved session surface stack on `session_activated`, matching
 T3code's per-thread tab restoration without making the frontend a second
 session-history source.
+Persisted surface descriptor cleanup goes through
+`webapp/src/workbench/surfaces.js` `persistedSurfaceFrom(...)`; the
+localStorage state module does not own file/terminal field rules or branch on
+fixed surface kinds.
 
 Thread/session selection and composer draft state are now separate T3-style
 renderer modules rather than root fields on the global reducer state:

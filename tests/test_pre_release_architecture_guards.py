@@ -2033,6 +2033,10 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert "sanitizeWorkbenchUiStateForAppCapabilities" in ui_state_text
     assert "rightPanelLauncherSurfaceDefinitions(appCapabilities)" in ui_state_text
     assert "bottomDrawerSurfaceDefinitions(appCapabilities)" in ui_state_text
+    assert "persistedSurfaceFrom" in ui_state_text
+    assert 'kind === "file"' not in ui_state_text
+    assert 'kind === "terminal"' not in ui_state_text
+    assert 'kind !== "terminal"' not in ui_state_text
     assert "appCapabilities" in keybindings_text
     assert "rightPanelLauncherSurfaceDefinitions(appCapabilities)" in right_panel_tabs_text
     assert "bottomDrawerSurfaceDefinitions(appCapabilities)" in bottom_drawer_text
