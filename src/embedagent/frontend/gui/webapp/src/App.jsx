@@ -1,15 +1,11 @@
 import React, { startTransition, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { INITIAL_REQUESTED_MODE, initialState, reducer } from "./store.js";
-import {
-  makeEventId,
-  normalizeSessionPayload,
-} from "./state-helpers.js";
+import { normalizeSessionPayload } from "./state-helpers.js";
 import { createSessionTransportState } from "./session-runtime/session-transport-state.js";
 import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
 import { buildSessionActivityRuntime } from "./session-runtime/activity-state.js";
 import { buildComposerCommandsFromCapabilities } from "./session-runtime/command-capabilities.js";
-import { createSocketEffectExecutor } from "./app-runtime/socket-effect-executor.js";
-import { deriveSocketMessageEffects } from "./app-runtime/socket-message-effects.js";
+import { createSocketMessageController } from "./app-runtime/socket-message-controller.js";
 import { createBrowserDialogService } from "./app-runtime/browser-dialog-service.js";
 import { fetchJson } from "./app-runtime/http-client.js";
 import { createInitialAppLoadController } from "./app-runtime/initial-app-load-controller.js";
@@ -253,7 +249,7 @@ function App() {
       updateTransportState: sessionTransportHandle.update,
       loadSession,
       handleMessage: (message) => {
-        startTransition(() => handleSocketMessage(message.type, message.data || {}));
+        startTransition(() => socketMessageController.handleMessage(message));
       },
       locationObject: window.location,
     });
@@ -514,28 +510,21 @@ function App() {
     loadSessionCommandCapabilities: () => loadSessionCommandCapabilities({ fetchJson, dispatch }),
   });
 
-  const executeSocketEffects = createSocketEffectExecutor({
-    dispatch,
-    executeLoaderRequest,
-    getSessionTransportController: () => sessionTransportControllerRef.current,
-    getSessionTransportState: sessionTransportHandle.read,
-    updateSessionTransportState: sessionTransportHandle.update,
-    getCurrentSessionId: () => currentSessionIdRef.current,
-    loadSession,
-  });
-
-  function handleSocketMessage(type, data) {
-    const effects = deriveSocketMessageEffects({
-      type,
-      data: data || {},
-      currentSessionId: currentSessionIdRef.current,
-      sessionTransport: sessionTransportHandle.read(),
-      makeId: makeEventId,
-      nowIso: () => new Date().toISOString(),
-      diffPanelChrome,
-    });
-    executeSocketEffects(effects);
-  }
+  const socketMessageController = useMemo(
+    () =>
+      createSocketMessageController({
+        dispatch,
+        executeLoaderRequest,
+        getSessionTransportController: () => sessionTransportControllerRef.current,
+        getSessionTransportState: sessionTransportHandle.read,
+        updateSessionTransportState: sessionTransportHandle.update,
+        getCurrentSessionId: () => currentSessionIdRef.current,
+        loadSession,
+        getDiffPanelChrome: () =>
+          stateRef.current.app.capabilities?.surfaces?.chrome?.diffPanel || {},
+      }),
+    [],
+  );
 
   const interactionResponseController = useMemo(
     () =>

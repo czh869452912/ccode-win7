@@ -815,16 +815,26 @@ def test_gui_initial_app_load_is_controller_owned():
 
 def test_gui_socket_effect_execution_is_controller_owned():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-controller.js"
+    )
     executor_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-effect-executor.js"
     )
 
-    assert "createSocketEffectExecutor" in app_text
-    assert "const executeSocketEffects = createSocketEffectExecutor" in app_text
+    assert "createSocketMessageController" in app_text
+    assert "createSocketEffectExecutor" not in app_text
+    assert "const executeSocketEffects = createSocketEffectExecutor" not in app_text
+    assert "function handleSocketMessage" not in app_text
+    assert "deriveSocketMessageEffects" not in app_text
     assert "appendSessionTransportEvent" not in app_text
     assert "transportEvents.length" not in app_text
     assert 'nextTransport.reloadState === "reload_required"' not in app_text
     assert "for (const action of effects.actions" not in app_text
+    assert "export function createSocketMessageController" in controller_text
+    assert "deriveSocketMessageEffects" in controller_text
+    assert "createSocketEffectExecutor" in controller_text
+    assert "function handleMessage" in controller_text
     assert "export function createSocketEffectExecutor" in executor_text
     assert "appendSessionTransportEvent" in executor_text
     assert "recover(currentSessionId, nextTransport)" in executor_text

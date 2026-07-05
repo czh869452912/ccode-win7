@@ -117,7 +117,11 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
   `webapp/src/app-runtime/initial-app-load-controller.js`; `App.jsx` installs
   that controller and must not directly call `loadAppBootstrap()` or attach
   renderer-local warmup catch handlers.
-- Official GUI socket-effect execution boundary: WebSocket payload normalization may derive transport events, reducer actions, and loader requests, but applying those effects is owned by `webapp/src/app-runtime/socket-effect-executor.js`; `App.jsx` must not directly append session transport events, branch on reload recovery, or loop over effect actions/loaders.
+- Official GUI socket-message boundary: raw WebSocket messages are handled by
+  `webapp/src/app-runtime/socket-message-controller.js`, which combines pure
+  effect derivation with `socket-effect-executor.js`; `App.jsx` must not
+  directly call `deriveSocketMessageEffects`, append session transport events,
+  branch on reload recovery, or loop over effect actions/loaders.
 - Official GUI session-transport state bridge: current transport-state read,
   sync, replace, update, and runtime reset construction live in
   `webapp/src/app-runtime/session-transport-handle.js`; `App.jsx` owns the

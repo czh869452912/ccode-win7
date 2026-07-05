@@ -276,13 +276,13 @@ keybinding resolution. `App.jsx` installs the controller and supplies state
 readers, but it does not call `window.addEventListener("keydown", ...)`,
 inspect `document.activeElement`, or resolve shortcuts inline.
 
-GUI WebSocket payload handling is split between pure effect derivation and
-effect execution. `app-runtime/socket-message-effects.js` derives transport
-events, reducer actions, and loader requests from backend messages, while
-`app-runtime/socket-effect-executor.js` applies those effects by updating the
-active session transport read model, dispatching reducer actions, invoking
-loader requests, and triggering reload recovery. `App.jsx` stays the
-composition root and does not own transport append/recovery loops.
+GUI WebSocket payload handling is split between raw-message orchestration, pure
+effect derivation, and effect execution. `app-runtime/socket-message-controller.js`
+is the renderer boundary that accepts backend messages, passes safe readers into
+`app-runtime/socket-message-effects.js`, and then delegates derived transport
+events, reducer actions, and loader requests to `app-runtime/socket-effect-executor.js`.
+`App.jsx` stays the composition root and does not call socket derivation directly
+or own transport append/recovery loops.
 The React-facing session transport state bridge is
 `app-runtime/session-transport-handle.js`: it owns current transport reads,
 sync, replace, update, and runtime reset construction for session activation

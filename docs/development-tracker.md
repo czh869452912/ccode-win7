@@ -121,10 +121,12 @@
   `App.jsx` no longer directly fetches `/api/sessions` or dispatches
   `sessions_loaded`, keeping thread-list refresh as a focused renderer
   controller responsibility.
-- GUI socket effect application now lives in
-  `app-runtime/socket-effect-executor.js`. `App.jsx` no longer owns the
-  transport-event append loop, reload recovery branch, reducer-action loop, or
-  loader-request loop after `socket-message-effects.js` derives effects.
+- GUI socket message orchestration now lives in
+  `app-runtime/socket-message-controller.js`, backed by
+  `socket-message-effects.js` and `socket-effect-executor.js`. `App.jsx` no
+  longer calls socket effect derivation directly or owns the transport-event
+  append loop, reload recovery branch, reducer-action loop, or loader-request
+  loop.
 - GUI session transport state bridging now lives in
   `app-runtime/session-transport-handle.js`. `App.jsx` keeps the React state
   cell but no longer owns `sessionTransportRef`, transport replace/update

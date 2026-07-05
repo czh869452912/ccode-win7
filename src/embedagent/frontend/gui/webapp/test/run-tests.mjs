@@ -43,6 +43,7 @@ import { runThreadLifecycleControllerTests } from "./thread-lifecycle-controller
 import { runSessionTransportHandleTests } from "./session-transport-handle.test.mjs";
 import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
 import { runSocketEffectExecutorTests } from "./socket-effect-executor.test.mjs";
+import { runSocketMessageControllerTests } from "./socket-message-controller.test.mjs";
 import { runInteractionResponseControllerTests } from "./interaction-response-controller.test.mjs";
 import { runRespondingRequestIdsHandleTests } from "./responding-request-ids-handle.test.mjs";
 import { runSocketMessageEffectsTests } from "./socket-message-effects.test.mjs";
@@ -1047,12 +1048,13 @@ async function main() {
   assert.equal(appSource.includes("function allKnownTerminalIds"), false);
   assert.equal(appSource.includes("AppSidebarLayout"), true);
   assert.equal(appSource.includes("WorkbenchHeader"), true);
-  assert.equal(appSource.includes("currentSessionId: currentSessionIdRef.current"), true);
+  assert.equal(appSource.includes("getCurrentSessionId: () => currentSessionIdRef.current"), true);
   assert.equal(appSource.includes("loadAppBootstrap"), true);
   assert.equal(appSource.includes("openWorkspace"), true);
   assert.equal(appSource.includes("activateWorkspace"), true);
-  assert.equal(appSource.includes("deriveSocketMessageEffects"), true);
-  assert.equal(appSource.includes("executeSocketEffects"), true);
+  assert.equal(appSource.includes("createSocketMessageController"), true);
+  assert.equal(appSource.includes("deriveSocketMessageEffects"), false);
+  assert.equal(appSource.includes("executeSocketEffects"), false);
   assert.equal(appSource.includes("executeLoaderRequest"), true);
   assert.equal(appSource.includes("installVisualDebugFixtures"), true);
   assert.equal(appSource.includes("/api/tasks"), false);
@@ -2058,6 +2060,10 @@ async function main() {
     webappSourcePath("app-runtime", "socket-effect-executor.js"),
     "utf8",
   );
+  const socketMessageControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "socket-message-controller.js"),
+    "utf8",
+  );
   const activeWorkspaceDataLoaderSource = fs.readFileSync(
     webappSourcePath("app-runtime", "active-workspace-data-loader.js"),
     "utf8",
@@ -2101,12 +2107,23 @@ async function main() {
   assert.equal(respondingRequestIdsHandleSource.includes("function set"), true);
   assert.equal(respondingRequestIdsHandleSource.includes("function sync"), true);
   assert.equal(respondingRequestIdsHandleSource.includes("import React"), false);
-  assert.equal(appSource.includes("createSocketEffectExecutor"), true);
-  assert.equal(appSource.includes("const executeSocketEffects = createSocketEffectExecutor"), true);
+  assert.equal(appSource.includes("createSocketMessageController"), true);
+  assert.equal(appSource.includes("createSocketEffectExecutor"), false);
+  assert.equal(appSource.includes("const executeSocketEffects = createSocketEffectExecutor"), false);
+  assert.equal(appSource.includes("function handleSocketMessage"), false);
+  assert.equal(appSource.includes("deriveSocketMessageEffects"), false);
   assert.equal(appSource.includes("appendSessionTransportEvent"), false);
   assert.equal(appSource.includes("transportEvents.length"), false);
   assert.equal(appSource.includes('nextTransport.reloadState === "reload_required"'), false);
   assert.equal(appSource.includes("for (const action of effects.actions"), false);
+  assert.equal(
+    socketMessageControllerSource.includes("export function createSocketMessageController"),
+    true,
+  );
+  assert.equal(socketMessageControllerSource.includes("deriveSocketMessageEffects"), true);
+  assert.equal(socketMessageControllerSource.includes("createSocketEffectExecutor"), true);
+  assert.equal(socketMessageControllerSource.includes("function handleMessage"), true);
+  assert.equal(socketMessageControllerSource.includes("import React"), false);
   assert.equal(socketEffectExecutorSource.includes("export function createSocketEffectExecutor"), true);
   assert.equal(socketEffectExecutorSource.includes("appendSessionTransportEvent"), true);
   assert.equal(socketEffectExecutorSource.includes("recover(currentSessionId, nextTransport)"), true);
@@ -2231,6 +2248,7 @@ async function main() {
   runSessionTransportHandleTests();
   await runSessionTransportControllerTests();
   await runSocketEffectExecutorTests();
+  runSocketMessageControllerTests();
   await runInteractionResponseControllerTests();
   runRespondingRequestIdsHandleTests();
   runSocketMessageEffectsTests();
