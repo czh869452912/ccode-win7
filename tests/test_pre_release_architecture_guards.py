@@ -896,6 +896,15 @@ def test_gui_app_shell_surfaces_are_descriptor_records_not_string_lists():
     assert '|| "file"' not in surfaces_text
     assert '|| "preview"' not in surfaces_text
     assert '|| "terminal"' not in surfaces_text
+    assert "SURFACE_INITIALIZERS" in surfaces_text
+    assert "SURFACE_INITIALIZERS[kind]" in surfaces_text
+    for initializer_branch in (
+        'kind === "file"\n      ? normalizeFilePath',
+        'kind === "terminal"\n      ? uniqueTerminalIds',
+        'if (kind === "preview")',
+        'if (kind !== "terminal")',
+    ):
+        assert initializer_branch not in surfaces_text
     assert 'value.map((item) => String(item || ""))' not in surfaces_text
     for registry_copy in (
         'title: "Preview"',

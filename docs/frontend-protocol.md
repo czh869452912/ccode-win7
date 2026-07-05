@@ -171,7 +171,10 @@ Persisted workbench surface descriptors are normalized through the
 renderer-local surface registry's `persistedSurfaceFrom(...)` helper. The
 localStorage UI-state module must not branch on fixed file or terminal surface
 kinds to decide resource fields, tab ids, titles, reveal markers, or terminal
-pane metadata.
+pane metadata. Surface instance fields that vary by kind are initialized by the
+same renderer-local surface model through `SURFACE_INITIALIZERS[kind]`; new
+surface-specific metadata must not be added as branches inside
+`makeSurface(...)`.
 The GUI no longer keeps retired Inspector sidecar state for artifact lists,
 review detail panes, permission-rule panes, runtime panes, workspace previews,
 or event logs. Review results remain timeline activities, permission and user

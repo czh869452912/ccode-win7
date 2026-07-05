@@ -140,7 +140,9 @@ session-history source.
 Persisted surface descriptor cleanup goes through
 `webapp/src/workbench/surfaces.js` `persistedSurfaceFrom(...)`; the
 localStorage state module does not own file/terminal field rules or branch on
-fixed surface kinds.
+fixed surface kinds. The same surface model owns per-kind instance metadata
+through `SURFACE_INITIALIZERS[kind]`, so file, terminal, and preview fields are
+not hard-coded as branches in `makeSurface(...)`.
 
 Thread/session selection and composer draft state are now separate T3-style
 renderer modules rather than root fields on the global reducer state:

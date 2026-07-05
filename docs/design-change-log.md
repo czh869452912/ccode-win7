@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-288
+
+- Date: 2026-07-05
+- Change Topic: GUI workbench surfaces use per-kind initializers
+- Summary:
+  - Moved `makeSurface(...)` file, terminal, and preview instance-field setup
+    into a renderer-local `SURFACE_INITIALIZERS` registry.
+  - `makeSurface(...)` now handles common surface fields and resolves
+    per-kind instance metadata through `SURFACE_INITIALIZERS[kind]`.
+  - Frontend and architecture guards now prevent reintroducing the old
+    `makeSurface(...)` file/terminal/preview initializer branches.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New renderer-supported surface kinds that need instance-specific fields
+    must add an initializer registry entry rather than branches in
+    `makeSurface(...)`.
+
 ### DC-287
 
 - Date: 2026-07-05

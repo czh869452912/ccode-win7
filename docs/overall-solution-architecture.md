@@ -120,7 +120,9 @@ bootstrap or workspace switch against the same declaration, so stale local UI
 state cannot reopen surfaces that the active app shell does not expose.
 Shallow persisted surface descriptors are normalized by the renderer-local
 surface registry through `persistedSurfaceFrom(...)`; the browser localStorage
-state module must not own fixed file/terminal surface field rules.
+state module must not own fixed file/terminal surface field rules. Per-kind
+surface instance metadata is initialized through `SURFACE_INITIALIZERS[kind]`
+inside that same renderer-local model, not by branches in `makeSurface(...)`.
 The default GUI app-shell descriptor set is an injected `AppShellSpec` from
 `src/embedagent/frontend/gui/backend/app_shell_spec.py`; `AppShellService`
 composes that spec with safe active-core projections instead of owning inline

@@ -181,7 +181,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   commands; persisted workbench surface state is also re-sanitized
   after app bootstrap or workspace switch against those app-shell capabilities,
   and shallow persisted surface fields are normalized by the renderer-local
-  surface registry rather than `ui-state.js` file/terminal branches;
+  surface registry rather than `ui-state.js` file/terminal branches; per-kind
+  surface instance metadata is initialized through `SURFACE_INITIALIZERS[kind]`
+  rather than `makeSurface(...)` file/terminal/preview branches;
   app bootstrap now also carries a safe selected-agent application registry and
   empty-state read model before a workspace/core exists, then defers to the
   active core's capability projection after workspace activation. This lets the

@@ -425,6 +425,70 @@ function uniqueTerminalIds(ids) {
   return result;
 }
 
+const SURFACE_INITIALIZERS = Object.freeze(Object.assign(Object.create(null), {
+  file: (input) => {
+    const filePath = normalizeFilePath(input && (input.filePath || input.resourceId));
+    return {
+      filePath,
+      resourceId: filePath,
+      title: basenameForPath(filePath),
+      revealLine: normalizeRevealLine(input && input.revealLine),
+      revealRequestId: Number.isSafeInteger(Number(input && input.revealRequestId))
+        ? Number(input.revealRequestId)
+        : 0,
+    };
+  },
+  terminal: (input, context) => {
+    const terminalIds = uniqueTerminalIds(
+      Array.isArray(input && input.terminalIds)
+        ? input.terminalIds
+        : [input && (input.terminalId || input.resourceId)],
+    );
+    const activeTerminalId = String((input && input.activeTerminalId) || terminalIds[0] || "");
+    const terminalId = String(
+      (input && input.terminalId) ||
+        (context && context.resourceId) ||
+        terminalIds[0] ||
+        activeTerminalId,
+    );
+    const normalizedTerminalIds = terminalIds.length > 0 ? terminalIds : [terminalId].filter(Boolean);
+    return {
+      resourceId: terminalId,
+      terminalId,
+      terminalIds: normalizedTerminalIds,
+      activeTerminalId: normalizedTerminalIds.includes(activeTerminalId)
+        ? activeTerminalId
+        : normalizedTerminalIds[0] || terminalId,
+      ...(input && input.splitDirection === "vertical" ? { splitDirection: "vertical" } : {}),
+    };
+  },
+  preview: (input) => ({
+    previewSnapshot:
+      input && input.previewSnapshot && typeof input.previewSnapshot === "object"
+        ? { ...input.previewSnapshot }
+        : null,
+  }),
+}));
+
+function initializerValue(values, key, fallback) {
+  return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : fallback;
+}
+
+function initializerExtras(values) {
+  const result = { ...values };
+  for (const key of [
+    "filePath",
+    "resourceId",
+    "terminalId",
+    "title",
+    "revealLine",
+    "revealRequestId",
+  ]) {
+    delete result[key];
+  }
+  return result;
+}
+
 function surfaceIdFor(input) {
   const placement = normalizePlacement(input && input.placement);
   const kind = String((input && input.kind) || defaultActiveKind(placement));
@@ -437,72 +501,43 @@ function makeSurface(input) {
   const placement = normalizePlacement(input && input.placement);
   const kind = String((input && input.kind) || defaultActiveKind(placement));
   const definition = surfaceDefinitionForPlacement(kind, placement);
-  const filePath =
-    kind === "file"
-      ? normalizeFilePath(input && (input.filePath || input.resourceId))
-      : String((input && input.filePath) || "");
-  const resourceId =
-    kind === "file"
-      ? filePath
-      : String((input && input.resourceId) || (definition && definition.defaultResourceId) || "");
-  const terminalIds =
-    kind === "terminal"
-      ? uniqueTerminalIds(
-          Array.isArray(input && input.terminalIds)
-            ? input.terminalIds
-            : [input && (input.terminalId || input.resourceId)],
-        )
-      : [];
-  const activeTerminalId =
-    kind === "terminal"
-      ? String((input && input.activeTerminalId) || terminalIds[0] || "")
-      : "";
-  const terminalId =
-    kind === "terminal"
-      ? String((input && input.terminalId) || resourceId || terminalIds[0] || activeTerminalId)
-      : String((input && input.terminalId) || "");
-  const effectiveResourceId = kind === "terminal" ? terminalId : resourceId;
+  const defaultFilePath = String((input && input.filePath) || "");
+  const defaultResourceId = String(
+    (input && input.resourceId) || (definition && definition.defaultResourceId) || "",
+  );
+  const defaultTerminalId = String((input && input.terminalId) || "");
+  const initializer = SURFACE_INITIALIZERS[kind] || null;
+  const initialized = initializer
+    ? initializer(input, {
+        placement,
+        kind,
+        definition,
+        filePath: defaultFilePath,
+        resourceId: defaultResourceId,
+        terminalId: defaultTerminalId,
+      })
+    : {};
+  const filePath = initializerValue(initialized, "filePath", defaultFilePath);
+  const resourceId = initializerValue(initialized, "resourceId", defaultResourceId);
+  const terminalId = initializerValue(initialized, "terminalId", defaultTerminalId);
   const base = {
     id: String(
       (input && input.surfaceId) ||
-        surfaceIdFor({ ...input, filePath, resourceId: effectiveResourceId }),
+        surfaceIdFor({ ...input, filePath, resourceId }),
     ),
     placement,
     kind,
     title: String(
       (input && input.title) ||
-        (kind === "file" ? basenameForPath(filePath) : titleForSurfaceKind(kind)),
+        initializerValue(initialized, "title", titleForSurfaceKind(kind)),
     ),
-    resourceId: effectiveResourceId,
+    resourceId,
     filePath,
     terminalId,
-    revealLine: kind === "file" ? normalizeRevealLine(input && input.revealLine) : null,
-    revealRequestId:
-      kind === "file" && Number.isSafeInteger(Number(input && input.revealRequestId))
-        ? Number(input.revealRequestId)
-        : 0,
+    revealLine: initializerValue(initialized, "revealLine", null),
+    revealRequestId: initializerValue(initialized, "revealRequestId", 0),
   };
-  if (kind === "preview") {
-    return {
-      ...base,
-      previewSnapshot:
-        input && input.previewSnapshot && typeof input.previewSnapshot === "object"
-          ? { ...input.previewSnapshot }
-          : null,
-    };
-  }
-  if (kind !== "terminal") {
-    return base;
-  }
-  const normalizedTerminalIds = terminalIds.length > 0 ? terminalIds : [terminalId].filter(Boolean);
-  return {
-    ...base,
-    terminalIds: normalizedTerminalIds,
-    activeTerminalId: normalizedTerminalIds.includes(activeTerminalId)
-      ? activeTerminalId
-      : normalizedTerminalIds[0] || terminalId,
-    ...(input && input.splitDirection === "vertical" ? { splitDirection: "vertical" } : {}),
-  };
+  return { ...base, ...initializerExtras(initialized) };
 }
 
 function pickSurfaceFields(surface, fields) {
