@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-277
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel body mounting uses renderer metadata
+- Summary:
+  - Added renderer-local `bodyKind` metadata to right-panel surface registry
+    records for Files, File Preview, Preview, Terminal, and generic
+    `SurfacePanel` bodies.
+  - `RightPanelSurfaceBody` now reads `surfaceDefinitionFor(surface.kind)` and
+    selects the body from `activeDefinition.bodyKind` instead of branching on
+    fixed surface kinds.
+  - Frontend and architecture guards now prevent the old `surface.kind === ...`
+    body routing from returning.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Keep future right-panel surfaces behind explicit renderer metadata and
+    app-shell visibility descriptors.
+
 ### DC-276
 
 - Date: 2026-07-05

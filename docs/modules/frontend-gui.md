@@ -363,6 +363,9 @@ must not treat `drawer: "terminal"` as a special execution policy.
 Bottom-drawer body mounting is renderer-local metadata on supported surface
 definitions (`bodyKind`); the default app shell exposes only surfaces that have
 a matching renderer body, currently Run Output and Terminal.
+Right-panel body mounting follows the same rule: `RightPanelSurfaceBody` reads
+renderer-local `bodyKind` metadata from the surface registry instead of
+branching directly on app-shell surface ids.
 Surface command row descriptions are passed through from surface descriptors
 rather than generated from surface or drawer ids. Session/workspace palette row
 leading markers are descriptor-owned and empty when absent. Command-palette

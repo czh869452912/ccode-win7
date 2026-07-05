@@ -1620,11 +1620,14 @@ async function main() {
   assert.equal(rightPanelSurfaceBodySource.includes("PreviewSurface"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("TerminalShell"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("SurfacePanel"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("surfaceDefinitionFor(surface.kind)"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("activeDefinition.bodyKind"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("Inspector"), false);
   assert.equal(rightPanelSurfaceBodySource.includes("inspectorTab"), false);
-  assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "file"'), true);
-  assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "preview"'), true);
-  assert.equal(rightPanelSurfaceBodySource.includes("surface.kind === \"terminal\""), true);
+  assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "file"'), false);
+  assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "files"'), false);
+  assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "preview"'), false);
+  assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "terminal"'), false);
   assert.equal(rightPanelSurfaceBodySource.includes("filePreviewsByPath"), true);
 
   const terminalShellSource = fs.readFileSync(

@@ -67,6 +67,9 @@ dispatch descriptors; the Terminal drawer opens through
 Bottom-drawer body mounting is renderer-local `bodyKind` metadata on supported
 surface definitions, and the default shell does not expose drawer surfaces
 without an implemented body.
+Right-panel body mounting uses the same renderer-local metadata path; app-shell
+surface ids select visibility and labels, while renderer registry records
+select the concrete body component.
 Commands in undeclared or untitled palette groups remain hidden
 rather than using title-cased group ids, and missing command row description/meta copy
 remains empty instead of falling back to command ids. Surface command row

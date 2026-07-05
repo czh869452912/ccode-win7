@@ -2208,6 +2208,21 @@ def test_gui_right_panel_body_has_no_inspector_tab_renderer():
             "inspectorKind",
         ):
             assert token not in text
+    surface_body_text = _read(
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx"
+    )
+    surfaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js")
+    assert "surfaceDefinitionFor(surface.kind)" in surface_body_text
+    assert "activeDefinition.bodyKind" in surface_body_text
+    assert "bodyKind" in surfaces_text
+    for token in (
+        'surface.kind === "file"',
+        'surface.kind === "files"',
+        'surface.kind === "preview"',
+        'surface.kind === "terminal"',
+    ):
+        assert token not in surface_body_text
 
 
 def test_gui_has_no_retired_workflow_runtime_panel_display_helper():

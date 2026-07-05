@@ -158,6 +158,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   bottom-drawer body selection uses renderer-local `bodyKind` metadata for
   supported surfaces, and stale declarations without a renderer body are
   removed instead of being shown through a misleading fallback;
+  right-panel body selection now follows the same renderer metadata path
+  instead of branching on fixed surface kind strings in
+  `RightPanelSurfaceBody`;
   surface descriptors without explicit titles remain
   diagnostic capability records and do not enter visible launchers or surface
   commands; persisted workbench surface state is also re-sanitized
