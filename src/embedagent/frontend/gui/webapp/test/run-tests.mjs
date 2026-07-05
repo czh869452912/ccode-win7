@@ -25,6 +25,7 @@ import { runTimelineUiStateTests } from "./timeline-ui-state.test.mjs";
 import { runVisualLanguageCssTests } from "./visual-language-css.test.mjs";
 import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
 import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
+import { runHttpClientTests } from "./http-client.test.mjs";
 import { runSessionLoadersTests } from "./session-loaders.test.mjs";
 import { runSessionActivationControllerTests } from "./session-activation-controller.test.mjs";
 import { runSessionListControllerTests } from "./session-list-controller.test.mjs";
@@ -1077,6 +1078,9 @@ async function main() {
   }
   assert.equal(appSource.includes("createSessionController"), true);
   assert.equal(appSource.includes("createSessionListController"), true);
+  assert.equal(appSource.includes('import { fetchJson } from "./app-runtime/http-client.js"'), true);
+  assert.equal(appSource.includes("async function fetchJson"), false);
+  assert.equal(appSource.includes("fetch("), false);
   assert.equal(appSource.includes('fetchJson("/api/sessions")'), false);
   assert.equal(appSource.includes('type: "sessions_loaded"'), false);
   assert.equal(appSource.includes("createThreadLifecycleController"), true);
@@ -1102,6 +1106,14 @@ async function main() {
   assert.equal(sessionListControllerSource.includes("/api/sessions"), true);
   assert.equal(sessionListControllerSource.includes('type: "sessions_loaded"'), true);
   assert.equal(sessionListControllerSource.includes("import React"), false);
+  const httpClientSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "http-client.js"),
+    "utf8",
+  );
+  assert.equal(httpClientSource.includes("export function createJsonHttpClient"), true);
+  assert.equal(httpClientSource.includes("export const { fetchJson }"), true);
+  assert.equal(httpClientSource.includes("error.status"), true);
+  assert.equal(httpClientSource.includes("import React"), false);
   const threadLifecycleControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "thread-lifecycle-controller.js"),
     "utf8",
@@ -2055,6 +2067,7 @@ async function main() {
   runInteractionModelTests();
   runDiffModelTests();
   runDiffSurfaceControllerTests();
+  await runHttpClientTests();
   runFilePreviewModelTests();
   runPreviewSurfaceModelTests();
   runPreviewSurfaceSourceTests();

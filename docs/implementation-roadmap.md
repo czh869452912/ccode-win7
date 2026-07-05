@@ -340,7 +340,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `app-runtime/session-activation-controller.js` owns bootstrap activation,
   `app-runtime/socket-effect-executor.js` owns application of derived socket
   transport/action/loader effects, while `app-runtime/session-list-controller.js`
-  owns session list loading.
+  owns session list loading and `app-runtime/http-client.js` owns shared JSON
+  request/error handling.
   `App.jsx`, command palette, terminal
   controller, workspace reset, and tests consume those read models instead of
   root-level `sessions`, `currentSessionId`, `composer`, `historyIntegrity`,

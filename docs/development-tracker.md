@@ -125,6 +125,10 @@
   `app-runtime/socket-effect-executor.js`. `App.jsx` no longer owns the
   transport-event append loop, reload recovery branch, reducer-action loop, or
   loader-request loop after `socket-message-effects.js` derives effects.
+- GUI shared JSON HTTP handling now lives in `app-runtime/http-client.js`.
+  `App.jsx` imports `fetchJson` instead of defining an inline fetch wrapper, so
+  request/error normalization is no longer rooted in the GUI composition
+  component.
 - GUI user-input interaction projection no longer defaults missing
   `tool_name` values to the built-in `ask_user` tool. Pending user-input
   display is driven by `kind` / `sourceActivityKind` and whatever safe payload

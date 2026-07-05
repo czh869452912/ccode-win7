@@ -10,6 +10,7 @@ import { buildSessionActivityRuntime } from "./session-runtime/activity-state.js
 import { buildComposerCommandsFromCapabilities } from "./session-runtime/command-capabilities.js";
 import { createSocketEffectExecutor } from "./app-runtime/socket-effect-executor.js";
 import { deriveSocketMessageEffects } from "./app-runtime/socket-message-effects.js";
+import { fetchJson } from "./app-runtime/http-client.js";
 import { createDiffSurfaceController } from "./app-runtime/diff-surface-controller.js";
 import { createFilePreviewController } from "./app-runtime/file-preview-controller.js";
 import { createLoaderRequestExecutor, loadSessionCommandCapabilities } from "./app-runtime/session-loaders.js";
@@ -283,22 +284,6 @@ function App() {
     const el = timelineRef.current;
     if (!el) return;
     isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-  }
-
-  // ── API helpers ────────────────────────────────────────────────────
-
-  async function fetchJson(url, options) {
-    const res = await fetch(url, options);
-    const payload = await res.json().catch(() => null);
-    if (!res.ok) {
-      const detail =
-        typeof payload?.detail === "string" ? payload.detail : JSON.stringify(payload?.detail || "");
-      const error = new Error(detail || `HTTP ${res.status}`);
-      error.status = res.status;
-      error.detail = detail;
-      throw error;
-    }
-    return payload;
   }
 
   const sessionListController = useMemo(

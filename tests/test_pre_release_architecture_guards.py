@@ -784,6 +784,20 @@ def test_gui_session_list_loading_is_controller_owned():
     assert 'type: "sessions_loaded"' in controller_text
 
 
+def test_gui_http_client_is_runtime_owned_not_inline_app_fetch():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    http_client_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/http-client.js"
+    )
+
+    assert 'import { fetchJson } from "./app-runtime/http-client.js"' in app_text
+    assert "async function fetchJson" not in app_text
+    assert "fetch(" not in app_text
+    assert "export function createJsonHttpClient" in http_client_text
+    assert "export const { fetchJson }" in http_client_text
+    assert "error.status" in http_client_text
+
+
 def test_gui_socket_effect_execution_is_controller_owned():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     executor_text = _read(

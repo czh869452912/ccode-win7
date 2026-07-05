@@ -235,6 +235,11 @@ module that fetches `/api/sessions` for the thread list and dispatches
 `sessions_loaded`; `App.jsx` composes the controller but does not own the
 session-list API/action pair.
 
+GUI JSON request/error handling is owned by
+`app-runtime/http-client.js`. `App.jsx` imports the shared `fetchJson` helper
+and passes it into focused controllers; it does not define its own HTTP client
+or call browser `fetch` directly.
+
 GUI WebSocket payload handling is split between pure effect derivation and
 effect execution. `app-runtime/socket-message-effects.js` derives transport
 events, reducer actions, and loader requests from backend messages, while
