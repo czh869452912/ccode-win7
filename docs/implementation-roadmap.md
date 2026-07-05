@@ -184,7 +184,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   keeping a `sendMessage` wrapper or inline composer dispatch/refresh handlers;
   SurfacePanel diff focus, Source Control refresh/file selection, and app-shell
   settings patch actions are delegated to `surface-panel-controller.js`
-  instead of inline App callbacks;
+  instead of inline App callbacks, with `surface-panel-props.js` owning the
+  `SurfacePanel` prop mapping;
   header panel toggles, command-palette open/close/query/selection, and
   command-id resolution are delegated to `workbench-command-controller.js`
   instead of `App.jsx` importing `commandById` or dispatching palette/toggle

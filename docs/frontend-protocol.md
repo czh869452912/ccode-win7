@@ -181,6 +181,8 @@ Generic SurfacePanel actions for diff-file focus, Source Control refresh/file
 selection, and app-shell settings patching are renderer action-controller
 concerns in `webapp/src/app-runtime/surface-panel-controller.js`; root App
 composition must not inline those reducer actions or source-control lambdas.
+`webapp/src/app-runtime/surface-panel-props.js` owns the `SurfacePanel` prop
+mapping from state, chrome, and controller handles.
 Active-workspace read-model refresh is likewise delegated to
 `webapp/src/app-runtime/active-workspace-data-loader.js`, with
 `sourceControlController.loadStatus` passed directly instead of wrapped by a

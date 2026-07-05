@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-306
+
+- Date: 2026-07-05
+- Change Topic: GUI SurfacePanel props are mapped outside root App
+- Summary:
+  - Added `surface-panel-props.js` as a pure app-runtime props builder for
+    generic `SurfacePanel` state, chrome, and action handles.
+  - `App.jsx` now calls `buildSurfacePanelProps(...)` instead of spelling out
+    per-action `surfacePanelController.*` prop mappings in the root component.
+  - Frontend and architecture guards reject reintroducing those action prop
+    mappings in `App.jsx`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/surface-panel-props.js`
+  - `src/embedagent/frontend/gui/webapp/test/surface-panel-props.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue shrinking `App.jsx` to composition-only wiring where remaining
+    prop assemblers still encode component contracts.
+
 ### DC-305
 
 - Date: 2026-07-05

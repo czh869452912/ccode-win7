@@ -93,7 +93,9 @@ SurfacePanel action wiring is owned by
 `app-runtime/surface-panel-controller.js`: diff-file focus, Source Control
 refresh/file selection, and app-shell settings patch actions leave `App.jsx`
 as direct controller methods rather than inline reducer dispatch or
-source-control controller lambdas.
+source-control controller lambdas. `app-runtime/surface-panel-props.js` owns
+the state/chrome/controller-to-`SurfacePanel` prop mapping so `App.jsx` does
+not keep per-action SurfacePanel prop assembly.
 Commands in undeclared or untitled palette groups remain hidden
 rather than using title-cased group ids, and missing command row description/meta copy
 remains empty instead of falling back to command ids. Surface command row

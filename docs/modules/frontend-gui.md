@@ -427,6 +427,9 @@ declaration for Plan, Diff, Source Control, Settings, and Diagnostics bodies;
 generic panels: diff-file focus, Source Control refresh/file selection, and
 app-shell settings patching. `App.jsx` wires those methods directly rather
 than inline reducer dispatch or source-control controller lambdas.
+`app-runtime/surface-panel-props.js` owns the state/chrome/controller-to-prop
+mapping for `SurfacePanel`, keeping root App from spelling out per-action
+SurfacePanel prop names.
 The active-workspace refresh fanout uses the same boundary style:
 `app-runtime/active-workspace-data-loader.js` receives
 `sourceControlController.loadStatus` directly rather than a root-level

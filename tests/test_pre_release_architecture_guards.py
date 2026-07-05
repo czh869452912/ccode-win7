@@ -1386,6 +1386,9 @@ def test_gui_chrome_copy_is_app_shell_declared():
         ROOT
         / "src/embedagent/frontend/gui/webapp/src/components/composer/ComposerPendingUserInputPanel.jsx"
     )
+    surface_panel_props_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/surface-panel-props.js"
+    )
     surface_panel_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx"
     )
@@ -1400,7 +1403,8 @@ def test_gui_chrome_copy_is_app_shell_declared():
     assert "chrome={appChrome.header || {}}" in app_text
     assert "chrome={appChrome}" in app_text
     assert "chrome={appChrome.composer || {}}" in app_text
-    assert "chrome: appChrome.surfacePanel || {}" in app_text
+    assert "chrome: appChrome.surfacePanel || {}" not in app_text
+    assert "chrome: appChrome.surfacePanel || {}" in surface_panel_props_text
     assert "set_lang" not in store_text
     assert "lang:" not in store_text
 
@@ -3010,12 +3014,22 @@ def test_gui_surface_panel_actions_are_controller_owned():
     controller_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/surface-panel-controller.js"
     )
+    props_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/surface-panel-props.js"
+    )
 
     assert "createSurfacePanelController" in app_text
-    assert "surfacePanelController.focusDiffFile" in app_text
-    assert "surfacePanelController.refreshSourceControl" in app_text
-    assert "surfacePanelController.selectSourceControlFile" in app_text
-    assert "surfacePanelController.changeAppSettings" in app_text
+    assert "buildSurfacePanelProps" in app_text
+    assert "surfacePanelController.focusDiffFile" not in app_text
+    assert "surfacePanelController.refreshSourceControl" not in app_text
+    assert "surfacePanelController.selectSourceControlFile" not in app_text
+    assert "surfacePanelController.changeAppSettings" not in app_text
+    assert "onFocusDiffFile: surfacePanelController.focusDiffFile" not in app_text
+    assert "onRefreshSourceControl: surfacePanelController.refreshSourceControl" not in app_text
+    assert (
+        "onSelectSourceControlFile: surfacePanelController.selectSourceControlFile" not in app_text
+    )
+    assert "onAppSettingsChange: surfacePanelController.changeAppSettings" not in app_text
     assert "diff_file_focused" not in app_text
     assert "app_shell_settings_changed" not in app_text
     assert "sourceControlController.loadStatus(true)" not in app_text
@@ -3028,6 +3042,12 @@ def test_gui_surface_panel_actions_are_controller_owned():
     assert 'type: "diff_file_focused"' in controller_text
     assert 'type: "app_shell_settings_changed"' in controller_text
     assert "import React" not in controller_text
+    assert "export function buildSurfacePanelProps" in props_text
+    assert "onFocusDiffFile: controller.focusDiffFile" in props_text
+    assert "onRefreshSourceControl: controller.refreshSourceControl" in props_text
+    assert "onSelectSourceControlFile: controller.selectSourceControlFile" in props_text
+    assert "onAppSettingsChange: controller.changeAppSettings" in props_text
+    assert "import React" not in props_text
 
 
 def test_gui_panel_resize_dom_logic_is_controller_owned():

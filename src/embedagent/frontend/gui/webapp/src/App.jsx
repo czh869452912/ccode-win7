@@ -7,6 +7,7 @@ import { buildSessionActivityRuntime } from "./session-runtime/activity-state.js
 import { buildComposerCommandsFromCapabilities } from "./session-runtime/command-capabilities.js";
 import { createSocketMessageController } from "./app-runtime/socket-message-controller.js";
 import { createSurfacePanelController } from "./app-runtime/surface-panel-controller.js";
+import { buildSurfacePanelProps } from "./app-runtime/surface-panel-props.js";
 import { createBrowserDialogService } from "./app-runtime/browser-dialog-service.js";
 import { fetchJson } from "./app-runtime/http-client.js";
 import { createComposerController } from "./app-runtime/composer-controller.js";
@@ -577,19 +578,13 @@ function App() {
   const rightPanelSurfaces = rightPanelSurfacesFrom(state.workbench);
   const activeRightPanelSurface = activeRightPanelSurfaceFrom(state.workbench);
 
-  const surfacePanelProps = {
-    plan: state.plan,
-    diffSurface: state.diffSurface,
-    sourceControl: state.sourceControl,
+  const surfacePanelProps = buildSurfacePanelProps({
+    state,
+    appChrome,
     sourceControlChrome,
     diffPanelChrome,
-    appShell: state.app,
-    chrome: appChrome.surfacePanel || {},
-    onFocusDiffFile: surfacePanelController.focusDiffFile,
-    onRefreshSourceControl: surfacePanelController.refreshSourceControl,
-    onSelectSourceControlFile: surfacePanelController.selectSourceControlFile,
-    onAppSettingsChange: surfacePanelController.changeAppSettings,
-  };
+    surfacePanelController,
+  });
 
   const panelResizeController = useMemo(
     () =>

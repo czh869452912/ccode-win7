@@ -33,6 +33,7 @@ import { runSessionActivationControllerTests } from "./session-activation-contro
 import { runSessionListControllerTests } from "./session-list-controller.test.mjs";
 import { runSessionControllerTests } from "./session-controller.test.mjs";
 import { runSourceControlControllerTests } from "./source-control-controller.test.mjs";
+import { runSurfacePanelPropsTests } from "./surface-panel-props.test.mjs";
 import { runFilePreviewControllerTests } from "./file-preview-controller.test.mjs";
 import { runPreviewControllerTests } from "./preview-controller.test.mjs";
 import { runPanelResizeControllerTests } from "./panel-resize-controller.test.mjs";
@@ -1330,10 +1331,24 @@ async function main() {
   assert.equal(appSource.includes("branchToolbarModel"), true);
   assert.equal(appSource.includes("sourceControlChrome"), true);
   assert.equal(appSource.includes("createSurfacePanelController"), true);
-  assert.equal(appSource.includes("surfacePanelController.focusDiffFile"), true);
-  assert.equal(appSource.includes("surfacePanelController.refreshSourceControl"), true);
-  assert.equal(appSource.includes("surfacePanelController.selectSourceControlFile"), true);
-  assert.equal(appSource.includes("surfacePanelController.changeAppSettings"), true);
+  assert.equal(appSource.includes("buildSurfacePanelProps"), true);
+  assert.equal(appSource.includes("surfacePanelController.focusDiffFile"), false);
+  assert.equal(appSource.includes("surfacePanelController.refreshSourceControl"), false);
+  assert.equal(appSource.includes("surfacePanelController.selectSourceControlFile"), false);
+  assert.equal(appSource.includes("surfacePanelController.changeAppSettings"), false);
+  assert.equal(appSource.includes("onFocusDiffFile: surfacePanelController.focusDiffFile"), false);
+  assert.equal(
+    appSource.includes("onRefreshSourceControl: surfacePanelController.refreshSourceControl"),
+    false,
+  );
+  assert.equal(
+    appSource.includes("onSelectSourceControlFile: surfacePanelController.selectSourceControlFile"),
+    false,
+  );
+  assert.equal(
+    appSource.includes("onAppSettingsChange: surfacePanelController.changeAppSettings"),
+    false,
+  );
   assert.equal(appSource.includes("diff_file_focused"), false);
   assert.equal(appSource.includes("app_shell_settings_changed"), false);
   assert.equal(appSource.includes("sourceControlController.loadStatus(true)"), false);
@@ -1354,6 +1369,10 @@ async function main() {
     webappSourcePath("app-runtime", "surface-panel-controller.js"),
     "utf8",
   );
+  const surfacePanelPropsSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "surface-panel-props.js"),
+    "utf8",
+  );
   assert.equal(surfacePanelControllerSource.includes("createSurfacePanelController"), true);
   assert.equal(surfacePanelControllerSource.includes("function focusDiffFile"), true);
   assert.equal(surfacePanelControllerSource.includes("function refreshSourceControl"), true);
@@ -1362,6 +1381,22 @@ async function main() {
   assert.equal(surfacePanelControllerSource.includes('type: "diff_file_focused"'), true);
   assert.equal(surfacePanelControllerSource.includes('type: "app_shell_settings_changed"'), true);
   assert.equal(surfacePanelControllerSource.includes("import React"), false);
+  assert.equal(surfacePanelPropsSource.includes("export function buildSurfacePanelProps"), true);
+  assert.equal(surfacePanelPropsSource.includes("appShell: state.app"), true);
+  assert.equal(surfacePanelPropsSource.includes("onFocusDiffFile: controller.focusDiffFile"), true);
+  assert.equal(
+    surfacePanelPropsSource.includes("onRefreshSourceControl: controller.refreshSourceControl"),
+    true,
+  );
+  assert.equal(
+    surfacePanelPropsSource.includes("onSelectSourceControlFile: controller.selectSourceControlFile"),
+    true,
+  );
+  assert.equal(
+    surfacePanelPropsSource.includes("onAppSettingsChange: controller.changeAppSettings"),
+    true,
+  );
+  assert.equal(surfacePanelPropsSource.includes("import React"), false);
   assert.equal(appSource.includes("function openDiffSurface"), false);
   assert.equal(appSource.includes("async function openPreviewUrl"), false);
   assert.equal(appSource.includes("async function refreshPreview"), false);
@@ -1416,7 +1451,7 @@ async function main() {
   assert.equal(appSource.includes('type: "set_inspector"'), false);
   assert.equal(appSource.includes("inspectorTab:"), false);
   assert.equal(appSource.includes("activeKind={state.inspectorTab}"), false);
-  assert.equal(appSource.includes("appShell: state.app"), true);
+  assert.equal(appSource.includes("appShell: state.app"), false);
   assert.equal(appSource.includes("projectSessionRuntime"), false);
   assert.equal(appSource.includes("buildSessionActivityRuntime"), true);
   assert.equal(appSource.includes("LangContext"), false);
@@ -2423,6 +2458,7 @@ async function main() {
   await runSessionListControllerTests();
   await runSessionControllerTests();
   await runSourceControlControllerTests();
+  runSurfacePanelPropsTests();
   await runFilePreviewControllerTests();
   await runPreviewControllerTests();
   runPanelResizeControllerTests();

@@ -600,7 +600,8 @@
 ### 2026-06-18 - GUI SurfacePanel Action Controller Boundary
 
 - React webapp `webapp/src/app-runtime/surface-panel-controller.js` now owns generic SurfacePanel actions for diff-file focus, Source Control refresh/file selection, and app-shell settings patching.
-- `App.jsx` wires `surfacePanelController` methods into `surfacePanelProps` instead of inline reducer dispatch or source-control controller lambdas.
+- React webapp `webapp/src/app-runtime/surface-panel-props.js` now owns the `SurfacePanel` prop mapping from state/chrome/controller handles.
+- `App.jsx` wires `buildSurfacePanelProps(...)` instead of inline reducer dispatch, source-control controller lambdas, or per-action `surfacePanelController.*` prop mapping.
 - This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, source-control backend execution, provider configuration, extension loading, telemetry, or runtime reducer semantics changed.
 
 ### 2026-06-18 - GUI Session/App Loader Runtime Boundary
