@@ -1002,6 +1002,7 @@ async function main() {
   assert.equal(appSource.includes("const opened = rightPanelController.openFileSurface("), true);
   assert.equal(appSource.includes("if (!opened) return;"), true);
   assert.equal(appSource.includes("rightPanelController.openPreviewSurface("), true);
+  assert.equal(appSource.includes("rightPanelController.canOpenPreviewSurface()"), true);
   assert.equal(appSource.includes("rightPanelController.openFilesSurface()"), true);
   assert.equal(appSource.includes('surface.kind === "terminal"'), false);
   assert.equal(appSource.includes("async function ensureTerminalOpen"), false);
@@ -1111,6 +1112,7 @@ async function main() {
   assert.equal(rightPanelControllerSource.includes("terminalController.openRightPanelSurface"), true);
   assert.equal(rightPanelControllerSource.includes("terminalController.openSession"), true);
   assert.equal(rightPanelControllerSource.includes("openFileSurface"), true);
+  assert.equal(rightPanelControllerSource.includes("canOpenPreviewSurface"), true);
   assert.equal(rightPanelControllerSource.includes("openPreviewSurface"), true);
   assert.equal(rightPanelControllerSource.includes("openFilesSurface"), true);
   assert.equal(rightPanelControllerSource.includes("return false"), true);

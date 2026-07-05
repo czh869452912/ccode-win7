@@ -2359,6 +2359,7 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     assert "const opened = rightPanelController.openFileSurface(" in app_text
     assert "if (!opened) return;" in app_text
     assert "rightPanelController.openPreviewSurface(" in app_text
+    assert "rightPanelController.canOpenPreviewSurface()" in app_text
     assert "rightPanelController.openFilesSurface()" in app_text
     assert "openKind" in surfaces_text
     assert "activationKind" in surfaces_text
@@ -2371,6 +2372,7 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     assert "return false" in controller_text
     assert "return true" in controller_text
     assert "openFileSurface" in controller_text
+    assert "canOpenPreviewSurface" in controller_text
     assert "openPreviewSurface" in controller_text
     assert "openFilesSurface" in controller_text
     assert "terminalController.openSession" not in app_text

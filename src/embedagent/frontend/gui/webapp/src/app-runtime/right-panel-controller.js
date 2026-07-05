@@ -57,6 +57,17 @@ export function createRightPanelController({
   terminalController,
   getAppCapabilities = () => null,
 }) {
+  function canOpenSurface(kind) {
+    const surfaceKind = String(kind || "");
+    const appCapabilities = getAppCapabilities();
+    const definition = declaredRightPanelSurfaceDefinition(surfaceKind, appCapabilities);
+    return Boolean(definition);
+  }
+
+  function canOpenPreviewSurface() {
+    return canOpenSurface(RIGHT_PANEL_RESOURCE_SURFACES.preview);
+  }
+
   function openSurface(kind, title = "") {
     const surfaceKind = String(kind || "");
     const appCapabilities = getAppCapabilities();
@@ -133,6 +144,7 @@ export function createRightPanelController({
 
   return {
     activateSurface,
+    canOpenPreviewSurface,
     fileSurfaceTitle,
     normalizeFileSurfacePath,
     openFileSurface,

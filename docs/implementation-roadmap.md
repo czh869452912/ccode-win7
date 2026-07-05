@@ -163,7 +163,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   resource surface kinds, and those semantic methods require an active
   app-shell surface declaration before opening File Preview, Preview, or
   right-panel Terminal; File Preview callers also stop file-content loading
-  when the semantic open returns false;
+  when the semantic open returns false, and Preview API callers preflight the
+  same semantic Preview capability before invoking preview routes;
   right-panel tab activation side effects are selected by renderer-local
   `activationKind` metadata through
   `RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]` in

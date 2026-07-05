@@ -140,6 +140,7 @@ export function runRightPanelControllerTests() {
 
   controller.openSurface("file", "File");
   assert.equal(actions.length, 2);
+  assert.equal(controller.canOpenPreviewSurface(), true);
 
   {
     const blockedActions = [];
@@ -168,10 +169,12 @@ export function runRightPanelControllerTests() {
       },
       getAppCapabilities: () => NO_PREVIEW_CAPABILITIES,
     });
-    blockedController.openPreviewSurface({
+    assert.equal(blockedController.canOpenPreviewSurface(), false);
+    const opened = blockedController.openPreviewSurface({
       resourceId: "http://127.0.0.1:3000",
       previewSnapshot: { url: "http://127.0.0.1:3000" },
     });
+    assert.equal(opened, false);
     assert.deepEqual(blockedActions, []);
   }
 
@@ -191,10 +194,11 @@ export function runRightPanelControllerTests() {
     revealLine: 12,
   });
 
-  controller.openPreviewSurface({
+  const openedPreview = controller.openPreviewSurface({
     resourceId: "http://127.0.0.1:3000",
     previewSnapshot: { url: "http://127.0.0.1:3000" },
   });
+  assert.equal(openedPreview, true);
   assert.deepEqual(actions.at(-1), {
     type: "workbench_surface_opened",
     placement: "right",

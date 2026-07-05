@@ -679,6 +679,7 @@ function App() {
     rightPanelSurfaces.find((surface) => surface.id === state.workbench.rightPanel.activeSurfaceId) || null;
 
   async function openPreviewUrl(url) {
+    if (!rightPanelController.canOpenPreviewSurface()) return null;
     const sessionId = readActiveThreadId(stateRef.current);
     if (!sessionId) {
       dispatch({ type: "interaction_notice_set", notice: previewChrome.sessionRequiredNotice || "" });
@@ -703,6 +704,7 @@ function App() {
   }
 
   async function refreshPreview(snapshot) {
+    if (!rightPanelController.canOpenPreviewSurface()) return null;
     const sessionId = readActiveThreadId(stateRef.current);
     const tabId = snapshot?.tabId || snapshot?.tab_id || "";
     if (!sessionId || !tabId) return null;
@@ -725,6 +727,7 @@ function App() {
   }
 
   async function openPreviewInSystemBrowser(url) {
+    if (!rightPanelController.canOpenPreviewSurface()) return null;
     try {
       return await openPreviewExternal(url);
     } catch (error) {
