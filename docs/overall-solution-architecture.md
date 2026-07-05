@@ -240,6 +240,13 @@ GUI JSON request/error handling is owned by
 and passes it into focused controllers; it does not define its own HTTP client
 or call browser `fetch` directly.
 
+GUI active-workspace read-model refresh is owned by
+`app-runtime/active-workspace-data-loader.js`. After workspace activation, that
+loader coordinates session list refresh, session command capability refresh,
+workspace file tree refresh, and local status-surface refresh from injected
+dependencies. `App.jsx` wires the dependencies but does not inline the refresh
+fanout.
+
 GUI WebSocket payload handling is split between pure effect derivation and
 effect execution. `app-runtime/socket-message-effects.js` derives transport
 events, reducer actions, and loader requests from backend messages, while

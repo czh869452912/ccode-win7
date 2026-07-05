@@ -46,6 +46,7 @@ import { runWorkbenchUiStateTests } from "./workbench-ui-state.test.mjs";
 import { runAppShellModelTests } from "./app-shell-model.test.mjs";
 import { runAppWorkspaceTests } from "./app-workspaces.test.mjs";
 import { runWorkspaceControllerTests } from "./workspace-controller.test.mjs";
+import { runActiveWorkspaceDataLoaderTests } from "./active-workspace-data-loader.test.mjs";
 import { runWorkspaceFilesControllerTests } from "./workspace-files-controller.test.mjs";
 import { runAppHomeModelTests } from "./app-home-model.test.mjs";
 import { runBranchToolbarModelTests } from "./branch-toolbar-model.test.mjs";
@@ -2014,6 +2015,10 @@ async function main() {
     webappSourcePath("app-runtime", "socket-effect-executor.js"),
     "utf8",
   );
+  const activeWorkspaceDataLoaderSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "active-workspace-data-loader.js"),
+    "utf8",
+  );
   assert.equal(sessionTransportControllerSource.includes("shouldReconnectSocket"), true);
   assert.equal(sessionTransportControllerSource.includes("appendSessionTransportEvent"), true);
   assert.equal(sessionTransportControllerSource.includes("/events?after_seq"), false);
@@ -2028,6 +2033,19 @@ async function main() {
   assert.equal(socketEffectExecutorSource.includes("recover(currentSessionId, nextTransport)"), true);
   assert.equal(socketEffectExecutorSource.includes("executeLoaderRequest"), true);
   assert.equal(socketEffectExecutorSource.includes("import React"), false);
+  assert.equal(appSource.includes("createActiveWorkspaceDataLoader"), true);
+  assert.equal(
+    appSource.includes("loadWorkspaceData: activeWorkspaceDataLoader.loadActiveWorkspaceData"),
+    true,
+  );
+  assert.equal(appSource.includes("Promise.all(["), false);
+  assert.equal(appSource.includes('loadFileChildren(".", { appCapabilities'), false);
+  assert.equal(appSource.includes("sourceControlController.loadStatus(false, assumeWorkspace"), false);
+  assert.equal(activeWorkspaceDataLoaderSource.includes("export function createActiveWorkspaceDataLoader"), true);
+  assert.equal(activeWorkspaceDataLoaderSource.includes("Promise.all(["), true);
+  assert.equal(activeWorkspaceDataLoaderSource.includes('invoke(loadFileChildren, ".",'), true);
+  assert.equal(activeWorkspaceDataLoaderSource.includes("invoke(loadStatus, false,"), true);
+  assert.equal(activeWorkspaceDataLoaderSource.includes("import React"), false);
 
   runWorkbenchStateTests();
   runWorkbenchParityModelTests();
@@ -2038,6 +2056,7 @@ async function main() {
   runAppShellModelTests();
   runAppWorkspaceTests();
   await runWorkspaceControllerTests();
+  await runActiveWorkspaceDataLoaderTests();
   await runWorkspaceFilesControllerTests();
   runAppHomeModelTests();
   runBranchToolbarModelTests();

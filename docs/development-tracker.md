@@ -129,6 +129,10 @@
   `App.jsx` imports `fetchJson` instead of defining an inline fetch wrapper, so
   request/error normalization is no longer rooted in the GUI composition
   component.
+- GUI active-workspace read-model refresh now lives in
+  `app-runtime/active-workspace-data-loader.js`. Workspace activation no
+  longer leaves a root-component `Promise.all` fanout for sessions,
+  capabilities, file tree, and local status surfaces.
 - GUI user-input interaction projection no longer defaults missing
   `tool_name` values to the built-in `ask_user` tool. Pending user-input
   display is driven by `kind` / `sourceActivityKind` and whatever safe payload

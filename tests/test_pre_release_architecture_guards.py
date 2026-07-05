@@ -2760,6 +2760,23 @@ def test_gui_workspace_lifecycle_stays_in_workspace_controller():
     assert offenders == []
 
 
+def test_gui_active_workspace_data_loading_is_controller_owned():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    loader_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/active-workspace-data-loader.js"
+    )
+
+    assert "createActiveWorkspaceDataLoader" in app_text
+    assert "loadWorkspaceData: activeWorkspaceDataLoader.loadActiveWorkspaceData" in app_text
+    assert "Promise.all([" not in app_text
+    assert 'loadFileChildren(".", { appCapabilities' not in app_text
+    assert "sourceControlController.loadStatus(false, assumeWorkspace" not in app_text
+    assert "export function createActiveWorkspaceDataLoader" in loader_text
+    assert "Promise.all([" in loader_text
+    assert 'invoke(loadFileChildren, ".",' in loader_text
+    assert "invoke(loadStatus, false," in loader_text
+
+
 def test_gui_runtime_state_does_not_reintroduce_removed_root_session_state():
     store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
     forbidden_root_state = (

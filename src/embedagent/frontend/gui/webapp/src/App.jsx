@@ -56,6 +56,7 @@ import RightPanelTabs from "./components/workbench/RightPanelTabs.jsx";
 import WorkbenchHeader from "./components/workbench/WorkbenchHeader.jsx";
 import { commandById, visibleCommands } from "./workbench/commands.js";
 import { eventToKey, resolveKeybinding } from "./workbench/keybindings.js";
+import { createActiveWorkspaceDataLoader } from "./app-runtime/active-workspace-data-loader.js";
 import {
   persistWorkbenchUiState,
   readPersistedWorkbenchUiState,
@@ -384,6 +385,18 @@ function App() {
     });
   }, [runtimeState.timelineItems, state.requestedMode]);
 
+  const activeWorkspaceDataLoader = useMemo(
+    () =>
+      createActiveWorkspaceDataLoader({
+        getAppCapabilities: () => stateRef.current.app.capabilities || {},
+        loadSessions,
+        loadSessionCommandCapabilities: () => loadSessionCommandCapabilities({ fetchJson, dispatch }),
+        loadFileChildren,
+        loadStatus: (refresh, assumeWorkspace, appCapabilities) =>
+          sourceControlController.loadStatus(refresh, assumeWorkspace, appCapabilities),
+      }),
+    [sourceControlController],
+  );
   const workspaceController = useMemo(
     () =>
       createWorkspaceController({
@@ -391,17 +404,9 @@ function App() {
         dispatch,
         getState: () => stateRef.current,
         getCurrentSessionId: () => readActiveThreadId(stateRef.current),
-        loadWorkspaceData: async (_sessionId, assumeWorkspace, appCapabilities) => {
-          const scopedAppCapabilities = appCapabilities || stateRef.current.app.capabilities || {};
-          await Promise.all([
-            loadSessions(),
-            loadSessionCommandCapabilities({ fetchJson, dispatch }),
-            loadFileChildren(".", { appCapabilities: scopedAppCapabilities }),
-            sourceControlController.loadStatus(false, assumeWorkspace, scopedAppCapabilities),
-          ]);
-        },
+        loadWorkspaceData: activeWorkspaceDataLoader.loadActiveWorkspaceData,
       }),
-    [sourceControlController],
+    [activeWorkspaceDataLoader],
   );
   const {
     activateWorkspace,
