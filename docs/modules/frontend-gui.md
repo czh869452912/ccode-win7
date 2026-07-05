@@ -145,7 +145,10 @@ through `SURFACE_INITIALIZERS[kind]`, so file, terminal, and preview fields are
 not hard-coded as branches in `makeSurface(...)`. Right-panel open-time
 preparation also stays in the surface model through
 `SURFACE_OPEN_PREPARERS[surface.kind]`; `openSurface(...)` must not grow
-file/preview preparation branches.
+file/preview preparation branches. Surface-local pane operations stay in the
+same model through `SURFACE_PANE_HANDLERS[surface.kind]`; terminal
+split/activate/close pane metadata must not become workbench reducer
+`surface.kind === "terminal"` branches again.
 
 Thread/session selection and composer draft state are now separate T3-style
 renderer modules rather than root fields on the global reducer state:
@@ -401,6 +404,9 @@ supported surface definitions; the terminal right-panel session path is selected
 from that metadata rather than from a fixed `terminal` surface-id branch.
 Supported `openKind` values are routed through `RIGHT_PANEL_OPEN_HANDLERS`,
 not a controller switch.
+Right-panel surface-local pane operations are routed through
+`SURFACE_PANE_HANDLERS[surface.kind]`, so terminal split/activate/close pane
+metadata is isolated from the generic workbench reducer flow.
 Right-panel tab activation side effects use renderer-local `activationKind`
 metadata; App-level activation code must not branch on terminal surface ids.
 Surface descriptor records that omit `title` remain capability diagnostics and

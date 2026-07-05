@@ -125,7 +125,10 @@ surface instance metadata is initialized through `SURFACE_INITIALIZERS[kind]`
 inside that same renderer-local model, not by branches in `makeSurface(...)`.
 Right-panel open-time preparation also routes through
 `SURFACE_OPEN_PREPARERS[surface.kind]`; `openSurface(...)` must not own
-file/preview preparation branches.
+file/preview preparation branches. Right-panel surface-local pane operations
+also route through `SURFACE_PANE_HANDLERS[surface.kind]`; terminal
+split/activate/close metadata must not live as generic reducer terminal-kind
+branches.
 The default GUI app-shell descriptor set is an injected `AppShellSpec` from
 `src/embedagent/frontend/gui/backend/app_shell_spec.py`; `AppShellService`
 composes that spec with safe active-core projections instead of owning inline

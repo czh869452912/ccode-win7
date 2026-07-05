@@ -913,6 +913,14 @@ def test_gui_app_shell_surfaces_are_descriptor_records_not_string_lists():
         'nextSurface.kind === "preview"',
     ):
         assert open_branch not in surfaces_text
+    assert "SURFACE_PANE_HANDLERS" in surfaces_text
+    assert "SURFACE_PANE_HANDLERS[surface.kind]" in surfaces_text
+    for pane_branch in (
+        'surface.id !== surfaceId || surface.kind !== "terminal"',
+        'surface.kind === "terminal" &&',
+        'surface.id === surfaceId && surface.kind === "terminal"',
+    ):
+        assert pane_branch not in surfaces_text
     assert 'value.map((item) => String(item || ""))' not in surfaces_text
     for registry_copy in (
         'title: "Preview"',

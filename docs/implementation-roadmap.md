@@ -186,7 +186,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   rather than `makeSurface(...)` file/terminal/preview branches, and
   right-panel open-time preparation routes through
   `SURFACE_OPEN_PREPARERS[surface.kind]` rather than `openSurface(...)`
-  file/preview branches;
+  file/preview branches; right-panel surface-local pane operations route
+  through `SURFACE_PANE_HANDLERS[surface.kind]` rather than reducer-level
+  terminal kind branches;
   app bootstrap now also carries a safe selected-agent application registry and
   empty-state read model before a workspace/core exists, then defers to the
   active core's capability projection after workspace activation. This lets the

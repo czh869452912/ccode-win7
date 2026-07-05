@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-290
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel surface pane operations use per-kind handlers
+- Summary:
+  - Moved terminal split/activate/close pane metadata updates behind a
+    renderer-local `SURFACE_PANE_HANDLERS` registry.
+  - Right-panel pane actions now resolve `SURFACE_PANE_HANDLERS[surface.kind]`
+    before mutating surface-local pane state instead of branching on the fixed
+    terminal surface id in reducer code.
+  - Frontend and architecture guards now prevent reintroducing the old
+    `surface.kind === "terminal"` pane-operation branches.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New right-panel surface kinds that own multi-pane metadata must add pane
+    handlers rather than branches in the workbench reducer.
+
 ### DC-289
 
 - Date: 2026-07-05

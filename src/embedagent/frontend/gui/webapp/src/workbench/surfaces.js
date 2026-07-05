@@ -664,9 +664,62 @@ const SURFACE_OPEN_PREPARERS = Object.freeze(Object.assign(Object.create(null), 
   }),
 }));
 
+const SURFACE_PANE_HANDLERS = Object.freeze(Object.assign(Object.create(null), {
+  terminal: Object.freeze({
+    split(surface, input) {
+      const terminalId = String((input && input.terminalId) || "").trim();
+      if (!terminalId) return null;
+      const terminalIds = uniqueTerminalIds([...(surface.terminalIds || []), terminalId]);
+      const nextSurface = {
+        ...surface,
+        terminalIds,
+        activeTerminalId: terminalId,
+      };
+      if (input && input.splitDirection === "vertical") {
+        return { ...nextSurface, splitDirection: "vertical" };
+      }
+      const { splitDirection, ...withoutDirection } = nextSurface;
+      return withoutDirection;
+    },
+    activate(surface, input) {
+      const terminalId = String((input && input.terminalId) || "").trim();
+      if (
+        !terminalId ||
+        !Array.isArray(surface.terminalIds) ||
+        !surface.terminalIds.includes(terminalId)
+      ) {
+        return null;
+      }
+      return { ...surface, activeTerminalId: terminalId };
+    },
+    close(surface, input) {
+      const terminalId = String((input && input.terminalId) || "").trim();
+      if (!terminalId) return null;
+      const terminalIds = (surface.terminalIds || []).filter((id) => id !== terminalId);
+      if (terminalIds.length === 0) {
+        return { closeSurface: true };
+      }
+      return {
+        surface: {
+          ...surface,
+          terminalIds,
+          activeTerminalId:
+            surface.activeTerminalId === terminalId
+              ? terminalIds[terminalIds.length - 1] || terminalIds[0]
+              : surface.activeTerminalId,
+        },
+      };
+    },
+  }),
+}));
+
 function prepareRightPanelSurfaceOpen(currentItems, surface, input) {
   const preparer = SURFACE_OPEN_PREPARERS[surface.kind] || null;
   return preparer ? preparer({ currentItems, surface, input }) : { surface, items: currentItems };
+}
+
+function paneHandlerFor(surface) {
+  return surface ? SURFACE_PANE_HANDLERS[surface.kind] || null : null;
 }
 
 export function createWorkbenchState() {
@@ -960,21 +1013,14 @@ function splitTerminalSurface(state, input) {
   const surfaceId = String((input && input.surfaceId) || "");
   const terminalId = String((input && input.terminalId) || "").trim();
   if (!surfaceId || !terminalId) return current;
+  let active = null;
   const surfaces = (current.rightPanel.surfaces || []).map((surface) => {
-    if (surface.id !== surfaceId || surface.kind !== "terminal") return surface;
-    const terminalIds = uniqueTerminalIds([...(surface.terminalIds || []), terminalId]);
-    const nextSurface = {
-      ...surface,
-      terminalIds,
-      activeTerminalId: terminalId,
-    };
-    if (input && input.splitDirection === "vertical") {
-      return { ...nextSurface, splitDirection: "vertical" };
-    }
-    const { splitDirection, ...withoutDirection } = nextSurface;
-    return withoutDirection;
+    if (surface.id !== surfaceId) return surface;
+    const handler = paneHandlerFor(surface);
+    const nextSurface = handler && handler.split ? handler.split(surface, input) : null;
+    active = nextSurface;
+    return nextSurface || surface;
   });
-  const active = activeSurfaceFrom(surfaces, surfaceId);
   if (!active) return current;
   const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
   const nextPanel = activateRightPanelSurface({ ...current.rightPanel, surfaces }, active);
@@ -990,15 +1036,14 @@ function activateTerminalPane(state, input) {
   const surfaceId = String((input && input.surfaceId) || "");
   const terminalId = String((input && input.terminalId) || "").trim();
   if (!surfaceId || !terminalId) return current;
-  const surfaces = (current.rightPanel.surfaces || []).map((surface) =>
-    surface.id === surfaceId &&
-    surface.kind === "terminal" &&
-    Array.isArray(surface.terminalIds) &&
-    surface.terminalIds.includes(terminalId)
-      ? { ...surface, activeTerminalId: terminalId }
-      : surface,
-  );
-  const active = activeSurfaceFrom(surfaces, surfaceId);
+  let active = null;
+  const surfaces = (current.rightPanel.surfaces || []).map((surface) => {
+    if (surface.id !== surfaceId) return surface;
+    const handler = paneHandlerFor(surface);
+    const nextSurface = handler && handler.activate ? handler.activate(surface, input) : null;
+    active = nextSurface;
+    return nextSurface || surface;
+  });
   if (!active) return current;
   const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
   const nextPanel = activateRightPanelSurface({ ...current.rightPanel, surfaces }, active);
@@ -1014,26 +1059,21 @@ function closeTerminalPane(state, input) {
   const surfaceId = String((input && input.surfaceId) || "");
   const terminalId = String((input && input.terminalId) || "").trim();
   const items = current.rightPanel.surfaces || [];
-  const index = items.findIndex((surface) => surface.id === surfaceId && surface.kind === "terminal");
+  const index = items.findIndex((surface) => surface.id === surfaceId && paneHandlerFor(surface));
   if (index < 0 || !terminalId) return current;
   const surface = items[index];
-  const terminalIds = (surface.terminalIds || []).filter((id) => id !== terminalId);
-  if (terminalIds.length === 0) {
+  const handler = paneHandlerFor(surface);
+  const result = handler && handler.close ? handler.close(surface, input) : null;
+  if (!result) return current;
+  if (result.closeSurface) {
     return closeSurface(current, {
       placement: "right",
       surfaceId,
-      kind: "terminal",
+      kind: surface.kind,
       resourceId: surface.resourceId,
     });
   }
-  const nextSurface = {
-    ...surface,
-    terminalIds,
-    activeTerminalId:
-      surface.activeTerminalId === terminalId
-        ? terminalIds[terminalIds.length - 1] || terminalIds[0]
-        : surface.activeTerminalId,
-  };
+  const nextSurface = result.surface;
   const surfaces = items.map((item, itemIndex) => (itemIndex === index ? nextSurface : item));
   const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
   const nextPanel = activateRightPanelSurface({ ...current.rightPanel, surfaces }, nextSurface);

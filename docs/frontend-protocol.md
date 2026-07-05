@@ -177,7 +177,10 @@ surface-specific metadata must not be added as branches inside
 `makeSurface(...)`. Right-panel open-time preparation that varies by surface
 kind, such as file reveal/deduplication or preview placeholder cleanup, routes
 through `SURFACE_OPEN_PREPARERS[surface.kind]` rather than branches in
-`openSurface(...)`.
+`openSurface(...)`. Right-panel surface-local pane operations that vary by kind
+route through `SURFACE_PANE_HANDLERS[surface.kind]`; terminal pane
+split/activate/close metadata must not be added as reducer-level
+`surface.kind === "terminal"` branches.
 The GUI no longer keeps retired Inspector sidecar state for artifact lists,
 review detail panes, permission-rule panes, runtime panes, workspace previews,
 or event logs. Review results remain timeline activities, permission and user
@@ -516,6 +519,9 @@ than a component switch. Right-panel surface opening also
 uses renderer metadata (`openKind`) so terminal session creation is not inferred
 from a fixed surface id in the controller; supported `openKind` values route
 through a renderer-local handler registry rather than a controller switch.
+Right-panel surface-local pane operations route through
+`SURFACE_PANE_HANDLERS[surface.kind]`; terminal split/activate/close pane
+metadata is no longer reducer-level terminal kind logic.
 Right-panel tab activation side
 effects use renderer metadata (`activationKind`) rather than inline App checks
 for terminal surface ids.
