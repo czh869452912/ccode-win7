@@ -770,6 +770,20 @@ def test_gui_command_result_session_switch_is_payload_driven():
     assert 'commandName === "resume"' not in text
 
 
+def test_gui_session_list_loading_is_controller_owned():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-list-controller.js"
+    )
+
+    assert "createSessionListController" in app_text
+    assert 'fetchJson("/api/sessions")' not in app_text
+    assert 'type: "sessions_loaded"' not in app_text
+    assert "export function createSessionListController" in controller_text
+    assert 'request("/api/sessions")' in controller_text
+    assert 'type: "sessions_loaded"' in controller_text
+
+
 def test_gui_command_result_run_output_log_is_payload_driven():
     text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"

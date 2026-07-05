@@ -170,7 +170,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   Control status/diff callers similarly require the active app-shell Source
   Control capability before invoking source-control routes; timeline/manual
   Diff surface opening is delegated to `diff-surface-controller.js` instead of
-  `App.jsx` constructing diff surface state directly; Terminal service calls
+  `App.jsx` constructing diff surface state directly; session list loading is
+  delegated to `session-list-controller.js` instead of `App.jsx` directly
+  fetching `/api/sessions` or dispatching `sessions_loaded`; Terminal service calls
   require the active app-shell Terminal capability before invoking
   terminal routes or pane attachment side effects;
   right-panel tab activation side effects are selected by renderer-local
@@ -335,7 +337,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   state, `session-runtime/session-transport-state.js` owns active session
   transport connection/reload projection,
   `app-runtime/session-transport-controller.js` owns WebSocket lifecycle, and
-  `app-runtime/session-activation-controller.js` owns bootstrap activation.
+  `app-runtime/session-activation-controller.js` owns bootstrap activation,
+  while `app-runtime/session-list-controller.js` owns session list loading.
   `App.jsx`, command palette, terminal
   controller, workspace reset, and tests consume those read models instead of
   root-level `sessions`, `currentSessionId`, `composer`, `historyIntegrity`,

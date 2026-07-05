@@ -229,6 +229,12 @@ summary/projection metadata used by app thread lists; they do not rewrite
 transcript history, own workflow state, activate tools, decide permissions,
 load extensions, or create source-control checkpoints.
 
+GUI session list loading is owned by the renderer
+`app-runtime/session-list-controller.js`. The controller is the only webapp
+module that fetches `/api/sessions` for the thread list and dispatches
+`sessions_loaded`; `App.jsx` composes the controller but does not own the
+session-list API/action pair.
+
 The GUI terminal bottom drawer is also app-shell hosted. `GUIBackend` owns an
 in-memory terminal service bound to the active workspace and exposes
 thread-scoped terminal HTTP routes plus `terminal_event` WebSocket messages.

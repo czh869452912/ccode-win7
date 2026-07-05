@@ -117,6 +117,10 @@
   WebSocket command results open the Diff right-panel from `data.diff` rather
   than from the slash command name `/diff`, so specialized agents can expose
   diff-producing commands without GUI command-name coupling.
+- GUI session list loading now lives in `app-runtime/session-list-controller.js`.
+  `App.jsx` no longer directly fetches `/api/sessions` or dispatches
+  `sessions_loaded`, keeping thread-list refresh as a focused renderer
+  controller responsibility.
 - GUI user-input interaction projection no longer defaults missing
   `tool_name` values to the built-in `ask_user` tool. Pending user-input
   display is driven by `kind` / `sourceActivityKind` and whatever safe payload

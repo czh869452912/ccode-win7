@@ -16,6 +16,7 @@ import { createPreviewController } from "./app-runtime/preview-controller.js";
 import { createRightPanelController } from "./app-runtime/right-panel-controller.js";
 import { createSessionActivationController } from "./app-runtime/session-activation-controller.js";
 import { createSessionController } from "./app-runtime/session-controller.js";
+import { createSessionListController } from "./app-runtime/session-list-controller.js";
 import { createSessionTransportController } from "./app-runtime/session-transport-controller.js";
 import { createSourceControlController } from "./app-runtime/source-control-controller.js";
 import { createTerminalController } from "./app-runtime/terminal-controller.js";
@@ -299,9 +300,17 @@ function App() {
     return payload;
   }
 
+  const sessionListController = useMemo(
+    () =>
+      createSessionListController({
+        fetchJson,
+        dispatch,
+      }),
+    [],
+  );
+
   async function loadSessions() {
-    const payload = await fetchJson("/api/sessions");
-    dispatch({ type: "sessions_loaded", sessions: payload.sessions || [] });
+    return sessionListController.loadSessions();
   }
 
   async function loadSession(sessionId) {

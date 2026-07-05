@@ -27,6 +27,7 @@ import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
 import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
 import { runSessionLoadersTests } from "./session-loaders.test.mjs";
 import { runSessionActivationControllerTests } from "./session-activation-controller.test.mjs";
+import { runSessionListControllerTests } from "./session-list-controller.test.mjs";
 import { runSessionControllerTests } from "./session-controller.test.mjs";
 import { runSourceControlControllerTests } from "./source-control-controller.test.mjs";
 import { runFilePreviewControllerTests } from "./file-preview-controller.test.mjs";
@@ -1074,6 +1075,9 @@ async function main() {
     assert.equal(appSource.includes(directSessionFunction), false);
   }
   assert.equal(appSource.includes("createSessionController"), true);
+  assert.equal(appSource.includes("createSessionListController"), true);
+  assert.equal(appSource.includes('fetchJson("/api/sessions")'), false);
+  assert.equal(appSource.includes('type: "sessions_loaded"'), false);
   assert.equal(appSource.includes("createThreadLifecycleController"), true);
   const directCommandIdCases = (appSource.match(/command\.id ===/g) || []).length;
   assert.ok(directCommandIdCases <= 2);
@@ -1089,6 +1093,14 @@ async function main() {
   assert.equal(sessionControllerSource.includes("/api/sessions?mode="), true);
   assert.equal(sessionControllerSource.includes("/message"), true);
   assert.equal(sessionControllerSource.includes("import React"), false);
+  const sessionListControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "session-list-controller.js"),
+    "utf8",
+  );
+  assert.equal(sessionListControllerSource.includes("export function createSessionListController"), true);
+  assert.equal(sessionListControllerSource.includes("/api/sessions"), true);
+  assert.equal(sessionListControllerSource.includes('type: "sessions_loaded"'), true);
+  assert.equal(sessionListControllerSource.includes("import React"), false);
   const threadLifecycleControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "thread-lifecycle-controller.js"),
     "utf8",
@@ -2034,6 +2046,7 @@ async function main() {
   runWebSocketLifecycleTests();
   await runSessionLoadersTests();
   await runSessionActivationControllerTests();
+  await runSessionListControllerTests();
   await runSessionControllerTests();
   await runSourceControlControllerTests();
   await runFilePreviewControllerTests();
