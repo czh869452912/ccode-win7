@@ -244,6 +244,13 @@ GUI JSON request/error handling is owned by
 and passes it into focused controllers; it does not define its own HTTP client
 or call browser `fetch` directly.
 
+GUI initial app loading is owned by
+`app-runtime/initial-app-load-controller.js`. The controller starts app
+bootstrap and session command capability warmup, swallowing warmup failures so
+alternate base or specialized agents without that projection do not block app
+shell startup. `App.jsx` installs the controller but does not directly call
+`loadAppBootstrap()` or own the warmup catch behavior.
+
 GUI active-workspace read-model refresh is owned by
 `app-runtime/active-workspace-data-loader.js`. After workspace activation, that
 loader coordinates session list refresh, session command capability refresh,

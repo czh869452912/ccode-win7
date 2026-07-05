@@ -26,6 +26,7 @@ import { runVisualLanguageCssTests } from "./visual-language-css.test.mjs";
 import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
 import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
 import { runHttpClientTests } from "./http-client.test.mjs";
+import { runInitialAppLoadControllerTests } from "./initial-app-load-controller.test.mjs";
 import { runSessionLoadersTests } from "./session-loaders.test.mjs";
 import { runSessionActivationControllerTests } from "./session-activation-controller.test.mjs";
 import { runSessionListControllerTests } from "./session-list-controller.test.mjs";
@@ -1120,6 +1121,21 @@ async function main() {
   assert.equal(httpClientSource.includes("export const { fetchJson }"), true);
   assert.equal(httpClientSource.includes("error.status"), true);
   assert.equal(httpClientSource.includes("import React"), false);
+  const initialAppLoadControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "initial-app-load-controller.js"),
+    "utf8",
+  );
+  assert.equal(appSource.includes("createInitialAppLoadController"), true);
+  assert.equal(appSource.includes("loadAppBootstrap();"), false);
+  assert.equal(appSource.includes("loadSessionCommandCapabilities({ fetchJson, dispatch }).catch"), false);
+  assert.equal(
+    initialAppLoadControllerSource.includes("export function createInitialAppLoadController"),
+    true,
+  );
+  assert.equal(initialAppLoadControllerSource.includes("bootstrapResult"), true);
+  assert.equal(initialAppLoadControllerSource.includes("commandCapabilitiesResult"), true);
+  assert.equal(initialAppLoadControllerSource.includes("catch(() => null)"), true);
+  assert.equal(initialAppLoadControllerSource.includes("import React"), false);
   const threadLifecycleControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "thread-lifecycle-controller.js"),
     "utf8",
@@ -2176,6 +2192,7 @@ async function main() {
   runDiffModelTests();
   runDiffSurfaceControllerTests();
   await runHttpClientTests();
+  await runInitialAppLoadControllerTests();
   runFilePreviewModelTests();
   runPreviewSurfaceModelTests();
   runPreviewSurfaceSourceTests();

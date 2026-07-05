@@ -798,6 +798,21 @@ def test_gui_http_client_is_runtime_owned_not_inline_app_fetch():
     assert "error.status" in http_client_text
 
 
+def test_gui_initial_app_load_is_controller_owned():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/initial-app-load-controller.js"
+    )
+
+    assert "createInitialAppLoadController" in app_text
+    assert "loadAppBootstrap();" not in app_text
+    assert "loadSessionCommandCapabilities({ fetchJson, dispatch }).catch" not in app_text
+    assert "export function createInitialAppLoadController" in controller_text
+    assert "bootstrapResult" in controller_text
+    assert "commandCapabilitiesResult" in controller_text
+    assert "catch(() => null)" in controller_text
+
+
 def test_gui_socket_effect_execution_is_controller_owned():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     executor_text = _read(

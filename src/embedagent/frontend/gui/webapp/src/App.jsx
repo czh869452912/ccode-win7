@@ -12,6 +12,7 @@ import { createSocketEffectExecutor } from "./app-runtime/socket-effect-executor
 import { deriveSocketMessageEffects } from "./app-runtime/socket-message-effects.js";
 import { createBrowserDialogService } from "./app-runtime/browser-dialog-service.js";
 import { fetchJson } from "./app-runtime/http-client.js";
+import { createInitialAppLoadController } from "./app-runtime/initial-app-load-controller.js";
 import { createDiffSurfaceController } from "./app-runtime/diff-surface-controller.js";
 import { createFilePreviewController } from "./app-runtime/file-preview-controller.js";
 import { createLoaderRequestExecutor, loadSessionCommandCapabilities } from "./app-runtime/session-loaders.js";
@@ -236,8 +237,10 @@ function App() {
 
   // initial app/workspace data load
   useEffect(() => {
-    loadAppBootstrap();
-    loadSessionCommandCapabilities({ fetchJson, dispatch }).catch(() => {});
+    createInitialAppLoadController({
+      loadAppBootstrap,
+      loadSessionCommandCapabilities: () => loadSessionCommandCapabilities({ fetchJson, dispatch }),
+    }).start();
   }, []);
 
   // websocket lifecycle

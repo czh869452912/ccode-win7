@@ -112,6 +112,11 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official GUI app-shell boundary: `GET /api/app/bootstrap` and `/api/app/workspaces*` expose GUI-owned workspace/app diagnostics, app commands, and local settings; this is separate from Agent Core session truth and from `GET /api/sessions/{id}/bootstrap`
 - Official GUI session-list loading boundary: renderer session list loading is owned by `webapp/src/app-runtime/session-list-controller.js`; `App.jsx` composes that controller and must not directly fetch `/api/sessions` or dispatch `sessions_loaded`.
 - Official GUI HTTP client boundary: shared JSON request/error handling lives in `webapp/src/app-runtime/http-client.js`; `App.jsx` imports `fetchJson` and must not define an inline HTTP helper or call browser `fetch` directly.
+- Official GUI initial-load boundary: app bootstrap and session command
+  capability warmup are started through
+  `webapp/src/app-runtime/initial-app-load-controller.js`; `App.jsx` installs
+  that controller and must not directly call `loadAppBootstrap()` or attach
+  renderer-local warmup catch handlers.
 - Official GUI socket-effect execution boundary: WebSocket payload normalization may derive transport events, reducer actions, and loader requests, but applying those effects is owned by `webapp/src/app-runtime/socket-effect-executor.js`; `App.jsx` must not directly append session transport events, branch on reload recovery, or loop over effect actions/loaders.
 - Official GUI session-transport state bridge: current transport-state read,
   sync, replace, update, and runtime reset construction live in

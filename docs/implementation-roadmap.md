@@ -342,8 +342,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   activation, `app-runtime/socket-effect-executor.js` owns application of derived
   socket transport/action/loader effects, while `app-runtime/session-list-controller.js`
   owns session list loading and `app-runtime/http-client.js` owns shared JSON
-  request/error handling; `app-runtime/active-workspace-data-loader.js` owns
-  active-workspace read-model refresh fanout, and
+  request/error handling; `app-runtime/initial-app-load-controller.js` owns app
+  bootstrap plus session command capability warmup start;
+  `app-runtime/active-workspace-data-loader.js` owns active-workspace read-model
+  refresh fanout, and
   `app-runtime/panel-resize-controller.js` owns pointer/DOM resizing for
   workbench panels, `app-runtime/timeline-scroll-controller.js` owns Timeline
   bottom-follow scroll DOM handling, and `app-runtime/browser-dialog-service.js`
