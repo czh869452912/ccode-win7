@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-286
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel body mounting uses a renderer registry
+- Summary:
+  - Replaced `RightPanelSurfaceBody`'s `bodyKind` switch with a
+    renderer-local `RIGHT_PANEL_BODY_RENDERERS` registry.
+  - Surface descriptors still provide `bodyKind` / `panelKind` metadata, but
+    component mounting now routes through table lookup rather than fixed JSX
+    branches.
+  - Frontend and architecture guards now prevent reintroducing
+    `switch (activeBodyKind)` in the right-panel body.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New right-panel body kinds must add explicit renderer registry entries
+    rather than component switch branches.
+
 ### DC-285
 
 - Date: 2026-07-05

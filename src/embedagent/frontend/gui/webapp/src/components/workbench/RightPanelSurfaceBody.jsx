@@ -6,94 +6,94 @@ import PreviewSurface from "./PreviewSurface.jsx";
 import TerminalShell from "./TerminalShell.jsx";
 import { surfaceDefinitionFor } from "../../workbench/surfaces.js";
 
-function rightPanelBody(activeDefinition, {
-  surface,
-  surfacePanelProps,
-  filePreviewsByPath,
-  filePreviewChrome,
-  projectName,
-  fileTree,
-  treeHeight,
-  onOpenFile,
-  onOpenFilesSurface,
-  onLoadFileChildren,
-  terminal,
-  terminalChrome,
-  onTerminalNew,
-  onTerminalSplit,
-  onTerminalSplitVertical,
-  onTerminalSelect,
-  onTerminalSend,
-  onTerminalClear,
-  onTerminalRestart,
-  onTerminalClose,
-  previewChrome,
-  previewServers,
-  onPreviewOpenUrl,
-  onPreviewRefresh,
-  onPreviewOpenExternal,
-}) {
+const RIGHT_PANEL_BODY_RENDERERS = Object.freeze({
+  files: ({ surface, fileTree, treeHeight, onOpenFile, onLoadFileChildren }) => (
+    <FilesSurface
+      surface={surface}
+      fileTree={fileTree}
+      treeHeight={treeHeight}
+      onOpenFile={onOpenFile}
+      onLoadFileChildren={onLoadFileChildren}
+    />
+  ),
+  file_preview: ({
+    surface,
+    filePreviewsByPath,
+    filePreviewChrome,
+    projectName,
+    onOpenFile,
+    onOpenFilesSurface,
+  }) => {
+    const filePath = surface.filePath || surface.resourceId || "";
+    return (
+      <FilePreviewSurface
+        surface={surface}
+        filePreview={(filePreviewsByPath || {})[filePath]}
+        filePreviewChrome={filePreviewChrome}
+        projectName={projectName}
+        onReload={onOpenFile}
+        onOpenFilesSurface={onOpenFilesSurface}
+      />
+    );
+  },
+  preview: ({
+    surface,
+    previewChrome,
+    previewServers,
+    onPreviewOpenUrl,
+    onPreviewRefresh,
+    onPreviewOpenExternal,
+  }) => (
+    <PreviewSurface
+      surface={surface}
+      previewChrome={previewChrome}
+      servers={previewServers}
+      onOpenUrl={onPreviewOpenUrl}
+      onRefresh={onPreviewRefresh}
+      onOpenExternal={onPreviewOpenExternal}
+    />
+  ),
+  terminal: ({
+    surface,
+    terminal,
+    terminalChrome,
+    onTerminalNew,
+    onTerminalSplit,
+    onTerminalSplitVertical,
+    onTerminalSelect,
+    onTerminalSend,
+    onTerminalClear,
+    onTerminalRestart,
+    onTerminalClose,
+  }) => (
+    <TerminalShell
+      owner="right-panel"
+      surface={surface}
+      terminal={terminal}
+      terminalChrome={terminalChrome}
+      onNew={onTerminalNew}
+      onSplit={onTerminalSplit}
+      onSplitVertical={onTerminalSplitVertical}
+      onSelect={onTerminalSelect}
+      onSend={onTerminalSend}
+      onClear={onTerminalClear}
+      onRestart={onTerminalRestart}
+      onClose={onTerminalClose}
+    />
+  ),
+  surface_panel: ({ activeDefinition, surfacePanelProps }) => (
+    <SurfacePanel
+      {...surfacePanelProps}
+      panelKind={activeDefinition ? activeDefinition.panelKind || "" : ""}
+    />
+  ),
+});
+
+function rightPanelBody(activeDefinition, props) {
   const activeBodyKind = activeDefinition ? activeDefinition.bodyKind : "surface_panel";
-  switch (activeBodyKind) {
-    case "files":
-      return (
-        <FilesSurface
-          surface={surface}
-          fileTree={fileTree}
-          treeHeight={treeHeight}
-          onOpenFile={onOpenFile}
-          onLoadFileChildren={onLoadFileChildren}
-        />
-      );
-    case "file_preview": {
-      const filePath = surface.filePath || surface.resourceId || "";
-      return (
-        <FilePreviewSurface
-          surface={surface}
-          filePreview={(filePreviewsByPath || {})[filePath]}
-          filePreviewChrome={filePreviewChrome}
-          projectName={projectName}
-          onReload={onOpenFile}
-          onOpenFilesSurface={onOpenFilesSurface}
-        />
-      );
-    }
-    case "preview":
-      return (
-        <PreviewSurface
-          surface={surface}
-          previewChrome={previewChrome}
-          servers={previewServers}
-          onOpenUrl={onPreviewOpenUrl}
-          onRefresh={onPreviewRefresh}
-          onOpenExternal={onPreviewOpenExternal}
-        />
-      );
-    case "terminal":
-      return (
-        <TerminalShell
-          owner="right-panel"
-          surface={surface}
-          terminal={terminal}
-          terminalChrome={terminalChrome}
-          onNew={onTerminalNew}
-          onSplit={onTerminalSplit}
-          onSplitVertical={onTerminalSplitVertical}
-          onSelect={onTerminalSelect}
-          onSend={onTerminalSend}
-          onClear={onTerminalClear}
-          onRestart={onTerminalRestart}
-          onClose={onTerminalClose}
-        />
-      );
-    default:
-      return (
-        <SurfacePanel
-          {...surfacePanelProps}
-          panelKind={activeDefinition ? activeDefinition.panelKind || "" : ""}
-        />
-      );
-  }
+  const renderBody =
+    RIGHT_PANEL_BODY_RENDERERS[activeBodyKind] || RIGHT_PANEL_BODY_RENDERERS.surface_panel;
+  return renderBody({ ...props, activeDefinition });
 }
 
 export default function RightPanelSurfaceBody(props) {

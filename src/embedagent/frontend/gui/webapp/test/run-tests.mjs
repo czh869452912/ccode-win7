@@ -1652,6 +1652,9 @@ async function main() {
   assert.equal(rightPanelSurfaceBodySource.includes("surfaceDefinitionFor(surface.kind)"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("activeDefinition.bodyKind"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("activeDefinition.panelKind"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("RIGHT_PANEL_BODY_RENDERERS"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("RIGHT_PANEL_BODY_RENDERERS[activeBodyKind]"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("switch (activeBodyKind)"), false);
   assert.equal(rightPanelSurfaceBodySource.includes("Inspector"), false);
   assert.equal(rightPanelSurfaceBodySource.includes("inspectorTab"), false);
   assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "file"'), false);

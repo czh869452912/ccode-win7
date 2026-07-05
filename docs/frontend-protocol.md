@@ -504,7 +504,9 @@ Right-panel navigation is likewise owned by the app-shell surface capability
 projection. Surface body components merge backend-declared descriptor metadata
 with locally supported renderer metadata (`bodyKind` and, for generic panels,
 `panelKind`) and do not keep a second hard-coded tab registry, `inspectorTab`
-adapter, or `onTabChange` navigation contract. Right-panel surface opening also
+adapter, or `onTabChange` navigation contract. Supported right-panel
+`bodyKind` values route through a renderer-local body renderer registry rather
+than a component switch. Right-panel surface opening also
 uses renderer metadata (`openKind`) so terminal session creation is not inferred
 from a fixed surface id in the controller; supported `openKind` values route
 through a renderer-local handler registry rather than a controller switch.

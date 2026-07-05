@@ -2237,6 +2237,9 @@ def test_gui_right_panel_body_has_no_inspector_tab_renderer():
     assert "surfaceDefinitionFor(surface.kind)" in surface_body_text
     assert "activeDefinition.bodyKind" in surface_body_text
     assert "activeDefinition.panelKind" in surface_body_text
+    assert "RIGHT_PANEL_BODY_RENDERERS" in surface_body_text
+    assert "RIGHT_PANEL_BODY_RENDERERS[activeBodyKind]" in surface_body_text
+    assert "switch (activeBodyKind)" not in surface_body_text
     assert "bodyKind" in surfaces_text
     assert "panelKind" in surfaces_text
     assert "PANEL_RENDERERS" in surface_panel_text

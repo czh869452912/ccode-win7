@@ -170,7 +170,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   controller switch;
   right-panel body selection now follows the same renderer metadata path
   instead of branching on fixed surface kind strings in
-  `RightPanelSurfaceBody`;
+  `RightPanelSurfaceBody`, and supported body kinds route through
+  `RIGHT_PANEL_BODY_RENDERERS` rather than a component switch;
   generic `SurfacePanel` content is selected by renderer-local `panelKind`
   metadata rather than surface-id branches;
   surface descriptors without explicit titles remain

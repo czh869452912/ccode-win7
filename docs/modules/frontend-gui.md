@@ -375,7 +375,8 @@ the terminal controller. Supported activation kinds route through
 `BOTTOM_DRAWER_ACTIVATION_HANDLERS`, not a controller switch.
 Right-panel body mounting follows the same rule: `RightPanelSurfaceBody` reads
 renderer-local `bodyKind` metadata from the surface registry instead of
-branching directly on app-shell surface ids.
+branching directly on app-shell surface ids. Supported body kinds are mounted
+through `RIGHT_PANEL_BODY_RENDERERS`, not a component switch.
 Generic `SurfacePanel` content uses a second renderer-local `panelKind`
 declaration for Plan, Diff, Source Control, Settings, and Diagnostics bodies;
 `SurfacePanel` must not branch on app-shell surface ids.

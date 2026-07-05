@@ -76,7 +76,8 @@ through an explicit renderer-local handler registry rather than a controller
 switch.
 Right-panel body mounting uses the same renderer-local metadata path; app-shell
 surface ids select visibility and labels, while renderer registry records
-select the concrete body component.
+select the concrete body component. Supported body kinds route through
+`RIGHT_PANEL_BODY_RENDERERS`, not a component switch.
 Generic `SurfacePanel` bodies are selected by renderer-local `panelKind`
 metadata, so Plan, Diff, Source Control, Settings, and Diagnostics panels do
 not require branches on app-shell surface ids.
