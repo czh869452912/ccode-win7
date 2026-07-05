@@ -404,6 +404,28 @@ def test_c_cpp_agent_profile_lives_in_c_workflow_package():
     assert "embedagent.workflow_packages.c_cpp.agent_profile" in _read(application)
 
 
+def test_default_c_cpp_application_record_lives_in_c_workflow_package():
+    registry = ROOT / "src/embedagent/agent_applications.py"
+    record = ROOT / "src/embedagent/workflow_packages/c_cpp/application_record.py"
+
+    assert record.is_file()
+    registry_text = _read(registry)
+    record_text = _read(record)
+
+    for token in (
+        "_C_CPP_APP_SHELL",
+        '"Default C/C++ Agent"',
+        '"Path to C/C++ project"',
+        '"embedagent.c_workflow"',
+        'profile_kind="default_c_cpp"',
+    ):
+        assert token not in registry_text
+    assert "default_c_cpp_agent_application_record" in registry_text
+    assert "C_WORKFLOW_PACKAGE_ID" in record_text
+    assert '"Default C/C++ Agent"' in record_text
+    assert 'profile_kind="workflow_package"' in record_text
+
+
 def test_product_evidence_helpers_do_not_import_c_cpp_workflow_constants():
     files = (
         ROOT / "src/embedagent/review_command.py",

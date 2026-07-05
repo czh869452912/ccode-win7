@@ -134,6 +134,11 @@
   prompt copy, mode descriptors, and base tool policy now live in
   `src/embedagent/workflow_packages/c_cpp/agent_profile.py` and enter hosted
   runtime only through the selected default C/C++ `AgentApplication`.
+- The default C/C++ agent application's manifest record and GUI app-shell
+  overlay now live in
+  `src/embedagent/workflow_packages/c_cpp/application_record.py`; the generic
+  application registry includes that package-owned record instead of inlining
+  C workflow ids or C/C++ workbench copy.
 - Hosted review, project memory, and workspace intelligence now consume the
   generic `tool_evidence` payload schema for recipe/test/coverage/diagnostic
   and quality-gate classification. These services no longer import default

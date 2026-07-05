@@ -314,9 +314,13 @@ application registry stores built-in applications as `AgentApplicationRecord`
 data. Profile-only applications build directly from profile records; workflow
 backed specialized applications declare a lazy `builder_path` that resolves to
 the package-owned application factory, so the generic loader does not contain
-C/C++ workflow branches. The registry exposes safe `AgentApplicationManifest`
-records for GUI capability projection. Agent profiles declare scenario mode
-metadata, base tool policy, and GUI mode capability projection.
+C/C++ workflow branches. The default C/C++ application record and app-shell
+overlay live in
+`src/embedagent/workflow_packages/c_cpp/application_record.py`; the generic
+registry only includes that package-owned record. The registry exposes safe
+`AgentApplicationManifest` records for GUI capability projection. Agent
+profiles declare scenario mode metadata, base tool policy, and GUI mode
+capability projection.
 Built-in application records also carry `metadata.appShell` GUI allow-lists,
 so the hosted GUI can derive a smaller base shell or a specialized workflow
 shell from the selected application manifest rather than assuming the default

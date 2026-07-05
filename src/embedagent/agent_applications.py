@@ -214,40 +214,17 @@ _WEB_APP_SHELL = {
     "disabledCapabilityIds": (),
 }
 
-_C_CPP_APP_SHELL = dict(_WEB_APP_SHELL)
-_C_CPP_APP_SHELL["commandPaletteGroupIds"] = (
-    "app",
-    "session",
-    "message",
-    "mode",
-    "surface",
-    "workspace",
-    "workflow",
-    "view",
-)
+
+def _default_c_cpp_application_record() -> AgentApplicationRecord:
+    from embedagent.workflow_packages.c_cpp.application_record import (
+        default_c_cpp_agent_application_record,
+    )
+
+    return default_c_cpp_agent_application_record(DEFAULT_AGENT_APPLICATION_ID, _WEB_APP_SHELL)
 
 
 BUILTIN_AGENT_APPLICATION_RECORDS = (
-    AgentApplicationRecord(
-        application_id=DEFAULT_AGENT_APPLICATION_ID,
-        label="Default C/C++ Agent",
-        profile_id=DEFAULT_AGENT_APPLICATION_ID,
-        profile_kind="default_c_cpp",
-        workflow_package_ids=("embedagent.c_workflow",),
-        builder_path=(
-            "embedagent.workflow_packages.c_cpp.application:" "build_c_cpp_agent_application"
-        ),
-        source_type="builtin",
-        source_id="embedagent.workflow_packages.c_cpp",
-        default=True,
-        empty_state={
-            "scenario_label": "C/C++ workspace",
-            "primary": "Open a C/C++ project",
-            "secondary": "The selected agent will load its Clang-centered workflow after workspace activation.",
-            "path_placeholder": "Path to C/C++ project",
-        },
-        app_shell=_C_CPP_APP_SHELL,
-    ),
+    _default_c_cpp_application_record(),
     AgentApplicationRecord(
         application_id=GENERIC_AGENT_APPLICATION_ID,
         label="Generic Agent",

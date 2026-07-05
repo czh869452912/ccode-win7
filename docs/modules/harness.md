@@ -31,8 +31,9 @@ The default C/C++ harness is the bundled built-in workflow package. Hosted produ
 
 - 目录：`src/embedagent/workflow_packages/c_cpp/`
 - 入口文件：`src/embedagent/workflow_packages/c_cpp/extension.py`
+- application record：`src/embedagent/workflow_packages/c_cpp/application_record.py`
 - profile：`src/embedagent/workflow_packages/c_cpp/agent_profile.py`
-- 核心对象：`default_c_cpp_agent_profile()`、`CHarnessWorkflowExtension`、`HarnessRunner`、`TaskGraph`、`build_workflow_projection()`、`advance_phase()` / `advance_until_stable()`
+- 核心对象：`default_c_cpp_agent_application_record()`、`default_c_cpp_agent_profile()`、`CHarnessWorkflowExtension`、`HarnessRunner`、`TaskGraph`、`build_workflow_projection()`、`advance_phase()` / `advance_until_stable()`
 - 上游依赖：`AgentApplication`、`ExtensionManager`、agent profile mode policy
 - 下游影响：`task_status`、session snapshots、frontend runtime
 - workflow-owned recipes：`src/embedagent/workflow_packages/c_cpp/workspace_recipes.py`、`recipe_ops.py`

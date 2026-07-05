@@ -149,6 +149,33 @@ class HostPackageCompositionTests(unittest.TestCase):
             source,
         )
 
+    def test_default_c_cpp_application_record_is_package_owned(self):
+        root = os.path.join(os.path.dirname(__file__), "..")
+        registry_path = os.path.join(root, "src", "embedagent", "agent_applications.py")
+        record_path = os.path.join(
+            root,
+            "src",
+            "embedagent",
+            "workflow_packages",
+            "c_cpp",
+            "application_record.py",
+        )
+        self.assertTrue(os.path.isfile(record_path))
+
+        with open(registry_path, "r", encoding="utf-8") as handle:
+            registry_source = handle.read()
+        with open(record_path, "r", encoding="utf-8") as handle:
+            record_source = handle.read()
+
+        self.assertNotIn("_C_CPP_APP_SHELL", registry_source)
+        for token in ('"Default C/C++ Agent"', '"Path to C/C++ project"'):
+            self.assertNotIn(token, registry_source)
+            self.assertIn(token, record_source)
+        self.assertNotIn('"embedagent.c_workflow"', registry_source)
+        self.assertIn("C_WORKFLOW_PACKAGE_ID", record_source)
+        self.assertNotIn('profile_kind="default_c_cpp"', registry_source)
+        self.assertIn('profile_kind="workflow_package"', record_source)
+
     def test_default_application_compatibility_wrapper_is_removed(self):
         import embedagent.agent_applications as agent_applications
 
