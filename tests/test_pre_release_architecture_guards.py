@@ -1842,6 +1842,9 @@ def test_gui_source_control_copy_is_app_shell_declared():
     source_control_api_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/source-control/source-control-api.js"
     )
+    source_control_controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/source-control-controller.js"
+    )
     source_control_capability_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/source-control/source-control-capability.js"
     )
@@ -1862,11 +1865,13 @@ def test_gui_source_control_copy_is_app_shell_declared():
     assert "groupOrder:" in model_text
     assert "fileStatusLabels: normalizeStringMap" in model_text
     assert "branchToolbar: normalizeBranchToolbarChrome" in model_text
-    assert "sourceControlChrome.statusUnavailableNotice" in app_text
-    assert "sourceControlChrome.diffUnavailableNotice" in app_text
+    assert "createSourceControlController" in app_text
+    assert "sourceControlChrome.statusUnavailableNotice" in source_control_controller_text
+    assert "sourceControlChrome.diffUnavailableNotice" in source_control_controller_text
     assert "sourceControlChrome" in app_text
-    assert "sourceControlCapabilityEnabled" in app_text
-    assert "!sourceControlCapabilityEnabled(stateRef.current.app.capabilities)" in app_text
+    assert "sourceControlCapabilityEnabled" not in app_text
+    assert "sourceControlCapabilityEnabled" in source_control_controller_text
+    assert "!sourceControlCapabilityEnabled(stateRef.current.app.capabilities)" not in app_text
     assert "sourceControl.enabled === true" in source_control_capability_text
     assert "sourceControlChrome" in surface_panel_text
     assert "sourceControlChrome" in source_control_panel_text

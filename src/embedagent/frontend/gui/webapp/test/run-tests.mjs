@@ -27,6 +27,7 @@ import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
 import { runSessionLoadersTests } from "./session-loaders.test.mjs";
 import { runSessionActivationControllerTests } from "./session-activation-controller.test.mjs";
 import { runSessionControllerTests } from "./session-controller.test.mjs";
+import { runSourceControlControllerTests } from "./source-control-controller.test.mjs";
 import { runWorkbenchCommandControllerTests } from "./workbench-command-controller.test.mjs";
 import { runThreadLifecycleControllerTests } from "./thread-lifecycle-controller.test.mjs";
 import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
@@ -1147,11 +1148,15 @@ async function main() {
   assert.equal(workbenchCommandControllerSource.includes('case "surface.preview"'), false);
   assert.equal(workbenchCommandControllerSource.includes("command.surface"), true);
   assert.equal(workbenchCommandControllerSource.includes("import React"), false);
-  assert.equal(appSource.includes("getSourceControlStatus"), true);
-  assert.equal(appSource.includes("loadSourceControlStatus"), true);
-  assert.equal(appSource.includes("openSourceControlFile"), true);
-  assert.equal(appSource.includes("sourceControlCapabilityEnabled"), true);
-  assert.equal(appSource.includes("!sourceControlCapabilityEnabled(stateRef.current.app.capabilities)"), true);
+  assert.equal(appSource.includes("createSourceControlController"), true);
+  assert.equal(appSource.includes("getSourceControlStatus"), false);
+  assert.equal(appSource.includes("loadSourceControlStatus"), false);
+  assert.equal(appSource.includes("openSourceControlFile"), false);
+  assert.equal(appSource.includes("sourceControlCapabilityEnabled"), false);
+  assert.equal(
+    appSource.includes("!sourceControlCapabilityEnabled(stateRef.current.app.capabilities)"),
+    false,
+  );
   assert.equal(appSource.includes("buildBranchToolbarModel"), true);
   assert.equal(appSource.includes("branchToolbarModel"), true);
   assert.equal(appSource.includes("sourceControlChrome"), true);
@@ -1981,6 +1986,7 @@ async function main() {
   await runSessionLoadersTests();
   await runSessionActivationControllerTests();
   await runSessionControllerTests();
+  await runSourceControlControllerTests();
   await runWorkbenchCommandControllerTests();
   await runThreadLifecycleControllerTests();
   await runSessionTransportControllerTests();

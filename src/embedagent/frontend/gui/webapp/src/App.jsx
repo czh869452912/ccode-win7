@@ -15,6 +15,7 @@ import { createRightPanelController } from "./app-runtime/right-panel-controller
 import { createSessionActivationController } from "./app-runtime/session-activation-controller.js";
 import { createSessionController } from "./app-runtime/session-controller.js";
 import { createSessionTransportController } from "./app-runtime/session-transport-controller.js";
+import { createSourceControlController } from "./app-runtime/source-control-controller.js";
 import { createTerminalController } from "./app-runtime/terminal-controller.js";
 import { createThreadLifecycleController } from "./app-runtime/thread-lifecycle-controller.js";
 import { createWorkspaceFilesController } from "./app-runtime/workspace-files-controller.js";
@@ -31,12 +32,6 @@ import {
   writeTerminal,
 } from "./terminal/terminal-api.js";
 import { nextTerminalId } from "./terminal/terminal-labels.js";
-import {
-  getSourceControlDiff,
-  getSourceControlStatus,
-  refreshSourceControlStatus,
-} from "./source-control/source-control-api.js";
-import { sourceControlCapabilityEnabled } from "./source-control/source-control-capability.js";
 import {
   openPreviewExternal,
   openPreviewSession,
@@ -68,12 +63,6 @@ import {
 
 const EMPTY_COMMAND_GROUPS = [];
 const EMPTY_KEYBINDINGS = [];
-
-function formatTemplate(template = "", values = {}) {
-  return String(template || "").replace(/\{(\w+)\}/g, (_match, key) =>
-    String(values[key] || ""),
-  );
-}
 
 function isTurnInterruptibleStatus(status) {
   return status === "running" || status === "waiting_permission" || status === "waiting_user_input";
@@ -169,6 +158,19 @@ function App() {
   const surfaceChrome = state.app.capabilities?.surfaces?.chrome || {};
   const filePreviewChrome = surfaceChrome.filePreview || {};
   const diffPanelChrome = surfaceChrome.diffPanel || {};
+  const sourceControlController = useMemo(
+    () =>
+      createSourceControlController({
+        dispatch,
+        getAppCapabilities: () => stateRef.current.app.capabilities || {},
+        hasActiveWorkspace: () => stateRef.current.app.hasActiveWorkspace,
+        getSourceControlChrome: () =>
+          stateRef.current.app.capabilities?.sourceControl?.chrome || {},
+        getDiffPanelChrome: () =>
+          stateRef.current.app.capabilities?.surfaces?.chrome?.diffPanel || {},
+      }),
+    [],
+  );
   const terminalController = useMemo(
     () =>
       createTerminalController({
@@ -300,67 +302,6 @@ function App() {
     return payload;
   }
 
-  async function loadSourceControlStatus(
-    refresh = false,
-    assumeWorkspace = state.app.hasActiveWorkspace,
-    appCapabilities = stateRef.current.app.capabilities,
-  ) {
-    if (!assumeWorkspace || !sourceControlCapabilityEnabled(appCapabilities)) {
-      dispatch({ type: "source_control_reset" });
-      return null;
-    }
-    dispatch({ type: "source_control_load_started" });
-    try {
-      const payload = refresh ? await refreshSourceControlStatus() : await getSourceControlStatus();
-      dispatch({ type: "source_control_status_loaded", status: payload });
-      return payload;
-    } catch (error) {
-      dispatch({
-        type: "source_control_load_failed",
-        error: error.message || sourceControlChrome.statusUnavailableNotice,
-      });
-      return null;
-    }
-  }
-
-  async function openSourceControlFile(file, scope = "unstaged") {
-    if (!sourceControlCapabilityEnabled(stateRef.current.app.capabilities)) return null;
-    const path = file?.path || "";
-    if (!path) return;
-    const selectedScope = scope || file?.diffScopes?.[0] || "unstaged";
-    dispatch({ type: "source_control_file_selected", path, scope: selectedScope });
-    dispatch({ type: "source_control_diff_started" });
-    try {
-      const diff = await getSourceControlDiff(path, selectedScope);
-      dispatch({ type: "source_control_diff_loaded", diff });
-      if (diff.available && diff.diff) {
-        dispatch({
-          type: "diff_surface_opened",
-          diffSurface: createDiffSurfaceState({
-            title:
-              formatTemplate(diffPanelChrome.sourceControlTitleTemplate, { path }) ||
-              path ||
-              diffPanelChrome.defaultTitle,
-            diff: diff.diff,
-            source: "source-control",
-            filePath: path,
-            chrome: diffPanelChrome,
-          }),
-        });
-      } else {
-        dispatch({
-          type: "source_control_diff_failed",
-          error: diff.reason || sourceControlChrome.diffUnavailableNotice,
-        });
-      }
-    } catch (error) {
-      dispatch({
-        type: "source_control_diff_failed",
-        error: error.message || sourceControlChrome.diffUnavailableNotice,
-      });
-    }
-  }
-
   async function loadSessions() {
     const payload = await fetchJson("/api/sessions");
     dispatch({ type: "sessions_loaded", sessions: payload.sessions || [] });
@@ -468,11 +409,11 @@ function App() {
             loadSessions(),
             loadSessionCommandCapabilities({ fetchJson, dispatch }),
             loadFileChildren(".", { appCapabilities: scopedAppCapabilities }),
-            loadSourceControlStatus(false, assumeWorkspace, scopedAppCapabilities),
+            sourceControlController.loadStatus(false, assumeWorkspace, scopedAppCapabilities),
           ]);
         },
       }),
-    [],
+    [sourceControlController],
   );
   const {
     activateWorkspace,
@@ -757,8 +698,8 @@ function App() {
     appShell: state.app,
     chrome: appChrome.surfacePanel || {},
     onFocusDiffFile: (filePath) => dispatch({ type: "diff_file_focused", filePath }),
-    onRefreshSourceControl: () => loadSourceControlStatus(true),
-    onSelectSourceControlFile: openSourceControlFile,
+    onRefreshSourceControl: () => sourceControlController.loadStatus(true),
+    onSelectSourceControlFile: (file, scope) => sourceControlController.openFile(file, scope),
     onAppSettingsChange: (patch) => dispatch({ type: "app_shell_settings_changed", patch }),
   };
 
@@ -874,7 +815,7 @@ function App() {
               )}
               onRespondInteraction={respondToInteraction}
               branchToolbar={branchToolbarModel}
-              onRefreshSourceControl={() => loadSourceControlStatus(true)}
+              onRefreshSourceControl={() => sourceControlController.loadStatus(true)}
             />
           </main>
         ) : (
