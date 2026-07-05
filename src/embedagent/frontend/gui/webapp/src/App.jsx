@@ -1,7 +1,6 @@
 import React, { startTransition, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { INITIAL_REQUESTED_MODE, initialState, reducer } from "./store.js";
 import {
-  createTreeNode,
   makeEventId,
   normalizeSessionPayload,
 } from "./state-helpers.js";
@@ -18,6 +17,7 @@ import { createSessionController } from "./app-runtime/session-controller.js";
 import { createSessionTransportController } from "./app-runtime/session-transport-controller.js";
 import { createTerminalController } from "./app-runtime/terminal-controller.js";
 import { createThreadLifecycleController } from "./app-runtime/thread-lifecycle-controller.js";
+import { createWorkspaceFilesController } from "./app-runtime/workspace-files-controller.js";
 import { createInteractionResponseController } from "./app-runtime/interaction-response-controller.js";
 import { createWorkbenchCommandController } from "./app-runtime/workbench-command-controller.js";
 import { createWorkspaceController } from "./app-runtime/workspace-controller.js";
@@ -300,8 +300,12 @@ function App() {
     return payload;
   }
 
-  async function loadSourceControlStatus(refresh = false, assumeWorkspace = state.app.hasActiveWorkspace) {
-    if (!assumeWorkspace || !sourceControlCapabilityEnabled(stateRef.current.app.capabilities)) {
+  async function loadSourceControlStatus(
+    refresh = false,
+    assumeWorkspace = state.app.hasActiveWorkspace,
+    appCapabilities = stateRef.current.app.capabilities,
+  ) {
+    if (!assumeWorkspace || !sourceControlCapabilityEnabled(appCapabilities)) {
       dispatch({ type: "source_control_reset" });
       return null;
     }
@@ -375,15 +379,16 @@ function App() {
     await loadSessionController(sessionId);
   }
 
-  async function loadFileChildren(path) {
-    const payload = await fetchJson(`/api/files/tree?path=${encodeURIComponent(path || ".")}`);
-    const children = (payload.items || []).map(createTreeNode);
-    if ((path || ".") === ".") {
-      dispatch({ type: "file_tree_loaded", nodes: children });
-    } else {
-      dispatch({ type: "file_children_loaded", path, children: payload.items || [] });
-    }
-  }
+  const workspaceFilesController = useMemo(
+    () =>
+      createWorkspaceFilesController({
+        fetchJson,
+        dispatch,
+        getAppCapabilities: () => stateRef.current.app.capabilities || {},
+      }),
+    [],
+  );
+  const { loadFileChildren } = workspaceFilesController;
 
   async function openFile(path, line) {
     const filePath = normalizeFileSurfacePath(path);
@@ -457,12 +462,13 @@ function App() {
         dispatch,
         getState: () => stateRef.current,
         getCurrentSessionId: () => readActiveThreadId(stateRef.current),
-        loadWorkspaceData: async (_sessionId, assumeWorkspace) => {
+        loadWorkspaceData: async (_sessionId, assumeWorkspace, appCapabilities) => {
+          const scopedAppCapabilities = appCapabilities || stateRef.current.app.capabilities || {};
           await Promise.all([
             loadSessions(),
             loadSessionCommandCapabilities({ fetchJson, dispatch }),
-            loadFileChildren("."),
-            loadSourceControlStatus(false, assumeWorkspace),
+            loadFileChildren(".", { appCapabilities: scopedAppCapabilities }),
+            loadSourceControlStatus(false, assumeWorkspace, scopedAppCapabilities),
           ]);
         },
       }),

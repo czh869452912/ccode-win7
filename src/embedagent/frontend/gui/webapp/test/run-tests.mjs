@@ -39,6 +39,7 @@ import { runWorkbenchUiStateTests } from "./workbench-ui-state.test.mjs";
 import { runAppShellModelTests } from "./app-shell-model.test.mjs";
 import { runAppWorkspaceTests } from "./app-workspaces.test.mjs";
 import { runWorkspaceControllerTests } from "./workspace-controller.test.mjs";
+import { runWorkspaceFilesControllerTests } from "./workspace-files-controller.test.mjs";
 import { runAppHomeModelTests } from "./app-home-model.test.mjs";
 import { runBranchToolbarModelTests } from "./branch-toolbar-model.test.mjs";
 import { runCommandCapabilitiesTests } from "./command-capabilities.test.mjs";
@@ -1944,6 +1945,7 @@ async function main() {
   runAppShellModelTests();
   runAppWorkspaceTests();
   await runWorkspaceControllerTests();
+  await runWorkspaceFilesControllerTests();
   runAppHomeModelTests();
   runBranchToolbarModelTests();
   runProtocolNormalizerTests();

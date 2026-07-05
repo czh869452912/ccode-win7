@@ -55,6 +55,11 @@ function visibleHints(hintDescriptors, isRunning, hasInteraction) {
     .filter((hint) => hint && isHintVisible(hint, isRunning, hasInteraction));
 }
 
+function hasVisibleHint(hints, id) {
+  const normalizedId = String(id || "").trim();
+  return (Array.isArray(hints) ? hints : []).some((hint) => hint.id === normalizedId);
+}
+
 export function moveComposerMenuIndex(currentIndex, direction, itemCount) {
   const count = Math.max(0, Math.trunc(Number(itemCount) || 0));
   if (count <= 0) return 0;
@@ -92,13 +97,20 @@ export function buildComposerInteractionModel({
   const disabled = Boolean(isRunning || hasInteraction);
   const trigger = detectComposerTrigger(textValue, boundedCursor);
   const triggerKey = composerTriggerKey(trigger);
-  const menuOpen = Boolean(!disabled && trigger && triggerKey !== dismissedTriggerKey);
+  const hints = visibleHints(hintDescriptors, isRunning, hasInteraction);
+  const pathContextEnabled = hasVisibleHint(hints, "file");
+  const menuOpen = Boolean(
+    !disabled &&
+      trigger &&
+      triggerKey !== dismissedTriggerKey &&
+      (trigger.kind !== "path" || pathContextEnabled),
+  );
   const slashItems = buildComposerCommandItems(
     commands,
     commandGroupLabels,
     commandMenuChrome,
   );
-  const pathCandidates = flattenComposerPathCandidates(fileTree);
+  const pathCandidates = pathContextEnabled ? flattenComposerPathCandidates(fileTree) : [];
 
   let groups = [];
   if (menuOpen && trigger && trigger.kind === "slash") {
@@ -136,6 +148,6 @@ export function buildComposerInteractionModel({
           ? commandMenuChrome.pathEmptyText || ""
           : commandMenuChrome.commandEmptyText || "",
     },
-    hints: visibleHints(hintDescriptors, isRunning, hasInteraction),
+    hints,
   };
 }

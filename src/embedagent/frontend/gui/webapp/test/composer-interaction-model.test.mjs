@@ -132,6 +132,23 @@ export function runComposerInteractionModelTests() {
   assert.equal(selectedPath.text, "inspect @src/parser.c ");
   assert.equal(selectedPath.cursor, "inspect @src/parser.c ".length);
 
+  const noFileHintPathModel = buildComposerInteractionModel({
+    value: "inspect @par",
+    cursor: "inspect @par".length,
+    commands: COMMANDS,
+    fileTree: FILE_TREE,
+    currentMode: "build",
+    isRunning: false,
+    hasInteraction: false,
+    dismissedTriggerKey: "",
+    activeIndex: 0,
+    commandMenuChrome,
+    commandGroupLabels,
+    hintDescriptors: HINTS.filter((hint) => hint.id !== "file"),
+  });
+  assert.equal(noFileHintPathModel.menu.open, false);
+  assert.equal(noFileHintPathModel.menu.items.length, 0);
+
   const runningModel = buildComposerInteractionModel({
     value: "cannot edit while running",
     cursor: 4,
