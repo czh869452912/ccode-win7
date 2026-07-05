@@ -35,6 +35,7 @@ import { runPreviewControllerTests } from "./preview-controller.test.mjs";
 import { runWorkbenchCommandControllerTests } from "./workbench-command-controller.test.mjs";
 import { runThreadLifecycleControllerTests } from "./thread-lifecycle-controller.test.mjs";
 import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
+import { runSocketEffectExecutorTests } from "./socket-effect-executor.test.mjs";
 import { runInteractionResponseControllerTests } from "./interaction-response-controller.test.mjs";
 import { runSocketMessageEffectsTests } from "./socket-message-effects.test.mjs";
 import { runVisualDebugFixturesTests } from "./visual-debug-fixtures.test.mjs";
@@ -1997,9 +1998,24 @@ async function main() {
     webappSourcePath("app-runtime", "session-transport-controller.js"),
     "utf8",
   );
+  const socketEffectExecutorSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "socket-effect-executor.js"),
+    "utf8",
+  );
   assert.equal(sessionTransportControllerSource.includes("shouldReconnectSocket"), true);
   assert.equal(sessionTransportControllerSource.includes("appendSessionTransportEvent"), true);
   assert.equal(sessionTransportControllerSource.includes("/events?after_seq"), false);
+  assert.equal(appSource.includes("createSocketEffectExecutor"), true);
+  assert.equal(appSource.includes("const executeSocketEffects = createSocketEffectExecutor"), true);
+  assert.equal(appSource.includes("appendSessionTransportEvent"), false);
+  assert.equal(appSource.includes("transportEvents.length"), false);
+  assert.equal(appSource.includes('nextTransport.reloadState === "reload_required"'), false);
+  assert.equal(appSource.includes("for (const action of effects.actions"), false);
+  assert.equal(socketEffectExecutorSource.includes("export function createSocketEffectExecutor"), true);
+  assert.equal(socketEffectExecutorSource.includes("appendSessionTransportEvent"), true);
+  assert.equal(socketEffectExecutorSource.includes("recover(currentSessionId, nextTransport)"), true);
+  assert.equal(socketEffectExecutorSource.includes("executeLoaderRequest"), true);
+  assert.equal(socketEffectExecutorSource.includes("import React"), false);
 
   runWorkbenchStateTests();
   runWorkbenchParityModelTests();
@@ -2054,6 +2070,7 @@ async function main() {
   await runWorkbenchCommandControllerTests();
   await runThreadLifecycleControllerTests();
   await runSessionTransportControllerTests();
+  await runSocketEffectExecutorTests();
   await runInteractionResponseControllerTests();
   runSocketMessageEffectsTests();
   runVisualDebugFixturesTests();

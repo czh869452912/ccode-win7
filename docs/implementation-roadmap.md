@@ -338,7 +338,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   transport connection/reload projection,
   `app-runtime/session-transport-controller.js` owns WebSocket lifecycle, and
   `app-runtime/session-activation-controller.js` owns bootstrap activation,
-  while `app-runtime/session-list-controller.js` owns session list loading.
+  `app-runtime/socket-effect-executor.js` owns application of derived socket
+  transport/action/loader effects, while `app-runtime/session-list-controller.js`
+  owns session list loading.
   `App.jsx`, command palette, terminal
   controller, workspace reset, and tests consume those read models instead of
   root-level `sessions`, `currentSessionId`, `composer`, `historyIntegrity`,

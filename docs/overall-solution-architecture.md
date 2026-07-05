@@ -235,6 +235,14 @@ module that fetches `/api/sessions` for the thread list and dispatches
 `sessions_loaded`; `App.jsx` composes the controller but does not own the
 session-list API/action pair.
 
+GUI WebSocket payload handling is split between pure effect derivation and
+effect execution. `app-runtime/socket-message-effects.js` derives transport
+events, reducer actions, and loader requests from backend messages, while
+`app-runtime/socket-effect-executor.js` applies those effects by updating the
+active session transport read model, dispatching reducer actions, invoking
+loader requests, and triggering reload recovery. `App.jsx` stays the
+composition root and does not own transport append/recovery loops.
+
 The GUI terminal bottom drawer is also app-shell hosted. `GUIBackend` owns an
 in-memory terminal service bound to the active workspace and exposes
 thread-scoped terminal HTTP routes plus `terminal_event` WebSocket messages.

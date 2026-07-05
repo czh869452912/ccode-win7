@@ -4,10 +4,11 @@ import {
   makeEventId,
   normalizeSessionPayload,
 } from "./state-helpers.js";
-import { appendSessionTransportEvent, createSessionTransportState } from "./session-runtime/session-transport-state.js";
+import { createSessionTransportState } from "./session-runtime/session-transport-state.js";
 import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
 import { buildSessionActivityRuntime } from "./session-runtime/activity-state.js";
 import { buildComposerCommandsFromCapabilities } from "./session-runtime/command-capabilities.js";
+import { createSocketEffectExecutor } from "./app-runtime/socket-effect-executor.js";
 import { deriveSocketMessageEffects } from "./app-runtime/socket-message-effects.js";
 import { createDiffSurfaceController } from "./app-runtime/diff-surface-controller.js";
 import { createFilePreviewController } from "./app-runtime/file-preview-controller.js";
@@ -524,40 +525,15 @@ function App() {
     loadSessionCommandCapabilities: () => loadSessionCommandCapabilities({ fetchJson, dispatch }),
   });
 
-  function executeSocketEffects(effects = {}) {
-    const transportEvents = effects.transportEvents || [];
-    if (transportEvents.length) {
-      const transportController = sessionTransportControllerRef.current;
-      let nextTransport = sessionTransportRef.current;
-      for (const entry of transportEvents) {
-        if (transportController) {
-          nextTransport = transportController.appendEvent(entry || {});
-        } else {
-          nextTransport = updateSessionTransport((current) =>
-            appendSessionTransportEvent(current, entry || {}),
-          );
-        }
-      }
-      if (
-        (nextTransport.reloadState === "reload_required" || nextTransport.reloadState === "degraded") &&
-        currentSessionIdRef.current
-      ) {
-        if (transportController) {
-          void transportController.recover(currentSessionIdRef.current, nextTransport);
-        } else {
-          void loadSession(currentSessionIdRef.current);
-        }
-      }
-    }
-
-    for (const action of effects.actions || []) {
-      dispatch(action);
-    }
-
-    for (const request of effects.loaderRequests || []) {
-      void executeLoaderRequest(request);
-    }
-  }
+  const executeSocketEffects = createSocketEffectExecutor({
+    dispatch,
+    executeLoaderRequest,
+    getSessionTransportController: () => sessionTransportControllerRef.current,
+    getSessionTransportState: () => sessionTransportRef.current,
+    updateSessionTransportState: updateSessionTransport,
+    getCurrentSessionId: () => currentSessionIdRef.current,
+    loadSession,
+  });
 
   function handleSocketMessage(type, data) {
     const effects = deriveSocketMessageEffects({
