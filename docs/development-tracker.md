@@ -137,6 +137,10 @@
   `app-runtime/panel-resize-controller.js`. `App.jsx` wires resize callbacks
   but no longer owns `documentElement.style` mutation or pointer listener
   cleanup for the sidebar/right-panel handles.
+- GUI Timeline bottom-follow scroll behavior now lives in
+  `app-runtime/timeline-scroll-controller.js`. `App.jsx` wires the Timeline ref
+  and scroll callback but no longer owns `scrollTop`, `scrollHeight`,
+  `clientHeight`, or the old `isAtBottomRef` state.
 - GUI browser prompt/confirm access for thread lifecycle prompts now lives in
   `app-runtime/browser-dialog-service.js`; `App.jsx` injects the service into
   the lifecycle controller instead of calling `window.prompt` /

@@ -256,6 +256,12 @@ GUI panel resize pointer handling is owned by
 tracks pointer drag state, and mutates the CSS variables on the document root;
 `App.jsx` only wires sidebar and right-panel resize callbacks.
 
+GUI Timeline bottom-follow scrolling is owned by
+`app-runtime/timeline-scroll-controller.js`. The controller owns the
+bottom-follow state and direct scroll DOM reads/writes; `App.jsx` only supplies
+the Timeline ref, calls `syncToBottom()` after display-model changes, and
+forwards scroll events to `handleScroll()`.
+
 GUI workbench keyboard handling is owned by
 `app-runtime/workbench-keyboard-controller.js`. The controller owns the global
 keydown listener, Escape cancellation, composer-focus detection, and app-shell

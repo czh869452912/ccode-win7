@@ -34,6 +34,7 @@ import { runSourceControlControllerTests } from "./source-control-controller.tes
 import { runFilePreviewControllerTests } from "./file-preview-controller.test.mjs";
 import { runPreviewControllerTests } from "./preview-controller.test.mjs";
 import { runPanelResizeControllerTests } from "./panel-resize-controller.test.mjs";
+import { runTimelineScrollControllerTests } from "./timeline-scroll-controller.test.mjs";
 import { runBrowserDialogServiceTests } from "./browser-dialog-service.test.mjs";
 import { runWorkbenchKeyboardControllerTests } from "./workbench-keyboard-controller.test.mjs";
 import { runWorkbenchCommandControllerTests } from "./workbench-command-controller.test.mjs";
@@ -2039,6 +2040,10 @@ async function main() {
     webappSourcePath("app-runtime", "panel-resize-controller.js"),
     "utf8",
   );
+  const timelineScrollControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "timeline-scroll-controller.js"),
+    "utf8",
+  );
   const workbenchKeyboardControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "workbench-keyboard-controller.js"),
     "utf8",
@@ -2081,6 +2086,21 @@ async function main() {
   assert.equal(panelResizeControllerSource.includes("setPointerCapture"), true);
   assert.equal(panelResizeControllerSource.includes("documentRef.documentElement.style.setProperty"), true);
   assert.equal(panelResizeControllerSource.includes("import React"), false);
+  assert.equal(appSource.includes("createTimelineScrollController"), true);
+  assert.equal(appSource.includes("timelineScrollController.syncToBottom()"), true);
+  assert.equal(appSource.includes("timelineScrollController.handleScroll()"), true);
+  assert.equal(appSource.includes("isAtBottomRef"), false);
+  assert.equal(appSource.includes("scrollTop"), false);
+  assert.equal(appSource.includes("scrollHeight"), false);
+  assert.equal(appSource.includes("clientHeight"), false);
+  assert.equal(
+    timelineScrollControllerSource.includes("export function createTimelineScrollController"),
+    true,
+  );
+  assert.equal(timelineScrollControllerSource.includes("scrollTop"), true);
+  assert.equal(timelineScrollControllerSource.includes("scrollHeight"), true);
+  assert.equal(timelineScrollControllerSource.includes("clientHeight"), true);
+  assert.equal(timelineScrollControllerSource.includes("import React"), false);
   assert.equal(appSource.includes("createWorkbenchKeyboardController"), true);
   assert.equal(appSource.includes("workbenchKeyboardController.install()"), true);
   assert.equal(appSource.includes("function onWorkbenchKeyDown"), false);
@@ -2152,6 +2172,7 @@ async function main() {
   await runFilePreviewControllerTests();
   await runPreviewControllerTests();
   runPanelResizeControllerTests();
+  runTimelineScrollControllerTests();
   runBrowserDialogServiceTests();
   runWorkbenchKeyboardControllerTests();
   await runWorkbenchCommandControllerTests();

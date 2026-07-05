@@ -28,6 +28,7 @@ import { createSessionTransportController } from "./app-runtime/session-transpor
 import { createSourceControlController } from "./app-runtime/source-control-controller.js";
 import { createTerminalController } from "./app-runtime/terminal-controller.js";
 import { createThreadLifecycleController } from "./app-runtime/thread-lifecycle-controller.js";
+import { createTimelineScrollController } from "./app-runtime/timeline-scroll-controller.js";
 import { createWorkspaceFilesController } from "./app-runtime/workspace-files-controller.js";
 import { createInteractionResponseController } from "./app-runtime/interaction-response-controller.js";
 import { createWorkbenchCommandController } from "./app-runtime/workbench-command-controller.js";
@@ -83,7 +84,6 @@ function App() {
   const [respondingRequestIds, setRespondingRequestIdsState] = useState([]);
   const [sessionTransport, setSessionTransport] = useState(() => createSessionTransportState());
   const timelineRef = useRef(null);
-  const isAtBottomRef = useRef(true);
   const currentSessionIdRef = useRef("");
   const respondingRequestIdsRef = useRef([]);
   const runtimeStateRef = useRef(null);
@@ -174,6 +174,13 @@ function App() {
           stateRef.current.app.capabilities?.sourceControl?.chrome || {},
         getDiffPanelChrome: () =>
           stateRef.current.app.capabilities?.surfaces?.chrome?.diffPanel || {},
+      }),
+    [],
+  );
+  const timelineScrollController = useMemo(
+    () =>
+      createTimelineScrollController({
+        getElement: () => timelineRef.current,
       }),
     [],
   );
@@ -270,15 +277,16 @@ function App() {
 
   // smart auto-scroll: only follow when user is at bottom
   useEffect(() => {
-    if (isAtBottomRef.current && timelineRef.current) {
-      timelineRef.current.scrollTop = timelineRef.current.scrollHeight;
-    }
-  }, [runtimeState.t3TimelineRows, state.thinkingActive, runtimeState.currentInteraction]);
+    timelineScrollController.syncToBottom();
+  }, [
+    runtimeState.t3TimelineRows,
+    state.thinkingActive,
+    runtimeState.currentInteraction,
+    timelineScrollController,
+  ]);
 
   function handleTimelineScroll() {
-    const el = timelineRef.current;
-    if (!el) return;
-    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    timelineScrollController.handleScroll();
   }
 
   const sessionListController = useMemo(
@@ -419,13 +427,11 @@ function App() {
         getCurrentSessionId: () => readActiveThreadId(stateRef.current),
         getCurrentMode: () => stateRef.current.snapshot?.current_mode || stateRef.current.requestedMode,
         hasActiveWorkspace: () => Boolean(stateRef.current.app.hasActiveWorkspace),
-        markTimelineBottom: () => {
-          isAtBottomRef.current = true;
-        },
+        markTimelineBottom: timelineScrollController.markFollowingBottom,
         loadSessions,
         loadSession,
       }),
-    [],
+    [timelineScrollController],
   );
   const browserDialogService = useMemo(
     () => createBrowserDialogService({ windowObject: window }),
