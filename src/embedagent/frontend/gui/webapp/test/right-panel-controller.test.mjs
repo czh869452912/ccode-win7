@@ -26,6 +26,15 @@ const APP_CAPABILITIES = Object.freeze({
         launcherOrder: 20,
         command: true,
       },
+      {
+        id: "files",
+        kind: "files",
+        title: "Files",
+        commandLabel: "Open files",
+        launcher: true,
+        launcherOrder: 30,
+        command: true,
+      },
     ],
   },
 });
@@ -63,6 +72,38 @@ export function runRightPanelControllerTests() {
 
   controller.openSurface("file", "File");
   assert.equal(actions.length, 2);
+
+  controller.openFileSurface({
+    filePath: "src/main.c",
+    title: "main.c",
+    revealLine: 12,
+  });
+  assert.deepEqual(actions.at(-1), {
+    type: "workbench_surface_opened",
+    placement: "right",
+    kind: "file",
+    title: "main.c",
+    resourceId: "src/main.c",
+    filePath: "src/main.c",
+    revealLine: 12,
+  });
+
+  controller.openPreviewSurface({
+    resourceId: "http://127.0.0.1:3000",
+    previewSnapshot: { url: "http://127.0.0.1:3000" },
+  });
+  assert.deepEqual(actions.at(-1), {
+    type: "workbench_surface_opened",
+    placement: "right",
+    kind: "preview",
+    title: "http://127.0.0.1:3000",
+    resourceId: "http://127.0.0.1:3000",
+    previewSnapshot: { url: "http://127.0.0.1:3000" },
+  });
+
+  controller.openFilesSurface();
+  assert.equal(actions.at(-1).type, "workbench_surface_opened");
+  assert.equal(actions.at(-1).kind, "files");
 
   controller.activateSurface({
     id: "right:terminal:term-4",

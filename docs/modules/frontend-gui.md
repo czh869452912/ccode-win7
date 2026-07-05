@@ -407,6 +407,11 @@ supported surface definitions; the terminal right-panel session path is selected
 from that metadata rather than from a fixed `terminal` surface-id branch.
 Supported `openKind` values are routed through `RIGHT_PANEL_OPEN_HANDLERS`,
 not a controller switch.
+App-level resource open flows use semantic right-panel controller methods:
+files opened from the timeline/file tree go through `openFileSurface(...)`,
+preview URLs go through `openPreviewSurface(...)`, and the Files browser goes
+through `openFilesSurface()`. App must not dispatch concrete right-panel
+resource surface kinds directly.
 Right-panel surface-local pane operations are routed through
 `SURFACE_PANE_HANDLERS[surface.kind]`, so terminal split/activate/close pane
 metadata is isolated from the generic workbench reducer flow.

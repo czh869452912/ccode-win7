@@ -44,6 +44,37 @@
 
 ## 3. 当前变更记录
 
+### DC-294
+
+- Date: 2026-07-05
+- Change Topic: GUI resource right-panel surfaces open through controller methods
+- Summary:
+  - Added `openFileSurface(...)`, `openPreviewSurface(...)`, and
+    `openFilesSurface()` to `right-panel-controller.js`.
+  - Moved App-level file, preview, and Files browser surface-kind dispatch out
+    of `App.jsx`; App now delegates resource surface opening by semantic
+    controller method instead of writing `kind: "file"`, `kind: "preview"`, or
+    `openRightPanelSurface("files")`.
+  - Removed the stale `preview.kind = "file"` payload shape from the App file
+    preview load path and test fixture.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/right-panel-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Future App-level resource open flows should add semantic controller methods
+    or metadata-driven handlers; App must not reintroduce concrete right-panel
+    surface-kind dispatch.
+
 ### DC-293
 
 - Date: 2026-07-05

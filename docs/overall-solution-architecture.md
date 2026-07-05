@@ -104,7 +104,9 @@ command labels such as `Open ...`. Right-panel surface open behavior uses
 renderer-local `openKind` metadata, so terminal session creation is not
 inferred from a fixed surface id in the controller; supported `openKind`
 values are routed through an explicit renderer-local handler registry rather
-than a controller switch. Right-panel activation side effects use
+than a controller switch. App-level file, preview, and Files-browser open flows
+call semantic right-panel controller methods instead of dispatching concrete
+resource surface kinds directly. Right-panel activation side effects use
 renderer-local `activationKind` metadata through the
 `right-panel-controller.js` `RIGHT_PANEL_ACTIVATION_HANDLERS` registry, not
 inline App checks for terminal surface ids or direct terminal-session calls.

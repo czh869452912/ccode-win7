@@ -156,6 +156,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   metadata rather than fixed surface-id branches in the controller, and
   supported `openKind` values route through a handler registry rather than a
   controller switch;
+  App-level file, preview, and Files-browser open flows call semantic
+  right-panel controller methods rather than dispatching concrete right-panel
+  resource surface kinds;
   right-panel tab activation side effects are selected by renderer-local
   `activationKind` metadata through
   `RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]` in

@@ -385,14 +385,10 @@ function App() {
   async function openFile(path, line) {
     const filePath = normalizeFileSurfacePath(path);
     if (!filePath) return;
-    dispatch({
-      type: "workbench_surface_opened",
-      placement: "right",
-      kind: "file",
-      title: fileSurfaceTitle(filePath, filePreviewChrome),
-      resourceId: filePath,
+    rightPanelController.openFileSurface({
       filePath,
       revealLine: line,
+      title: fileSurfaceTitle(filePath, filePreviewChrome),
     });
     dispatch({ type: "file_preview_load_started", path: filePath });
     try {
@@ -401,7 +397,6 @@ function App() {
         type: "file_preview_loaded",
         path: filePath,
         preview: {
-          kind: "file",
           title: payload.path || filePath,
           content: payload.content || "",
         },
@@ -692,11 +687,7 @@ function App() {
       const result = await openPreviewSession(sessionId, url);
       const snapshot = result.preview || null;
       const resourceId = snapshot?.url || url;
-      dispatch({
-        type: "workbench_surface_opened",
-        placement: "right",
-        kind: "preview",
-        title: resourceId,
+      rightPanelController.openPreviewSurface({
         resourceId,
         previewSnapshot: snapshot,
       });
@@ -718,11 +709,7 @@ function App() {
       const result = await refreshPreviewSession(sessionId, tabId);
       const nextSnapshot = result.preview || null;
       const resourceId = nextSnapshot?.url || snapshot?.url || "";
-      dispatch({
-        type: "workbench_surface_opened",
-        placement: "right",
-        kind: "preview",
-        title: resourceId,
+      rightPanelController.openPreviewSurface({
         resourceId,
         previewSnapshot: nextSnapshot,
       });
@@ -936,7 +923,7 @@ function App() {
             fileTree={state.fileTree}
             treeHeight={treeHeight}
             onOpenFile={openFile}
-            onOpenFilesSurface={() => openRightPanelSurface("files")}
+            onOpenFilesSurface={() => rightPanelController.openFilesSurface()}
             onLoadFileChildren={loadFileChildren}
             terminal={state.terminal}
             terminalChrome={terminalChrome}

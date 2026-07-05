@@ -2313,10 +2313,19 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     assert "definition.activationKind" not in app_text
     assert 'definition.activationKind === "terminal.open_active"' not in app_text
     assert "surfaceDefinitionFor(" not in app_text
+    assert 'kind: "file"' not in app_text
+    assert 'kind: "preview"' not in app_text
+    assert 'openRightPanelSurface("files")' not in app_text
+    assert "rightPanelController.openFileSurface(" in app_text
+    assert "rightPanelController.openPreviewSurface(" in app_text
+    assert "rightPanelController.openFilesSurface()" in app_text
     assert "openKind" in surfaces_text
     assert "activationKind" in surfaces_text
     assert "terminalController.openRightPanelSurface" in controller_text
     assert "terminalController.openSession" in controller_text
+    assert "openFileSurface" in controller_text
+    assert "openPreviewSurface" in controller_text
+    assert "openFilesSurface" in controller_text
     assert "terminalController.openSession" not in app_text
     for token in (
         'surfaceKind === "file"',

@@ -523,6 +523,9 @@ than a component switch. Right-panel surface opening also
 uses renderer metadata (`openKind`) so terminal session creation is not inferred
 from a fixed surface id in the controller; supported `openKind` values route
 through a renderer-local handler registry rather than a controller switch.
+App-level resource open flows use semantic right-panel controller methods
+(`openFileSurface`, `openPreviewSurface`, and `openFilesSurface`) instead of
+dispatching concrete resource surface kinds from App.
 Right-panel surface-local pane operations route through
 `SURFACE_PANE_HANDLERS[surface.kind]`; terminal split/activate/close pane
 metadata is no longer reducer-level terminal kind logic.

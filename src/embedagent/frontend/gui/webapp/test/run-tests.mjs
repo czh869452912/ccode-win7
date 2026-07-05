@@ -499,7 +499,7 @@ async function main() {
   const filePreviewLoadedState = reducer(filePreviewLoadingState, {
     type: "file_preview_loaded",
     path: "src/main.c",
-    preview: { kind: "file", title: "main.c", content: "int main(void) { return 0; }" },
+    preview: { title: "main.c", content: "int main(void) { return 0; }" },
   });
   assert.equal(filePreviewLoadedState.filePreviewsByPath["src/main.c"].status, "loaded");
   assert.equal(filePreviewLoadedState.filePreviewsByPath["src/main.c"].title, "main.c");
@@ -988,10 +988,16 @@ async function main() {
   assert.equal(appSource.includes("terminalController.splitRightPanelSurface"), true);
   assert.equal(appSource.includes("terminalController.closeRightPanelPane"), true);
   assert.equal(appSource.includes("surfaceDefinitionFor("), false);
+  assert.equal(appSource.includes('kind: "file"'), false);
+  assert.equal(appSource.includes('kind: "preview"'), false);
+  assert.equal(appSource.includes('openRightPanelSurface("files")'), false);
   assert.equal(appSource.includes("surface.kind"), true);
   assert.equal(appSource.includes("definition.activationKind"), false);
   assert.equal(appSource.includes('definition.activationKind === "terminal.open_active"'), false);
   assert.equal(appSource.includes("rightPanelController.activateSurface(surface)"), true);
+  assert.equal(appSource.includes("rightPanelController.openFileSurface("), true);
+  assert.equal(appSource.includes("rightPanelController.openPreviewSurface("), true);
+  assert.equal(appSource.includes("rightPanelController.openFilesSurface()"), true);
   assert.equal(appSource.includes('surface.kind === "terminal"'), false);
   assert.equal(appSource.includes("async function ensureTerminalOpen"), false);
   assert.equal(appSource.includes("async function openTerminalSession"), false);
@@ -1098,6 +1104,9 @@ async function main() {
   assert.equal(rightPanelControllerSource.includes("rightPanelSurfaceTitle(surfaceKind, title, appCapabilities)"), true);
   assert.equal(rightPanelControllerSource.includes("terminalController.openRightPanelSurface"), true);
   assert.equal(rightPanelControllerSource.includes("terminalController.openSession"), true);
+  assert.equal(rightPanelControllerSource.includes("openFileSurface"), true);
+  assert.equal(rightPanelControllerSource.includes("openPreviewSurface"), true);
+  assert.equal(rightPanelControllerSource.includes("openFilesSurface"), true);
   assert.equal(rightPanelControllerSource.includes('surfaceKind === "file"'), false);
   assert.equal(rightPanelControllerSource.includes('surfaceKind === "terminal"'), false);
   assert.equal(rightPanelControllerSource.includes('type: "set_inspector"'), false);
@@ -1143,7 +1152,7 @@ async function main() {
   assert.equal(appSource.includes("file_preview_load_failed"), true);
   assert.equal(appSource.includes("filePreviewChrome.unavailableMessage"), true);
   assert.equal(appSource.includes("fileSurfaceTitle(filePath, filePreviewChrome)"), true);
-  assert.equal(appSource.includes('kind: "file"'), true);
+  assert.equal(appSource.includes('kind: "file"'), false);
   assert.equal(appSource.includes('preview: { kind: "file"'), false);
   assert.equal(appSource.includes("showTabs={false}"), false);
   assert.equal(appSource.includes("onTabChange:"), false);

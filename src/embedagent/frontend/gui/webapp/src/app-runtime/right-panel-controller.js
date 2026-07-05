@@ -1,5 +1,11 @@
 import { surfaceDefinitionFor } from "../workbench/surfaces.js";
 
+const RIGHT_PANEL_RESOURCE_SURFACES = Object.freeze({
+  file: "file",
+  files: "files",
+  preview: "preview",
+});
+
 const RIGHT_PANEL_OPEN_HANDLERS = Object.freeze(Object.assign(Object.create(null), {
   "terminal.right_panel": ({ terminalController }) => {
     void terminalController.openRightPanelSurface();
@@ -55,6 +61,38 @@ export function createRightPanelController({
     }
   }
 
+  function openFileSurface({ filePath, title = "", revealLine } = {}) {
+    const normalizedPath = normalizeFileSurfacePath(filePath);
+    if (!normalizedPath) return;
+    dispatch({
+      type: "workbench_surface_opened",
+      placement: "right",
+      kind: RIGHT_PANEL_RESOURCE_SURFACES.file,
+      title: String(title || normalizedPath),
+      resourceId: normalizedPath,
+      filePath: normalizedPath,
+      revealLine,
+    });
+  }
+
+  function openFilesSurface() {
+    openSurface(RIGHT_PANEL_RESOURCE_SURFACES.files);
+  }
+
+  function openPreviewSurface({ resourceId, title = "", previewSnapshot = null } = {}) {
+    const normalizedResourceId = String(resourceId || "").trim();
+    const normalizedTitle = String(title || normalizedResourceId).trim();
+    if (!normalizedTitle) return;
+    dispatch({
+      type: "workbench_surface_opened",
+      placement: "right",
+      kind: RIGHT_PANEL_RESOURCE_SURFACES.preview,
+      title: normalizedTitle,
+      resourceId: normalizedResourceId,
+      previewSnapshot,
+    });
+  }
+
   function activateSurface(surface) {
     if (!surface) return;
     dispatch({
@@ -75,6 +113,9 @@ export function createRightPanelController({
     activateSurface,
     fileSurfaceTitle,
     normalizeFileSurfacePath,
+    openFileSurface,
+    openFilesSurface,
+    openPreviewSurface,
     openSurface,
     rightPanelSurfaceTitle,
   };
