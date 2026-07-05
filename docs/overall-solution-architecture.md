@@ -336,9 +336,10 @@ loaded only from `src/embedagent/workflow_packages/c_cpp/agent_profile.py` by
 the default C/C++ application, not by the global mode facade or generic
 application loader.
 Workflow packages declare scenario-specific
-workflow tools, packs, prompts, resources, manifests, and package-owned tool
-names. Provider-facing schemas are always projected from explicit active tool
-names computed by the shared extension boundary.
+workflow tools, packs, prompts, resources, manifests, workspace-profile
+detectors, and package-owned tool names. Provider-facing schemas are always
+projected from explicit active tool names computed by the shared extension
+boundary.
 
 The built-in application registry currently exposes `embedagent.default_c_cpp`
 as the default packaged product application plus profile-only
@@ -359,9 +360,9 @@ application selection falls through to the registry default.
 - `src/embedagent/workflow_packages/c_cpp/tool_metadata.py`
 
 The first-party C/C++ workflow package owns C/C++ discipline, phase, task graph,
-tool registration, metadata, packs, context reducers, session task snapshots,
-and workflow projection. It is bundled by the hosted product but is not part of
-the generic Agent Core.
+tool registration, metadata, packs, workspace-profile detector, context
+reducers, session task snapshots, and workflow projection. It is bundled by the
+hosted product but is not part of the generic Agent Core.
 
 The default C/C++ harness is now entered through the in-process workflow extension boundary. Harness internals remain bundled and enabled by default, but `QueryEngine` must not import concrete harness task classes directly.
 

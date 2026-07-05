@@ -78,8 +78,15 @@ EventHandler = Callable[[str, str, Dict[str, Any]], None]
 
 
 class _WorkspaceProfilePort(object):
+    def __init__(self, detectors: Any = None) -> None:
+        self._detectors = tuple(detectors or ())
+
     def build_message(self, workspace: str, session_id: str) -> str:
-        return build_workspace_profile_message(workspace, session_id)
+        return build_workspace_profile_message(
+            workspace,
+            session_id,
+            detectors=self._detectors,
+        )
 
 
 def _display_transition_reason(reason: str) -> str:
@@ -199,12 +206,14 @@ class InProcessAdapter(object):
             getattr(self.tools, "projection_db", None),
             self.transcript_store,
         )
-        self.workspace_profile = _WorkspaceProfilePort()
         self.session_restorer = SessionRestorer()
         self.snapshot_projector = SessionSnapshotProjector()
         self.agent_application = agent_application or build_agent_application(
             agent_application_id,
             self.tools,
+        )
+        self.workspace_profile = _WorkspaceProfilePort(
+            getattr(self.agent_application, "workspace_profile_detectors", ()),
         )
         self._agent_profile = self.agent_application.profile
         self._mode_tool_policy = AgentProfileToolPolicy(self._agent_profile)

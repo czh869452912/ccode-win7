@@ -10,6 +10,9 @@ from embedagent.agent_applications import (
 from embedagent.workflow_packages.c_cpp.agent_profile import default_c_cpp_agent_profile
 from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
 from embedagent.workflow_packages.c_cpp.package_manifest import C_WORKFLOW_PACKAGE_ID
+from embedagent.workflow_packages.c_cpp.workspace_profile import (
+    c_cpp_workspace_profile_detectors,
+)
 from embedagent_core.extensions import ExtensionManager
 
 
@@ -34,4 +37,5 @@ def build_c_cpp_agent_application(tools: Any) -> AgentApplication:
         extension_manager=ExtensionManager([workflow_extension]),
         manifest=c_cpp_agent_application_manifest(),
         workflow_refreshers=(workflow_extension,),
+        workspace_profile_detectors=c_cpp_workspace_profile_detectors(),
     )

@@ -50,6 +50,7 @@ class AgentApplication:
     extension_manager: ExtensionManager
     manifest: Optional[AgentApplicationManifest] = None
     workflow_refreshers: Tuple[Any, ...] = field(default_factory=tuple)
+    workspace_profile_detectors: Tuple[Any, ...] = field(default_factory=tuple)
 
     def refresh_managed_session(
         self,

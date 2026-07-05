@@ -7,7 +7,7 @@ from itertools import count
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.workflow_packages.c_cpp import task_store
-from embedagent.workspace_profile import build_workspace_profile_message
+from embedagent.workspace_profile import build_workspace_profile_message, profile_workspace
 
 _COUNTER = count(1)
 
@@ -53,6 +53,53 @@ class WorkspaceProfileTests(unittest.TestCase):
 
         self.assertNotIn("任务提示", message)
         self.assertNotIn("待办", message)
+
+    def test_base_workspace_profile_does_not_treat_cmake_as_generic_code(self):
+        native_dir = os.path.join(self.workspace, "native")
+        os.makedirs(native_dir)
+        with open(os.path.join(native_dir, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
+            handle.write("cmake_minimum_required(VERSION 3.10)\n")
+
+        profile = profile_workspace(self.workspace)
+
+        self.assertEqual(profile["code_roots"], [])
+
+    def test_c_cpp_application_contributes_workspace_profile_detector(self):
+        from embedagent.agent_applications import DEFAULT_AGENT_APPLICATION_ID
+        from embedagent.tools import ToolRuntime
+        from embedagent_host.inprocess_adapter import InProcessAdapter
+
+        native_dir = os.path.join(self.workspace, "native")
+        os.makedirs(native_dir)
+        with open(os.path.join(native_dir, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
+            handle.write("cmake_minimum_required(VERSION 3.10)\n")
+
+        adapter = InProcessAdapter(
+            tools=ToolRuntime(self.workspace),
+            agent_application_id=DEFAULT_AGENT_APPLICATION_ID,
+        )
+
+        message = adapter.workspace_profile.build_message(self.workspace, session_id="session")
+
+        self.assertIn("已探测代码/工程目录：native", message)
+
+    def test_profile_only_application_does_not_inherit_c_cpp_workspace_detector(self):
+        from embedagent.tools import ToolRuntime
+        from embedagent_host.inprocess_adapter import InProcessAdapter
+
+        native_dir = os.path.join(self.workspace, "native")
+        os.makedirs(native_dir)
+        with open(os.path.join(native_dir, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
+            handle.write("cmake_minimum_required(VERSION 3.10)\n")
+
+        adapter = InProcessAdapter(
+            tools=ToolRuntime(self.workspace),
+            agent_application_id="embedagent.python",
+        )
+
+        message = adapter.workspace_profile.build_message(self.workspace, session_id="session")
+
+        self.assertNotIn("已探测代码/工程目录：native", message)
 
 
 if __name__ == "__main__":

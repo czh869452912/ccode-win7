@@ -159,6 +159,11 @@
   CMake/Make/Ninja recipe detection, `run_recipe` normalization, and hosted
   recipe projection through its explicit `workspace_recipes` extension
   capability.
+- Workspace profile C/C++ file signals now follow the same package-owned
+  boundary. Generic `src/embedagent/workspace_profile.py` no longer hard-codes
+  CMake/Make/C++ source roots; the default C/C++ application contributes
+  `CCppWorkspaceProfileDetector` from
+  `src/embedagent/workflow_packages/c_cpp/workspace_profile.py`.
 - No-workspace GUI shell branding now comes from backend app metadata:
   `app-home-model.js` projects `app.productName`, and `NoWorkspaceState.jsx`
   renders that descriptor value instead of hard-coding the default product

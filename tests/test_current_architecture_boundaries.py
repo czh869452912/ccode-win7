@@ -470,6 +470,25 @@ def test_base_config_does_not_pin_default_c_cpp_application():
     assert "| `agent_application_id` | string | `embedagent.default_c_cpp` |" not in guide
 
 
+def test_generic_workspace_profile_uses_workflow_owned_c_cpp_detectors():
+    generic = ROOT / "src/embedagent/workspace_profile.py"
+    c_detector = ROOT / "src/embedagent/workflow_packages/c_cpp/workspace_profile.py"
+
+    generic_text = _read(generic)
+    for token in (
+        "CMakeLists.txt",
+        "Makefile",
+        '".cpp"',
+        '".hpp"',
+    ):
+        assert token not in generic_text
+
+    detector_text = _read(c_detector)
+    assert "CMakeLists.txt" in detector_text
+    assert '".cpp"' in detector_text
+    assert "CCppWorkspaceProfileDetector" in detector_text
+
+
 def test_product_evidence_helpers_do_not_import_c_cpp_workflow_constants():
     files = (
         ROOT / "src/embedagent/review_command.py",
