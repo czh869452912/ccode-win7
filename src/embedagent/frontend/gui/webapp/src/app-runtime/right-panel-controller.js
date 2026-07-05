@@ -15,6 +15,14 @@ const RIGHT_PANEL_OPEN_HANDLERS = Object.freeze(Object.assign(Object.create(null
   },
 }));
 
+const RIGHT_PANEL_ACTIVATION_HANDLERS = Object.freeze(Object.assign(Object.create(null), {
+  "terminal.open_active": ({ surface, terminalController }) => {
+    if (surface && surface.activeTerminalId) {
+      void terminalController.openSession(surface.activeTerminalId);
+    }
+  },
+}));
+
 export function rightPanelSurfaceTitle(kind, fallback = "", appCapabilities = null) {
   const definition = surfaceDefinitionFor(kind, appCapabilities);
   const descriptorTitle = String(definition?.title || "").trim();
@@ -47,7 +55,24 @@ export function createRightPanelController({
     }
   }
 
+  function activateSurface(surface) {
+    if (!surface) return;
+    dispatch({
+      type: "workbench_surface_activated",
+      placement: "right",
+      surfaceId: surface.id,
+      kind: surface.kind,
+    });
+    const appCapabilities = getAppCapabilities();
+    const definition = surfaceDefinitionFor(surface.kind, appCapabilities);
+    const handler = definition ? RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind] : null;
+    if (handler) {
+      handler({ appCapabilities, definition, dispatch, surface, terminalController });
+    }
+  }
+
   return {
+    activateSurface,
     fileSurfaceTitle,
     normalizeFileSurfacePath,
     openSurface,

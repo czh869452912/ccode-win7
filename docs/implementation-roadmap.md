@@ -157,7 +157,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   supported `openKind` values route through a handler registry rather than a
   controller switch;
   right-panel tab activation side effects are selected by renderer-local
-  `activationKind` metadata rather than inline App surface-id branches;
+  `activationKind` metadata through
+  `RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]` in
+  `right-panel-controller.js` rather than inline App surface-id or terminal
+  session branches;
   bottom-drawer surface commands may also carry descriptor-owned dispatch
   records, and the Terminal drawer opens through `terminal.ensure_open` rather
   than a renderer branch on `drawer: "terminal"`;

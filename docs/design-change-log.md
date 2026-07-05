@@ -44,6 +44,38 @@
 
 ## 3. 当前变更记录
 
+### DC-293
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel activation uses controller handler registry
+- Summary:
+  - Added renderer-local `RIGHT_PANEL_ACTIVATION_HANDLERS` to
+    `right-panel-controller.js` and routed supported right-panel activation
+    side effects through `definition.activationKind`.
+  - Moved the terminal right-panel re-open side effect out of `App.jsx`;
+    `App.jsx` now delegates tab activation to
+    `rightPanelController.activateSurface(surface)`.
+  - Updated frontend and architecture guards so App-level
+    `surfaceDefinitionFor(...)`, `definition.activationKind`, and
+    `terminalController.openSession(...)` paths fail.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/right-panel-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Future right-panel activation side effects must add explicit
+    `activationKind` handler entries in the controller; App must remain a
+    surface activation delegate, not a surface-policy owner.
+
 ### DC-292
 
 - Date: 2026-07-05

@@ -529,9 +529,11 @@ metadata is no longer reducer-level terminal kind logic.
 The terminal controller keeps its terminal-specific right-panel adapter in
 `TERMINAL_SURFACE_KIND` and `terminalSurfaceActionInput(...)`; individual
 split/activate/close action handlers must not repeat surface-kind checks.
-Right-panel tab activation side
-effects use renderer metadata (`activationKind`) rather than inline App checks
-for terminal surface ids.
+Right-panel tab activation side effects use renderer metadata
+(`activationKind`) through the `right-panel-controller.js`
+`RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]` registry; App
+delegates to `rightPanelController.activateSurface(surface)` and does not
+inspect activation metadata or call terminal-session side effects directly.
 Bottom drawer selection uses the same renderer metadata path: drawer activation
 side effects come from bottom surface `activationKind` records, not drawer-kind
 conditionals in the terminal controller. Supported activation kinds route

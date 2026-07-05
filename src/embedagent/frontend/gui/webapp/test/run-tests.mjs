@@ -983,13 +983,15 @@ async function main() {
   assert.equal(appSource.includes("createTerminalController"), true);
   assert.equal(appSource.includes("stateRef.current = state"), true);
   assert.equal(appSource.includes("terminalController.ensureOpen"), true);
-  assert.equal(appSource.includes("terminalController.openSession"), true);
+  assert.equal(appSource.includes("terminalController.openSession"), false);
   assert.equal(appSource.includes("terminalController.openRightPanelSurface"), true);
   assert.equal(appSource.includes("terminalController.splitRightPanelSurface"), true);
   assert.equal(appSource.includes("terminalController.closeRightPanelPane"), true);
-  assert.equal(appSource.includes("surfaceDefinitionFor("), true);
+  assert.equal(appSource.includes("surfaceDefinitionFor("), false);
   assert.equal(appSource.includes("surface.kind"), true);
-  assert.equal(appSource.includes("definition.activationKind"), true);
+  assert.equal(appSource.includes("definition.activationKind"), false);
+  assert.equal(appSource.includes('definition.activationKind === "terminal.open_active"'), false);
+  assert.equal(appSource.includes("rightPanelController.activateSurface(surface)"), true);
   assert.equal(appSource.includes('surface.kind === "terminal"'), false);
   assert.equal(appSource.includes("async function ensureTerminalOpen"), false);
   assert.equal(appSource.includes("async function openTerminalSession"), false);
@@ -1087,8 +1089,15 @@ async function main() {
   assert.equal(rightPanelControllerSource.includes("RIGHT_PANEL_OPEN_HANDLERS"), true);
   assert.equal(rightPanelControllerSource.includes("RIGHT_PANEL_OPEN_HANDLERS[definition.openKind]"), true);
   assert.equal(rightPanelControllerSource.includes('switch (definition ? definition.openKind : "")'), false);
+  assert.equal(rightPanelControllerSource.includes("definition.activationKind"), true);
+  assert.equal(rightPanelControllerSource.includes("RIGHT_PANEL_ACTIVATION_HANDLERS"), true);
+  assert.equal(
+    rightPanelControllerSource.includes("RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]"),
+    true,
+  );
   assert.equal(rightPanelControllerSource.includes("rightPanelSurfaceTitle(surfaceKind, title, appCapabilities)"), true);
   assert.equal(rightPanelControllerSource.includes("terminalController.openRightPanelSurface"), true);
+  assert.equal(rightPanelControllerSource.includes("terminalController.openSession"), true);
   assert.equal(rightPanelControllerSource.includes('surfaceKind === "file"'), false);
   assert.equal(rightPanelControllerSource.includes('surfaceKind === "terminal"'), false);
   assert.equal(rightPanelControllerSource.includes('type: "set_inspector"'), false);

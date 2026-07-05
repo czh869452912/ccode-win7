@@ -44,6 +44,9 @@ export function runRightPanelControllerTests() {
       openRightPanelSurface: () => {
         actions.push({ type: "terminal_opened" });
       },
+      openSession: (terminalId) => {
+        actions.push({ type: "terminal_session_opened", terminalId });
+      },
     },
     getAppCapabilities: () => APP_CAPABILITIES,
   });
@@ -60,4 +63,27 @@ export function runRightPanelControllerTests() {
 
   controller.openSurface("file", "File");
   assert.equal(actions.length, 2);
+
+  controller.activateSurface({
+    id: "right:terminal:term-4",
+    kind: "terminal",
+    activeTerminalId: "term-4",
+  });
+  assert.deepEqual(actions.slice(-2), [
+    {
+      type: "workbench_surface_activated",
+      placement: "right",
+      surfaceId: "right:terminal:term-4",
+      kind: "terminal",
+    },
+    { type: "terminal_session_opened", terminalId: "term-4" },
+  ]);
+
+  controller.activateSurface({ id: "right:preview:preview-a", kind: "preview" });
+  assert.deepEqual(actions.at(-1), {
+    type: "workbench_surface_activated",
+    placement: "right",
+    surfaceId: "right:preview:preview-a",
+    kind: "preview",
+  });
 }

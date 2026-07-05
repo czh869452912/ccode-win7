@@ -415,7 +415,11 @@ are centralized in `TERMINAL_SURFACE_KIND` and
 `terminalSurfaceActionInput(...)`; individual terminal pane actions must not
 repeat surface-kind checks.
 Right-panel tab activation side effects use renderer-local `activationKind`
-metadata; App-level activation code must not branch on terminal surface ids.
+metadata through `right-panel-controller.js`
+`RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]`; App-level
+activation code only delegates to `rightPanelController.activateSurface(surface)`
+and must not branch on terminal surface ids, inspect activation metadata, or
+call terminal-session side effects directly.
 Surface descriptor records that omit `title` remain capability diagnostics and
 do not enter visible launchers or commands; renderer helpers must not fall back
 to surface kind/id strings for tab or launcher titles. Resource surface helper
