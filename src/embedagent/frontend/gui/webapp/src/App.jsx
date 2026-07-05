@@ -61,7 +61,11 @@ import CommandPalette from "./components/workbench/CommandPalette.jsx";
 import RightPanelSurfaceBody from "./components/workbench/RightPanelSurfaceBody.jsx";
 import RightPanelTabs from "./components/workbench/RightPanelTabs.jsx";
 import WorkbenchHeader from "./components/workbench/WorkbenchHeader.jsx";
-import { visibleCommands } from "./workbench/commands.js";
+import {
+  buildCommandVisibilityContext,
+  isTurnInterruptibleStatus,
+  visibleCommands,
+} from "./workbench/commands.js";
 import { buildCommandGroupLabels } from "./workbench/command-palette-model.js";
 import {
   activeRightPanelSurfaceFrom,
@@ -75,10 +79,6 @@ import {
 } from "./workbench/ui-state.js";
 
 const EMPTY_KEYBINDINGS = [];
-
-function isTurnInterruptibleStatus(status) {
-  return status === "running" || status === "waiting_permission" || status === "waiting_user_input";
-}
 
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState, (baseState) => ({
@@ -118,13 +118,12 @@ function App() {
   const currentMode = state.snapshot?.current_mode || state.requestedMode;
   const currentStatus = state.snapshot?.status || "idle";
   const appChrome = state.app.capabilities?.chrome || {};
-  const commandContext = useMemo(() => ({
-    hasSession: Boolean(currentSessionId),
-    hasWorkspace: Boolean(state.app.hasActiveWorkspace),
-    isRunning: isTurnInterruptibleStatus(currentStatus),
-    paletteOpen: state.workbench.commandPalette.open,
-    capabilities: state.sessionCapabilities || {},
-    appCapabilities: state.app.capabilities || {},
+  const commandContext = useMemo(() => buildCommandVisibilityContext({
+    currentSessionId,
+    currentStatus,
+    appState: state.app,
+    workbenchState: state.workbench,
+    sessionCapabilities: state.sessionCapabilities || {},
   }), [
     currentStatus,
     currentSessionId,

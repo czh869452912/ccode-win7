@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 
 import {
+  buildCommandVisibilityContext,
   commandById,
+  isTurnInterruptibleStatus,
   visibleCommands,
 } from "../src/workbench/commands.js";
 import {
@@ -649,6 +651,50 @@ export function runWorkbenchStateTests() {
   assert.equal(commandById("app.hidden", {}, commandLabelCapabilities), null);
   assert.equal(commandById("message.unlabeled", {}, commandLabelCapabilities), null);
   assert.equal(commandById("app.visible", {}, commandLabelCapabilities).label, "Visible");
+  assert.equal(isTurnInterruptibleStatus("running"), true);
+  assert.equal(isTurnInterruptibleStatus("waiting_permission"), true);
+  assert.equal(isTurnInterruptibleStatus("waiting_user_input"), true);
+  assert.equal(isTurnInterruptibleStatus("idle"), false);
+  const runningCommandContext = buildCommandVisibilityContext({
+    currentSessionId: "sess-1",
+    currentStatus: "waiting_permission",
+    hasActiveWorkspace: true,
+    paletteOpen: true,
+    sessionCapabilities: { commands: [] },
+    appCapabilities: commandLabelCapabilities,
+  });
+  assert.deepEqual(runningCommandContext, {
+    hasSession: true,
+    hasWorkspace: true,
+    isRunning: true,
+    paletteOpen: true,
+    capabilities: { commands: [] },
+    appCapabilities: commandLabelCapabilities,
+  });
+  assert.equal(
+    buildCommandVisibilityContext({
+      currentSessionId: "",
+      currentStatus: "idle",
+      hasActiveWorkspace: false,
+    }).isRunning,
+    false,
+  );
+  assert.deepEqual(
+    buildCommandVisibilityContext({
+      currentSessionId: "sess-2",
+      currentStatus: "running",
+      appState: { hasActiveWorkspace: true, capabilities: commandLabelCapabilities },
+      workbenchState: { commandPalette: { open: true } },
+    }),
+    {
+      hasSession: true,
+      hasWorkspace: true,
+      isRunning: true,
+      paletteOpen: true,
+      capabilities: {},
+      appCapabilities: commandLabelCapabilities,
+    },
+  );
   assert.equal(
     visibleCommands({ hasSession: true, isRunning: false, appCapabilities: commandLabelCapabilities })
       .some((item) => item.id === "app.hidden"),

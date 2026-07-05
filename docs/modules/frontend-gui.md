@@ -585,7 +585,10 @@ controller rather than App-level inline callbacks.
 open/close/query state, command-palette command/session/workspace selection,
 and command-id resolution against the active capability snapshot; `App.jsx`
 wires those methods directly instead of importing `commandById` or dispatching
-palette/toggle reducer actions inline.
+palette/toggle reducer actions inline. `workbench/commands.js` owns
+`buildCommandVisibilityContext(...)` and `isTurnInterruptibleStatus(...)` so
+command visibility and T3 parity status semantics are shared read-model logic,
+not root-level App policy.
 `App.jsx` remains the composition layer for controller construction, HTTP route
 callback injection, reducer state ownership, and render composition in this
 slice. `visual-debug-fixtures.js` owns the

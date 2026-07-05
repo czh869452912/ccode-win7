@@ -3119,8 +3119,16 @@ def test_gui_workbench_keyboard_handling_is_controller_owned():
     controller_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/workbench-keyboard-controller.js"
     )
+    commands_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js")
+    parity_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/workbench-parity-model.js"
+    )
 
     assert "createWorkbenchKeyboardController" in app_text
+    assert "buildCommandVisibilityContext" in app_text
+    assert "function isTurnInterruptibleStatus" not in app_text
+    assert "hasSession: Boolean(currentSessionId)" not in app_text
+    assert "paletteOpen: state.workbench.commandPalette.open" not in app_text
     assert "workbenchKeyboardController.install()" in app_text
     assert "function onWorkbenchKeyDown" not in app_text
     assert 'window.addEventListener("keydown"' not in app_text
@@ -3133,6 +3141,9 @@ def test_gui_workbench_keyboard_handling_is_controller_owned():
     assert "resolveKeybinding" in controller_text
     assert "eventToKey" in controller_text
     assert "composerFocused" in controller_text
+    assert "export function buildCommandVisibilityContext" in commands_text
+    assert "export function isTurnInterruptibleStatus" in commands_text
+    assert "function isRunningStatus" not in parity_text
 
 
 def test_gui_runtime_state_does_not_reintroduce_removed_root_session_state():

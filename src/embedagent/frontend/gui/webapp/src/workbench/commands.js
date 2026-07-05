@@ -22,6 +22,37 @@ function defaultCommandGroupId(appCapabilities = null) {
   ).trim();
 }
 
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+export function isTurnInterruptibleStatus(status) {
+  return status === "running" || status === "waiting_permission" || status === "waiting_user_input";
+}
+
+export function buildCommandVisibilityContext(options = {}) {
+  const appState = options.appState && typeof options.appState === "object" ? options.appState : {};
+  const workbenchState =
+    options.workbenchState && typeof options.workbenchState === "object"
+      ? options.workbenchState
+      : {};
+  const currentStatus = options.currentStatus || "idle";
+  const hasActiveWorkspace = hasOwn(options, "hasActiveWorkspace")
+    ? options.hasActiveWorkspace
+    : appState.hasActiveWorkspace;
+  const paletteOpen = hasOwn(options, "paletteOpen")
+    ? options.paletteOpen
+    : workbenchState.commandPalette?.open;
+  return {
+    hasSession: Boolean(options.currentSessionId),
+    hasWorkspace: Boolean(hasActiveWorkspace),
+    isRunning: isTurnInterruptibleStatus(currentStatus),
+    paletteOpen: Boolean(paletteOpen),
+    capabilities: options.sessionCapabilities || options.capabilities || {},
+    appCapabilities: options.appCapabilities || appState.capabilities || {},
+  };
+}
+
 function commandFromCapability(item = {}, appCapabilities = null) {
   const id = String(item.id || item.name || "").trim();
   if (!id) return null;

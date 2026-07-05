@@ -163,7 +163,11 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
   `webapp/src/app-runtime/workbench-command-controller.js`. `App.jsx` wires the
   controller methods directly and must not import `commandById` or dispatch
   `workbench_command_palette_*`, `workbench_right_panel_toggled`, or
-  `workbench_bottom_drawer_toggled` inline.
+  `workbench_bottom_drawer_toggled` inline. Workbench command visibility
+  context and interruptible-turn status semantics live in
+  `webapp/src/workbench/commands.js` via `buildCommandVisibilityContext(...)`
+  / `isTurnInterruptibleStatus(...)`; `App.jsx` must not hand-build that
+  context as root-level command policy.
 - Official GUI renderer-state boundary: thread/session selection, session
   summaries, and history-integrity display state live in
   `webapp/src/session-runtime/thread-state.js`, composer draft text lives in

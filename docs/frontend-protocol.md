@@ -156,7 +156,11 @@ command-palette command/session/workspace selection, and command-id resolution
 are renderer action-controller concerns in
 `webapp/src/app-runtime/workbench-command-controller.js`; `App.jsx` must not
 import `commandById` or inline-dispatch palette/toggle reducer actions as a
-second workbench command policy.
+second workbench command policy. Command visibility context, including
+session/workspace presence, palette-open state, and interruptible-turn status,
+is a `webapp/src/workbench/commands.js` read model through
+`buildCommandVisibilityContext(...)`; root App composition must pass state
+slices to that model instead of hand-building the visibility object.
 `capabilities.home` carries GUI home/sidebar copy for workspace and thread
 sections, including inactive-workspace labels, path placeholder text, open and
 recent-workspace labels, missing-path labels, thread empty-state copy, and

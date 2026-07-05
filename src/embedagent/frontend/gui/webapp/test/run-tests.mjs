@@ -1306,6 +1306,10 @@ async function main() {
   assert.equal(workbenchCommandControllerSource.includes("command.surface"), true);
   assert.equal(workbenchCommandControllerSource.includes("import React"), false);
   assert.equal(appSource.includes("commandById"), false);
+  assert.equal(appSource.includes("buildCommandVisibilityContext"), true);
+  assert.equal(appSource.includes("function isTurnInterruptibleStatus"), false);
+  assert.equal(appSource.includes("hasSession: Boolean(currentSessionId)"), false);
+  assert.equal(appSource.includes("paletteOpen: state.workbench.commandPalette.open"), false);
   assert.equal(appSource.includes("onToggleRightPanel={workbenchCommandController.toggleRightPanel}"), true);
   assert.equal(appSource.includes("onToggleBottomDrawer={workbenchCommandController.toggleBottomDrawer}"), true);
   assert.equal(appSource.includes("onOpenPalette={workbenchCommandController.openPalette}"), true);

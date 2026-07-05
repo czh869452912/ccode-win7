@@ -1,4 +1,8 @@
-import { visibleCommands } from "./commands.js";
+import {
+  buildCommandVisibilityContext,
+  isTurnInterruptibleStatus,
+  visibleCommands,
+} from "./commands.js";
 
 const T3_CENTER_MAX_WIDTH = 860;
 const NARROW_BREAKPOINT = 980;
@@ -29,10 +33,6 @@ function hasActiveWorkspace(state) {
   return Boolean(state && state.app && state.app.hasActiveWorkspace);
 }
 
-function isRunningStatus(status) {
-  return status === "running" || status === "waiting_permission" || status === "waiting_user_input";
-}
-
 function hasInteraction(state) {
   return Boolean(
     state &&
@@ -61,7 +61,7 @@ function bottomDrawerMode(state, width) {
 
 function composerMode(state, status) {
   if (hasInteraction(state)) return "interaction";
-  if (isRunningStatus(status)) return "running";
+  if (isTurnInterruptibleStatus(status)) return "running";
   if (currentSessionId(state)) return "command-ready";
   return "empty";
 }
@@ -73,16 +73,16 @@ function timelineDensity(width) {
 }
 
 function surfaceCommands(state, status) {
-  const commands = visibleCommands({
-    hasSession: Boolean(currentSessionId(state)),
-    hasWorkspace: hasActiveWorkspace(state),
-    isRunning: isRunningStatus(status),
+  const commands = visibleCommands(buildCommandVisibilityContext({
+    currentSessionId: currentSessionId(state),
+    currentStatus: status,
+    hasActiveWorkspace: hasActiveWorkspace(state),
     paletteOpen: Boolean(
       state && state.workbench && state.workbench.commandPalette && state.workbench.commandPalette.open,
     ),
     appCapabilities: state && state.app ? state.app.capabilities : null,
-    capabilities: state ? state.sessionCapabilities : null,
-  });
+    sessionCapabilities: state ? state.sessionCapabilities : null,
+  }));
   return commands
     .filter((command) => command && (command.group === "surface" || command.drawer))
     .map((command) => command.id);

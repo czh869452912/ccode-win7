@@ -589,6 +589,11 @@
 
 - React webapp `webapp/src/app-runtime/workbench-command-controller.js` now owns header right-panel/bottom-drawer toggles, command-palette open/close/query state, command-palette command/session/workspace selection, and command-id resolution against the active capability snapshot.
 - `App.jsx` wires the controller methods directly; it no longer imports `commandById` or dispatches palette/toggle reducer actions inline.
+- React webapp `webapp/src/workbench/commands.js` now owns
+  `buildCommandVisibilityContext(...)` and `isTurnInterruptibleStatus(...)`;
+  `App.jsx` passes app/workbench state slices into that read model instead of
+  hand-building command visibility fields, and `workbench-parity-model.js`
+  reuses the same running-status semantics.
 - `CommandPalette.jsx` remains a display component for root/submenu navigation, Escape, and backdrop close; selected command/session/workspace items hand intent to the controller-owned callbacks.
 - This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, terminal backend service, source-control execution, provider configuration, extension loading, telemetry, or runtime reducer semantics changed.
 

@@ -44,6 +44,38 @@
 
 ## 3. 当前变更记录
 
+### DC-308
+
+- Date: 2026-07-05
+- Change Topic: GUI command visibility context moves into workbench model
+- Summary:
+  - `workbench/commands.js` now owns `isTurnInterruptibleStatus(...)` and
+    `buildCommandVisibilityContext(...)`, the pure read model used by command
+    visibility filtering.
+  - `App.jsx` passes app/workbench state slices into that builder instead of
+    hand-assembling `hasSession`, `hasWorkspace`, `isRunning`, and
+    `paletteOpen` fields in the root component.
+  - `workbench-parity-model.js` reuses the same running-status and command
+    visibility context semantics instead of keeping a second status helper.
+  - Frontend and architecture guards reject reintroducing root-level command
+    visibility context assembly in `App.jsx`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/commands.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/workbench-parity-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue shrinking `App.jsx` by moving remaining root-level read-model
+    assembly into focused app-runtime or workbench model modules.
+
 ### DC-307
 
 - Date: 2026-07-05
