@@ -570,6 +570,10 @@ through a renderer-local handler registry rather than a controller switch.
 App-level resource open flows use semantic right-panel controller methods
 (`openFileSurface`, `openPreviewSurface`, and `openFilesSurface`) instead of
 dispatching concrete resource surface kinds from App.
+Active right-panel surface selection is read through the renderer surface model
+selectors `rightPanelSurfacesFrom(...)` and `activeRightPanelSurfaceFrom(...)`;
+App must not resolve the active surface with root-level `surfaces.find(...)`
+logic.
 Right-panel surface-local pane operations route through
 `SURFACE_PANE_HANDLERS[surface.kind]`; terminal split/activate/close pane
 metadata is no longer reducer-level terminal kind logic.

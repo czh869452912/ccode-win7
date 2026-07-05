@@ -131,6 +131,10 @@ retaining `openFile`, `openDiffSurface`, or `openPreview*` forwarding wrappers.
 Source Control status refresh and file-diff requests likewise require the
 active app shell's Source Control capability before invoking backend
 source-control routes.
+Active right-panel surface selection is a workbench surface read model:
+`workbench/surfaces.js` exposes `rightPanelSurfacesFrom(...)` and
+`activeRightPanelSurfaceFrom(...)`, and `App.jsx` must not reimplement
+active-surface lookup with root-level `surfaces.find(...)` logic.
 Timeline/manual Diff surface opening is delegated to `diff-surface-controller.js`,
 so `App.jsx` does not construct diff surface state or dispatch
 `diff_surface_opened` directly.

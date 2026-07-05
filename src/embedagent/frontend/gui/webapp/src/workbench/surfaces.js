@@ -666,6 +666,19 @@ function activeSurfaceFrom(items, activeSurfaceId) {
   return items.find((item) => item.id === activeSurfaceId) || null;
 }
 
+export function rightPanelSurfacesFrom(workbenchState) {
+  const rightPanel = workbenchState && workbenchState.rightPanel;
+  return Array.isArray(rightPanel && rightPanel.surfaces) ? rightPanel.surfaces : [];
+}
+
+export function activeRightPanelSurfaceFrom(workbenchState) {
+  const rightPanel = workbenchState && workbenchState.rightPanel;
+  return activeSurfaceFrom(
+    rightPanelSurfacesFrom(workbenchState),
+    rightPanel ? rightPanel.activeSurfaceId : null,
+  );
+}
+
 function activateRightPanelSurface(panel, surface) {
   const surfaces = Array.isArray(panel && panel.surfaces) ? panel.surfaces : [];
   return {

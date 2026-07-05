@@ -162,7 +162,11 @@ preparation also stays in the surface model through
 file/preview preparation branches. Surface-local pane operations stay in the
 same model through `SURFACE_PANE_HANDLERS[surface.kind]`; terminal
 split/activate/close pane metadata must not become workbench reducer
-`surface.kind === "terminal"` branches again.
+`surface.kind === "terminal"` branches again. Active right-panel surface
+selection is exposed through the same model via
+`rightPanelSurfacesFrom(...)` and `activeRightPanelSurfaceFrom(...)`, so
+`App.jsx` and app-runtime controllers must not duplicate active-surface
+`surfaces.find(...)` selectors.
 
 Thread/session selection and composer draft state are now separate T3-style
 renderer modules rather than root fields on the global reducer state:

@@ -1363,7 +1363,13 @@ async function main() {
   assert.equal(appSource.includes("async function openPreviewUrl"), false);
   assert.equal(appSource.includes("async function refreshPreview"), false);
   assert.equal(appSource.includes("async function openPreviewInSystemBrowser"), false);
-  assert.equal(appSource.includes("activeRightPanelSurface"), true);
+  assert.equal(appSource.includes("activeRightPanelSurfaceFrom(state.workbench)"), true);
+  assert.equal(appSource.includes("rightPanelSurfacesFrom(state.workbench)"), true);
+  assert.equal(appSource.includes("rightPanelSurfaces.find"), false);
+  assert.equal(
+    appSource.includes("surface.id === state.workbench.rightPanel.activeSurfaceId"),
+    false,
+  );
   assert.equal(appSource.includes('type: "workbench_surface_closed"'), false);
   assert.equal(appSource.includes('type: "workbench_surface_close_others"'), false);
   assert.equal(appSource.includes('type: "workbench_surface_close_to_right"'), false);
@@ -1500,7 +1506,8 @@ async function main() {
   assert.equal(terminalControllerSource.includes("defaultNextTerminalId"), true);
   assert.equal(terminalControllerSource.includes("openNewBottomDrawerTerminal"), true);
   assert.equal(terminalControllerSource.includes("activateBottomDrawerTerminal"), true);
-  assert.equal(terminalControllerSource.includes("function activeRightPanelSurface"), true);
+  assert.equal(terminalControllerSource.includes("function activeRightPanelSurface"), false);
+  assert.equal(terminalControllerSource.includes("activeRightPanelSurfaceFrom"), true);
   assert.equal(terminalControllerSource.includes("function splitActiveRightPanelSurface"), true);
   assert.equal(terminalControllerSource.includes("function splitActiveRightPanelSurfaceVertical"), true);
   assert.equal(terminalControllerSource.includes("function activateActiveRightPanelPane"), true);

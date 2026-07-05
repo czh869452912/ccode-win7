@@ -10,6 +10,7 @@ import {
 } from "../src/workbench/keybindings.js";
 import {
   RIGHT_PANEL_SURFACE_REGISTRY,
+  activeRightPanelSurfaceFrom,
   activateSurface,
   bottomDrawerCommandDefinitions,
   bottomDrawerSurfaceDefinitionFor,
@@ -23,6 +24,7 @@ import {
   persistedSurfaceFrom,
   reduceWorkbenchState,
   rightPanelLauncherSurfaceDefinitions,
+  rightPanelSurfacesFrom,
   rightPanelSurfaceDefinitions,
   surfaceCommandDefinitions,
   surfaceChromeLabels,
@@ -356,6 +358,10 @@ export function runWorkbenchStateTests() {
   assert.equal(withFiles.rightPanel.activeSurfaceId, "right:files");
   assert.equal(withFiles.rightPanel.surfaces.length, 1);
   assert.equal(withFiles.rightPanel.surfaces[0].id, "right:files");
+  assert.deepEqual(rightPanelSurfacesFrom(withFiles), withFiles.rightPanel.surfaces);
+  assert.deepEqual(activeRightPanelSurfaceFrom(withFiles), withFiles.rightPanel.surfaces[0]);
+  assert.deepEqual(rightPanelSurfacesFrom({}), []);
+  assert.equal(activeRightPanelSurfaceFrom({}), null);
 
   const withFile = openSurface(withFiles, {
     placement: "right",

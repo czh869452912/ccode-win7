@@ -2361,7 +2361,12 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert "terminalController.closeRightPanelPane" not in app_text
     assert "terminalController.activateRightPanelPane" not in app_text
     assert "activeRightPanelSurface, terminalId" not in app_text
-    assert "function activeRightPanelSurface" in terminal_controller_text
+    assert "activeRightPanelSurfaceFrom(state.workbench)" in app_text
+    assert "rightPanelSurfacesFrom(state.workbench)" in app_text
+    assert "rightPanelSurfaces.find" not in app_text
+    assert "surface.id === state.workbench.rightPanel.activeSurfaceId" not in app_text
+    assert "function activeRightPanelSurface" not in terminal_controller_text
+    assert "activeRightPanelSurfaceFrom" in terminal_controller_text
     assert "function splitActiveRightPanelSurface" in terminal_controller_text
     assert "function splitActiveRightPanelSurfaceVertical" in terminal_controller_text
     assert "function activateActiveRightPanelPane" in terminal_controller_text

@@ -2,6 +2,7 @@ import { readActiveThreadId } from "../session-runtime/thread-state.js";
 import { terminalCapabilityEnabled } from "../terminal/terminal-capability.js";
 import { nextTerminalId as defaultNextTerminalId } from "../terminal/terminal-labels.js";
 import {
+  activeRightPanelSurfaceFrom,
   bottomDrawerSurfaceDefinitionFor,
   surfaceDefinitionFor,
 } from "../workbench/surfaces.js";
@@ -112,12 +113,6 @@ function terminalSurfaceActionInput(surface) {
     placement: "right",
     surfaceId: surface.id,
   };
-}
-
-function activeRightPanelSurface(state) {
-  const rightPanel = state.workbench?.rightPanel || {};
-  const surfaces = Array.isArray(rightPanel.surfaces) ? rightPanel.surfaces : [];
-  return surfaces.find((surface) => surface.id === rightPanel.activeSurfaceId) || null;
 }
 
 function allKnownTerminalIds(state) {
@@ -353,11 +348,11 @@ export function createTerminalController(deps = {}) {
   }
 
   async function splitActiveRightPanelSurface() {
-    return splitRightPanelSurface(activeRightPanelSurface(getState()));
+    return splitRightPanelSurface(activeRightPanelSurfaceFrom(getState().workbench));
   }
 
   async function splitActiveRightPanelSurfaceVertical() {
-    return splitRightPanelSurface(activeRightPanelSurface(getState()), "vertical");
+    return splitRightPanelSurface(activeRightPanelSurfaceFrom(getState().workbench), "vertical");
   }
 
   function activateRightPanelPane(surface, terminalId) {
@@ -376,7 +371,7 @@ export function createTerminalController(deps = {}) {
   }
 
   function activateActiveRightPanelPane(terminalId) {
-    return activateRightPanelPane(activeRightPanelSurface(getState()), terminalId);
+    return activateRightPanelPane(activeRightPanelSurfaceFrom(getState().workbench), terminalId);
   }
 
   async function closeRightPanelPane(surface, terminalId) {
@@ -408,7 +403,7 @@ export function createTerminalController(deps = {}) {
   }
 
   async function closeActiveRightPanelPane(terminalId) {
-    return closeRightPanelPane(activeRightPanelSurface(getState()), terminalId);
+    return closeRightPanelPane(activeRightPanelSurfaceFrom(getState().workbench), terminalId);
   }
 
   return {

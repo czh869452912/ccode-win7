@@ -44,6 +44,39 @@
 
 ## 3. 当前变更记录
 
+### DC-302
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel active surface selection is a surface read model
+- Summary:
+  - `workbench/surfaces.js` now exposes `rightPanelSurfacesFrom(...)` and
+    `activeRightPanelSurfaceFrom(...)` as the renderer-owned active surface
+    selectors.
+  - `App.jsx` uses those selectors instead of resolving the active right-panel
+    surface with root-level `surfaces.find(...)` logic.
+  - `terminal-controller.js` reuses the shared selector and no longer keeps a
+    private `activeRightPanelSurface` helper.
+  - Frontend and architecture guards reject root-level active-surface lookup
+    and duplicate terminal-controller selector logic.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue reducing root-level App composition glue around dependency adapter
+    lambdas and surface prop assembly.
+
 ### DC-301
 
 - Date: 2026-07-05

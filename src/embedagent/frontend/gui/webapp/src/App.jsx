@@ -58,6 +58,10 @@ import RightPanelSurfaceBody from "./components/workbench/RightPanelSurfaceBody.
 import RightPanelTabs from "./components/workbench/RightPanelTabs.jsx";
 import WorkbenchHeader from "./components/workbench/WorkbenchHeader.jsx";
 import { visibleCommands } from "./workbench/commands.js";
+import {
+  activeRightPanelSurfaceFrom,
+  rightPanelSurfacesFrom,
+} from "./workbench/surfaces.js";
 import { createActiveWorkspaceDataLoader } from "./app-runtime/active-workspace-data-loader.js";
 import { createWorkbenchKeyboardController } from "./app-runtime/workbench-keyboard-controller.js";
 import {
@@ -565,9 +569,8 @@ function App() {
     [sourceControlChrome, state.app.activeWorkspace, state.sourceControl],
   );
 
-  const rightPanelSurfaces = state.workbench.rightPanel.surfaces || [];
-  const activeRightPanelSurface =
-    rightPanelSurfaces.find((surface) => surface.id === state.workbench.rightPanel.activeSurfaceId) || null;
+  const rightPanelSurfaces = rightPanelSurfacesFrom(state.workbench);
+  const activeRightPanelSurface = activeRightPanelSurfaceFrom(state.workbench);
 
   const surfacePanelProps = {
     plan: state.plan,
