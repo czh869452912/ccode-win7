@@ -60,6 +60,30 @@ def test_review_service_marks_failing_test_and_renders_markdown():
     assert any("Tests failing" in line for line in lines)
 
 
+def test_review_service_classifies_recipe_evidence_by_payload_shape_not_tool_name():
+    service = ReviewCommandService(FakeTools(diff_file_count=0))
+    events = [
+        {
+            "event": "tool_finished",
+            "payload": {
+                "tool_name": "custom_verify_runner",
+                "success": False,
+                "call_id": "custom-test",
+                "data": {
+                    "recipe_action": "test",
+                    "test_summary": {"failed": 1},
+                },
+            },
+        }
+    ]
+
+    review = service.build_payload(events)
+
+    assert review["verify_evidence_present"] is True
+    assert review["tests_seen"] is True
+    assert [item["id"] for item in review["findings"]] == ["tests-failed-custom-test"]
+
+
 def test_review_service_builds_payload_from_session_tool_observations():
     service = ReviewCommandService(FakeTools(diff_file_count=0))
     session = Session(session_id="sess-review")

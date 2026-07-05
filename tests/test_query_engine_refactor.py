@@ -2492,6 +2492,47 @@ class TestQueryEngineRefactor(unittest.TestCase):
             )
         )
 
+    def test_diagnostics_provider_classifies_evidence_by_payload_shape_not_tool_name(self):
+        session = Session()
+        session.add_user_message("验证自定义 workflow 质量门")
+        session.add_observation(
+            Action("custom_verify_runner", {"recipe_id": "test"}, "custom-tests"),
+            Observation(
+                "custom_verify_runner",
+                False,
+                "tests failed",
+                {
+                    "recipe_action": "test",
+                    "test_summary": {"total": 2, "passed": 1, "failed": 1, "skipped": 0},
+                },
+            ),
+        )
+        session.add_observation(
+            Action("custom_quality_gate", {}, "custom-quality"),
+            Observation(
+                "custom_quality_gate",
+                True,
+                None,
+                {
+                    "passed": False,
+                    "error_count": 0,
+                    "warning_count": 0,
+                    "test_failures": 1,
+                },
+            ),
+        )
+        provider = DiagnosticsProvider()
+        evidence = provider.collect(session, "verify", self.tools, None)
+
+        self.assertGreaterEqual(len(evidence), 1)
+        self.assertEqual(evidence[0].title, "Quality Gate Summary")
+        self.assertIn("test", evidence[0].content)
+        self.assertIn("custom_quality_gate", evidence[0].content)
+        self.assertEqual(
+            set(evidence[0].metadata.get("tool_names") or []),
+            {"custom_verify_runner", "custom_quality_gate"},
+        )
+
     def test_recipe_provider_prefers_verify_tools_in_verify_mode(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
         with open(

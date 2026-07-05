@@ -379,3 +379,24 @@ def test_c_workflow_tools_are_declared_only_by_c_workflow_package_or_tests():
             if '"%s"' % tool_name in text or "'%s'" % tool_name in text:
                 offenders.append("%s hard-codes %s" % (rel, tool_name))
     assert offenders == []
+
+
+def test_product_evidence_helpers_do_not_import_c_cpp_workflow_constants():
+    files = (
+        ROOT / "src/embedagent/review_command.py",
+        ROOT / "src/embedagent/project_memory.py",
+        ROOT / "src/embedagent/workspace_intelligence.py",
+    )
+    forbidden = (
+        "embedagent.workflow_packages.c_cpp",
+        "C_WORKFLOW_TOOL_",
+        "C_WORKFLOW_DIAGNOSTIC_TOOL_NAMES",
+    )
+    offenders = []
+    for path in files:
+        text = _read(path)
+        rel = _relative(path)
+        for token in forbidden:
+            if token in text:
+                offenders.append("%s imports %s" % (rel, token))
+    assert offenders == []

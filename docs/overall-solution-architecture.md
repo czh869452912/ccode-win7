@@ -364,6 +364,12 @@ glue while actual turn resume continues through the existing action pipeline.
 `InProcessAdapter` remains the session/runtime bridge and must not grow a
 parallel command or interaction subsystem.
 
+Hosted review, project-memory, and workspace-intelligence services classify
+tool results through the workflow-neutral `tool_evidence` payload schema:
+`recipe_action`, test summaries, coverage summaries, diagnostics, and quality
+gate fields. They must not import default C/C++ workflow tool constants; a
+specialized workflow can produce the same safe fields with its own tool names.
+
 `ExtensionManager` is now the shared in-process capability boundary. The current default C/C++ harness remains the bundled workflow extension, while the same boundary also carries generic prompt/context hooks, tool-call and tool-result interception, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Extension objects are discovered only through `extension_capabilities()` and must return explicit `ExtensionCapability` records for each hook, manifest provider, context reducer registrar, or extension-owned tool handler they expose; method-name hooks are not compatibility contracts. Capability dispatch internals flow through `AgentEventBus`, the source-aware observer/reducer bus introduced and closed out in Phase B. Event-specific reducer semantics cover merge, union, first-result, first-block-wins, sequential argument rewrite, and trusted fail-closed diagnostics. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are official discoverable resources. Visible skills are summarized through one lightweight local skill listing prompt unit, while skill and prompt bodies enter context only through explicit `/skill:<name> [args]` and `/prompt:<name-or-path> [args]` commands. These resources are Markdown/text context, not executable extension code.
 
 `AgentExtensionHost` is the session-engine side of that boundary. It builds extension contexts and workflow events, initializes workflow state, applies prompt/context hooks, registers dynamic tools, computes extension-aware active tool names, requests explicit tool schemas, applies tool-call/tool-result hooks, and handles extension-owned tool calls. `QueryEngine` keeps a compatibility `extension_manager` reference, but extension hook dispatch is centralized in `AgentExtensionHost`.
@@ -462,8 +468,14 @@ Managed-session workflow refresh in the product adapter path goes through `Agent
   lives in `CompactionJournal`, keeping `QueryEngine` focused on session
   mutation and loop orchestration
 - `/review` session evidence extraction, finding synthesis, git-diff evidence
-  shaping, and markdown rendering live in `ReviewCommandService`;
-  `InProcessAdapter` only invokes that service and emits the command result
+  shaping, and markdown rendering live in `ReviewCommandService`; review
+  classification consumes structured evidence payload fields rather than
+  default C/C++ tool-name constants
+- project memory and workspace intelligence consume the same structured
+  evidence payload helpers, so runnable recipe history, diagnostic summaries,
+  and quality-gate summaries are not tied to the bundled C/C++ workflow tool
+  names
+- `InProcessAdapter` only invokes hosted services and emits the command result
 
 ## 3. Official Execution Model
 
@@ -610,6 +622,10 @@ The frontend should never infer permission policy from mode alone.
 - tool-result replacement
 - summary assembly
 - workspace intelligence evidence
+
+`src/embedagent/tool_evidence.py` is the generic evidence-shape classifier for
+hosted services. It recognizes recipe, test, coverage, diagnostic, and quality
+gate payloads without importing workflow-package tool-name constants.
 
 The default C/C++ workflow extension registers harness-owned context reducers for:
 

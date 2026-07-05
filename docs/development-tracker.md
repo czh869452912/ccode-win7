@@ -124,6 +124,11 @@
   instead of importing `default_c_cpp_agent_profile()`. C/C++ writable globs,
   prompt copy, mode descriptors, and base tool policy now enter hosted runtime
   only through the selected default C/C++ `AgentApplication`.
+- Hosted review, project memory, and workspace intelligence now consume the
+  generic `tool_evidence` payload schema for recipe/test/coverage/diagnostic
+  and quality-gate classification. These services no longer import default
+  C/C++ workflow tool constants, so specialized agents can provide equivalent
+  evidence through their own tool names.
 - No-workspace GUI shell branding now comes from backend app metadata:
   `app-home-model.js` projects `app.productName`, and `NoWorkspaceState.jsx`
   renders that descriptor value instead of hard-coding the default product

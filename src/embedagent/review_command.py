@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from embedagent.workflow_packages.c_cpp.tool_names import (
-    C_WORKFLOW_TOOL_REPORT_QUALITY,
-    C_WORKFLOW_TOOL_RUN_RECIPE,
+from embedagent.tool_evidence import (
+    is_quality_gate_data,
+    recipe_action_from_data,
 )
 
 
@@ -87,7 +87,7 @@ class ReviewCommandService(object):
                     "evidence": [
                         {
                             "type": "verify_gap",
-                            "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
+                            "evidence_kind": "recipe_action",
                             "recipe_action": "test",
                         }
                     ],
@@ -341,8 +341,9 @@ class ReviewCommandService(object):
         return None
 
     def _review_kind(self, tool_name: str, data: Dict[str, Any]) -> str:
-        if tool_name == C_WORKFLOW_TOOL_RUN_RECIPE:
-            action = str(data.get("recipe_action") or "").strip().lower()
+        del tool_name
+        action = recipe_action_from_data(data)
+        if action:
             if action in ("configure", "build"):
                 return "build"
             if action == "test" or isinstance(data.get("test_summary"), dict):
@@ -354,7 +355,7 @@ class ReviewCommandService(object):
             if isinstance(data.get("diagnostics"), list):
                 return "diagnostic"
             return ""
-        if tool_name == C_WORKFLOW_TOOL_REPORT_QUALITY:
+        if is_quality_gate_data(data):
             return "quality"
         return ""
 

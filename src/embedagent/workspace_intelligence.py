@@ -6,10 +6,13 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from embedagent.project_memory import ProjectMemoryStore
-from embedagent.workflow_packages.c_cpp.tool_names import (
-    C_WORKFLOW_DIAGNOSTIC_TOOL_NAMES,
-    C_WORKFLOW_TOOL_REPORT_QUALITY,
-    C_WORKFLOW_TOOL_RUN_RECIPE,
+from embedagent.tool_evidence import (
+    is_diagnostic_observation,
+    is_failed_quality_gate_observation,
+    is_quality_gate_data,
+    is_quality_gate_observation,
+    recipe_action_from_data,
+    recipe_action_from_observation,
 )
 from embedagent_core.session import Observation, Session
 
@@ -357,11 +360,11 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
             key=lambda observation: (
                 0 if _observation_primary_path(observation) in working_paths else 1,
                 0 if _observation_primary_path(observation) in focus_paths else 1,
-                0 if observation.tool_name in C_WORKFLOW_DIAGNOSTIC_TOOL_NAMES else 1,
+                0 if is_diagnostic_observation(observation) else 1,
             )
         )
         for observation in observations:
-            if observation.tool_name not in C_WORKFLOW_DIAGNOSTIC_TOOL_NAMES:
+            if not is_diagnostic_observation(observation):
                 continue
             if not isinstance(observation.data, dict):
                 continue
@@ -695,15 +698,13 @@ def _diagnostic_detail(observation: Observation) -> str:
     if not isinstance(observation.data, dict):
         return ""
     data = observation.data
-    if (
-        observation.tool_name == C_WORKFLOW_TOOL_RUN_RECIPE
-        and str(data.get("recipe_action") or "") == "test"
-    ):
+    recipe_action = recipe_action_from_data(data)
+    if recipe_action == "test":
         summary = data.get("test_summary") if isinstance(data.get("test_summary"), dict) else {}
         total = int(summary.get("total") or 0)
         failed = int(summary.get("failed") or 0)
         return "最近测试：total=%s, failed=%s。" % (total, failed)
-    if observation.tool_name == C_WORKFLOW_TOOL_REPORT_QUALITY:
+    if is_quality_gate_data(data):
         errors = int(data.get("error_count") or 0)
         warnings = int(data.get("warning_count") or 0)
         failed = int(data.get("test_failures") or 0)
@@ -714,10 +715,7 @@ def _diagnostic_detail(observation: Observation) -> str:
                 failed,
             )
         return ""
-    if (
-        observation.tool_name == C_WORKFLOW_TOOL_RUN_RECIPE
-        and str(data.get("recipe_action") or "") == "coverage"
-    ):
+    if recipe_action == "coverage":
         summary = (
             data.get("coverage_summary") if isinstance(data.get("coverage_summary"), dict) else {}
         )
@@ -742,10 +740,9 @@ def _diagnostic_detail(observation: Observation) -> str:
 def _observation_tool_label(observation: Observation) -> str:
     if not isinstance(observation.data, dict):
         return observation.tool_name
-    if observation.tool_name == C_WORKFLOW_TOOL_RUN_RECIPE:
-        recipe_action = str(observation.data.get("recipe_action") or "").strip()
-        if recipe_action:
-            return recipe_action
+    recipe_action = recipe_action_from_observation(observation)
+    if recipe_action:
+        return recipe_action
     return observation.tool_name
 
 
@@ -858,7 +855,7 @@ def _group_diagnostic_hotspots(
     groups = {}
     order = 0
     for observation in observations:
-        if observation.tool_name not in C_WORKFLOW_DIAGNOSTIC_TOOL_NAMES:
+        if not is_diagnostic_observation(observation):
             continue
         if not isinstance(observation.data, dict):
             continue
@@ -913,14 +910,14 @@ def _group_pathless_diagnostic_summary(observations: List[Observation]) -> Optio
     latest_detail = ""
     has_quality_gate = False
     for observation in observations:
-        if observation.tool_name not in C_WORKFLOW_DIAGNOSTIC_TOOL_NAMES:
+        if not is_diagnostic_observation(observation):
             continue
         if not isinstance(observation.data, dict):
             continue
         if _observation_primary_path(observation):
             continue
         detail = _diagnostic_detail(observation)
-        if not detail and observation.tool_name != C_WORKFLOW_TOOL_REPORT_QUALITY:
+        if not detail and not is_quality_gate_observation(observation):
             continue
         if observation.tool_name not in tool_name_set:
             tool_name_set.add(observation.tool_name)
@@ -928,9 +925,7 @@ def _group_pathless_diagnostic_summary(observations: List[Observation]) -> Optio
         diagnostic_count += _observation_diagnostic_count(observation)
         if not latest_detail and detail:
             latest_detail = detail
-        if observation.tool_name == C_WORKFLOW_TOOL_REPORT_QUALITY and not bool(
-            observation.data.get("passed", False)
-        ):
+        if is_failed_quality_gate_observation(observation):
             has_quality_gate = True
             summary = _diagnostic_detail(observation)
             if summary and summary not in reasons:
@@ -943,15 +938,11 @@ def _group_pathless_diagnostic_summary(observations: List[Observation]) -> Optio
             content_parts.append("；".join(reasons))
         checks = []
         for observation in observations:
-            if observation.tool_name == C_WORKFLOW_TOOL_RUN_RECIPE:
-                label = _observation_tool_label(observation)
-                if label and label not in checks:
-                    checks.append(label)
-            elif (
-                observation.tool_name == C_WORKFLOW_TOOL_REPORT_QUALITY
-                and C_WORKFLOW_TOOL_REPORT_QUALITY not in checks
-            ):
-                checks.append(C_WORKFLOW_TOOL_REPORT_QUALITY)
+            if not is_diagnostic_observation(observation):
+                continue
+            label = _observation_tool_label(observation)
+            if label and label not in checks:
+                checks.append(label)
         content_parts.append("相关检查：%s" % ", ".join(checks or tool_names))
         return {
             "title": "Quality Gate Summary",
@@ -992,10 +983,7 @@ def _observation_diagnostic_count(observation: Observation) -> int:
     )
     if diagnostics:
         return len(diagnostics)
-    if (
-        observation.tool_name == C_WORKFLOW_TOOL_RUN_RECIPE
-        and str(observation.data.get("recipe_action") or "") == "test"
-    ):
+    if recipe_action_from_observation(observation) == "test":
         summary = (
             observation.data.get("test_summary")
             if isinstance(observation.data.get("test_summary"), dict)
@@ -1004,9 +992,7 @@ def _observation_diagnostic_count(observation: Observation) -> int:
         failed = int(summary.get("failed") or 0)
         if failed:
             return failed
-    if observation.tool_name == C_WORKFLOW_TOOL_REPORT_QUALITY and not bool(
-        observation.data.get("passed", False)
-    ):
+    if is_failed_quality_gate_observation(observation):
         return (
             int(observation.data.get("error_count") or 0)
             + int(observation.data.get("test_failures") or 0)
