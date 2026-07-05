@@ -1266,7 +1266,7 @@ export function runAppShellModelTests() {
     workbench_commands: [{ id: "palette.open", label: "Launch", group: "view" }],
     surfaces: {
       right_panel: [surface("settings", "Settings")],
-      bottom_drawer: [surface("logs", "Logs")],
+      bottom_drawer: [surface("custom_drawer", "Custom Drawer")],
     },
     key_bindings: [{ key: "mod+k", command_id: "palette.open" }],
     agent_application: { application_id: "tests.generic", label: "Generic Agent" },
@@ -1314,7 +1314,7 @@ export function runAppShellModelTests() {
     [["palette.open", "Launch", "view"]],
   );
   assert.deepEqual(capabilities.surfaces.rightPanel.map((item) => item.kind), ["settings"]);
-  assert.deepEqual(capabilities.surfaces.bottomDrawer.map((item) => item.kind), ["logs"]);
+  assert.deepEqual(capabilities.surfaces.bottomDrawer.map((item) => item.kind), ["custom_drawer"]);
   assert.deepEqual(capabilities.keybindings, [
     { key: "mod+k", commandId: "palette.open", when: "always" },
   ]);

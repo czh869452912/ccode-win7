@@ -134,6 +134,7 @@ export const BOTTOM_DRAWER_SURFACE_REGISTRY = Object.freeze([
     kind: "run_output",
     placement: "bottom",
     closeBehavior: "pinned",
+    bodyKind: "run_output",
     launcher: true,
     launcherOrder: 10,
     command: true,
@@ -142,16 +143,9 @@ export const BOTTOM_DRAWER_SURFACE_REGISTRY = Object.freeze([
     kind: "terminal",
     placement: "bottom",
     closeBehavior: "pinned",
+    bodyKind: "terminal",
     launcher: true,
     launcherOrder: 20,
-    command: true,
-  }),
-  defineSurface({
-    kind: "logs",
-    placement: "bottom",
-    closeBehavior: "pinned",
-    launcher: true,
-    launcherOrder: 30,
     command: true,
   }),
 ]);
@@ -255,6 +249,7 @@ function mergedSurfaceDefinition(definition, capability) {
     dispatch: capability.dispatch && typeof capability.dispatch === "object"
       ? { ...capability.dispatch }
       : {},
+    bodyKind: definition.bodyKind || "",
   };
 }
 
@@ -346,8 +341,8 @@ function normalizePlacement(placement) {
   return placement === "bottom" ? "bottom" : "right";
 }
 
-function defaultActiveKind(placement) {
-  return placement === "bottom" ? "run_output" : "";
+function defaultActiveKind() {
+  return "";
 }
 
 function allowedKinds(placement) {
@@ -546,7 +541,7 @@ export function createWorkbenchState() {
     },
     bottomDrawer: {
       open: false,
-      activeKind: "run_output",
+      activeKind: "",
       height: 220,
     },
     commandPalette: {

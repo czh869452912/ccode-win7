@@ -730,17 +730,6 @@ def default_app_shell_spec() -> AppShellSpec:
                 visible_when="has_session",
                 close_behavior="pinned",
             ),
-            _surface(
-                "logs",
-                "Logs",
-                30,
-                icon="L",
-                description="Inspect renderer and runtime logs.",
-                command=True,
-                command_label="Open Logs",
-                visible_when="always",
-                close_behavior="pinned",
-            ),
         ),
         keybindings=(
             _keybinding("mod+k", "palette.open", "not_palette"),

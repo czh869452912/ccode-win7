@@ -46,7 +46,6 @@ const RIGHT_PANEL_CAPABILITY_DESCRIPTORS = Object.freeze([
 const BOTTOM_DRAWER_CAPABILITY_DESCRIPTORS = Object.freeze([
   surface("run_output", "Run Output", 10),
   surface("terminal", "Terminal", 20),
-  surface("logs", "Logs", 30),
 ]);
 
 const KEYBINDING_DESCRIPTORS = Object.freeze([
@@ -166,6 +165,8 @@ export function runWorkbenchStateTests() {
   });
   assert.equal(describedDrawerCommands[0].description, "Open a terminal descriptor.");
   assert.deepEqual(describedDrawerCommands[0].dispatch, { kind: "terminal.ensure_open" });
+  assert.equal(bottomDrawerSurfaceDefinitions(fullAppCapabilities)[0].bodyKind, "run_output");
+  assert.equal(bottomDrawerSurfaceDefinitions(fullAppCapabilities)[1].bodyKind, "terminal");
   assert.equal(surfaceDefinitionFor("preview", fullAppCapabilities).title, "Preview");
   for (const definition of registryDefinitions) {
     assert.equal(definition.placement, "right");
@@ -191,6 +192,7 @@ export function runWorkbenchStateTests() {
   assert.equal(supportedSurfaceKinds("right").includes("file"), true);
   assert.equal(supportedSurfaceKinds("bottom").includes("terminal"), true);
   assert.equal(supportedSurfaceKinds("bottom").includes("run_output"), true);
+  assert.equal(supportedSurfaceKinds("bottom").includes("logs"), false);
   assert.deepEqual(bottomDrawerSurfaceDefinitions().map((definition) => definition.kind), []);
   assert.deepEqual(
     bottomDrawerSurfaceDefinitions(fullAppCapabilities).map((definition) => definition.kind),
@@ -234,6 +236,7 @@ export function runWorkbenchStateTests() {
   assert.equal(initial.rightPanel.activeKind, "");
   assert.deepEqual(initial.rightPanel.surfaces, []);
   assert.equal(initial.bottomDrawer.open, false);
+  assert.equal(initial.bottomDrawer.activeKind, "");
 
   const withFiles = openSurface(initial, {
     placement: "right",
@@ -604,7 +607,7 @@ export function runWorkbenchStateTests() {
   );
   assert.deepEqual(
     bottomDrawerCommandDefinitions(limitedAppCapabilities).map((item) => item.id),
-    ["drawer.logs"],
+    [],
   );
   const limitedVisible = visibleCommands({
     hasSession: true,
@@ -620,7 +623,7 @@ export function runWorkbenchStateTests() {
   assert.equal(limitedVisible.includes("surface.settings"), true);
   assert.equal(limitedVisible.includes("surface.diagnostics"), false);
   assert.equal(limitedVisible.includes("surface.preview"), false);
-  assert.equal(limitedVisible.includes("drawer.logs"), true);
+  assert.equal(limitedVisible.includes("drawer.logs"), false);
   assert.equal(limitedVisible.includes("drawer.terminal"), false);
 
   const syntheticEvent = {

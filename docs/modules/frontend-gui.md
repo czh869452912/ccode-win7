@@ -360,6 +360,9 @@ records; the controller must not switch on fixed command ids to infer actions.
 Surface command rows may carry the same descriptor-owned dispatch records; the
 Terminal bottom-drawer command uses `terminal.ensure_open`, so renderer code
 must not treat `drawer: "terminal"` as a special execution policy.
+Bottom-drawer body mounting is renderer-local metadata on supported surface
+definitions (`bodyKind`); the default app shell exposes only surfaces that have
+a matching renderer body, currently Run Output and Terminal.
 Surface command row descriptions are passed through from surface descriptors
 rather than generated from surface or drawer ids. Session/workspace palette row
 leading markers are descriptor-owned and empty when absent. Command-palette
@@ -390,7 +393,9 @@ failure copy are declared under `/api/app/bootstrap`
 chrome but must not keep a second terminal string registry. The Terminal drawer
 open command is declared on the bottom-drawer surface descriptor with
 `dispatch.kind: terminal.ensure_open`; plain drawer activation remains generic
-bottom-surface state, not a terminal-specific branch.
+bottom-surface state, not a terminal-specific branch. Unsupported drawer
+descriptors, such as the removed stale Logs entry, must not be presented as
+visible app-shell surfaces without a renderer body.
 
 The Source Control right-panel and composer Branch Toolbar are GUI app-shell
 hosted surfaces implemented by `backend/source_control_service.py`,

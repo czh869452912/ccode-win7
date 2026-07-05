@@ -237,7 +237,7 @@ export function runCommandPaletteModelTests() {
   const surfaceNoCopyItems = flattenPaletteGroups(buildCommandPaletteRootGroups({
     commands: [
       { id: "surface.preview", group: "surface", label: "Show Preview", surface: "preview", slash: "" },
-      { id: "drawer.logs", group: "surface", label: "Show Logs", drawer: "logs", slash: "" },
+      { id: "drawer.terminal", group: "surface", label: "Show Terminal", drawer: "terminal", slash: "" },
     ],
     commandPalette: {
       groups: [{ id: "surface", title: "Panels", description: "", order: 1 }],
@@ -245,7 +245,7 @@ export function runCommandPaletteModelTests() {
     },
   }));
   assert.equal(surfaceNoCopyItems.find((item) => item.commandId === "surface.preview").description, "");
-  assert.equal(surfaceNoCopyItems.find((item) => item.commandId === "drawer.logs").description, "");
+  assert.equal(surfaceNoCopyItems.find((item) => item.commandId === "drawer.terminal").description, "");
   const noLeadingRoot = buildCommandPaletteRootGroups({
     sessions: [{ session_id: "sess-leading", title: "Visible session" }],
     workspaces: [{ id: "ws-leading", label: "Visible workspace", path: "D:/visible" }],

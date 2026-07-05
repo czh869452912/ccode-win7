@@ -31,6 +31,62 @@ function RunOutputDrawer({ runOutput, terminationReason, terminationMessage, chr
   );
 }
 
+function drawerBody(activeDefinition, {
+  runOutput,
+  terminationReason,
+  terminationMessage,
+  chrome,
+  terminal,
+  terminalChrome,
+  onTerminalNew,
+  onTerminalSelect,
+  onTerminalSend,
+  onTerminalClear,
+  onTerminalRestart,
+  onTerminalClose,
+}) {
+  const activeBodyKind = activeDefinition ? activeDefinition.bodyKind : "";
+  switch (activeBodyKind) {
+    case "terminal":
+      return (
+        <TerminalShell
+          owner="drawer"
+          terminal={terminal}
+          terminalChrome={terminalChrome}
+          onNew={onTerminalNew}
+          onSelect={onTerminalSelect}
+          onSend={(terminalId, text) => {
+            onTerminalSelect(terminalId);
+            onTerminalSend(text);
+          }}
+          onClear={(terminalId) => {
+            onTerminalSelect(terminalId);
+            onTerminalClear();
+          }}
+          onRestart={(terminalId) => {
+            onTerminalSelect(terminalId);
+            onTerminalRestart();
+          }}
+          onClose={(terminalId) => {
+            onTerminalSelect(terminalId);
+            onTerminalClose();
+          }}
+        />
+      );
+    case "run_output":
+      return (
+        <RunOutputDrawer
+          runOutput={runOutput}
+          terminationReason={terminationReason}
+          terminationMessage={terminationMessage}
+          chrome={chrome}
+        />
+      );
+    default:
+      return null;
+  }
+}
+
 export default function BottomDrawer({
   appCapabilities,
   activeKind,
@@ -49,6 +105,11 @@ export default function BottomDrawer({
 }) {
   const drawerSurfaces = bottomDrawerSurfaceDefinitions(appCapabilities);
   const chrome = surfaceChromeLabels(appCapabilities);
+  const activeDefinition =
+    drawerSurfaces.find((definition) => definition.kind === activeKind) ||
+    drawerSurfaces[0] ||
+    null;
+  const selectedKind = activeDefinition?.kind || "";
   return (
     <section
       className="bottom-drawer"
@@ -59,7 +120,7 @@ export default function BottomDrawer({
         {drawerSurfaces.map((definition) => (
           <button
             key={definition.kind}
-            className={`bottom-drawer-tab${activeKind === definition.kind ? " active" : ""}`}
+            className={`bottom-drawer-tab${selectedKind === definition.kind ? " active" : ""}`}
             type="button"
             onClick={() => onKindSelect(definition.kind)}
           >
@@ -68,38 +129,20 @@ export default function BottomDrawer({
         ))}
       </div>
       <div className="bottom-drawer-body">
-        {activeKind === "terminal" ? (
-          <TerminalShell
-            owner="drawer"
-            terminal={terminal}
-            terminalChrome={terminalChrome}
-            onNew={onTerminalNew}
-            onSelect={onTerminalSelect}
-            onSend={(terminalId, text) => {
-              onTerminalSelect(terminalId);
-              onTerminalSend(text);
-            }}
-            onClear={(terminalId) => {
-              onTerminalSelect(terminalId);
-              onTerminalClear();
-            }}
-            onRestart={(terminalId) => {
-              onTerminalSelect(terminalId);
-              onTerminalRestart();
-            }}
-            onClose={(terminalId) => {
-              onTerminalSelect(terminalId);
-              onTerminalClose();
-            }}
-          />
-        ) : (
-          <RunOutputDrawer
-            runOutput={runOutput}
-            terminationReason={terminationReason}
-            terminationMessage={terminationMessage}
-            chrome={chrome}
-          />
-        )}
+        {drawerBody(activeDefinition, {
+          runOutput,
+          terminationReason,
+          terminationMessage,
+          chrome,
+          terminal,
+          terminalChrome,
+          onTerminalNew,
+          onTerminalSelect,
+          onTerminalSend,
+          onTerminalClear,
+          onTerminalRestart,
+          onTerminalClose,
+        })}
       </div>
     </section>
   );

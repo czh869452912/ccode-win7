@@ -155,6 +155,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   bottom-drawer surface commands may also carry descriptor-owned dispatch
   records, and the Terminal drawer opens through `terminal.ensure_open` rather
   than a renderer branch on `drawer: "terminal"`;
+  bottom-drawer body selection uses renderer-local `bodyKind` metadata for
+  supported surfaces, and stale declarations without a renderer body are
+  removed instead of being shown through a misleading fallback;
   surface descriptors without explicit titles remain
   diagnostic capability records and do not enter visible launchers or surface
   commands; persisted workbench surface state is also re-sanitized
@@ -235,7 +238,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
 - GUI terminal bottom drawer is now an app-shell hosted, thread-scoped surface:
   the backend owns a workspace-bound in-memory terminal service using Python
   stdlib subprocess pipes for Win7/offline compatibility, while the React
-  terminal reducer/API/UI keep terminal buffers as GUI-local display state
+  terminal reducer/API/UI keep terminal buffers as GUI-local display state.
+  The default bottom drawer now exposes only implemented Run Output and
+  Terminal renderer bodies; the stale Logs drawer declaration was removed
 - GUI Source Control foundation is now an app-shell hosted, active-workspace
   surface: the backend owns a read-only `SourceControlService` over bundled or
   workspace MinGit, while the React source-control model/panel displays local

@@ -143,8 +143,8 @@ export function runStoreReducerTests() {
     ["file"],
   );
   assert.equal(appLimitedState.workbench.surfacesBySession["sess-1"].activeRightSurfaceId, "right:file:src/main.c");
-  assert.equal(appLimitedState.workbench.bottomDrawer.open, true);
-  assert.equal(appLimitedState.workbench.bottomDrawer.activeKind, "logs");
+  assert.equal(appLimitedState.workbench.bottomDrawer.open, false);
+  assert.equal(appLimitedState.workbench.bottomDrawer.activeKind, "");
 
   const untitledDiffSurfaceState = reducer(initialState, {
     type: "diff_surface_opened",

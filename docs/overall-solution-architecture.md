@@ -64,6 +64,9 @@ titles. Built-in GUI shell command execution is also descriptor-owned through
 infer actions. Bottom-drawer surface commands may carry the same
 dispatch descriptors; the Terminal drawer opens through
 `terminal.ensure_open`, not through a renderer branch on the drawer kind.
+Bottom-drawer body mounting is renderer-local `bodyKind` metadata on supported
+surface definitions, and the default shell does not expose drawer surfaces
+without an implemented body.
 Commands in undeclared or untitled palette groups remain hidden
 rather than using title-cased group ids, and missing command row description/meta copy
 remains empty instead of falling back to command ids. Surface command row
@@ -156,7 +159,9 @@ only and must not become transcript history, workflow state, telemetry,
 permission policy, runtime reducer truth, source-control checkpoints, or Agent
 Core behavior. The Terminal drawer command is an app-shell surface descriptor
 with `dispatch.kind: terminal.ensure_open`; drawer kind alone has no
-terminal-specific execution semantics.
+terminal-specific execution semantics. The default bottom drawer exposes only
+implemented Run Output and Terminal bodies; stale declarations without a
+renderer body are deleted rather than shown through a fallback.
 
 The GUI Source Control right-panel is another app-shell hosted surface.
 `GUIBackend` owns an active-workspace-bound `SourceControlService` that invokes

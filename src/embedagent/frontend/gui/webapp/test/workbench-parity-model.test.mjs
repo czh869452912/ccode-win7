@@ -48,7 +48,6 @@ function sessionWorkspaceState(patch = {}) {
           bottomDrawer: [
             surface("run_output", "Run Output", 10),
             surface("terminal", "Terminal", 20),
-            surface("logs", "Logs", 30),
           ],
         },
         sourceControl: initialState.app.capabilities.sourceControl,

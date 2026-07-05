@@ -44,6 +44,37 @@
 
 ## 3. 当前变更记录
 
+### DC-276
+
+- Date: 2026-07-05
+- Change Topic: GUI bottom drawer renderer metadata replaces stale logs surface
+- Summary:
+  - Removed the default `logs` bottom-drawer surface because the renderer had
+    no corresponding body implementation and previously fell through to Run
+    Output.
+  - Bottom-drawer surface registry records now carry renderer-local
+    `bodyKind` metadata for the supported `run_output` and `terminal`
+    surfaces.
+  - `BottomDrawer` selects its body from the active surface definition instead
+    of branching on `activeKind === "terminal"`, and initial/persisted fallback
+    bottom drawer state no longer hard-codes `run_output`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/BottomDrawer.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/visual-debug-fixtures.js`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Add future bottom-drawer surfaces only with a matching renderer body or
+    keep them out of the supported registry/default app-shell descriptor set.
+
 ### DC-275
 
 - Date: 2026-07-05
