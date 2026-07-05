@@ -3129,6 +3129,8 @@ def test_gui_workbench_keyboard_handling_is_controller_owned():
     assert "function isTurnInterruptibleStatus" not in app_text
     assert "hasSession: Boolean(currentSessionId)" not in app_text
     assert "paletteOpen: state.workbench.commandPalette.open" not in app_text
+    assert "paletteOpen: current.workbench.commandPalette.open" not in app_text
+    assert "isRunning: isTurnInterruptibleStatus(status)" not in app_text
     assert "workbenchKeyboardController.install()" in app_text
     assert "function onWorkbenchKeyDown" not in app_text
     assert 'window.addEventListener("keydown"' not in app_text

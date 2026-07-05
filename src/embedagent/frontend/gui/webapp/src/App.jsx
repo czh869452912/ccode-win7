@@ -488,13 +488,13 @@ function App() {
         getKeybindings: () => stateRef.current.app.capabilities.keybindings || EMPTY_KEYBINDINGS,
         getCommandContext: () => {
           const current = stateRef.current;
-          const status = current.snapshot?.status || "idle";
-          return {
-            paletteOpen: current.workbench.commandPalette.open,
-            isRunning: isTurnInterruptibleStatus(status),
-            capabilities: current.sessionCapabilities || {},
-            appCapabilities: current.app.capabilities || {},
-          };
+          return buildCommandVisibilityContext({
+            currentSessionId: readActiveThreadId(current),
+            currentStatus: current.snapshot?.status || "idle",
+            appState: current.app,
+            workbenchState: current.workbench,
+            sessionCapabilities: current.sessionCapabilities || {},
+          });
         },
         getCurrentStatus: () => stateRef.current.snapshot?.status || "idle",
         isTurnInterruptibleStatus,

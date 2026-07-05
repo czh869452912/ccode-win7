@@ -44,6 +44,31 @@
 
 ## 3. 当前变更记录
 
+### DC-309
+
+- Date: 2026-07-05
+- Change Topic: GUI keyboard command context reuses workbench command model
+- Summary:
+  - `App.jsx` now uses `buildCommandVisibilityContext(...)` inside the
+    `workbench-keyboard-controller.js` `getCommandContext` bridge.
+  - The root component no longer keeps a second keyboard-specific
+    `paletteOpen` / `isRunning` / capability object for shortcut resolution.
+  - Frontend and architecture guards reject reintroducing that inline keyboard
+    command-context object in `App.jsx`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue applying the same model-first pattern to remaining root-level
+    App composition helpers that derive UI state.
+
 ### DC-308
 
 - Date: 2026-07-05

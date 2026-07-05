@@ -594,6 +594,10 @@
   `App.jsx` passes app/workbench state slices into that read model instead of
   hand-building command visibility fields, and `workbench-parity-model.js`
   reuses the same running-status semantics.
+- The keyboard-shortcut `getCommandContext` bridge now also uses
+  `buildCommandVisibilityContext(...)`; App no longer keeps a second
+  shortcut-specific visibility object with local `paletteOpen` / `isRunning`
+  fields.
 - `CommandPalette.jsx` remains a display component for root/submenu navigation, Escape, and backdrop close; selected command/session/workspace items hand intent to the controller-owned callbacks.
 - This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, terminal backend service, source-control execution, provider configuration, extension loading, telemetry, or runtime reducer semantics changed.
 

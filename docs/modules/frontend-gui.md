@@ -588,7 +588,8 @@ wires those methods directly instead of importing `commandById` or dispatching
 palette/toggle reducer actions inline. `workbench/commands.js` owns
 `buildCommandVisibilityContext(...)` and `isTurnInterruptibleStatus(...)` so
 command visibility and T3 parity status semantics are shared read-model logic,
-not root-level App policy.
+not root-level App policy. The keyboard-shortcut `getCommandContext` bridge
+also uses that model rather than carrying its own inline visibility object.
 `App.jsx` remains the composition layer for controller construction, HTTP route
 callback injection, reducer state ownership, and render composition in this
 slice. `visual-debug-fixtures.js` owns the

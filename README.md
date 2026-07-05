@@ -167,7 +167,8 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
   context and interruptible-turn status semantics live in
   `webapp/src/workbench/commands.js` via `buildCommandVisibilityContext(...)`
   / `isTurnInterruptibleStatus(...)`; `App.jsx` must not hand-build that
-  context as root-level command policy.
+  context as root-level command policy, including the keyboard-shortcut
+  `getCommandContext` bridge.
 - Official GUI renderer-state boundary: thread/session selection, session
   summaries, and history-integrity display state live in
   `webapp/src/session-runtime/thread-state.js`, composer draft text lives in

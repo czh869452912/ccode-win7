@@ -160,7 +160,8 @@ second workbench command policy. Command visibility context, including
 session/workspace presence, palette-open state, and interruptible-turn status,
 is a `webapp/src/workbench/commands.js` read model through
 `buildCommandVisibilityContext(...)`; root App composition must pass state
-slices to that model instead of hand-building the visibility object.
+slices to that model instead of hand-building the visibility object, including
+the keyboard-shortcut context handed to `workbench-keyboard-controller.js`.
 `capabilities.home` carries GUI home/sidebar copy for workspace and thread
 sections, including inactive-workspace labels, path placeholder text, open and
 recent-workspace labels, missing-path labels, thread empty-state copy, and
