@@ -31,6 +31,9 @@ export const PANEL_RENDERERS = Object.freeze({
   diagnostics: ({ appShell, chrome }) => (
     <DiagnosticsPanel appShell={appShell} chrome={chrome} />
   ),
+  descriptor: ({ surfaceDefinition }) => (
+    <DescriptorPanel surfaceDefinition={surfaceDefinition} />
+  ),
 });
 
 export default function SurfacePanel({
@@ -46,6 +49,7 @@ export default function SurfacePanel({
   onRefreshSourceControl,
   onSelectSourceControlFile,
   onAppSettingsChange,
+  surfaceDefinition,
 }) {
   const panelProps = {
     plan,
@@ -59,6 +63,7 @@ export default function SurfacePanel({
     onRefreshSourceControl,
     onSelectSourceControlFile,
     onAppSettingsChange,
+    surfaceDefinition,
   };
   const renderPanel = PANEL_RENDERERS[String(panelKind || "")] || null;
   return (
@@ -67,6 +72,18 @@ export default function SurfacePanel({
         {renderPanel ? renderPanel(panelProps) : null}
       </div>
     </aside>
+  );
+}
+
+function DescriptorPanel({ surfaceDefinition }) {
+  const definition = surfaceDefinition || {};
+  const title = String(definition.title || "");
+  const description = String(definition.description || "");
+  return (
+    <div className="panel-preview">
+      {title ? <h3>{title}</h3> : null}
+      {description ? <p className="empty-copy">{description}</p> : null}
+    </div>
   );
 }
 

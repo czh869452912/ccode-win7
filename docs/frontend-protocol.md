@@ -151,6 +151,12 @@ The default GUI shell descriptor set lives in
 `src/embedagent/frontend/gui/backend/app_shell_spec.py` and is injected into
 `AppShellService`; alternate hosts may provide a smaller or specialized spec
 without modifying the service or Agent Core.
+Right-panel surface descriptors may also carry safe renderer metadata such as
+`body_kind` / `bodyKind` and `panel_kind` / `panelKind`. Unknown right-panel
+surface kinds are accepted only as non-executing `surface_panel` bodies with a
+safe generic panel kind such as `descriptor`, `diagnostics`, or `plan`; they do
+not load frontend code, call backend services, or bypass app capability
+filtering.
 App bootstrap may also include safe `agentApplication`, `agentApplications`,
 and `emptyState` projections. Before any workspace is active, those values come
 from the backend-selected agent application registry declared by the app host or
@@ -177,8 +183,9 @@ surface-specific metadata must not be added as branches inside
 `makeSurface(...)`. App capability cleanup uses
 `persistedSurfaceDefinitions(appCapabilities, placement)`, including
 registry-declared `persistedRelatedKinds` such as Files retaining File resource
-surfaces; UI-state code must not hard-code related persisted kinds such as
-`files -> file`. Right-panel open-time preparation that varies by surface
+surfaces and currently declared safe dynamic panels; UI-state code must not
+hard-code related persisted kinds such as `files -> file` or treat unknown
+surface kinds as globally supported. Right-panel open-time preparation that varies by surface
 kind, such as file reveal/deduplication or preview placeholder cleanup, routes
 through `SURFACE_OPEN_PREPARERS[surface.kind]` rather than branches in
 `openSurface(...)`. Right-panel surface-local pane operations that vary by kind

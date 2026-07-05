@@ -26,12 +26,12 @@ function normalizePlacement(placement) {
   return placement === "bottom" ? "bottom" : "right";
 }
 
-function sanitizeSurfaceList(items, placement) {
+function sanitizeSurfaceList(items, placement, appCapabilities = null) {
   if (!Array.isArray(items)) return [];
   const result = [];
   const seen = new Set();
   for (const item of items) {
-    const surface = persistedSurfaceFrom(item, placement);
+    const surface = persistedSurfaceFrom(item, placement, appCapabilities);
     if (!surface || seen.has(surface.id)) continue;
     seen.add(surface.id);
     result.push(surface);
@@ -52,10 +52,18 @@ function filterSurfacesByAppCapabilities(items, placement, appCapabilities) {
 function sanitizeSessionSurfaces(value, appCapabilities = null) {
   const source = asObject(value);
   const right = appCapabilities
-    ? filterSurfacesByAppCapabilities(sanitizeSurfaceList(source.right, "right"), "right", appCapabilities)
+    ? filterSurfacesByAppCapabilities(
+        sanitizeSurfaceList(source.right, "right", appCapabilities),
+        "right",
+        appCapabilities,
+      )
     : sanitizeSurfaceList(source.right, "right");
   const bottom = appCapabilities
-    ? filterSurfacesByAppCapabilities(sanitizeSurfaceList(source.bottom, "bottom"), "bottom", appCapabilities)
+    ? filterSurfacesByAppCapabilities(
+        sanitizeSurfaceList(source.bottom, "bottom", appCapabilities),
+        "bottom",
+        appCapabilities,
+      )
     : sanitizeSurfaceList(source.bottom, "bottom");
   const requestedActive = asString(source.activeRightSurfaceId);
   return {

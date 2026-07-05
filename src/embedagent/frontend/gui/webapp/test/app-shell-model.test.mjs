@@ -281,6 +281,48 @@ export function runAppShellModelTests() {
   assert.deepEqual(initial.capabilities.preview.localServers, []);
   assert.equal(initial.capabilities.preview.chrome.refreshLabel, "");
   assert.equal(initial.capabilities.preview.chrome.emptyTitle, "");
+
+  const dynamicSurfaceCapabilities = normalizeAppCapabilities({
+    surfaces: {
+      right_panel: [
+        {
+          id: "quality",
+          title: "Quality",
+          description: "Local quality gates",
+          command_label: "Show Quality",
+          body_kind: "surface_panel",
+          panel_kind: "descriptor",
+          read_only: true,
+          offline: true,
+        },
+      ],
+    },
+  });
+  assert.deepEqual(dynamicSurfaceCapabilities.surfaces.rightPanel[0], {
+    id: "quality",
+    kind: "quality",
+    title: "Quality",
+    icon: "",
+    description: "Local quality gates",
+    placement: "right",
+    resourceId: "",
+    defaultResourceId: "",
+    closeBehavior: "closable",
+    launcher: true,
+    launcherOrder: 0,
+    command: true,
+    commandLabel: "Show Quality",
+    slash: "",
+    visibleWhen: "always",
+    readOnly: true,
+    offline: true,
+    keywords: [],
+    dispatch: {},
+    bodyKind: "surface_panel",
+    panelKind: "descriptor",
+    openKind: "",
+    activationKind: "",
+  });
   assert.equal(initial.capabilities.sourceControl.enabled, false);
   assert.equal(initial.capabilities.sourceControl.readOnly, true);
   assert.deepEqual(initial.capabilities.sourceControl.chrome, {

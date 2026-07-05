@@ -367,6 +367,10 @@ function normalizeSurfaceCapability(input = {}, placement = "right") {
     offline: input.offline === true,
     keywords: normalizeStringList(input.keywords),
     dispatch: input.dispatch && typeof input.dispatch === "object" ? { ...input.dispatch } : {},
+    bodyKind: String(input.body_kind || input.bodyKind || ""),
+    panelKind: String(input.panel_kind || input.panelKind || ""),
+    openKind: String(input.open_kind || input.openKind || ""),
+    activationKind: String(input.activation_kind || input.activationKind || ""),
   };
 }
 

@@ -180,7 +180,11 @@ bottom-drawer surfaces, keybinding command targets, command-palette groups,
 and disabled GUI capability ids. `AppShellService` applies that profile to the
 injected `AppShellSpec` before returning capabilities, so a generic base agent
 does not inherit Preview, Diff, or Source Control entrypoints from the default
-C/C++ application. Renderer app-shell normalizers preserve a missing
+C/C++ application. Surface capabilities may additionally declare safe dynamic
+right-panel descriptor surfaces: unknown surface kinds are retained only when
+they map to a non-executing `surface_panel` body with a safe generic panel kind,
+so specialized agents can add read-only GUI affordances without frontend plugin
+execution or new service calls. Renderer app-shell normalizers preserve a missing
 backend product name as empty rather than inventing the bundled product name;
 untitled thread fallback prefixes come from `home.threads` descriptors rather
 than renderer-local English copy.

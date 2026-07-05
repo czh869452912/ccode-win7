@@ -179,6 +179,9 @@ export const BOTTOM_DRAWER_SURFACE_REGISTRY = Object.freeze([
   }),
 ]);
 
+const SAFE_DYNAMIC_RIGHT_PANEL_BODY_KINDS = Object.freeze(["surface_panel"]);
+const SAFE_DYNAMIC_SURFACE_PANEL_KINDS = Object.freeze(["descriptor", "diagnostics", "plan"]);
+
 function normalizeKeywords(value) {
   if (!Array.isArray(value)) return [];
   return value.map((item) => String(item || "").trim()).filter(Boolean);
@@ -221,6 +224,10 @@ function normalizeSurfaceCapabilityRecord(input, placement, index) {
     offline: input.offline === true,
     keywords: normalizeKeywords(input.keywords),
     dispatch: input.dispatch && typeof input.dispatch === "object" ? { ...input.dispatch } : {},
+    bodyKind: String(input.bodyKind || input.body_kind || ""),
+    panelKind: String(input.panelKind || input.panel_kind || ""),
+    openKind: String(input.openKind || input.open_kind || ""),
+    activationKind: String(input.activationKind || input.activation_kind || ""),
   };
 }
 
@@ -263,6 +270,33 @@ function surfaceDefinitionForPlacement(kind, placement) {
     .find((item) => item.kind === normalized) || null;
 }
 
+function dynamicSurfaceDefinitionFromCapability(capability, placement) {
+  if (normalizePlacement(placement) !== "right") return null;
+  if (!capability || !capability.kind) return null;
+  if (surfaceDefinitionForPlacement(capability.kind, placement)) return null;
+  const bodyKind = String(capability.bodyKind || "");
+  const panelKind = String(capability.panelKind || "descriptor");
+  if (!SAFE_DYNAMIC_RIGHT_PANEL_BODY_KINDS.includes(bodyKind)) return null;
+  if (!SAFE_DYNAMIC_SURFACE_PANEL_KINDS.includes(panelKind)) return null;
+  return defineSurface({
+    kind: capability.kind,
+    placement: "right",
+    resourceId: capability.resourceId || "singleton",
+    defaultResourceId: capability.defaultResourceId || "",
+    closeBehavior: capability.closeBehavior || "closable",
+    persistFields: DEFAULT_PERSIST_FIELDS,
+    bodyKind,
+    openKind: "workbench.surface",
+    activationKind: "",
+    panelKind,
+    launcher: true,
+    command: true,
+    readOnly: true,
+    offline: true,
+    dynamic: true,
+  });
+}
+
 function mergedSurfaceDefinition(definition, capability) {
   return {
     ...definition,
@@ -288,6 +322,7 @@ function mergedSurfaceDefinition(definition, capability) {
     openKind: definition.openKind || "",
     activationKind: definition.activationKind || "",
     panelKind: definition.panelKind || "",
+    dynamic: definition.dynamic === true,
   };
 }
 
@@ -301,11 +336,25 @@ function filterSurfaceDefinitions(definitions, placement, appCapabilities) {
   const byKind = new Map(definitions.map((definition) => [definition.kind, definition]));
   return capabilities
     .map((capability) => {
-      const definition = byKind.get(capability.kind);
+      const definition =
+        byKind.get(capability.kind) || dynamicSurfaceDefinitionFromCapability(capability, placement);
       return definition ? mergedSurfaceDefinition(definition, capability) : null;
     })
     .filter((definition) => definition && definition.launcher && hasDisplayTitle(definition))
     .sort((left, right) => (left.launcherOrder || 0) - (right.launcherOrder || 0));
+}
+
+function configuredSurfaceDefinitionFor(kind, placement, appCapabilities = null) {
+  const normalized = String(kind || "");
+  const staticDefinition = surfaceDefinitionForPlacement(normalized, placement);
+  if (!appCapabilities) return staticDefinition;
+  const capability = surfaceCapabilityDefinitions(appCapabilities, placement)
+    .find((item) => item.kind === normalized);
+  if (!capability) return null;
+  const definition = staticDefinition || dynamicSurfaceDefinitionFromCapability(capability, placement);
+  if (!definition) return null;
+  const merged = mergedSurfaceDefinition(definition, capability);
+  return hasDisplayTitle(merged) ? merged : null;
 }
 
 export function rightPanelSurfaceDefinitions() {
@@ -313,25 +362,11 @@ export function rightPanelSurfaceDefinitions() {
 }
 
 export function surfaceDefinitionFor(kind, appCapabilities = null) {
-  const normalized = String(kind || "");
-  const definition = surfaceDefinitionForPlacement(normalized, "right");
-  if (!definition || !appCapabilities) return definition;
-  const capability = surfaceCapabilityDefinitions(appCapabilities, "right")
-    .find((item) => item.kind === normalized);
-  if (!capability) return null;
-  const merged = mergedSurfaceDefinition(definition, capability);
-  return hasDisplayTitle(merged) ? merged : null;
+  return configuredSurfaceDefinitionFor(kind, "right", appCapabilities);
 }
 
 export function bottomDrawerSurfaceDefinitionFor(kind, appCapabilities = null) {
-  const normalized = String(kind || "");
-  const definition = surfaceDefinitionForPlacement(normalized, "bottom");
-  if (!definition || !appCapabilities) return definition;
-  const capability = surfaceCapabilityDefinitions(appCapabilities, "bottom")
-    .find((item) => item.kind === normalized);
-  if (!capability) return null;
-  const merged = mergedSurfaceDefinition(definition, capability);
-  return hasDisplayTitle(merged) ? merged : null;
+  return configuredSurfaceDefinitionFor(kind, "bottom", appCapabilities);
 }
 
 export function rightPanelLauncherSurfaceDefinitions(appCapabilities = null) {
@@ -422,6 +457,15 @@ function defaultActiveKind() {
 
 function allowedKinds(placement) {
   return supportedSurfaceKinds(placement);
+}
+
+function actionSurfaceDefinition(input, placement, kind) {
+  const source = input && input.surfaceDefinition;
+  if (!source || typeof source !== "object" || Array.isArray(source)) return null;
+  const capability = normalizeSurfaceCapabilityRecord(source, placement, 0);
+  if (!capability || capability.kind !== kind) return null;
+  return surfaceDefinitionForPlacement(kind, placement)
+    || dynamicSurfaceDefinitionFromCapability(capability, placement);
 }
 
 function normalizeFilePath(path) {
@@ -528,7 +572,8 @@ function surfaceIdFor(input) {
 function makeSurface(input) {
   const placement = normalizePlacement(input && input.placement);
   const kind = String((input && input.kind) || defaultActiveKind(placement));
-  const definition = surfaceDefinitionForPlacement(kind, placement);
+  const definition =
+    actionSurfaceDefinition(input, placement, kind) || surfaceDefinitionForPlacement(kind, placement);
   const defaultFilePath = String((input && input.filePath) || "");
   const defaultResourceId = String(
     (input && input.resourceId) || (definition && definition.defaultResourceId) || "",
@@ -578,12 +623,12 @@ function pickSurfaceFields(surface, fields) {
   return result;
 }
 
-export function persistedSurfaceFrom(input, fallbackPlacement = "right") {
+export function persistedSurfaceFrom(input, fallbackPlacement = "right", appCapabilities = null) {
   const source = input && typeof input === "object" && !Array.isArray(input) ? input : {};
   const placement = normalizePlacement(source.placement || fallbackPlacement);
   const kind = String(source.kind || "").trim();
-  if (!allowedKinds(placement).includes(kind)) return null;
-  const definition = surfaceDefinitionForPlacement(kind, placement);
+  const definition = configuredSurfaceDefinitionFor(kind, placement, appCapabilities);
+  if (!definition && !allowedKinds(placement).includes(kind)) return null;
   const surface = makeSurface({ ...source, placement, kind });
   return definition ? pickSurfaceFields(surface, definition.persistFields) : surface;
 }
@@ -810,7 +855,10 @@ export function openSurface(state, input) {
   const current = state || createWorkbenchState();
   const surface = makeSurface(input || {});
   const placement = normalizePlacement(surface.placement);
-  if (!allowedKinds(placement).includes(surface.kind)) {
+  const definition =
+    actionSurfaceDefinition(input, placement, surface.kind)
+    || surfaceDefinitionForPlacement(surface.kind, placement);
+  if (!definition && !allowedKinds(placement).includes(surface.kind)) {
     return current;
   }
   if (placement === "right") {

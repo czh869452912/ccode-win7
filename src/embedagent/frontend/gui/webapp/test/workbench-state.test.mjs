@@ -276,6 +276,67 @@ export function runWorkbenchStateTests() {
   assert.equal(surfaceDefinitionFor("settings", untitledAppCapabilities), null);
   assert.equal(surfaceDefinitionFor("diagnostics", untitledAppCapabilities).title, "Health");
 
+  const dynamicAppCapabilities = {
+    surfaces: {
+      rightPanel: [
+        {
+          id: "quality",
+          title: "Quality",
+          description: "Local quality gates",
+          commandLabel: "Show Quality",
+          launcherOrder: 65,
+          bodyKind: "surface_panel",
+          panelKind: "descriptor",
+          readOnly: true,
+          offline: true,
+        },
+      ],
+    },
+  };
+  const dynamicSurface = surfaceDefinitionFor("quality", dynamicAppCapabilities);
+  assert.equal(dynamicSurface.kind, "quality");
+  assert.equal(dynamicSurface.bodyKind, "surface_panel");
+  assert.equal(dynamicSurface.panelKind, "descriptor");
+  assert.equal(dynamicSurface.openKind, "workbench.surface");
+  assert.equal(dynamicSurface.readOnly, true);
+  assert.equal(dynamicSurface.offline, true);
+  assert.deepEqual(
+    rightPanelLauncherSurfaceDefinitions(dynamicAppCapabilities).map((definition) => definition.kind),
+    ["quality"],
+  );
+  assert.deepEqual(
+    surfaceCommandDefinitions(dynamicAppCapabilities).map((definition) => definition.id),
+    ["surface.quality"],
+  );
+  const rejectedDynamicSurface = openSurface(createWorkbenchState(), {
+    placement: "right",
+    kind: "quality",
+    title: "Quality",
+  });
+  assert.deepEqual(rejectedDynamicSurface.rightPanel.surfaces, []);
+  const openedDynamicSurface = openSurface(createWorkbenchState(), {
+    placement: "right",
+    kind: "quality",
+    title: "Quality",
+    surfaceDefinition: dynamicSurface,
+  });
+  assert.equal(openedDynamicSurface.rightPanel.activeKind, "quality");
+  assert.equal(openedDynamicSurface.rightPanel.surfaces[0].id, "right:quality");
+  assert.deepEqual(
+    persistedSurfaceFrom(openedDynamicSurface.rightPanel.surfaces[0], "right", dynamicAppCapabilities),
+    {
+      id: "right:quality",
+      placement: "right",
+      kind: "quality",
+      title: "Quality",
+      resourceId: "",
+      filePath: "",
+      terminalId: "",
+      revealLine: null,
+      revealRequestId: 0,
+    },
+  );
+
   const initial = createWorkbenchState();
   assert.equal(initial.rightPanel.open, true);
   assert.equal(initial.rightPanel.activeSurfaceId, null);

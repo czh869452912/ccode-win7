@@ -76,6 +76,12 @@ through `metadata.appShell` allow-lists. `AppShellService` applies those lists
 before the renderer sees capabilities, so the Generic Agent can expose the base
 Files/Terminal/Plan shell without inheriting Preview, Diff, or Source Control
 entrypoints from the bundled C/C++ agent.
+Specialized agents may also declare additional safe right-panel descriptor
+surfaces through app-shell surface capabilities. The renderer accepts unknown
+surface kinds only when they resolve to a non-executing `surface_panel` body and
+a safe generic `panelKind`; this lets agent-specific read-only panels appear
+without adding service calls, executable frontend plugins, or hard-coded GUI
+branches.
 Workbench command labels also come from app-shell or capability descriptors:
 commands without explicit visible labels stay out of the workbench command
 catalog and command palette, and renderer modules must not turn command ids

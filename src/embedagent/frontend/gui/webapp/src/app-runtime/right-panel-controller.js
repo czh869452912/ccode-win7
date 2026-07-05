@@ -17,6 +17,7 @@ const RIGHT_PANEL_OPEN_HANDLERS = Object.freeze(Object.assign(Object.create(null
       kind: surfaceKind,
       title: rightPanelSurfaceTitle(surfaceKind, title, appCapabilities),
       resourceId: definition?.defaultResourceId || "",
+      surfaceDefinition: definition,
     });
   },
 }));

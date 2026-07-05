@@ -85,6 +85,7 @@ const RIGHT_PANEL_BODY_RENDERERS = Object.freeze({
     <SurfacePanel
       {...surfacePanelProps}
       panelKind={activeDefinition ? activeDefinition.panelKind || "" : ""}
+      surfaceDefinition={activeDefinition}
     />
   ),
 });
