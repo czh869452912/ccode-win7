@@ -44,6 +44,36 @@
 
 ## 3. 当前变更记录
 
+### DC-301
+
+- Date: 2026-07-05
+- Change Topic: GUI interaction response event logging is controller-owned
+- Summary:
+  - `interaction-response-controller.js` now emits the
+    `interaction_response` `log_event` through its injected reducer dispatch.
+  - `App.jsx` no longer injects a root-level `logEvent` callback into the
+    interaction response path.
+  - Frontend and architecture guards reject the removed `logEvent` injection
+    seam and require response event logging to stay in the controller.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/interaction-response-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/interaction-response-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving remaining root-level GUI dependency adapter lambdas toward
+    semantic controller methods where they represent behavior rather than
+    composition.
+
 ### DC-300
 
 - Date: 2026-07-05

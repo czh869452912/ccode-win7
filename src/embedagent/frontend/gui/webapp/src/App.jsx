@@ -541,7 +541,6 @@ function App() {
         getRespondingRequestIds: respondingRequestIdsHandle.read,
         setRespondingRequestIds: respondingRequestIdsHandle.set,
         loadSession,
-        logEvent: (label, detail) => dispatch({ type: "log_event", label, detail }),
       }),
     [respondingRequestIdsHandle],
   );

@@ -175,6 +175,12 @@ composition point for now, but new GUI code must not add root-level
 `sessions`, `currentSessionId`, `composer`, `historyIntegrity`, or retired
 sidebar tab sidecar state/actions.
 
+Interaction response submission is runtime-controller owned:
+`webapp/src/app-runtime/interaction-response-controller.js` posts the response,
+applies the returned snapshot or reloads the session, and emits the
+`interaction_response` `log_event`. `App.jsx` must not inject a local
+`logEvent` callback for that path.
+
 Workbench panel resizing is also controller-owned:
 `webapp/src/app-runtime/panel-resize-controller.js` exposes
 `startSidebarResize` and `startRightPanelResize` as the only renderer-facing

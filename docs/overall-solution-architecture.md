@@ -596,6 +596,11 @@ Managed-session workflow refresh in the product adapter path goes through `Agent
   `app-runtime/responding-request-ids-handle.js` owns request-id normalization,
   sync, reads, and updates, while `App.jsx` keeps only the React state cell used
   to render the current composer interaction busy indicator.
+- GUI interaction response submission is owned by
+  `app-runtime/interaction-response-controller.js`. The controller posts the
+  response, refreshes or applies the returned snapshot, and emits the
+  `interaction_response` `log_event`; `App.jsx` must not inject a root-level
+  logger callback for that path.
 - GUI/TUI read-model refresh after tool completion is metadata-driven. Tool
   catalog entries may declare `read_model_invalidations`; hosted adapters and
   frontend shells use those hints only for safe projections they own, such as

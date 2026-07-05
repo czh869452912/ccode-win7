@@ -47,6 +47,12 @@ or mutate workflow state. Those decisions remain owned by Agent Core,
 ExtensionManager, PermissionPolicy, SessionHistoryAssembler, and the existing
 session/bootstrap protocol.
 
+Current pending-interaction responses may render local busy state, but response
+submission and response event logging are not shell policy. GUI code must route
+that path through `interaction-response-controller.js`; `App.jsx` must not
+inject root-level logger callbacks or synthesize a separate interaction
+history stream.
+
 ### GUI App-Shell State
 
 The GUI may expose a local app-shell read model for desktop-host concerns:

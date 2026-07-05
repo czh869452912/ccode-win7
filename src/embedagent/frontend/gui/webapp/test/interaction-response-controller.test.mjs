@@ -14,7 +14,6 @@ export async function runInteractionResponseControllerTests() {
   let respondingIds = [];
   const calls = [];
   const dispatches = [];
-  const logs = [];
   const pendingFetch = deferred();
   const controller = createInteractionResponseController({
     fetchJson: async (url, options) => {
@@ -32,7 +31,6 @@ export async function runInteractionResponseControllerTests() {
     loadSession: async () => {
       throw new Error("loadSession should not run on resolved response");
     },
-    logEvent: (label, detail) => logs.push({ label, detail }),
   });
 
   const first = controller.respondToInteraction({ answers: { answer: "yes" } });
@@ -61,8 +59,11 @@ export async function runInteractionResponseControllerTests() {
   assert.equal(dispatches[0].type, "interaction_notice_clear");
   assert.equal(dispatches[1].type, "session_snapshot");
   assert.equal(dispatches[1].snapshot.normalized, true);
-  assert.equal(logs[0].label, "interaction_response");
-  assert.equal(logs[0].detail, "yes");
+  assert.deepEqual(dispatches[2], {
+    type: "log_event",
+    label: "interaction_response",
+    detail: "yes",
+  });
 
   let loadedSession = "";
   respondingIds = [];
@@ -84,7 +85,6 @@ export async function runInteractionResponseControllerTests() {
     loadSession: async (sessionId) => {
       loadedSession = sessionId;
     },
-    logEvent: (label, detail) => logs.push({ label, detail }),
   });
 
   const expired = await expiredController.respondToInteraction({ answers: { answer: "late" } });
@@ -92,6 +92,11 @@ export async function runInteractionResponseControllerTests() {
   assert.equal(expired, null);
   assert.deepEqual(respondingIds, []);
   assert.equal(loadedSession, "sess-1");
-  assert.equal(dispatches.at(-1).type, "interaction_notice_set");
-  assert.equal(dispatches.at(-1).notice.kind, "expired");
+  assert.equal(dispatches.at(-2).type, "interaction_notice_set");
+  assert.equal(dispatches.at(-2).notice.kind, "expired");
+  assert.deepEqual(dispatches.at(-1), {
+    type: "log_event",
+    label: "interaction_response",
+    detail: "interaction_expired",
+  });
 }

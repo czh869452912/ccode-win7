@@ -369,6 +369,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   bootstrap plus session command capability warmup start;
   `app-runtime/responding-request-ids-handle.js` owns pending interaction
   response busy-id normalization and sync;
+  `app-runtime/interaction-response-controller.js` owns interaction response
+  submission, snapshot/reload handling, and response `log_event` emission;
   `app-runtime/active-workspace-data-loader.js` owns active-workspace read-model
   refresh fanout, and
   `app-runtime/panel-resize-controller.js` owns pointer/DOM resizing for

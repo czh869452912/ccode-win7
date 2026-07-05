@@ -24,7 +24,6 @@ export function createInteractionResponseController({
   getRespondingRequestIds,
   setRespondingRequestIds,
   loadSession,
-  logEvent,
 } = {}) {
   const send = typeof dispatch === "function" ? dispatch : () => {};
   const fetchPayload = typeof fetchJson === "function" ? fetchJson : () => Promise.resolve({});
@@ -38,7 +37,6 @@ export function createInteractionResponseController({
   const writeRespondingIds =
     typeof setRespondingRequestIds === "function" ? setRespondingRequestIds : () => {};
   const reloadSession = typeof loadSession === "function" ? loadSession : () => Promise.resolve();
-  const recordEvent = typeof logEvent === "function" ? logEvent : () => {};
 
   function respondingIds() {
     const value = readRespondingIds();
@@ -89,7 +87,11 @@ export function createInteractionResponseController({
       } else {
         await reloadSession(sessionId);
       }
-      recordEvent("interaction_response", interactionLogDetail(interaction, payload || {}));
+      send({
+        type: "log_event",
+        label: "interaction_response",
+        detail: interactionLogDetail(interaction, payload || {}),
+      });
       return response;
     } catch (error) {
       if ((error?.status === 409 || error?.status === 410) && sessionId) {
@@ -101,7 +103,11 @@ export function createInteractionResponseController({
             detail: error.detail || "",
           },
         });
-        recordEvent("interaction_response", error.detail || `HTTP ${error.status}`);
+        send({
+          type: "log_event",
+          label: "interaction_response",
+          detail: error.detail || `HTTP ${error.status}`,
+        });
         return null;
       }
       throw error;

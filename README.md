@@ -133,7 +133,10 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
   ids are normalized, synced, read, and updated through
   `webapp/src/app-runtime/responding-request-ids-handle.js`; `App.jsx` owns the
   React state cell but must not keep a parallel `respondingRequestIdsRef` or
-  inline request-id normalization helpers.
+  inline request-id normalization helpers. Interaction response submission and
+  response `log_event` emission live in
+  `webapp/src/app-runtime/interaction-response-controller.js`; `App.jsx` must
+  not inject a root-level `logEvent` callback.
 - Official GUI active-workspace data boundary: the post-activation read-model refresh fanout for sessions, session capabilities, workspace files, and local status surfaces is owned by `webapp/src/app-runtime/active-workspace-data-loader.js`; `App.jsx` wires dependencies but must not inline that reload `Promise.all`.
 - Official GUI panel-resize boundary: pointer/DOM logic for sidebar and right-panel resizing lives in `webapp/src/app-runtime/panel-resize-controller.js`; `App.jsx` wires the controller's `startSidebarResize` and `startRightPanelResize` handlers directly, and must not pass CSS variables, import resize direction constants, or mutate `documentElement.style` directly.
 - Official GUI timeline-scroll boundary: Timeline bottom-follow state and

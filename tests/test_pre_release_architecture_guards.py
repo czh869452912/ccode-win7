@@ -3058,11 +3058,18 @@ def test_gui_timeline_scroll_dom_logic_is_controller_owned():
 
 def test_gui_interaction_response_bridge_does_not_keep_root_forwarders():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    controller_text = _read(
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/app-runtime/interaction-response-controller.js"
+    )
 
     assert "createInteractionResponseController" in app_text
     assert "function logEvent" not in app_text
+    assert "logEvent:" not in app_text
     assert "function respondToInteraction" not in app_text
     assert "onRespondInteraction={interactionResponseController.respondToInteraction}" in app_text
+    assert "logEvent" not in controller_text
+    assert 'type: "log_event"' in controller_text
 
 
 def test_gui_workbench_keyboard_handling_is_controller_owned():

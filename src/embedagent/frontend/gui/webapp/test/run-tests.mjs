@@ -2187,6 +2187,10 @@ async function main() {
     webappSourcePath("app-runtime", "responding-request-ids-handle.js"),
     "utf8",
   );
+  const interactionResponseControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "interaction-response-controller.js"),
+    "utf8",
+  );
   const socketEffectExecutorSource = fs.readFileSync(
     webappSourcePath("app-runtime", "socket-effect-executor.js"),
     "utf8",
@@ -2263,11 +2267,14 @@ async function main() {
   assert.equal(appSource.includes("function handleTimelineScroll"), false);
   assert.equal(appSource.includes("onScroll={timelineScrollController.handleScroll}"), true);
   assert.equal(appSource.includes("function logEvent"), false);
+  assert.equal(appSource.includes("logEvent:"), false);
   assert.equal(appSource.includes("function respondToInteraction"), false);
   assert.equal(
     appSource.includes("onRespondInteraction={interactionResponseController.respondToInteraction}"),
     true,
   );
+  assert.equal(interactionResponseControllerSource.includes("logEvent"), false);
+  assert.equal(interactionResponseControllerSource.includes('type: "log_event"'), true);
   assert.equal(appSource.includes("createActiveWorkspaceDataLoader"), true);
   assert.equal(
     appSource.includes("loadWorkspaceData: activeWorkspaceDataLoader.loadActiveWorkspaceData"),
