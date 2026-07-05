@@ -2152,6 +2152,14 @@ async function main() {
   assert.equal(socketEffectExecutorSource.includes("recover(currentSessionId, nextTransport)"), true);
   assert.equal(socketEffectExecutorSource.includes("executeLoaderRequest"), true);
   assert.equal(socketEffectExecutorSource.includes("import React"), false);
+  assert.equal(appSource.includes("function handleTimelineScroll"), false);
+  assert.equal(appSource.includes("onScroll={timelineScrollController.handleScroll}"), true);
+  assert.equal(appSource.includes("function logEvent"), false);
+  assert.equal(appSource.includes("function respondToInteraction"), false);
+  assert.equal(
+    appSource.includes("onRespondInteraction={interactionResponseController.respondToInteraction}"),
+    true,
+  );
   assert.equal(appSource.includes("createActiveWorkspaceDataLoader"), true);
   assert.equal(
     appSource.includes("loadWorkspaceData: activeWorkspaceDataLoader.loadActiveWorkspaceData"),
@@ -2178,7 +2186,7 @@ async function main() {
   assert.equal(panelResizeControllerSource.includes("import React"), false);
   assert.equal(appSource.includes("createTimelineScrollController"), true);
   assert.equal(appSource.includes("timelineScrollController.syncToBottom()"), true);
-  assert.equal(appSource.includes("timelineScrollController.handleScroll()"), true);
+  assert.equal(appSource.includes("onScroll={timelineScrollController.handleScroll}"), true);
   assert.equal(appSource.includes("isAtBottomRef"), false);
   assert.equal(appSource.includes("scrollTop"), false);
   assert.equal(appSource.includes("scrollHeight"), false);

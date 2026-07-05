@@ -268,8 +268,9 @@ tracks pointer drag state, and mutates the CSS variables on the document root;
 GUI Timeline bottom-follow scrolling is owned by
 `app-runtime/timeline-scroll-controller.js`. The controller owns the
 bottom-follow state and direct scroll DOM reads/writes; `App.jsx` only supplies
-the Timeline ref, calls `syncToBottom()` after display-model changes, and
-forwards scroll events to `handleScroll()`.
+the Timeline ref, calls `syncToBottom()` after display-model changes, and wires
+`timelineScrollController.handleScroll` directly without a root forwarding
+wrapper.
 
 GUI workbench keyboard handling is owned by
 `app-runtime/workbench-keyboard-controller.js`. The controller owns the global

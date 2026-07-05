@@ -2906,7 +2906,8 @@ def test_gui_timeline_scroll_dom_logic_is_controller_owned():
 
     assert "createTimelineScrollController" in app_text
     assert "timelineScrollController.syncToBottom()" in app_text
-    assert "timelineScrollController.handleScroll()" in app_text
+    assert "onScroll={timelineScrollController.handleScroll}" in app_text
+    assert "function handleTimelineScroll" not in app_text
     assert "isAtBottomRef" not in app_text
     assert "scrollTop" not in app_text
     assert "scrollHeight" not in app_text
@@ -2915,6 +2916,15 @@ def test_gui_timeline_scroll_dom_logic_is_controller_owned():
     assert "scrollTop" in controller_text
     assert "scrollHeight" in controller_text
     assert "clientHeight" in controller_text
+
+
+def test_gui_interaction_response_bridge_does_not_keep_root_forwarders():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+
+    assert "createInteractionResponseController" in app_text
+    assert "function logEvent" not in app_text
+    assert "function respondToInteraction" not in app_text
+    assert "onRespondInteraction={interactionResponseController.respondToInteraction}" in app_text
 
 
 def test_gui_workbench_keyboard_handling_is_controller_owned():

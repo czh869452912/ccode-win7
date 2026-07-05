@@ -273,10 +273,6 @@ function App() {
     timelineScrollController,
   ]);
 
-  function handleTimelineScroll() {
-    timelineScrollController.handleScroll();
-  }
-
   const sessionListController = useMemo(
     () =>
       createSessionListController({
@@ -494,10 +490,6 @@ function App() {
     return workbenchKeyboardController.install();
   }, [workbenchKeyboardController]);
 
-  function logEvent(label, detail) {
-    dispatch({ type: "log_event", label, detail });
-  }
-
   const executeLoaderRequest = createLoaderRequestExecutor({
     loadAppBootstrap,
     loadActiveWorkspaceData,
@@ -534,14 +526,10 @@ function App() {
         getRespondingRequestIds: respondingRequestIdsHandle.read,
         setRespondingRequestIds: respondingRequestIdsHandle.set,
         loadSession,
-        logEvent,
+        logEvent: (label, detail) => dispatch({ type: "log_event", label, detail }),
       }),
     [respondingRequestIdsHandle],
   );
-
-  async function respondToInteraction(payload) {
-    await interactionResponseController.respondToInteraction(payload);
-  }
 
   const appHomeModel = useMemo(
     () => buildAppHomeModel({
@@ -646,7 +634,7 @@ function App() {
               terminationMessage={state.terminationMessage}
               turnsUsed={state.turnsUsed}
               maxTurns={state.maxTurns}
-              onScroll={handleTimelineScroll}
+              onScroll={timelineScrollController.handleScroll}
               onOpenDiff={diffSurfaceController.open}
               onOpenFile={filePreviewController.openFile}
               chrome={appChrome.timeline || {}}
@@ -670,7 +658,7 @@ function App() {
                 runtimeState.currentInteraction?.interactionId &&
                   respondingRequestIds.includes(runtimeState.currentInteraction.interactionId)
               )}
-              onRespondInteraction={respondToInteraction}
+              onRespondInteraction={interactionResponseController.respondToInteraction}
               branchToolbar={branchToolbarModel}
               onRefreshSourceControl={() => sourceControlController.loadStatus(true)}
             />

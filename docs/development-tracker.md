@@ -149,8 +149,8 @@
   cleanup for the sidebar/right-panel handles.
 - GUI Timeline bottom-follow scroll behavior now lives in
   `app-runtime/timeline-scroll-controller.js`. `App.jsx` wires the Timeline ref
-  and scroll callback but no longer owns `scrollTop`, `scrollHeight`,
-  `clientHeight`, or the old `isAtBottomRef` state.
+  and direct controller scroll handler but no longer owns `handleTimelineScroll`,
+  `scrollTop`, `scrollHeight`, `clientHeight`, or the old `isAtBottomRef` state.
 - GUI browser prompt/confirm access for thread lifecycle prompts now lives in
   `app-runtime/browser-dialog-service.js`; `App.jsx` injects the service into
   the lifecycle controller instead of calling `window.prompt` /
@@ -837,7 +837,7 @@
 - GUI turn 锚点已收口：webapp reducer 现在会给本地用户消息分配 provisional turn anchor，并在 `turn_started` 到来时整体回填，`/mode ... <message>` 这类“先命令结果、后真实 turn”链路不再把 command card 绑到伪 turn id 上
 - GUI active-session runtime 已推进到 transport-state + activity-state：GUI backend 已新增统一 `session_event` envelope 和统一的 interaction response route；S04 后已删除 `GET /api/sessions/{session_id}/events?after_seq=N` reload 信号入口，transport recovery 通过 session bootstrap reload 收口；前端当前会以 `sessionTransport + history.activities` 作为 active session 读模型骨架
 - Inspector / Timeline 交互边界已收口：Inspector 现在使用统一 `InteractionPanel` 处理当前 pending interaction，Timeline 只显示交互历史摘要，不再保留第二套 inline approve / answer 控件
-- GUI pending interaction response busy-state 已抽离到 `app-runtime/responding-request-ids-handle.js`：`App.jsx` 只保留用于渲染 composer interaction busy indicator 的 React state cell，不再维护 `respondingRequestIdsRef` 或 inline request-id normalization / update helper。
+- GUI pending interaction response busy-state 已抽离到 `app-runtime/responding-request-ids-handle.js`：`App.jsx` 只保留用于渲染 composer interaction busy indicator 的 React state cell，不再维护 `respondingRequestIdsRef`、`respondToInteraction` / `logEvent` forwarding wrapper，或 inline request-id normalization / update helper。
 - transport / restore 退化语义已补齐第一版：`ThreadsafeAsyncDispatcher` 现在会返回带 `reason` 的调度结果；`SessionRestorer` 遇到缺失可信 `interaction_id` 的 pending interaction 时会显式停在 `interaction_expired`；webapp transport state 已升级到 typed reload state
 - GUI runtime hardening 第二段已完成：transport/bootstrap recovery 现在显式区分 `reload_required / degraded`，HTTP / WebSocket 错误边界已 typed 化；当前 webapp activity runtime 接管 reload state、command-result fallback、detached turn item 排序与 session-scoped runtime reset
 - GUI runtime hardening slice 已关闭：相关设计与实施文档已归档到 `docs/archive/gui-runtime-hardening/`

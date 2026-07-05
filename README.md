@@ -137,7 +137,8 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official GUI timeline-scroll boundary: Timeline bottom-follow state and
   scrollTop/scrollHeight/clientHeight DOM logic live in
   `webapp/src/app-runtime/timeline-scroll-controller.js`; `App.jsx` wires the
-  Timeline ref and scroll callback but must not inspect or mutate Timeline
+  Timeline ref and passes `timelineScrollController.handleScroll` directly, but
+  must not keep a `handleTimelineScroll` wrapper or inspect/mutate Timeline
   scroll fields directly.
 - Official GUI backend route boundary: `server.py` is the GUI backend composition root; HTTP route families live in `routes_app.py`, `routes_sessions.py`, `routes_terminal.py`, `routes_source_control.py`, and `routes_preview.py`. New route families should be delegated through focused modules rather than concentrated back into `server.py`.
 - Official GUI thread lifecycle boundary: GUI `rename`, `fork`, and `archive` actions flow through the session lifecycle facade and update session summary/projection metadata for app thread lists; action labels, disabled reason labels, and prompt/confirm/success/empty/failure copy come from app-shell action descriptors. Missing action labels remove actions from the visible rail, and missing notice copy remains absent rather than synthesized from action ids or labels. Lifecycle actions do not rewrite transcript history, own workflow state, activate tools, decide permissions, load extensions, or create source-control checkpoints.
