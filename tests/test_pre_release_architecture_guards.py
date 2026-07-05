@@ -2043,8 +2043,11 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert '_dispatch("command_palette.open")' in app_shell_spec_text
     assert '_dispatch("workspace.focus_path_input")' in app_shell_spec_text
     assert '_dispatch("session.create")' in app_shell_spec_text
+    assert '_dispatch("terminal.ensure_open")' in app_shell_spec_text
     assert "command.dispatch" in controller_text
+    assert 'case "terminal.ensure_open"' in controller_text
     assert "switch (command.id)" not in controller_text
+    assert 'command.drawer === "terminal"' not in controller_text
     assert "if (allowed === null) return ordered" not in _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js"
     )

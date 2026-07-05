@@ -158,12 +158,14 @@ export function runWorkbenchStateTests() {
           title: "Terminal",
           description: "Open a terminal descriptor.",
           commandLabel: "Show Terminal",
+          dispatch: { kind: "terminal.ensure_open" },
           launcherOrder: 10,
         },
       ],
     },
   });
   assert.equal(describedDrawerCommands[0].description, "Open a terminal descriptor.");
+  assert.deepEqual(describedDrawerCommands[0].dispatch, { kind: "terminal.ensure_open" });
   assert.equal(surfaceDefinitionFor("preview", fullAppCapabilities).title, "Preview");
   for (const definition of registryDefinitions) {
     assert.equal(definition.placement, "right");

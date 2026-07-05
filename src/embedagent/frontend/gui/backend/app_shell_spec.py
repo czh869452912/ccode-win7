@@ -726,6 +726,7 @@ def default_app_shell_spec() -> AppShellSpec:
                 description="Use a shell in this workspace.",
                 command=True,
                 command_label="Open Terminal",
+                dispatch=_dispatch("terminal.ensure_open"),
                 visible_when="has_session",
                 close_behavior="pinned",
             ),

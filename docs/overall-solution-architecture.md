@@ -61,7 +61,10 @@ dynamic slash commands must provide explicit `label`, `usage`, or `slash`
 metadata, and command-palette rows must not fall back to command ids for
 titles. Built-in GUI shell command execution is also descriptor-owned through
 `dispatch.kind`; renderer controllers do not switch on fixed command ids to
-infer actions. Commands in undeclared or untitled palette groups remain hidden
+infer actions. Bottom-drawer surface commands may carry the same
+dispatch descriptors; the Terminal drawer opens through
+`terminal.ensure_open`, not through a renderer branch on the drawer kind.
+Commands in undeclared or untitled palette groups remain hidden
 rather than using title-cased group ids, and missing command row description/meta copy
 remains empty instead of falling back to command ids. Surface command row
 descriptions come from surface descriptors rather than surface/drawer ids.
@@ -151,7 +154,9 @@ offline deployment; it is not a full PTY and does not introduce ConPTY,
 or online-service dependencies. Terminal buffers are GUI-local display state
 only and must not become transcript history, workflow state, telemetry,
 permission policy, runtime reducer truth, source-control checkpoints, or Agent
-Core behavior.
+Core behavior. The Terminal drawer command is an app-shell surface descriptor
+with `dispatch.kind: terminal.ensure_open`; drawer kind alone has no
+terminal-specific execution semantics.
 
 The GUI Source Control right-panel is another app-shell hosted surface.
 `GUIBackend` owns an active-workspace-bound `SourceControlService` that invokes

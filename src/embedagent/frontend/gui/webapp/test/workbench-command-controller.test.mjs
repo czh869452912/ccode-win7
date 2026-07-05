@@ -43,6 +43,7 @@ export async function runWorkbenchCommandControllerTests() {
   await harness.controller.execute({ id: "custom.reload", dispatch: { kind: "app_shell.reload" } });
   await harness.controller.execute({ id: "custom.remove", dispatch: { kind: "workspace.remove_active_recent" } });
   await harness.controller.execute({ id: "custom.mode", dispatch: { kind: "mode.set", mode: "verify" } });
+  await harness.controller.execute({ id: "custom.terminal", dispatch: { kind: "terminal.ensure_open" } });
 
   assert.deepEqual(harness.actions, [{ type: "workbench_command_palette_opened" }]);
   assert.deepEqual(harness.focusedSelectors, ['[data-testid="sidebar-workspace-path-input"]']);
@@ -52,15 +53,18 @@ export async function runWorkbenchCommandControllerTests() {
     ["loadAppBootstrap"],
     ["removeWorkspace", "workspace-1"],
     ["setMode", "verify"],
+    ["ensureTerminal"],
   ]);
 
   const fallbackHarness = createHarness();
   await fallbackHarness.controller.execute({ id: "custom.surface", surface: "preview", label: "Preview" });
   await fallbackHarness.controller.execute({ id: "custom.drawer", drawer: "terminal" });
   await fallbackHarness.controller.execute({ id: "custom.slash", slash: "/review" });
+  assert.deepEqual(fallbackHarness.actions, [
+    { type: "workbench_surface_activated", placement: "bottom", kind: "terminal" },
+  ]);
   assert.deepEqual(fallbackHarness.calls, [
     ["openSurface", "preview", "Preview"],
-    ["ensureTerminal"],
     ["submitText", "/review"],
   ]);
 }

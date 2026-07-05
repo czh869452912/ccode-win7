@@ -197,6 +197,7 @@ function normalizeSurfaceCapabilityRecord(input, placement, index) {
     readOnly: input.readOnly === true || input.read_only === true,
     offline: input.offline === true,
     keywords: normalizeKeywords(input.keywords),
+    dispatch: input.dispatch && typeof input.dispatch === "object" ? { ...input.dispatch } : {},
   };
 }
 
@@ -251,6 +252,9 @@ function mergedSurfaceDefinition(definition, capability) {
     readOnly: capability.readOnly || definition.readOnly === true,
     offline: capability.offline || definition.offline === true,
     keywords: Object.freeze(Array.from(new Set(capability.keywords || []))),
+    dispatch: capability.dispatch && typeof capability.dispatch === "object"
+      ? { ...capability.dispatch }
+      : {},
   };
 }
 
@@ -319,6 +323,9 @@ export function bottomDrawerCommandDefinitions(appCapabilities = null) {
       description: definition.description,
       slash: definition.slash || "",
       drawer: definition.kind,
+      dispatch: definition.dispatch && typeof definition.dispatch === "object"
+        ? { ...definition.dispatch }
+        : {},
       visibleWhen: definition.visibleWhen || "always",
       ...(definition.keywords.length > 0 ? { keywords: Array.from(definition.keywords) } : {}),
     }));

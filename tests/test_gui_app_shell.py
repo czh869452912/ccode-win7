@@ -606,6 +606,15 @@ class TestGuiAppShellService(unittest.TestCase):
             item["id"] for item in payload["capabilities"]["surfaces"]["bottom_drawer"]
         ]
         self.assertIn("terminal", bottom_drawer_surfaces)
+        terminal_bottom_drawer = next(
+            item
+            for item in payload["capabilities"]["surfaces"]["bottom_drawer"]
+            if item["id"] == "terminal"
+        )
+        self.assertEqual(
+            terminal_bottom_drawer["dispatch"],
+            {"kind": "terminal.ensure_open"},
+        )
         self.assertTrue(payload["settings"]["confirm_workspace_switch"])
         self.assertIn("host", payload["diagnostics"])
         self.assertIn("runtime", payload["diagnostics"])

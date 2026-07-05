@@ -66,6 +66,9 @@ export function createWorkbenchCommandController({
       case "workbench.toggle_bottom_drawer":
         dispatch({ type: "workbench_bottom_drawer_toggled" });
         return;
+      case "terminal.ensure_open":
+        await terminalController.ensureOpen();
+        return;
       default:
         break;
     }
@@ -74,10 +77,6 @@ export function createWorkbenchCommandController({
       return;
     }
     if (command.drawer) {
-      if (command.drawer === "terminal") {
-        await terminalController.ensureOpen();
-        return;
-      }
       dispatch({ type: "workbench_surface_activated", placement: "bottom", kind: command.drawer });
       return;
     }

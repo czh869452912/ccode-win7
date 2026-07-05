@@ -1087,7 +1087,9 @@ async function main() {
   );
   assert.equal(workbenchCommandControllerSource.includes("export function createWorkbenchCommandController"), true);
   assert.equal(workbenchCommandControllerSource.includes("command.dispatch"), true);
+  assert.equal(workbenchCommandControllerSource.includes('case "terminal.ensure_open"'), true);
   assert.equal(workbenchCommandControllerSource.includes("switch (command.id)"), false);
+  assert.equal(workbenchCommandControllerSource.includes('command.drawer === "terminal"'), false);
   assert.equal(workbenchCommandControllerSource.includes('case "app.settings"'), false);
   assert.equal(workbenchCommandControllerSource.includes('case "app.diagnostics"'), false);
   assert.equal(workbenchCommandControllerSource.includes('case "app.source_control"'), false);

@@ -366,6 +366,7 @@ function normalizeSurfaceCapability(input = {}, placement = "right") {
     readOnly: input.read_only === true || input.readOnly === true,
     offline: input.offline === true,
     keywords: normalizeStringList(input.keywords),
+    dispatch: input.dispatch && typeof input.dispatch === "object" ? { ...input.dispatch } : {},
   };
 }
 

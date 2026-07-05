@@ -665,7 +665,12 @@ export function runAppShellModelTests() {
           surface("diagnostics", "Diagnostics", { launcher_order: 20 }),
           surface("source_control", "Source Control", { launcher_order: 30 }),
         ],
-        bottom_drawer: [surface("terminal", "Terminal", { launcher_order: 10 })],
+        bottom_drawer: [
+          surface("terminal", "Terminal", {
+            launcher_order: 10,
+            dispatch: { kind: "terminal.ensure_open" },
+          }),
+        ],
       },
       keybindings: [
         { key: "MOD+K", command_id: "palette.open", when: "not_palette" },
@@ -1124,6 +1129,9 @@ export function runAppShellModelTests() {
     bootstrap.capabilities.surfaces.bottomDrawer.map((item) => item.kind),
     ["terminal"],
   );
+  assert.deepEqual(bootstrap.capabilities.surfaces.bottomDrawer[0].dispatch, {
+    kind: "terminal.ensure_open",
+  });
   assert.equal(bootstrap.capabilities.terminal.chrome.titlePrefix, "Shell");
   assert.equal(bootstrap.capabilities.terminal.chrome.newLabel, "New shell");
   assert.equal(bootstrap.capabilities.terminal.chrome.openFailedNotice, "Shell failed to open.");

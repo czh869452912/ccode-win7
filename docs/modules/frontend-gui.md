@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-04`
+> 最后同步日期：`2026-07-05`
 > 对应代码范围：`src/embedagent/frontend/gui/`
 
 ## 1. Purpose And Scope
@@ -357,6 +357,9 @@ instead of using title-cased group ids, and missing command row
 description/meta copy remains empty instead of falling back to command ids.
 Built-in GUI shell command execution uses descriptor-owned `dispatch.kind`
 records; the controller must not switch on fixed command ids to infer actions.
+Surface command rows may carry the same descriptor-owned dispatch records; the
+Terminal bottom-drawer command uses `terminal.ensure_open`, so renderer code
+must not treat `drawer: "terminal"` as a special execution policy.
 Surface command row descriptions are passed through from surface descriptors
 rather than generated from surface or drawer ids. Session/workspace palette row
 leading markers are descriptor-owned and empty when absent. Command-palette
@@ -384,7 +387,10 @@ telemetry, workflow state, source-control checkpoints, or Agent Core reducers.
 Terminal labels, notices, toolbar actions, placeholders, empty states, and
 failure copy are declared under `/api/app/bootstrap`
 `capabilities.terminal.chrome`; renderer terminal modules may consume that
-chrome but must not keep a second terminal string registry.
+chrome but must not keep a second terminal string registry. The Terminal drawer
+open command is declared on the bottom-drawer surface descriptor with
+`dispatch.kind: terminal.ensure_open`; plain drawer activation remains generic
+bottom-surface state, not a terminal-specific branch.
 
 The Source Control right-panel and composer Branch Toolbar are GUI app-shell
 hosted surfaces implemented by `backend/source_control_service.py`,
