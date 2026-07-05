@@ -24,20 +24,24 @@ export function createRightPanelController({
 }) {
   function openSurface(kind, title = "") {
     const surfaceKind = String(kind || "");
-    if (surfaceKind === "file") return;
-    if (surfaceKind === "terminal") {
-      void terminalController.openRightPanelSurface();
-      return;
-    }
     const appCapabilities = getAppCapabilities();
     const definition = surfaceDefinitionFor(surfaceKind, appCapabilities);
-    dispatch({
-      type: "workbench_surface_opened",
-      placement: "right",
-      kind: surfaceKind,
-      title: rightPanelSurfaceTitle(surfaceKind, title, appCapabilities),
-      resourceId: definition?.defaultResourceId || "",
-    });
+    switch (definition ? definition.openKind : "") {
+      case "terminal.right_panel":
+        void terminalController.openRightPanelSurface();
+        return;
+      case "workbench.surface":
+        dispatch({
+          type: "workbench_surface_opened",
+          placement: "right",
+          kind: surfaceKind,
+          title: rightPanelSurfaceTitle(surfaceKind, title, appCapabilities),
+          resourceId: definition?.defaultResourceId || "",
+        });
+        return;
+      default:
+        return;
+    }
   }
 
   return {

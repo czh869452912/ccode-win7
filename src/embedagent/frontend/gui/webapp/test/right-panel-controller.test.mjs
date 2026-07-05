@@ -17,6 +17,15 @@ const APP_CAPABILITIES = Object.freeze({
         launcherOrder: 10,
         command: true,
       },
+      {
+        id: "terminal",
+        kind: "terminal",
+        title: "Terminal",
+        commandLabel: "Open terminal",
+        launcher: true,
+        launcherOrder: 20,
+        command: true,
+      },
     ],
   },
 });
@@ -44,4 +53,11 @@ export function runRightPanelControllerTests() {
   assert.equal(actions[0].type, "workbench_surface_opened");
   assert.equal(actions[0].kind, "preview");
   assert.equal(actions[0].title, "Live View");
+
+  controller.openSurface("terminal", "Terminal");
+  assert.equal(actions.length, 2);
+  assert.equal(actions[1].type, "terminal_opened");
+
+  controller.openSurface("file", "File");
+  assert.equal(actions.length, 2);
 }

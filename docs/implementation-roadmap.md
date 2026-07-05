@@ -152,6 +152,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `command_palette.labels` rather than renderer-local platform-label defaults;
   right-panel surface open titles prefer the active surface descriptor and are
   no longer derived by stripping English command label prefixes;
+  right-panel surface open behavior is selected by renderer-local `openKind`
+  metadata rather than fixed surface-id branches in the controller;
   bottom-drawer surface commands may also carry descriptor-owned dispatch
   records, and the Terminal drawer opens through `terminal.ensure_open` rather
   than a renderer branch on `drawer: "terminal"`;

@@ -378,6 +378,9 @@ Shortcut key display labels and separators are descriptor-owned through
 Opening a right-panel surface uses the declared surface title before any caller
 fallback; renderer controllers must not strip English command prefixes to
 invent surface titles.
+Right-panel surface open behavior is renderer-local `openKind` metadata on
+supported surface definitions; the terminal right-panel session path is selected
+from that metadata rather than from a fixed `terminal` surface-id branch.
 Surface descriptor records that omit `title` remain capability diagnostics and
 do not enter visible launchers or commands; renderer helpers must not fall back
 to surface kind/id strings for tab or launcher titles. Resource surface helper

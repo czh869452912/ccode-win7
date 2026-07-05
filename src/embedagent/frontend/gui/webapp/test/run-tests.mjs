@@ -1079,8 +1079,11 @@ async function main() {
   assert.equal(rightPanelControllerSource.includes('return "File"'), false);
   assert.equal(rightPanelControllerSource.includes("getAppCapabilities"), true);
   assert.equal(rightPanelControllerSource.includes("surfaceDefinitionFor(surfaceKind, appCapabilities)"), true);
+  assert.equal(rightPanelControllerSource.includes("definition.openKind"), true);
   assert.equal(rightPanelControllerSource.includes("rightPanelSurfaceTitle(surfaceKind, title, appCapabilities)"), true);
   assert.equal(rightPanelControllerSource.includes("terminalController.openRightPanelSurface"), true);
+  assert.equal(rightPanelControllerSource.includes('surfaceKind === "file"'), false);
+  assert.equal(rightPanelControllerSource.includes('surfaceKind === "terminal"'), false);
   assert.equal(rightPanelControllerSource.includes('type: "set_inspector"'), false);
   assert.equal(rightPanelControllerSource.includes("import React"), false);
   const workbenchCommandControllerSource = fs.readFileSync(

@@ -44,6 +44,36 @@
 
 ## 3. 当前变更记录
 
+### DC-279
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel surface open behavior uses renderer metadata
+- Summary:
+  - Added renderer-local `openKind` metadata to right-panel surface registry
+    records.
+  - `createRightPanelController().openSurface(...)` now uses
+    `definition.openKind` to decide between generic workbench surface opening
+    and terminal right-panel session creation.
+  - Frontend and architecture guards now prevent the controller from branching
+    on fixed surface ids such as `surfaceKind === "terminal"` or `"file"`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/right-panel-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New right-panel open behaviors must add explicit renderer metadata instead
+    of adding surface-id conditionals to the controller.
+
 ### DC-278
 
 - Date: 2026-07-05

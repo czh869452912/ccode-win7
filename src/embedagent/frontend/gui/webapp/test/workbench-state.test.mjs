@@ -193,6 +193,9 @@ export function runWorkbenchStateTests() {
   assert.equal(surfaceDefinitionFor("preview").bodyKind, "preview");
   assert.equal(surfaceDefinitionFor("terminal").bodyKind, "terminal");
   assert.equal(surfaceDefinitionFor("settings").bodyKind, "surface_panel");
+  assert.equal(surfaceDefinitionFor("preview").openKind, "workbench.surface");
+  assert.equal(surfaceDefinitionFor("terminal").openKind, "terminal.right_panel");
+  assert.equal(surfaceDefinitionFor("file").openKind, "");
   assert.equal(surfaceDefinitionFor("diff").panelKind, "diff");
   assert.equal(surfaceDefinitionFor("plan").panelKind, "plan");
   assert.equal(surfaceDefinitionFor("source_control").panelKind, "source_control");
