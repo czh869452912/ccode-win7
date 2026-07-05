@@ -53,7 +53,8 @@ and keybindings are backend-declared descriptor records rather than bare string 
 command-palette group titles/descriptions/order and palette labels/placeholders
 are also app-shell descriptors. Right-panel chrome copy, tab action labels,
 aria labels, empty-state text, and default surface icon fallback come from
-`capabilities.surfaces.chrome`.
+`capabilities.surfaces.chrome`; File Preview breadcrumb aria text and markdown
+mode glyphs are part of the same app-shell chrome contract.
 Workbench command labels are visible descriptors too: app/workspace/workbench
 commands without explicit labels are omitted from visible command entrypoints,
 dynamic slash commands must provide explicit `label`, `usage`, or `slash`

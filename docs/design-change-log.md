@@ -44,6 +44,38 @@
 
 ## 3. 当前变更记录
 
+### DC-273
+
+- Date: 2026-07-05
+- Change Topic: GUI File Preview mode chrome is app-shell declared
+- Summary:
+  - Added `breadcrumb_aria_label`, `markdown_source_glyph`, and
+    `markdown_preview_glyph` to the default `file_preview` app-shell chrome
+    payload.
+  - The React app-shell normalizer preserves those fields and
+    `FilePreviewSurface` consumes them for breadcrumb accessibility text and
+    markdown mode button glyphs instead of hard-coding `File path`, `C`, or
+    `P`.
+  - Added frontend and Python guards so File Preview chrome cannot regain
+    renderer-local visible copy or mode symbols.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/FilePreviewSurface.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue scanning GUI chrome-only symbols and dev fixtures for app-shell
+    ownership where they affect visible shell behavior.
+
 ### DC-272
 
 - Date: 2026-07-05

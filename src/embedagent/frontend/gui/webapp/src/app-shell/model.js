@@ -416,11 +416,20 @@ function normalizeFilePreviewChrome(input = {}) {
     copyPathTitleTemplate: String(
       value.copy_path_title_template || value.copyPathTitleTemplate || "",
     ),
+    breadcrumbAriaLabel: String(
+      value.breadcrumb_aria_label || value.breadcrumbAriaLabel || "",
+    ),
     showMarkdownSourceLabel: String(
       value.show_markdown_source_label || value.showMarkdownSourceLabel || "",
     ),
     showRenderedMarkdownLabel: String(
       value.show_rendered_markdown_label || value.showRenderedMarkdownLabel || "",
+    ),
+    markdownSourceGlyph: String(
+      value.markdown_source_glyph || value.markdownSourceGlyph || "",
+    ),
+    markdownPreviewGlyph: String(
+      value.markdown_preview_glyph || value.markdownPreviewGlyph || "",
     ),
     showFileExplorerLabel: String(
       value.show_file_explorer_label || value.showFileExplorerLabel || "",

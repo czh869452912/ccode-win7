@@ -31,7 +31,11 @@ function lineCountLabel(count, chrome = {}) {
 function FilePreviewBreadcrumbs({ projectName, filePath, filePreviewChrome }) {
   const crumbs = fileBreadcrumbs(projectName, filePath, filePreviewChrome);
   return (
-    <nav className="file-preview-breadcrumbs" data-testid="file-preview-breadcrumbs" aria-label="File path">
+    <nav
+      className="file-preview-breadcrumbs"
+      data-testid="file-preview-breadcrumbs"
+      aria-label={filePreviewChrome.breadcrumbAriaLabel || ""}
+    >
       {crumbs.map((crumb, index) => (
         <span
           key={crumb.path || `crumb-${index}`}
@@ -126,6 +130,9 @@ export default function FilePreviewSurface({
   const markdownToggleLabel = showPreview
     ? filePreviewChrome.showMarkdownSourceLabel
     : filePreviewChrome.showRenderedMarkdownLabel;
+  const markdownToggleGlyph = showPreview
+    ? filePreviewChrome.markdownSourceGlyph
+    : filePreviewChrome.markdownPreviewGlyph;
   const revealLine = fileRevealLine(content, surface?.revealLine);
   const revealRequestId = surface?.revealRequestId || 0;
   const handleCopyPath = () => {
@@ -168,7 +175,7 @@ export default function FilePreviewSurface({
               setMode(showPreview ? FILE_PREVIEW_MODES.CODE : FILE_PREVIEW_MODES.PREVIEW)
             }
           >
-            {showPreview ? "C" : "P"}
+            {markdownToggleGlyph}
           </button>
         ) : null}
         <button

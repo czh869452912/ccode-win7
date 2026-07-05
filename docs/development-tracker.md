@@ -133,9 +133,10 @@
 - File Preview right-panel chrome now comes from
   `capabilities.surfaces.chrome.file_preview`: default file/project labels,
   loading/error fallback copy, retry/copy/explorer actions, metadata
-  separators, line labels, language labels, and file-surface fallback tab title
-  copy are backend-declared descriptors consumed by the file-preview model,
-  right-panel controller, and surface.
+  separators, breadcrumb aria text, markdown mode glyphs, line labels,
+  language labels, and file-surface fallback tab title copy are
+  backend-declared descriptors consumed by the file-preview model, right-panel
+  controller, and surface.
 - Diff right-panel chrome now comes from
   `capabilities.surfaces.chrome.diff_panel`: default titles, empty-state copy,
   controls, file rail labels, collapse labels, and source-control diff title

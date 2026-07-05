@@ -1656,6 +1656,9 @@ async function main() {
   assert.equal(filePreviewSurfaceSource.includes("onOpenFilesSurface"), true);
   assert.equal(filePreviewSurfaceSource.includes("filePreviewChrome"), true);
   assert.equal(filePreviewSurfaceSource.includes("filePreviewChrome.loadingMessage"), true);
+  assert.equal(filePreviewSurfaceSource.includes("filePreviewChrome.breadcrumbAriaLabel"), true);
+  assert.equal(filePreviewSurfaceSource.includes("filePreviewChrome.markdownSourceGlyph"), true);
+  assert.equal(filePreviewSurfaceSource.includes("filePreviewChrome.markdownPreviewGlyph"), true);
   for (const hardcodedFilePreviewCopy of [
     "Loading file...",
     "File unavailable",
@@ -1664,6 +1667,8 @@ async function main() {
     "Show markdown source",
     "Show rendered markdown",
     "Show file explorer",
+    'aria-label="File path"',
+    '{showPreview ? "C" : "P"}',
     ", ${meta.lineCount} lines",
   ]) {
     assert.equal(filePreviewSurfaceSource.includes(hardcodedFilePreviewCopy), false);

@@ -210,8 +210,11 @@ export function runAppShellModelTests() {
       unavailableMessage: "",
       retryLabel: "",
       copyPathTitleTemplate: "",
+      breadcrumbAriaLabel: "",
       showMarkdownSourceLabel: "",
       showRenderedMarkdownLabel: "",
+      markdownSourceGlyph: "",
+      markdownPreviewGlyph: "",
       showFileExplorerLabel: "",
       metadataSeparator: "",
       lineSingularLabel: "",
@@ -604,8 +607,11 @@ export function runAppShellModelTests() {
             unavailable_message: "Document unavailable",
             retry_label: "Reload file",
             copy_path_title_template: "Copy path for {title}",
+            breadcrumb_aria_label: "Document path",
             show_markdown_source_label: "Show source",
             show_rendered_markdown_label: "Show preview",
+            markdown_source_glyph: "S",
+            markdown_preview_glyph: "V",
             show_file_explorer_label: "Open explorer",
             metadata_separator: " | ",
             line_singular_label: "row",
@@ -1059,6 +1065,9 @@ export function runAppShellModelTests() {
     bootstrap.capabilities.surfaces.chrome.filePreview.copyPathTitleTemplate,
     "Copy path for {title}",
   );
+  assert.equal(bootstrap.capabilities.surfaces.chrome.filePreview.breadcrumbAriaLabel, "Document path");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.filePreview.markdownSourceGlyph, "S");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.filePreview.markdownPreviewGlyph, "V");
   assert.equal(bootstrap.capabilities.surfaces.chrome.filePreview.languageLabels.markdown, "Markdown doc");
   assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.defaultTitle, "Patch");
   assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.emptyMessage, "No patch selected.");

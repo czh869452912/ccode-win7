@@ -238,8 +238,8 @@ display is turn-associated display metadata, not Agent Core context policy.
   available; the explorer action opens the existing right-panel `FilesSurface`.
   They do not call external editors, mutate source control, or require Electron.
 - File Preview labels, loading/error fallback copy, retry/copy/explorer action
-  copy, metadata separators, line labels, default file/project labels, and
-  language labels are declared under `/api/app/bootstrap`
+  copy, breadcrumb aria text, markdown mode glyphs, metadata separators, line
+  labels, default file/project labels, and language labels are declared under `/api/app/bootstrap`
   `capabilities.surfaces.chrome.file_preview`; renderer file-preview modules
   may consume that chrome but must not keep parallel English defaults.
 - This is GUI app-shell display/read-model work only: it renders existing file

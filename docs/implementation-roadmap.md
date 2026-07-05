@@ -209,8 +209,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   titles are not synthesized from surface kind/id values. Resource surface
   helper titles use only instance data such as file basenames, preview ids/URLs,
   and terminal ids; missing preview instance data does not create a fallback
-  tab. Diff workbench tab titles come from explicit diff payload titles or the
-  app-shell surface descriptor rather than a renderer `"diff"` fallback
+  tab. File Preview breadcrumb aria text and markdown mode glyphs also come
+  from `surfaces.chrome.file_preview` instead of renderer defaults. Diff
+  workbench tab titles come from explicit diff payload titles or the app-shell
+  surface descriptor rather than a renderer `"diff"` fallback
 - GUI workbench session/message/view/palette command entries now come from
   app-shell `workbench_commands` descriptors; the renderer no longer owns a
   `LOCAL_COMMANDS` list, commands without visible labels are omitted instead of

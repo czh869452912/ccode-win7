@@ -1618,6 +1618,9 @@ def test_gui_file_preview_copy_is_app_shell_declared():
 
     assert '"file_preview": {' in spec_text
     assert '"loading_message": "Loading file..."' in spec_text
+    assert '"breadcrumb_aria_label": "File path"' in spec_text
+    assert '"markdown_source_glyph": "C"' in spec_text
+    assert '"markdown_preview_glyph": "P"' in spec_text
     assert "normalizeFilePreviewChrome" in model_text
     assert "filePreview: normalizeFilePreviewChrome" in model_text
     assert "filePreviewChrome.unavailableMessage" in app_text
@@ -1626,6 +1629,9 @@ def test_gui_file_preview_copy_is_app_shell_declared():
     assert 'replace(/^Open\\s+/i, "")' not in right_panel_controller_text
     assert "filePreviewChrome={filePreviewChrome}" in surface_body_text
     assert "filePreviewChrome" in file_preview_surface_text
+    assert "filePreviewChrome.breadcrumbAriaLabel" in file_preview_surface_text
+    assert "filePreviewChrome.markdownSourceGlyph" in file_preview_surface_text
+    assert "filePreviewChrome.markdownPreviewGlyph" in file_preview_surface_text
     assert "chrome.languageLabels" in file_preview_model_text
 
     for hardcoded_copy in (
@@ -1635,6 +1641,8 @@ def test_gui_file_preview_copy_is_app_shell_declared():
         '"Show markdown source"',
         '"Show rendered markdown"',
         '"Show file explorer"',
+        '"File path"',
+        '{showPreview ? "C" : "P"}',
     ):
         assert hardcoded_copy not in app_text
         assert hardcoded_copy not in store_text
