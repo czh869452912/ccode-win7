@@ -55,6 +55,7 @@ import { runPreviewSurfaceModelTests } from "./preview-surface-model.test.mjs";
 import { runPreviewSurfaceSourceTests } from "./preview-surface-source.test.mjs";
 import { runPreviewApiTests } from "./preview-api.test.mjs";
 import { runRightPanelStoreParityTests } from "./right-panel-store-parity.test.mjs";
+import { runRightPanelControllerTests } from "./right-panel-controller.test.mjs";
 import { runRightPanelTabsSourceTests } from "./right-panel-tabs-source.test.mjs";
 import { runTerminalShellSourceTests } from "./terminal-shell-source.test.mjs";
 import { runThreadStateTests } from "./thread-state.test.mjs";
@@ -1070,6 +1071,7 @@ async function main() {
   );
   assert.equal(rightPanelControllerSource.includes("export function createRightPanelController"), true);
   assert.equal(rightPanelControllerSource.includes("rightPanelSurfaceTitle"), true);
+  assert.equal(rightPanelControllerSource.includes('replace(/^Open\\s+/i, "")'), false);
   assert.equal(rightPanelControllerSource.includes("fileSurfaceTitle(path, filePreviewChrome"), true);
   assert.equal(rightPanelControllerSource.includes('return "File"'), false);
   assert.equal(rightPanelControllerSource.includes("getAppCapabilities"), true);
@@ -1793,6 +1795,7 @@ async function main() {
   runWorkbenchParityModelTests();
   runWorkbenchUiStateTests();
   runRightPanelTabsSourceTests();
+  runRightPanelControllerTests();
   runRightPanelStoreParityTests();
   runAppShellModelTests();
   runAppWorkspaceTests();

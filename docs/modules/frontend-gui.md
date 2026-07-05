@@ -80,6 +80,8 @@ synthesized from surface or drawer ids. Session/workspace palette row leading
 markers come from command-palette label descriptors and remain empty when
 absent. Command-palette group leading markers come from explicit group
 descriptors and are not synthesized from group titles.
+Right-panel surface open titles are descriptor-first as well: the renderer does
+not parse English command labels such as `Open ...` to derive panel titles.
 Command-result run-output log labels are likewise payload-driven through
 fields such as `log_label` / `log_detail`; the socket effects module must not
 derive visible bottom-drawer log copy from slash command names or success
@@ -354,6 +356,9 @@ Surface command row descriptions are passed through from surface descriptors
 rather than generated from surface or drawer ids. Session/workspace palette row
 leading markers are descriptor-owned and empty when absent. Command-palette
 group leading markers are also descriptor-owned.
+Opening a right-panel surface uses the declared surface title before any caller
+fallback; renderer controllers must not strip English command prefixes to
+invent surface titles.
 Surface descriptor records that omit `title` remain capability diagnostics and
 do not enter visible launchers or commands; renderer helpers must not fall back
 to surface kind/id strings for tab or launcher titles. Resource surface helper

@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-271
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel surface titles are descriptor-first
+- Summary:
+  - `rightPanelSurfaceTitle` now prefers the active app-shell surface
+    descriptor `title` and uses the caller fallback only when no descriptor
+    title exists.
+  - Removed the renderer-local English `Open ...` command-label stripping
+    heuristic from the right-panel controller.
+  - Added frontend and Python guards so surface opening cannot derive panel
+    titles by parsing command copy.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/right-panel-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue removing renderer-local visible-copy heuristics where app-shell
+    descriptors already carry the display contract.
+
 ### DC-270
 
 - Date: 2026-07-05

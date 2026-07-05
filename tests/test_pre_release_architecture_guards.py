@@ -1615,6 +1615,7 @@ def test_gui_file_preview_copy_is_app_shell_declared():
     assert "filePreviewChrome.unavailableMessage" in app_text
     assert "fileSurfaceTitle(filePath, filePreviewChrome)" in app_text
     assert "fileSurfaceTitle(path, filePreviewChrome" in right_panel_controller_text
+    assert 'replace(/^Open\\s+/i, "")' not in right_panel_controller_text
     assert "filePreviewChrome={filePreviewChrome}" in surface_body_text
     assert "filePreviewChrome" in file_preview_surface_text
     assert "chrome.languageLabels" in file_preview_model_text

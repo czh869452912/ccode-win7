@@ -124,6 +124,9 @@
   descriptor: `RightPanelSurfaceBody.jsx` passes the surface record into
   `FilesSurface.jsx`, and the panel header no longer hard-codes the default
   Files copy.
+- Right-panel surface opening now prefers the active app-shell surface
+  descriptor title and no longer strips English command-label prefixes to
+  invent panel titles.
 - File Preview right-panel chrome now comes from
   `capabilities.surfaces.chrome.file_preview`: default file/project labels,
   loading/error fallback copy, retry/copy/explorer actions, metadata

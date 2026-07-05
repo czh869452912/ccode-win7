@@ -69,7 +69,9 @@ titles.
 Labels, descriptions, icon keys, command/slash metadata, ordering, visibility,
 and read-only/offline hints come from the app shell. Surface-owned panel
 headings, including the right-panel Files surface header, use the active
-surface descriptor title rather than renderer-local defaults. Surface
+surface descriptor title rather than renderer-local defaults. Opening a
+right-panel surface also uses the declared surface title instead of parsing
+command labels such as `Open ...`. Surface
 capability records without explicit app-shell titles remain diagnostics only;
 they do not become visible launchers or surface commands, and the renderer does
 not derive titles from surface kind/id strings. Resource surface helper titles

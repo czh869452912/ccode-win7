@@ -1,9 +1,9 @@
-import { surfaceDefinitionFor, titleForSurfaceKind } from "../workbench/surfaces.js";
+import { surfaceDefinitionFor } from "../workbench/surfaces.js";
 
 export function rightPanelSurfaceTitle(kind, fallback = "", appCapabilities = null) {
-  const label = String(fallback || "").replace(/^Open\s+/i, "").trim();
-  if (label) return label;
-  return titleForSurfaceKind(kind, appCapabilities);
+  const definition = surfaceDefinitionFor(kind, appCapabilities);
+  const descriptorTitle = String(definition?.title || "").trim();
+  return descriptorTitle || String(fallback || "").trim();
 }
 
 export function normalizeFileSurfacePath(path) {

@@ -148,6 +148,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   descriptors and remain empty when absent;
   command-palette group leading markers come from explicit group descriptors
   and are not synthesized from group titles;
+  right-panel surface open titles prefer the active surface descriptor and are
+  no longer derived by stripping English command label prefixes;
   surface descriptors without explicit titles remain
   diagnostic capability records and do not enter visible launchers or surface
   commands; persisted workbench surface state is also re-sanitized
