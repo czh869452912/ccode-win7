@@ -168,8 +168,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   delegated to `preview-controller.js`, which preflights the same semantic
   Preview capability before invoking preview routes; Source
   Control status/diff callers similarly require the active app-shell Source
-  Control capability before invoking source-control routes; Terminal service
-  calls require the active app-shell Terminal capability before invoking
+  Control capability before invoking source-control routes; timeline/manual
+  Diff surface opening is delegated to `diff-surface-controller.js` instead of
+  `App.jsx` constructing diff surface state directly; Terminal service calls
+  require the active app-shell Terminal capability before invoking
   terminal routes or pane attachment side effects;
   right-panel tab activation side effects are selected by renderer-local
   `activationKind` metadata through

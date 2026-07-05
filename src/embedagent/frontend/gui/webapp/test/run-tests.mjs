@@ -12,6 +12,7 @@ import {
   resolveVisiblePermission,
 } from "../src/state-helpers.js";
 import { runDiffModelTests } from "./diff-model.test.mjs";
+import { runDiffSurfaceControllerTests } from "./diff-surface-controller.test.mjs";
 import { runInteractionModelTests } from "./interaction-model.test.mjs";
 import { runActivityStateTests } from "./activity-state.test.mjs";
 import { runSessionRuntimeTests } from "./session-runtime.test.mjs";
@@ -1111,6 +1112,10 @@ async function main() {
     webappSourcePath("app-runtime", "preview-controller.js"),
     "utf8",
   );
+  const diffSurfaceControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "diff-surface-controller.js"),
+    "utf8",
+  );
   assert.equal(rightPanelControllerSource.includes("export function createRightPanelController"), true);
   assert.equal(rightPanelControllerSource.includes("rightPanelSurfaceTitle"), true);
   assert.equal(rightPanelControllerSource.includes('replace(/^Open\\s+/i, "")'), false);
@@ -1210,6 +1215,15 @@ async function main() {
   assert.equal(previewControllerSource.includes("chrome.refreshFailedNotice"), true);
   assert.equal(previewControllerSource.includes("chrome.openFailedNotice"), true);
   assert.equal(previewControllerSource.includes("import React"), false);
+  assert.equal(appSource.includes("createDiffSurfaceController"), true);
+  assert.equal(appSource.includes("diffSurfaceController.open({ title, diff, turnId, filePath })"), true);
+  assert.equal(appSource.includes("createDiffSurfaceState"), false);
+  assert.equal(appSource.includes('type: "diff_surface_opened"'), false);
+  assert.equal(diffSurfaceControllerSource.includes("export function createDiffSurfaceController"), true);
+  assert.equal(diffSurfaceControllerSource.includes("createDiffSurfaceState"), true);
+  assert.equal(diffSurfaceControllerSource.includes('type: "diff_surface_opened"'), true);
+  assert.equal(diffSurfaceControllerSource.includes("timelineItems"), true);
+  assert.equal(diffSurfaceControllerSource.includes("import React"), false);
   assert.equal(appSource.includes('kind: "file"'), false);
   assert.equal(appSource.includes('preview: { kind: "file"'), false);
   assert.equal(appSource.includes("showTabs={false}"), false);
@@ -2012,6 +2026,7 @@ async function main() {
   runVisualLanguageCssTests();
   runInteractionModelTests();
   runDiffModelTests();
+  runDiffSurfaceControllerTests();
   runFilePreviewModelTests();
   runPreviewSurfaceModelTests();
   runPreviewSurfaceSourceTests();

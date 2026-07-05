@@ -124,6 +124,9 @@ before invoking backend preview routes.
 Source Control status refresh and file-diff requests likewise require the
 active app shell's Source Control capability before invoking backend
 source-control routes.
+Timeline/manual Diff surface opening is delegated to `diff-surface-controller.js`,
+so `App.jsx` does not construct diff surface state or dispatch
+`diff_surface_opened` directly.
 Terminal service calls require the active app shell's Terminal capability
 before opening, listing, writing, clearing, restarting, closing, or attaching
 terminal panes, even when stale terminal UI state still exists locally.

@@ -742,9 +742,19 @@ def test_gui_command_result_diff_surface_is_payload_driven():
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"
     )
     store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    diff_controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/diff-surface-controller.js"
+    )
 
     assert 'type: "diff_surface_opened"' in text
     assert 'commandName === "diff"' not in text
+    assert "createDiffSurfaceController" in app_text
+    assert "createDiffSurfaceState" not in app_text
+    assert 'type: "diff_surface_opened"' not in app_text
+    assert "createDiffSurfaceState" in diff_controller_text
+    assert 'type: "diff_surface_opened"' in diff_controller_text
+    assert "timelineItems" in diff_controller_text
     assert "workbenchSurfaceAllowedForApp" in store_text
     assert "surfaceDefinitionFor(kind, app.capabilities)" in store_text
     assert "bottomDrawerSurfaceDefinitionFor(kind, app.capabilities)" in store_text

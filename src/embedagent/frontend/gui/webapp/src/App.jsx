@@ -5,11 +5,11 @@ import {
   normalizeSessionPayload,
 } from "./state-helpers.js";
 import { appendSessionTransportEvent, createSessionTransportState } from "./session-runtime/session-transport-state.js";
-import { createDiffSurfaceState } from "./session-runtime/diff-model.js";
 import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
 import { buildSessionActivityRuntime } from "./session-runtime/activity-state.js";
 import { buildComposerCommandsFromCapabilities } from "./session-runtime/command-capabilities.js";
 import { deriveSocketMessageEffects } from "./app-runtime/socket-message-effects.js";
+import { createDiffSurfaceController } from "./app-runtime/diff-surface-controller.js";
 import { createFilePreviewController } from "./app-runtime/file-preview-controller.js";
 import { createLoaderRequestExecutor, loadSessionCommandCapabilities } from "./app-runtime/session-loaders.js";
 import { createPreviewController } from "./app-runtime/preview-controller.js";
@@ -359,6 +359,16 @@ function App() {
       }),
     [rightPanelController],
   );
+  const diffSurfaceController = useMemo(
+    () =>
+      createDiffSurfaceController({
+        dispatch,
+        getRuntimeState: () => runtimeStateRef.current || {},
+        getDiffPanelChrome: () =>
+          stateRef.current.app.capabilities?.surfaces?.chrome?.diffPanel || {},
+      }),
+    [],
+  );
   const { loadFileChildren } = workspaceFilesController;
 
   async function openFile(path, line) {
@@ -366,29 +376,7 @@ function App() {
   }
 
   function openDiffSurface({ title = "", diff = "", turnId = "", filePath = "" } = {}) {
-    let resolvedDiff = diff;
-    if (!resolvedDiff) {
-      const item = runtimeState.timelineItems.find((candidate) => {
-        if (turnId && candidate.turnId !== turnId) return false;
-        const data = candidate.data || {};
-        const args = candidate.arguments || {};
-        if (filePath && data.path !== filePath && args.path !== filePath) return false;
-        return typeof data.diff === "string" || typeof data.diff_preview === "string";
-      });
-      resolvedDiff = item?.data?.diff || item?.data?.diff_preview || "";
-    }
-    if (!resolvedDiff) return;
-    dispatch({
-      type: "diff_surface_opened",
-      diffSurface: createDiffSurfaceState({
-        title: filePath || title || diffPanelChrome.defaultTitle,
-        diff: resolvedDiff,
-        source: "gui",
-        turnId,
-        filePath,
-        chrome: diffPanelChrome,
-      }),
-    });
+    return diffSurfaceController.open({ title, diff, turnId, filePath });
   }
 
   useEffect(() => {
