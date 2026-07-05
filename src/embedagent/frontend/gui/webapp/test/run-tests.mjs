@@ -1229,6 +1229,9 @@ async function main() {
   assert.equal(terminalControllerSource.includes("surfaceDefinitionFor"), true);
   assert.equal(terminalControllerSource.includes("bottomDrawerSurfaceDefinitionFor"), true);
   assert.equal(terminalControllerSource.includes("definition.activationKind"), true);
+  assert.equal(terminalControllerSource.includes("BOTTOM_DRAWER_ACTIVATION_HANDLERS"), true);
+  assert.equal(terminalControllerSource.includes("BOTTOM_DRAWER_ACTIVATION_HANDLERS[definition.activationKind]"), true);
+  assert.equal(terminalControllerSource.includes('switch (definition ? definition.activationKind : "")'), false);
   assert.equal(terminalControllerSource.includes('kind === "terminal"'), false);
   assert.equal(terminalControllerSource.includes("Open a session before using the terminal."), false);
   assert.equal(terminalControllerSource.includes("Terminal failed to open."), false);

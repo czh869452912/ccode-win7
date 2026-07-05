@@ -6,6 +6,14 @@ import {
 
 const TERMINAL_DIMENSIONS = Object.freeze({ cols: 100, rows: 30 });
 
+const BOTTOM_DRAWER_ACTIVATION_HANDLERS = Object.freeze(Object.assign(Object.create(null), {
+  "terminal.ensure_open": async ({ ensureOpen }) => ensureOpen(),
+  "workbench.surface": async ({ dispatch, kind }) => {
+    dispatch({ type: "workbench_surface_activated", placement: "bottom", kind });
+    return kind;
+  },
+}));
+
 function noop() {}
 
 function readState(getState) {
@@ -255,15 +263,10 @@ export function createTerminalController(deps = {}) {
 
   async function selectBottomDrawerKind(kind) {
     const definition = bottomDrawerSurfaceDefinitionFor(kind, readAppCapabilities(deps));
-    switch (definition ? definition.activationKind : "") {
-      case "terminal.ensure_open":
-        return ensureOpen();
-      case "workbench.surface":
-        dispatch({ type: "workbench_surface_activated", placement: "bottom", kind });
-        return kind;
-      default:
-        return null;
-    }
+    const handler = definition
+      ? BOTTOM_DRAWER_ACTIVATION_HANDLERS[definition.activationKind]
+      : null;
+    return handler ? handler({ dispatch, ensureOpen, kind }) : null;
   }
 
   async function openRightPanelSurface(preferredId = "") {

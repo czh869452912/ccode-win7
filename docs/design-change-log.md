@@ -44,6 +44,32 @@
 
 ## 3. 当前变更记录
 
+### DC-285
+
+- Date: 2026-07-05
+- Change Topic: GUI bottom-drawer activation uses a handler registry
+- Summary:
+  - Replaced the terminal controller's bottom-drawer `activationKind` switch
+    with a renderer-local `BOTTOM_DRAWER_ACTIVATION_HANDLERS` registry.
+  - `selectBottomDrawerKind(...)` still reads bottom surface
+    `definition.activationKind`, but now dispatches through table lookup.
+  - Frontend and architecture guards now prevent reintroducing the old
+    `switch (definition ? definition.activationKind : "")` path.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New bottom-drawer activation effects must add explicit handler registry
+    entries rather than terminal-controller switch branches.
+
 ### DC-284
 
 - Date: 2026-07-05

@@ -71,7 +71,9 @@ surface definitions, and the default shell does not expose drawer surfaces
 without an implemented body.
 Bottom-drawer activation side effects use renderer-local `activationKind`
 metadata, so selecting the terminal drawer is not inferred from a fixed drawer
-kind in the terminal controller.
+kind in the terminal controller. Supported bottom-drawer activation kinds route
+through an explicit renderer-local handler registry rather than a controller
+switch.
 Right-panel body mounting uses the same renderer-local metadata path; app-shell
 surface ids select visibility and labels, while renderer registry records
 select the concrete body component.
