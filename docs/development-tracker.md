@@ -141,7 +141,9 @@
   `capabilities.chrome.composer.command_menu`, while slash command group labels
   reuse `capabilities.command_palette.groups`; the composer search,
   interaction, and menu components no longer keep a parallel command/path menu
-  copy table.
+  copy table. The default slash-command group id also comes from app-shell
+  chrome, and renderer command helpers no longer synthesize missing command
+  groups as `"command"`.
 - Command Palette empty-state copy is now entirely descriptor-owned through
   `capabilities.command_palette.labels`; `CommandPaletteResults` no longer
   carries a renderer-local English fallback for missing app-shell labels.

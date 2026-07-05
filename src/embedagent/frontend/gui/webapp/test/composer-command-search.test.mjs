@@ -31,6 +31,13 @@ export function runComposerCommandSearchTests() {
   assert.equal(items[1].type, "slash-command");
   assert.equal(items[4].detail, "/resources [reload]");
   assert.equal(items[4].insertion, "/resources ");
+  const defaultGroupItems = buildComposerCommandItems(
+    [{ id: "resources", label: "/resources", slash: "/resources" }],
+    { action: "Action" },
+    { defaultCommandGroupId: "action", commandGroupFallbackLabel: "Fallback" },
+  );
+  assert.equal(defaultGroupItems[0].group, "action");
+  assert.equal(defaultGroupItems[0].groupLabel, "Action");
 
   assert.deepEqual(
     searchComposerCommandItems(items, "diff").map((item) => item.slash),
@@ -63,4 +70,10 @@ export function runComposerCommandSearchTests() {
     grouped[0].items.map((item) => item.slash),
     ["/mode build", "/mode debug"],
   );
+  const defaultGrouped = groupComposerCommandItems(defaultGroupItems, { action: "Action" }, {
+    defaultCommandGroupId: "action",
+  });
+  assert.deepEqual(defaultGrouped.map((group) => [group.id, group.label]), [
+    ["command-group:action", "Action"],
+  ]);
 }

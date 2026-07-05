@@ -65,7 +65,7 @@ export function normalizeCommandDescriptor(item = {}) {
     name: firstText(data.name, id),
     usage,
     label,
-    group: firstText(data.group, data.sourceType, data.source_type, "command"),
+    group: text(data.group),
     dispatch,
     slash,
     summary: text(data.summary),

@@ -75,6 +75,7 @@ export function runAppShellModelTests() {
       commandMenu: {
         pathGroupLabel: "",
         commandGroupFallbackLabel: "",
+        defaultCommandGroupId: "",
         pathEmptyText: "",
         commandEmptyText: "",
         defaultEmptyText: "",
@@ -435,6 +436,7 @@ export function runAppShellModelTests() {
           command_menu: {
             path_group_label: "Project files",
             command_group_fallback_label: "Action",
+            default_command_group_id: "action",
             path_empty_text: "No project files",
             command_empty_text: "No actions",
             default_empty_text: "Nothing here",
@@ -893,6 +895,7 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.chrome.header.turnsLabel, "steps");
   assert.equal(bootstrap.capabilities.chrome.composer.placeholder, "Ask the Python agent");
   assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.pathGroupLabel, "Project files");
+  assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.defaultCommandGroupId, "action");
   assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.commandGroupFallbackLabel, "Action");
   assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.commandEmptyText, "No actions");
   assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.commandItemKindLabel, "action");

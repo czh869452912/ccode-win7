@@ -368,6 +368,10 @@ Managed-session workflow refresh in the product adapter path goes through `Agent
   than renderer-derived slash-command names; timeline command-result labels
   likewise come from explicit payload labels or app-shell `commandDefaultName`,
   not synthesized `/${commandName}` strings
+- GUI composer slash-command default grouping is app-shell declared:
+  `capabilities.chrome.composer.command_menu.default_command_group_id` is the
+  only fallback group id for backend slash commands, and protocol/session
+  command normalization does not synthesize missing groups as `"command"`
 - provider request snapshots and workflow prompt append decisions live behind
   `TurnSnapshotService` and `PromptAssemblyService`; compact payload assembly
   lives in `CompactionJournal`, keeping `QueryEngine` focused on session

@@ -319,6 +319,7 @@ def default_app_shell_spec() -> AppShellSpec:
                 "command_menu": {
                     "path_group_label": "Files",
                     "command_group_fallback_label": "Command",
+                    "default_command_group_id": "command",
                     "path_empty_text": "No files found",
                     "command_empty_text": "No commands found",
                     "default_empty_text": "No matches",

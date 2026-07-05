@@ -44,6 +44,46 @@
 
 ## 3. 当前变更记录
 
+### DC-267
+
+- Date: 2026-07-05
+- Change Topic: GUI slash-command default group is app-shell declared
+- Summary:
+  - `/api/app/bootstrap` `capabilities.chrome.composer.command_menu` now
+    declares `default_command_group_id`.
+  - Session command normalization no longer synthesizes the `"command"` group
+    when protocol command descriptors omit `group`.
+  - Composer and workbench command conversion use the app-shell default group
+    descriptor when they need to place backend slash commands.
+  - Added frontend and Python architecture guards for the no renderer-local
+    command group fallback rule.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/protocol-normalizer.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/command-capabilities.js`
+  - `src/embedagent/frontend/gui/webapp/src/composer/composer-command-search.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/commands.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/command-capabilities.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/composer-command-search.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue removing renderer-local command and status fallbacks so GUI
+    surfaces adapt through app-shell descriptors only.
+
 ### DC-266
 
 - Date: 2026-07-04

@@ -104,7 +104,9 @@ workspace meta text, and session/workspace fallback labels. Composer
 slash-command group labels must reuse `capabilities.command_palette.groups`,
 while `capabilities.chrome.composer.command_menu` carries the Composer
 slash/path menu aria labels, empty states, path group label, item-kind labels,
-and fallback command group label. Surface descriptors carry `id`,
+fallback command group label, and default slash-command group id. Renderer
+command normalization must not synthesize missing groups as `"command"`.
+Surface descriptors carry `id`,
 `title`, and ordering metadata, and may also carry `icon`, `description`, `command`,
 `command_label`, `slash`, `visible_when`, `read_only`, `offline`, and
 `keywords`. Right-panel surface titles and surface-owned panel headings,

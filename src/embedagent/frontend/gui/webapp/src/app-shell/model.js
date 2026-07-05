@@ -633,6 +633,9 @@ function normalizeComposerCommandMenuChrome(input = {}) {
     commandGroupFallbackLabel: String(
       value.command_group_fallback_label || value.commandGroupFallbackLabel || "",
     ),
+    defaultCommandGroupId: String(
+      value.default_command_group_id || value.defaultCommandGroupId || "",
+    ),
     pathEmptyText: String(value.path_empty_text || value.pathEmptyText || ""),
     commandEmptyText: String(value.command_empty_text || value.commandEmptyText || ""),
     defaultEmptyText: String(value.default_empty_text || value.defaultEmptyText || ""),

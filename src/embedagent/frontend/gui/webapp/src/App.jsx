@@ -132,8 +132,11 @@ function App() {
     [commandPaletteGroups],
   );
   const composerCommands = useMemo(
-    () => buildComposerCommandsFromCapabilities(state.sessionCapabilities || {}),
-    [state.sessionCapabilities],
+    () =>
+      buildComposerCommandsFromCapabilities(state.sessionCapabilities || {}, {
+        defaultGroupId: appChrome.composer?.commandMenu?.defaultCommandGroupId || "",
+      }),
+    [appChrome.composer, state.sessionCapabilities],
   );
   const activeWorkspaceId = state.app.activeWorkspace?.id || "";
   const runtimeState = useMemo(

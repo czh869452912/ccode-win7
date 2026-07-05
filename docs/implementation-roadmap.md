@@ -186,6 +186,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `command_palette.groups` descriptors; the renderer no longer owns a fixed
   `COMMAND_GROUPS`, group title, group description table, palette placeholder,
   empty-state, current/missing badge, or root-section copy
+- GUI composer slash-command default grouping is now app-shell declared through
+  `capabilities.chrome.composer.command_menu.default_command_group_id`; session
+  command normalization and renderer command helpers no longer synthesize
+  missing command groups as `"command"`.
 - GUI right-panel surface chrome now comes from app-shell `surfaces.chrome`
   descriptors; the renderer no longer owns right-panel aria copy, add-surface
   label, empty-state text, surface action menu labels, close labels, or

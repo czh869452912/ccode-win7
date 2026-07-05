@@ -4,6 +4,10 @@ function text(value) {
   return String(value || "").trim();
 }
 
+function defaultGroupId(options = {}) {
+  return text(options.defaultGroupId || options.defaultCommandGroupId);
+}
+
 function insertionFromUsage(usage) {
   return `${text(usage).replace(/\s+(?:<[^>]+>|\[[^\]]+\]).*$/u, "")} `;
 }
@@ -26,7 +30,7 @@ export function normalizeCommandCapabilities(input = {}) {
       usage,
       id: protocolId || name,
       label: text(item?.label || usage),
-      group: text(item?.group || "command"),
+      group: text(item?.group),
       dispatch: item?.dispatch && typeof item.dispatch === "object" ? item.dispatch : {},
       slash: text(item?.slash || usage),
       summary: text(item?.summary),
@@ -39,10 +43,11 @@ export function normalizeCommandCapabilities(input = {}) {
   return { ...normalized, commands };
 }
 
-export function buildComposerCommandsFromCapabilities(capabilities = {}) {
+export function buildComposerCommandsFromCapabilities(capabilities = {}, options = {}) {
+  const fallbackGroup = defaultGroupId(options);
   return normalizeCommandCapabilities(capabilities).commands.map((item) => ({
     id: `backend-command:${item.name}`,
-    group: "command",
+    group: text(item.group) || fallbackGroup,
     label: item.usage,
     slash: item.usage,
     insertion: insertionFromUsage(item.usage),

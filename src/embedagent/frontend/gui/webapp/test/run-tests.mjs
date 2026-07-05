@@ -1743,6 +1743,25 @@ async function main() {
   assert.equal(composerSource.includes("chrome.placeholder"), true);
   assert.equal(composerSource.includes("chrome={chrome.interaction || {}}"), true);
   assert.equal(composerSource.includes("hintLabels[hint.id]"), true);
+  const commandCapabilitiesSource = fs.readFileSync(
+    webappSourcePath("session-runtime", "command-capabilities.js"),
+    "utf8",
+  );
+  const composerCommandSearchSource = fs.readFileSync(
+    webappSourcePath("composer", "composer-command-search.js"),
+    "utf8",
+  );
+  for (const commandGroupSource of [
+    commandCapabilitiesSource,
+    composerCommandSearchSource,
+    workbenchCommandsSource,
+    protocolNormalizerSource,
+  ]) {
+    assert.equal(commandGroupSource.includes('|| "command"'), false);
+  }
+  assert.equal(commandCapabilitiesSource.includes('group: "command"'), false);
+  assert.equal(composerCommandSearchSource.includes("defaultCommandGroupId"), true);
+  assert.equal(workbenchCommandsSource.includes("defaultCommandGroupId"), true);
 
   const sessionActivationControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "session-activation-controller.js"),

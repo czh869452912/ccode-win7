@@ -16,12 +16,19 @@ function workbenchCommandDefinitions(appCapabilities = null) {
   return Array.isArray(appCapabilities?.workbenchCommands) ? appCapabilities.workbenchCommands : [];
 }
 
-function commandFromCapability(item = {}) {
+function defaultCommandGroupId(appCapabilities = null) {
+  return String(
+    appCapabilities?.chrome?.composer?.commandMenu?.defaultCommandGroupId || "",
+  ).trim();
+}
+
+function commandFromCapability(item = {}, appCapabilities = null) {
   const id = String(item.id || item.name || "").trim();
   if (!id) return null;
+  const group = String(item.group || defaultCommandGroupId(appCapabilities)).trim();
   return {
     id,
-    group: String(item.group || "command").trim() || "command",
+    group,
     label: String(item.label || item.usage || "").trim(),
     slash: String(item.slash || item.usage || "").trim(),
     visibleWhen: String(item.visibleWhen || "always").trim() || "always",
@@ -32,7 +39,7 @@ function commandFromCapability(item = {}) {
 
 export function buildWorkbenchCommands(capabilities = {}, appCapabilities = null) {
   const dynamicCommands = normalizeCommandCapabilities(capabilities).commands
-    .map(commandFromCapability)
+    .map((command) => commandFromCapability(command, appCapabilities))
     .filter(Boolean);
   const commands = [];
   const seen = new Set();

@@ -80,6 +80,10 @@ function groupLabelFor(groupId, commandGroupLabels = {}, commandMenuChrome = {})
   );
 }
 
+function commandGroupId(command = {}, commandMenuChrome = {}) {
+  return String(command.group || commandMenuChrome.defaultCommandGroupId || "").trim();
+}
+
 export function buildComposerCommandItems(
   commands = [],
   commandGroupLabels = {},
@@ -97,8 +101,12 @@ export function buildComposerCommandItems(
       type: "slash-command",
       id: `slash:${command.id || normalizedSlash}`,
       commandId: command.id || "",
-      group: command.group || "command",
-      groupLabel: groupLabelFor(command.group || "command", commandGroupLabels, commandMenuChrome),
+      group: commandGroupId(command, commandMenuChrome),
+      groupLabel: groupLabelFor(
+        commandGroupId(command, commandMenuChrome),
+        commandGroupLabels,
+        commandMenuChrome,
+      ),
       label: command.label || slash,
       detail: slash,
       slash,
@@ -131,7 +139,7 @@ export function groupComposerCommandItems(
   const groups = [];
   const byGroup = new Map();
   for (const item of Array.isArray(items) ? items : []) {
-    const groupId = item.group || "command";
+    const groupId = String(item.group || commandMenuChrome.defaultCommandGroupId || "").trim();
     if (!byGroup.has(groupId)) {
       const group = {
         id: `command-group:${groupId}`,

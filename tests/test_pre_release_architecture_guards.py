@@ -1228,8 +1228,10 @@ def test_gui_composer_menu_copy_is_app_shell_declared():
 
     assert '"command_menu": {' in spec_text
     assert '"path_group_label": "Files"' in spec_text
+    assert '"default_command_group_id": "command"' in spec_text
     assert "normalizeComposerCommandMenuChrome" in model_text
     assert "commandMenu: normalizeComposerCommandMenuChrome" in model_text
+    assert "defaultCommandGroupId" in model_text
     assert "composerCommandGroupLabels" in app_text
     assert "commandGroupLabels={composerCommandGroupLabels}" in app_text
     assert "const commandMenuChrome = chrome.commandMenu || {}" in composer_text
@@ -1240,7 +1242,26 @@ def test_gui_composer_menu_copy_is_app_shell_declared():
     assert "commandMenuChrome.pathGroupLabel" in path_context_text
     assert "commandMenuChrome.commandEmptyText" in interaction_model_text
     assert "commandGroupLabels" in command_search_text
+    assert "defaultCommandGroupId" in command_search_text
     assert "GROUP_LABELS" not in command_search_text
+
+    command_capabilities_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/command-capabilities.js"
+    )
+    workbench_commands_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js"
+    )
+    protocol_normalizer_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/protocol-normalizer.js"
+    )
+    for source_text in (
+        command_capabilities_text,
+        command_search_text,
+        workbench_commands_text,
+        protocol_normalizer_text,
+    ):
+        assert '|| "command"' not in source_text
+    assert 'group: "command"' not in command_capabilities_text
 
     for hardcoded_copy in (
         '"Files"',
