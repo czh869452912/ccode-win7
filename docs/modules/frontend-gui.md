@@ -407,6 +407,10 @@ not a controller switch.
 Right-panel surface-local pane operations are routed through
 `SURFACE_PANE_HANDLERS[surface.kind]`, so terminal split/activate/close pane
 metadata is isolated from the generic workbench reducer flow.
+Terminal-controller right-panel surface validation and action payload assembly
+are centralized in `TERMINAL_SURFACE_KIND` and
+`terminalSurfaceActionInput(...)`; individual terminal pane actions must not
+repeat surface-kind checks.
 Right-panel tab activation side effects use renderer-local `activationKind`
 metadata; App-level activation code must not branch on terminal surface ids.
 Surface descriptor records that omit `title` remain capability diagnostics and

@@ -5,6 +5,7 @@ import {
 } from "../workbench/surfaces.js";
 
 const TERMINAL_DIMENSIONS = Object.freeze({ cols: 100, rows: 30 });
+const TERMINAL_SURFACE_KIND = "terminal";
 
 const BOTTOM_DRAWER_ACTIVATION_HANDLERS = Object.freeze(Object.assign(Object.create(null), {
   "terminal.ensure_open": async ({ ensureOpen }) => ensureOpen(),
@@ -64,7 +65,7 @@ function readAppCapabilities(deps) {
 }
 
 function terminalSurfaceTitle(deps, fallback = "") {
-  const definition = surfaceDefinitionFor("terminal", readAppCapabilities(deps));
+  const definition = surfaceDefinitionFor(TERMINAL_SURFACE_KIND, readAppCapabilities(deps));
   return String((definition && definition.title) || fallback || "");
 }
 
@@ -84,10 +85,22 @@ function uniqueStrings(values) {
   return result;
 }
 
+function isTerminalSurface(surface) {
+  return Boolean(surface && surface.kind === TERMINAL_SURFACE_KIND);
+}
+
 function terminalIdsFromSurface(surface) {
-  if (!surface || surface.kind !== "terminal") return [];
+  if (!isTerminalSurface(surface)) return [];
   if (Array.isArray(surface.terminalIds)) return surface.terminalIds;
   return [surface.terminalId];
+}
+
+function terminalSurfaceActionInput(surface) {
+  if (!isTerminalSurface(surface)) return null;
+  return {
+    placement: "right",
+    surfaceId: surface.id,
+  };
 }
 
 function allKnownTerminalIds(state) {
@@ -132,7 +145,7 @@ export function createTerminalController(deps = {}) {
       const payload = await openTerminal(context.sessionId, terminalId, TERMINAL_DIMENSIONS);
       dispatch({ type: "terminal_snapshot_loaded", snapshot: payload.terminal });
       dispatch({ type: "terminal_active_set", terminalId });
-      dispatch({ type: "workbench_surface_activated", placement: "bottom", kind: "terminal" });
+      dispatch({ type: "workbench_surface_activated", placement: "bottom", kind: TERMINAL_SURFACE_KIND });
       return terminalId;
     } catch (error) {
       dispatchNotice(dispatch, noticeFromError(error, terminalChromeText(deps, "openFailedNotice")));
@@ -277,7 +290,7 @@ export function createTerminalController(deps = {}) {
     dispatch({
       type: "workbench_surface_opened",
       placement: "right",
-      kind: "terminal",
+      kind: TERMINAL_SURFACE_KIND,
       title: terminalSurfaceTitle(deps, openedTerminalId),
       resourceId: openedTerminalId,
       terminalId: openedTerminalId,
@@ -288,14 +301,14 @@ export function createTerminalController(deps = {}) {
   }
 
   async function splitRightPanelSurface(surface, splitDirection = "horizontal") {
-    if (!surface || surface.kind !== "terminal") return null;
+    const surfaceAction = terminalSurfaceActionInput(surface);
+    if (!surfaceAction) return null;
     const terminalId = nextId(deps, allKnownTerminalIds(getState()));
     const openedTerminalId = await openSession(terminalId);
     if (!openedTerminalId) return null;
     dispatch({
       type: "workbench_terminal_surface_split",
-      placement: "right",
-      surfaceId: surface.id,
+      ...surfaceAction,
       terminalId: openedTerminalId,
       splitDirection,
     });
@@ -303,13 +316,13 @@ export function createTerminalController(deps = {}) {
   }
 
   function activateRightPanelPane(surface, terminalId) {
-    if (!surface || surface.kind !== "terminal") return null;
+    const surfaceAction = terminalSurfaceActionInput(surface);
+    if (!surfaceAction) return null;
     const targetTerminalId = normalizeTerminalId(terminalId);
     if (!targetTerminalId) return null;
     dispatch({
       type: "workbench_terminal_surface_terminal_activated",
-      placement: "right",
-      surfaceId: surface.id,
+      ...surfaceAction,
       terminalId: targetTerminalId,
     });
     dispatch({ type: "terminal_active_set", terminalId: targetTerminalId });
@@ -317,7 +330,8 @@ export function createTerminalController(deps = {}) {
   }
 
   async function closeRightPanelPane(surface, terminalId) {
-    if (!surface || surface.kind !== "terminal") return null;
+    const surfaceAction = terminalSurfaceActionInput(surface);
+    if (!surfaceAction) return null;
     const targetTerminalId = normalizeTerminalId(terminalId);
     if (!targetTerminalId) return null;
     const context = requireSession();
@@ -332,8 +346,7 @@ export function createTerminalController(deps = {}) {
       });
       dispatch({
         type: "workbench_terminal_surface_terminal_closed",
-        placement: "right",
-        surfaceId: surface.id,
+        ...surfaceAction,
         terminalId: targetTerminalId,
       });
       return targetTerminalId;

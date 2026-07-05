@@ -522,6 +522,9 @@ through a renderer-local handler registry rather than a controller switch.
 Right-panel surface-local pane operations route through
 `SURFACE_PANE_HANDLERS[surface.kind]`; terminal split/activate/close pane
 metadata is no longer reducer-level terminal kind logic.
+The terminal controller keeps its terminal-specific right-panel adapter in
+`TERMINAL_SURFACE_KIND` and `terminalSurfaceActionInput(...)`; individual
+split/activate/close action handlers must not repeat surface-kind checks.
 Right-panel tab activation side
 effects use renderer metadata (`activationKind`) rather than inline App checks
 for terminal surface ids.

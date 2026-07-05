@@ -169,7 +169,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   bottom-drawer activation side effects use renderer-local `activationKind`
   metadata instead of drawer-kind branches in the terminal controller, and
   supported activation kinds route through a handler registry rather than a
-  controller switch;
+  controller switch; terminal-controller right-panel surface validation and
+  action payload assembly now route through `TERMINAL_SURFACE_KIND` and
+  `terminalSurfaceActionInput(...)` instead of repeated surface-kind checks;
   right-panel body selection now follows the same renderer metadata path
   instead of branching on fixed surface kind strings in
   `RightPanelSurfaceBody`, and supported body kinds route through

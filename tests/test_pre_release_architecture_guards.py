@@ -2074,6 +2074,8 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert "BOTTOM_DRAWER_BODY_RENDERERS[activeBodyKind]" in bottom_drawer_text
     assert "switch (activeBodyKind)" not in bottom_drawer_text
     assert "bottomDrawerSurfaceDefinitionFor" in terminal_controller_text
+    assert "TERMINAL_SURFACE_KIND" in terminal_controller_text
+    assert "terminalSurfaceActionInput" in terminal_controller_text
     assert "definition.activationKind" in terminal_controller_text
     assert "BOTTOM_DRAWER_ACTIVATION_HANDLERS" in terminal_controller_text
     assert (
@@ -2081,6 +2083,8 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     )
     assert 'switch (definition ? definition.activationKind : "")' not in terminal_controller_text
     assert 'kind === "terminal"' not in terminal_controller_text
+    assert 'surface.kind !== "terminal"' not in terminal_controller_text
+    assert 'surfaceDefinitionFor("terminal"' not in terminal_controller_text
     assert 'activeKind === "terminal"' not in bottom_drawer_text
     assert '"Bottom drawer"' not in bottom_drawer_text
     assert '"No run output yet."' not in bottom_drawer_text

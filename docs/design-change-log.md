@@ -44,6 +44,34 @@
 
 ## 3. 当前变更记录
 
+### DC-291
+
+- Date: 2026-07-05
+- Change Topic: GUI terminal controller centralizes terminal surface adaptation
+- Summary:
+  - Added a terminal-controller-local `TERMINAL_SURFACE_KIND` and
+    `terminalSurfaceActionInput(...)` helper for right-panel terminal surface
+    validation and workbench action payload preparation.
+  - `terminal-controller.js` no longer repeats `surface.kind !== "terminal"`
+    checks or calls `surfaceDefinitionFor("terminal", ...)` directly at action
+    sites.
+  - Frontend and architecture guards now prevent reintroducing those scattered
+    terminal surface checks.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Keep future terminal surface work behind the terminal controller adapter
+    helpers rather than adding per-action surface-kind checks.
+
 ### DC-290
 
 - Date: 2026-07-05
