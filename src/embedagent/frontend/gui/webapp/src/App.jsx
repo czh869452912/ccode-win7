@@ -6,6 +6,7 @@ import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
 import { buildSessionActivityRuntime } from "./session-runtime/activity-state.js";
 import { buildComposerCommandsFromCapabilities } from "./session-runtime/command-capabilities.js";
 import { createSocketMessageController } from "./app-runtime/socket-message-controller.js";
+import { createSurfacePanelController } from "./app-runtime/surface-panel-controller.js";
 import { createBrowserDialogService } from "./app-runtime/browser-dialog-service.js";
 import { fetchJson } from "./app-runtime/http-client.js";
 import { createComposerController } from "./app-runtime/composer-controller.js";
@@ -350,6 +351,15 @@ function App() {
   );
   const { loadFileChildren } = workspaceFilesController;
 
+  const surfacePanelController = useMemo(
+    () =>
+      createSurfacePanelController({
+        dispatch,
+        sourceControlController,
+      }),
+    [sourceControlController],
+  );
+
   const visualDebugController = useMemo(
     () =>
       createVisualDebugController({
@@ -571,10 +581,10 @@ function App() {
     diffPanelChrome,
     appShell: state.app,
     chrome: appChrome.surfacePanel || {},
-    onFocusDiffFile: (filePath) => dispatch({ type: "diff_file_focused", filePath }),
-    onRefreshSourceControl: () => sourceControlController.loadStatus(true),
-    onSelectSourceControlFile: (file, scope) => sourceControlController.openFile(file, scope),
-    onAppSettingsChange: (patch) => dispatch({ type: "app_shell_settings_changed", patch }),
+    onFocusDiffFile: surfacePanelController.focusDiffFile,
+    onRefreshSourceControl: surfacePanelController.refreshSourceControl,
+    onSelectSourceControlFile: surfacePanelController.selectSourceControlFile,
+    onAppSettingsChange: surfacePanelController.changeAppSettings,
   };
 
   const panelResizeController = useMemo(

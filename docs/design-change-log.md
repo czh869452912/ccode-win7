@@ -44,6 +44,36 @@
 
 ## 3. 当前变更记录
 
+### DC-299
+
+- Date: 2026-07-05
+- Change Topic: GUI SurfacePanel actions are controller-owned
+- Summary:
+  - Added `surface-panel-controller.js` for generic SurfacePanel actions:
+    diff-file focus, Source Control refresh/file selection, and app-shell
+    settings patching.
+  - `App.jsx` now wires controller methods into `surfacePanelProps` instead of
+    inline reducer dispatch or source-control controller lambdas.
+  - Frontend and architecture guards reject root-level `diff_file_focused`,
+    `app_shell_settings_changed`, and direct Source Control lambdas for this
+    surface-panel path.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/surface-panel-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue shrinking the remaining App composition glue around resize event
+    factories and interaction event logging.
+
 ### DC-298
 
 - Date: 2026-07-05

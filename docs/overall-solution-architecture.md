@@ -89,6 +89,11 @@ component switch.
 Generic `SurfacePanel` bodies are selected by renderer-local `panelKind`
 metadata, so Plan, Diff, Source Control, Settings, and Diagnostics panels do
 not require branches on app-shell surface ids.
+SurfacePanel action wiring is owned by
+`app-runtime/surface-panel-controller.js`: diff-file focus, Source Control
+refresh/file selection, and app-shell settings patch actions leave `App.jsx`
+as direct controller methods rather than inline reducer dispatch or
+source-control controller lambdas.
 Commands in undeclared or untitled palette groups remain hidden
 rather than using title-cased group ids, and missing command row description/meta copy
 remains empty instead of falling back to command ids. Surface command row

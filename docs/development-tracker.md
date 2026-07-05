@@ -588,6 +588,12 @@
 - `App.jsx` wires `setWorkspacePath` directly into Sidebar and NoWorkspaceState instead of dispatching `workspace_path_changed` inline.
 - This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, source-control execution, provider configuration, extension loading, telemetry, or runtime reducer semantics changed.
 
+### 2026-06-18 - GUI SurfacePanel Action Controller Boundary
+
+- React webapp `webapp/src/app-runtime/surface-panel-controller.js` now owns generic SurfacePanel actions for diff-file focus, Source Control refresh/file selection, and app-shell settings patching.
+- `App.jsx` wires `surfacePanelController` methods into `surfacePanelProps` instead of inline reducer dispatch or source-control controller lambdas.
+- This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, source-control backend execution, provider configuration, extension loading, telemetry, or runtime reducer semantics changed.
+
 ### 2026-06-18 - GUI Session/App Loader Runtime Boundary
 
 - React webapp `webapp/src/app-runtime/session-loaders.js` now owns the GUI-private loader request vocabulary, defensive loader request executor, and session bootstrap projection helper.

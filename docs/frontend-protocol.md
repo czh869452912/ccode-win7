@@ -166,6 +166,10 @@ surface kinds are accepted only as non-executing `surface_panel` bodies with a
 safe generic panel kind such as `descriptor`, `diagnostics`, or `plan`; they do
 not load frontend code, call backend services, or bypass app capability
 filtering.
+Generic SurfacePanel actions for diff-file focus, Source Control refresh/file
+selection, and app-shell settings patching are renderer action-controller
+concerns in `webapp/src/app-runtime/surface-panel-controller.js`; root App
+composition must not inline those reducer actions or source-control lambdas.
 App bootstrap may also include safe `agentApplication`, `agentApplications`,
 and `emptyState` projections. Before any workspace is active, those values come
 from the backend-selected agent application registry declared by the app host or

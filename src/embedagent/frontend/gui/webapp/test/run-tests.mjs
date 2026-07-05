@@ -1326,7 +1326,15 @@ async function main() {
   assert.equal(appSource.includes("buildBranchToolbarModel"), true);
   assert.equal(appSource.includes("branchToolbarModel"), true);
   assert.equal(appSource.includes("sourceControlChrome"), true);
-  assert.equal(appSource.includes("onRefreshSourceControl"), true);
+  assert.equal(appSource.includes("createSurfacePanelController"), true);
+  assert.equal(appSource.includes("surfacePanelController.focusDiffFile"), true);
+  assert.equal(appSource.includes("surfacePanelController.refreshSourceControl"), true);
+  assert.equal(appSource.includes("surfacePanelController.selectSourceControlFile"), true);
+  assert.equal(appSource.includes("surfacePanelController.changeAppSettings"), true);
+  assert.equal(appSource.includes("diff_file_focused"), false);
+  assert.equal(appSource.includes("app_shell_settings_changed"), false);
+  assert.equal(appSource.includes("sourceControlController.loadStatus(true)"), false);
+  assert.equal(appSource.includes("sourceControlController.openFile(file, scope)"), false);
   assert.equal(appSource.includes("RightPanelSurfaceBody"), true);
   assert.equal(
     (appSource.match(/appCapabilities=\{state\.app\.capabilities\}/g) || []).length >= 3,
@@ -1339,6 +1347,18 @@ async function main() {
   assert.equal(appSource.includes("onPreviewRefresh={previewController.refresh}"), true);
   assert.equal(appSource.includes("onPreviewOpenExternal={previewController.openExternal}"), true);
   assert.equal(appSource.includes("async function openFile"), false);
+  const surfacePanelControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "surface-panel-controller.js"),
+    "utf8",
+  );
+  assert.equal(surfacePanelControllerSource.includes("createSurfacePanelController"), true);
+  assert.equal(surfacePanelControllerSource.includes("function focusDiffFile"), true);
+  assert.equal(surfacePanelControllerSource.includes("function refreshSourceControl"), true);
+  assert.equal(surfacePanelControllerSource.includes("function selectSourceControlFile"), true);
+  assert.equal(surfacePanelControllerSource.includes("function changeAppSettings"), true);
+  assert.equal(surfacePanelControllerSource.includes('type: "diff_file_focused"'), true);
+  assert.equal(surfacePanelControllerSource.includes('type: "app_shell_settings_changed"'), true);
+  assert.equal(surfacePanelControllerSource.includes("import React"), false);
   assert.equal(appSource.includes("function openDiffSurface"), false);
   assert.equal(appSource.includes("async function openPreviewUrl"), false);
   assert.equal(appSource.includes("async function refreshPreview"), false);

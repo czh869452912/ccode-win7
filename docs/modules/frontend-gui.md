@@ -407,6 +407,10 @@ fallbacks.
 Generic `SurfacePanel` content uses a second renderer-local `panelKind`
 declaration for Plan, Diff, Source Control, Settings, and Diagnostics bodies;
 `SurfacePanel` must not branch on app-shell surface ids.
+`app-runtime/surface-panel-controller.js` owns the actions emitted by those
+generic panels: diff-file focus, Source Control refresh/file selection, and
+app-shell settings patching. `App.jsx` wires those methods directly rather
+than inline reducer dispatch or source-control controller lambdas.
 Surface command row descriptions are passed through from surface descriptors
 rather than generated from surface or drawer ids. Session/workspace palette row
 leading markers are descriptor-owned and empty when absent. Command-palette

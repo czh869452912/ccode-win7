@@ -2986,6 +2986,31 @@ def test_gui_composer_actions_are_controller_owned():
     assert "import React" not in controller_text
 
 
+def test_gui_surface_panel_actions_are_controller_owned():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/surface-panel-controller.js"
+    )
+
+    assert "createSurfacePanelController" in app_text
+    assert "surfacePanelController.focusDiffFile" in app_text
+    assert "surfacePanelController.refreshSourceControl" in app_text
+    assert "surfacePanelController.selectSourceControlFile" in app_text
+    assert "surfacePanelController.changeAppSettings" in app_text
+    assert "diff_file_focused" not in app_text
+    assert "app_shell_settings_changed" not in app_text
+    assert "sourceControlController.loadStatus(true)" not in app_text
+    assert "sourceControlController.openFile(file, scope)" not in app_text
+    assert "export function createSurfacePanelController" in controller_text
+    assert "function focusDiffFile" in controller_text
+    assert "function refreshSourceControl" in controller_text
+    assert "function selectSourceControlFile" in controller_text
+    assert "function changeAppSettings" in controller_text
+    assert 'type: "diff_file_focused"' in controller_text
+    assert 'type: "app_shell_settings_changed"' in controller_text
+    assert "import React" not in controller_text
+
+
 def test_gui_panel_resize_dom_logic_is_controller_owned():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     controller_text = _read(
