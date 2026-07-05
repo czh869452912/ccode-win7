@@ -15,6 +15,10 @@ import { createDiffSurfaceController } from "./app-runtime/diff-surface-controll
 import { createFilePreviewController } from "./app-runtime/file-preview-controller.js";
 import { createLoaderRequestExecutor, loadSessionCommandCapabilities } from "./app-runtime/session-loaders.js";
 import { createPreviewController } from "./app-runtime/preview-controller.js";
+import {
+  createPanelResizeController,
+  RESIZE_DIRECTIONS,
+} from "./app-runtime/panel-resize-controller.js";
 import { createRightPanelController } from "./app-runtime/right-panel-controller.js";
 import { createSessionActivationController } from "./app-runtime/session-activation-controller.js";
 import { createSessionController } from "./app-runtime/session-controller.js";
@@ -608,35 +612,14 @@ function App() {
     onAppSettingsChange: (patch) => dispatch({ type: "app_shell_settings_changed", patch }),
   };
 
-  const RESIZE_RIGHT = 1;   // sidebar: drag right = expand
-  const RESIZE_LEFT  = -1;  // right panel: drag right = shrink
-
-  function startResize(e, cssVar, direction) {
-    e.preventDefault();
-    const handle = e.currentTarget;
-    handle.classList.add("dragging");
-    const startX = e.clientX;
-    const startVal =
-      parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
-      ) || (cssVar === "--sidebar-w-raw" ? 220 : 260);
-
-    function onMove(ev) {
-      const delta = (ev.clientX - startX) * direction;
-      const newVal = Math.max(160, Math.min(480, startVal + delta));
-      document.documentElement.style.setProperty(cssVar, `${newVal}px`);
-    }
-    function onEnd() {
-      handle.classList.remove("dragging");
-      handle.removeEventListener("pointermove", onMove);
-      handle.removeEventListener("pointerup",   onEnd);
-      handle.removeEventListener("pointercancel", onEnd);
-    }
-    handle.setPointerCapture(e.pointerId);
-    handle.addEventListener("pointermove",   onMove);
-    handle.addEventListener("pointerup",     onEnd);
-    handle.addEventListener("pointercancel", onEnd);
-  }
+  const panelResizeController = useMemo(
+    () =>
+      createPanelResizeController({
+        documentObject: document,
+        getComputedStyleFn: getComputedStyle,
+      }),
+    [],
+  );
 
   return (
     <>
@@ -832,8 +815,12 @@ function App() {
       rightPanelOpen={state.workbench.rightPanel.open}
       bottomDrawerOpen={state.workbench.bottomDrawer.open}
       bottomDrawerHeight={state.workbench.bottomDrawer.height}
-      onResizeSidebar={(e) => startResize(e, "--sidebar-w-raw", RESIZE_RIGHT)}
-      onResizeRightPanel={(e) => startResize(e, "--right-panel-w-raw", RESIZE_LEFT)}
+      onResizeSidebar={(e) =>
+        panelResizeController.startResize(e, "--sidebar-w-raw", RESIZE_DIRECTIONS.RIGHT)
+      }
+      onResizeRightPanel={(e) =>
+        panelResizeController.startResize(e, "--right-panel-w-raw", RESIZE_DIRECTIONS.LEFT)
+      }
     />
     <CommandPalette
       open={state.workbench.commandPalette.open}

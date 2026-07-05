@@ -247,6 +247,11 @@ workspace file tree refresh, and local status-surface refresh from injected
 dependencies. `App.jsx` wires the dependencies but does not inline the refresh
 fanout.
 
+GUI panel resize pointer handling is owned by
+`app-runtime/panel-resize-controller.js`. The controller clamps panel widths,
+tracks pointer drag state, and mutates the CSS variables on the document root;
+`App.jsx` only wires sidebar and right-panel resize callbacks.
+
 GUI WebSocket payload handling is split between pure effect derivation and
 effect execution. `app-runtime/socket-message-effects.js` derives transport
 events, reducer actions, and loader requests from backend messages, while

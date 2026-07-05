@@ -33,6 +33,7 @@ import { runSessionControllerTests } from "./session-controller.test.mjs";
 import { runSourceControlControllerTests } from "./source-control-controller.test.mjs";
 import { runFilePreviewControllerTests } from "./file-preview-controller.test.mjs";
 import { runPreviewControllerTests } from "./preview-controller.test.mjs";
+import { runPanelResizeControllerTests } from "./panel-resize-controller.test.mjs";
 import { runWorkbenchCommandControllerTests } from "./workbench-command-controller.test.mjs";
 import { runThreadLifecycleControllerTests } from "./thread-lifecycle-controller.test.mjs";
 import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
@@ -2019,6 +2020,10 @@ async function main() {
     webappSourcePath("app-runtime", "active-workspace-data-loader.js"),
     "utf8",
   );
+  const panelResizeControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "panel-resize-controller.js"),
+    "utf8",
+  );
   assert.equal(sessionTransportControllerSource.includes("shouldReconnectSocket"), true);
   assert.equal(sessionTransportControllerSource.includes("appendSessionTransportEvent"), true);
   assert.equal(sessionTransportControllerSource.includes("/events?after_seq"), false);
@@ -2046,6 +2051,17 @@ async function main() {
   assert.equal(activeWorkspaceDataLoaderSource.includes('invoke(loadFileChildren, ".",'), true);
   assert.equal(activeWorkspaceDataLoaderSource.includes("invoke(loadStatus, false,"), true);
   assert.equal(activeWorkspaceDataLoaderSource.includes("import React"), false);
+  assert.equal(appSource.includes("createPanelResizeController"), true);
+  assert.equal(appSource.includes("panelResizeController.startResize"), true);
+  assert.equal(appSource.includes("function startResize"), false);
+  assert.equal(appSource.includes("setPointerCapture"), false);
+  assert.equal(appSource.includes("document.documentElement.style.setProperty"), false);
+  assert.equal(appSource.includes("getComputedStyle(document.documentElement)"), false);
+  assert.equal(panelResizeControllerSource.includes("export function createPanelResizeController"), true);
+  assert.equal(panelResizeControllerSource.includes("RESIZE_DIRECTIONS"), true);
+  assert.equal(panelResizeControllerSource.includes("setPointerCapture"), true);
+  assert.equal(panelResizeControllerSource.includes("documentRef.documentElement.style.setProperty"), true);
+  assert.equal(panelResizeControllerSource.includes("import React"), false);
 
   runWorkbenchStateTests();
   runWorkbenchParityModelTests();
@@ -2099,6 +2115,7 @@ async function main() {
   await runSourceControlControllerTests();
   await runFilePreviewControllerTests();
   await runPreviewControllerTests();
+  runPanelResizeControllerTests();
   await runWorkbenchCommandControllerTests();
   await runThreadLifecycleControllerTests();
   await runSessionTransportControllerTests();

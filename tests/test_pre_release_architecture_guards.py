@@ -2777,6 +2777,24 @@ def test_gui_active_workspace_data_loading_is_controller_owned():
     assert "invoke(loadStatus, false," in loader_text
 
 
+def test_gui_panel_resize_dom_logic_is_controller_owned():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/panel-resize-controller.js"
+    )
+
+    assert "createPanelResizeController" in app_text
+    assert "panelResizeController.startResize" in app_text
+    assert "function startResize" not in app_text
+    assert "setPointerCapture" not in app_text
+    assert "document.documentElement.style.setProperty" not in app_text
+    assert "getComputedStyle(document.documentElement)" not in app_text
+    assert "export function createPanelResizeController" in controller_text
+    assert "RESIZE_DIRECTIONS" in controller_text
+    assert "setPointerCapture" in controller_text
+    assert "documentRef.documentElement.style.setProperty" in controller_text
+
+
 def test_gui_runtime_state_does_not_reintroduce_removed_root_session_state():
     store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
     forbidden_root_state = (

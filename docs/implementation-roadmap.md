@@ -342,7 +342,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   transport/action/loader effects, while `app-runtime/session-list-controller.js`
   owns session list loading and `app-runtime/http-client.js` owns shared JSON
   request/error handling; `app-runtime/active-workspace-data-loader.js` owns
-  active-workspace read-model refresh fanout.
+  active-workspace read-model refresh fanout, and
+  `app-runtime/panel-resize-controller.js` owns pointer/DOM resizing for
+  workbench panels.
   `App.jsx`, command palette, terminal
   controller, workspace reset, and tests consume those read models instead of
   root-level `sessions`, `currentSessionId`, `composer`, `historyIntegrity`,
