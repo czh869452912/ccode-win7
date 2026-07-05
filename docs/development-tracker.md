@@ -145,7 +145,9 @@
   chrome, and renderer command helpers no longer synthesize missing command
   groups as `"command"`. Composer slash-command items now come only from
   command capability projection; the old renderer-local `commandHints`
-  fallback path has been removed.
+  fallback path has been removed. Composer hint-bar items are now ordered
+  `capabilities.chrome.composer.hints` descriptors instead of a renderer-owned
+  fixed hint id list.
 - Command Palette empty-state copy is now entirely descriptor-owned through
   `capabilities.command_palette.labels`; `CommandPaletteResults` no longer
   carries a renderer-local English fallback for missing app-shell labels.

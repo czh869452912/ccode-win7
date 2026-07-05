@@ -1184,7 +1184,8 @@ def test_gui_chrome_copy_is_app_shell_declared():
     assert "chrome.brandSubtitle" in sidebar_text
     assert "chrome.placeholder" in composer_text
     assert "chrome={chrome.interaction || {}}" in composer_text
-    assert "hintLabels[hint.id]" in composer_text
+    assert "hintLabels[hint.id]" not in composer_text
+    assert "hint.label || hint.id" in composer_text
     assert "summaryForPermission(kind, copy = {})" in interaction_model_text
     assert '"Command approval requested"' not in interaction_model_text
     assert '"Approve once"' not in interaction_model_text
@@ -1206,6 +1207,27 @@ def test_gui_chrome_copy_is_app_shell_declared():
         assert token not in user_input_panel_text
     assert "chrome.settingsTitle" in surface_panel_text
     assert "diagnosticGroups[row.group]" in surface_panel_text
+
+
+def test_gui_composer_hints_are_app_shell_descriptors():
+    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
+    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
+    composer_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Composer.jsx")
+    interaction_model_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/composer/composer-interaction-model.js"
+    )
+
+    assert '"hints": [' in spec_text
+    assert '"visible_when": "always"' in spec_text
+    assert '"visible_when": "running"' in spec_text
+    assert "normalizeComposerHints" in model_text
+    assert "visibleWhen" in model_text
+    assert "hintDescriptors" in composer_text
+    assert "hint.label || hint.id" in composer_text
+    assert "hintDescriptors" in interaction_model_text
+    assert 'id: "command"' not in interaction_model_text
+    assert 'id: "file"' not in interaction_model_text
+    assert '"status.running"' not in interaction_model_text
 
 
 def test_gui_composer_menu_copy_is_app_shell_declared():

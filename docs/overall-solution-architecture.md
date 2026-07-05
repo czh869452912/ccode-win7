@@ -375,6 +375,9 @@ Managed-session workflow refresh in the product adapter path goes through `Agent
 - GUI composer slash-command items come only from command capability
   projection; renderer-local static `commandHints` fallbacks are removed and
   must not be used as an alternate command source
+- GUI composer hint-bar entries are app-shell descriptors under
+  `capabilities.chrome.composer.hints`; renderer code filters them by generic
+  visibility state instead of owning a fixed hint id/order list
 - provider request snapshots and workflow prompt append decisions live behind
   `TurnSnapshotService` and `PromptAssemblyService`; compact payload assembly
   lives in `CompactionJournal`, keeping `QueryEngine` focused on session

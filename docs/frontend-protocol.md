@@ -108,6 +108,10 @@ fallback command group label, and default slash-command group id. Renderer
 command normalization must not synthesize missing groups as `"command"`, and
 Composer must not keep renderer-local static command hint fallbacks as an
 alternate slash-command source.
+Composer hint-bar items are ordered descriptor records under
+`capabilities.chrome.composer.hints`; the renderer may filter those descriptors
+by generic `visible_when`/`visibleWhen` values such as `always`, `running`, and
+`interaction`, but it must not own a separate hard-coded hint item list.
 Surface descriptors carry `id`,
 `title`, and ordering metadata, and may also carry `icon`, `description`, `command`,
 `command_label`, `slash`, `visible_when`, `read_only`, `offline`, and

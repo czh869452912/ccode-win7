@@ -1742,7 +1742,16 @@ async function main() {
   assert.equal(composerSource.includes("useLang"), false);
   assert.equal(composerSource.includes("chrome.placeholder"), true);
   assert.equal(composerSource.includes("chrome={chrome.interaction || {}}"), true);
-  assert.equal(composerSource.includes("hintLabels[hint.id]"), true);
+  assert.equal(composerSource.includes("hintLabels[hint.id]"), false);
+  assert.equal(composerSource.includes("hint.label || hint.id"), true);
+  const composerInteractionModelSource = fs.readFileSync(
+    webappSourcePath("composer", "composer-interaction-model.js"),
+    "utf8",
+  );
+  assert.equal(composerInteractionModelSource.includes('id: "command"'), false);
+  assert.equal(composerInteractionModelSource.includes('id: "file"'), false);
+  assert.equal(composerInteractionModelSource.includes('"status.running"'), false);
+  assert.equal(composerInteractionModelSource.includes("hintDescriptors"), true);
   const commandCapabilitiesSource = fs.readFileSync(
     webappSourcePath("session-runtime", "command-capabilities.js"),
     "utf8",

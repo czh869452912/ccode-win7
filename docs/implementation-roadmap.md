@@ -193,6 +193,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
 - GUI composer slash-command items now come only from command capability
   projection; the retired renderer-local `commandHints` fallback path has been
   deleted instead of preserved for compatibility.
+- GUI composer hint-bar items are now app-shell descriptors under
+  `capabilities.chrome.composer.hints`; renderer code no longer owns a fixed
+  hint id/order list.
 - GUI right-panel surface chrome now comes from app-shell `surfaces.chrome`
   descriptors; the renderer no longer owns right-panel aria copy, add-surface
   label, empty-state text, surface action menu labels, close labels, or

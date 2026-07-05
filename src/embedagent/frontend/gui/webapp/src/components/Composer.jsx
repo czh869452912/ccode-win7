@@ -62,6 +62,7 @@ export default function Composer({
         activeIndex,
         commandMenuChrome,
         commandGroupLabels,
+        hintDescriptors: chrome.hints || [],
       }),
     [
       activeIndex,
@@ -73,6 +74,7 @@ export default function Composer({
       dismissedTriggerKey,
       fileTree,
       hasInteraction,
+      chrome.hints,
       isRunning,
       textValue,
     ],
@@ -84,7 +86,6 @@ export default function Composer({
   const menuGroups = interactionModel.menu.groups;
   const menuItems = interactionModel.menu.items;
   const activeItem = interactionModel.menu.activeItem;
-  const hintLabels = chrome.hints || {};
 
   useEffect(() => {
     setActiveIndex(0);
@@ -250,7 +251,7 @@ export default function Composer({
             key={hint.id}
           >
             {hint.tone === "warning" ? "● " : ""}
-            {hintLabels[hint.id] || hint.id}
+            {hint.label || hint.id}
           </span>
         ))}
       </div>

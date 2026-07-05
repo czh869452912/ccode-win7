@@ -380,6 +380,45 @@ class TestGuiAppShellService(unittest.TestCase):
             },
         )
         self.assertEqual(
+            payload["capabilities"]["chrome"]["composer"]["hints"],
+            [
+                {
+                    "id": "command",
+                    "label": "/ commands",
+                    "visible_when": "always",
+                },
+                {
+                    "id": "file",
+                    "label": "@ files",
+                    "visible_when": "always",
+                },
+                {
+                    "id": "select",
+                    "label": "select",
+                    "visible_when": "always",
+                },
+                {
+                    "id": "newline",
+                    "label": "Shift+Enter newline",
+                    "visible_when": "always",
+                },
+                {
+                    "id": "status.running",
+                    "label": "running turns disable editing",
+                    "visible_when": "running",
+                    "tone": "warning",
+                    "status": "running",
+                },
+                {
+                    "id": "status.interaction",
+                    "label": "interaction pending",
+                    "visible_when": "interaction",
+                    "tone": "warning",
+                    "status": "interaction",
+                },
+            ],
+        )
+        self.assertEqual(
             payload["capabilities"]["chrome"]["interaction"]["approve_once_label"],
             "Approve once",
         )

@@ -44,6 +44,43 @@
 
 ## 3. 当前变更记录
 
+### DC-269
+
+- Date: 2026-07-05
+- Change Topic: GUI composer hints are app-shell descriptors
+- Summary:
+  - `/api/app/bootstrap` now declares ordered
+    `capabilities.chrome.composer.hints` records for composer hint-bar items.
+  - The React app-shell model normalizes hint descriptors with labels, tone,
+    status, and visibility state.
+  - `composer-interaction-model` filters hint descriptors by running and
+    pending-interaction state instead of owning a fixed hint id/order list.
+  - Added frontend and Python guards so renderer-local composer hint lists
+    cannot return.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/Composer.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/composer/composer-interaction-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/visual-debug-fixtures.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/composer-interaction-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving renderer-owned fallback UI behavior to backend/app-shell
+    descriptors where the GUI needs to adapt to different agent applications.
+
 ### DC-268
 
 - Date: 2026-07-05

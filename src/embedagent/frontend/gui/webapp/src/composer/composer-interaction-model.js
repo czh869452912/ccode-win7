@@ -28,6 +28,33 @@ function boundedActiveIndex(index, length) {
   return Math.max(0, Math.min(Math.trunc(value), length - 1));
 }
 
+function normalizeHintDescriptor(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  const id = String(value.id || "").trim();
+  if (!id) return null;
+  return {
+    id,
+    label: String(value.label || ""),
+    visibleWhen: String(value.visibleWhen || value.visible_when || "always"),
+    tone: String(value.tone || ""),
+    status: String(value.status || ""),
+  };
+}
+
+function isHintVisible(hint, isRunning, hasInteraction) {
+  if (hint.visibleWhen === "always" || !hint.visibleWhen) return true;
+  if (hint.visibleWhen === "running") return isRunning;
+  if (hint.visibleWhen === "interaction") return hasInteraction;
+  if (hint.visibleWhen === "idle") return !isRunning && !hasInteraction;
+  return false;
+}
+
+function visibleHints(hintDescriptors, isRunning, hasInteraction) {
+  return (Array.isArray(hintDescriptors) ? hintDescriptors : [])
+    .map((item) => normalizeHintDescriptor(item))
+    .filter((hint) => hint && isHintVisible(hint, isRunning, hasInteraction));
+}
+
 export function moveComposerMenuIndex(currentIndex, direction, itemCount) {
   const count = Math.max(0, Math.trunc(Number(itemCount) || 0));
   if (count <= 0) return 0;
@@ -58,6 +85,7 @@ export function buildComposerInteractionModel({
   activeIndex = 0,
   commandMenuChrome = {},
   commandGroupLabels = {},
+  hintDescriptors = [],
 } = {}) {
   const textValue = String(value || "");
   const boundedCursor = Math.max(0, Math.min(Math.trunc(Number(cursor) || 0), textValue.length));
@@ -89,12 +117,6 @@ export function buildComposerInteractionModel({
   const items = flattenGroups(groups);
   const resolvedActiveIndex = boundedActiveIndex(activeIndex, items.length);
   const activeItem = items[resolvedActiveIndex] || null;
-  const statusHint = isRunning
-    ? { id: "status.running", status: "running", tone: "warning" }
-    : hasInteraction
-      ? { id: "status.interaction", status: "interaction", tone: "warning" }
-      : null;
-
   return {
     disabled,
     action: isRunning ? "stop" : "send",
@@ -114,12 +136,6 @@ export function buildComposerInteractionModel({
           ? commandMenuChrome.pathEmptyText || ""
           : commandMenuChrome.commandEmptyText || "",
     },
-    hints: [
-      { id: "command" },
-      { id: "file" },
-      { id: "select" },
-      { id: "newline" },
-      ...(statusHint ? [statusHint] : []),
-    ],
+    hints: visibleHints(hintDescriptors, isRunning, hasInteraction),
   };
 }

@@ -71,7 +71,7 @@ export function runAppShellModelTests() {
       commandPaletteLabel: "",
       sendLabel: "",
       stopLabel: "",
-      hints: {},
+      hints: [],
       commandMenu: {
         pathGroupLabel: "",
         commandGroupFallbackLabel: "",
@@ -445,10 +445,16 @@ export function runAppShellModelTests() {
             path_item_kind_label: "path",
             command_item_kind_label: "action",
           },
-          hints: {
-            command: "/ actions",
-            file: "@ paths",
-          },
+          hints: [
+            { id: "command", label: "/ actions", visible_when: "always" },
+            {
+              id: "status.running",
+              label: "Running",
+              visible_when: "running",
+              tone: "warning",
+              status: "running",
+            },
+          ],
         },
         interaction: {
           pending_approval_kicker: "APPROVAL",
@@ -899,7 +905,22 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.commandGroupFallbackLabel, "Action");
   assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.commandEmptyText, "No actions");
   assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.commandItemKindLabel, "action");
-  assert.equal(bootstrap.capabilities.chrome.composer.hints.command, "/ actions");
+  assert.deepEqual(bootstrap.capabilities.chrome.composer.hints, [
+    {
+      id: "command",
+      label: "/ actions",
+      visibleWhen: "always",
+      tone: "",
+      status: "",
+    },
+    {
+      id: "status.running",
+      label: "Running",
+      visibleWhen: "running",
+      tone: "warning",
+      status: "running",
+    },
+  ]);
   assert.equal(bootstrap.capabilities.chrome.interaction.pendingApprovalKicker, "APPROVAL");
   assert.equal(bootstrap.capabilities.chrome.interaction.commandApprovalSummary, "Command summary");
   assert.equal(bootstrap.capabilities.chrome.interaction.alwaysAllowSessionLabel, "Always allow");

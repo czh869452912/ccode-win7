@@ -617,13 +617,23 @@ function normalizeHeaderChrome(input = {}) {
   };
 }
 
-function normalizeComposerHints(input = {}) {
+function normalizeComposerHintDescriptor(input = {}) {
   const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
-  return Object.fromEntries(
-    Object.entries(value)
-      .map(([key, item]) => [String(key || ""), String(item || "")])
-      .filter(([key]) => key),
-  );
+  const id = String(value.id || "").trim();
+  if (!id) return null;
+  return {
+    id,
+    label: String(value.label || ""),
+    visibleWhen: String(value.visible_when || value.visibleWhen || "always"),
+    tone: String(value.tone || ""),
+    status: String(value.status || ""),
+  };
+}
+
+function normalizeComposerHints(input = []) {
+  return (Array.isArray(input) ? input : [])
+    .map((item) => normalizeComposerHintDescriptor(item))
+    .filter(Boolean);
 }
 
 function normalizeComposerCommandMenuChrome(input = {}) {
