@@ -21,18 +21,6 @@ function flattenGroups(groups) {
   }, []);
 }
 
-function commandsFromHints(commandHints) {
-  return (Array.isArray(commandHints) ? commandHints : [])
-    .filter(Boolean)
-    .map((slash) => ({
-      id: `hint.${String(slash).replace(/[^a-z0-9]+/gi, ".")}`,
-      group: "command",
-      label: slash,
-      slash,
-      visibleWhen: "always",
-    }));
-}
-
 function boundedActiveIndex(index, length) {
   if (length <= 0) return 0;
   const value = Number(index);
@@ -62,7 +50,6 @@ export function buildComposerInteractionModel({
   value = "",
   cursor = 0,
   commands = [],
-  commandHints = [],
   fileTree = [],
   currentMode = "",
   isRunning = false,
@@ -78,9 +65,8 @@ export function buildComposerInteractionModel({
   const trigger = detectComposerTrigger(textValue, boundedCursor);
   const triggerKey = composerTriggerKey(trigger);
   const menuOpen = Boolean(!disabled && trigger && triggerKey !== dismissedTriggerKey);
-  const commandSource = commands.length > 0 ? commands : commandsFromHints(commandHints);
   const slashItems = buildComposerCommandItems(
-    commandSource,
+    commands,
     commandGroupLabels,
     commandMenuChrome,
   );

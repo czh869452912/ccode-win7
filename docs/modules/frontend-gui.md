@@ -325,7 +325,9 @@ states, path/kind labels, fallback command group copy, and the default
 slash-command group id, while slash command group names reuse
 `capabilities.command_palette.groups`. Composer search and interaction helpers
 must not own a second English group/copy table or synthesize missing command
-groups as `"command"` outside the app-shell-declared default group.
+groups as `"command"` outside the app-shell-declared default group. Slash menu
+items come only from command capability projection; the old renderer-local
+`commandHints` fallback path has been removed.
 
 Workbench command-palette entries, right-panel add-surface launchers,
 bottom-drawer tabs, and keybinding targets are now filtered from the

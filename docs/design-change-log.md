@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-07-04
+> 更新日期：2026-07-05
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,36 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-268
+
+- Date: 2026-07-05
+- Change Topic: GUI composer slash commands do not use static hint fallbacks
+- Summary:
+  - Removed the renderer-local `commandHints` slash-command fallback path from
+    `App`, `Composer`, and `composer-interaction-model`.
+  - Composer slash-command menu items now come only from command capability
+    projection.
+  - Added frontend and Python architecture guards so static command hint
+    fallbacks and their `"command"` group synthesis cannot be reintroduced.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/Composer.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/composer/composer-interaction-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/composer-integration-source.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue deleting GUI fallbacks that synthesize agent/workflow behavior
+    instead of consuming backend/app-shell descriptors.
 
 ### DC-267
 

@@ -143,7 +143,9 @@
   interaction, and menu components no longer keep a parallel command/path menu
   copy table. The default slash-command group id also comes from app-shell
   chrome, and renderer command helpers no longer synthesize missing command
-  groups as `"command"`.
+  groups as `"command"`. Composer slash-command items now come only from
+  command capability projection; the old renderer-local `commandHints`
+  fallback path has been removed.
 - Command Palette empty-state copy is now entirely descriptor-owned through
   `capabilities.command_palette.labels`; `CommandPaletteResults` no longer
   carries a renderer-local English fallback for missing app-shell labels.

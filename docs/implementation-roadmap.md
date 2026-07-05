@@ -190,6 +190,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `capabilities.chrome.composer.command_menu.default_command_group_id`; session
   command normalization and renderer command helpers no longer synthesize
   missing command groups as `"command"`.
+- GUI composer slash-command items now come only from command capability
+  projection; the retired renderer-local `commandHints` fallback path has been
+  deleted instead of preserved for compatibility.
 - GUI right-panel surface chrome now comes from app-shell `surfaces.chrome`
   descriptors; the renderer no longer owns right-panel aria copy, add-surface
   label, empty-state text, surface action menu labels, close labels, or

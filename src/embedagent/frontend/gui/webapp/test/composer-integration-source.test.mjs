@@ -23,6 +23,7 @@ export function runComposerIntegrationSourceTests() {
   assert.equal(composerSource.includes("dismissedTriggerKey"), true);
   assert.equal(composerSource.includes("composer-hints"), false);
   assert.equal(composerSource.includes('className="composer-hint"'), false);
+  assert.equal(composerSource.includes("commandHints"), false);
   assert.equal(composerSource.includes("fetch("), false);
   assert.equal(composerSource.includes("transcript"), false);
   assert.equal(composerSource.includes("PermissionPolicy"), false);
@@ -37,10 +38,15 @@ export function runComposerIntegrationSourceTests() {
   assert.equal(interactionModelSource.includes("fetch("), false);
   assert.equal(interactionModelSource.includes("transcript"), false);
   assert.equal(interactionModelSource.includes("PermissionPolicy"), false);
+  assert.equal(interactionModelSource.includes("commandsFromHints"), false);
+  assert.equal(interactionModelSource.includes("commandHints"), false);
+  assert.equal(interactionModelSource.includes('group: "command"'), false);
 
   const appSource = readSource("App.jsx");
   assert.equal(appSource.includes("visibleCommands"), true);
   assert.equal(appSource.includes("composerCommands"), true);
   assert.equal(appSource.includes("commands={composerCommands}"), true);
   assert.equal(appSource.includes("fileTree={state.fileTree}"), true);
+  assert.equal(appSource.includes("EMPTY_COMMAND_HINTS"), false);
+  assert.equal(appSource.includes("commandHints"), false);
 }

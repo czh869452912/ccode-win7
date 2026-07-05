@@ -65,7 +65,6 @@ import {
   readPersistedWorkbenchUiState,
 } from "./workbench/ui-state.js";
 
-const EMPTY_COMMAND_HINTS = [];
 const EMPTY_COMMAND_GROUPS = [];
 const EMPTY_KEYBINDINGS = [];
 
@@ -863,7 +862,6 @@ function App() {
               isRunning={isTurnInterruptibleStatus(currentStatus)}
               currentMode={currentMode}
               modeCatalog={state.sessionCapabilities?.modeCatalog || {}}
-              commandHints={EMPTY_COMMAND_HINTS}
               commandGroupLabels={composerCommandGroupLabels}
               commands={composerCommands}
               fileTree={state.fileTree}

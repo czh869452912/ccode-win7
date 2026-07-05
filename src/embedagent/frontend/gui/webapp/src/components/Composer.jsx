@@ -29,7 +29,6 @@ export default function Composer({
   isRunning,
   currentMode,
   modeCatalog = {},
-  commandHints = [],
   commandGroupLabels = {},
   commands = [],
   fileTree = [],
@@ -55,7 +54,6 @@ export default function Composer({
         value: textValue,
         cursor,
         commands,
-        commandHints,
         fileTree,
         currentMode,
         isRunning,
@@ -68,7 +66,6 @@ export default function Composer({
     [
       activeIndex,
       commandGroupLabels,
-      commandHints,
       commandMenuChrome,
       commands,
       currentMode,

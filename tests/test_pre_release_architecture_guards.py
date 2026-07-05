@@ -1280,6 +1280,21 @@ def test_gui_composer_menu_copy_is_app_shell_declared():
         assert hardcoded_copy not in interaction_model_text
 
 
+def test_gui_composer_slash_menu_does_not_keep_static_hint_fallbacks():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    composer_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Composer.jsx")
+    interaction_model_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/composer/composer-interaction-model.js"
+    )
+
+    assert "EMPTY_COMMAND_HINTS" not in app_text
+    assert "commandHints" not in app_text
+    assert "commandHints" not in composer_text
+    assert "commandsFromHints" not in interaction_model_text
+    assert "commandHints" not in interaction_model_text
+    assert 'group: "command"' not in interaction_model_text
+
+
 def test_gui_timeline_copy_is_app_shell_declared():
     spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")

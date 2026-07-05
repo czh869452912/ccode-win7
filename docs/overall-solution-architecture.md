@@ -372,6 +372,9 @@ Managed-session workflow refresh in the product adapter path goes through `Agent
   `capabilities.chrome.composer.command_menu.default_command_group_id` is the
   only fallback group id for backend slash commands, and protocol/session
   command normalization does not synthesize missing groups as `"command"`
+- GUI composer slash-command items come only from command capability
+  projection; renderer-local static `commandHints` fallbacks are removed and
+  must not be used as an alternate command source
 - provider request snapshots and workflow prompt append decisions live behind
   `TurnSnapshotService` and `PromptAssemblyService`; compact payload assembly
   lives in `CompactionJournal`, keeping `QueryEngine` focused on session

@@ -105,7 +105,9 @@ slash-command group labels must reuse `capabilities.command_palette.groups`,
 while `capabilities.chrome.composer.command_menu` carries the Composer
 slash/path menu aria labels, empty states, path group label, item-kind labels,
 fallback command group label, and default slash-command group id. Renderer
-command normalization must not synthesize missing groups as `"command"`.
+command normalization must not synthesize missing groups as `"command"`, and
+Composer must not keep renderer-local static command hint fallbacks as an
+alternate slash-command source.
 Surface descriptors carry `id`,
 `title`, and ordering metadata, and may also carry `icon`, `description`, `command`,
 `command_label`, `slash`, `visible_when`, `read_only`, `offline`, and
