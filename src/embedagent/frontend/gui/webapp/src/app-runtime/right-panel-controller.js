@@ -68,6 +68,12 @@ export function createRightPanelController({
   }
 
   function openFileSurface({ filePath, title = "", revealLine } = {}) {
+    const appCapabilities = getAppCapabilities();
+    const definition = declaredRightPanelSurfaceDefinition(
+      RIGHT_PANEL_RESOURCE_SURFACES.file,
+      appCapabilities,
+    );
+    if (!definition) return;
     const normalizedPath = normalizeFileSurfacePath(filePath);
     if (!normalizedPath) return;
     dispatch({

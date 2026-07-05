@@ -2355,6 +2355,8 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     assert "rightPanelController.openFilesSurface()" in app_text
     assert "openKind" in surfaces_text
     assert "activationKind" in surfaces_text
+    assert "RIGHT_PANEL_RESOURCE_SURFACES.file" in controller_text
+    assert "RIGHT_PANEL_RESOURCE_SURFACES.preview" in controller_text
     assert "terminalController.openRightPanelSurface" in controller_text
     assert "terminalController.openSession" in controller_text
     assert "rightPanelTerminalSurfaceDefinition" in terminal_controller_text

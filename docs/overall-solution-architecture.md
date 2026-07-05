@@ -111,11 +111,12 @@ than a controller switch. App-level file, preview, and Files-browser open flows
 call semantic right-panel controller methods instead of dispatching concrete
 resource surface kinds directly. Those semantic open methods still require the
 active app shell to declare the target right-panel surface; hidden capabilities
-such as Generic Agent without Preview do not reopen the local renderer's
-supported Preview body through a direct controller call. Right-panel terminal
-surface creation follows the same rule and refuses to start a terminal session
-when the active app shell omits the right-panel Terminal surface. Right-panel
-activation side effects use renderer-local `activationKind` metadata through the
+such as Generic Agent without Preview or a specialized agent without File
+Preview do not reopen the local renderer's supported bodies through direct
+controller calls. Right-panel terminal surface creation follows the same rule
+and refuses to start a terminal session when the active app shell omits the
+right-panel Terminal surface. Right-panel activation side effects use
+renderer-local `activationKind` metadata through the
 `right-panel-controller.js` `RIGHT_PANEL_ACTIVATION_HANDLERS` registry, not
 inline App checks for terminal surface ids or direct terminal-session calls.
 Surface

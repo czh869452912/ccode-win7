@@ -18,6 +18,15 @@ const APP_CAPABILITIES = Object.freeze({
         command: true,
       },
       {
+        id: "file",
+        kind: "file",
+        title: "File",
+        commandLabel: "",
+        launcher: false,
+        launcherOrder: 25,
+        command: false,
+      },
+      {
         id: "terminal",
         kind: "terminal",
         title: "Terminal",
@@ -43,12 +52,46 @@ const NO_PREVIEW_CAPABILITIES = Object.freeze({
   surfaces: {
     rightPanel: [
       {
+        id: "file",
+        kind: "file",
+        title: "File",
+        commandLabel: "",
+        launcher: false,
+        launcherOrder: 25,
+        command: false,
+      },
+      {
         id: "terminal",
         kind: "terminal",
         title: "Terminal",
         commandLabel: "Open terminal",
         launcher: true,
         launcherOrder: 20,
+        command: true,
+      },
+      {
+        id: "files",
+        kind: "files",
+        title: "Files",
+        commandLabel: "Open files",
+        launcher: true,
+        launcherOrder: 30,
+        command: true,
+      },
+    ],
+  },
+});
+
+const NO_FILE_CAPABILITIES = Object.freeze({
+  surfaces: {
+    rightPanel: [
+      {
+        id: "preview",
+        kind: "preview",
+        title: "Live View",
+        commandLabel: "Launch view",
+        launcher: true,
+        launcherOrder: 10,
         command: true,
       },
       {
@@ -97,6 +140,21 @@ export function runRightPanelControllerTests() {
 
   controller.openSurface("file", "File");
   assert.equal(actions.length, 2);
+
+  {
+    const blockedActions = [];
+    const blockedController = createRightPanelController({
+      dispatch: (action) => blockedActions.push(action),
+      terminalController: {},
+      getAppCapabilities: () => NO_FILE_CAPABILITIES,
+    });
+    blockedController.openFileSurface({
+      filePath: "src/hidden.c",
+      title: "hidden.c",
+      revealLine: 4,
+    });
+    assert.deepEqual(blockedActions, []);
+  }
 
   {
     const blockedActions = [];
