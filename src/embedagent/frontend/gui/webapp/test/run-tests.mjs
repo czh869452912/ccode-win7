@@ -1506,6 +1506,7 @@ async function main() {
   assert.equal(sourceControlPresentationSource.includes("fileStatusLabels"), true);
   assert.equal(sourceControlPresentationSource.includes("slice(0, 1)"), false);
   assert.equal(sourceControlPresentationSource.includes('"?"'), false);
+  assert.equal(sourceControlPresentationSource.includes("|| normalized"), false);
   for (const hardcodedSourceControlCopy of [
     "Source control unavailable.",
     "Loading changes...",

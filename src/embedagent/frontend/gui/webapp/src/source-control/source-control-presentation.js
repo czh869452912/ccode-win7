@@ -7,14 +7,14 @@ export function fileStatusLabel(file = {}, chrome = {}) {
 export function groupLabel(group, chrome = {}) {
   const normalized = String(group || "").toLowerCase();
   const labels = chrome.groupLabels || {};
-  return String(labels[normalized] || labels.fallback || normalized || "");
+  return String(labels[normalized] || labels.fallback || "");
 }
 
 export function providerLabel(provider = {}, chrome = {}) {
   if (provider.name) return String(provider.name);
   const normalized = String(provider.kind || "").toLowerCase();
   const labels = chrome.providerLabels || {};
-  return String(labels[normalized] || labels.fallback || normalized || "");
+  return String(labels[normalized] || labels.fallback || "");
 }
 
 export function changeSummary(file = {}) {

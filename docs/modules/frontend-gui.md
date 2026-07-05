@@ -380,7 +380,8 @@ Source-control panel labels, empty states, count labels, group order, group
 labels, provider labels, file status badge labels, runtime labels, Branch
 Toolbar labels, and fallback notices are declared under `/api/app/bootstrap`
 `capabilities.source_control.chrome`; renderer source-control modules may
-consume that chrome but must not keep parallel English defaults.
+consume that chrome but must not keep parallel English defaults or show raw
+group/provider ids as fallback labels.
 The Diff surface opened from a selected changed file uses the separate
 `capabilities.surfaces.chrome.diff_panel.source_control_title_template` for
 its right-panel title, keeping Source Control read-model copy separate from the

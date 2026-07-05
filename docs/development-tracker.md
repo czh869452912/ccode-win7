@@ -155,7 +155,8 @@
   `capabilities.source_control.chrome`: panel title, status/diff fallback
   notices, empty states, group order, count/group/provider labels, file status
   badge labels, runtime labels, and refresh action copy are backend-declared
-  descriptors consumed by the renderer.
+  descriptors consumed by the renderer. Missing group/provider descriptors do
+  not fall back to raw ids as visible UI.
 - Preview, Terminal, and Source Control frontend API helpers no longer carry
   local request-failure copy. When backend responses omit `detail` / `error`
   and status text, controllers fall through to app-shell chrome fallback

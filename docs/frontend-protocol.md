@@ -195,7 +195,8 @@ source-control surface: `enabled`, `vcs`, `read_only`, `remote_providers`,
 `network`, `checkpoints`, `requires_active_workspace`, and `chrome` copy for
 status/diff errors, empty states, counts, group order, groups, providers, file
 status badges, runtime labels, panel actions, and the composer Branch Toolbar
-under `chrome.branch_toolbar`.
+under `chrome.branch_toolbar`. Group/provider labels must render only declared
+labels or declared fallback labels, not raw protocol ids.
 The renderer may keep a local registry of supported component kinds, but that
 registry is not a frontend capability source and must not be exposed as a fixed
 surface id list.

@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-266
+
+- Date: 2026-07-04
+- Change Topic: GUI source-control group/provider labels do not fall back to raw kinds
+- Summary:
+  - `groupLabel()` and `providerLabel()` now render only app-shell declared
+    labels or app-shell declared fallback labels.
+  - Missing Source Control group/provider descriptors no longer display raw
+    normalized kind strings as renderer-local UI copy.
+  - Added frontend and Python architecture guards for the no raw-kind label
+    fallback rule.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/source-control/source-control-presentation.js`
+  - `src/embedagent/frontend/gui/webapp/test/source-control-state.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue removing renderer-local fallbacks where raw protocol/workflow ids
+    still leak into visible GUI chrome.
+
 ### DC-265
 
 - Date: 2026-07-04

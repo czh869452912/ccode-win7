@@ -1698,6 +1698,7 @@ def test_gui_source_control_copy_is_app_shell_declared():
     assert "chrome.fileStatusLabels" in source_control_presentation_text
     assert "slice(0, 1)" not in source_control_presentation_text
     assert '"?"' not in source_control_presentation_text
+    assert "|| normalized" not in source_control_presentation_text
     assert "model.branchMetaLabel" in branch_toolbar_text
     assert "sourceControlChrome?.branchToolbar" in branch_toolbar_model_text
     assert '"Source control request failed"' not in source_control_api_text

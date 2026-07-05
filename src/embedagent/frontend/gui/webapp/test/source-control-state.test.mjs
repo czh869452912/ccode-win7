@@ -106,8 +106,10 @@ export function runSourceControlStateTests() {
   assert.equal(fileStatusLabel({ status: "unknown" }, { fileStatusLabels: {} }), "");
   assert.equal(providerLabel(normalized.provider), "GitHub");
   assert.equal(groupLabel("unstaged", { groupLabels: { unstaged: "Modified" } }), "Modified");
+  assert.equal(groupLabel("mystery", { groupLabels: {} }), "");
   assert.equal(
     providerLabel({ kind: "local" }, { providerLabels: { local: "Workspace Git" } }),
     "Workspace Git",
   );
+  assert.equal(providerLabel({ kind: "unknown" }, { providerLabels: {} }), "");
 }

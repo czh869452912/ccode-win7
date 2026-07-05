@@ -153,7 +153,8 @@ existing Diff surface for selected files. Diff workbench tab titles come from
 explicit diff payload titles or the app-shell surface descriptor rather than a
 renderer `"diff"` fallback. Source-control group order and file status badge
 labels come from `capabilities.source_control.chrome` instead of renderer
-fixed group arrays or status-initial inference. This slice does not stage, commit,
+fixed group arrays, status-initial inference, or raw group/provider id fallback.
+This slice does not stage, commit,
 push, pull, contact remote providers, create checkpoints, or write transcript
 history, workflow state, telemetry, permission policy, runtime reducer truth,
 provider configuration, extension loading state, or Agent Core behavior.
