@@ -858,6 +858,7 @@ def test_gui_pending_interaction_display_prefers_session_snapshot_not_raw_reques
 def test_agent_application_capabilities_are_declared_by_backend_not_gui_defaults():
     adapter_text = _read(ROOT / "src/embedagent_host/inprocess_adapter.py")
     application_registry_text = _read(ROOT / "src/embedagent/agent_applications.py")
+    product_registry_text = _read(ROOT / "src/embedagent_host/agent_application_registry.py")
     protocol_text = _read(ROOT / "src/embedagent/protocol/app_protocol.py")
     normalizer_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/protocol-normalizer.js"
@@ -867,10 +868,16 @@ def test_agent_application_capabilities_are_declared_by_backend_not_gui_defaults
     )
 
     assert "build_agent_application" in adapter_text
+    assert "product_agent_application_registry" in adapter_text
     assert "agentApplication" in adapter_text
     assert "agentApplications" in adapter_text
     assert "AgentApplicationRecord" in application_registry_text
+    assert "AgentApplicationRegistry" in application_registry_text
     assert "BUILTIN_AGENT_APPLICATION_RECORDS" in application_registry_text
+    assert "embedagent.workflow_packages.c_cpp" not in application_registry_text
+    assert "default_c_cpp_agent_application_record" not in application_registry_text
+    assert "default_c_cpp_agent_application_record" in product_registry_text
+    assert "DEFAULT_C_CPP_AGENT_APPLICATION_ID" in product_registry_text
     assert "AgentApplicationDefinition" not in application_registry_text
     assert "_builtin_agent_application_definitions" not in application_registry_text
     assert "AgentApplicationDescriptor" in protocol_text

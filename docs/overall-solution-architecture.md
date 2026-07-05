@@ -337,18 +337,18 @@ Hosted `AgentApplication` records declare scenario identity, manifest metadata,
 profile, mode policy, extension manager, and workflow refreshers. The hosted
 application registry stores built-in applications as `AgentApplicationRecord`
 data. Profile-only applications build directly from profile records; workflow
-backed specialized applications declare a lazy `builder_path` that resolves to
-the package-owned application factory, so the generic loader does not contain
-C/C++ workflow branches. Profile-only records stay in the base registry and can
-be built without importing the bundled C/C++ workflow package. Workflow-backed
-built-ins, including the default C/C++ product application, are loaded through a
-lazy record list only when selected directly or when safe manifest enumeration is
-requested. The default C/C++ application record and app-shell overlay live in
-`src/embedagent/workflow_packages/c_cpp/application_record.py`; the generic
-registry only includes that package-owned record. The registry exposes safe
-`AgentApplicationManifest` records for GUI capability projection. Agent
-profiles declare scenario mode metadata, base tool policy, and GUI mode
-capability projection.
+backed specialized applications declare a `builder_path` that resolves to the
+package-owned application factory, so the generic loader does not contain C/C++
+workflow branches. Profile-only records stay in the base registry and can be
+built without importing the bundled C/C++ workflow package. Workflow-backed
+built-ins, including the default C/C++ product application, are added only by the
+hosted product registry in `src/embedagent_host/agent_application_registry.py`.
+The default C/C++ application record and app-shell overlay live in
+`src/embedagent/workflow_packages/c_cpp/application_record.py`; the base
+registry does not import that package. The selected registry exposes safe
+`AgentApplicationManifest` records for GUI capability projection. Agent profiles
+declare scenario mode metadata, base tool policy, and GUI mode capability
+projection.
 Built-in application records also carry `metadata.appShell` GUI allow-lists,
 so the hosted GUI can derive a smaller base shell or a specialized workflow
 shell from the selected application manifest rather than assuming the default
@@ -369,16 +369,16 @@ detectors, and package-owned tool names. Provider-facing schemas are always
 projected from explicit active tool names computed by the shared extension
 boundary.
 
-The built-in application registry currently exposes `embedagent.default_c_cpp`
-as the default packaged product application plus profile-only
-`embedagent.generic`, `embedagent.python`, and `embedagent.html` applications.
-Those non-C applications share the same Agent Core, hosted runtime, protocol,
-and GUI shell while carrying no C/C++ workflow package manifest or harness
-refresh path, and constructing them does not import
-`embedagent.workflow_packages.c_cpp`. Base configuration and bundled config
-templates do not pin the default C/C++ application id; when
-`agent_application_id` is omitted, hosted application selection falls through to
-the registry default.
+The base application registry exposes profile-only `embedagent.generic`,
+`embedagent.python`, and `embedagent.html` applications. The hosted product
+registry composes those base records with `embedagent.default_c_cpp` as the
+packaged default specialized application. The non-C applications share the same
+Agent Core, hosted runtime, protocol, and GUI shell while carrying no C/C++
+workflow package manifest or harness refresh path, and constructing them through
+the base registry does not import `embedagent.workflow_packages.c_cpp`. Base
+configuration and bundled config templates do not pin the default C/C++
+application id; when `agent_application_id` is omitted, hosted product
+selection falls through to the product registry default.
 
 ### Default C/C++ Workflow Package
 

@@ -440,10 +440,13 @@ def test_c_cpp_agent_profile_lives_in_c_workflow_package():
 def test_default_c_cpp_application_record_lives_in_c_workflow_package():
     registry = ROOT / "src/embedagent/agent_applications.py"
     record = ROOT / "src/embedagent/workflow_packages/c_cpp/application_record.py"
+    product_registry = ROOT / "src/embedagent_host/agent_application_registry.py"
 
     assert record.is_file()
+    assert product_registry.is_file()
     registry_text = _read(registry)
     record_text = _read(record)
+    product_registry_text = _read(product_registry)
 
     for token in (
         "_C_CPP_APP_SHELL",
@@ -451,17 +454,13 @@ def test_default_c_cpp_application_record_lives_in_c_workflow_package():
         '"Path to C/C++ project"',
         '"embedagent.c_workflow"',
         'profile_kind="default_c_cpp"',
+        "embedagent.workflow_packages.c_cpp",
+        "default_c_cpp_agent_application_record",
     ):
         assert token not in registry_text
-    assert "default_c_cpp_agent_application_record" in registry_text
-    assert "_lazy_agent_application_records" in registry_text
-    eager_default_record = "\n".join(
-        (
-            "BUILTIN_AGENT_APPLICATION_RECORDS = (",
-            "    _default_c_cpp_application_record(),",
-        )
-    )
-    assert eager_default_record not in registry_text
+    assert "AgentApplicationRegistry" in registry_text
+    assert "default_c_cpp_agent_application_record" in product_registry_text
+    assert "DEFAULT_C_CPP_AGENT_APPLICATION_ID" in product_registry_text
     assert "C_WORKFLOW_PACKAGE_ID" in record_text
     assert '"Default C/C++ Agent"' in record_text
     assert 'profile_kind="workflow_package"' in record_text

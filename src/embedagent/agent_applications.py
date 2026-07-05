@@ -12,7 +12,6 @@ from embedagent.agent_profiles import (
 )
 from embedagent_core.extensions import ExtensionManager
 
-DEFAULT_AGENT_APPLICATION_ID = "embedagent.default_c_cpp"
 GENERIC_AGENT_APPLICATION_ID = "embedagent.generic"
 PYTHON_AGENT_APPLICATION_ID = "embedagent.python"
 HTML_AGENT_APPLICATION_ID = "embedagent.html"
@@ -93,6 +92,35 @@ class AgentApplicationRecord:
             default=bool(self.default),
             metadata=metadata,
         )
+
+
+@dataclass(frozen=True)
+class AgentApplicationRegistry:
+    application_records: Tuple[AgentApplicationRecord, ...]
+    default_application_id: str = ""
+
+    def __post_init__(self) -> None:
+        records = tuple(self.application_records or ())
+        object.__setattr__(self, "application_records", records)
+        default_id = str(self.default_application_id or "").strip()
+        if not default_id:
+            for record in records:
+                if record.default:
+                    default_id = record.application_id
+                    break
+        if not default_id and records:
+            default_id = records[0].application_id
+        object.__setattr__(self, "default_application_id", default_id)
+
+    def record_by_id(self, application_id: str = "") -> AgentApplicationRecord:
+        requested = str(application_id or "").strip() or self.default_application_id
+        for record in self.application_records:
+            if requested == record.application_id:
+                return record
+        raise ValueError("Unknown agent application %r" % (application_id,))
+
+    def manifests(self) -> List[AgentApplicationManifest]:
+        return [record.to_manifest() for record in self.application_records]
 
 
 _BASE_APP_SHELL = {
@@ -216,14 +244,6 @@ _WEB_APP_SHELL = {
 }
 
 
-def _default_c_cpp_application_record() -> AgentApplicationRecord:
-    from embedagent.workflow_packages.c_cpp.application_record import (
-        default_c_cpp_agent_application_record,
-    )
-
-    return default_c_cpp_agent_application_record(DEFAULT_AGENT_APPLICATION_ID, _WEB_APP_SHELL)
-
-
 BUILTIN_AGENT_APPLICATION_RECORDS = (
     AgentApplicationRecord(
         application_id=GENERIC_AGENT_APPLICATION_ID,
@@ -276,23 +296,24 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
 )
 
 
-def _lazy_agent_application_records() -> Tuple[AgentApplicationRecord, ...]:
-    return (_default_c_cpp_application_record(),)
+def base_agent_application_registry() -> AgentApplicationRegistry:
+    return AgentApplicationRegistry(
+        application_records=tuple(BUILTIN_AGENT_APPLICATION_RECORDS),
+        default_application_id=GENERIC_AGENT_APPLICATION_ID,
+    )
 
 
-def _all_builtin_agent_application_records() -> Tuple[AgentApplicationRecord, ...]:
-    return _lazy_agent_application_records() + tuple(BUILTIN_AGENT_APPLICATION_RECORDS)
+def _registry_or_base(
+    registry: Optional[AgentApplicationRegistry] = None,
+) -> AgentApplicationRegistry:
+    return registry or base_agent_application_registry()
 
 
-def _record_by_id(application_id: str) -> AgentApplicationRecord:
-    requested = str(application_id or "").strip() or DEFAULT_AGENT_APPLICATION_ID
-    for record in BUILTIN_AGENT_APPLICATION_RECORDS:
-        if requested == record.application_id:
-            return record
-    for record in _lazy_agent_application_records():
-        if requested == record.application_id:
-            return record
-    raise ValueError("Unknown agent application %r" % (application_id,))
+def _record_by_id(
+    application_id: str,
+    registry: Optional[AgentApplicationRegistry] = None,
+) -> AgentApplicationRecord:
+    return _registry_or_base(registry).record_by_id(application_id)
 
 
 def _profile_for_record(record: AgentApplicationRecord) -> AgentProfile:
@@ -342,8 +363,10 @@ def html_agent_application_manifest() -> AgentApplicationManifest:
     return _record_by_id(HTML_AGENT_APPLICATION_ID).to_manifest()
 
 
-def available_agent_application_manifests() -> List[AgentApplicationManifest]:
-    return [record.to_manifest() for record in _all_builtin_agent_application_records()]
+def available_agent_application_manifests(
+    registry: Optional[AgentApplicationRegistry] = None,
+) -> List[AgentApplicationManifest]:
+    return _registry_or_base(registry).manifests()
 
 
 def _copy_value(value: Any) -> Any:
@@ -363,8 +386,12 @@ def _application_descriptor_payload(
     return payload
 
 
-def agent_application_capability_payload(application_id: str = "") -> Dict[str, Any]:
-    selected = _record_by_id(application_id)
+def agent_application_capability_payload(
+    application_id: str = "",
+    registry: Optional[AgentApplicationRegistry] = None,
+) -> Dict[str, Any]:
+    selected_registry = _registry_or_base(registry)
+    selected = selected_registry.record_by_id(application_id)
     selected_id = selected.application_id
     return {
         "agentApplication": _application_descriptor_payload(selected, active=True),
@@ -373,14 +400,18 @@ def agent_application_capability_payload(application_id: str = "") -> Dict[str, 
                 record,
                 active=record.application_id == selected_id,
             )
-            for record in _all_builtin_agent_application_records()
+            for record in selected_registry.application_records
         ],
         "emptyState": _copy_value(selected.empty_state),
     }
 
 
-def build_agent_application(application_id: str, tools: Any) -> AgentApplication:
-    record = _record_by_id(application_id)
+def build_agent_application(
+    application_id: str,
+    tools: Any,
+    registry: Optional[AgentApplicationRegistry] = None,
+) -> AgentApplication:
+    record = _record_by_id(application_id, registry=registry)
     if record.builder_path:
         return _load_application_builder(record.builder_path)(tools)
     return _build_profile_application(record, _profile_for_record(record))

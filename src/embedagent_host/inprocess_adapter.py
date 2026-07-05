@@ -34,6 +34,7 @@ from embedagent.project_extensions import load_project_extensions
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.protocol import PermissionContextView, PlanSnapshot
 from embedagent_core.recovery_state import RecoveryStateReducer
+from embedagent_host.agent_application_registry import product_agent_application_registry
 from embedagent_host.hosted_command_service import HostedCommandService
 from embedagent_host.hosted_interaction_service import (
     HostedInteractionService,
@@ -172,6 +173,7 @@ class InProcessAdapter(object):
         event_handler: Optional[EventHandler] = None,
         agent_application_id: str = "",
         agent_application: Optional[Any] = None,
+        agent_application_registry: Optional[Any] = None,
     ) -> None:
         if tools is None:
             tools = ToolRuntime(os.getcwd())
@@ -208,9 +210,13 @@ class InProcessAdapter(object):
         )
         self.session_restorer = SessionRestorer()
         self.snapshot_projector = SessionSnapshotProjector()
+        self.agent_application_registry = (
+            agent_application_registry or product_agent_application_registry()
+        )
         self.agent_application = agent_application or build_agent_application(
             agent_application_id,
             self.tools,
+            registry=self.agent_application_registry,
         )
         self.workspace_profile = _WorkspaceProfilePort(
             getattr(self.agent_application, "workspace_profile_detectors", ()),
@@ -404,7 +410,8 @@ class InProcessAdapter(object):
             try:
                 payload.update(
                     agent_application_capability_payload(
-                        str(current_application.get("applicationId") or "")
+                        str(current_application.get("applicationId") or ""),
+                        registry=self.agent_application_registry,
                     )
                 )
                 return payload

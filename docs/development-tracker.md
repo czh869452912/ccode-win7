@@ -71,13 +71,14 @@
   for projecting runnable recipe tools.
 - Agent application loading no longer branches on a generic `workflow_kind`
   string. Built-in profile-only agents build from their `AgentApplicationRecord`
-  profile data, while workflow-backed specialized agents declare a lazy
-  package-owned `builder_path`; the default C/C++ agent is therefore one
-  registered specialized agent rather than a hard-coded loader branch.
-- The base application registry now keeps only profile-only records directly.
-  Workflow-backed built-in records are loaded through a lazy record list, so
-  constructing Generic/Python/HTML agents does not import
-  `embedagent.workflow_packages.c_cpp`.
+  profile data, while workflow-backed specialized agents declare a
+  package-owned `builder_path`; the default C/C++ agent is therefore one hosted
+  product registry record rather than a hard-coded loader branch.
+- The base application registry now keeps only profile-only records. The hosted
+  product registry in `src/embedagent_host/agent_application_registry.py`
+  explicitly composes those records with the bundled default C/C++ application,
+  so constructing Generic/Python/HTML agents through the base registry does not
+  import `embedagent.workflow_packages.c_cpp`.
 - `/api/app/bootstrap` now declares Preview surface chrome and local-server
   presets under `capabilities.preview`. The renderer uses those descriptors for
   Preview toolbar labels, empty states, status labels, and failure notices

@@ -21,10 +21,10 @@ composition layer, and replaceable workflow packages:
   import GUI backend code, hosted product composition, or workflow packages.
 - `src/embedagent_host/` assembles Core, selected workflow packages, session
   hosting, command/interaction services, and UI shells into the product runtime.
-- `src/embedagent/agent_applications.py` is the hosted scenario application
-  registry. Built-in ids currently include `embedagent.default_c_cpp`,
-  `embedagent.generic`, `embedagent.python`, and `embedagent.html`; the default
-  packaged product still selects `embedagent.default_c_cpp`.
+- `src/embedagent/agent_applications.py` is the base scenario application
+  registry for profile-only agents. The hosted product registry in
+  `src/embedagent_host/agent_application_registry.py` explicitly adds the
+  bundled `embedagent.default_c_cpp` specialized agent as the packaged default.
 - `src/embedagent/workflow_packages/c_cpp/` is the first-party default C/C++
   workflow package. It is bundled by the hosted product, but it is not Core.
 - `src/embedagent/protocol/` contains the Agent App Protocol contracts consumed

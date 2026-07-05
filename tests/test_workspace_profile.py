@@ -65,8 +65,10 @@ class WorkspaceProfileTests(unittest.TestCase):
         self.assertEqual(profile["code_roots"], [])
 
     def test_c_cpp_application_contributes_workspace_profile_detector(self):
-        from embedagent.agent_applications import DEFAULT_AGENT_APPLICATION_ID
         from embedagent.tools import ToolRuntime
+        from embedagent.workflow_packages.c_cpp.application_record import (
+            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
+        )
         from embedagent_host.inprocess_adapter import InProcessAdapter
 
         native_dir = os.path.join(self.workspace, "native")
@@ -76,7 +78,7 @@ class WorkspaceProfileTests(unittest.TestCase):
 
         adapter = InProcessAdapter(
             tools=ToolRuntime(self.workspace),
-            agent_application_id=DEFAULT_AGENT_APPLICATION_ID,
+            agent_application_id=DEFAULT_C_CPP_AGENT_APPLICATION_ID,
         )
 
         message = adapter.workspace_profile.build_message(self.workspace, session_id="session")

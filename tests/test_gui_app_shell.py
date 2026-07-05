@@ -645,10 +645,12 @@ class TestGuiAppShellService(unittest.TestCase):
             payload["capabilities"]["agentApplication"]["applicationId"],
             "embedagent.python",
         )
-        self.assertEqual(
-            payload["capabilities"]["agentApplications"][0]["applicationId"],
-            "embedagent.default_c_cpp",
-        )
+        application_ids = [
+            item["applicationId"] for item in payload["capabilities"]["agentApplications"]
+        ]
+        self.assertIn("embedagent.generic", application_ids)
+        self.assertIn("embedagent.python", application_ids)
+        self.assertNotIn("embedagent.default_c_cpp", application_ids)
         self.assertEqual(
             payload["capabilities"]["emptyState"]["scenario_label"],
             "Python workspace",
