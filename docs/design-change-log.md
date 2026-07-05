@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-304
+
+- Date: 2026-07-05
+- Change Topic: GUI active-workspace source-control refresh uses controller handle
+- Summary:
+  - `App.jsx` now passes `sourceControlController.loadStatus` directly into
+    `active-workspace-data-loader.js`.
+  - The root-level three-argument Source Control status-refresh forwarding
+    lambda has been removed from the active-workspace refresh path.
+  - Frontend and architecture guards reject the old adapter lambda and require
+    the direct controller handle.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue reducing remaining root-level dependency adapter lambdas where
+    they encode behavior instead of simple composition.
+
 ### DC-303
 
 - Date: 2026-07-05

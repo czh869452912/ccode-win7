@@ -2294,6 +2294,17 @@ async function main() {
   assert.equal(appSource.includes("Promise.all(["), false);
   assert.equal(appSource.includes('loadFileChildren(".", { appCapabilities'), false);
   assert.equal(appSource.includes("sourceControlController.loadStatus(false, assumeWorkspace"), false);
+  assert.equal(appSource.includes("loadStatus: sourceControlController.loadStatus"), true);
+  assert.equal(
+    appSource.includes("loadStatus: (refresh, assumeWorkspace, appCapabilities)"),
+    false,
+  );
+  assert.equal(
+    appSource.includes(
+      "sourceControlController.loadStatus(refresh, assumeWorkspace, appCapabilities)",
+    ),
+    false,
+  );
   assert.equal(activeWorkspaceDataLoaderSource.includes("export function createActiveWorkspaceDataLoader"), true);
   assert.equal(activeWorkspaceDataLoaderSource.includes("Promise.all(["), true);
   assert.equal(activeWorkspaceDataLoaderSource.includes('invoke(loadFileChildren, ".",'), true);

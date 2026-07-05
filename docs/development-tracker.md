@@ -158,7 +158,9 @@
 - GUI active-workspace read-model refresh now lives in
   `app-runtime/active-workspace-data-loader.js`. Workspace activation no
   longer leaves a root-component `Promise.all` fanout for sessions,
-  capabilities, file tree, and local status surfaces.
+  capabilities, file tree, and local status surfaces; the loader receives
+  `sourceControlController.loadStatus` directly rather than through a
+  root-level status-refresh forwarding lambda.
 - GUI panel resize pointer/DOM handling now lives in
   `app-runtime/panel-resize-controller.js`. `App.jsx` wires
   `startSidebarResize` / `startRightPanelResize` directly but no longer owns

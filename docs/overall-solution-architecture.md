@@ -295,7 +295,8 @@ GUI active-workspace read-model refresh is owned by
 loader coordinates session list refresh, session command capability refresh,
 workspace file tree refresh, and local status-surface refresh from injected
 dependencies. `App.jsx` wires the dependencies but does not inline the refresh
-fanout.
+fanout or wrap Source Control status refresh in a root-level forwarding lambda;
+the loader receives the `sourceControlController.loadStatus` handle directly.
 
 GUI panel resize pointer handling is owned by
 `app-runtime/panel-resize-controller.js`. The controller clamps panel widths,

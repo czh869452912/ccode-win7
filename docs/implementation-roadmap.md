@@ -377,7 +377,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `app-runtime/interaction-response-controller.js` owns interaction response
   submission, snapshot/reload handling, and response `log_event` emission;
   `app-runtime/active-workspace-data-loader.js` owns active-workspace read-model
-  refresh fanout, and
+  refresh fanout and receives the Source Control status-refresh controller
+  handle directly, and
   `app-runtime/panel-resize-controller.js` owns pointer/DOM resizing for
   workbench panels through `startSidebarResize` / `startRightPanelResize`
   instead of root-level CSS variable or direction parameters,

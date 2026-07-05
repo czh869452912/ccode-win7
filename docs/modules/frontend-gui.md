@@ -427,6 +427,10 @@ declaration for Plan, Diff, Source Control, Settings, and Diagnostics bodies;
 generic panels: diff-file focus, Source Control refresh/file selection, and
 app-shell settings patching. `App.jsx` wires those methods directly rather
 than inline reducer dispatch or source-control controller lambdas.
+The active-workspace refresh fanout uses the same boundary style:
+`app-runtime/active-workspace-data-loader.js` receives
+`sourceControlController.loadStatus` directly rather than a root-level
+status-refresh forwarding lambda.
 Surface command row descriptions are passed through from surface descriptors
 rather than generated from surface or drawer ids. Session/workspace palette row
 leading markers are descriptor-owned and empty when absent. Command-palette

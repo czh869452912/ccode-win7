@@ -2969,6 +2969,12 @@ def test_gui_active_workspace_data_loading_is_controller_owned():
     assert "Promise.all([" not in app_text
     assert 'loadFileChildren(".", { appCapabilities' not in app_text
     assert "sourceControlController.loadStatus(false, assumeWorkspace" not in app_text
+    assert "loadStatus: sourceControlController.loadStatus" in app_text
+    assert "loadStatus: (refresh, assumeWorkspace, appCapabilities)" not in app_text
+    assert (
+        "sourceControlController.loadStatus(refresh, assumeWorkspace, appCapabilities)"
+        not in app_text
+    )
     assert "export function createActiveWorkspaceDataLoader" in loader_text
     assert "Promise.all([" in loader_text
     assert 'invoke(loadFileChildren, ".",' in loader_text

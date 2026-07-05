@@ -390,8 +390,7 @@ function App() {
         loadSessions,
         loadSessionCommandCapabilities: loadSessionCommandCapabilitiesForApp,
         loadFileChildren,
-        loadStatus: (refresh, assumeWorkspace, appCapabilities) =>
-          sourceControlController.loadStatus(refresh, assumeWorkspace, appCapabilities),
+        loadStatus: sourceControlController.loadStatus,
       }),
     [loadSessionCommandCapabilitiesForApp, sourceControlController],
   );
