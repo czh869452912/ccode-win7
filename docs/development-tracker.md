@@ -609,6 +609,7 @@
 - 当前收敛：默认 GUI shell descriptors 已移到可注入 `AppShellSpec`（`frontend/gui/backend/app_shell_spec.py`）；`AppShellService` 只组合 spec 与 active-core 安全投影，不再内联维护 surface、command 或 keybinding 清单。
 - 当前收敛：`/api/app/bootstrap` 在没有 active workspace/core 时也会从 host/launcher 选中的 agent application registry 投影安全的 `agentApplication`、`agentApplications` 和 `emptyState`；workspace 激活后由 active core 的 capability projection 接管，因此 GUI 可在打开 session 前按当前基础/专用 agent 调整空状态文案。
 - 当前收敛：workbench 持久化 surface 状态在 app bootstrap / workspace switch 后也会按同一份 app-shell capabilities 重新裁剪；旧 localStorage 里的 `preview`、`source_control`、`terminal` 等 surface 不能绕过当前 active app 的声明重新出现。
+- 当前收敛：live `workbench_surface_opened` / `diff_surface_opened` reducer 入口也按同一份 app-shell capabilities 拒绝未声明的 right-panel 或 bottom-drawer surface；payload-driven Diff intent 不再能绕过 active agent/app surface 声明创建 GUI 面板。
 - 当前收敛：旧 Inspector sidecar 的 artifacts/review/permissions/runtime/workspace-preview/log state、loader request 和 socket action 已删除；review 结果只作为 timeline activity 呈现，permission/user-input 只走 session interaction state，诊断只走 app-shell diagnostics surface。
 - 当前收敛：工具展示 catalog 现在只来自 session capabilities/bootstrap 的 `toolCatalog`；GUI `/api/tool-catalog` route、root `toolCatalog` fallback state 和 frontend-facing `CoreInterface.get_tool_catalog` facade 已删除。
 - 当前收敛：旧 `Inspector.jsx` 组件、`inspectorTab` / `inspectorKind` adapter、内部 `RIGHT_PANEL_SURFACES` tab registry、`showTabs` 和 `onTabChange` 导航入口都已删除；right-panel surfaces 是唯一的右栏导航真相。

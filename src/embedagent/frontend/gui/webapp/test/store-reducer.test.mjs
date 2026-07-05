@@ -146,6 +146,36 @@ export function runStoreReducerTests() {
   assert.equal(appLimitedState.workbench.bottomDrawer.open, false);
   assert.equal(appLimitedState.workbench.bottomDrawer.activeKind, "");
 
+  const blockedDirectDiffSurfaceState = reducer(appLimitedState, {
+    type: "workbench_surface_opened",
+    placement: "right",
+    kind: "diff",
+    title: "Patch",
+    resourceId: "current",
+  });
+  assert.deepEqual(
+    blockedDirectDiffSurfaceState.workbench.rightPanel.surfaces.map((item) => item.kind),
+    ["file"],
+  );
+  assert.equal(blockedDirectDiffSurfaceState.workbench.rightPanel.activeSurfaceId, "right:file:src/main.c");
+
+  const blockedDiffSurfaceState = reducer(appLimitedState, {
+    type: "diff_surface_opened",
+    diffSurface: {
+      title: "Hidden Diff",
+      rawDiff: "--- a/demo.c\n+++ b/demo.c\n",
+      files: [{ path: "demo.c", diff: "--- a/demo.c\n+++ b/demo.c\n" }],
+      focusedFilePath: "demo.c",
+      focusedDiff: "--- a/demo.c\n+++ b/demo.c\n",
+    },
+  });
+  assert.equal(blockedDiffSurfaceState.diffSurface, null);
+  assert.deepEqual(
+    blockedDiffSurfaceState.workbench.rightPanel.surfaces.map((item) => item.kind),
+    ["file"],
+  );
+  assert.equal(blockedDiffSurfaceState.workbench.rightPanel.activeSurfaceId, "right:file:src/main.c");
+
   const untitledDiffSurfaceState = reducer(initialState, {
     type: "diff_surface_opened",
     diffSurface: {

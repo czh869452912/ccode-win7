@@ -195,6 +195,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   diagnostic capability records and do not enter visible launchers or surface
   commands; persisted workbench surface state is also re-sanitized
   after app bootstrap or workspace switch against those app-shell capabilities,
+  live reducer-level workbench surface-open actions are rejected when the active
+  app shell does not declare the target right-panel or bottom-drawer surface,
   shallow persisted surface fields are normalized by the renderer-local
   surface registry rather than `ui-state.js` file/terminal branches, and
   capability cleanup uses `persistedSurfaceDefinitions(appCapabilities, placement)`

@@ -135,6 +135,10 @@ declaration omits the `capabilities` object or the relevant command, surface,
 or keybinding descriptor arrays. Persisted workbench surface state is re-sanitized after app
 bootstrap or workspace switch against the same declaration, so stale local UI
 state cannot reopen surfaces that the active app shell does not expose.
+Live workbench surface-open actions use the same app-shell declaration gate:
+payload-driven Diff intents, direct `workbench_surface_opened` actions, and
+other reducer-level opens must not create right-panel or bottom-drawer surfaces
+that the active app shell does not declare.
 Shallow persisted surface descriptors are normalized by the renderer-local
 surface registry through `persistedSurfaceFrom(...)`; the browser localStorage
 state module must not own fixed file/terminal surface field rules. Per-kind

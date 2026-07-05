@@ -13,7 +13,12 @@ import {
   createActivityState,
   reduceActivityState,
 } from "./session-runtime/activity-reducer.js";
-import { createWorkbenchState, reduceWorkbenchState } from "./workbench/surfaces.js";
+import {
+  bottomDrawerSurfaceDefinitionFor,
+  createWorkbenchState,
+  reduceWorkbenchState,
+  surfaceDefinitionFor,
+} from "./workbench/surfaces.js";
 import { sanitizeWorkbenchUiStateForAppCapabilities } from "./workbench/ui-state.js";
 import { resetWorkspaceScopedState } from "./app-workspaces.js";
 
@@ -39,6 +44,18 @@ export const initialState = {
   sourceControl: createSourceControlState(),
   terminal: createTerminalState(),
 };
+
+function workbenchSurfaceAllowedForApp(state, action) {
+  const app = state.app || {};
+  if (!app.bootstrapLoaded) return true;
+  const placement = action.placement === "bottom" ? "bottom" : "right";
+  const kind = String(action.kind || "");
+  if (!kind) return false;
+  if (placement === "bottom") {
+    return Boolean(bottomDrawerSurfaceDefinitionFor(kind, app.capabilities));
+  }
+  return Boolean(surfaceDefinitionFor(kind, app.capabilities));
+}
 
 export function reducer(state, action) {
   if (ACTIVITY_ACTION_TYPES.has(action.type)) {
@@ -251,6 +268,9 @@ export function reducer(state, action) {
       };
     }
     case "diff_surface_opened":
+      if (!workbenchSurfaceAllowedForApp(state, { placement: "right", kind: "diff" })) {
+        return state;
+      }
       return {
         ...state,
         diffSurface: action.diffSurface || null,
@@ -292,6 +312,16 @@ export function reducer(state, action) {
       return { ...state, runOutput: reduceRunOutputState(state.runOutput, action) };
     }
     case "workbench_surface_opened":
+      if (!workbenchSurfaceAllowedForApp(state, action)) {
+        return state;
+      }
+      return {
+        ...state,
+        workbench: reduceWorkbenchState(state.workbench, {
+          ...action,
+          sessionId: action.sessionId || readActiveThreadId(state) || state.workbench?.activeSessionKey,
+        }),
+      };
     case "workbench_surface_activated":
     case "workbench_surface_closed":
     case "workbench_surface_close_others":
