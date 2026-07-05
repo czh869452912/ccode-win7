@@ -28,6 +28,7 @@ import { runSessionLoadersTests } from "./session-loaders.test.mjs";
 import { runSessionActivationControllerTests } from "./session-activation-controller.test.mjs";
 import { runSessionControllerTests } from "./session-controller.test.mjs";
 import { runSourceControlControllerTests } from "./source-control-controller.test.mjs";
+import { runFilePreviewControllerTests } from "./file-preview-controller.test.mjs";
 import { runWorkbenchCommandControllerTests } from "./workbench-command-controller.test.mjs";
 import { runThreadLifecycleControllerTests } from "./thread-lifecycle-controller.test.mjs";
 import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
@@ -1002,9 +1003,9 @@ async function main() {
   assert.equal(appSource.includes("definition.activationKind"), false);
   assert.equal(appSource.includes('definition.activationKind === "terminal.open_active"'), false);
   assert.equal(appSource.includes("rightPanelController.activateSurface(surface)"), true);
-  assert.equal(appSource.includes("rightPanelController.openFileSurface("), true);
-  assert.equal(appSource.includes("const opened = rightPanelController.openFileSurface("), true);
-  assert.equal(appSource.includes("if (!opened) return;"), true);
+  assert.equal(appSource.includes("rightPanelController.openFileSurface("), false);
+  assert.equal(appSource.includes("const opened = rightPanelController.openFileSurface("), false);
+  assert.equal(appSource.includes("if (!opened) return;"), false);
   assert.equal(appSource.includes("rightPanelController.openPreviewSurface("), true);
   assert.equal(appSource.includes("rightPanelController.canOpenPreviewSurface()"), true);
   assert.equal(appSource.includes("rightPanelController.openFilesSurface()"), true);
@@ -1094,6 +1095,10 @@ async function main() {
     webappSourcePath("app-runtime", "right-panel-controller.js"),
     "utf8",
   );
+  const filePreviewControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "file-preview-controller.js"),
+    "utf8",
+  );
   assert.equal(rightPanelControllerSource.includes("export function createRightPanelController"), true);
   assert.equal(rightPanelControllerSource.includes("rightPanelSurfaceTitle"), true);
   assert.equal(rightPanelControllerSource.includes('replace(/^Open\\s+/i, "")'), false);
@@ -1171,11 +1176,20 @@ async function main() {
   assert.equal(appSource.includes("workbench_surface_close_others"), true);
   assert.equal(appSource.includes("workbench_surface_close_to_right"), true);
   assert.equal(appSource.includes("workbench_surface_close_all"), true);
-  assert.equal(appSource.includes("file_preview_load_started"), true);
-  assert.equal(appSource.includes("file_preview_loaded"), true);
-  assert.equal(appSource.includes("file_preview_load_failed"), true);
-  assert.equal(appSource.includes("filePreviewChrome.unavailableMessage"), true);
-  assert.equal(appSource.includes("fileSurfaceTitle(filePath, filePreviewChrome)"), true);
+  assert.equal(appSource.includes("createFilePreviewController"), true);
+  assert.equal(appSource.includes("filePreviewController.openFile(path, line)"), true);
+  assert.equal(appSource.includes("file_preview_load_started"), false);
+  assert.equal(appSource.includes("file_preview_loaded"), false);
+  assert.equal(appSource.includes("file_preview_load_failed"), false);
+  assert.equal(appSource.includes("filePreviewChrome.unavailableMessage"), false);
+  assert.equal(appSource.includes("fileSurfaceTitle(filePath, filePreviewChrome)"), false);
+  assert.equal(filePreviewControllerSource.includes("export function createFilePreviewController"), true);
+  assert.equal(filePreviewControllerSource.includes("file_preview_load_started"), true);
+  assert.equal(filePreviewControllerSource.includes("file_preview_loaded"), true);
+  assert.equal(filePreviewControllerSource.includes("file_preview_load_failed"), true);
+  assert.equal(filePreviewControllerSource.includes("chrome.unavailableMessage"), true);
+  assert.equal(filePreviewControllerSource.includes("/api/files/"), true);
+  assert.equal(filePreviewControllerSource.includes("import React"), false);
   assert.equal(appSource.includes('kind: "file"'), false);
   assert.equal(appSource.includes('preview: { kind: "file"'), false);
   assert.equal(appSource.includes("showTabs={false}"), false);
@@ -1987,6 +2001,7 @@ async function main() {
   await runSessionActivationControllerTests();
   await runSessionControllerTests();
   await runSourceControlControllerTests();
+  await runFilePreviewControllerTests();
   await runWorkbenchCommandControllerTests();
   await runThreadLifecycleControllerTests();
   await runSessionTransportControllerTests();

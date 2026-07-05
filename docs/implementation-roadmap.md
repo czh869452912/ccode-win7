@@ -158,12 +158,13 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   metadata rather than fixed surface-id branches in the controller, and
   supported `openKind` values route through a handler registry rather than a
   controller switch;
-  App-level file, preview, and Files-browser open flows call semantic
-  right-panel controller methods rather than dispatching concrete right-panel
-  resource surface kinds, and those semantic methods require an active
-  app-shell surface declaration before opening File Preview, Preview, or
-  right-panel Terminal; File Preview callers also stop file-content loading
-  when the semantic open returns false, and Preview API callers preflight the
+  App-level preview and Files-browser open flows call semantic right-panel
+  controller methods rather than dispatching concrete right-panel resource
+  surface kinds; file-preview opening and workspace-file content loading are
+  delegated to `file-preview-controller.js`; those semantic methods require an
+  active app-shell surface declaration before opening File Preview, Preview, or
+  right-panel Terminal; File Preview loading stops when the semantic open
+  returns false, and Preview API callers preflight the
   same semantic Preview capability before invoking preview routes; Source
   Control status/diff callers similarly require the active app-shell Source
   Control capability before invoking source-control routes; Terminal service

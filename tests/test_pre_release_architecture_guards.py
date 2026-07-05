@@ -1700,6 +1700,9 @@ def test_gui_file_preview_copy_is_app_shell_declared():
     right_panel_controller_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js"
     )
+    file_preview_controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/file-preview-controller.js"
+    )
     surface_body_text = _read(
         ROOT
         / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx"
@@ -1718,8 +1721,16 @@ def test_gui_file_preview_copy_is_app_shell_declared():
     assert '"markdown_preview_glyph": "P"' in spec_text
     assert "normalizeFilePreviewChrome" in model_text
     assert "filePreview: normalizeFilePreviewChrome" in model_text
-    assert "filePreviewChrome.unavailableMessage" in app_text
-    assert "fileSurfaceTitle(filePath, filePreviewChrome)" in app_text
+    assert "createFilePreviewController" in app_text
+    assert "filePreviewController.openFile(path, line)" in app_text
+    assert "filePreviewChrome.unavailableMessage" not in app_text
+    assert "filePreviewChrome.unavailableMessage" not in file_preview_controller_text
+    assert "chrome.unavailableMessage" in file_preview_controller_text
+    assert "fileSurfaceTitle(filePath, filePreviewChrome)" not in app_text
+    assert "/api/files/" in file_preview_controller_text
+    assert "file_preview_load_started" in file_preview_controller_text
+    assert "file_preview_loaded" in file_preview_controller_text
+    assert "file_preview_load_failed" in file_preview_controller_text
     assert "fileSurfaceTitle(path, filePreviewChrome" in right_panel_controller_text
     assert 'replace(/^Open\\s+/i, "")' not in right_panel_controller_text
     assert "filePreviewChrome={filePreviewChrome}" in surface_body_text
@@ -2386,6 +2397,9 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     terminal_controller_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js"
     )
+    file_preview_controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/file-preview-controller.js"
+    )
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     surfaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js")
 
@@ -2404,9 +2418,12 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     assert 'kind: "file"' not in app_text
     assert 'kind: "preview"' not in app_text
     assert 'openRightPanelSurface("files")' not in app_text
-    assert "rightPanelController.openFileSurface(" in app_text
-    assert "const opened = rightPanelController.openFileSurface(" in app_text
-    assert "if (!opened) return;" in app_text
+    assert "createFilePreviewController" in app_text
+    assert "rightPanelController.openFileSurface(" not in app_text
+    assert "const opened = rightPanelController.openFileSurface(" not in app_text
+    assert "if (!opened) return;" not in app_text
+    assert "openSurface({" in file_preview_controller_text
+    assert "if (!opened) return null;" in file_preview_controller_text
     assert "rightPanelController.openPreviewSurface(" in app_text
     assert "rightPanelController.canOpenPreviewSurface()" in app_text
     assert "rightPanelController.openFilesSurface()" in app_text

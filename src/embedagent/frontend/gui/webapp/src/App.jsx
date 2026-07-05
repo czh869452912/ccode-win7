@@ -10,6 +10,7 @@ import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
 import { buildSessionActivityRuntime } from "./session-runtime/activity-state.js";
 import { buildComposerCommandsFromCapabilities } from "./session-runtime/command-capabilities.js";
 import { deriveSocketMessageEffects } from "./app-runtime/socket-message-effects.js";
+import { createFilePreviewController } from "./app-runtime/file-preview-controller.js";
 import { createLoaderRequestExecutor, loadSessionCommandCapabilities } from "./app-runtime/session-loaders.js";
 import { createRightPanelController } from "./app-runtime/right-panel-controller.js";
 import { createSessionActivationController } from "./app-runtime/session-activation-controller.js";
@@ -329,35 +330,33 @@ function App() {
       }),
     [],
   );
+  const rightPanelController = useMemo(
+    () =>
+      createRightPanelController({
+        dispatch,
+        terminalController,
+        getAppCapabilities: () => stateRef.current.app.capabilities || {},
+      }),
+    [terminalController],
+  );
+  const {
+    openSurface: openRightPanelSurface,
+  } = rightPanelController;
+  const filePreviewController = useMemo(
+    () =>
+      createFilePreviewController({
+        fetchJson,
+        dispatch,
+        getFilePreviewChrome: () =>
+          stateRef.current.app.capabilities?.surfaces?.chrome?.filePreview || {},
+        rightPanelController,
+      }),
+    [rightPanelController],
+  );
   const { loadFileChildren } = workspaceFilesController;
 
   async function openFile(path, line) {
-    const filePath = normalizeFileSurfacePath(path);
-    if (!filePath) return;
-    const opened = rightPanelController.openFileSurface({
-      filePath,
-      revealLine: line,
-      title: fileSurfaceTitle(filePath, filePreviewChrome),
-    });
-    if (!opened) return;
-    dispatch({ type: "file_preview_load_started", path: filePath });
-    try {
-      const payload = await fetchJson(`/api/files/${encodeURIComponent(filePath)}`);
-      dispatch({
-        type: "file_preview_loaded",
-        path: filePath,
-        preview: {
-          title: payload.path || filePath,
-          content: payload.content || "",
-        },
-      });
-    } catch (error) {
-      dispatch({
-        type: "file_preview_load_failed",
-        path: filePath,
-        error: error.message || filePreviewChrome.unavailableMessage,
-      });
-    }
+    return filePreviewController.openFile(path, line);
   }
 
   function openDiffSurface({ title = "", diff = "", turnId = "", filePath = "" } = {}) {
@@ -461,20 +460,6 @@ function App() {
     await submitText(composerDraft);
   }
 
-  const rightPanelController = useMemo(
-    () =>
-      createRightPanelController({
-        dispatch,
-        terminalController,
-        getAppCapabilities: () => stateRef.current.app.capabilities || {},
-      }),
-    [terminalController],
-  );
-  const {
-    fileSurfaceTitle,
-    normalizeFileSurfacePath,
-    openSurface: openRightPanelSurface,
-  } = rightPanelController;
   const workbenchCommandController = useMemo(
     () =>
       createWorkbenchCommandController({

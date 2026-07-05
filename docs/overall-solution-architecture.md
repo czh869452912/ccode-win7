@@ -107,15 +107,17 @@ command labels such as `Open ...`. Right-panel surface open behavior uses
 renderer-local `openKind` metadata, so terminal session creation is not
 inferred from a fixed surface id in the controller; supported `openKind`
 values are routed through an explicit renderer-local handler registry rather
-than a controller switch. App-level file, preview, and Files-browser open flows
-call semantic right-panel controller methods instead of dispatching concrete
-resource surface kinds directly. Those semantic open methods still require the
-active app shell to declare the target right-panel surface; hidden capabilities
-such as Generic Agent without Preview or a specialized agent without File
-Preview do not reopen the local renderer's supported bodies through direct
-controller calls. Those semantic open methods return whether a surface was
-actually opened, and file-preview loading must stop when File Preview is not
-declared so unsupported agents do not fetch preview content behind a hidden UI.
+than a controller switch. App-level preview and Files-browser open flows call
+semantic right-panel controller methods instead of dispatching concrete
+resource surface kinds directly, while file-preview opening and workspace-file
+content loading are delegated to `file-preview-controller.js`. Those semantic
+open methods still require the active app shell to declare the target
+right-panel surface; hidden capabilities such as Generic Agent without Preview
+or a specialized agent without File Preview do not reopen the local renderer's
+supported bodies through direct controller calls. Those semantic open methods
+return whether a surface was actually opened, and the file-preview controller
+stops loading when File Preview is not declared so unsupported agents do not
+fetch preview content behind a hidden UI.
 Preview session open/refresh/external-open calls also preflight the same
 semantic Preview capability before invoking backend preview routes.
 Source Control status refresh and file-diff requests likewise require the
