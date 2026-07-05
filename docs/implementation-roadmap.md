@@ -182,8 +182,11 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   diagnostic capability records and do not enter visible launchers or surface
   commands; persisted workbench surface state is also re-sanitized
   after app bootstrap or workspace switch against those app-shell capabilities,
-  and shallow persisted surface fields are normalized by the renderer-local
-  surface registry rather than `ui-state.js` file/terminal branches; per-kind
+  shallow persisted surface fields are normalized by the renderer-local
+  surface registry rather than `ui-state.js` file/terminal branches, and
+  capability cleanup uses `persistedSurfaceDefinitions(appCapabilities, placement)`
+  plus registry-declared `persistedRelatedKinds` rather than UI-state
+  `files -> file` expansion; per-kind
   surface instance metadata is initialized through `SURFACE_INITIALIZERS[kind]`
   rather than `makeSurface(...)` file/terminal/preview branches, and
   right-panel open-time preparation routes through

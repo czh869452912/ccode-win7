@@ -1488,6 +1488,8 @@ async function main() {
   assert.equal(workbenchSurfacesSource.includes('nextSurface.kind === "preview"'), false);
   assert.equal(workbenchSurfacesSource.includes("SURFACE_PANE_HANDLERS"), true);
   assert.equal(workbenchSurfacesSource.includes("SURFACE_PANE_HANDLERS[surface.kind]"), true);
+  assert.equal(workbenchSurfacesSource.includes("persistedRelatedKinds"), true);
+  assert.equal(workbenchUiStateSource.includes("persistedSurfaceDefinitions"), true);
   assert.equal(
     workbenchSurfacesSource.includes('surface.id !== surfaceId || surface.kind !== "terminal"'),
     false,
@@ -1503,6 +1505,8 @@ async function main() {
   assert.equal(workbenchUiStateSource.includes('kind === "file"'), false);
   assert.equal(workbenchUiStateSource.includes('kind === "terminal"'), false);
   assert.equal(workbenchUiStateSource.includes('kind !== "terminal"'), false);
+  assert.equal(workbenchUiStateSource.includes('kinds.includes("files")'), false);
+  assert.equal(workbenchUiStateSource.includes('kinds.concat("file")'), false);
 
   const changedFilesCardSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "ChangedFilesCard.jsx"),

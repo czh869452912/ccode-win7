@@ -1,9 +1,8 @@
 import {
   DEFAULT_SESSION_KEY,
-  bottomDrawerSurfaceDefinitions,
   createWorkbenchState,
+  persistedSurfaceDefinitions,
   persistedSurfaceFrom,
-  rightPanelLauncherSurfaceDefinitions,
   supportedSurfaceKinds,
 } from "./surfaces.js";
 
@@ -41,15 +40,8 @@ function sanitizeSurfaceList(items, placement) {
 }
 
 function appCapabilitySurfaceKinds(placement, appCapabilities) {
-  const definitions =
-    placement === "bottom"
-      ? bottomDrawerSurfaceDefinitions(appCapabilities)
-      : rightPanelLauncherSurfaceDefinitions(appCapabilities);
-  const kinds = definitions.map((definition) => definition.kind);
-  if (placement === "right" && kinds.includes("files")) {
-    return kinds.concat("file");
-  }
-  return kinds;
+  return persistedSurfaceDefinitions(appCapabilities, placement)
+    .map((definition) => definition.kind);
 }
 
 function filterSurfacesByAppCapabilities(items, placement, appCapabilities) {

@@ -127,6 +127,9 @@ surface registry through `persistedSurfaceFrom(...)`; the browser localStorage
 state module must not own fixed file/terminal surface field rules. Per-kind
 surface instance metadata is initialized through `SURFACE_INITIALIZERS[kind]`
 inside that same renderer-local model, not by branches in `makeSurface(...)`.
+App capability cleanup reads `persistedSurfaceDefinitions(appCapabilities,
+placement)` and registry-declared `persistedRelatedKinds`, so hidden/resource
+surfaces such as File under Files are not hard-coded in UI-state sanitization.
 Right-panel open-time preparation also routes through
 `SURFACE_OPEN_PREPARERS[surface.kind]`; `openSurface(...)` must not own
 file/preview preparation branches. Right-panel surface-local pane operations

@@ -22,6 +22,7 @@ function defineSurface(input) {
     activationKind: "",
     ...input,
     persistFields: Object.freeze((input.persistFields || DEFAULT_PERSIST_FIELDS).slice()),
+    persistedRelatedKinds: Object.freeze((input.persistedRelatedKinds || []).slice()),
     keywords: Object.freeze((input.keywords || []).slice()),
   });
 }
@@ -63,6 +64,7 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     persistFields: DEFAULT_PERSIST_FIELDS,
     bodyKind: "files",
     openKind: "workbench.surface",
+    persistedRelatedKinds: ["file"],
     launcher: true,
     launcherOrder: 20,
     command: true,
@@ -338,6 +340,32 @@ export function rightPanelLauncherSurfaceDefinitions(appCapabilities = null) {
 
 export function bottomDrawerSurfaceDefinitions(appCapabilities = null) {
   return filterSurfaceDefinitions(BOTTOM_DRAWER_SURFACE_REGISTRY, "bottom", appCapabilities);
+}
+
+function appendSurfaceDefinition(result, seen, definition) {
+  if (!definition || seen.has(definition.kind)) return;
+  seen.add(definition.kind);
+  result.push(definition);
+}
+
+export function persistedSurfaceDefinitions(appCapabilities = null, placement = "right") {
+  const normalized = normalizePlacement(placement);
+  const definitions =
+    normalized === "bottom"
+      ? bottomDrawerSurfaceDefinitions(appCapabilities)
+      : rightPanelLauncherSurfaceDefinitions(appCapabilities);
+  const registryByKind = new Map(
+    surfaceDefinitionsForPlacement(normalized).map((definition) => [definition.kind, definition]),
+  );
+  const result = [];
+  const seen = new Set();
+  for (const definition of definitions) {
+    appendSurfaceDefinition(result, seen, definition);
+    for (const relatedKind of definition.persistedRelatedKinds || []) {
+      appendSurfaceDefinition(result, seen, registryByKind.get(relatedKind));
+    }
+  }
+  return result;
 }
 
 export function surfaceCommandDefinitions(appCapabilities = null) {

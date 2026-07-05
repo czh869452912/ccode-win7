@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-292
+
+- Date: 2026-07-05
+- Change Topic: GUI persisted related surfaces are registry-declared
+- Summary:
+  - Added renderer-local `persistedRelatedKinds` metadata to surface registry
+    records and declared the Files surface as the owner of persisted File
+    resource surfaces.
+  - Added `persistedSurfaceDefinitions(...)` so workbench UI-state
+    sanitization consumes registry-declared persisted surface definitions.
+  - Removed the `ui-state.js` hard-coded `files -> file` persisted-kind
+    expansion and updated guards to make the old shortcut fail.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/ui-state.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Any future hidden/resource surface that should survive persistence under a
+    visible launcher must be declared through registry metadata, not UI-state
+    string expansion.
+
 ### DC-291
 
 - Date: 2026-07-05

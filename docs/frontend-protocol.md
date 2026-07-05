@@ -174,7 +174,11 @@ kinds to decide resource fields, tab ids, titles, reveal markers, or terminal
 pane metadata. Surface instance fields that vary by kind are initialized by the
 same renderer-local surface model through `SURFACE_INITIALIZERS[kind]`; new
 surface-specific metadata must not be added as branches inside
-`makeSurface(...)`. Right-panel open-time preparation that varies by surface
+`makeSurface(...)`. App capability cleanup uses
+`persistedSurfaceDefinitions(appCapabilities, placement)`, including
+registry-declared `persistedRelatedKinds` such as Files retaining File resource
+surfaces; UI-state code must not hard-code related persisted kinds such as
+`files -> file`. Right-panel open-time preparation that varies by surface
 kind, such as file reveal/deduplication or preview placeholder cleanup, routes
 through `SURFACE_OPEN_PREPARERS[surface.kind]` rather than branches in
 `openSurface(...)`. Right-panel surface-local pane operations that vary by kind

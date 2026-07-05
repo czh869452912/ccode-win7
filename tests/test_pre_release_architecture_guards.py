@@ -907,6 +907,7 @@ def test_gui_app_shell_surfaces_are_descriptor_records_not_string_lists():
         assert initializer_branch not in surfaces_text
     assert "SURFACE_OPEN_PREPARERS" in surfaces_text
     assert "SURFACE_OPEN_PREPARERS[surface.kind]" in surfaces_text
+    assert "persistedRelatedKinds" in surfaces_text
     for open_branch in (
         'surface.kind === "file"\n        ? normalizeFilePath',
         'nextSurface.kind === "file"',
@@ -2056,12 +2057,14 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert "if (declared === null) return commands" not in commands_text
     assert "sanitizeWorkbenchUiStateForAppCapabilities" in store_text
     assert "sanitizeWorkbenchUiStateForAppCapabilities" in ui_state_text
-    assert "rightPanelLauncherSurfaceDefinitions(appCapabilities)" in ui_state_text
-    assert "bottomDrawerSurfaceDefinitions(appCapabilities)" in ui_state_text
+    assert "persistedSurfaceDefinitions(appCapabilities, placement)" in ui_state_text
     assert "persistedSurfaceFrom" in ui_state_text
     assert 'kind === "file"' not in ui_state_text
     assert 'kind === "terminal"' not in ui_state_text
     assert 'kind !== "terminal"' not in ui_state_text
+    assert "persistedSurfaceDefinitions" in ui_state_text
+    assert 'kinds.includes("files")' not in ui_state_text
+    assert 'kinds.concat("file")' not in ui_state_text
     assert "appCapabilities" in keybindings_text
     assert "rightPanelLauncherSurfaceDefinitions(appCapabilities)" in right_panel_tabs_text
     assert "bottomDrawerSurfaceDefinitions(appCapabilities)" in bottom_drawer_text
