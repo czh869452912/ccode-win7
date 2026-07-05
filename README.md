@@ -126,7 +126,8 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
   `webapp/src/app-runtime/socket-message-controller.js`, which combines pure
   effect derivation with `socket-effect-executor.js`; `App.jsx` must not
   directly call `deriveSocketMessageEffects`, append session transport events,
-  branch on reload recovery, or loop over effect actions/loaders.
+  branch on reload recovery, loop over effect actions/loaders, or wrap the
+  WebSocket message handle in an inline `startTransition` callback.
 - Official GUI session-transport state bridge: current transport-state read,
   sync, replace, update, and runtime reset construction live in
   `webapp/src/app-runtime/session-transport-handle.js`; `App.jsx` owns the

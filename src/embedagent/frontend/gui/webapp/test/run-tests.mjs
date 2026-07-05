@@ -2262,12 +2262,20 @@ async function main() {
   assert.equal(appSource.includes("transportEvents.length"), false);
   assert.equal(appSource.includes('nextTransport.reloadState === "reload_required"'), false);
   assert.equal(appSource.includes("for (const action of effects.actions"), false);
+  assert.equal(appSource.includes("handleMessage: socketMessageController.handleMessage"), true);
+  assert.equal(
+    appSource.includes("startTransition(() => socketMessageController.handleMessage"),
+    false,
+  );
+  assert.equal(appSource.includes("handleMessage: (message) =>"), false);
+  assert.equal(appSource.includes("scheduleMessage: startTransition"), true);
   assert.equal(
     socketMessageControllerSource.includes("export function createSocketMessageController"),
     true,
   );
   assert.equal(socketMessageControllerSource.includes("deriveSocketMessageEffects"), true);
   assert.equal(socketMessageControllerSource.includes("createSocketEffectExecutor"), true);
+  assert.equal(socketMessageControllerSource.includes("scheduleMessage"), true);
   assert.equal(socketMessageControllerSource.includes("function handleMessage"), true);
   assert.equal(socketMessageControllerSource.includes("import React"), false);
   assert.equal(socketEffectExecutorSource.includes("export function createSocketEffectExecutor"), true);

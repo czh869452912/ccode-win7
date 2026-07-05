@@ -331,6 +331,10 @@ state is owned by `webapp/src/session-runtime/run-output-state.js`; active
 session transport connection/reload projection is owned by
 `webapp/src/session-runtime/session-transport-state.js`; WebSocket lifecycle
 control is owned by `webapp/src/app-runtime/session-transport-controller.js`;
+raw WebSocket message scheduling, derivation, and effect execution are owned by
+`webapp/src/app-runtime/socket-message-controller.js`, which accepts React
+transition scheduling as a generic injected callback rather than through a root
+App inline wrapper;
 session bootstrap activation control is owned by
 `webapp/src/app-runtime/session-activation-controller.js`; terminal display
 buffers remain under `webapp/src/terminal/`; persisted workbench surfaces

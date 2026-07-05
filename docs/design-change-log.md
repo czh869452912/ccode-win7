@@ -44,6 +44,37 @@
 
 ## 3. 当前变更记录
 
+### DC-305
+
+- Date: 2026-07-05
+- Change Topic: GUI socket message scheduling moves into controller boundary
+- Summary:
+  - `socket-message-controller.js` now accepts a generic `scheduleMessage`
+    callback and applies raw WebSocket messages inside that scheduler.
+  - `App.jsx` passes React `startTransition` as the scheduler and wires
+    `socketMessageController.handleMessage` directly into
+    `session-transport-controller.js`.
+  - Frontend and architecture guards reject the old root-level
+    `startTransition(() => socketMessageController.handleMessage(...))`
+    wrapper.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/socket-message-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue reducing root-level App callbacks that still encode runtime
+    behavior instead of plain dependency wiring.
+
 ### DC-304
 
 - Date: 2026-07-05

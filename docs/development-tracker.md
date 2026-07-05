@@ -137,7 +137,8 @@
   `socket-message-effects.js` and `socket-effect-executor.js`. `App.jsx` no
   longer calls socket effect derivation directly or owns the transport-event
   append loop, reload recovery branch, reducer-action loop, or loader-request
-  loop.
+  loop; React transition scheduling is injected as `scheduleMessage` instead
+  of a root-level `startTransition` message wrapper.
 - GUI session transport state bridging now lives in
   `app-runtime/session-transport-handle.js`. `App.jsx` keeps the React state
   cell but no longer owns `sessionTransportRef`, transport replace/update

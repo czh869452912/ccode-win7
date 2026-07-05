@@ -256,9 +256,7 @@ function App() {
       getTransportState: sessionTransportHandle.read,
       updateTransportState: sessionTransportHandle.update,
       loadSession,
-      handleMessage: (message) => {
-        startTransition(() => socketMessageController.handleMessage(message));
-      },
+      handleMessage: socketMessageController.handleMessage,
       locationObject: window.location,
     });
     sessionTransportControllerRef.current = controller;
@@ -536,6 +534,7 @@ function App() {
         loadSession,
         getDiffPanelChrome: () =>
           stateRef.current.app.capabilities?.surfaces?.chrome?.diffPanel || {},
+        scheduleMessage: startTransition,
       }),
     [],
   );

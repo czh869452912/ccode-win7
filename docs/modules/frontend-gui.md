@@ -560,7 +560,10 @@ capability refresh, while
 `session-activation-controller.js` owns session bootstrap activation from the
 official `/api/sessions/{id}/bootstrap` payload. `socket-message-effects.js`
 maps existing WebSocket messages into private webapp descriptors: reducer
-actions, session transport events, and loader requests.
+actions, session transport events, and loader requests. React transition
+scheduling for those messages is injected into `socket-message-controller.js`
+as `scheduleMessage`; `App.jsx` must not wrap `handleMessage` in an inline
+`startTransition` callback.
 `workspace-controller.js` owns app bootstrap, workspace open/activate/remove,
 workspace switch application, and workspace-path input updates; App wires
 `setWorkspacePath` directly instead of dispatching `workspace_path_changed`

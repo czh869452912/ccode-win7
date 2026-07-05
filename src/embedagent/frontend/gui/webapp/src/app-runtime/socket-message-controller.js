@@ -25,6 +25,7 @@ export function createSocketMessageController({
   getDiffPanelChrome,
   makeId,
   nowIso,
+  scheduleMessage,
   deriveEffects,
   executeEffects,
 } = {}) {
@@ -36,6 +37,8 @@ export function createSocketMessageController({
     typeof getDiffPanelChrome === "function" ? getDiffPanelChrome : () => ({});
   const buildEffects =
     typeof deriveEffects === "function" ? deriveEffects : deriveSocketMessageEffects;
+  const schedule =
+    typeof scheduleMessage === "function" ? scheduleMessage : (callback) => callback();
   const applyEffects =
     typeof executeEffects === "function"
       ? executeEffects
@@ -50,18 +53,20 @@ export function createSocketMessageController({
         });
 
   function handleMessage(messageOrType, data) {
-    const message = readMessageInput(messageOrType, data);
-    const effects = buildEffects({
-      type: message.type,
-      data: message.data,
-      currentSessionId: readCurrentSessionId(),
-      sessionTransport: readTransportState(),
-      makeId,
-      nowIso,
-      diffPanelChrome: readDiffPanelChrome(),
+    return schedule(() => {
+      const message = readMessageInput(messageOrType, data);
+      const effects = buildEffects({
+        type: message.type,
+        data: message.data,
+        currentSessionId: readCurrentSessionId(),
+        sessionTransport: readTransportState(),
+        makeId,
+        nowIso,
+        diffPanelChrome: readDiffPanelChrome(),
+      });
+      applyEffects(effects);
+      return effects;
     });
-    applyEffects(effects);
-    return effects;
   }
 
   return { handleMessage };

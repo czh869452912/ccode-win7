@@ -53,4 +53,30 @@ export function runSocketMessageControllerTests() {
   tupleController.handleMessage("terminal_event", { event: { line: "ready" } });
   assert.equal(tupleControllerInputs[0].type, "terminal_event");
   assert.deepEqual(tupleControllerInputs[0].data, { event: { line: "ready" } });
+
+  const scheduledCallbacks = [];
+  const scheduledEffects = {
+    actions: [{ type: "log_event", event: { id: "evt-scheduled" } }],
+    transportEvents: [],
+    loaderRequests: [],
+  };
+  const scheduledController = createSocketMessageController({
+    scheduleMessage: (callback) => {
+      scheduledCallbacks.push(callback);
+      return "scheduled";
+    },
+    deriveEffects: () => scheduledEffects,
+    executeEffects: (effects) => executedEffects.push(effects),
+  });
+
+  const scheduledResult = scheduledController.handleMessage({
+    type: "session_event",
+    data: { event_id: "evt-scheduled" },
+  });
+
+  assert.equal(scheduledResult, "scheduled");
+  assert.equal(scheduledCallbacks.length, 1);
+  assert.deepEqual(executedEffects, [expectedEffects]);
+  scheduledCallbacks[0]();
+  assert.deepEqual(executedEffects, [expectedEffects, scheduledEffects]);
 }

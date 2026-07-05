@@ -851,9 +851,14 @@ def test_gui_socket_effect_execution_is_controller_owned():
     assert "transportEvents.length" not in app_text
     assert 'nextTransport.reloadState === "reload_required"' not in app_text
     assert "for (const action of effects.actions" not in app_text
+    assert "handleMessage: socketMessageController.handleMessage" in app_text
+    assert "startTransition(() => socketMessageController.handleMessage" not in app_text
+    assert "handleMessage: (message) =>" not in app_text
+    assert "scheduleMessage: startTransition" in app_text
     assert "export function createSocketMessageController" in controller_text
     assert "deriveSocketMessageEffects" in controller_text
     assert "createSocketEffectExecutor" in controller_text
+    assert "scheduleMessage" in controller_text
     assert "function handleMessage" in controller_text
     assert "export function createSocketEffectExecutor" in executor_text
     assert "appendSessionTransportEvent" in executor_text

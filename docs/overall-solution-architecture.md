@@ -340,7 +340,10 @@ is the renderer boundary that accepts backend messages, passes safe readers into
 `app-runtime/socket-message-effects.js`, and then delegates derived transport
 events, reducer actions, and loader requests to `app-runtime/socket-effect-executor.js`.
 `App.jsx` stays the composition root and does not call socket derivation directly
-or own transport append/recovery loops.
+or own transport append/recovery loops. React scheduling is injected into the
+controller through a generic `scheduleMessage` callback, so the session
+transport receives `socketMessageController.handleMessage` directly rather than
+a root-level `startTransition` wrapper.
 The React-facing session transport state bridge is
 `app-runtime/session-transport-handle.js`: it owns current transport reads,
 sync, replace, update, and runtime reset construction for session activation
