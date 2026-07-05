@@ -1533,6 +1533,12 @@ def test_gui_terminal_copy_is_app_shell_declared():
     controller_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js"
     )
+    activation_controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-activation-controller.js"
+    )
+    terminal_capability_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/terminal/terminal-capability.js"
+    )
     labels_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/terminal/terminal-labels.js")
     api_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/terminal/terminal-api.js")
     shell_text = _read(
@@ -1554,7 +1560,10 @@ def test_gui_terminal_copy_is_app_shell_declared():
     assert "terminalChrome={terminalChrome}" in app_text
     assert "terminalChromeText" in controller_text
     assert "terminalCapabilityEnabled" in controller_text
-    assert "appCapabilities?.terminal?.enabled === true" in controller_text
+    assert "../terminal/terminal-capability.js" in controller_text
+    assert "terminalCapabilityEnabled" in activation_controller_text
+    assert "appCapabilities?.terminal?.enabled === true" not in controller_text
+    assert "capabilities?.terminal?.enabled === true" in terminal_capability_text
     assert "surfaceDefinitionFor" in controller_text
     assert "terminalChrome" in shell_text
     assert "terminalChrome" in surface_body_text

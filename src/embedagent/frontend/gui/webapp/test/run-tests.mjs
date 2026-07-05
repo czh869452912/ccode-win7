@@ -1263,7 +1263,8 @@ async function main() {
   assert.equal(terminalControllerSource.includes("TERMINAL_DIMENSIONS"), true);
   assert.equal(terminalControllerSource.includes("terminalChromeText"), true);
   assert.equal(terminalControllerSource.includes("terminalCapabilityEnabled"), true);
-  assert.equal(terminalControllerSource.includes("appCapabilities?.terminal?.enabled === true"), true);
+  assert.equal(terminalControllerSource.includes("../terminal/terminal-capability.js"), true);
+  assert.equal(terminalControllerSource.includes("appCapabilities?.terminal?.enabled === true"), false);
   assert.equal(terminalControllerSource.includes("TERMINAL_SURFACE_KIND"), true);
   assert.equal(terminalControllerSource.includes("terminalSurfaceActionInput"), true);
   assert.equal(terminalControllerSource.includes("surfaceDefinitionFor"), true);
@@ -1273,6 +1274,13 @@ async function main() {
   assert.equal(terminalControllerSource.includes("BOTTOM_DRAWER_ACTIVATION_HANDLERS[definition.activationKind]"), true);
   assert.equal(terminalControllerSource.includes('switch (definition ? definition.activationKind : "")'), false);
   assert.equal(terminalControllerSource.includes('kind === "terminal"'), false);
+
+  const terminalCapabilitySource = fs.readFileSync(
+    webappSourcePath("terminal", "terminal-capability.js"),
+    "utf8",
+  );
+  assert.equal(terminalCapabilitySource.includes("terminalCapabilityEnabled"), true);
+  assert.equal(terminalCapabilitySource.includes("capabilities?.terminal?.enabled === true"), true);
   assert.equal(terminalControllerSource.includes('surface.kind !== "terminal"'), false);
   assert.equal(terminalControllerSource.includes('surfaceDefinitionFor("terminal"'), false);
   assert.equal(terminalControllerSource.includes("Open a session before using the terminal."), false);

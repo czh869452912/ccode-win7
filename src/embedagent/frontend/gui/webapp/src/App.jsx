@@ -369,6 +369,7 @@ function App() {
       defaultMode: INITIAL_REQUESTED_MODE,
       createTransportState: createRuntimeSessionTransport,
       replaceTransportState: replaceSessionTransport,
+      getAppCapabilities: () => stateRef.current.app.capabilities || {},
       listTerminals,
     });
     await loadSessionController(sessionId);

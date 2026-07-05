@@ -1,4 +1,5 @@
 import { deriveSessionActivation as defaultDeriveSessionActivation } from "./session-loaders.js";
+import { terminalCapabilityEnabled } from "../terminal/terminal-capability.js";
 
 function invoke(callback, ...args) {
   if (typeof callback !== "function") {
@@ -15,6 +16,8 @@ export function createSessionActivationController({
   createTransportState,
   replaceTransportState,
   listTerminals,
+  appCapabilities,
+  getAppCapabilities,
 } = {}) {
   const fetchBootstrap = typeof fetchJson === "function" ? fetchJson : () => Promise.resolve({});
   const send = typeof dispatch === "function" ? dispatch : () => {};
@@ -23,6 +26,11 @@ export function createSessionActivationController({
     typeof createTransportState === "function" ? createTransportState : () => ({});
   const replaceTransport =
     typeof replaceTransportState === "function" ? replaceTransportState : () => {};
+  const readAppCapabilities = () => {
+    const value =
+      typeof getAppCapabilities === "function" ? getAppCapabilities() : appCapabilities;
+    return value && typeof value === "object" ? value : {};
+  };
 
   return async function loadSession(sessionId) {
     const payload = await fetchBootstrap(
@@ -39,6 +47,7 @@ export function createSessionActivationController({
     });
     replaceTransport(buildTransportState());
     send({ type: "plan_loaded", plan: activation.plan });
+    if (!terminalCapabilityEnabled(readAppCapabilities())) return;
     try {
       const terminalPayload = await invoke(listTerminals, sessionId);
       send({

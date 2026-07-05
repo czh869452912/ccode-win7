@@ -47,6 +47,7 @@ export async function runSessionActivationControllerTests() {
     replaceTransportState: (state) => {
       replacedTransport = state;
     },
+    getAppCapabilities: () => ({ terminal: { enabled: true } }),
     listTerminals: async (sessionId) => {
       calls.push(["listTerminals", sessionId]);
       return { terminals: [{ terminal_id: "term-1" }] };
@@ -81,6 +82,7 @@ export async function runSessionActivationControllerTests() {
   const terminalFailureController = createSessionActivationController({
     fetchJson: async () => ({}),
     dispatch: (action) => terminalFailureActions.push(action),
+    getAppCapabilities: () => ({ terminal: { enabled: true } }),
     listTerminals: async () => {
       throw new Error("terminal unavailable");
     },
@@ -90,4 +92,22 @@ export async function runSessionActivationControllerTests() {
     type: "terminal_summaries_loaded",
     terminals: [],
   });
+
+  const terminalDisabledActions = [];
+  const terminalDisabledCalls = [];
+  const terminalDisabledController = createSessionActivationController({
+    fetchJson: async () => ({}),
+    dispatch: (action) => terminalDisabledActions.push(action),
+    getAppCapabilities: () => ({ terminal: { enabled: false } }),
+    listTerminals: async (sessionId) => {
+      terminalDisabledCalls.push(["listTerminals", sessionId]);
+      return { terminals: [{ terminal_id: "hidden-terminal" }] };
+    },
+  });
+  await terminalDisabledController("sess-terminal-disabled");
+  assert.equal(terminalDisabledCalls.some((item) => item[0] === "listTerminals"), false);
+  assert.equal(
+    terminalDisabledActions.some((action) => action.type === "terminal_summaries_loaded"),
+    false,
+  );
 }
