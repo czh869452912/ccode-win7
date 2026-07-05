@@ -80,6 +80,9 @@ synthesized from surface or drawer ids. Session/workspace palette row leading
 markers come from command-palette label descriptors and remain empty when
 absent. Command-palette group leading markers come from explicit group
 descriptors and are not synthesized from group titles.
+Command-palette shortcut display labels and separators also come from
+`command_palette.labels`; renderer code must not hard-code platform labels such
+as `Ctrl`, `Shift`, or `Esc`.
 Right-panel surface open titles are descriptor-first as well: the renderer does
 not parse English command labels such as `Open ...` to derive panel titles.
 Command-result run-output log labels are likewise payload-driven through
@@ -356,6 +359,8 @@ Surface command row descriptions are passed through from surface descriptors
 rather than generated from surface or drawer ids. Session/workspace palette row
 leading markers are descriptor-owned and empty when absent. Command-palette
 group leading markers are also descriptor-owned.
+Shortcut key display labels and separators are descriptor-owned through
+`command_palette.labels.shortcut_labels` and `shortcut_separator`.
 Opening a right-panel surface uses the declared surface title before any caller
 fallback; renderer controllers must not strip English command prefixes to
 invent surface titles.

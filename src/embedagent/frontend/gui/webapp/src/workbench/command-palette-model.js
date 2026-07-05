@@ -11,39 +11,32 @@ function basename(path) {
   return parts.length > 0 ? parts[parts.length - 1] : text;
 }
 
-function titleCase(value) {
-  const text = asText(value);
-  if (!text) return "";
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
-
 export function normalizePaletteQuery(query) {
   return asText(query).toLowerCase();
 }
 
-export function formatPaletteShortcut(key) {
+export function formatPaletteShortcut(key, shortcutLabels = {}, shortcutSeparator = "+") {
   const text = asText(key);
   if (!text) return "";
+  const labels = shortcutLabels && typeof shortcutLabels === "object" ? shortcutLabels : {};
+  const separator = asText(shortcutSeparator) || "+";
   return text
     .split("+")
     .filter(Boolean)
     .map((part) => {
-      if (part === "mod") return "Ctrl";
-      if (part === "ctrl") return "Ctrl";
-      if (part === "alt") return "Alt";
-      if (part === "shift") return "Shift";
-      if (part === "escape") return "Esc";
-      return part.length === 1 ? part.toUpperCase() : titleCase(part);
+      const label = asText(labels[part]);
+      if (label) return label;
+      return part.length === 1 ? part.toUpperCase() : part;
     })
-    .join("+");
+    .join(separator);
 }
 
-function shortcutByCommandId(keybindings = []) {
+function shortcutByCommandId(keybindings = [], shortcutLabels = {}, shortcutSeparator = "+") {
   const result = {};
   for (const binding of keybindings || []) {
     const commandId = asText(binding && binding.commandId);
     if (!commandId || result[commandId]) continue;
-    const formatted = formatPaletteShortcut(binding.key);
+    const formatted = formatPaletteShortcut(binding.key, shortcutLabels, shortcutSeparator);
     if (formatted) result[commandId] = formatted;
   }
   return result;
@@ -83,6 +76,10 @@ function paletteLabels(commandPalette = {}) {
     sessionFallbackPrefix: asText(labels.sessionFallbackPrefix),
     sessionLeading: asText(labels.sessionLeading),
     workspaceLeading: asText(labels.workspaceLeading),
+    shortcutLabels: labels.shortcutLabels && typeof labels.shortcutLabels === "object"
+      ? labels.shortcutLabels
+      : {},
+    shortcutSeparator: asText(labels.shortcutSeparator),
   };
 }
 
@@ -276,9 +273,13 @@ export function buildCommandPaletteRootGroups({
   commandPalette = null,
   query = "",
 } = {}) {
-  const shortcutMap = shortcutByCommandId(keybindings);
   const groupDescriptors = paletteGroupDescriptors(commandPalette || {});
   const labels = paletteLabels(commandPalette || {});
+  const shortcutMap = shortcutByCommandId(
+    keybindings,
+    labels.shortcutLabels,
+    labels.shortcutSeparator,
+  );
   const commandGroups = groupCommandItems(commands, shortcutMap, groupDescriptors);
   const commandGroupIds = sortedCommandGroupIds(commandGroups, groupDescriptors);
   const submenuItems = commandGroupIds
@@ -304,8 +305,13 @@ export function buildCommandPaletteSubmenuGroups({
 } = {}) {
   const targetGroup = asText(groupId);
   if (!targetGroup) return [];
-  const shortcutMap = shortcutByCommandId(keybindings);
   const groupDescriptors = paletteGroupDescriptors(commandPalette || {});
+  const labels = paletteLabels(commandPalette || {});
+  const shortcutMap = shortcutByCommandId(
+    keybindings,
+    labels.shortcutLabels,
+    labels.shortcutSeparator,
+  );
   const descriptor = groupDescriptor(targetGroup, groupDescriptors);
   const title = descriptor.title;
   if (!title) return [];

@@ -51,6 +51,8 @@ export function runAppShellModelTests() {
     sessionFallbackPrefix: "",
     sessionLeading: "",
     workspaceLeading: "",
+    shortcutLabels: {},
+    shortcutSeparator: "",
   });
   assert.deepEqual(initial.capabilities.chrome, {
     brandSubtitle: "",
@@ -413,6 +415,11 @@ export function runAppShellModelTests() {
           session_fallback_prefix: "Thread",
           session_leading: "S",
           workspace_leading: "W",
+          shortcut_labels: {
+            mod: "Cmd",
+            shift: "Shift",
+          },
+          shortcut_separator: "::",
         },
       },
       chrome: {
@@ -897,6 +904,11 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.commandPalette.labels.commandsSection, "Actions");
   assert.equal(bootstrap.capabilities.commandPalette.labels.currentLabel, "Selected");
   assert.equal(bootstrap.capabilities.commandPalette.labels.workspaceMeta, "Project");
+  assert.deepEqual(bootstrap.capabilities.commandPalette.labels.shortcutLabels, {
+    mod: "Cmd",
+    shift: "Shift",
+  });
+  assert.equal(bootstrap.capabilities.commandPalette.labels.shortcutSeparator, "::");
   assert.equal(bootstrap.capabilities.chrome.brandSubtitle, "Python agent workbench");
   assert.equal(bootstrap.capabilities.chrome.sidebarAriaLabel, "Project sidebar");
   assert.equal(bootstrap.capabilities.chrome.header.commandPaletteShortLabel, "Go");
@@ -1259,6 +1271,8 @@ export function runAppShellModelTests() {
   assert.equal(capabilities.emptyState.scenarioLabel, "Generic workspace");
   assert.equal(capabilities.commandPalette.labels.sessionLeading, "S");
   assert.equal(capabilities.commandPalette.labels.workspaceLeading, "W");
+  assert.deepEqual(capabilities.commandPalette.labels.shortcutLabels, {});
+  assert.equal(capabilities.commandPalette.labels.shortcutSeparator, "");
   assert.equal(capabilities.chrome.brandSubtitle, "Generic shell");
   assert.equal(capabilities.chrome.composer.placeholder, "Ask");
   assert.equal(capabilities.terminal.enabled, true);

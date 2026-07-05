@@ -353,6 +353,20 @@ class TestGuiAppShellService(unittest.TestCase):
             "Current",
         )
         self.assertEqual(
+            payload["capabilities"]["command_palette"]["labels"]["shortcut_labels"],
+            {
+                "mod": "Ctrl",
+                "ctrl": "Ctrl",
+                "alt": "Alt",
+                "shift": "Shift",
+                "escape": "Esc",
+            },
+        )
+        self.assertEqual(
+            payload["capabilities"]["command_palette"]["labels"]["shortcut_separator"],
+            "+",
+        )
+        self.assertEqual(
             payload["capabilities"]["chrome"]["brand_subtitle"],
             "Local agent workbench",
         )

@@ -66,14 +66,27 @@ const commandPalette = {
     sessionFallbackPrefix: "Thread",
     sessionLeading: "T",
     workspaceLeading: "P",
+    shortcutLabels: {
+      mod: "Cmd",
+      shift: "Shift",
+      escape: "Esc",
+    },
+    shortcutSeparator: "::",
   },
 };
 
 export function runCommandPaletteModelTests() {
   assert.equal(normalizePaletteQuery("  Diff  "), "diff");
   assert.equal(normalizePaletteQuery(null), "");
-  assert.equal(formatPaletteShortcut("mod+3"), "Ctrl+3");
-  assert.equal(formatPaletteShortcut("mod+shift+p"), "Ctrl+Shift+P");
+  assert.equal(formatPaletteShortcut("mod+3"), "mod+3");
+  assert.equal(
+    formatPaletteShortcut(
+      "mod+shift+p",
+      commandPalette.labels.shortcutLabels,
+      commandPalette.labels.shortcutSeparator,
+    ),
+    "Cmd::Shift::P",
+  );
 
   const root = buildCommandPaletteRootGroups({
     commands,
@@ -103,7 +116,7 @@ export function runCommandPaletteModelTests() {
   assert.equal(commandItems.some((item) => item.type === "command" && item.commandId === "surface.preview"), true);
   assert.equal(
     commandItems.find((item) => item.commandId === "surface.preview").shortcut,
-    "Ctrl+4",
+    "Cmd::4",
   );
   assert.equal(
     commandItems.find((item) => item.id === "submenu:surface").trailing,
@@ -159,7 +172,7 @@ export function runCommandPaletteModelTests() {
   assert.equal(submenu[0].items.length, 1);
   assert.equal(submenu[0].items[0].commandId, "surface.preview");
   assert.equal(submenu[0].items[0].meta, "/preview");
-  assert.equal(submenu[0].items[0].shortcut, "Ctrl+4");
+  assert.equal(submenu[0].items[0].shortcut, "Cmd::4");
 
   assert.deepEqual(buildCommandPaletteSubmenuGroups({ commands, groupId: "missing" }), []);
   assert.deepEqual(

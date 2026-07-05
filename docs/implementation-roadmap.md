@@ -148,6 +148,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   descriptors and remain empty when absent;
   command-palette group leading markers come from explicit group descriptors
   and are not synthesized from group titles;
+  command-palette shortcut key labels and separators come from
+  `command_palette.labels` rather than renderer-local platform-label defaults;
   right-panel surface open titles prefer the active surface descriptor and are
   no longer derived by stripping English command label prefixes;
   surface descriptors without explicit titles remain

@@ -44,6 +44,36 @@
 
 ## 3. 当前变更记录
 
+### DC-272
+
+- Date: 2026-07-05
+- Change Topic: GUI command-palette shortcut labels are app-shell declared
+- Summary:
+  - Added `command_palette.labels.shortcut_labels` and
+    `shortcut_separator` to the default app-shell capability payload.
+  - The React app-shell normalizer preserves shortcut display descriptors, and
+    `command-palette-model` formats keybindings from those descriptors instead
+    of hard-coding `Ctrl`, `Alt`, `Shift`, or `Esc`.
+  - Unknown keybinding parts now remain raw tokens, with only single-character
+    key tokens uppercased for display.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-model.test.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving renderer-owned chrome text and visible formatting tokens
+    into app-shell descriptors.
+
 ### DC-271
 
 - Date: 2026-07-05

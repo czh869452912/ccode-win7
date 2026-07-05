@@ -127,6 +127,9 @@
 - Right-panel surface opening now prefers the active app-shell surface
   descriptor title and no longer strips English command-label prefixes to
   invent panel titles.
+- Command palette shortcut display labels now come from
+  `command_palette.labels.shortcut_labels` / `shortcut_separator` instead of
+  renderer-local `Ctrl` / `Shift` / `Esc` defaults.
 - File Preview right-panel chrome now comes from
   `capabilities.surfaces.chrome.file_preview`: default file/project labels,
   loading/error fallback copy, retry/copy/explorer actions, metadata

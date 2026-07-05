@@ -597,6 +597,8 @@ function normalizeCommandPalette(input = {}) {
       sessionFallbackPrefix: String(labels.session_fallback_prefix || labels.sessionFallbackPrefix || ""),
       sessionLeading: String(labels.session_leading || labels.sessionLeading || ""),
       workspaceLeading: String(labels.workspace_leading || labels.workspaceLeading || ""),
+      shortcutLabels: normalizeStringMap(labels.shortcut_labels || labels.shortcutLabels),
+      shortcutSeparator: String(labels.shortcut_separator || labels.shortcutSeparator || ""),
     },
   };
 }

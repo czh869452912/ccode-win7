@@ -1095,6 +1095,9 @@ def test_gui_command_palette_groups_are_app_shell_descriptors():
     assert "rootPlaceholder" in model_text
     assert "sessionLeading" in model_text
     assert "workspaceLeading" in model_text
+    assert "shortcut_labels" in spec_text
+    assert "shortcutLabels" in model_text
+    assert "shortcutSeparator" in model_text
     assert "commandPalette: normalizeCommandPalette" in model_text
     assert "GROUP_TITLES" not in palette_model_text
     assert "GROUP_DESCRIPTIONS" not in palette_model_text
@@ -1111,6 +1114,11 @@ def test_gui_command_palette_groups_are_app_shell_descriptors():
     assert "title: asText(group.title) || titleCase(id)" not in palette_model_text
     assert "title: titleCase(id)" not in palette_model_text
     assert "descriptor.title || titleCase" not in palette_model_text
+    assert 'return "Ctrl"' not in palette_model_text
+    assert 'return "Alt"' not in palette_model_text
+    assert 'return "Shift"' not in palette_model_text
+    assert 'return "Esc"' not in palette_model_text
+    assert "titleCase(part)" not in palette_model_text
     assert "slice(0, 1)" not in palette_model_text
     assert '|| ">"' not in palette_model_text
     assert 'asText(command.group) || "commands"' not in palette_model_text

@@ -296,6 +296,14 @@ def default_app_shell_spec() -> AppShellSpec:
             "session_fallback_prefix": "Session",
             "session_leading": "T",
             "workspace_leading": "W",
+            "shortcut_labels": {
+                "mod": "Ctrl",
+                "ctrl": "Ctrl",
+                "alt": "Alt",
+                "shift": "Shift",
+                "escape": "Esc",
+            },
+            "shortcut_separator": "+",
         },
         chrome={
             "brand_subtitle": "Local agent workbench",
