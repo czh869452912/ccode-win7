@@ -872,11 +872,14 @@ def test_gui_app_shell_surfaces_are_descriptor_records_not_string_lists():
 
     for token in (
         '_surface(\n                "files"',
+        '_surface(\n                "file"',
         '_surface(\n                "terminal"',
         '"launcher_order"',
     ):
         assert token in app_shell_spec_text
     assert "surface_chrome" in app_shell_spec_text
+    assert "launcher=False" in app_shell_spec_text
+    assert "command=False" in app_shell_spec_text
     assert "command_label" in app_shell_spec_text
     assert "normalizeSurfaceCapability" in app_model_text
     assert "normalizeSurfaceChrome" in app_model_text
@@ -2265,11 +2268,14 @@ def test_gui_right_panel_body_has_no_inspector_tab_renderer():
         ROOT
         / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx"
     )
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     surfaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js")
     surface_panel_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx"
     )
-    assert "surfaceDefinitionFor(surface.kind)" in surface_body_text
+    assert "surfaceDefinitionFor(surface.kind, appCapabilities)" in surface_body_text
+    assert "surfaceDefinitionFor(surface.kind)" not in surface_body_text
+    assert app_text.count("appCapabilities={state.app.capabilities}") >= 3
     assert "activeDefinition.bodyKind" in surface_body_text
     assert "activeDefinition.panelKind" in surface_body_text
     assert "RIGHT_PANEL_BODY_RENDERERS" in surface_body_text

@@ -519,7 +519,10 @@ with locally supported renderer metadata (`bodyKind` and, for generic panels,
 `panelKind`) and do not keep a second hard-coded tab registry, `inspectorTab`
 adapter, or `onTabChange` navigation contract. Supported right-panel
 `bodyKind` values route through a renderer-local body renderer registry rather
-than a component switch. Right-panel surface opening also
+than a component switch. Body metadata lookup receives the active app-shell
+capabilities; hidden/resource surfaces such as `file` must still be declared by
+the backend with visibility metadata instead of relying on renderer-only
+fallback. Right-panel surface opening also
 uses renderer metadata (`openKind`) so terminal session creation is not inferred
 from a fixed surface id in the controller; supported `openKind` values route
 through a renderer-local handler registry rather than a controller switch.

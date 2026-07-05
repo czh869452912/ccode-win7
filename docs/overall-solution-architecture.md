@@ -79,10 +79,13 @@ Terminal-controller right-panel surface validation and terminal pane action
 payload assembly are centralized in `TERMINAL_SURFACE_KIND` and
 `terminalSurfaceActionInput(...)`, not repeated per-action surface-kind
 checks.
-Right-panel body mounting uses the same renderer-local metadata path; app-shell
-surface ids select visibility and labels, while renderer registry records
-select the concrete body component. Supported body kinds route through
-`RIGHT_PANEL_BODY_RENDERERS`, not a component switch.
+Right-panel body mounting uses the same renderer-local metadata path scoped by
+active app-shell capabilities; app-shell surface ids select visibility and
+labels, while renderer registry records select the concrete body component.
+Hidden resource surfaces such as `file` are backend-declared with
+`launcher=False` / `command=False` rather than renderer-only body fallback.
+Supported body kinds route through `RIGHT_PANEL_BODY_RENDERERS`, not a
+component switch.
 Generic `SurfacePanel` bodies are selected by renderer-local `panelKind`
 metadata, so Plan, Diff, Source Control, Settings, and Diagnostics panels do
 not require branches on app-shell surface ids.

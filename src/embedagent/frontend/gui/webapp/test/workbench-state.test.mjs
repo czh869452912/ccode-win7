@@ -30,13 +30,14 @@ import {
   supportedSurfaceKinds,
 } from "../src/workbench/surfaces.js";
 
-function surface(id, title = id, launcherOrder = 0) {
-  return { id, title, launcherOrder, commandLabel: `Show ${title}` };
+function surface(id, title = id, launcherOrder = 0, metadata = {}) {
+  return { id, title, launcherOrder, commandLabel: `Show ${title}`, ...metadata };
 }
 
 const RIGHT_PANEL_CAPABILITY_DESCRIPTORS = Object.freeze([
   surface("preview", "Preview", 10),
   surface("files", "Files", 20),
+  surface("file", "File", 25, { command: false, launcher: false }),
   surface("terminal", "Terminal", 30),
   surface("diff", "Diff", 40),
   surface("plan", "Plan", 50),
@@ -93,6 +94,10 @@ function capabilityIds(items) {
   return items.map((item) => item.id);
 }
 
+function launcherCapabilityIds(items) {
+  return capabilityIds(items.filter((item) => item.launcher !== false));
+}
+
 export function runWorkbenchStateTests() {
   const registryDefinitions = rightPanelSurfaceDefinitions();
   const fullAppCapabilities = {
@@ -126,7 +131,7 @@ export function runWorkbenchStateTests() {
   assert.deepEqual(rightPanelLauncherSurfaceDefinitions().map((definition) => definition.kind), []);
   assert.deepEqual(
     rightPanelLauncherSurfaceDefinitions(fullAppCapabilities).map((definition) => definition.kind),
-    capabilityIds(RIGHT_PANEL_CAPABILITY_DESCRIPTORS),
+    launcherCapabilityIds(RIGHT_PANEL_CAPABILITY_DESCRIPTORS),
   );
   assert.equal(surfaceChromeLabels(fullAppCapabilities).emptyTitle, "Open workspace view");
   assert.equal(surfaceChromeLabels(fullAppCapabilities).closeAllActionLabel, "Close all views");

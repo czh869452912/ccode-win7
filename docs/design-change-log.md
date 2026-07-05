@@ -44,6 +44,36 @@
 
 ## 3. 当前变更记录
 
+### DC-295
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel body lookup is app-capability scoped
+- Summary:
+  - `RightPanelSurfaceBody` now receives `appCapabilities` from `App.jsx` and
+    resolves `surfaceDefinitionFor(surface.kind, appCapabilities)`.
+  - The backend app-shell spec now declares the hidden `file` resource surface
+    with `launcher=False` and `command=False`, so file preview bodies remain
+    capability-declared without becoming visible launcher or command entries.
+  - Frontend and architecture guards now reject capability-blind
+    `surfaceDefinitionFor(surface.kind)` body lookup.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Future hidden/resource surfaces must be backend-declared capability records
+    with visibility metadata instead of relying on renderer-only body fallback.
+
 ### DC-294
 
 - Date: 2026-07-05

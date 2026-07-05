@@ -1142,6 +1142,10 @@ async function main() {
   assert.equal(appSource.includes("sourceControlChrome"), true);
   assert.equal(appSource.includes("onRefreshSourceControl"), true);
   assert.equal(appSource.includes("RightPanelSurfaceBody"), true);
+  assert.equal(
+    (appSource.match(/appCapabilities=\{state\.app\.capabilities\}/g) || []).length >= 3,
+    true,
+  );
   assert.equal(appSource.includes("onOpenFile={openFile}"), true);
   assert.equal(appSource.includes("activeRightPanelSurface"), true);
   assert.equal(appSource.includes("workbench_surface_close_others"), true);
@@ -1700,7 +1704,8 @@ async function main() {
   assert.equal(rightPanelSurfaceBodySource.includes("PreviewSurface"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("TerminalShell"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("SurfacePanel"), true);
-  assert.equal(rightPanelSurfaceBodySource.includes("surfaceDefinitionFor(surface.kind)"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("surfaceDefinitionFor(surface.kind, appCapabilities)"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("surfaceDefinitionFor(surface.kind)"), false);
   assert.equal(rightPanelSurfaceBodySource.includes("activeDefinition.bodyKind"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("activeDefinition.panelKind"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("RIGHT_PANEL_BODY_RENDERERS"), true);

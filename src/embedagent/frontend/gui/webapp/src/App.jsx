@@ -915,6 +915,7 @@ function App() {
           onAddSurface={(kind) => openRightPanelSurface(kind)}
         >
           <RightPanelSurfaceBody
+            appCapabilities={state.app.capabilities}
             surface={activeRightPanelSurface}
             surfacePanelProps={surfacePanelProps}
             filePreviewsByPath={state.filePreviewsByPath}

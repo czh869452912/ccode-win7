@@ -387,9 +387,12 @@ metadata; terminal drawer selection is not inferred from a fixed drawer kind in
 the terminal controller. Supported activation kinds route through
 `BOTTOM_DRAWER_ACTIVATION_HANDLERS`, not a controller switch.
 Right-panel body mounting follows the same rule: `RightPanelSurfaceBody` reads
-renderer-local `bodyKind` metadata from the surface registry instead of
-branching directly on app-shell surface ids. Supported body kinds are mounted
-through `RIGHT_PANEL_BODY_RENDERERS`, not a component switch.
+renderer-local `bodyKind` metadata scoped by active app-shell capabilities
+instead of branching directly on app-shell surface ids. Supported body kinds
+are mounted through `RIGHT_PANEL_BODY_RENDERERS`, not a component switch.
+Hidden/resource surfaces such as `file` must be backend-declared capability
+records with `launcher=False` and `command=False`, not renderer-only body
+fallbacks.
 Generic `SurfacePanel` content uses a second renderer-local `panelKind`
 declaration for Plan, Diff, Source Control, Settings, and Diagnostics bodies;
 `SurfacePanel` must not branch on app-shell surface ids.

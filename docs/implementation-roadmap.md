@@ -181,7 +181,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   right-panel body selection now follows the same renderer metadata path
   instead of branching on fixed surface kind strings in
   `RightPanelSurfaceBody`, and supported body kinds route through
-  `RIGHT_PANEL_BODY_RENDERERS` rather than a component switch;
+  `RIGHT_PANEL_BODY_RENDERERS` rather than a component switch; body definition
+  lookup is scoped by active app-shell capabilities, and hidden resource
+  surfaces such as `file` are backend-declared with `launcher=False` /
+  `command=False` rather than renderer-only body fallbacks;
   generic `SurfacePanel` content is selected by renderer-local `panelKind`
   metadata rather than surface-id branches;
   surface descriptors without explicit titles remain

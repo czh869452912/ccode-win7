@@ -97,10 +97,10 @@ function rightPanelBody(activeDefinition, props) {
 }
 
 export default function RightPanelSurfaceBody(props) {
-  const { surface } = props;
+  const { appCapabilities, surface } = props;
   if (!surface) {
     return null;
   }
-  const activeDefinition = surfaceDefinitionFor(surface.kind) || null;
+  const activeDefinition = surfaceDefinitionFor(surface.kind, appCapabilities) || null;
   return rightPanelBody(activeDefinition, props);
 }
