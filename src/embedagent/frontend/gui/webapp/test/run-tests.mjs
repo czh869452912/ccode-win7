@@ -1330,6 +1330,9 @@ async function main() {
   assert.equal(appSource.includes("buildBranchToolbarModel"), true);
   assert.equal(appSource.includes("branchToolbarModel"), true);
   assert.equal(appSource.includes("sourceControlChrome"), true);
+  assert.equal(appSource.includes("buildCommandGroupLabels"), true);
+  assert.equal(appSource.includes("commandPaletteGroups.reduce"), false);
+  assert.equal(appSource.includes("group?.id) labels[group.id]"), false);
   assert.equal(appSource.includes("createSurfacePanelController"), true);
   assert.equal(appSource.includes("buildSurfacePanelProps"), true);
   assert.equal(appSource.includes("surfacePanelController.focusDiffFile"), false);

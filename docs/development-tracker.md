@@ -266,7 +266,8 @@
   rather than a renderer `"diff"` fallback.
 - Composer slash/path menu chrome now comes from
   `capabilities.chrome.composer.command_menu`, while slash command group labels
-  reuse `capabilities.command_palette.groups`; the composer search,
+  reuse `capabilities.command_palette.groups` through
+  `workbench/command-palette-model.js` `buildCommandGroupLabels(...)`; the composer search,
   interaction, and menu components no longer keep a parallel command/path menu
   copy table. The default slash-command group id also comes from app-shell
   chrome, and renderer command helpers no longer synthesize missing command

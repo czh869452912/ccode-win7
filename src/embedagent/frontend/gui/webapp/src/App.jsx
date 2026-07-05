@@ -62,6 +62,7 @@ import RightPanelSurfaceBody from "./components/workbench/RightPanelSurfaceBody.
 import RightPanelTabs from "./components/workbench/RightPanelTabs.jsx";
 import WorkbenchHeader from "./components/workbench/WorkbenchHeader.jsx";
 import { visibleCommands } from "./workbench/commands.js";
+import { buildCommandGroupLabels } from "./workbench/command-palette-model.js";
 import {
   activeRightPanelSurfaceFrom,
   rightPanelSurfacesFrom,
@@ -73,7 +74,6 @@ import {
   readPersistedWorkbenchUiState,
 } from "./workbench/ui-state.js";
 
-const EMPTY_COMMAND_GROUPS = [];
 const EMPTY_KEYBINDINGS = [];
 
 function isTurnInterruptibleStatus(status) {
@@ -135,15 +135,10 @@ function App() {
   ]);
   const paletteCommands = useMemo(() => visibleCommands(commandContext), [commandContext]);
   const keybindings = state.app.capabilities.keybindings || EMPTY_KEYBINDINGS;
-  const commandPaletteGroups =
-    state.app.capabilities?.commandPalette?.groups || EMPTY_COMMAND_GROUPS;
+  const commandPalette = state.app.capabilities?.commandPalette || {};
   const composerCommandGroupLabels = useMemo(
-    () =>
-      commandPaletteGroups.reduce((labels, group) => {
-        if (group?.id) labels[group.id] = group.title || "";
-        return labels;
-      }, {}),
-    [commandPaletteGroups],
+    () => buildCommandGroupLabels(commandPalette),
+    [commandPalette],
   );
   const composerCommands = useMemo(
     () =>

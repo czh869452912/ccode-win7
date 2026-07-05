@@ -1495,6 +1495,9 @@ def test_gui_composer_menu_copy_is_app_shell_declared():
     assert "commandMenu: normalizeComposerCommandMenuChrome" in model_text
     assert "defaultCommandGroupId" in model_text
     assert "composerCommandGroupLabels" in app_text
+    assert "buildCommandGroupLabels" in app_text
+    assert "commandPaletteGroups.reduce" not in app_text
+    assert "group?.id) labels[group.id]" not in app_text
     assert "commandGroupLabels={composerCommandGroupLabels}" in app_text
     assert "const commandMenuChrome = chrome.commandMenu || {}" in composer_text
     assert "commandGroupLabels" in composer_text

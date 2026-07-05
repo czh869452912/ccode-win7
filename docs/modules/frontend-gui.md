@@ -372,7 +372,9 @@ The Composer slash-command and file-context menu follows the same rule:
 `capabilities.chrome.composer.command_menu` supplies menu aria labels, empty
 states, path/kind labels, fallback command group copy, and the default
 slash-command group id, while slash command group names reuse
-`capabilities.command_palette.groups`. Composer search and interaction helpers
+`capabilities.command_palette.groups` through
+`workbench/command-palette-model.js` `buildCommandGroupLabels(...)`.
+Composer search and interaction helpers
 must not own a second English group/copy table or synthesize missing command
 groups as `"command"` outside the app-shell-declared default group. Slash menu
 items come only from command capability projection; the old renderer-local

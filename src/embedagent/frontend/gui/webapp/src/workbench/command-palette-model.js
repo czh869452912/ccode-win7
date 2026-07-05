@@ -61,6 +61,21 @@ function paletteGroupDescriptors(commandPalette = {}) {
   return result;
 }
 
+export function buildCommandGroupLabels(commandPalette = {}) {
+  const groups = Array.isArray(commandPalette)
+    ? commandPalette
+    : Array.isArray(commandPalette?.groups)
+      ? commandPalette.groups
+      : [];
+  const labels = {};
+  for (const group of groups) {
+    const id = asText(group?.id);
+    if (!id) continue;
+    labels[id] = asText(group.title);
+  }
+  return labels;
+}
+
 function paletteLabels(commandPalette = {}) {
   const labels = commandPalette?.labels && typeof commandPalette.labels === "object"
     ? commandPalette.labels

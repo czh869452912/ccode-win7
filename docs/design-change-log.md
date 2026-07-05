@@ -44,6 +44,34 @@
 
 ## 3. 当前变更记录
 
+### DC-307
+
+- Date: 2026-07-05
+- Change Topic: GUI composer command group labels use command-palette model
+- Summary:
+  - `workbench/command-palette-model.js` now exports
+    `buildCommandGroupLabels(...)` for deriving Composer slash-menu group
+    labels from app-shell command-palette descriptors.
+  - `App.jsx` no longer hand-builds `composerCommandGroupLabels` with a
+    root-level `commandPaletteGroups.reduce(...)`.
+  - Frontend and architecture guards reject reintroducing that reducer in
+    `App.jsx`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving remaining App-level descriptor projection into focused
+    read models where the mapping is more than direct dependency wiring.
+
 ### DC-306
 
 - Date: 2026-07-05

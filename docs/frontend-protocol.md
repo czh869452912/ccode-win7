@@ -115,7 +115,8 @@ come from explicit group descriptors and are not synthesized from group titles.
 also carries renderer-facing `labels` for the palette title, search label,
 placeholders, empty states, root section titles, current/missing badges,
 workspace meta text, and session/workspace fallback labels. Composer
-slash-command group labels must reuse `capabilities.command_palette.groups`,
+slash-command group labels must reuse `capabilities.command_palette.groups`
+through `workbench/command-palette-model.js` `buildCommandGroupLabels(...)`,
 while `capabilities.chrome.composer.command_menu` carries the Composer
 slash/path menu aria labels, empty states, path group label, item-kind labels,
 fallback command group label, and default slash-command group id. Renderer

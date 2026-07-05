@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  buildCommandGroupLabels,
   buildCommandPaletteRootGroups,
   buildCommandPaletteSubmenuGroups,
   flattenPaletteGroups,
@@ -78,6 +79,21 @@ const commandPalette = {
 export function runCommandPaletteModelTests() {
   assert.equal(normalizePaletteQuery("  Diff  "), "diff");
   assert.equal(normalizePaletteQuery(null), "");
+  assert.deepEqual(buildCommandGroupLabels(commandPalette), {
+    surface: "Panels",
+    session: "Threads",
+    mode: "Modes",
+    view: "Layout",
+    workspace: "Projects",
+  });
+  assert.deepEqual(
+    buildCommandGroupLabels([
+      { id: "tools", title: "Tools" },
+      { id: "", title: "Ignored" },
+      { id: "empty", title: "" },
+    ]),
+    { tools: "Tools", empty: "" },
+  );
   assert.equal(formatPaletteShortcut("mod+3"), "mod+3");
   assert.equal(
     formatPaletteShortcut(
