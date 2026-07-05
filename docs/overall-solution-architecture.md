@@ -228,6 +228,10 @@ synthesized from action ids or labels. Lifecycle actions update session
 summary/projection metadata used by app thread lists; they do not rewrite
 transcript history, own workflow state, activate tools, decide permissions,
 load extensions, or create source-control checkpoints.
+Native prompt/confirm access for those renderer-initiated lifecycle prompts is
+isolated in `app-runtime/browser-dialog-service.js`; `App.jsx` injects that
+service into the lifecycle controller rather than calling browser dialog APIs
+directly.
 
 GUI session list loading is owned by the renderer
 `app-runtime/session-list-controller.js`. The controller is the only webapp

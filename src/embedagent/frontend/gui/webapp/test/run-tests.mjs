@@ -34,6 +34,7 @@ import { runSourceControlControllerTests } from "./source-control-controller.tes
 import { runFilePreviewControllerTests } from "./file-preview-controller.test.mjs";
 import { runPreviewControllerTests } from "./preview-controller.test.mjs";
 import { runPanelResizeControllerTests } from "./panel-resize-controller.test.mjs";
+import { runBrowserDialogServiceTests } from "./browser-dialog-service.test.mjs";
 import { runWorkbenchCommandControllerTests } from "./workbench-command-controller.test.mjs";
 import { runThreadLifecycleControllerTests } from "./thread-lifecycle-controller.test.mjs";
 import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
@@ -1120,6 +1121,10 @@ async function main() {
     webappSourcePath("app-runtime", "thread-lifecycle-controller.js"),
     "utf8",
   );
+  const browserDialogServiceSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "browser-dialog-service.js"),
+    "utf8",
+  );
   assert.equal(threadLifecycleControllerSource.includes("export function createThreadLifecycleController"), true);
   assert.equal(threadLifecycleControllerSource.includes("/rename"), true);
   assert.equal(threadLifecycleControllerSource.includes("/archive"), true);
@@ -1127,6 +1132,15 @@ async function main() {
   assert.equal(threadLifecycleControllerSource.includes("import React"), false);
   assert.equal(threadLifecycleControllerSource.includes("${action.label} failed"), false);
   assert.equal(threadLifecycleControllerSource.includes("label: id"), false);
+  assert.equal(appSource.includes("createBrowserDialogService"), true);
+  assert.equal(appSource.includes("prompt: browserDialogService.prompt"), true);
+  assert.equal(appSource.includes("confirm: browserDialogService.confirm"), true);
+  assert.equal(appSource.includes("window.prompt"), false);
+  assert.equal(appSource.includes("window.confirm"), false);
+  assert.equal(browserDialogServiceSource.includes("export function createBrowserDialogService"), true);
+  assert.equal(browserDialogServiceSource.includes("target.prompt"), true);
+  assert.equal(browserDialogServiceSource.includes("target.confirm"), true);
+  assert.equal(browserDialogServiceSource.includes("import React"), false);
   const rightPanelControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "right-panel-controller.js"),
     "utf8",
@@ -2116,6 +2130,7 @@ async function main() {
   await runFilePreviewControllerTests();
   await runPreviewControllerTests();
   runPanelResizeControllerTests();
+  runBrowserDialogServiceTests();
   await runWorkbenchCommandControllerTests();
   await runThreadLifecycleControllerTests();
   await runSessionTransportControllerTests();

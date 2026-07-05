@@ -10,6 +10,7 @@ import { buildSessionActivityRuntime } from "./session-runtime/activity-state.js
 import { buildComposerCommandsFromCapabilities } from "./session-runtime/command-capabilities.js";
 import { createSocketEffectExecutor } from "./app-runtime/socket-effect-executor.js";
 import { deriveSocketMessageEffects } from "./app-runtime/socket-message-effects.js";
+import { createBrowserDialogService } from "./app-runtime/browser-dialog-service.js";
 import { fetchJson } from "./app-runtime/http-client.js";
 import { createDiffSurfaceController } from "./app-runtime/diff-surface-controller.js";
 import { createFilePreviewController } from "./app-runtime/file-preview-controller.js";
@@ -437,6 +438,10 @@ function App() {
       }),
     [],
   );
+  const browserDialogService = useMemo(
+    () => createBrowserDialogService({ windowObject: window }),
+    [],
+  );
   const threadLifecycleController = useMemo(
     () =>
       createThreadLifecycleController({
@@ -446,10 +451,10 @@ function App() {
         loadSession,
         getThreadSessions: () => readThreadSessions(stateRef.current),
         getThreadLifecycleCapabilities: () => stateRef.current.app.capabilities?.threadLifecycle || {},
-        prompt: (message, initialValue) => window.prompt(message, initialValue),
-        confirm: (message) => window.confirm(message),
+        prompt: browserDialogService.prompt,
+        confirm: browserDialogService.confirm,
       }),
-    [],
+    [browserDialogService],
   );
   const { createSession, setMode, cancelSession, submitText } = sessionController;
   const { handleThreadLifecycleAction } = threadLifecycleController;

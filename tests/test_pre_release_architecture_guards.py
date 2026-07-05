@@ -2008,11 +2008,15 @@ def test_gui_source_control_copy_is_app_shell_declared():
 def test_gui_thread_lifecycle_actions_are_backend_descriptors():
     spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     app_home_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/app-home-model.js"
     )
     controller_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/thread-lifecycle-controller.js"
+    )
+    browser_dialog_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/browser-dialog-service.js"
     )
 
     assert "thread_lifecycle_actions" in spec_text
@@ -2040,6 +2044,14 @@ def test_gui_thread_lifecycle_actions_are_backend_descriptors():
     assert '"Archive this thread?"' not in controller_text
     assert '"Fork thread title"' not in controller_text
     assert '"Thread archived"' not in controller_text
+    assert "createBrowserDialogService" in app_text
+    assert "prompt: browserDialogService.prompt" in app_text
+    assert "confirm: browserDialogService.confirm" in app_text
+    assert "window.prompt" not in app_text
+    assert "window.confirm" not in app_text
+    assert "export function createBrowserDialogService" in browser_dialog_text
+    assert "target.prompt" in browser_dialog_text
+    assert "target.confirm" in browser_dialog_text
     assert "THREAD_LIFECYCLE_ACTIONS" not in app_home_text
     assert "if (!label) return null" in app_home_text
     assert ".filter(Boolean)" in app_home_text
