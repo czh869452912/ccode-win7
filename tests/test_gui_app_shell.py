@@ -654,6 +654,45 @@ class TestGuiAppShellService(unittest.TestCase):
             "Python workspace",
         )
 
+    def test_bootstrap_filters_shell_by_selected_agent_application_profile(self):
+        with tempfile.TemporaryDirectory() as root:
+            registry = WorkspaceRegistry(storage_path=os.path.join(root, "workspaces.json"))
+            service, _host, _frontend = self._service(
+                registry,
+                [],
+                agent_capabilities=agent_application_capability_payload("embedagent.generic"),
+            )
+
+            payload = service.bootstrap()
+
+        capabilities = payload["capabilities"]
+        right_panel_surface_ids = [item["id"] for item in capabilities["surfaces"]["right_panel"]]
+        bottom_drawer_surface_ids = [
+            item["id"] for item in capabilities["surfaces"]["bottom_drawer"]
+        ]
+        app_command_ids = [item["id"] for item in capabilities["app_commands"]]
+        keybinding_command_ids = [item["command_id"] for item in capabilities["keybindings"]]
+        palette_group_ids = [item["id"] for item in capabilities["command_palette"]["groups"]]
+
+        self.assertEqual(
+            right_panel_surface_ids,
+            ["files", "file", "terminal", "plan", "settings", "diagnostics"],
+        )
+        self.assertEqual(bottom_drawer_surface_ids, ["run_output", "terminal"])
+        self.assertNotIn("app.source_control", app_command_ids)
+        self.assertNotIn("surface.diff", keybinding_command_ids)
+        self.assertNotIn("surface.preview", keybinding_command_ids)
+        self.assertNotIn("source_control", right_panel_surface_ids)
+        self.assertNotIn("diff", right_panel_surface_ids)
+        self.assertNotIn("preview", right_panel_surface_ids)
+        self.assertNotIn("workflow", palette_group_ids)
+        self.assertEqual(capabilities["source_control"]["enabled"], False)
+        self.assertEqual(capabilities["preview"]["enabled"], False)
+        self.assertEqual(
+            capabilities["agentApplication"]["applicationId"],
+            "embedagent.generic",
+        )
+
     def test_bootstrap_uses_injected_app_shell_spec(self):
         with tempfile.TemporaryDirectory() as root:
             registry = WorkspaceRegistry(storage_path=os.path.join(root, "workspaces.json"))

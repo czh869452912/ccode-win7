@@ -206,7 +206,12 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   app bootstrap now also carries a safe selected-agent application registry and
   empty-state read model before a workspace/core exists, then defers to the
   active core's capability projection after workspace activation. This lets the
-  GUI adapt for generic or specialized agents before a session is opened. The
+  GUI adapt for generic or specialized agents before a session is opened.
+  Selected agent application manifests also declare `metadata.appShell`
+  allow-lists for app commands, surfaces, keybinding targets, palette groups,
+  and disabled GUI capability ids; `AppShellService` applies those lists to the
+  injected spec so the Generic Agent does not inherit Preview/Diff/Source
+  Control entrypoints from the default C/C++ application. The
   default descriptor set is now an injected backend `AppShellSpec`, so
   alternate hosts can provide a smaller or specialized GUI shell without
   editing `AppShellService`

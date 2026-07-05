@@ -1017,6 +1017,21 @@ def test_gui_app_shell_projects_selected_agent_application_before_workspace():
     assert "available_agent_application_manifests" not in adapter_text
 
 
+def test_gui_app_shell_filters_by_selected_agent_application_profile():
+    app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
+    registry_text = _read(ROOT / "src/embedagent/agent_applications.py")
+
+    assert '"appShell"' in registry_text
+    assert '"rightPanelSurfaceIds"' in registry_text
+    assert '"disabledCapabilityIds"' in registry_text
+    assert "_selected_app_shell_profile" in app_shell_text
+    assert "_apply_agent_app_shell_profile" in app_shell_text
+    assert "_filter_records_by_id" in app_shell_text
+    assert "_filter_keybindings" in app_shell_text
+    assert '"source_control", "preview"' in registry_text
+    assert "capabilities[capability_id] = disabled" in app_shell_text
+
+
 def test_gui_app_home_copy_is_app_shell_declared():
     spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     app_model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")

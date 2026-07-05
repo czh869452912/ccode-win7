@@ -46,6 +46,54 @@ def _safe_mapping(value: Any) -> Any:
     return str(value)
 
 
+def _string_items(value: Any) -> list:
+    if not isinstance(value, (list, tuple)):
+        return []
+    return [str(item) for item in value if str(item or "").strip()]
+
+
+def _id_allow_set(profile: Dict[str, Any], key: str) -> Optional[set]:
+    if key not in profile:
+        return None
+    return set(_string_items(profile.get(key)))
+
+
+def _filter_records_by_id(records: Any, allowed_ids: Optional[set]) -> list:
+    items = list(records or [])
+    if allowed_ids is None:
+        return items
+    return [
+        dict(item)
+        for item in items
+        if isinstance(item, dict) and str(item.get("id") or "") in allowed_ids
+    ]
+
+
+def _filter_keybindings(records: Any, allowed_command_ids: Optional[set]) -> list:
+    items = list(records or [])
+    if allowed_command_ids is None:
+        return items
+    return [
+        dict(item)
+        for item in items
+        if isinstance(item, dict)
+        and str(item.get("command_id") or item.get("commandId") or "") in allowed_command_ids
+    ]
+
+
+def _selected_app_shell_profile(agent_capabilities: Dict[str, Any]) -> Dict[str, Any]:
+    application = agent_capabilities.get("agentApplication")
+    if not isinstance(application, dict):
+        return {}
+    metadata = application.get("metadata")
+    if not isinstance(metadata, dict):
+        return {}
+    profile = metadata.get("appShell")
+    if profile is None:
+        profile = metadata.get("app_shell")
+    return profile if isinstance(profile, dict) else {}
+
+
 class AppShellService(object):
     def __init__(
         self,
@@ -108,8 +156,49 @@ class AppShellService(object):
 
     def _capabilities(self) -> Dict[str, Any]:
         capabilities = self._shell_spec.capabilities()
-        capabilities.update(self._agent_capabilities())
+        agent_capabilities = self._agent_capabilities()
+        self._apply_agent_app_shell_profile(capabilities, agent_capabilities)
+        capabilities.update(agent_capabilities)
         return capabilities
+
+    def _apply_agent_app_shell_profile(
+        self,
+        capabilities: Dict[str, Any],
+        agent_capabilities: Dict[str, Any],
+    ) -> None:
+        profile = _selected_app_shell_profile(agent_capabilities)
+        if not profile:
+            return
+        capabilities["app_commands"] = _filter_records_by_id(
+            capabilities.get("app_commands"),
+            _id_allow_set(profile, "appCommandIds"),
+        )
+        command_palette = dict(capabilities.get("command_palette") or {})
+        command_palette["groups"] = _filter_records_by_id(
+            command_palette.get("groups"),
+            _id_allow_set(profile, "commandPaletteGroupIds"),
+        )
+        capabilities["command_palette"] = command_palette
+
+        surfaces = dict(capabilities.get("surfaces") or {})
+        surfaces["right_panel"] = _filter_records_by_id(
+            surfaces.get("right_panel"),
+            _id_allow_set(profile, "rightPanelSurfaceIds"),
+        )
+        surfaces["bottom_drawer"] = _filter_records_by_id(
+            surfaces.get("bottom_drawer"),
+            _id_allow_set(profile, "bottomDrawerSurfaceIds"),
+        )
+        capabilities["surfaces"] = surfaces
+        capabilities["keybindings"] = _filter_keybindings(
+            capabilities.get("keybindings"),
+            _id_allow_set(profile, "keybindingCommandIds"),
+        )
+        for capability_id in _string_items(profile.get("disabledCapabilityIds")):
+            current = capabilities.get(capability_id)
+            disabled = dict(current or {}) if isinstance(current, dict) else {}
+            disabled["enabled"] = False
+            capabilities[capability_id] = disabled
 
     def _agent_capabilities(self) -> Dict[str, Any]:
         current_core = getattr(self._app_host, "current_core", None)

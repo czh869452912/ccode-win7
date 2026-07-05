@@ -153,7 +153,13 @@ that projection comes from the backend-selected application registry declared
 by the app host or launcher; after workspace activation the active Core's
 capability projection is authoritative. The GUI can adapt labels/copy for
 generic or specialized agents without creating a core or making app bootstrap a
-session-history source. Renderer app-shell normalizers preserve a missing
+session-history source. Selected agent application manifests may also declare
+`metadata.appShell` allow-lists for app commands, right-panel surfaces,
+bottom-drawer surfaces, keybinding command targets, command-palette groups,
+and disabled GUI capability ids. `AppShellService` applies that profile to the
+injected `AppShellSpec` before returning capabilities, so a generic base agent
+does not inherit Preview, Diff, or Source Control entrypoints from the default
+C/C++ application. Renderer app-shell normalizers preserve a missing
 backend product name as empty rather than inventing the bundled product name;
 untitled thread fallback prefixes come from `home.threads` descriptors rather
 than renderer-local English copy.
@@ -310,6 +316,10 @@ loaders instead of per-application builder callables. It exposes safe
 `AgentApplicationManifest` records for GUI capability projection. Agent
 profiles declare scenario mode metadata, base tool policy, and GUI mode
 capability projection.
+Built-in application records also carry `metadata.appShell` GUI allow-lists,
+so the hosted GUI can derive a smaller base shell or a specialized workflow
+shell from the selected application manifest rather than assuming the default
+C/C++ workbench surface set.
 Workflow packages declare scenario-specific
 workflow tools, packs, prompts, resources, manifests, and package-owned tool
 names. Provider-facing schemas are always projected from explicit active tool

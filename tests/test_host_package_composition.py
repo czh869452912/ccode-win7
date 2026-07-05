@@ -108,6 +108,24 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertFalse(available["embedagent.default_c_cpp"]["active"])
         self.assertEqual(payload["emptyState"]["scenario_label"], "Python workspace")
         self.assertEqual(payload["emptyState"]["primary"], "Open a Python project")
+        app_shell = payload["agentApplication"]["metadata"]["appShell"]
+        self.assertEqual(
+            app_shell["rightPanelSurfaceIds"],
+            [
+                "files",
+                "file",
+                "terminal",
+                "diff",
+                "plan",
+                "source_control",
+                "settings",
+                "diagnostics",
+            ],
+        )
+        self.assertEqual(
+            app_shell["disabledCapabilityIds"],
+            ["preview"],
+        )
 
     def test_agent_application_registry_is_record_driven_not_builder_tuple(self):
         module_path = os.path.join(

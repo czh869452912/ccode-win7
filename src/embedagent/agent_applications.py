@@ -75,9 +75,13 @@ class AgentApplicationRecord:
     source_id: str = ""
     default: bool = False
     empty_state: Dict[str, Any] = field(default_factory=dict)
+    app_shell: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_manifest(self) -> AgentApplicationManifest:
+        metadata = dict(self.metadata or {})
+        if self.app_shell:
+            metadata["appShell"] = _copy_value(self.app_shell)
         return AgentApplicationManifest(
             application_id=self.application_id,
             label=self.label,
@@ -86,8 +90,141 @@ class AgentApplicationRecord:
             source_type=self.source_type,
             source_id=self.source_id,
             default=bool(self.default),
-            metadata=dict(self.metadata or {}),
+            metadata=metadata,
         )
+
+
+_BASE_APP_SHELL = {
+    "rightPanelSurfaceIds": (
+        "files",
+        "file",
+        "terminal",
+        "plan",
+        "settings",
+        "diagnostics",
+    ),
+    "bottomDrawerSurfaceIds": ("run_output", "terminal"),
+    "appCommandIds": ("app.settings", "app.diagnostics", "app.reload"),
+    "keybindingCommandIds": (
+        "palette.open",
+        "palette.close",
+        "message.stop",
+        "view.toggle_right_panel",
+        "app.settings",
+        "view.toggle_bottom_drawer",
+        "surface.files",
+        "surface.terminal",
+        "message.send",
+    ),
+    "commandPaletteGroupIds": (
+        "app",
+        "session",
+        "message",
+        "mode",
+        "surface",
+        "workspace",
+        "view",
+    ),
+    "disabledCapabilityIds": ("source_control", "preview"),
+}
+
+_CODE_APP_SHELL = {
+    "rightPanelSurfaceIds": (
+        "files",
+        "file",
+        "terminal",
+        "diff",
+        "plan",
+        "source_control",
+        "settings",
+        "diagnostics",
+    ),
+    "bottomDrawerSurfaceIds": ("run_output", "terminal"),
+    "appCommandIds": (
+        "app.settings",
+        "app.diagnostics",
+        "app.source_control",
+        "app.reload",
+    ),
+    "keybindingCommandIds": (
+        "palette.open",
+        "palette.close",
+        "message.stop",
+        "view.toggle_right_panel",
+        "app.settings",
+        "view.toggle_bottom_drawer",
+        "surface.files",
+        "surface.terminal",
+        "surface.diff",
+        "message.send",
+    ),
+    "commandPaletteGroupIds": (
+        "app",
+        "session",
+        "message",
+        "mode",
+        "surface",
+        "workspace",
+        "view",
+    ),
+    "disabledCapabilityIds": ("preview",),
+}
+
+_WEB_APP_SHELL = {
+    "rightPanelSurfaceIds": (
+        "preview",
+        "files",
+        "file",
+        "terminal",
+        "diff",
+        "plan",
+        "source_control",
+        "settings",
+        "diagnostics",
+    ),
+    "bottomDrawerSurfaceIds": ("run_output", "terminal"),
+    "appCommandIds": (
+        "app.settings",
+        "app.diagnostics",
+        "app.source_control",
+        "app.reload",
+    ),
+    "keybindingCommandIds": (
+        "palette.open",
+        "palette.close",
+        "message.stop",
+        "view.toggle_right_panel",
+        "app.settings",
+        "view.toggle_bottom_drawer",
+        "surface.files",
+        "surface.terminal",
+        "surface.diff",
+        "surface.preview",
+        "message.send",
+    ),
+    "commandPaletteGroupIds": (
+        "app",
+        "session",
+        "message",
+        "mode",
+        "surface",
+        "workspace",
+        "view",
+    ),
+    "disabledCapabilityIds": (),
+}
+
+_C_CPP_APP_SHELL = dict(_WEB_APP_SHELL)
+_C_CPP_APP_SHELL["commandPaletteGroupIds"] = (
+    "app",
+    "session",
+    "message",
+    "mode",
+    "surface",
+    "workspace",
+    "workflow",
+    "view",
+)
 
 
 BUILTIN_AGENT_APPLICATION_RECORDS = (
@@ -107,6 +244,7 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
             "secondary": "The selected agent will load its Clang-centered workflow after workspace activation.",
             "path_placeholder": "Path to C/C++ project",
         },
+        app_shell=_C_CPP_APP_SHELL,
     ),
     AgentApplicationRecord(
         application_id=GENERIC_AGENT_APPLICATION_ID,
@@ -121,6 +259,7 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
             "secondary": "The selected agent will use generic project modes after workspace activation.",
             "path_placeholder": "Path to project",
         },
+        app_shell=_BASE_APP_SHELL,
         metadata={"domain": "generic"},
     ),
     AgentApplicationRecord(
@@ -136,6 +275,7 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
             "secondary": "The selected agent will use Python project modes after workspace activation.",
             "path_placeholder": "Path to Python project",
         },
+        app_shell=_CODE_APP_SHELL,
         metadata={"domain": "python"},
     ),
     AgentApplicationRecord(
@@ -151,6 +291,7 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
             "secondary": "The selected agent will use frontend project modes after workspace activation.",
             "path_placeholder": "Path to HTML/Web project",
         },
+        app_shell=_WEB_APP_SHELL,
         metadata={"domain": "html"},
     ),
 )

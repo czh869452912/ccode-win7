@@ -71,6 +71,11 @@ consume those descriptors; they must not become a second source of
 agent/workflow-specific display defaults. Frontend API helpers for preview,
 terminal, and source-control do not provide their own request-failure copy when
 the backend omits error details; controllers fall through to app-shell chrome.
+Selected agent application manifests can narrow the injected app-shell spec
+through `metadata.appShell` allow-lists. `AppShellService` applies those lists
+before the renderer sees capabilities, so the Generic Agent can expose the base
+Files/Terminal/Plan shell without inheriting Preview, Diff, or Source Control
+entrypoints from the bundled C/C++ agent.
 Workbench command labels also come from app-shell or capability descriptors:
 commands without explicit visible labels stay out of the workbench command
 catalog and command palette, and renderer modules must not turn command ids

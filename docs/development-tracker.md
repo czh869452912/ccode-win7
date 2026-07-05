@@ -115,6 +115,11 @@
   longer invent `workflow_state: "chat"` when a backend snapshot omits the
   state name; workflow display stays on explicit snapshot values plus the
   separate generic `workflow` payload.
+- Agent application manifests now declare `metadata.appShell` profiles for
+  GUI app-shell filtering. `AppShellService` applies those allow-lists before
+  returning `/api/app/bootstrap`, so Generic Agent no longer receives the
+  default C/C++ Preview/Diff/Source Control entrypoints and specialized agents
+  can narrow or extend the shell through capability data.
 - No-workspace GUI shell branding now comes from backend app metadata:
   `app-home-model.js` projects `app.productName`, and `NoWorkspaceState.jsx`
   renders that descriptor value instead of hard-coding the default product

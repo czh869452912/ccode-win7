@@ -226,6 +226,13 @@ status/diff errors, empty states, counts, group order, groups, providers, file
 status badges, runtime labels, panel actions, and the composer Branch Toolbar
 under `chrome.branch_toolbar`. Group/provider labels must render only declared
 labels or declared fallback labels, not raw protocol ids.
+The selected `capabilities.agentApplication.metadata.appShell` profile is a
+backend-side filter over the GUI app-shell spec. It can allow specific app
+commands, right-panel surfaces, bottom-drawer surfaces, keybinding command
+targets, and command-palette groups, and can mark GUI capabilities such as
+`preview` or `source_control` disabled. Renderers consume the resulting
+filtered capability lists; they must not re-add default C/C++ workbench
+entrypoints for a generic or specialized agent that did not declare them.
 The renderer may keep a local registry of supported component kinds, but that
 registry is not a frontend capability source and must not be exposed as a fixed
 surface id list.
