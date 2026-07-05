@@ -363,6 +363,9 @@ must not treat `drawer: "terminal"` as a special execution policy.
 Bottom-drawer body mounting is renderer-local metadata on supported surface
 definitions (`bodyKind`); the default app shell exposes only surfaces that have
 a matching renderer body, currently Run Output and Terminal.
+Bottom-drawer activation side effects use renderer-local `activationKind`
+metadata; terminal drawer selection is not inferred from a fixed drawer kind in
+the terminal controller.
 Right-panel body mounting follows the same rule: `RightPanelSurfaceBody` reads
 renderer-local `bodyKind` metadata from the surface registry instead of
 branching directly on app-shell surface ids.

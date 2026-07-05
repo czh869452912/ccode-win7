@@ -1,5 +1,8 @@
 import { readActiveThreadId } from "../session-runtime/thread-state.js";
-import { surfaceDefinitionFor } from "../workbench/surfaces.js";
+import {
+  bottomDrawerSurfaceDefinitionFor,
+  surfaceDefinitionFor,
+} from "../workbench/surfaces.js";
 
 const TERMINAL_DIMENSIONS = Object.freeze({ cols: 100, rows: 30 });
 
@@ -251,11 +254,16 @@ export function createTerminalController(deps = {}) {
   }
 
   async function selectBottomDrawerKind(kind) {
-    if (kind === "terminal") {
-      return ensureOpen();
+    const definition = bottomDrawerSurfaceDefinitionFor(kind, readAppCapabilities(deps));
+    switch (definition ? definition.activationKind : "") {
+      case "terminal.ensure_open":
+        return ensureOpen();
+      case "workbench.surface":
+        dispatch({ type: "workbench_surface_activated", placement: "bottom", kind });
+        return kind;
+      default:
+        return null;
     }
-    dispatch({ type: "workbench_surface_activated", placement: "bottom", kind });
-    return kind;
   }
 
   async function openRightPanelSurface(preferredId = "") {

@@ -1221,6 +1221,9 @@ async function main() {
   assert.equal(terminalControllerSource.includes("TERMINAL_DIMENSIONS"), true);
   assert.equal(terminalControllerSource.includes("terminalChromeText"), true);
   assert.equal(terminalControllerSource.includes("surfaceDefinitionFor"), true);
+  assert.equal(terminalControllerSource.includes("bottomDrawerSurfaceDefinitionFor"), true);
+  assert.equal(terminalControllerSource.includes("definition.activationKind"), true);
+  assert.equal(terminalControllerSource.includes('kind === "terminal"'), false);
   assert.equal(terminalControllerSource.includes("Open a session before using the terminal."), false);
   assert.equal(terminalControllerSource.includes("Terminal failed to open."), false);
   assert.equal(terminalControllerSource.includes("workbench_surface_opened"), true);

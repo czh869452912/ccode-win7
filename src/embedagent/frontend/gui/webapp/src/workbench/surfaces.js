@@ -160,6 +160,7 @@ export const BOTTOM_DRAWER_SURFACE_REGISTRY = Object.freeze([
     placement: "bottom",
     closeBehavior: "pinned",
     bodyKind: "run_output",
+    activationKind: "workbench.surface",
     launcher: true,
     launcherOrder: 10,
     command: true,
@@ -169,6 +170,7 @@ export const BOTTOM_DRAWER_SURFACE_REGISTRY = Object.freeze([
     placement: "bottom",
     closeBehavior: "pinned",
     bodyKind: "terminal",
+    activationKind: "terminal.ensure_open",
     launcher: true,
     launcherOrder: 20,
     command: true,
@@ -307,6 +309,17 @@ export function surfaceDefinitionFor(kind, appCapabilities = null) {
   const definition = RIGHT_PANEL_SURFACE_REGISTRY.find((item) => item.kind === normalized) || null;
   if (!definition || !appCapabilities) return definition;
   const capability = surfaceCapabilityDefinitions(appCapabilities, "right")
+    .find((item) => item.kind === normalized);
+  if (!capability) return null;
+  const merged = mergedSurfaceDefinition(definition, capability);
+  return hasDisplayTitle(merged) ? merged : null;
+}
+
+export function bottomDrawerSurfaceDefinitionFor(kind, appCapabilities = null) {
+  const normalized = String(kind || "");
+  const definition = BOTTOM_DRAWER_SURFACE_REGISTRY.find((item) => item.kind === normalized) || null;
+  if (!definition || !appCapabilities) return definition;
+  const capability = surfaceCapabilityDefinitions(appCapabilities, "bottom")
     .find((item) => item.kind === normalized);
   if (!capability) return null;
   const merged = mergedSurfaceDefinition(definition, capability);

@@ -2017,6 +2017,9 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     bottom_drawer_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/BottomDrawer.jsx"
     )
+    terminal_controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js"
+    )
     controller_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/workbench-command-controller.js"
     )
@@ -2038,6 +2041,9 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert "chrome.runOutputEmptyMessage" in bottom_drawer_text
     assert "chrome.terminationReasonPrefix" in bottom_drawer_text
     assert "activeDefinition.bodyKind" in bottom_drawer_text
+    assert "bottomDrawerSurfaceDefinitionFor" in terminal_controller_text
+    assert "definition.activationKind" in terminal_controller_text
+    assert 'kind === "terminal"' not in terminal_controller_text
     assert 'activeKind === "terminal"' not in bottom_drawer_text
     assert '"Bottom drawer"' not in bottom_drawer_text
     assert '"No run output yet."' not in bottom_drawer_text

@@ -13,6 +13,26 @@ const TERMINAL_CHROME = Object.freeze({
 
 const APP_CAPABILITIES = Object.freeze({
   surfaces: {
+    bottomDrawer: [
+      {
+        id: "run_output",
+        kind: "run_output",
+        title: "Run Output",
+        commandLabel: "Show Run Output",
+        launcher: true,
+        launcherOrder: 10,
+        command: true,
+      },
+      {
+        id: "terminal",
+        kind: "terminal",
+        title: "Terminal",
+        commandLabel: "Show Terminal",
+        launcher: true,
+        launcherOrder: 20,
+        command: true,
+      },
+    ],
     rightPanel: [
       {
         id: "terminal",

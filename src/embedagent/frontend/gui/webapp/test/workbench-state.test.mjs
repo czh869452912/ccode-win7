@@ -12,6 +12,7 @@ import {
   RIGHT_PANEL_SURFACE_REGISTRY,
   activateSurface,
   bottomDrawerCommandDefinitions,
+  bottomDrawerSurfaceDefinitionFor,
   bottomDrawerSurfaceDefinitions,
   closeAllSurfaces,
   closeOtherSurfaces,
@@ -167,6 +168,8 @@ export function runWorkbenchStateTests() {
   assert.deepEqual(describedDrawerCommands[0].dispatch, { kind: "terminal.ensure_open" });
   assert.equal(bottomDrawerSurfaceDefinitions(fullAppCapabilities)[0].bodyKind, "run_output");
   assert.equal(bottomDrawerSurfaceDefinitions(fullAppCapabilities)[1].bodyKind, "terminal");
+  assert.equal(bottomDrawerSurfaceDefinitionFor("run_output").activationKind, "workbench.surface");
+  assert.equal(bottomDrawerSurfaceDefinitionFor("terminal").activationKind, "terminal.ensure_open");
   assert.equal(surfaceDefinitionFor("preview", fullAppCapabilities).title, "Preview");
   for (const definition of registryDefinitions) {
     assert.equal(definition.placement, "right");

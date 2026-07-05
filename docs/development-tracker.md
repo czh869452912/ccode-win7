@@ -535,6 +535,7 @@
 - 当前收敛：Terminal bottom-drawer command 的打开行为现在来自 `surfaces.bottom_drawer` descriptor 上的 `dispatch.kind: terminal.ensure_open`；renderer 只识别该 dispatch kind，不再把 `drawer: "terminal"` 当作特殊执行策略。
 - 当前收敛：Right-panel surface 打开行为现在来自 renderer-supported surface definition 的 `openKind` metadata；terminal right-panel session 创建不再由 controller 固定判断 `surfaceKind === "terminal"` 触发，`file` 也不再作为 controller 特例保活。
 - 当前收敛：Right-panel tab 激活副作用现在来自 renderer-supported surface definition 的 `activationKind` metadata；App 不再用固定 `surface.kind === "terminal"` 分支决定是否重新打开 terminal session。
+- 当前收敛：Bottom drawer tab 激活副作用也来自 renderer-supported surface definition 的 `activationKind` metadata；terminal-controller 不再用固定 `kind === "terminal"` 分支决定是否 ensure-open。
 - 当前收敛：Bottom drawer body 选择现在来自 renderer-supported surface definition 的 `bodyKind` metadata；未实现的默认 `logs` drawer 已删除，初始/持久化 fallback 不再把 active drawer 写死为 `run_output`。
 - 当前收敛：Right-panel body 选择也已改为 renderer-supported surface definition 的 `bodyKind` metadata；`RightPanelSurfaceBody` 不再用固定 `surface.kind === ...` 分支推断 Files/File Preview/Preview/Terminal body。
 - 当前收敛：Generic `SurfacePanel` 子面板选择也已改为 renderer-supported surface definition 的 `panelKind` metadata；`SurfacePanel` 不再用固定 `surfaceKind === ...` 分支推断 Plan/Diff/Source Control/Settings/Diagnostics body。

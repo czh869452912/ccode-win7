@@ -44,6 +44,34 @@
 
 ## 3. 当前变更记录
 
+### DC-281
+
+- Date: 2026-07-05
+- Change Topic: GUI bottom-drawer activation uses renderer metadata
+- Summary:
+  - Added `activationKind` metadata to bottom drawer surface definitions.
+  - Added `bottomDrawerSurfaceDefinitionFor(...)` so terminal drawer selection
+    can use the same descriptor merge path as visible drawer tabs and commands.
+  - `TerminalController.selectBottomDrawerKind(...)` now reads
+    `definition.activationKind` instead of branching on `kind === "terminal"`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/terminal-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New bottom drawer activation side effects must be explicit renderer
+    metadata, not drawer-kind conditionals.
+
 ### DC-280
 
 - Date: 2026-07-05

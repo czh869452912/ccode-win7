@@ -162,6 +162,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   bottom-drawer body selection uses renderer-local `bodyKind` metadata for
   supported surfaces, and stale declarations without a renderer body are
   removed instead of being shown through a misleading fallback;
+  bottom-drawer activation side effects use renderer-local `activationKind`
+  metadata instead of drawer-kind branches in the terminal controller;
   right-panel body selection now follows the same renderer metadata path
   instead of branching on fixed surface kind strings in
   `RightPanelSurfaceBody`;
