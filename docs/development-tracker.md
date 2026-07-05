@@ -134,6 +134,11 @@
   prompt copy, mode descriptors, and base tool policy now live in
   `src/embedagent/workflow_packages/c_cpp/agent_profile.py` and enter hosted
   runtime only through the selected default C/C++ `AgentApplication`.
+- Selected profile runtime policy now lives in
+  `src/embedagent/agent_profile_runtime.py`. `InProcessAdapter` composes
+  shared prompt rendering, write-glob evaluation, base-tool policy, and
+  mode-switch parsing instead of keeping hosted copies, so generic and
+  specialized agents use the same runtime-policy boundary.
 - The default C/C++ agent application's manifest record and GUI app-shell
   overlay now live in
   `src/embedagent/workflow_packages/c_cpp/application_record.py`; the generic

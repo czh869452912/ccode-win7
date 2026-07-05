@@ -77,6 +77,24 @@ class AgentProfileTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             profile.require_mode("python-build")
 
+    def test_agent_profile_runtime_policy_renders_and_routes_profile_modes(self):
+        from embedagent.agent_profile_runtime import AgentProfileRuntimePolicy
+        from embedagent.agent_profiles import python_agent_profile
+
+        policy = AgentProfileRuntimePolicy(python_agent_profile())
+
+        prompt = policy.build_system_prompt("build")
+        self.assertIn("Python 工程", prompt)
+        self.assertIn("当前模式：build", prompt)
+        self.assertEqual(
+            policy.parse_mode_switch_request("/mode debug fix it", "explore"),
+            ("debug", "fix it", True),
+        )
+        self.assertEqual(
+            policy.parse_mode_switch_request("切换到verify模式", "explore"),
+            ("verify", "", True),
+        )
+
     def test_base_agent_profiles_do_not_export_c_cpp_specialization(self):
         import embedagent.agent_profiles as profiles
 

@@ -426,6 +426,28 @@ def test_default_c_cpp_application_record_lives_in_c_workflow_package():
     assert 'profile_kind="workflow_package"' in record_text
 
 
+def test_hosted_adapter_uses_shared_agent_profile_runtime_policies():
+    adapter = ROOT / "src/embedagent_host/inprocess_adapter.py"
+    runtime = ROOT / "src/embedagent/agent_profile_runtime.py"
+
+    assert runtime.is_file()
+    adapter_text = _read(adapter)
+    runtime_text = _read(runtime)
+
+    assert "AgentProfileRuntimePolicy" in adapter_text
+    assert "AgentProfileToolPolicy" in adapter_text
+    assert "AgentProfileWritePathPolicy" in adapter_text
+    for token in (
+        "class _ProductModeToolPolicy",
+        "class _ProductWritePathPolicy",
+        "class _ProductModeRuntimePolicy",
+        "_profile_writable_globs",
+        "你是 EmbedAgent 的受控模式原型。",
+    ):
+        assert token not in adapter_text
+    assert "PROFILE_PROMPT_FRAME" in runtime_text
+
+
 def test_product_evidence_helpers_do_not_import_c_cpp_workflow_constants():
     files = (
         ROOT / "src/embedagent/review_command.py",

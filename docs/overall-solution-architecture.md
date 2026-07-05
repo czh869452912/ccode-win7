@@ -328,9 +328,12 @@ C/C++ workbench surface set.
 The legacy/global `src/embedagent/modes.py` facade is intentionally backed by
 the generic base agent profile; hosted runtime paths use the selected
 `AgentApplication.profile` for specialized writable globs, prompt copy, mode
-descriptors, and active-tool base policy. The default C/C++ profile is loaded
-only from `src/embedagent/workflow_packages/c_cpp/agent_profile.py` by the
-default C/C++ application, not by the global mode facade or generic
+descriptors, and active-tool base policy through
+`src/embedagent/agent_profile_runtime.py`. `InProcessAdapter` composes those
+shared profile runtime policies and must not inline product prompt rendering,
+write-glob evaluation, or mode-switch parsing. The default C/C++ profile is
+loaded only from `src/embedagent/workflow_packages/c_cpp/agent_profile.py` by
+the default C/C++ application, not by the global mode facade or generic
 application loader.
 Workflow packages declare scenario-specific
 workflow tools, packs, prompts, resources, manifests, and package-owned tool

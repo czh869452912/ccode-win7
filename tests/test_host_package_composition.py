@@ -261,6 +261,29 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertEqual(capabilities["modes"][0]["label"], "Python Build")
         self.assertNotIn("C/C++", str(capabilities))
 
+    def test_inprocess_adapter_uses_shared_agent_profile_runtime_policies(self):
+        module_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "src",
+            "embedagent_host",
+            "inprocess_adapter.py",
+        )
+        with open(module_path, "r", encoding="utf-8") as handle:
+            source = handle.read()
+
+        self.assertIn("AgentProfileRuntimePolicy", source)
+        self.assertIn("AgentProfileToolPolicy", source)
+        self.assertIn("AgentProfileWritePathPolicy", source)
+        for token in (
+            "class _ProductModeToolPolicy",
+            "class _ProductWritePathPolicy",
+            "class _ProductModeRuntimePolicy",
+            "_profile_writable_globs",
+            "你是 EmbedAgent 的受控模式原型。",
+        ):
+            self.assertNotIn(token, source)
+
     def test_inprocess_adapter_loads_application_by_id(self):
         from embedagent.agent_applications import DEFAULT_AGENT_APPLICATION_ID
         from embedagent.tools import ToolRuntime
