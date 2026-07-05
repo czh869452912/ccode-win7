@@ -237,6 +237,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `LOCAL_COMMANDS` list, commands without visible labels are omitted instead of
   labeled from command ids, built-in shell actions route through
   descriptor-owned `dispatch.kind` records instead of command-id switches,
+  supported dispatch kinds are implemented by a handler registry rather than a
+  dispatch-kind switch,
   Terminal drawer opening is likewise declared by the bottom-drawer surface
   descriptor instead of inferred from the drawer kind, and the retired duplicate
   `workflow.diff` command is removed in favor of the declared `surface.diff`

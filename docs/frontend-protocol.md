@@ -80,7 +80,10 @@ renderer workbench. App/workspace/workbench command entries and surface entries
 are descriptor records, not bare ids. Command
 descriptors carry `id`, `group`, `label`, ordering metadata, and may also carry
 `slash`, `visible_when`, `surface`, `drawer`, `keywords`, `description`, and
-safe dispatch metadata. Command-palette group descriptors carry `id`, `title`,
+safe dispatch metadata. Supported `dispatch.kind` values are renderer-local
+handler registry keys; renderers must not reintroduce command-id or
+dispatch-kind switch ladders as hidden capability policy. Command-palette
+group descriptors carry `id`, `title`,
 `description`, and ordering metadata, and may also carry `leading`, `meta`, and
 `keywords`; renderer command grouping must consume those descriptors instead of
 owning a fixed group title/description table. Command labels are visible

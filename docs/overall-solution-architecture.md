@@ -61,7 +61,9 @@ dynamic slash commands must provide explicit `label`, `usage`, or `slash`
 metadata, and command-palette rows must not fall back to command ids for
 titles. Built-in GUI shell command execution is also descriptor-owned through
 `dispatch.kind`; renderer controllers do not switch on fixed command ids to
-infer actions. Bottom-drawer surface commands may carry the same
+infer actions, and supported dispatch kinds are routed through an explicit
+renderer-local handler registry rather than a dispatch-kind switch.
+Bottom-drawer surface commands may carry the same
 dispatch descriptors; the Terminal drawer opens through
 `terminal.ensure_open`, not through a renderer branch on the drawer kind.
 Bottom-drawer body mounting is renderer-local `bodyKind` metadata on supported

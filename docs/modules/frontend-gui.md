@@ -360,7 +360,9 @@ copy. Commands in undeclared or untitled command-palette groups remain hidden
 instead of using title-cased group ids, and missing command row
 description/meta copy remains empty instead of falling back to command ids.
 Built-in GUI shell command execution uses descriptor-owned `dispatch.kind`
-records; the controller must not switch on fixed command ids to infer actions.
+records; the controller must not switch on fixed command ids to infer actions,
+and supported dispatch kinds are routed through a renderer-local handler
+registry rather than a dispatch-kind switch.
 Surface command rows may carry the same descriptor-owned dispatch records; the
 Terminal bottom-drawer command uses `terminal.ensure_open`, so renderer code
 must not treat `drawer: "terminal"` as a special execution policy.

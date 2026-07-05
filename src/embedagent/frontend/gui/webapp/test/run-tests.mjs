@@ -1096,7 +1096,10 @@ async function main() {
   );
   assert.equal(workbenchCommandControllerSource.includes("export function createWorkbenchCommandController"), true);
   assert.equal(workbenchCommandControllerSource.includes("command.dispatch"), true);
-  assert.equal(workbenchCommandControllerSource.includes('case "terminal.ensure_open"'), true);
+  assert.equal(workbenchCommandControllerSource.includes("COMMAND_DISPATCH_HANDLERS"), true);
+  assert.equal(workbenchCommandControllerSource.includes("COMMAND_DISPATCH_HANDLERS[dispatchDescriptor.kind]"), true);
+  assert.equal(workbenchCommandControllerSource.includes("switch (dispatchDescriptor.kind)"), false);
+  assert.equal(workbenchCommandControllerSource.includes('case "terminal.ensure_open"'), false);
   assert.equal(workbenchCommandControllerSource.includes("switch (command.id)"), false);
   assert.equal(workbenchCommandControllerSource.includes('command.drawer === "terminal"'), false);
   assert.equal(workbenchCommandControllerSource.includes('case "app.settings"'), false);

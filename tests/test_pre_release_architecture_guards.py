@@ -2058,7 +2058,10 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert '_dispatch("terminal.ensure_open")' in app_shell_spec_text
     assert '_surface(\n                "logs",' not in app_shell_spec_text
     assert "command.dispatch" in controller_text
-    assert 'case "terminal.ensure_open"' in controller_text
+    assert "COMMAND_DISPATCH_HANDLERS" in controller_text
+    assert "COMMAND_DISPATCH_HANDLERS[dispatchDescriptor.kind]" in controller_text
+    assert "switch (dispatchDescriptor.kind)" not in controller_text
+    assert 'case "terminal.ensure_open"' not in controller_text
     assert "switch (command.id)" not in controller_text
     assert 'command.drawer === "terminal"' not in controller_text
     assert "if (allowed === null) return ordered" not in _read(

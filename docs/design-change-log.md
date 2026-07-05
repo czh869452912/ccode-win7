@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-283
+
+- Date: 2026-07-05
+- Change Topic: GUI command dispatch uses a handler registry
+- Summary:
+  - Replaced the `workbench-command-controller` dispatch-kind switch with a
+    renderer-local `COMMAND_DISPATCH_HANDLERS` registry.
+  - Descriptor-owned `dispatch.kind` values now select built-in shell actions
+    by table lookup, while unknown dispatch kinds continue to fall through to
+    surface/drawer/slash descriptor fields.
+  - Frontend and architecture guards now prevent reintroducing a
+    `switch (dispatchDescriptor.kind)` path.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/workbench-command-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New built-in GUI shell dispatch kinds must be added as explicit handler
+    registry entries rather than controller switch branches.
+
 ### DC-282
 
 - Date: 2026-07-05
