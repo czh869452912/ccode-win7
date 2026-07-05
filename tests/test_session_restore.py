@@ -39,7 +39,7 @@ class TestSessionRestorer(unittest.TestCase):
         """Build a minimal valid transcript for restore testing."""
         return [
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-1",
                 "seq": 1,
@@ -48,7 +48,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "payload": {"current_mode": "build", "started_at": "2026-04-02T00:00:00Z"},
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-2",
                 "seq": 2,
@@ -63,7 +63,7 @@ class TestSessionRestorer(unittest.TestCase):
                 },
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-3",
                 "seq": 3,
@@ -2225,7 +2225,7 @@ class TestSessionRestorer(unittest.TestCase):
         # Add a 4th event
         events.append(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-4",
                 "seq": 4,
@@ -2250,7 +2250,7 @@ class TestSessionRestorer(unittest.TestCase):
         # Event 4: valid user message
         events.append(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-4",
                 "seq": 4,
@@ -2268,7 +2268,7 @@ class TestSessionRestorer(unittest.TestCase):
         # Event 5: bad message with missing parent
         events.append(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-5",
                 "seq": 5,
@@ -2287,7 +2287,7 @@ class TestSessionRestorer(unittest.TestCase):
         # Event 6: valid user message
         events.append(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-6",
                 "seq": 6,
@@ -2316,7 +2316,7 @@ class TestSessionRestorer(unittest.TestCase):
         # Add a bad message with missing parent
         events.append(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-4",
                 "seq": 4,
@@ -2335,7 +2335,7 @@ class TestSessionRestorer(unittest.TestCase):
         # Add a valid message after
         events.append(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-5",
                 "seq": 5,
@@ -2361,7 +2361,7 @@ class TestSessionRestorer(unittest.TestCase):
         events = self._build_valid_transcript()
         events.append(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-4",
                 "seq": 4,
@@ -2387,7 +2387,7 @@ class TestSessionRestorer(unittest.TestCase):
         # Add assistant message to advance step state
         events.append(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-4",
                 "seq": 4,
@@ -2409,7 +2409,7 @@ class TestSessionRestorer(unittest.TestCase):
         # Add duplicate step_started
         events.append(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-5",
                 "seq": 5,
@@ -2421,7 +2421,7 @@ class TestSessionRestorer(unittest.TestCase):
         # Add loop_transition
         events.append(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-6",
                 "seq": 6,
@@ -2451,7 +2451,7 @@ class TestSessionRestorer(unittest.TestCase):
         # Event 4: bad message with missing parent
         events.append(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-4",
                 "seq": 4,
@@ -2470,7 +2470,7 @@ class TestSessionRestorer(unittest.TestCase):
         # Event 5: valid user message
         events.append(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-5",
                 "seq": 5,
@@ -2488,7 +2488,7 @@ class TestSessionRestorer(unittest.TestCase):
         # Event 6: valid step_started
         events.append(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-6",
                 "seq": 6,
@@ -2500,7 +2500,7 @@ class TestSessionRestorer(unittest.TestCase):
         # Event 7: duplicate step_started
         events.append(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-7",
                 "seq": 7,
@@ -2512,7 +2512,7 @@ class TestSessionRestorer(unittest.TestCase):
         # Event 8: loop_transition
         events.append(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": "sess-test",
                 "event_id": "evt-8",
                 "seq": 8,

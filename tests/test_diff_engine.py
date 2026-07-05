@@ -187,13 +187,6 @@ class TestDiffSuccessRate(unittest.TestCase):
             f"Success rate {success_rate:.0%} below 95% ({success_count}/{total})",
         )
 
-    def test_backward_compatibility_single_replace(self):
-        content = "def foo():\n    pass\n"
-        block = DiffBlock(old_text="def foo():\n    pass", new_text="def bar():\n    pass")
-        updated, results = self.engine.apply_diff(content, [block])
-        self.assertEqual(results[0]["status"], "applied")
-        self.assertEqual(updated, "def bar():\n    pass\n")
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -30,7 +30,7 @@ class AgentLifecycleJournal(object):
         session: Session,
         event_type: str,
         payload: Dict[str, Any],
-        schema_version: int = 1,
+        schema_version: int = 2,
     ) -> None:
         self._append_event(session, event_type, payload, schema_version)
 

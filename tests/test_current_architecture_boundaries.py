@@ -350,6 +350,39 @@ def test_no_compatibility_reexports_for_core_extraction():
         assert result is InProcessAdapter
 
 
+def test_transcript_store_has_no_schema_v1_compatibility_path():
+    checked_files = (
+        ROOT / "src/embedagent/transcript_store.py",
+        ROOT / "src/embedagent_core/agent_lifecycle.py",
+        ROOT / "src/embedagent_core/query_engine.py",
+        ROOT / "src/embedagent_core/ports.py",
+        ROOT / "tests/test_transcript_store.py",
+        ROOT / "tests/test_session_integration.py",
+        ROOT / "tests/test_diff_engine.py",
+        ROOT / "tests/test_agent_lifecycle.py",
+        ROOT / "tests/test_session_restore.py",
+        ROOT / "tests/test_session_fault_injection.py",
+    )
+    forbidden_tokens = (
+        "schema_v1",
+        "schema v1",
+        "schema_version=1",
+        "schema_version: int = 1",
+        '"schema_version": 1',
+        '"schema_version":1',
+        "schema_version == 1",
+        "backward_compatibility",
+    )
+    offenders = []
+    for path in checked_files:
+        text = _read(path)
+        rel = _relative(path)
+        for token in forbidden_tokens:
+            if token in text:
+                offenders.append("%s contains %s" % (rel, token))
+    assert offenders == []
+
+
 def test_tool_runtime_does_not_import_mode_registry_for_schema_projection():
     runtime_source = _read(ROOT / "src/embedagent/tools/runtime.py")
     assert "from embedagent.modes import allowed_tools_for" not in runtime_source

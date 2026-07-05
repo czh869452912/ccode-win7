@@ -84,7 +84,7 @@ class TestTranscriptStore(unittest.TestCase):
         path = store.resolve_transcript_path("sess-gap")
         with open(path, "a", encoding="utf-8") as handle:
             handle.write(
-                '{"schema_version":1,"session_id":"sess-gap","event_id":"evt-gap","seq":5,"ts":"2026-04-04T00:00:00Z","type":"loop_transition","payload":{"reason":"completed"}}\n'
+                '{"schema_version":2,"session_id":"sess-gap","event_id":"evt-gap","seq":5,"ts":"2026-04-04T00:00:00Z","type":"loop_transition","parent_message_id":"","payload":{"reason":"completed"}}\n'
             )
         events = store.load_events("sess-gap")
         self.assertEqual([item["seq"] for item in events], [1, 2])
@@ -210,37 +210,10 @@ class TestTranscriptStore(unittest.TestCase):
         self.assertEqual(events[0]["type"], "user")
         self.assertIn("parent_message_id", events[0])
 
-    def test_load_events_normalizes_schema_v1(self):
+    def test_append_event_rejects_non_v2_schema(self):
         store = TranscriptStore(self.workspace)
-        path = store.resolve_transcript_path("sess-v1")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as handle:
-            handle.write(
-                '{"schema_version":1,"session_id":"sess-v1","event_id":"evt-1","seq":1,"ts":"2026-04-04T00:00:00Z","type":"message","payload":{"role":"user","content":"hello","message_id":"m-1"}}\n'
-            )
-        events = store.load_events("sess-v1")
-        self.assertEqual(len(events), 1)
-        self.assertEqual(events[0]["schema_version"], 2)
-        self.assertEqual(events[0]["type"], "user")
-
-    def test_mixed_schema_v1_and_v2_readable(self):
-        store = TranscriptStore(self.workspace)
-        path = store.resolve_transcript_path("sess-mixed")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as handle:
-            handle.write(
-                '{"schema_version":1,"session_id":"sess-mixed","event_id":"evt-1","seq":1,"ts":"2026-04-04T00:00:00Z","type":"message","payload":{"role":"user","content":"v1","message_id":"m-1"}}\n'
-            )
-            handle.write(
-                '{"schema_version":2,"session_id":"sess-mixed","event_id":"evt-2","seq":2,"ts":"2026-04-04T00:00:01Z","type":"assistant","parent_message_id":"m-1","payload":{"role":"assistant","content":"v2","message_id":"m-2"}}\n'
-            )
-        events = store.load_events("sess-mixed")
-        self.assertEqual(len(events), 2)
-        self.assertEqual(events[0]["schema_version"], 2)
-        self.assertEqual(events[0]["type"], "user")
-        self.assertEqual(events[1]["schema_version"], 2)
-        self.assertEqual(events[1]["type"], "assistant")
-        self.assertEqual(events[1]["parent_message_id"], "m-1")
+        with self.assertRaises(ValueError):
+            store.append_event("sess-reject", "message", {"role": "user"}, schema_version=0)
 
     def test_validate_transcript_chain_valid(self):
         store = TranscriptStore(self.workspace)

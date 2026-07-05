@@ -48,6 +48,8 @@ class TranscriptStore(object):
         ts: str = "",
         schema_version: int = 2,
     ) -> Dict[str, Any]:
+        if schema_version != 2:
+            raise ValueError("transcript events must use schema_version 2")
         path = self.resolve_transcript_path(session_id)
         directory = os.path.dirname(path)
         append_lock = self._lock_for_path(path)
@@ -56,27 +58,16 @@ class TranscriptStore(object):
                 os.makedirs(directory)
             self._repair_tail(path)
             seq = self._next_seq(path)
-            if schema_version == 2:
-                event = {
-                    "schema_version": 2,
-                    "session_id": session_id,
-                    "event_id": event_id or ("evt-" + uuid.uuid4().hex[:12]),
-                    "seq": seq,
-                    "ts": ts or _utc_now(),
-                    "type": event_type,
-                    "parent_message_id": payload.get("parent_message_id", ""),
-                    "payload": dict(payload or {}),
-                }
-            else:
-                event = {
-                    "schema_version": 1,
-                    "session_id": session_id,
-                    "event_id": event_id or ("evt-" + uuid.uuid4().hex[:12]),
-                    "seq": seq,
-                    "ts": ts or _utc_now(),
-                    "type": event_type,
-                    "payload": dict(payload or {}),
-                }
+            event = {
+                "schema_version": 2,
+                "session_id": session_id,
+                "event_id": event_id or ("evt-" + uuid.uuid4().hex[:12]),
+                "seq": seq,
+                "ts": ts or _utc_now(),
+                "type": event_type,
+                "parent_message_id": payload.get("parent_message_id", ""),
+                "payload": dict(payload or {}),
+            }
             line = json.dumps(event, ensure_ascii=False, sort_keys=True)
             with open(path, "a", encoding="utf-8", newline="\n") as handle:
                 handle.write(line + "\n")
@@ -99,7 +90,7 @@ class TranscriptStore(object):
         if not os.path.isfile(path):
             raise ValueError("transcript not found: %s" % reference)
         events, _ = self._scan_events(path)
-        return [self._normalize_event(event) for event in events]
+        return list(events)
 
     def transcript_exists(self, reference: str) -> bool:
         try:
@@ -150,25 +141,6 @@ class TranscriptStore(object):
         with open(path, "rb+") as handle:
             handle.truncate(valid_length)
         self._scan_cache[normalized] = (events, valid_length, valid_length)
-
-    def _normalize_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
-        """Normalize schema_v1 event to schema_v2 structure."""
-        if event.get("schema_version") == 1:
-            payload = dict(event.get("payload") or {})
-            event_type = (
-                payload.get("role") or payload.get("event_type") or event.get("type") or "unknown"
-            )
-            return {
-                "schema_version": 2,
-                "session_id": event.get("session_id", ""),
-                "event_id": event.get("event_id", ""),
-                "seq": event.get("seq", 0),
-                "ts": event.get("ts", ""),
-                "type": event_type,
-                "parent_message_id": payload.get("parent_message_id", ""),
-                "payload": payload,
-            }
-        return event
 
     def validate_transcript_chain(self, reference: str) -> Dict[str, Any]:
         """Validate parent chain integrity of a transcript.
@@ -235,6 +207,8 @@ class TranscriptStore(object):
                 except (UnicodeDecodeError, ValueError):
                     break
                 if not isinstance(event, dict):
+                    break
+                if event.get("schema_version") != 2:
                     break
                 try:
                     seq = int(event.get("seq") or 0)

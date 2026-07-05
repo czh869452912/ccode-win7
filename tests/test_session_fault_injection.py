@@ -66,7 +66,7 @@ class TestSessionFaultInjection(unittest.TestCase):
         session_id = "sess-corrupt-mid"
         events = [
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-1",
                 "seq": 1,
@@ -75,7 +75,7 @@ class TestSessionFaultInjection(unittest.TestCase):
                 "payload": {"current_mode": "build"},
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-2",
                 "seq": 2,
@@ -90,7 +90,7 @@ class TestSessionFaultInjection(unittest.TestCase):
             },
             # Corrupted: bad parent message id
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-3",
                 "seq": 3,
@@ -105,7 +105,7 @@ class TestSessionFaultInjection(unittest.TestCase):
                 },
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-4",
                 "seq": 4,
@@ -133,7 +133,7 @@ class TestSessionFaultInjection(unittest.TestCase):
         session_id = "sess-dup-turn"
         events = [
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-1",
                 "seq": 1,
@@ -141,7 +141,7 @@ class TestSessionFaultInjection(unittest.TestCase):
                 "payload": {"current_mode": "build"},
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-2",
                 "seq": 2,
@@ -154,7 +154,7 @@ class TestSessionFaultInjection(unittest.TestCase):
                 },
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-3",
                 "seq": 3,
@@ -177,7 +177,7 @@ class TestSessionFaultInjection(unittest.TestCase):
         session_id = "sess-missing-parent"
         events = [
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-1",
                 "seq": 1,
@@ -185,7 +185,7 @@ class TestSessionFaultInjection(unittest.TestCase):
                 "payload": {"current_mode": "build"},
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-2",
                 "seq": 2,
@@ -198,7 +198,7 @@ class TestSessionFaultInjection(unittest.TestCase):
                 },
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-3",
                 "seq": 3,
@@ -213,7 +213,7 @@ class TestSessionFaultInjection(unittest.TestCase):
                 },
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-4",
                 "seq": 4,
@@ -240,7 +240,7 @@ class TestSessionFaultInjection(unittest.TestCase):
         session_id = "sess-stale"
         events = [
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-1",
                 "seq": 1,
@@ -248,7 +248,7 @@ class TestSessionFaultInjection(unittest.TestCase):
                 "payload": {"current_mode": "build"},
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-2",
                 "seq": 2,
@@ -261,7 +261,7 @@ class TestSessionFaultInjection(unittest.TestCase):
                 },
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-3",
                 "seq": 3,
@@ -269,7 +269,7 @@ class TestSessionFaultInjection(unittest.TestCase):
                 "payload": {"turn_id": "t-1", "step_id": "s-1"},
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-4",
                 "seq": 4,
@@ -282,7 +282,7 @@ class TestSessionFaultInjection(unittest.TestCase):
                 },
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-5",
                 "seq": 5,
@@ -297,7 +297,7 @@ class TestSessionFaultInjection(unittest.TestCase):
                 },
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-6",
                 "seq": 6,
@@ -328,7 +328,7 @@ class TestSessionFaultInjection(unittest.TestCase):
         session_id = "sess-strict"
         events = [
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-1",
                 "seq": 1,
@@ -336,7 +336,7 @@ class TestSessionFaultInjection(unittest.TestCase):
                 "payload": {"current_mode": "build"},
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-2",
                 "seq": 2,
@@ -349,7 +349,7 @@ class TestSessionFaultInjection(unittest.TestCase):
                 },
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-3",
                 "seq": 3,
@@ -364,7 +364,7 @@ class TestSessionFaultInjection(unittest.TestCase):
                 },
             },
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "session_id": session_id,
                 "event_id": "evt-4",
                 "seq": 4,
