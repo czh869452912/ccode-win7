@@ -44,6 +44,32 @@
 
 ## 3. 当前变更记录
 
+### DC-289
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel surface opening uses per-kind preparers
+- Summary:
+  - Moved `openSurface(...)` file reveal/deduplication and preview placeholder
+    cleanup into a renderer-local `SURFACE_OPEN_PREPARERS` registry.
+  - Right-panel surface opening now resolves `SURFACE_OPEN_PREPARERS[surface.kind]`
+    before upsert/activation instead of branching in the main open flow.
+  - Frontend and architecture guards now prevent reintroducing the old
+    `openSurface(...)` file/preview preparation branches.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New right-panel surface kinds that need custom open-time preparation must
+    add a preparer registry entry rather than branches in `openSurface(...)`.
+
 ### DC-288
 
 - Date: 2026-07-05

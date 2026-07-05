@@ -634,6 +634,41 @@ function nextActiveAfterClose(items, closedIndex) {
   return items[boundedIndex] || items[items.length - 1] || null;
 }
 
+const SURFACE_OPEN_PREPARERS = Object.freeze(Object.assign(Object.create(null), {
+  file: ({ currentItems, input, surface }) => {
+    const filePath = normalizeFilePath(surface.filePath || surface.resourceId);
+    const existingFile = filePath
+      ? currentItems.find(
+          (item) =>
+            item.kind === "file" &&
+            normalizeFilePath(item.filePath || item.resourceId) === filePath,
+        )
+      : null;
+    return {
+      surface: makeSurface({
+        ...input,
+        placement: "right",
+        kind: "file",
+        filePath,
+        resourceId: filePath,
+        revealRequestId: Number((existingFile && existingFile.revealRequestId) || 0) + 1,
+      }),
+      items: currentItems.filter((item) => item.kind !== "files"),
+    };
+  },
+  preview: ({ currentItems, surface }) => ({
+    surface,
+    items: surface.resourceId
+      ? currentItems.filter((item) => !(item.kind === "preview" && !item.resourceId))
+      : currentItems,
+  }),
+}));
+
+function prepareRightPanelSurfaceOpen(currentItems, surface, input) {
+  const preparer = SURFACE_OPEN_PREPARERS[surface.kind] || null;
+  return preparer ? preparer({ currentItems, surface, input }) : { surface, items: currentItems };
+}
+
 export function createWorkbenchState() {
   return {
     activeSessionKey: DEFAULT_SESSION_KEY,
@@ -700,39 +735,11 @@ export function openSurface(state, input) {
   if (placement === "right") {
     const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
     const currentItems = current.rightPanel.surfaces || [];
-    const filePath =
-      surface.kind === "file"
-        ? normalizeFilePath(surface.filePath || surface.resourceId)
-        : "";
-    const existingFile = filePath
-      ? currentItems.find(
-          (item) =>
-            item.kind === "file" &&
-            normalizeFilePath(item.filePath || item.resourceId) === filePath,
-        )
-      : null;
-    const nextSurface =
-      surface.kind === "file"
-        ? makeSurface({
-            ...input,
-            placement: "right",
-            kind: "file",
-            filePath,
-            resourceId: filePath,
-            revealRequestId: Number((existingFile && existingFile.revealRequestId) || 0) + 1,
-          })
-        : surface;
-    const hasPreviewResource = nextSurface.kind === "preview" && Boolean(nextSurface.resourceId);
-    const sourceItems =
-      nextSurface.kind === "file"
-        ? currentItems.filter((item) => item.kind !== "files")
-        : hasPreviewResource
-          ? currentItems.filter((item) => !(item.kind === "preview" && !item.resourceId))
-          : currentItems;
-    const surfaces = upsertSurface(sourceItems, nextSurface);
+    const prepared = prepareRightPanelSurfaceOpen(currentItems, surface, input);
+    const surfaces = upsertSurface(prepared.items, prepared.surface);
     const nextPanel = activateRightPanelSurface(
       { ...current.rightPanel, surfaces },
-      nextSurface,
+      prepared.surface,
     );
     return rememberRightPanelSession({
       ...current,

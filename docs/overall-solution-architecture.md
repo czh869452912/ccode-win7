@@ -123,6 +123,9 @@ surface registry through `persistedSurfaceFrom(...)`; the browser localStorage
 state module must not own fixed file/terminal surface field rules. Per-kind
 surface instance metadata is initialized through `SURFACE_INITIALIZERS[kind]`
 inside that same renderer-local model, not by branches in `makeSurface(...)`.
+Right-panel open-time preparation also routes through
+`SURFACE_OPEN_PREPARERS[surface.kind]`; `openSurface(...)` must not own
+file/preview preparation branches.
 The default GUI app-shell descriptor set is an injected `AppShellSpec` from
 `src/embedagent/frontend/gui/backend/app_shell_spec.py`; `AppShellService`
 composes that spec with safe active-core projections instead of owning inline

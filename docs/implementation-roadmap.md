@@ -183,7 +183,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   and shallow persisted surface fields are normalized by the renderer-local
   surface registry rather than `ui-state.js` file/terminal branches; per-kind
   surface instance metadata is initialized through `SURFACE_INITIALIZERS[kind]`
-  rather than `makeSurface(...)` file/terminal/preview branches;
+  rather than `makeSurface(...)` file/terminal/preview branches, and
+  right-panel open-time preparation routes through
+  `SURFACE_OPEN_PREPARERS[surface.kind]` rather than `openSurface(...)`
+  file/preview branches;
   app bootstrap now also carries a safe selected-agent application registry and
   empty-state read model before a workspace/core exists, then defers to the
   active core's capability projection after workspace activation. This lets the

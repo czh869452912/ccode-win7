@@ -905,6 +905,14 @@ def test_gui_app_shell_surfaces_are_descriptor_records_not_string_lists():
         'if (kind !== "terminal")',
     ):
         assert initializer_branch not in surfaces_text
+    assert "SURFACE_OPEN_PREPARERS" in surfaces_text
+    assert "SURFACE_OPEN_PREPARERS[surface.kind]" in surfaces_text
+    for open_branch in (
+        'surface.kind === "file"\n        ? normalizeFilePath',
+        'nextSurface.kind === "file"',
+        'nextSurface.kind === "preview"',
+    ):
+        assert open_branch not in surfaces_text
     assert 'value.map((item) => String(item || ""))' not in surfaces_text
     for registry_copy in (
         'title: "Preview"',

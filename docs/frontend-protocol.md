@@ -174,7 +174,10 @@ kinds to decide resource fields, tab ids, titles, reveal markers, or terminal
 pane metadata. Surface instance fields that vary by kind are initialized by the
 same renderer-local surface model through `SURFACE_INITIALIZERS[kind]`; new
 surface-specific metadata must not be added as branches inside
-`makeSurface(...)`.
+`makeSurface(...)`. Right-panel open-time preparation that varies by surface
+kind, such as file reveal/deduplication or preview placeholder cleanup, routes
+through `SURFACE_OPEN_PREPARERS[surface.kind]` rather than branches in
+`openSurface(...)`.
 The GUI no longer keeps retired Inspector sidecar state for artifact lists,
 review detail panes, permission-rule panes, runtime panes, workspace previews,
 or event logs. Review results remain timeline activities, permission and user

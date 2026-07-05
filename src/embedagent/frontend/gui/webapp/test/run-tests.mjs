@@ -1477,6 +1477,11 @@ async function main() {
   assert.equal(workbenchSurfacesSource.includes('kind === "terminal"\n      ? uniqueTerminalIds'), false);
   assert.equal(workbenchSurfacesSource.includes('if (kind === "preview")'), false);
   assert.equal(workbenchSurfacesSource.includes('if (kind !== "terminal")'), false);
+  assert.equal(workbenchSurfacesSource.includes("SURFACE_OPEN_PREPARERS"), true);
+  assert.equal(workbenchSurfacesSource.includes("SURFACE_OPEN_PREPARERS[surface.kind]"), true);
+  assert.equal(workbenchSurfacesSource.includes('surface.kind === "file"\n        ? normalizeFilePath'), false);
+  assert.equal(workbenchSurfacesSource.includes('nextSurface.kind === "file"'), false);
+  assert.equal(workbenchSurfacesSource.includes('nextSurface.kind === "preview"'), false);
   assert.equal(workbenchSurfacesSource.includes("activeSection"), false);
   assert.equal(workbenchSurfacesSource.includes("projectSection"), false);
   assert.equal(workbenchUiStateSource.includes("persistedSurfaceFrom"), true);

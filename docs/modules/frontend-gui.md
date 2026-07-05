@@ -142,7 +142,10 @@ Persisted surface descriptor cleanup goes through
 localStorage state module does not own file/terminal field rules or branch on
 fixed surface kinds. The same surface model owns per-kind instance metadata
 through `SURFACE_INITIALIZERS[kind]`, so file, terminal, and preview fields are
-not hard-coded as branches in `makeSurface(...)`.
+not hard-coded as branches in `makeSurface(...)`. Right-panel open-time
+preparation also stays in the surface model through
+`SURFACE_OPEN_PREPARERS[surface.kind]`; `openSurface(...)` must not grow
+file/preview preparation branches.
 
 Thread/session selection and composer draft state are now separate T3-style
 renderer modules rather than root fields on the global reducer state:
