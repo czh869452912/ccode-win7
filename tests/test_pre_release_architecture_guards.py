@@ -2807,6 +2807,27 @@ def test_gui_panel_resize_dom_logic_is_controller_owned():
     assert "documentRef.documentElement.style.setProperty" in controller_text
 
 
+def test_gui_workbench_keyboard_handling_is_controller_owned():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/workbench-keyboard-controller.js"
+    )
+
+    assert "createWorkbenchKeyboardController" in app_text
+    assert "workbenchKeyboardController.install()" in app_text
+    assert "function onWorkbenchKeyDown" not in app_text
+    assert 'window.addEventListener("keydown"' not in app_text
+    assert 'window.removeEventListener("keydown"' not in app_text
+    assert "document.activeElement?.dataset?.testid" not in app_text
+    assert "resolveKeybinding(" not in app_text
+    assert "eventToKey(" not in app_text
+    assert "export function createWorkbenchKeyboardController" in controller_text
+    assert 'addEventListener("keydown"' in controller_text
+    assert "resolveKeybinding" in controller_text
+    assert "eventToKey" in controller_text
+    assert "composerFocused" in controller_text
+
+
 def test_gui_runtime_state_does_not_reintroduce_removed_root_session_state():
     store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
     forbidden_root_state = (

@@ -118,6 +118,11 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official GUI backend route boundary: `server.py` is the GUI backend composition root; HTTP route families live in `routes_app.py`, `routes_sessions.py`, `routes_terminal.py`, `routes_source_control.py`, and `routes_preview.py`. New route families should be delegated through focused modules rather than concentrated back into `server.py`.
 - Official GUI thread lifecycle boundary: GUI `rename`, `fork`, and `archive` actions flow through the session lifecycle facade and update session summary/projection metadata for app thread lists; action labels, disabled reason labels, and prompt/confirm/success/empty/failure copy come from app-shell action descriptors. Missing action labels remove actions from the visible rail, and missing notice copy remains absent rather than synthesized from action ids or labels. Lifecycle actions do not rewrite transcript history, own workflow state, activate tools, decide permissions, load extensions, or create source-control checkpoints.
 - Official GUI browser-dialog boundary: native prompt/confirm access used by thread lifecycle actions lives in `webapp/src/app-runtime/browser-dialog-service.js`; `App.jsx` injects that service and must not call `window.prompt` or `window.confirm` directly.
+- Official GUI workbench keyboard boundary: global keydown handling, Escape
+  cancellation, composer-focus detection, and app-shell keybinding resolution
+  live in `webapp/src/app-runtime/workbench-keyboard-controller.js`;
+  `App.jsx` installs the controller and must not own keydown listeners or
+  shortcut resolution logic directly.
 - Official GUI renderer-state boundary: thread/session selection, session
   summaries, and history-integrity display state live in
   `webapp/src/session-runtime/thread-state.js`, composer draft text lives in

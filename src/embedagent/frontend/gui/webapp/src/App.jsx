@@ -60,8 +60,8 @@ import RightPanelSurfaceBody from "./components/workbench/RightPanelSurfaceBody.
 import RightPanelTabs from "./components/workbench/RightPanelTabs.jsx";
 import WorkbenchHeader from "./components/workbench/WorkbenchHeader.jsx";
 import { commandById, visibleCommands } from "./workbench/commands.js";
-import { eventToKey, resolveKeybinding } from "./workbench/keybindings.js";
 import { createActiveWorkspaceDataLoader } from "./app-runtime/active-workspace-data-loader.js";
+import { createWorkbenchKeyboardController } from "./app-runtime/workbench-keyboard-controller.js";
 import {
   persistWorkbenchUiState,
   readPersistedWorkbenchUiState,
@@ -267,17 +267,6 @@ function App() {
       }
     };
   }, []);
-
-  // Escape key cancels running session
-  useEffect(() => {
-    function onKeyDown(e) {
-      if (e.key === "Escape" && isTurnInterruptibleStatus(currentStatus)) {
-        cancelSession();
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [currentStatus, currentSessionId]);
 
   // smart auto-scroll: only follow when user is at bottom
   useEffect(() => {
@@ -486,30 +475,33 @@ function App() {
   );
   const executeWorkbenchCommand = workbenchCommandController.execute;
 
+  const workbenchKeyboardController = useMemo(
+    () =>
+      createWorkbenchKeyboardController({
+        windowObject: window,
+        documentObject: document,
+        getKeybindings: () => stateRef.current.app.capabilities.keybindings || EMPTY_KEYBINDINGS,
+        getCommandContext: () => {
+          const current = stateRef.current;
+          const status = current.snapshot?.status || "idle";
+          return {
+            paletteOpen: current.workbench.commandPalette.open,
+            isRunning: isTurnInterruptibleStatus(status),
+            capabilities: current.sessionCapabilities || {},
+            appCapabilities: current.app.capabilities || {},
+          };
+        },
+        getCurrentStatus: () => stateRef.current.snapshot?.status || "idle",
+        isTurnInterruptibleStatus,
+        cancelSession,
+        executeWorkbenchCommand,
+      }),
+    [executeWorkbenchCommand],
+  );
+
   useEffect(() => {
-    function onWorkbenchKeyDown(event) {
-      const command = resolveKeybinding(keybindings, eventToKey(event), {
-        paletteOpen: state.workbench.commandPalette.open,
-        isRunning: isTurnInterruptibleStatus(currentStatus),
-        composerFocused: document.activeElement?.dataset?.testid === "composer-input",
-        capabilities: state.sessionCapabilities || {},
-        appCapabilities: state.app.capabilities || {},
-      });
-      if (!command) return;
-      event.preventDefault();
-      void executeWorkbenchCommand(command);
-    }
-    window.addEventListener("keydown", onWorkbenchKeyDown);
-    return () => window.removeEventListener("keydown", onWorkbenchKeyDown);
-  }, [
-    state.workbench.commandPalette.open,
-    currentStatus,
-    composerDraft,
-    currentSessionId,
-    keybindings,
-    state.sessionCapabilities,
-    state.app.capabilities,
-  ]);
+    return workbenchKeyboardController.install();
+  }, [workbenchKeyboardController]);
 
   function logEvent(label, detail) {
     dispatch({ type: "log_event", label, detail });

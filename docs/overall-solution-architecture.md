@@ -256,6 +256,13 @@ GUI panel resize pointer handling is owned by
 tracks pointer drag state, and mutates the CSS variables on the document root;
 `App.jsx` only wires sidebar and right-panel resize callbacks.
 
+GUI workbench keyboard handling is owned by
+`app-runtime/workbench-keyboard-controller.js`. The controller owns the global
+keydown listener, Escape cancellation, composer-focus detection, and app-shell
+keybinding resolution. `App.jsx` installs the controller and supplies state
+readers, but it does not call `window.addEventListener("keydown", ...)`,
+inspect `document.activeElement`, or resolve shortcuts inline.
+
 GUI WebSocket payload handling is split between pure effect derivation and
 effect execution. `app-runtime/socket-message-effects.js` derives transport
 events, reducer actions, and loader requests from backend messages, while

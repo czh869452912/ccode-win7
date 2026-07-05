@@ -345,7 +345,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   active-workspace read-model refresh fanout, and
   `app-runtime/panel-resize-controller.js` owns pointer/DOM resizing for
   workbench panels, and `app-runtime/browser-dialog-service.js` owns native
-  prompt/confirm access for thread lifecycle prompts.
+  prompt/confirm access for thread lifecycle prompts, while
+  `app-runtime/workbench-keyboard-controller.js` owns global workbench keydown
+  handling, Escape cancellation, composer-focus detection, and app-shell
+  keybinding resolution.
   `App.jsx`, command palette, terminal
   controller, workspace reset, and tests consume those read models instead of
   root-level `sessions`, `currentSessionId`, `composer`, `historyIntegrity`,

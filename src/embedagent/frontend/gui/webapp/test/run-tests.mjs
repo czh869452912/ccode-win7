@@ -35,6 +35,7 @@ import { runFilePreviewControllerTests } from "./file-preview-controller.test.mj
 import { runPreviewControllerTests } from "./preview-controller.test.mjs";
 import { runPanelResizeControllerTests } from "./panel-resize-controller.test.mjs";
 import { runBrowserDialogServiceTests } from "./browser-dialog-service.test.mjs";
+import { runWorkbenchKeyboardControllerTests } from "./workbench-keyboard-controller.test.mjs";
 import { runWorkbenchCommandControllerTests } from "./workbench-command-controller.test.mjs";
 import { runThreadLifecycleControllerTests } from "./thread-lifecycle-controller.test.mjs";
 import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
@@ -2038,6 +2039,10 @@ async function main() {
     webappSourcePath("app-runtime", "panel-resize-controller.js"),
     "utf8",
   );
+  const workbenchKeyboardControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "workbench-keyboard-controller.js"),
+    "utf8",
+  );
   assert.equal(sessionTransportControllerSource.includes("shouldReconnectSocket"), true);
   assert.equal(sessionTransportControllerSource.includes("appendSessionTransportEvent"), true);
   assert.equal(sessionTransportControllerSource.includes("/events?after_seq"), false);
@@ -2076,6 +2081,23 @@ async function main() {
   assert.equal(panelResizeControllerSource.includes("setPointerCapture"), true);
   assert.equal(panelResizeControllerSource.includes("documentRef.documentElement.style.setProperty"), true);
   assert.equal(panelResizeControllerSource.includes("import React"), false);
+  assert.equal(appSource.includes("createWorkbenchKeyboardController"), true);
+  assert.equal(appSource.includes("workbenchKeyboardController.install()"), true);
+  assert.equal(appSource.includes("function onWorkbenchKeyDown"), false);
+  assert.equal(appSource.includes('window.addEventListener("keydown"'), false);
+  assert.equal(appSource.includes('window.removeEventListener("keydown"'), false);
+  assert.equal(appSource.includes("document.activeElement?.dataset?.testid"), false);
+  assert.equal(appSource.includes("resolveKeybinding("), false);
+  assert.equal(appSource.includes("eventToKey("), false);
+  assert.equal(
+    workbenchKeyboardControllerSource.includes("export function createWorkbenchKeyboardController"),
+    true,
+  );
+  assert.equal(workbenchKeyboardControllerSource.includes('addEventListener("keydown"'), true);
+  assert.equal(workbenchKeyboardControllerSource.includes("resolveKeybinding"), true);
+  assert.equal(workbenchKeyboardControllerSource.includes("eventToKey"), true);
+  assert.equal(workbenchKeyboardControllerSource.includes("composerFocused"), true);
+  assert.equal(workbenchKeyboardControllerSource.includes("import React"), false);
 
   runWorkbenchStateTests();
   runWorkbenchParityModelTests();
@@ -2131,6 +2153,7 @@ async function main() {
   await runPreviewControllerTests();
   runPanelResizeControllerTests();
   runBrowserDialogServiceTests();
+  runWorkbenchKeyboardControllerTests();
   await runWorkbenchCommandControllerTests();
   await runThreadLifecycleControllerTests();
   await runSessionTransportControllerTests();

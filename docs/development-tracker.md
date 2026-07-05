@@ -141,6 +141,10 @@
   `app-runtime/browser-dialog-service.js`; `App.jsx` injects the service into
   the lifecycle controller instead of calling `window.prompt` /
   `window.confirm` directly.
+- GUI global workbench keyboard handling now lives in
+  `app-runtime/workbench-keyboard-controller.js`; `App.jsx` installs the
+  controller and no longer owns the keydown listener, Escape cancellation,
+  composer-focus DOM inspection, or shortcut resolution.
 - GUI user-input interaction projection no longer defaults missing
   `tool_name` values to the built-in `ask_user` tool. Pending user-input
   display is driven by `kind` / `sourceActivityKind` and whatever safe payload
