@@ -571,7 +571,7 @@
 ### 2026-06-18 - GUI Terminal Runtime Controller Boundary
 
 - React webapp `webapp/src/app-runtime/terminal-controller.js` now owns GUI terminal action orchestration for bottom-drawer terminal actions and right-panel terminal open/split/activate/close behavior.
-- `App.jsx` wires the controller through injected state, dispatch, and terminal API helpers; terminal id generation plus bottom drawer new/select actions are controller-owned instead of root inline callbacks.
+- `App.jsx` wires the controller through injected state, dispatch, and terminal API helpers; terminal id generation, bottom drawer new/select actions, and right-panel active terminal pane new/split/select/close actions are controller-owned instead of root inline callbacks.
 - Existing terminal HTTP helpers remain in `webapp/src/terminal/terminal-api.js`, and terminal snapshot/event normalization remains in `webapp/src/terminal/terminal-state.js`.
 - This slice stays in the GUI app shell: no Agent Core, backend protocol, terminal backend service, workflow package, permission policy, transcript, source-control, provider configuration, extension loading, telemetry, or runtime reducer semantics changed.
 

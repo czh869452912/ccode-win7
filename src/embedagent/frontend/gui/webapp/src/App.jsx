@@ -710,20 +710,14 @@ function App() {
             onLoadFileChildren={loadFileChildren}
             terminal={state.terminal}
             terminalChrome={terminalChrome}
-            onTerminalNew={() => terminalController.openRightPanelSurface()}
-            onTerminalSplit={() => terminalController.splitRightPanelSurface(activeRightPanelSurface)}
-            onTerminalSplitVertical={() =>
-              terminalController.splitRightPanelSurface(activeRightPanelSurface, "vertical")
-            }
-            onTerminalSelect={(terminalId) =>
-              terminalController.activateRightPanelPane(activeRightPanelSurface, terminalId)
-            }
+            onTerminalNew={terminalController.openRightPanelSurface}
+            onTerminalSplit={terminalController.splitActiveRightPanelSurface}
+            onTerminalSplitVertical={terminalController.splitActiveRightPanelSurfaceVertical}
+            onTerminalSelect={terminalController.activateActiveRightPanelPane}
             onTerminalSend={terminalController.sendTo}
             onTerminalClear={terminalController.clearById}
             onTerminalRestart={terminalController.restartById}
-            onTerminalClose={(terminalId) =>
-              terminalController.closeRightPanelPane(activeRightPanelSurface, terminalId)
-            }
+            onTerminalClose={terminalController.closeActiveRightPanelPane}
             previewChrome={previewChrome}
             previewServers={previewCapability.localServers || []}
             onPreviewOpenUrl={previewController.openUrl}

@@ -1015,9 +1015,18 @@ async function main() {
   );
   assert.equal(appSource.includes('type: "terminal_active_set"'), false);
   assert.equal(appSource.includes("terminalController.openSession"), false);
-  assert.equal(appSource.includes("terminalController.openRightPanelSurface"), true);
-  assert.equal(appSource.includes("terminalController.splitRightPanelSurface"), true);
-  assert.equal(appSource.includes("terminalController.closeRightPanelPane"), true);
+  assert.equal(appSource.includes("onTerminalNew={terminalController.openRightPanelSurface}"), true);
+  assert.equal(appSource.includes("onTerminalSplit={terminalController.splitActiveRightPanelSurface}"), true);
+  assert.equal(
+    appSource.includes("onTerminalSplitVertical={terminalController.splitActiveRightPanelSurfaceVertical}"),
+    true,
+  );
+  assert.equal(appSource.includes("onTerminalSelect={terminalController.activateActiveRightPanelPane}"), true);
+  assert.equal(appSource.includes("onTerminalClose={terminalController.closeActiveRightPanelPane}"), true);
+  assert.equal(appSource.includes("terminalController.splitRightPanelSurface"), false);
+  assert.equal(appSource.includes("terminalController.closeRightPanelPane"), false);
+  assert.equal(appSource.includes("terminalController.activateRightPanelPane"), false);
+  assert.equal(appSource.includes("activeRightPanelSurface, terminalId"), false);
   assert.equal(appSource.includes("surfaceDefinitionFor("), false);
   assert.equal(appSource.includes('kind: "file"'), false);
   assert.equal(appSource.includes('kind: "preview"'), false);
@@ -1471,6 +1480,11 @@ async function main() {
   assert.equal(terminalControllerSource.includes("defaultNextTerminalId"), true);
   assert.equal(terminalControllerSource.includes("openNewBottomDrawerTerminal"), true);
   assert.equal(terminalControllerSource.includes("activateBottomDrawerTerminal"), true);
+  assert.equal(terminalControllerSource.includes("function activeRightPanelSurface"), true);
+  assert.equal(terminalControllerSource.includes("function splitActiveRightPanelSurface"), true);
+  assert.equal(terminalControllerSource.includes("function splitActiveRightPanelSurfaceVertical"), true);
+  assert.equal(terminalControllerSource.includes("function activateActiveRightPanelPane"), true);
+  assert.equal(terminalControllerSource.includes("function closeActiveRightPanelPane"), true);
   assert.equal(terminalControllerSource.includes('type: "terminal_active_set"'), true);
   assert.equal(terminalControllerSource.includes("surfaceDefinitionFor"), true);
   assert.equal(terminalControllerSource.includes("bottomDrawerSurfaceDefinitionFor"), true);

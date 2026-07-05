@@ -44,6 +44,36 @@
 
 ## 3. 当前变更记录
 
+### DC-297
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel terminal pane actions are controller-owned
+- Summary:
+  - `terminal-controller.js` now derives the active right-panel terminal
+    surface from workbench state for pane new/split/select/close actions.
+  - `App.jsx` wires right-panel terminal callbacks directly to controller
+    methods instead of passing `activeRightPanelSurface` through inline
+    lambdas.
+  - Frontend and architecture guards now reject root-level calls to
+    `splitRightPanelSurface(...)`, `activateRightPanelPane(...)`, or
+    `closeRightPanelPane(...)`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving workspace path input and surface-panel action wiring out
+    of `App.jsx` when their controller boundaries are clear.
+
 ### DC-296
 
 - Date: 2026-07-05

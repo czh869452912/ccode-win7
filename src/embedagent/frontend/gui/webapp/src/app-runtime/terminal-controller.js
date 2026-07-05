@@ -114,6 +114,12 @@ function terminalSurfaceActionInput(surface) {
   };
 }
 
+function activeRightPanelSurface(state) {
+  const rightPanel = state.workbench?.rightPanel || {};
+  const surfaces = Array.isArray(rightPanel.surfaces) ? rightPanel.surfaces : [];
+  return surfaces.find((surface) => surface.id === rightPanel.activeSurfaceId) || null;
+}
+
 function allKnownTerminalIds(state) {
   const terminal = readTerminalState(state);
   const surfaces = state.workbench?.rightPanel?.surfaces || [];
@@ -346,6 +352,14 @@ export function createTerminalController(deps = {}) {
     return openedTerminalId;
   }
 
+  async function splitActiveRightPanelSurface() {
+    return splitRightPanelSurface(activeRightPanelSurface(getState()));
+  }
+
+  async function splitActiveRightPanelSurfaceVertical() {
+    return splitRightPanelSurface(activeRightPanelSurface(getState()), "vertical");
+  }
+
   function activateRightPanelPane(surface, terminalId) {
     if (!terminalCapabilityEnabledForDeps(deps)) return null;
     const surfaceAction = terminalSurfaceActionInput(surface);
@@ -359,6 +373,10 @@ export function createTerminalController(deps = {}) {
     });
     dispatch({ type: "terminal_active_set", terminalId: targetTerminalId });
     return targetTerminalId;
+  }
+
+  function activateActiveRightPanelPane(terminalId) {
+    return activateRightPanelPane(activeRightPanelSurface(getState()), terminalId);
   }
 
   async function closeRightPanelPane(surface, terminalId) {
@@ -389,6 +407,10 @@ export function createTerminalController(deps = {}) {
     }
   }
 
+  async function closeActiveRightPanelPane(terminalId) {
+    return closeRightPanelPane(activeRightPanelSurface(getState()), terminalId);
+  }
+
   return {
     ensureOpen,
     openSession,
@@ -405,7 +427,11 @@ export function createTerminalController(deps = {}) {
     activateBottomDrawerTerminal,
     openRightPanelSurface,
     splitRightPanelSurface,
+    splitActiveRightPanelSurface,
+    splitActiveRightPanelSurfaceVertical,
     activateRightPanelPane,
+    activateActiveRightPanelPane,
     closeRightPanelPane,
+    closeActiveRightPanelPane,
   };
 }

@@ -2349,6 +2349,23 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert "terminalController.ensureOpen" not in app_text
     assert "nextTerminalId" not in app_text
     assert 'type: "terminal_active_set"' not in app_text
+    assert "onTerminalNew={terminalController.openRightPanelSurface}" in app_text
+    assert "onTerminalSplit={terminalController.splitActiveRightPanelSurface}" in app_text
+    assert (
+        "onTerminalSplitVertical={terminalController.splitActiveRightPanelSurfaceVertical}"
+        in app_text
+    )
+    assert "onTerminalSelect={terminalController.activateActiveRightPanelPane}" in app_text
+    assert "onTerminalClose={terminalController.closeActiveRightPanelPane}" in app_text
+    assert "terminalController.splitRightPanelSurface" not in app_text
+    assert "terminalController.closeRightPanelPane" not in app_text
+    assert "terminalController.activateRightPanelPane" not in app_text
+    assert "activeRightPanelSurface, terminalId" not in app_text
+    assert "function activeRightPanelSurface" in terminal_controller_text
+    assert "function splitActiveRightPanelSurface" in terminal_controller_text
+    assert "function splitActiveRightPanelSurfaceVertical" in terminal_controller_text
+    assert "function activateActiveRightPanelPane" in terminal_controller_text
+    assert "function closeActiveRightPanelPane" in terminal_controller_text
     assert "commandById" not in app_text
     assert "onToggleRightPanel={workbenchCommandController.toggleRightPanel}" in app_text
     assert "onToggleBottomDrawer={workbenchCommandController.toggleBottomDrawer}" in app_text

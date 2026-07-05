@@ -206,7 +206,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   metadata instead of drawer-kind branches in the terminal controller, and
   supported activation kinds route through a handler registry rather than a
   controller switch; bottom-drawer terminal new/select actions and terminal id
-  generation are controller-owned rather than inline App callbacks;
+  generation plus right-panel active terminal pane new/split/select/close
+  actions are controller-owned rather than inline App callbacks;
   terminal-controller right-panel surface validation and
   action payload assembly now route through `TERMINAL_SURFACE_KIND` and
   `terminalSurfaceActionInput(...)` instead of repeated surface-kind checks;

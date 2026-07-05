@@ -540,8 +540,9 @@ lifecycle and reload-by-bootstrap recovery; it must not call
 session event replay HTTP routes as history APIs. `terminal-controller.js`
 coordinates existing terminal API helpers and reducer actions for bottom-drawer
 terminal actions plus right-panel terminal open/split/activate/close behavior.
-Bottom drawer terminal new/select actions and terminal id generation stay in
-that controller rather than App-level inline callbacks.
+Bottom drawer terminal new/select actions, terminal id generation, and
+right-panel active terminal pane new/split/select/close actions stay in that
+controller rather than App-level inline callbacks.
 `workbench-command-controller.js` owns header panel toggles, command-palette
 open/close/query state, command-palette command/session/workspace selection,
 and command-id resolution against the active capability snapshot; `App.jsx`
