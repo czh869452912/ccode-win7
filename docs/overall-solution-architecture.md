@@ -286,6 +286,13 @@ keybinding resolution. `App.jsx` installs the controller and supplies state
 readers, but it does not call `window.addEventListener("keydown", ...)`,
 inspect `document.activeElement`, or resolve shortcuts inline.
 
+GUI Composer action wiring is owned by
+`app-runtime/composer-controller.js`. The controller owns draft updates, message
+submit from the current draft, command-palette opening from the composer, and
+composer Branch Toolbar source-control refresh; `App.jsx` wires controller
+methods directly and does not keep a `sendMessage` wrapper or inline composer
+action dispatch handlers.
+
 GUI WebSocket payload handling is split between raw-message orchestration, pure
 effect derivation, and effect execution. `app-runtime/socket-message-controller.js`
 is the renderer boundary that accepts backend messages, passes safe readers into

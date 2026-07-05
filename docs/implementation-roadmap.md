@@ -177,7 +177,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `App.jsx` keeping a `loadSessions` wrapper, directly fetching `/api/sessions`,
   or dispatching `sessions_loaded`; session bootstrap activation is delegated to
   `session-activation-controller.js` as the direct `loadSession` handle instead
-  of an inline activation wrapper; Terminal service calls
+  of an inline activation wrapper; composer draft/submit/palette/Branch Toolbar
+  refresh actions are delegated to `composer-controller.js` instead of `App.jsx`
+  keeping a `sendMessage` wrapper or inline composer dispatch/refresh handlers;
+  Terminal service calls
   require the active app-shell Terminal capability before invoking
   terminal routes or pane attachment side effects;
   right-panel tab activation side effects are selected by renderer-local

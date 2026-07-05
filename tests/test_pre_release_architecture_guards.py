@@ -2897,6 +2897,25 @@ def test_gui_active_workspace_data_loading_is_controller_owned():
     assert "invoke(loadStatus, false," in loader_text
 
 
+def test_gui_composer_actions_are_controller_owned():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/composer-controller.js"
+    )
+
+    assert "createComposerController" in app_text
+    assert "function sendMessage" not in app_text
+    assert "onChange={composerController.setDraft}" in app_text
+    assert "onSend={composerController.sendMessage}" in app_text
+    assert "onOpenCommandPalette={composerController.openCommandPalette}" in app_text
+    assert "onRefreshSourceControl={composerController.refreshSourceControl}" in app_text
+    assert "export function createComposerController" in controller_text
+    assert 'type: "set_composer"' in controller_text
+    assert 'type: "workbench_command_palette_opened"' in controller_text
+    assert "refreshSourceControl" in controller_text
+    assert "import React" not in controller_text
+
+
 def test_gui_panel_resize_dom_logic_is_controller_owned():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     controller_text = _read(

@@ -127,6 +127,11 @@
   handle; `App.jsx` no longer keeps an inline `loadSession` wrapper around
   activation derivation, transport reset, plan loading, or terminal-summary
   refresh.
+- GUI composer action wiring now lives in `app-runtime/composer-controller.js`:
+  composer draft updates, current-draft submit, composer command-palette open,
+  and Branch Toolbar source-control refresh no longer use a root-level
+  `sendMessage` wrapper or inline composer dispatch/refresh handlers in
+  `App.jsx`.
 - GUI socket message orchestration now lives in
   `app-runtime/socket-message-controller.js`, backed by
   `socket-message-effects.js` and `socket-effect-executor.js`. `App.jsx` no

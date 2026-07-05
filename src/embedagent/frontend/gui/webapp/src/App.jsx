@@ -8,6 +8,7 @@ import { buildComposerCommandsFromCapabilities } from "./session-runtime/command
 import { createSocketMessageController } from "./app-runtime/socket-message-controller.js";
 import { createBrowserDialogService } from "./app-runtime/browser-dialog-service.js";
 import { fetchJson } from "./app-runtime/http-client.js";
+import { createComposerController } from "./app-runtime/composer-controller.js";
 import { createInitialAppLoadController } from "./app-runtime/initial-app-load-controller.js";
 import { createDiffSurfaceController } from "./app-runtime/diff-surface-controller.js";
 import { createFilePreviewController } from "./app-runtime/file-preview-controller.js";
@@ -432,10 +433,16 @@ function App() {
   );
   const { createSession, setMode, cancelSession, submitText } = sessionController;
   const { handleThreadLifecycleAction } = threadLifecycleController;
-
-  async function sendMessage() {
-    await submitText(composerDraft);
-  }
+  const composerController = useMemo(
+    () =>
+      createComposerController({
+        dispatch,
+        getComposerDraft: () => readComposerDraft(stateRef.current),
+        submitText,
+        refreshSourceControl: sourceControlController.loadStatus,
+      }),
+    [sourceControlController, submitText],
+  );
 
   const workbenchCommandController = useMemo(
     () =>
@@ -449,14 +456,14 @@ function App() {
         loadSessions,
         loadAppBootstrap,
         removeWorkspace,
-        sendMessage: () => submitText(readComposerDraft(stateRef.current)),
+        sendMessage: composerController.sendMessage,
         cancelSession,
         submitText,
         setMode,
         openRightPanelSurface,
         terminalController,
       }),
-    [openRightPanelSurface, terminalController],
+    [composerController, openRightPanelSurface, terminalController],
   );
   const executeWorkbenchCommand = workbenchCommandController.execute;
 
@@ -640,8 +647,8 @@ function App() {
             <Composer
               chrome={appChrome.composer || {}}
               value={composerDraft}
-              onChange={(v) => dispatch({ type: "set_composer", value: v })}
-              onSend={sendMessage}
+              onChange={composerController.setDraft}
+              onSend={composerController.sendMessage}
               onStop={cancelSession}
               isRunning={isTurnInterruptibleStatus(currentStatus)}
               currentMode={currentMode}
@@ -649,7 +656,7 @@ function App() {
               commandGroupLabels={composerCommandGroupLabels}
               commands={composerCommands}
               fileTree={state.fileTree}
-              onOpenCommandPalette={() => dispatch({ type: "workbench_command_palette_opened" })}
+              onOpenCommandPalette={composerController.openCommandPalette}
               interaction={runtimeState.currentInteraction}
               interactionNotice={interactionNotice}
               interactionBusy={Boolean(
@@ -658,7 +665,7 @@ function App() {
               )}
               onRespondInteraction={interactionResponseController.respondToInteraction}
               branchToolbar={branchToolbarModel}
-              onRefreshSourceControl={() => sourceControlController.loadStatus(true)}
+              onRefreshSourceControl={composerController.refreshSourceControl}
             />
           </main>
         ) : (

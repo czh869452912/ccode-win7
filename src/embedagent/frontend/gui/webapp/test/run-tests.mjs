@@ -1090,6 +1090,18 @@ async function main() {
     assert.equal(appSource.includes(directSessionFunction), false);
   }
   assert.equal(appSource.includes("createSessionController"), true);
+  assert.equal(appSource.includes("createComposerController"), true);
+  assert.equal(appSource.includes("function sendMessage"), false);
+  assert.equal(appSource.includes("onChange={composerController.setDraft}"), true);
+  assert.equal(appSource.includes("onSend={composerController.sendMessage}"), true);
+  assert.equal(
+    appSource.includes("onOpenCommandPalette={composerController.openCommandPalette}"),
+    true,
+  );
+  assert.equal(
+    appSource.includes("onRefreshSourceControl={composerController.refreshSourceControl}"),
+    true,
+  );
   assert.equal(appSource.includes("createSessionListController"), true);
   assert.equal(appSource.includes("const { loadSessions } = sessionListController"), true);
   assert.equal(appSource.includes("async function loadSessions"), false);
@@ -1116,6 +1128,15 @@ async function main() {
   assert.equal(sessionControllerSource.includes("/api/sessions?mode="), true);
   assert.equal(sessionControllerSource.includes("/message"), true);
   assert.equal(sessionControllerSource.includes("import React"), false);
+  const composerControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "composer-controller.js"),
+    "utf8",
+  );
+  assert.equal(composerControllerSource.includes("export function createComposerController"), true);
+  assert.equal(composerControllerSource.includes('type: "set_composer"'), true);
+  assert.equal(composerControllerSource.includes('type: "workbench_command_palette_opened"'), true);
+  assert.equal(composerControllerSource.includes("refreshSourceControl"), true);
+  assert.equal(composerControllerSource.includes("import React"), false);
   const sessionListControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "session-list-controller.js"),
     "utf8",
