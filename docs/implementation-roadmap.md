@@ -162,7 +162,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   right-panel controller methods rather than dispatching concrete right-panel
   resource surface kinds, and those semantic methods require an active
   app-shell surface declaration before opening File Preview, Preview, or
-  right-panel Terminal;
+  right-panel Terminal; File Preview callers also stop file-content loading
+  when the semantic open returns false;
   right-panel tab activation side effects are selected by renderer-local
   `activationKind` metadata through
   `RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]` in

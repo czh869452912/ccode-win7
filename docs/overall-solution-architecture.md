@@ -113,7 +113,10 @@ resource surface kinds directly. Those semantic open methods still require the
 active app shell to declare the target right-panel surface; hidden capabilities
 such as Generic Agent without Preview or a specialized agent without File
 Preview do not reopen the local renderer's supported bodies through direct
-controller calls. Right-panel terminal surface creation follows the same rule
+controller calls. Those semantic open methods return whether a surface was
+actually opened, and file-preview loading must stop when File Preview is not
+declared so unsupported agents do not fetch preview content behind a hidden UI.
+Right-panel terminal surface creation follows the same rule
 and refuses to start a terminal session when the active app shell omits the
 right-panel Terminal surface. Right-panel activation side effects use
 renderer-local `activationKind` metadata through the

@@ -148,11 +148,12 @@ export function runRightPanelControllerTests() {
       terminalController: {},
       getAppCapabilities: () => NO_FILE_CAPABILITIES,
     });
-    blockedController.openFileSurface({
+    const opened = blockedController.openFileSurface({
       filePath: "src/hidden.c",
       title: "hidden.c",
       revealLine: 4,
     });
+    assert.equal(opened, false);
     assert.deepEqual(blockedActions, []);
   }
 
@@ -174,11 +175,12 @@ export function runRightPanelControllerTests() {
     assert.deepEqual(blockedActions, []);
   }
 
-  controller.openFileSurface({
+  const openedFile = controller.openFileSurface({
     filePath: "src/main.c",
     title: "main.c",
     revealLine: 12,
   });
+  assert.equal(openedFile, true);
   assert.deepEqual(actions.at(-1), {
     type: "workbench_surface_opened",
     placement: "right",

@@ -385,11 +385,12 @@ function App() {
   async function openFile(path, line) {
     const filePath = normalizeFileSurfacePath(path);
     if (!filePath) return;
-    rightPanelController.openFileSurface({
+    const opened = rightPanelController.openFileSurface({
       filePath,
       revealLine: line,
       title: fileSurfaceTitle(filePath, filePreviewChrome),
     });
+    if (!opened) return;
     dispatch({ type: "file_preview_load_started", path: filePath });
     try {
       const payload = await fetchJson(`/api/files/${encodeURIComponent(filePath)}`);

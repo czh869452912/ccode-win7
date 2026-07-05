@@ -999,6 +999,8 @@ async function main() {
   assert.equal(appSource.includes('definition.activationKind === "terminal.open_active"'), false);
   assert.equal(appSource.includes("rightPanelController.activateSurface(surface)"), true);
   assert.equal(appSource.includes("rightPanelController.openFileSurface("), true);
+  assert.equal(appSource.includes("const opened = rightPanelController.openFileSurface("), true);
+  assert.equal(appSource.includes("if (!opened) return;"), true);
   assert.equal(appSource.includes("rightPanelController.openPreviewSurface("), true);
   assert.equal(appSource.includes("rightPanelController.openFilesSurface()"), true);
   assert.equal(appSource.includes('surface.kind === "terminal"'), false);
@@ -1111,6 +1113,8 @@ async function main() {
   assert.equal(rightPanelControllerSource.includes("openFileSurface"), true);
   assert.equal(rightPanelControllerSource.includes("openPreviewSurface"), true);
   assert.equal(rightPanelControllerSource.includes("openFilesSurface"), true);
+  assert.equal(rightPanelControllerSource.includes("return false"), true);
+  assert.equal(rightPanelControllerSource.includes("return true"), true);
   assert.equal(rightPanelControllerSource.includes('surfaceKind === "file"'), false);
   assert.equal(rightPanelControllerSource.includes('surfaceKind === "terminal"'), false);
   assert.equal(rightPanelControllerSource.includes('type: "set_inspector"'), false);

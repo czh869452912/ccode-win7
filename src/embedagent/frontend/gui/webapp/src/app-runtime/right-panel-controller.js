@@ -64,7 +64,9 @@ export function createRightPanelController({
     const handler = definition ? RIGHT_PANEL_OPEN_HANDLERS[definition.openKind] : null;
     if (handler) {
       handler({ appCapabilities, definition, dispatch, surfaceKind, terminalController, title });
+      return true;
     }
+    return false;
   }
 
   function openFileSurface({ filePath, title = "", revealLine } = {}) {
@@ -73,9 +75,9 @@ export function createRightPanelController({
       RIGHT_PANEL_RESOURCE_SURFACES.file,
       appCapabilities,
     );
-    if (!definition) return;
+    if (!definition) return false;
     const normalizedPath = normalizeFileSurfacePath(filePath);
-    if (!normalizedPath) return;
+    if (!normalizedPath) return false;
     dispatch({
       type: "workbench_surface_opened",
       placement: "right",
@@ -85,10 +87,11 @@ export function createRightPanelController({
       filePath: normalizedPath,
       revealLine,
     });
+    return true;
   }
 
   function openFilesSurface() {
-    openSurface(RIGHT_PANEL_RESOURCE_SURFACES.files);
+    return openSurface(RIGHT_PANEL_RESOURCE_SURFACES.files);
   }
 
   function openPreviewSurface({ resourceId, title = "", previewSnapshot = null } = {}) {
@@ -97,10 +100,10 @@ export function createRightPanelController({
       RIGHT_PANEL_RESOURCE_SURFACES.preview,
       appCapabilities,
     );
-    if (!definition) return;
+    if (!definition) return false;
     const normalizedResourceId = String(resourceId || "").trim();
     const normalizedTitle = String(title || normalizedResourceId).trim();
-    if (!normalizedTitle) return;
+    if (!normalizedTitle) return false;
     dispatch({
       type: "workbench_surface_opened",
       placement: "right",
@@ -109,6 +112,7 @@ export function createRightPanelController({
       resourceId: normalizedResourceId,
       previewSnapshot,
     });
+    return true;
   }
 
   function activateSurface(surface) {
