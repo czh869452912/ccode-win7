@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-280
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel activation side effects use renderer metadata
+- Summary:
+  - Added renderer-local `activationKind` metadata to surface registry records.
+  - Right-panel tab activation now uses `definition.activationKind` to trigger
+    terminal session re-opening for terminal surfaces.
+  - `App.jsx` no longer branches on `surface.kind === "terminal"` for
+    activation side effects.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New right-panel activation side effects must be explicit renderer metadata,
+    not inline App surface-id checks.
+
 ### DC-279
 
 - Date: 2026-07-05

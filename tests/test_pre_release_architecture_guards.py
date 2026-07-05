@@ -2244,16 +2244,21 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     controller_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js"
     )
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     surfaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js")
 
     assert "definition.openKind" in controller_text
+    assert "definition.activationKind" in app_text
     assert "openKind" in surfaces_text
+    assert "activationKind" in surfaces_text
     assert "terminalController.openRightPanelSurface" in controller_text
+    assert "terminalController.openSession" in app_text
     for token in (
         'surfaceKind === "file"',
         'surfaceKind === "terminal"',
     ):
         assert token not in controller_text
+    assert 'surface.kind === "terminal"' not in app_text
 
 
 def test_gui_has_no_retired_workflow_runtime_panel_display_helper():

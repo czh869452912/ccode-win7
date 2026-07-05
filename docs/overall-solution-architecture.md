@@ -89,7 +89,9 @@ surface descriptor title rather than renderer-local defaults. Opening a
 right-panel surface also uses the declared surface title instead of parsing
 command labels such as `Open ...`. Right-panel surface open behavior uses
 renderer-local `openKind` metadata, so terminal session creation is not
-inferred from a fixed surface id in the controller. Surface
+inferred from a fixed surface id in the controller. Right-panel activation side
+effects use renderer-local `activationKind` metadata, not inline App checks for
+terminal surface ids. Surface
 capability records without explicit app-shell titles remain diagnostics only;
 they do not become visible launchers or surface commands, and the renderer does
 not derive titles from surface kind/id strings. Resource surface helper titles

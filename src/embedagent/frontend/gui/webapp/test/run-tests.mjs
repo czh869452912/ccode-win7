@@ -987,6 +987,10 @@ async function main() {
   assert.equal(appSource.includes("terminalController.openRightPanelSurface"), true);
   assert.equal(appSource.includes("terminalController.splitRightPanelSurface"), true);
   assert.equal(appSource.includes("terminalController.closeRightPanelPane"), true);
+  assert.equal(appSource.includes("surfaceDefinitionFor("), true);
+  assert.equal(appSource.includes("surface.kind"), true);
+  assert.equal(appSource.includes("definition.activationKind"), true);
+  assert.equal(appSource.includes('surface.kind === "terminal"'), false);
   assert.equal(appSource.includes("async function ensureTerminalOpen"), false);
   assert.equal(appSource.includes("async function openTerminalSession"), false);
   assert.equal(appSource.includes("async function refreshTerminals"), false);

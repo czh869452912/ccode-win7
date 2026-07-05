@@ -10,6 +10,7 @@ import { createDiffSurfaceState } from "./session-runtime/diff-model.js";
 import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
 import { buildSessionActivityRuntime } from "./session-runtime/activity-state.js";
 import { buildComposerCommandsFromCapabilities } from "./session-runtime/command-capabilities.js";
+import { surfaceDefinitionFor } from "./workbench/surfaces.js";
 import { deriveSocketMessageEffects } from "./app-runtime/socket-message-effects.js";
 import { createLoaderRequestExecutor, loadSessionCommandCapabilities } from "./app-runtime/session-loaders.js";
 import { createRightPanelController } from "./app-runtime/right-panel-controller.js";
@@ -903,7 +904,15 @@ function App() {
               surfaceId: surface.id,
               kind: surface.kind,
             });
-            if (surface.kind === "terminal" && surface.activeTerminalId) {
+            const definition = surfaceDefinitionFor(
+              surface.kind,
+              stateRef.current.app.capabilities || {},
+            );
+            if (
+              definition &&
+              definition.activationKind === "terminal.open_active" &&
+              surface.activeTerminalId
+            ) {
               void terminalController.openSession(surface.activeTerminalId);
             }
           }}

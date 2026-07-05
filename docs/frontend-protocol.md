@@ -498,7 +498,9 @@ with locally supported renderer metadata (`bodyKind` and, for generic panels,
 `panelKind`) and do not keep a second hard-coded tab registry, `inspectorTab`
 adapter, or `onTabChange` navigation contract. Right-panel surface opening also
 uses renderer metadata (`openKind`) so terminal session creation is not inferred
-from a fixed surface id in the controller.
+from a fixed surface id in the controller. Right-panel tab activation side
+effects use renderer metadata (`activationKind`) rather than inline App checks
+for terminal surface ids.
 The renderer has no root-level `inspectorTab` / `inspectorOpen` navigation
 state; opening, activating, and closing right-panel content flows through
 workbench surface state.

@@ -381,6 +381,8 @@ invent surface titles.
 Right-panel surface open behavior is renderer-local `openKind` metadata on
 supported surface definitions; the terminal right-panel session path is selected
 from that metadata rather than from a fixed `terminal` surface-id branch.
+Right-panel tab activation side effects use renderer-local `activationKind`
+metadata; App-level activation code must not branch on terminal surface ids.
 Surface descriptor records that omit `title` remain capability diagnostics and
 do not enter visible launchers or commands; renderer helpers must not fall back
 to surface kind/id strings for tab or launcher titles. Resource surface helper

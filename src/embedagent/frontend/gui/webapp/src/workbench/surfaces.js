@@ -19,6 +19,7 @@ const TERMINAL_PERSIST_FIELDS = [
 
 function defineSurface(input) {
   return Object.freeze({
+    activationKind: "",
     ...input,
     persistFields: Object.freeze((input.persistFields || DEFAULT_PERSIST_FIELDS).slice()),
     keywords: Object.freeze((input.keywords || []).slice()),
@@ -88,6 +89,7 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     persistFields: TERMINAL_PERSIST_FIELDS,
     bodyKind: "terminal",
     openKind: "terminal.right_panel",
+    activationKind: "terminal.open_active",
     launcher: true,
     launcherOrder: 30,
     command: true,
@@ -274,6 +276,7 @@ function mergedSurfaceDefinition(definition, capability) {
       : {},
     bodyKind: definition.bodyKind || "",
     openKind: definition.openKind || "",
+    activationKind: definition.activationKind || "",
     panelKind: definition.panelKind || "",
   };
 }
