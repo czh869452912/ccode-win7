@@ -294,6 +294,14 @@ keybinding resolution. `App.jsx` installs the controller and supplies state
 readers, but it does not call `window.addEventListener("keydown", ...)`,
 inspect `document.activeElement`, or resolve shortcuts inline.
 
+GUI workbench command actions are owned by
+`app-runtime/workbench-command-controller.js`. Header right-panel/bottom-drawer
+toggles, command-palette open/close/query state, command-palette
+command/session/workspace selection, and command-id resolution through the
+active capability snapshot live in that controller. `App.jsx` wires controller
+methods directly and does not import `commandById` or dispatch palette/toggle
+reducer actions inline.
+
 GUI Composer action wiring is owned by
 `app-runtime/composer-controller.js`. The controller owns draft updates, message
 submit from the current draft, command-palette opening from the composer, and

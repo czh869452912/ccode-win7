@@ -139,6 +139,12 @@ the retired duplicate `workflow.diff` GUI command is replaced by the declared
 `surface.diff` entrypoint. A
 missing `capabilities` object or missing capability descriptor arrays mean no
 app-shell entrypoints, not GUI defaults.
+Header panel toggles, command-palette open/close/query state,
+command-palette command/session/workspace selection, and command-id resolution
+are renderer action-controller concerns in
+`webapp/src/app-runtime/workbench-command-controller.js`; `App.jsx` must not
+import `commandById` or inline-dispatch palette/toggle reducer actions as a
+second workbench command policy.
 `capabilities.home` carries GUI home/sidebar copy for workspace and thread
 sections, including inactive-workspace labels, path placeholder text, open and
 recent-workspace labels, missing-path labels, thread empty-state copy, and

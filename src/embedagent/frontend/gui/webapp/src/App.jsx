@@ -59,7 +59,7 @@ import CommandPalette from "./components/workbench/CommandPalette.jsx";
 import RightPanelSurfaceBody from "./components/workbench/RightPanelSurfaceBody.jsx";
 import RightPanelTabs from "./components/workbench/RightPanelTabs.jsx";
 import WorkbenchHeader from "./components/workbench/WorkbenchHeader.jsx";
-import { commandById, visibleCommands } from "./workbench/commands.js";
+import { visibleCommands } from "./workbench/commands.js";
 import { createActiveWorkspaceDataLoader } from "./app-runtime/active-workspace-data-loader.js";
 import { createWorkbenchKeyboardController } from "./app-runtime/workbench-keyboard-controller.js";
 import {
@@ -450,9 +450,13 @@ function App() {
         setTimeoutFn: window.setTimeout.bind(window),
         getCurrentMode: () => stateRef.current.snapshot?.current_mode || stateRef.current.requestedMode,
         getActiveWorkspaceId: () => stateRef.current.app.activeWorkspace?.id || "",
+        getSessionCapabilities: () => stateRef.current.sessionCapabilities || {},
+        getAppCapabilities: () => stateRef.current.app.capabilities || {},
         createSession,
         loadSessions,
+        loadSession,
         loadAppBootstrap,
+        activateWorkspace,
         removeWorkspace,
         sendMessage: composerController.sendMessage,
         cancelSession,
@@ -598,9 +602,9 @@ function App() {
           rightPanelOpen={state.workbench.rightPanel.open}
           bottomDrawerOpen={state.workbench.bottomDrawer.open}
           onRefresh={loadSessions}
-          onToggleRightPanel={() => dispatch({ type: "workbench_right_panel_toggled" })}
-          onToggleBottomDrawer={() => dispatch({ type: "workbench_bottom_drawer_toggled" })}
-          onOpenPalette={() => dispatch({ type: "workbench_command_palette_opened" })}
+          onToggleRightPanel={workbenchCommandController.toggleRightPanel}
+          onToggleBottomDrawer={workbenchCommandController.toggleBottomDrawer}
+          onOpenPalette={workbenchCommandController.openPalette}
         />
       }
       sidebar={
@@ -766,24 +770,11 @@ function App() {
       activeWorkspaceId={activeWorkspaceId}
       keybindings={keybindings}
       commandPalette={state.app.capabilities?.commandPalette || {}}
-      onQueryChange={(query) => dispatch({ type: "workbench_command_palette_query_changed", query })}
-      onClose={() => dispatch({ type: "workbench_command_palette_closed" })}
-      onSelect={(command) => {
-        dispatch({ type: "workbench_command_palette_closed" });
-        void executeWorkbenchCommand(commandById(
-          command.id,
-          state.sessionCapabilities || {},
-          state.app.capabilities || {},
-        ));
-      }}
-      onSelectSession={(sessionId) => {
-        dispatch({ type: "workbench_command_palette_closed" });
-        void loadSession(sessionId);
-      }}
-      onSelectWorkspace={(workspaceId) => {
-        dispatch({ type: "workbench_command_palette_closed" });
-        void activateWorkspace(workspaceId);
-      }}
+      onQueryChange={workbenchCommandController.updatePaletteQuery}
+      onClose={workbenchCommandController.closePalette}
+      onSelect={workbenchCommandController.selectPaletteCommand}
+      onSelectSession={workbenchCommandController.selectPaletteSession}
+      onSelectWorkspace={workbenchCommandController.selectPaletteWorkspace}
     />
     </>
   );

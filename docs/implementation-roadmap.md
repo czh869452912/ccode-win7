@@ -180,6 +180,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   of an inline activation wrapper; composer draft/submit/palette/Branch Toolbar
   refresh actions are delegated to `composer-controller.js` instead of `App.jsx`
   keeping a `sendMessage` wrapper or inline composer dispatch/refresh handlers;
+  header panel toggles, command-palette open/close/query/selection, and
+  command-id resolution are delegated to `workbench-command-controller.js`
+  instead of `App.jsx` importing `commandById` or dispatching palette/toggle
+  reducer actions inline;
   Terminal service calls
   require the active app-shell Terminal capability before invoking
   terminal routes or pane attachment side effects;

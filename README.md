@@ -149,6 +149,13 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
   live in `webapp/src/app-runtime/workbench-keyboard-controller.js`;
   `App.jsx` installs the controller and must not own keydown listeners or
   shortcut resolution logic directly.
+- Official GUI workbench command action boundary: header right-panel/bottom-drawer
+  toggles, command-palette open/close/query state, command-palette
+  command/session/workspace selection, and command-id resolution live in
+  `webapp/src/app-runtime/workbench-command-controller.js`. `App.jsx` wires the
+  controller methods directly and must not import `commandById` or dispatch
+  `workbench_command_palette_*`, `workbench_right_panel_toggled`, or
+  `workbench_bottom_drawer_toggled` inline.
 - Official GUI renderer-state boundary: thread/session selection, session
   summaries, and history-integrity display state live in
   `webapp/src/session-runtime/thread-state.js`, composer draft text lives in

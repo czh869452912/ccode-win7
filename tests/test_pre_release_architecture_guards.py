@@ -2349,6 +2349,28 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert "terminalController.ensureOpen" not in app_text
     assert "nextTerminalId" not in app_text
     assert 'type: "terminal_active_set"' not in app_text
+    assert "commandById" not in app_text
+    assert "onToggleRightPanel={workbenchCommandController.toggleRightPanel}" in app_text
+    assert "onToggleBottomDrawer={workbenchCommandController.toggleBottomDrawer}" in app_text
+    assert "onOpenPalette={workbenchCommandController.openPalette}" in app_text
+    assert "onQueryChange={workbenchCommandController.updatePaletteQuery}" in app_text
+    assert "onClose={workbenchCommandController.closePalette}" in app_text
+    assert "onSelect={workbenchCommandController.selectPaletteCommand}" in app_text
+    assert "onSelectSession={workbenchCommandController.selectPaletteSession}" in app_text
+    assert "onSelectWorkspace={workbenchCommandController.selectPaletteWorkspace}" in app_text
+    assert 'type: "workbench_command_palette_closed"' not in app_text
+    assert 'type: "workbench_command_palette_query_changed"' not in app_text
+    assert 'type: "workbench_right_panel_toggled"' not in app_text
+    assert 'type: "workbench_bottom_drawer_toggled"' not in app_text
+    assert "commandById" in controller_text
+    assert "function openPalette" in controller_text
+    assert "function closePalette" in controller_text
+    assert "function updatePaletteQuery" in controller_text
+    assert "function toggleRightPanel" in controller_text
+    assert "function toggleBottomDrawer" in controller_text
+    assert "function selectPaletteCommand" in controller_text
+    assert "function selectPaletteSession" in controller_text
+    assert "function selectPaletteWorkspace" in controller_text
     assert 'switch (definition ? definition.activationKind : "")' not in terminal_controller_text
     assert 'kind === "terminal"' not in terminal_controller_text
     assert 'surface.kind !== "terminal"' not in terminal_controller_text

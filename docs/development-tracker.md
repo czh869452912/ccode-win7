@@ -575,6 +575,13 @@
 - Existing terminal HTTP helpers remain in `webapp/src/terminal/terminal-api.js`, and terminal snapshot/event normalization remains in `webapp/src/terminal/terminal-state.js`.
 - This slice stays in the GUI app shell: no Agent Core, backend protocol, terminal backend service, workflow package, permission policy, transcript, source-control, provider configuration, extension loading, telemetry, or runtime reducer semantics changed.
 
+### 2026-06-18 - GUI Workbench Command Controller Boundary
+
+- React webapp `webapp/src/app-runtime/workbench-command-controller.js` now owns header right-panel/bottom-drawer toggles, command-palette open/close/query state, command-palette command/session/workspace selection, and command-id resolution against the active capability snapshot.
+- `App.jsx` wires the controller methods directly; it no longer imports `commandById` or dispatches palette/toggle reducer actions inline.
+- `CommandPalette.jsx` remains a display component for root/submenu navigation, Escape, and backdrop close; selected command/session/workspace items hand intent to the controller-owned callbacks.
+- This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, terminal backend service, source-control execution, provider configuration, extension loading, telemetry, or runtime reducer semantics changed.
+
 ### 2026-06-18 - GUI Session/App Loader Runtime Boundary
 
 - React webapp `webapp/src/app-runtime/session-loaders.js` now owns the GUI-private loader request vocabulary, defensive loader request executor, and session bootstrap projection helper.

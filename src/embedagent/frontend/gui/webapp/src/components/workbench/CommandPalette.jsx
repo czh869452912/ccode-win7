@@ -95,7 +95,6 @@ export default function CommandPalette({
       setSelectedIndex(0);
       return;
     }
-    onClose();
     if (item.type === "command") {
       onSelect({ id: item.commandId });
     } else if (item.type === "session") {

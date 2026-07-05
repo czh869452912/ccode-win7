@@ -44,6 +44,38 @@
 
 ## 3. 当前变更记录
 
+### DC-296
+
+- Date: 2026-07-05
+- Change Topic: GUI workbench command lifecycle is controller-owned
+- Summary:
+  - `workbench-command-controller.js` now owns header right-panel/bottom-drawer
+    toggles, command-palette open/close/query state, command-palette
+    command/session/workspace selection, and command-id resolution.
+  - `App.jsx` wires controller methods directly and no longer imports
+    `commandById` or dispatches palette/toggle reducer actions inline.
+  - `CommandPalette.jsx` remains a display component for root/submenu
+    navigation, Escape, and backdrop close; selected rows hand intent to
+    controller-owned callbacks.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/workbench-command-controller.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/CommandPalette.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-source.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue shrinking `App.jsx` by moving workspace-path input and
+    surface-panel action wiring into focused controllers.
+
 ### DC-295
 
 - Date: 2026-07-05

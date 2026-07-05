@@ -542,9 +542,14 @@ coordinates existing terminal API helpers and reducer actions for bottom-drawer
 terminal actions plus right-panel terminal open/split/activate/close behavior.
 Bottom drawer terminal new/select actions and terminal id generation stay in
 that controller rather than App-level inline callbacks.
-`App.jsx` remains the composition layer for HTTP route calls, reducer dispatch,
-session activation wiring, task/artifact refreshes, and render composition in
-this slice. `visual-debug-fixtures.js` owns the
+`workbench-command-controller.js` owns header panel toggles, command-palette
+open/close/query state, command-palette command/session/workspace selection,
+and command-id resolution against the active capability snapshot; `App.jsx`
+wires those methods directly instead of importing `commandById` or dispatching
+palette/toggle reducer actions inline.
+`App.jsx` remains the composition layer for controller construction, HTTP route
+callback injection, reducer state ownership, and render composition in this
+slice. `visual-debug-fixtures.js` owns the
 development-only `?visual_debug=1` fixtures used by the visual harness. The
 fixture module uses private `dev_fixture_*` descriptors internally, then
 expands them into ordinary product reducer actions such as
