@@ -448,6 +448,28 @@ def test_hosted_adapter_uses_shared_agent_profile_runtime_policies():
     assert "PROFILE_PROMPT_FRAME" in runtime_text
 
 
+def test_base_config_does_not_pin_default_c_cpp_application():
+    config_files = (
+        ROOT / "src/embedagent/config.py",
+        ROOT / "config/config.json.template",
+    )
+    forbidden_config_tokens = (
+        '"agent_application_id": "embedagent.default_c_cpp"',
+        "CMakeLists.txt",
+    )
+    offenders = []
+    for path in config_files:
+        text = _read(path)
+        rel = _relative(path)
+        for token in forbidden_config_tokens:
+            if token in text:
+                offenders.append("%s contains %s" % (rel, token))
+    assert offenders == []
+
+    guide = _read(ROOT / "docs/guides/configuration-guide.md")
+    assert "| `agent_application_id` | string | `embedagent.default_c_cpp` |" not in guide
+
+
 def test_product_evidence_helpers_do_not_import_c_cpp_workflow_constants():
     files = (
         ROOT / "src/embedagent/review_command.py",

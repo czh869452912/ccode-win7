@@ -139,6 +139,10 @@
   shared prompt rendering, write-glob evaluation, base-tool policy, and
   mode-switch parsing instead of keeping hosted copies, so generic and
   specialized agents use the same runtime-policy boundary.
+- Base configuration no longer pins the default C/C++ application id:
+  `config/config.json.template`, `src/embedagent/config.py`, and the active
+  configuration guides leave `agent_application_id` optional, with omitted
+  values resolved by the hosted application registry.
 - The default C/C++ agent application's manifest record and GUI app-shell
   overlay now live in
   `src/embedagent/workflow_packages/c_cpp/application_record.py`; the generic

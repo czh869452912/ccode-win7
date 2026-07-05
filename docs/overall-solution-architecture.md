@@ -345,7 +345,9 @@ as the default packaged product application plus profile-only
 `embedagent.generic`, `embedagent.python`, and `embedagent.html` applications.
 Those non-C applications share the same Agent Core, hosted runtime, protocol,
 and GUI shell while carrying no C/C++ workflow package manifest or harness
-refresh path.
+refresh path. Base configuration and bundled config templates do not pin the
+default C/C++ application id; when `agent_application_id` is omitted, hosted
+application selection falls through to the registry default.
 
 ### Default C/C++ Workflow Package
 
