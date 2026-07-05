@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-284
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel open behavior uses a handler registry
+- Summary:
+  - Replaced the right-panel `openKind` switch with a renderer-local
+    `RIGHT_PANEL_OPEN_HANDLERS` registry.
+  - `createRightPanelController().openSurface(...)` still reads
+    `definition.openKind`, but now dispatches through table lookup instead of
+    a controller switch.
+  - Frontend and architecture guards now prevent reintroducing the old
+    `switch (definition ? definition.openKind : "")` path.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New right-panel open behaviors must add explicit `openKind` handler
+    registry entries rather than controller switch branches.
+
 ### DC-283
 
 - Date: 2026-07-05

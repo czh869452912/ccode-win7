@@ -1084,6 +1084,9 @@ async function main() {
   assert.equal(rightPanelControllerSource.includes("getAppCapabilities"), true);
   assert.equal(rightPanelControllerSource.includes("surfaceDefinitionFor(surfaceKind, appCapabilities)"), true);
   assert.equal(rightPanelControllerSource.includes("definition.openKind"), true);
+  assert.equal(rightPanelControllerSource.includes("RIGHT_PANEL_OPEN_HANDLERS"), true);
+  assert.equal(rightPanelControllerSource.includes("RIGHT_PANEL_OPEN_HANDLERS[definition.openKind]"), true);
+  assert.equal(rightPanelControllerSource.includes('switch (definition ? definition.openKind : "")'), false);
   assert.equal(rightPanelControllerSource.includes("rightPanelSurfaceTitle(surfaceKind, title, appCapabilities)"), true);
   assert.equal(rightPanelControllerSource.includes("terminalController.openRightPanelSurface"), true);
   assert.equal(rightPanelControllerSource.includes('surfaceKind === "file"'), false);

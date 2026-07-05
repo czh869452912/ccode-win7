@@ -1,5 +1,20 @@
 import { surfaceDefinitionFor } from "../workbench/surfaces.js";
 
+const RIGHT_PANEL_OPEN_HANDLERS = Object.freeze(Object.assign(Object.create(null), {
+  "terminal.right_panel": ({ terminalController }) => {
+    void terminalController.openRightPanelSurface();
+  },
+  "workbench.surface": ({ appCapabilities, definition, dispatch, surfaceKind, title }) => {
+    dispatch({
+      type: "workbench_surface_opened",
+      placement: "right",
+      kind: surfaceKind,
+      title: rightPanelSurfaceTitle(surfaceKind, title, appCapabilities),
+      resourceId: definition?.defaultResourceId || "",
+    });
+  },
+}));
+
 export function rightPanelSurfaceTitle(kind, fallback = "", appCapabilities = null) {
   const definition = surfaceDefinitionFor(kind, appCapabilities);
   const descriptorTitle = String(definition?.title || "").trim();
@@ -26,21 +41,9 @@ export function createRightPanelController({
     const surfaceKind = String(kind || "");
     const appCapabilities = getAppCapabilities();
     const definition = surfaceDefinitionFor(surfaceKind, appCapabilities);
-    switch (definition ? definition.openKind : "") {
-      case "terminal.right_panel":
-        void terminalController.openRightPanelSurface();
-        return;
-      case "workbench.surface":
-        dispatch({
-          type: "workbench_surface_opened",
-          placement: "right",
-          kind: surfaceKind,
-          title: rightPanelSurfaceTitle(surfaceKind, title, appCapabilities),
-          resourceId: definition?.defaultResourceId || "",
-        });
-        return;
-      default:
-        return;
+    const handler = definition ? RIGHT_PANEL_OPEN_HANDLERS[definition.openKind] : null;
+    if (handler) {
+      handler({ appCapabilities, definition, dispatch, surfaceKind, terminalController, title });
     }
   }
 

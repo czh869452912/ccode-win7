@@ -153,7 +153,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   right-panel surface open titles prefer the active surface descriptor and are
   no longer derived by stripping English command label prefixes;
   right-panel surface open behavior is selected by renderer-local `openKind`
-  metadata rather than fixed surface-id branches in the controller;
+  metadata rather than fixed surface-id branches in the controller, and
+  supported `openKind` values route through a handler registry rather than a
+  controller switch;
   right-panel tab activation side effects are selected by renderer-local
   `activationKind` metadata rather than inline App surface-id branches;
   bottom-drawer surface commands may also carry descriptor-owned dispatch

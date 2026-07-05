@@ -2261,6 +2261,9 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     surfaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js")
 
     assert "definition.openKind" in controller_text
+    assert "RIGHT_PANEL_OPEN_HANDLERS" in controller_text
+    assert "RIGHT_PANEL_OPEN_HANDLERS[definition.openKind]" in controller_text
+    assert 'switch (definition ? definition.openKind : "")' not in controller_text
     assert "definition.activationKind" in app_text
     assert "openKind" in surfaces_text
     assert "activationKind" in surfaces_text
