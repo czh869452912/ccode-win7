@@ -133,6 +133,9 @@
   returning `/api/app/bootstrap`, so Generic Agent no longer receives the
   default C/C++ Preview/Diff/Source Control entrypoints and specialized agents
   can narrow or extend the shell through capability data.
+- GUI semantic surface open paths now obey the same app-shell boundary:
+  `openPreviewSurface(...)` and right-panel terminal creation refuse to open
+  when the active app capabilities omit the corresponding right-panel surface.
 - The global `embedagent.modes` facade now uses the Generic Agent profile
   instead of importing `default_c_cpp_agent_profile()`. C/C++ writable globs,
   prompt copy, mode descriptors, and base tool policy now live in

@@ -2329,9 +2329,14 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     controller_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js"
     )
+    terminal_controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js"
+    )
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     surfaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js")
 
+    assert "declaredRightPanelSurfaceDefinition" in controller_text
+    assert "surfaceDefinitionFor(kind, capabilities)" in controller_text
     assert "definition.openKind" in controller_text
     assert "RIGHT_PANEL_OPEN_HANDLERS" in controller_text
     assert "RIGHT_PANEL_OPEN_HANDLERS[definition.openKind]" in controller_text
@@ -2352,6 +2357,8 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     assert "activationKind" in surfaces_text
     assert "terminalController.openRightPanelSurface" in controller_text
     assert "terminalController.openSession" in controller_text
+    assert "rightPanelTerminalSurfaceDefinition" in terminal_controller_text
+    assert "if (!definition) return null" in terminal_controller_text
     assert "openFileSurface" in controller_text
     assert "openPreviewSurface" in controller_text
     assert "openFilesSurface" in controller_text

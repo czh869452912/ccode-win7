@@ -29,6 +29,12 @@ const RIGHT_PANEL_ACTIVATION_HANDLERS = Object.freeze(Object.assign(Object.creat
   },
 }));
 
+function declaredRightPanelSurfaceDefinition(kind, appCapabilities) {
+  const capabilities =
+    appCapabilities && typeof appCapabilities === "object" ? appCapabilities : null;
+  return capabilities ? surfaceDefinitionFor(kind, capabilities) : null;
+}
+
 export function rightPanelSurfaceTitle(kind, fallback = "", appCapabilities = null) {
   const definition = surfaceDefinitionFor(kind, appCapabilities);
   const descriptorTitle = String(definition?.title || "").trim();
@@ -54,7 +60,7 @@ export function createRightPanelController({
   function openSurface(kind, title = "") {
     const surfaceKind = String(kind || "");
     const appCapabilities = getAppCapabilities();
-    const definition = surfaceDefinitionFor(surfaceKind, appCapabilities);
+    const definition = declaredRightPanelSurfaceDefinition(surfaceKind, appCapabilities);
     const handler = definition ? RIGHT_PANEL_OPEN_HANDLERS[definition.openKind] : null;
     if (handler) {
       handler({ appCapabilities, definition, dispatch, surfaceKind, terminalController, title });
@@ -80,6 +86,12 @@ export function createRightPanelController({
   }
 
   function openPreviewSurface({ resourceId, title = "", previewSnapshot = null } = {}) {
+    const appCapabilities = getAppCapabilities();
+    const definition = declaredRightPanelSurfaceDefinition(
+      RIGHT_PANEL_RESOURCE_SURFACES.preview,
+      appCapabilities,
+    );
+    if (!definition) return;
     const normalizedResourceId = String(resourceId || "").trim();
     const normalizedTitle = String(title || normalizedResourceId).trim();
     if (!normalizedTitle) return;

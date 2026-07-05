@@ -1093,7 +1093,8 @@ async function main() {
   assert.equal(rightPanelControllerSource.includes("fileSurfaceTitle(path, filePreviewChrome"), true);
   assert.equal(rightPanelControllerSource.includes('return "File"'), false);
   assert.equal(rightPanelControllerSource.includes("getAppCapabilities"), true);
-  assert.equal(rightPanelControllerSource.includes("surfaceDefinitionFor(surfaceKind, appCapabilities)"), true);
+  assert.equal(rightPanelControllerSource.includes("declaredRightPanelSurfaceDefinition"), true);
+  assert.equal(rightPanelControllerSource.includes("surfaceDefinitionFor(kind, capabilities)"), true);
   assert.equal(rightPanelControllerSource.includes("definition.openKind"), true);
   assert.equal(rightPanelControllerSource.includes("RIGHT_PANEL_OPEN_HANDLERS"), true);
   assert.equal(rightPanelControllerSource.includes("RIGHT_PANEL_OPEN_HANDLERS[definition.openKind]"), true);

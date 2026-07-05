@@ -74,6 +74,10 @@ function createHarness(options = {}) {
   const actions = [];
   const apiCalls = [];
   const failures = options.failures || {};
+  const appCapabilities =
+    Object.prototype.hasOwnProperty.call(options, "appCapabilities")
+      ? options.appCapabilities
+      : APP_CAPABILITIES;
   const snapshotFor = (terminalId) => ({
     session_id: state.thread.currentSessionId,
     terminal_id: terminalId,
@@ -125,7 +129,7 @@ function createHarness(options = {}) {
     dispatch: (action) => actions.push(action),
     api,
     nextTerminalId: (ids) => `term-${ids.length + 1}`,
-    getAppCapabilities: () => APP_CAPABILITIES,
+    getAppCapabilities: () => appCapabilities,
     getTerminalChrome: () => TERMINAL_CHROME,
   });
   return {
@@ -325,6 +329,21 @@ export async function runTerminalControllerTests() {
     assert.equal(harness.actions[2].title, "Shell Surface");
     assert.deepEqual(harness.actions[2].terminalIds, ["term-3"]);
     assert.equal(harness.actions.some((action) => action.type === "set_inspector"), false);
+  }
+
+  {
+    const harness = createHarness({
+      appCapabilities: {
+        surfaces: {
+          bottomDrawer: APP_CAPABILITIES.surfaces.bottomDrawer,
+          rightPanel: [],
+        },
+      },
+    });
+    const result = await harness.controller.openRightPanelSurface();
+    assert.equal(result, null);
+    assert.deepEqual(harness.apiCalls, []);
+    assert.deepEqual(harness.actions, []);
   }
 
   {

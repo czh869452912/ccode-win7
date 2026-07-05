@@ -65,8 +65,13 @@ function readAppCapabilities(deps) {
 }
 
 function terminalSurfaceTitle(deps, fallback = "") {
-  const definition = surfaceDefinitionFor(TERMINAL_SURFACE_KIND, readAppCapabilities(deps));
+  const definition = rightPanelTerminalSurfaceDefinition(deps);
   return String((definition && definition.title) || fallback || "");
+}
+
+function rightPanelTerminalSurfaceDefinition(deps) {
+  const appCapabilities = readAppCapabilities(deps);
+  return appCapabilities ? surfaceDefinitionFor(TERMINAL_SURFACE_KIND, appCapabilities) : null;
 }
 
 function normalizeTerminalId(terminalId) {
@@ -283,6 +288,8 @@ export function createTerminalController(deps = {}) {
   }
 
   async function openRightPanelSurface(preferredId = "") {
+    const definition = rightPanelTerminalSurfaceDefinition(deps);
+    if (!definition) return null;
     const state = getState();
     const terminalId = normalizeTerminalId(preferredId) || nextId(deps, allKnownTerminalIds(state));
     const openedTerminalId = await openSession(terminalId);

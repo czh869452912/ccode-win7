@@ -39,6 +39,31 @@ const APP_CAPABILITIES = Object.freeze({
   },
 });
 
+const NO_PREVIEW_CAPABILITIES = Object.freeze({
+  surfaces: {
+    rightPanel: [
+      {
+        id: "terminal",
+        kind: "terminal",
+        title: "Terminal",
+        commandLabel: "Open terminal",
+        launcher: true,
+        launcherOrder: 20,
+        command: true,
+      },
+      {
+        id: "files",
+        kind: "files",
+        title: "Files",
+        commandLabel: "Open files",
+        launcher: true,
+        launcherOrder: 30,
+        command: true,
+      },
+    ],
+  },
+});
+
 export function runRightPanelControllerTests() {
   assert.equal(
     rightPanelSurfaceTitle("preview", "Launch view", APP_CAPABILITIES),
@@ -72,6 +97,24 @@ export function runRightPanelControllerTests() {
 
   controller.openSurface("file", "File");
   assert.equal(actions.length, 2);
+
+  {
+    const blockedActions = [];
+    const blockedController = createRightPanelController({
+      dispatch: (action) => blockedActions.push(action),
+      terminalController: {
+        openRightPanelSurface: () => {
+          blockedActions.push({ type: "terminal_opened" });
+        },
+      },
+      getAppCapabilities: () => NO_PREVIEW_CAPABILITIES,
+    });
+    blockedController.openPreviewSurface({
+      resourceId: "http://127.0.0.1:3000",
+      previewSnapshot: { url: "http://127.0.0.1:3000" },
+    });
+    assert.deepEqual(blockedActions, []);
+  }
 
   controller.openFileSurface({
     filePath: "src/main.c",
