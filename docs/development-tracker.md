@@ -120,6 +120,10 @@
   returning `/api/app/bootstrap`, so Generic Agent no longer receives the
   default C/C++ Preview/Diff/Source Control entrypoints and specialized agents
   can narrow or extend the shell through capability data.
+- The global `embedagent.modes` facade now uses the Generic Agent profile
+  instead of importing `default_c_cpp_agent_profile()`. C/C++ writable globs,
+  prompt copy, mode descriptors, and base tool policy now enter hosted runtime
+  only through the selected default C/C++ `AgentApplication`.
 - No-workspace GUI shell branding now comes from backend app metadata:
   `app-home-model.js` projects `app.productName`, and `NoWorkspaceState.jsx`
   renders that descriptor value instead of hard-coding the default product

@@ -862,6 +862,14 @@ def test_agent_application_capabilities_are_declared_by_backend_not_gui_defaults
         assert token not in no_workspace_text
 
 
+def test_global_mode_facade_uses_generic_profile_not_default_c_cpp():
+    modes_text = _read(ROOT / "src/embedagent/modes.py")
+
+    assert "generic_agent_profile" in modes_text
+    assert "default_c_cpp_agent_profile" not in modes_text
+    assert "global/base agent profile" in modes_text
+
+
 def test_gui_app_shell_surfaces_are_descriptor_records_not_string_lists():
     app_shell_spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
     app_model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")

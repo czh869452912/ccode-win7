@@ -320,6 +320,11 @@ Built-in application records also carry `metadata.appShell` GUI allow-lists,
 so the hosted GUI can derive a smaller base shell or a specialized workflow
 shell from the selected application manifest rather than assuming the default
 C/C++ workbench surface set.
+The legacy/global `src/embedagent/modes.py` facade is intentionally backed by
+the generic base agent profile; hosted runtime paths use the selected
+`AgentApplication.profile` for specialized writable globs, prompt copy, mode
+descriptors, and active-tool base policy. The default C/C++ profile is loaded
+only by the default C/C++ application, not by the global mode facade.
 Workflow packages declare scenario-specific
 workflow tools, packs, prompts, resources, manifests, and package-owned tool
 names. Provider-facing schemas are always projected from explicit active tool
