@@ -1630,6 +1630,9 @@ def test_gui_preview_copy_is_app_shell_declared():
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/preview-surface-model.js"
     )
     preview_api_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/preview/preview-api.js")
+    preview_controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/preview-controller.js"
+    )
     surface_body_text = _read(
         ROOT
         / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx"
@@ -1639,7 +1642,13 @@ def test_gui_preview_copy_is_app_shell_declared():
     assert '"session_required_notice": "Open a session before using preview."' in spec_text
     assert "normalizePreviewChrome" in model_text
     assert "preview: normalizePreviewCapability" in model_text
-    assert "previewChrome.sessionRequiredNotice" in app_text
+    assert "createPreviewController" in app_text
+    assert "previewController.openUrl(url)" in app_text
+    assert "previewChrome.sessionRequiredNotice" not in app_text
+    assert "chrome.sessionRequiredNotice" in preview_controller_text
+    assert "chrome.failedNotice" in preview_controller_text
+    assert "chrome.refreshFailedNotice" in preview_controller_text
+    assert "chrome.openFailedNotice" in preview_controller_text
     assert "previewCapability.localServers" in app_text
     assert "previewChrome={previewChrome}" in app_text
     assert "previewServers={previewCapability.localServers" in app_text
@@ -2400,6 +2409,9 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     file_preview_controller_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/file-preview-controller.js"
     )
+    preview_controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/preview-controller.js"
+    )
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     surfaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js")
 
@@ -2424,8 +2436,11 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     assert "if (!opened) return;" not in app_text
     assert "openSurface({" in file_preview_controller_text
     assert "if (!opened) return null;" in file_preview_controller_text
-    assert "rightPanelController.openPreviewSurface(" in app_text
-    assert "rightPanelController.canOpenPreviewSurface()" in app_text
+    assert "createPreviewController" in app_text
+    assert "rightPanelController.openPreviewSurface(" not in app_text
+    assert "rightPanelController.canOpenPreviewSurface()" not in app_text
+    assert "canOpenPreviewSurface" in preview_controller_text
+    assert "openPreviewSurface" in preview_controller_text
     assert "rightPanelController.openFilesSurface()" in app_text
     assert "openKind" in surfaces_text
     assert "activationKind" in surfaces_text

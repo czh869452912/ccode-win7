@@ -117,9 +117,10 @@ or a specialized agent without File Preview do not reopen the local renderer's
 supported bodies through direct controller calls. Those semantic open methods
 return whether a surface was actually opened, and the file-preview controller
 stops loading when File Preview is not declared so unsupported agents do not
-fetch preview content behind a hidden UI.
-Preview session open/refresh/external-open calls also preflight the same
-semantic Preview capability before invoking backend preview routes.
+fetch preview content behind a hidden UI. Preview session
+open/refresh/external-open orchestration is delegated to
+`preview-controller.js`, which preflights the same semantic Preview capability
+before invoking backend preview routes.
 Source Control status refresh and file-diff requests likewise require the
 active app shell's Source Control capability before invoking backend
 source-control routes.

@@ -12,12 +12,17 @@ function readSource(...parts) {
 export function runPreviewSurfaceSourceTests() {
   const appSource = readSource("App.jsx");
   const previewSurfaceSource = readSource("components", "workbench", "PreviewSurface.jsx");
+  const previewControllerSource = readSource("app-runtime", "preview-controller.js");
   const previewModelSource = readSource("session-runtime", "preview-surface-model.js");
   const surfaceBodySource = readSource("components", "workbench", "RightPanelSurfaceBody.jsx");
 
-  assert.equal(appSource.includes("previewChrome.sessionRequiredNotice"), true);
-  assert.equal(appSource.includes("previewChrome.refreshFailedNotice"), true);
-  assert.equal(appSource.includes("previewChrome.openFailedNotice"), true);
+  assert.equal(appSource.includes("createPreviewController"), true);
+  assert.equal(appSource.includes("previewChrome.sessionRequiredNotice"), false);
+  assert.equal(appSource.includes("previewChrome.refreshFailedNotice"), false);
+  assert.equal(appSource.includes("previewChrome.openFailedNotice"), false);
+  assert.equal(previewControllerSource.includes("chrome.sessionRequiredNotice"), true);
+  assert.equal(previewControllerSource.includes("chrome.refreshFailedNotice"), true);
+  assert.equal(previewControllerSource.includes("chrome.openFailedNotice"), true);
   assert.equal(appSource.includes("previewCapability.localServers"), true);
   assert.equal(surfaceBodySource.includes("previewChrome"), true);
   assert.equal(surfaceBodySource.includes("previewServers"), true);

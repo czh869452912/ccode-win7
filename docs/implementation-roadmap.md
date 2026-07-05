@@ -164,8 +164,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   delegated to `file-preview-controller.js`; those semantic methods require an
   active app-shell surface declaration before opening File Preview, Preview, or
   right-panel Terminal; File Preview loading stops when the semantic open
-  returns false, and Preview API callers preflight the
-  same semantic Preview capability before invoking preview routes; Source
+  returns false, and Preview open/refresh/external-open orchestration is
+  delegated to `preview-controller.js`, which preflights the same semantic
+  Preview capability before invoking preview routes; Source
   Control status/diff callers similarly require the active app-shell Source
   Control capability before invoking source-control routes; Terminal service
   calls require the active app-shell Terminal capability before invoking

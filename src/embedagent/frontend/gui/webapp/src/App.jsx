@@ -12,6 +12,7 @@ import { buildComposerCommandsFromCapabilities } from "./session-runtime/command
 import { deriveSocketMessageEffects } from "./app-runtime/socket-message-effects.js";
 import { createFilePreviewController } from "./app-runtime/file-preview-controller.js";
 import { createLoaderRequestExecutor, loadSessionCommandCapabilities } from "./app-runtime/session-loaders.js";
+import { createPreviewController } from "./app-runtime/preview-controller.js";
 import { createRightPanelController } from "./app-runtime/right-panel-controller.js";
 import { createSessionActivationController } from "./app-runtime/session-activation-controller.js";
 import { createSessionController } from "./app-runtime/session-controller.js";
@@ -33,11 +34,6 @@ import {
   writeTerminal,
 } from "./terminal/terminal-api.js";
 import { nextTerminalId } from "./terminal/terminal-labels.js";
-import {
-  openPreviewExternal,
-  openPreviewSession,
-  refreshPreviewSession,
-} from "./preview/preview-api.js";
 import { buildBranchToolbarModel } from "./source-control/branch-toolbar-model.js";
 import { readComposerDraft } from "./composer/composer-state.js";
 import {
@@ -353,6 +349,16 @@ function App() {
       }),
     [rightPanelController],
   );
+  const previewController = useMemo(
+    () =>
+      createPreviewController({
+        dispatch,
+        getCurrentSessionId: () => readActiveThreadId(stateRef.current),
+        getPreviewChrome: () => stateRef.current.app.capabilities?.preview?.chrome || {},
+        rightPanelController,
+      }),
+    [rightPanelController],
+  );
   const { loadFileChildren } = workspaceFilesController;
 
   async function openFile(path, line) {
@@ -614,64 +620,15 @@ function App() {
     rightPanelSurfaces.find((surface) => surface.id === state.workbench.rightPanel.activeSurfaceId) || null;
 
   async function openPreviewUrl(url) {
-    if (!rightPanelController.canOpenPreviewSurface()) return null;
-    const sessionId = readActiveThreadId(stateRef.current);
-    if (!sessionId) {
-      dispatch({ type: "interaction_notice_set", notice: previewChrome.sessionRequiredNotice || "" });
-      return null;
-    }
-    try {
-      const result = await openPreviewSession(sessionId, url);
-      const snapshot = result.preview || null;
-      const resourceId = snapshot?.url || url;
-      rightPanelController.openPreviewSurface({
-        resourceId,
-        previewSnapshot: snapshot,
-      });
-      return result;
-    } catch (error) {
-      dispatch({
-        type: "interaction_notice_set",
-        notice: error instanceof Error ? error.message : previewChrome.failedNotice || "",
-      });
-      throw error;
-    }
+    return previewController.openUrl(url);
   }
 
   async function refreshPreview(snapshot) {
-    if (!rightPanelController.canOpenPreviewSurface()) return null;
-    const sessionId = readActiveThreadId(stateRef.current);
-    const tabId = snapshot?.tabId || snapshot?.tab_id || "";
-    if (!sessionId || !tabId) return null;
-    try {
-      const result = await refreshPreviewSession(sessionId, tabId);
-      const nextSnapshot = result.preview || null;
-      const resourceId = nextSnapshot?.url || snapshot?.url || "";
-      rightPanelController.openPreviewSurface({
-        resourceId,
-        previewSnapshot: nextSnapshot,
-      });
-      return result;
-    } catch (error) {
-      dispatch({
-        type: "interaction_notice_set",
-        notice: error instanceof Error ? error.message : previewChrome.refreshFailedNotice || "",
-      });
-      throw error;
-    }
+    return previewController.refresh(snapshot);
   }
 
   async function openPreviewInSystemBrowser(url) {
-    if (!rightPanelController.canOpenPreviewSurface()) return null;
-    try {
-      return await openPreviewExternal(url);
-    } catch (error) {
-      dispatch({
-        type: "interaction_notice_set",
-        notice: error instanceof Error ? error.message : previewChrome.openFailedNotice || "",
-      });
-      throw error;
-    }
+    return previewController.openExternal(url);
   }
 
   const surfacePanelProps = {
