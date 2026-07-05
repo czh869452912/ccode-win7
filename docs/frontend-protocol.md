@@ -493,10 +493,10 @@ consumed from this capability projection's `tools` descriptors and normalized
 into the renderer `toolCatalog`; there is no split GUI `/api/tool-catalog`
 refetch contract or frontend-facing `CoreInterface.get_tool_catalog` facade.
 Right-panel navigation is likewise owned by the app-shell surface capability
-projection. Surface panel components render the active surface kind only; they
-merge backend-declared descriptor metadata with locally supported renderers and
-do not keep a second hard-coded tab registry, `inspectorTab` adapter, or
-`onTabChange` navigation contract.
+projection. Surface body components merge backend-declared descriptor metadata
+with locally supported renderer metadata (`bodyKind` and, for generic panels,
+`panelKind`) and do not keep a second hard-coded tab registry, `inspectorTab`
+adapter, or `onTabChange` navigation contract.
 The renderer has no root-level `inspectorTab` / `inspectorOpen` navigation
 state; opening, activating, and closing right-panel content flows through
 workbench surface state.

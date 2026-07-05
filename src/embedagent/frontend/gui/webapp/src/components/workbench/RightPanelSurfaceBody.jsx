@@ -90,7 +90,7 @@ function rightPanelBody(activeDefinition, {
       return (
         <SurfacePanel
           {...surfacePanelProps}
-          surfaceKind={surface.kind}
+          panelKind={activeDefinition ? activeDefinition.panelKind || "" : ""}
         />
       );
   }

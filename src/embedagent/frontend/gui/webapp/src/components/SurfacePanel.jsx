@@ -3,8 +3,38 @@ import { formatDiagnosticsRows } from "../app-shell/diagnostics.js";
 import DiffPanel from "./diff/DiffPanel.jsx";
 import SourceControlPanel from "./source-control/SourceControlPanel.jsx";
 
+export const PANEL_RENDERERS = Object.freeze({
+  plan: ({ plan, chrome }) => <PlanPanel plan={plan} chrome={chrome} />,
+  diff: ({ diffSurface, diffPanelChrome, onFocusDiffFile }) => (
+    <DiffPanel surface={diffSurface} onFocusFile={onFocusDiffFile} chrome={diffPanelChrome} />
+  ),
+  source_control: ({
+    sourceControl,
+    sourceControlChrome,
+    onRefreshSourceControl,
+    onSelectSourceControlFile,
+  }) => (
+    <SourceControlPanel
+      sourceControl={sourceControl}
+      sourceControlChrome={sourceControlChrome}
+      onRefresh={onRefreshSourceControl}
+      onSelectFile={onSelectSourceControlFile}
+    />
+  ),
+  settings: ({ appShell, chrome, onAppSettingsChange }) => (
+    <SettingsPanel
+      appShell={appShell}
+      chrome={chrome}
+      onAppSettingsChange={onAppSettingsChange}
+    />
+  ),
+  diagnostics: ({ appShell, chrome }) => (
+    <DiagnosticsPanel appShell={appShell} chrome={chrome} />
+  ),
+});
+
 export default function SurfacePanel({
-  surfaceKind,
+  panelKind,
   plan,
   diffSurface,
   sourceControl,
@@ -17,31 +47,24 @@ export default function SurfacePanel({
   onSelectSourceControlFile,
   onAppSettingsChange,
 }) {
+  const panelProps = {
+    plan,
+    diffSurface,
+    sourceControl,
+    sourceControlChrome,
+    diffPanelChrome,
+    appShell,
+    chrome,
+    onFocusDiffFile,
+    onRefreshSourceControl,
+    onSelectSourceControlFile,
+    onAppSettingsChange,
+  };
+  const renderPanel = PANEL_RENDERERS[String(panelKind || "")] || null;
   return (
     <aside className="surface-panel" role="complementary" aria-label={chrome.ariaLabel} data-testid="surface-panel">
       <div className="surface-panel-body">
-        {surfaceKind === "plan" && <PlanPanel plan={plan} chrome={chrome} />}
-        {surfaceKind === "diff" && (
-          <DiffPanel surface={diffSurface} onFocusFile={onFocusDiffFile} chrome={diffPanelChrome} />
-        )}
-        {surfaceKind === "source_control" && (
-          <SourceControlPanel
-            sourceControl={sourceControl}
-            sourceControlChrome={sourceControlChrome}
-            onRefresh={onRefreshSourceControl}
-            onSelectFile={onSelectSourceControlFile}
-          />
-        )}
-        {surfaceKind === "settings" && (
-          <SettingsPanel
-            appShell={appShell}
-            chrome={chrome}
-            onAppSettingsChange={onAppSettingsChange}
-          />
-        )}
-        {surfaceKind === "diagnostics" && (
-          <DiagnosticsPanel appShell={appShell} chrome={chrome} />
-        )}
+        {renderPanel ? renderPanel(panelProps) : null}
       </div>
     </aside>
   );

@@ -70,6 +70,9 @@ without an implemented body.
 Right-panel body mounting uses the same renderer-local metadata path; app-shell
 surface ids select visibility and labels, while renderer registry records
 select the concrete body component.
+Generic `SurfacePanel` bodies are selected by renderer-local `panelKind`
+metadata, so Plan, Diff, Source Control, Settings, and Diagnostics panels do
+not require branches on app-shell surface ids.
 Commands in undeclared or untitled palette groups remain hidden
 rather than using title-cased group ids, and missing command row description/meta copy
 remains empty instead of falling back to command ids. Surface command row
@@ -120,7 +123,7 @@ concerns now appear only through active surfaces, session activities,
 interaction state, or app-shell diagnostics.
 The old `Inspector.jsx` component and `inspectorTab` / `inspectorKind` dispatch
 path are retired. Right-panel fallback content is rendered by `SurfacePanel`
-from the active workbench surface kind.
+from renderer-local `panelKind` metadata.
 The GUI artifact refetch facade has also been removed: GUI routes no longer
 expose `/api/artifacts`, and WebSocket/frontend callback contracts no longer
 carry `artifacts_refresh`.

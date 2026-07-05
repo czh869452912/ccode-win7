@@ -908,7 +908,9 @@ async function main() {
   assert.equal(surfacePanelSource.includes("showTabs"), false);
   assert.equal(surfacePanelSource.includes("onTabChange"), false);
   assert.equal(surfacePanelSource.includes("inspectorTab"), false);
-  assert.equal(surfacePanelSource.includes('{surfaceKind === "diff"'), true);
+  assert.equal(surfacePanelSource.includes("PANEL_RENDERERS"), true);
+  assert.equal(surfacePanelSource.includes("panelKind"), true);
+  assert.equal(surfacePanelSource.includes('{surfaceKind === "diff"'), false);
   assert.equal(surfacePanelSource.includes("formatDiagnosticsRows"), true);
   assert.equal(surfacePanelSource.includes("SettingsPanel"), true);
   assert.equal(surfacePanelSource.includes("DiagnosticsPanel"), true);
@@ -1622,6 +1624,7 @@ async function main() {
   assert.equal(rightPanelSurfaceBodySource.includes("SurfacePanel"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("surfaceDefinitionFor(surface.kind)"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("activeDefinition.bodyKind"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("activeDefinition.panelKind"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("Inspector"), false);
   assert.equal(rightPanelSurfaceBodySource.includes("inspectorTab"), false);
   assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "file"'), false);
@@ -1629,6 +1632,18 @@ async function main() {
   assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "preview"'), false);
   assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "terminal"'), false);
   assert.equal(rightPanelSurfaceBodySource.includes("filePreviewsByPath"), true);
+
+  const surfacePanelRendererSource = fs.readFileSync(
+    webappSourcePath("components", "SurfacePanel.jsx"),
+    "utf8",
+  );
+  assert.equal(surfacePanelRendererSource.includes("PANEL_RENDERERS"), true);
+  assert.equal(surfacePanelRendererSource.includes("panelKind"), true);
+  assert.equal(surfacePanelRendererSource.includes('surfaceKind === "plan"'), false);
+  assert.equal(surfacePanelRendererSource.includes('surfaceKind === "diff"'), false);
+  assert.equal(surfacePanelRendererSource.includes('surfaceKind === "source_control"'), false);
+  assert.equal(surfacePanelRendererSource.includes('surfaceKind === "settings"'), false);
+  assert.equal(surfacePanelRendererSource.includes('surfaceKind === "diagnostics"'), false);
 
   const terminalShellSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "TerminalShell.jsx"),

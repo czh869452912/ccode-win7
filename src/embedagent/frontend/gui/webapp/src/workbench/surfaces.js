@@ -46,6 +46,7 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     closeBehavior: "closable",
     persistFields: DEFAULT_PERSIST_FIELDS,
     bodyKind: "surface_panel",
+    panelKind: "diff",
     launcher: true,
     launcherOrder: 40,
     command: true,
@@ -94,6 +95,7 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     closeBehavior: "closable",
     persistFields: DEFAULT_PERSIST_FIELDS,
     bodyKind: "surface_panel",
+    panelKind: "plan",
     launcher: true,
     launcherOrder: 50,
     command: true,
@@ -106,6 +108,7 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     closeBehavior: "closable",
     persistFields: DEFAULT_PERSIST_FIELDS,
     bodyKind: "surface_panel",
+    panelKind: "source_control",
     launcher: true,
     launcherOrder: 60,
     command: true,
@@ -120,6 +123,7 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     closeBehavior: "closable",
     persistFields: DEFAULT_PERSIST_FIELDS,
     bodyKind: "surface_panel",
+    panelKind: "settings",
     launcher: true,
     launcherOrder: 70,
     command: true,
@@ -132,6 +136,7 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
     closeBehavior: "closable",
     persistFields: DEFAULT_PERSIST_FIELDS,
     bodyKind: "surface_panel",
+    panelKind: "diagnostics",
     launcher: true,
     launcherOrder: 80,
     command: true,
@@ -259,6 +264,7 @@ function mergedSurfaceDefinition(definition, capability) {
       ? { ...capability.dispatch }
       : {},
     bodyKind: definition.bodyKind || "",
+    panelKind: definition.panelKind || "",
   };
 }
 

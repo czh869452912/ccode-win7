@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-278
+
+- Date: 2026-07-05
+- Change Topic: GUI generic right-panel subpanels use renderer metadata
+- Summary:
+  - Added renderer-local `panelKind` metadata for generic `SurfacePanel`
+    surfaces such as Plan, Diff, Source Control, Settings, and Diagnostics.
+  - `RightPanelSurfaceBody` now passes `activeDefinition.panelKind` into
+    `SurfacePanel`; the panel no longer branches on fixed surface ids such as
+    `surfaceKind === "diff"`.
+  - Frontend and architecture guards now prevent old generic right-panel
+    surface-id routing from returning.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New generic right-panel panels must add explicit renderer metadata instead
+    of reintroducing surface-id conditionals.
+
 ### DC-277
 
 - Date: 2026-07-05

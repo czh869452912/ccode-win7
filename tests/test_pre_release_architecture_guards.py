@@ -2213,9 +2213,16 @@ def test_gui_right_panel_body_has_no_inspector_tab_renderer():
         / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx"
     )
     surfaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js")
+    surface_panel_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx"
+    )
     assert "surfaceDefinitionFor(surface.kind)" in surface_body_text
     assert "activeDefinition.bodyKind" in surface_body_text
+    assert "activeDefinition.panelKind" in surface_body_text
     assert "bodyKind" in surfaces_text
+    assert "panelKind" in surfaces_text
+    assert "PANEL_RENDERERS" in surface_panel_text
+    assert "panelKind" in surface_panel_text
     for token in (
         'surface.kind === "file"',
         'surface.kind === "files"',
@@ -2223,6 +2230,14 @@ def test_gui_right_panel_body_has_no_inspector_tab_renderer():
         'surface.kind === "terminal"',
     ):
         assert token not in surface_body_text
+    for token in (
+        'surfaceKind === "plan"',
+        'surfaceKind === "diff"',
+        'surfaceKind === "source_control"',
+        'surfaceKind === "settings"',
+        'surfaceKind === "diagnostics"',
+    ):
+        assert token not in surface_panel_text
 
 
 def test_gui_has_no_retired_workflow_runtime_panel_display_helper():

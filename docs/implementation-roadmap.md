@@ -161,6 +161,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   right-panel body selection now follows the same renderer metadata path
   instead of branching on fixed surface kind strings in
   `RightPanelSurfaceBody`;
+  generic `SurfacePanel` content is selected by renderer-local `panelKind`
+  metadata rather than surface-id branches;
   surface descriptors without explicit titles remain
   diagnostic capability records and do not enter visible launchers or surface
   commands; persisted workbench surface state is also re-sanitized
@@ -183,7 +185,7 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   paths remain evidence metadata, not a standalone frontend browse API.
   The old `Inspector.jsx` component and `inspectorTab` / `inspectorKind`
   renderer adapter are also retired; right-panel fallback content now renders
-  through `SurfacePanel` from the active workbench surface kind.
+  through `SurfacePanel` from renderer-local `panelKind` metadata.
 - GUI thread lifecycle actions now route through the session lifecycle facade
   and are displayed from app-shell `thread_lifecycle.actions` descriptors
   rather than a renderer-owned fixed action list: the default descriptors map
@@ -309,7 +311,7 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `toolCatalog` fallback state, and frontend-facing `CoreInterface.get_tool_catalog`
   facade have been removed.
 - Right-panel surface navigation is now the only GUI right-panel entrypoint
-  truth. `SurfacePanel` receives the active surface kind from
+  truth. `SurfacePanel` receives renderer-local `panelKind` metadata from
   `RightPanelSurfaceBody`; the removed `Inspector` component no longer keeps an
   internal `RIGHT_PANEL_SURFACES` tab registry, `inspectorTab` adapter,
   `showTabs` flag, or `onTabChange` navigation contract.

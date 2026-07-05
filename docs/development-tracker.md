@@ -53,8 +53,8 @@
   the current right-panel surface model.
 - The old `Inspector.jsx` right-panel body and `inspectorTab` /
   `inspectorKind` adapter have been retired. `RightPanelSurfaceBody` now hands
-  the active surface kind to `SurfacePanel`, so the right panel no longer has a
-  hidden tab renderer behind the T3-style surface state.
+  renderer-local `panelKind` metadata to `SurfacePanel`, so the right panel no
+  longer has a hidden tab renderer behind the T3-style surface state.
 - `/api/app/bootstrap` app-shell surface capabilities now use descriptor
   records instead of string ids. The renderer merges those backend-declared
   titles, icons, ordering, command/slash metadata, and safety hints with local
@@ -535,6 +535,7 @@
 - 当前收敛：Terminal bottom-drawer command 的打开行为现在来自 `surfaces.bottom_drawer` descriptor 上的 `dispatch.kind: terminal.ensure_open`；renderer 只识别该 dispatch kind，不再把 `drawer: "terminal"` 当作特殊执行策略。
 - 当前收敛：Bottom drawer body 选择现在来自 renderer-supported surface definition 的 `bodyKind` metadata；未实现的默认 `logs` drawer 已删除，初始/持久化 fallback 不再把 active drawer 写死为 `run_output`。
 - 当前收敛：Right-panel body 选择也已改为 renderer-supported surface definition 的 `bodyKind` metadata；`RightPanelSurfaceBody` 不再用固定 `surface.kind === ...` 分支推断 Files/File Preview/Preview/Terminal body。
+- 当前收敛：Generic `SurfacePanel` 子面板选择也已改为 renderer-supported surface definition 的 `panelKind` metadata；`SurfacePanel` 不再用固定 `surfaceKind === ...` 分支推断 Plan/Diff/Source Control/Settings/Diagnostics body。
 - 当前收敛：App Home/sidebar 的 workspace/thread copy 现在来自 `/api/app/bootstrap` 的 `home.workspace` / `home.threads` descriptors，并与 selected agent `emptyState` 组合展示；renderer 不再持有默认 no-workspace、workspace path、missing-path、empty-thread 文案或 untitled thread fallback prefix。
 - 当前收敛：Workbench header/sidebar/composer/composer-interaction/legacy panel chrome copy 现在来自 `/api/app/bootstrap` 的 `capabilities.chrome` descriptor；旧 `webapp/src/strings.js`、`LangContext.js` 和未挂载的 `components/InteractionPanel.jsx` 已删除，renderer 不再保留第二套全局 i18n/string registry。
 - 当前收敛：Terminal surface/drawer 的 pane label fallback、toolbar action、placeholder、empty/unavailable state 和 failure notice copy 现在来自 `/api/app/bootstrap` 的 `capabilities.terminal.chrome` descriptor；`terminal-labels.js` 无 descriptor 时只回退到 terminal id，不再生成 renderer-owned `"Terminal N"` 文案。
