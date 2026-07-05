@@ -650,6 +650,26 @@ def test_active_docs_keep_legacy_architecture_terms_in_removed_contexts():
     assert offenders == []
 
 
+def test_development_tracker_uses_current_c_cpp_workflow_package_paths():
+    text = _read(ROOT / "docs/development-tracker.md")
+
+    forbidden_tokens = (
+        "src/embedagent/" + "harness",
+        "embedagent." + "harness",
+        "src/embedagent/default_extensions.py",
+        "default_extensions.py",
+        "harness/workflow_projection.py",
+        "harness/tool_metadata.py",
+        "harness/packs.py",
+    )
+    offenders = [token for token in forbidden_tokens if token in text]
+    assert offenders == []
+    assert "src/embedagent/workflow_packages/c_cpp/extension.py" in text
+    assert "src/embedagent/workflow_packages/c_cpp/application.py" in text
+    assert "src/embedagent/workflow_packages/c_cpp/workflow_projection.py" in text
+    assert "src/embedagent/workflow_packages/c_cpp/packs.py" in text
+
+
 def test_runtime_tool_execute_calls_stay_behind_action_or_hosted_services():
     allowed_files = {
         "src/embedagent/agent_tool_action_service.py",
