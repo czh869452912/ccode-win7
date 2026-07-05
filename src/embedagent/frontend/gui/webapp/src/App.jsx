@@ -17,6 +17,7 @@ import { createDiffSurfaceController } from "./app-runtime/diff-surface-controll
 import { createFilePreviewController } from "./app-runtime/file-preview-controller.js";
 import { createLoaderRequestExecutor, loadSessionCommandCapabilities } from "./app-runtime/session-loaders.js";
 import { createPreviewController } from "./app-runtime/preview-controller.js";
+import { createRespondingRequestIdsHandle } from "./app-runtime/responding-request-ids-handle.js";
 import {
   createPanelResizeController,
   RESIZE_DIRECTIONS,
@@ -87,11 +88,18 @@ function App() {
   const [sessionTransport, setSessionTransport] = useState(() => createSessionTransportState());
   const timelineRef = useRef(null);
   const currentSessionIdRef = useRef("");
-  const respondingRequestIdsRef = useRef([]);
   const runtimeStateRef = useRef(null);
   const sessionTransportControllerRef = useRef(null);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const respondingRequestIdsHandle = useMemo(
+    () =>
+      createRespondingRequestIdsHandle({
+        initialRequestIds: respondingRequestIds,
+        setRequestIds: setRespondingRequestIdsState,
+      }),
+    [],
+  );
   const sessionTransportHandle = useMemo(
     () =>
       createSessionTransportHandle({
@@ -225,15 +233,9 @@ function App() {
     sessionTransportHandle.sync(sessionTransport);
   }, [sessionTransport, sessionTransportHandle]);
 
-  function setRespondingRequestIds(value) {
-    const nextValue =
-      typeof value === "function" ? value(respondingRequestIdsRef.current) : value;
-    const normalized = Array.isArray(nextValue)
-      ? nextValue.map((item) => String(item || "")).filter(Boolean)
-      : [];
-    respondingRequestIdsRef.current = normalized;
-    setRespondingRequestIdsState(normalized);
-  }
+  useEffect(() => {
+    respondingRequestIdsHandle.sync(respondingRequestIds);
+  }, [respondingRequestIds, respondingRequestIdsHandle]);
 
   // initial app/workspace data load
   useEffect(() => {
@@ -543,12 +545,12 @@ function App() {
         normalizeSessionPayload,
         getCurrentSessionId: () => currentSessionIdRef.current,
         getCurrentInteraction: () => runtimeStateRef.current?.currentInteraction || null,
-        getRespondingRequestIds: () => respondingRequestIdsRef.current,
-        setRespondingRequestIds,
+        getRespondingRequestIds: respondingRequestIdsHandle.read,
+        setRespondingRequestIds: respondingRequestIdsHandle.set,
         loadSession,
         logEvent,
       }),
-    [],
+    [respondingRequestIdsHandle],
   );
 
   async function respondToInteraction(payload) {

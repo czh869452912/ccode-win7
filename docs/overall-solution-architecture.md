@@ -536,6 +536,10 @@ Managed-session workflow refresh in the product adapter path goes through `Agent
   envelopes. Raw `permission_request` / `user_input_request` WebSocket
   messages drive only the current blocking interaction UI and must not become
   renderer-synthesized activity/history streams.
+- GUI pending interaction response busy state is a local renderer bridge:
+  `app-runtime/responding-request-ids-handle.js` owns request-id normalization,
+  sync, reads, and updates, while `App.jsx` keeps only the React state cell used
+  to render the current composer interaction busy indicator.
 - GUI/TUI read-model refresh after tool completion is metadata-driven. Tool
   catalog entries may declare `read_model_invalidations`; hosted adapters and
   frontend shells use those hints only for safe projections they own, such as

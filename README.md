@@ -123,6 +123,11 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
   `webapp/src/app-runtime/session-transport-handle.js`; `App.jsx` owns the
   React state cell but must not keep a parallel `sessionTransportRef` or inline
   transport replace/update helpers.
+- Official GUI interaction response busy-state bridge: pending response request
+  ids are normalized, synced, read, and updated through
+  `webapp/src/app-runtime/responding-request-ids-handle.js`; `App.jsx` owns the
+  React state cell but must not keep a parallel `respondingRequestIdsRef` or
+  inline request-id normalization helpers.
 - Official GUI active-workspace data boundary: the post-activation read-model refresh fanout for sessions, session capabilities, workspace files, and local status surfaces is owned by `webapp/src/app-runtime/active-workspace-data-loader.js`; `App.jsx` wires dependencies but must not inline that reload `Promise.all`.
 - Official GUI panel-resize boundary: pointer/DOM logic for sidebar and right-panel resizing lives in `webapp/src/app-runtime/panel-resize-controller.js`; `App.jsx` wires resize handlers but must not mutate `documentElement.style` directly.
 - Official GUI timeline-scroll boundary: Timeline bottom-follow state and

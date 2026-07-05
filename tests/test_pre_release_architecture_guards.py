@@ -850,6 +850,22 @@ def test_gui_session_transport_state_bridge_is_handle_owned():
     assert "createSessionTransportState" in handle_text
 
 
+def test_gui_responding_request_ids_bridge_is_handle_owned():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    handle_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/responding-request-ids-handle.js"
+    )
+
+    assert "createRespondingRequestIdsHandle" in app_text
+    assert "respondingRequestIdsRef" not in app_text
+    assert "function setRespondingRequestIds" not in app_text
+    assert "setRespondingRequestIdsState(normalized)" not in app_text
+    assert "export function createRespondingRequestIdsHandle" in handle_text
+    assert "normalizeRequestIds" in handle_text
+    assert "function set" in handle_text
+    assert "function sync" in handle_text
+
+
 def test_gui_command_result_run_output_log_is_payload_driven():
     text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"

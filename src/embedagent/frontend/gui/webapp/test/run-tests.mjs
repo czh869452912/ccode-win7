@@ -44,6 +44,7 @@ import { runSessionTransportHandleTests } from "./session-transport-handle.test.
 import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
 import { runSocketEffectExecutorTests } from "./socket-effect-executor.test.mjs";
 import { runInteractionResponseControllerTests } from "./interaction-response-controller.test.mjs";
+import { runRespondingRequestIdsHandleTests } from "./responding-request-ids-handle.test.mjs";
 import { runSocketMessageEffectsTests } from "./socket-message-effects.test.mjs";
 import { runVisualDebugFixturesTests } from "./visual-debug-fixtures.test.mjs";
 import { runWorkbenchParityModelTests } from "./workbench-parity-model.test.mjs";
@@ -2049,6 +2050,10 @@ async function main() {
     webappSourcePath("app-runtime", "session-transport-handle.js"),
     "utf8",
   );
+  const respondingRequestIdsHandleSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "responding-request-ids-handle.js"),
+    "utf8",
+  );
   const socketEffectExecutorSource = fs.readFileSync(
     webappSourcePath("app-runtime", "socket-effect-executor.js"),
     "utf8",
@@ -2084,6 +2089,18 @@ async function main() {
   assert.equal(sessionTransportHandleSource.includes("function sync"), true);
   assert.equal(sessionTransportHandleSource.includes("createSessionTransportState"), true);
   assert.equal(sessionTransportHandleSource.includes("import React"), false);
+  assert.equal(appSource.includes("createRespondingRequestIdsHandle"), true);
+  assert.equal(appSource.includes("respondingRequestIdsRef"), false);
+  assert.equal(appSource.includes("function setRespondingRequestIds"), false);
+  assert.equal(appSource.includes("setRespondingRequestIdsState(normalized)"), false);
+  assert.equal(
+    respondingRequestIdsHandleSource.includes("export function createRespondingRequestIdsHandle"),
+    true,
+  );
+  assert.equal(respondingRequestIdsHandleSource.includes("normalizeRequestIds"), true);
+  assert.equal(respondingRequestIdsHandleSource.includes("function set"), true);
+  assert.equal(respondingRequestIdsHandleSource.includes("function sync"), true);
+  assert.equal(respondingRequestIdsHandleSource.includes("import React"), false);
   assert.equal(appSource.includes("createSocketEffectExecutor"), true);
   assert.equal(appSource.includes("const executeSocketEffects = createSocketEffectExecutor"), true);
   assert.equal(appSource.includes("appendSessionTransportEvent"), false);
@@ -2215,6 +2232,7 @@ async function main() {
   await runSessionTransportControllerTests();
   await runSocketEffectExecutorTests();
   await runInteractionResponseControllerTests();
+  runRespondingRequestIdsHandleTests();
   runSocketMessageEffectsTests();
   runVisualDebugFixturesTests();
   await runVisualDebugRunnerTests();
