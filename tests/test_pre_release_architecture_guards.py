@@ -1553,6 +1553,8 @@ def test_gui_terminal_copy_is_app_shell_declared():
     assert "getTerminalChrome" in app_text
     assert "terminalChrome={terminalChrome}" in app_text
     assert "terminalChromeText" in controller_text
+    assert "terminalCapabilityEnabled" in controller_text
+    assert "appCapabilities?.terminal?.enabled === true" in controller_text
     assert "surfaceDefinitionFor" in controller_text
     assert "terminalChrome" in shell_text
     assert "terminalChrome" in surface_body_text

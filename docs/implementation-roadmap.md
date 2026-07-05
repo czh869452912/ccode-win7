@@ -166,7 +166,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   when the semantic open returns false, and Preview API callers preflight the
   same semantic Preview capability before invoking preview routes; Source
   Control status/diff callers similarly require the active app-shell Source
-  Control capability before invoking source-control routes;
+  Control capability before invoking source-control routes; Terminal service
+  calls require the active app-shell Terminal capability before invoking
+  terminal routes or pane attachment side effects;
   right-panel tab activation side effects are selected by renderer-local
   `activationKind` metadata through
   `RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]` in

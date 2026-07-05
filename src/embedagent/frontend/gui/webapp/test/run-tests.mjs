@@ -1262,6 +1262,8 @@ async function main() {
   assert.equal(terminalControllerSource.includes("createTerminalController"), true);
   assert.equal(terminalControllerSource.includes("TERMINAL_DIMENSIONS"), true);
   assert.equal(terminalControllerSource.includes("terminalChromeText"), true);
+  assert.equal(terminalControllerSource.includes("terminalCapabilityEnabled"), true);
+  assert.equal(terminalControllerSource.includes("appCapabilities?.terminal?.enabled === true"), true);
   assert.equal(terminalControllerSource.includes("TERMINAL_SURFACE_KIND"), true);
   assert.equal(terminalControllerSource.includes("terminalSurfaceActionInput"), true);
   assert.equal(terminalControllerSource.includes("surfaceDefinitionFor"), true);

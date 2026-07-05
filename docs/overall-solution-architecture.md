@@ -121,6 +121,9 @@ semantic Preview capability before invoking backend preview routes.
 Source Control status refresh and file-diff requests likewise require the
 active app shell's Source Control capability before invoking backend
 source-control routes.
+Terminal service calls require the active app shell's Terminal capability
+before opening, listing, writing, clearing, restarting, closing, or attaching
+terminal panes, even when stale terminal UI state still exists locally.
 Right-panel terminal surface creation follows the same rule
 and refuses to start a terminal session when the active app shell omits the
 right-panel Terminal surface. Right-panel activation side effects use

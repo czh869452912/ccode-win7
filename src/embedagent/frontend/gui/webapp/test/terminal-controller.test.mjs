@@ -12,6 +12,9 @@ const TERMINAL_CHROME = Object.freeze({
 });
 
 const APP_CAPABILITIES = Object.freeze({
+  terminal: {
+    enabled: true,
+  },
   surfaces: {
     bottomDrawer: [
       {
@@ -179,6 +182,19 @@ export async function runTerminalControllerTests() {
       placement: "bottom",
       kind: "terminal",
     });
+  }
+
+  {
+    const harness = createHarness({
+      appCapabilities: {
+        terminal: { enabled: false },
+        surfaces: APP_CAPABILITIES.surfaces,
+      },
+    });
+    const result = await harness.controller.ensureOpen();
+    assert.equal(result, null);
+    assert.deepEqual(harness.apiCalls, []);
+    assert.deepEqual(harness.actions, []);
   }
 
   {

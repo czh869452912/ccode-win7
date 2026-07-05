@@ -64,6 +64,11 @@ function readAppCapabilities(deps) {
   return value && typeof value === "object" ? value : null;
 }
 
+function terminalCapabilityEnabled(deps) {
+  const appCapabilities = readAppCapabilities(deps);
+  return appCapabilities?.terminal?.enabled === true;
+}
+
 function terminalSurfaceTitle(deps, fallback = "") {
   const definition = rightPanelTerminalSurfaceDefinition(deps);
   return String((definition && definition.title) || fallback || "");
@@ -137,6 +142,7 @@ export function createTerminalController(deps = {}) {
   }
 
   async function ensureOpen(preferredId = "") {
+    if (!terminalCapabilityEnabled(deps)) return null;
     const context = requireSession();
     if (!context) return null;
     const terminal = readTerminalState(context.state);
@@ -159,6 +165,7 @@ export function createTerminalController(deps = {}) {
   }
 
   async function openSession(terminalId = "") {
+    if (!terminalCapabilityEnabled(deps)) return null;
     const context = requireSession();
     if (!context) return null;
     const terminal = readTerminalState(context.state);
@@ -177,6 +184,7 @@ export function createTerminalController(deps = {}) {
   }
 
   async function refresh() {
+    if (!terminalCapabilityEnabled(deps)) return;
     const state = getState();
     const sessionId = readSessionId(state);
     if (!sessionId) return;
@@ -191,6 +199,7 @@ export function createTerminalController(deps = {}) {
   }
 
   async function sendTo(terminalId, text) {
+    if (!terminalCapabilityEnabled(deps)) return null;
     const state = getState();
     const sessionId = readSessionId(state);
     const targetTerminalId = normalizeTerminalId(terminalId);
@@ -213,6 +222,7 @@ export function createTerminalController(deps = {}) {
   }
 
   async function clearById(terminalId) {
+    if (!terminalCapabilityEnabled(deps)) return null;
     const state = getState();
     const sessionId = readSessionId(state);
     const targetTerminalId = normalizeTerminalId(terminalId);
@@ -236,6 +246,7 @@ export function createTerminalController(deps = {}) {
   }
 
   async function restartById(terminalId) {
+    if (!terminalCapabilityEnabled(deps)) return null;
     const state = getState();
     const sessionId = readSessionId(state);
     const targetTerminalId = normalizeTerminalId(terminalId);
@@ -259,6 +270,7 @@ export function createTerminalController(deps = {}) {
   }
 
   async function closeActive() {
+    if (!terminalCapabilityEnabled(deps)) return null;
     const state = getState();
     const sessionId = readSessionId(state);
     const terminal = readTerminalState(state);
@@ -323,6 +335,7 @@ export function createTerminalController(deps = {}) {
   }
 
   function activateRightPanelPane(surface, terminalId) {
+    if (!terminalCapabilityEnabled(deps)) return null;
     const surfaceAction = terminalSurfaceActionInput(surface);
     if (!surfaceAction) return null;
     const targetTerminalId = normalizeTerminalId(terminalId);
@@ -337,6 +350,7 @@ export function createTerminalController(deps = {}) {
   }
 
   async function closeRightPanelPane(surface, terminalId) {
+    if (!terminalCapabilityEnabled(deps)) return null;
     const surfaceAction = terminalSurfaceActionInput(surface);
     if (!surfaceAction) return null;
     const targetTerminalId = normalizeTerminalId(terminalId);
