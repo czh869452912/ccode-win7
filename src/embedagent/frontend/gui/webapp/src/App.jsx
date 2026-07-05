@@ -281,23 +281,21 @@ function App() {
       }),
     [],
   );
-
-  async function loadSessions() {
-    return sessionListController.loadSessions();
-  }
-
-  async function loadSession(sessionId) {
-    const loadSessionController = createSessionActivationController({
-      fetchJson,
-      dispatch,
-      defaultMode: INITIAL_REQUESTED_MODE,
-      createTransportState: sessionTransportHandle.createRuntimeTransport,
-      replaceTransportState: sessionTransportHandle.replace,
-      getAppCapabilities: () => stateRef.current.app.capabilities || {},
-      listTerminals,
-    });
-    await loadSessionController(sessionId);
-  }
+  const { loadSessions } = sessionListController;
+  const sessionActivationController = useMemo(
+    () =>
+      createSessionActivationController({
+        fetchJson,
+        dispatch,
+        defaultMode: INITIAL_REQUESTED_MODE,
+        createTransportState: sessionTransportHandle.createRuntimeTransport,
+        replaceTransportState: sessionTransportHandle.replace,
+        getAppCapabilities: () => stateRef.current.app.capabilities || {},
+        listTerminals,
+      }),
+    [sessionTransportHandle],
+  );
+  const loadSession = sessionActivationController;
 
   const workspaceFilesController = useMemo(
     () =>

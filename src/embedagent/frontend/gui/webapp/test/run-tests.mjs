@@ -1091,6 +1091,11 @@ async function main() {
   }
   assert.equal(appSource.includes("createSessionController"), true);
   assert.equal(appSource.includes("createSessionListController"), true);
+  assert.equal(appSource.includes("const { loadSessions } = sessionListController"), true);
+  assert.equal(appSource.includes("async function loadSessions"), false);
+  assert.equal(appSource.includes("createSessionActivationController"), true);
+  assert.equal(appSource.includes("const loadSession = sessionActivationController"), true);
+  assert.equal(appSource.includes("async function loadSession"), false);
   assert.equal(appSource.includes('import { fetchJson } from "./app-runtime/http-client.js"'), true);
   assert.equal(appSource.includes("async function fetchJson"), false);
   assert.equal(appSource.includes("fetch("), false);

@@ -777,11 +777,28 @@ def test_gui_session_list_loading_is_controller_owned():
     )
 
     assert "createSessionListController" in app_text
+    assert "const { loadSessions } = sessionListController" in app_text
+    assert "async function loadSessions" not in app_text
     assert 'fetchJson("/api/sessions")' not in app_text
     assert 'type: "sessions_loaded"' not in app_text
     assert "export function createSessionListController" in controller_text
     assert 'request("/api/sessions")' in controller_text
     assert 'type: "sessions_loaded"' in controller_text
+
+
+def test_gui_session_activation_bootstrap_is_controller_handle_owned():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-activation-controller.js"
+    )
+
+    assert "createSessionActivationController" in app_text
+    assert "const loadSession = sessionActivationController" in app_text
+    assert "async function loadSession" not in app_text
+    assert "deriveSessionActivation" not in app_text
+    assert "export function createSessionActivationController" in controller_text
+    assert 'type: "session_activated"' in controller_text
+    assert 'type: "terminal_summaries_loaded"' in controller_text
 
 
 def test_gui_http_client_is_runtime_owned_not_inline_app_fetch():

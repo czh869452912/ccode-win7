@@ -118,9 +118,15 @@
   than from the slash command name `/diff`, so specialized agents can expose
   diff-producing commands without GUI command-name coupling.
 - GUI session list loading now lives in `app-runtime/session-list-controller.js`.
-  `App.jsx` no longer directly fetches `/api/sessions` or dispatches
+  `App.jsx` wires the controller handle directly and no longer keeps a
+  `loadSessions` wrapper, directly fetches `/api/sessions`, or dispatches
   `sessions_loaded`, keeping thread-list refresh as a focused renderer
   controller responsibility.
+- GUI session bootstrap activation now wires
+  `app-runtime/session-activation-controller.js` as the direct `loadSession`
+  handle; `App.jsx` no longer keeps an inline `loadSession` wrapper around
+  activation derivation, transport reset, plan loading, or terminal-summary
+  refresh.
 - GUI socket message orchestration now lives in
   `app-runtime/socket-message-controller.js`, backed by
   `socket-message-effects.js` and `socket-effect-executor.js`. `App.jsx` no

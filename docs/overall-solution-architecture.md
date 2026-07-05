@@ -238,8 +238,15 @@ directly.
 GUI session list loading is owned by the renderer
 `app-runtime/session-list-controller.js`. The controller is the only webapp
 module that fetches `/api/sessions` for the thread list and dispatches
-`sessions_loaded`; `App.jsx` composes the controller but does not own the
-session-list API/action pair.
+`sessions_loaded`; `App.jsx` composes the controller handle directly and does
+not own a `loadSessions` forwarding wrapper or the session-list API/action
+pair.
+
+GUI session bootstrap activation is owned by
+`app-runtime/session-activation-controller.js`. The controller owns session
+bootstrap fetch, safe activation derivation, runtime transport reset, plan load,
+and optional terminal-summary refresh; `App.jsx` composes it as the
+`loadSession` handle instead of defining an inline activation wrapper.
 
 GUI JSON request/error handling is owned by
 `app-runtime/http-client.js`. `App.jsx` imports the shared `fetchJson` helper

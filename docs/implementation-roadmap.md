@@ -173,8 +173,11 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `App.jsx` constructing diff surface state directly; `App.jsx` wires
   file/diff/preview controller methods directly instead of retaining
   `openFile`, `openDiffSurface`, or `openPreview*` wrappers; session list loading is
-  delegated to `session-list-controller.js` instead of `App.jsx` directly
-  fetching `/api/sessions` or dispatching `sessions_loaded`; Terminal service calls
+  delegated to `session-list-controller.js` as a direct controller handle instead of
+  `App.jsx` keeping a `loadSessions` wrapper, directly fetching `/api/sessions`,
+  or dispatching `sessions_loaded`; session bootstrap activation is delegated to
+  `session-activation-controller.js` as the direct `loadSession` handle instead
+  of an inline activation wrapper; Terminal service calls
   require the active app-shell Terminal capability before invoking
   terminal routes or pane attachment side effects;
   right-panel tab activation side effects are selected by renderer-local
