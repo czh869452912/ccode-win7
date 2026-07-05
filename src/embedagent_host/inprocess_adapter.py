@@ -1238,6 +1238,11 @@ class InProcessAdapter(object):
         return []
 
     def list_workspace_recipes(self) -> Dict[str, Any]:
+        extension_method = getattr(self.extension_manager, "workspace_recipes", None)
+        if callable(extension_method):
+            payload = extension_method()
+            if isinstance(payload, dict) and payload.get("items"):
+                return payload
         method = getattr(self.tools, "workspace_recipes", None)
         if callable(method):
             return method()

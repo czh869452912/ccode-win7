@@ -2,14 +2,9 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from typing import Any, Dict, List
 
 from embedagent.local_resources import discover_local_resources
-from embedagent.workflow_packages.c_cpp.tool_names import (
-    C_WORKFLOW_TOOL_LIST_RECIPES,
-    C_WORKFLOW_TOOL_RUN_RECIPE,
-)
 
 _PROJECT_RECIPES_RELPATH = os.path.join(".embedagent", "workspace-recipes.json")
 _HISTORY_RECIPES_RELPATH = os.path.join(".embedagent", "memory", "project", "command-recipes.json")
@@ -26,17 +21,33 @@ def list_workspace_recipes(
     resource_paths: Dict[str, List[str]] = None,
 ) -> Dict[str, Any]:
     workspace = os.path.realpath(workspace)
-    items = []  # type: List[Dict[str, Any]]
+    source_payload = workspace_recipe_sources(workspace, resource_paths=resource_paths)
+    items = [
+        _normalize_recipe_item(item)
+        for item in list(source_payload.get("items") or [])
+        if isinstance(item, dict)
+    ]
+    return {
+        "workspace": workspace,
+        "items": items,
+        "resources": dict(source_payload.get("resources") or {}),
+    }
+
+
+def workspace_recipe_sources(
+    workspace: str,
+    resource_paths: Dict[str, List[str]] = None,
+) -> Dict[str, Any]:
+    workspace = os.path.realpath(workspace)
     resource_payload = discover_local_resources(
         workspace,
         recipe_paths=list((resource_paths or {}).get("recipe_paths") or []),
         reason="recipes",
     )
+    items = []  # type: List[Dict[str, Any]]
     items.extend(_load_project_recipes(workspace))
     items.extend(list(resource_payload.get("recipes") or []))
-    items.extend(_detect_builtin_recipes(workspace))
     items.extend(_load_history_recipes(workspace))
-    items = [_normalize_recipe_item(item) for item in items if isinstance(item, dict)]
     return {
         "workspace": workspace,
         "items": items,
@@ -56,6 +67,7 @@ def resolve_workspace_recipe(
     profile: str = "",
     resource_paths: Dict[str, List[str]] = None,
 ) -> Dict[str, Any]:
+    del target, profile
     workspace = os.path.realpath(workspace)
     payload = list_workspace_recipes(workspace, resource_paths=resource_paths)
     items = list(payload.get("items") or [])
@@ -77,14 +89,12 @@ def resolve_workspace_recipe(
                     "expected_tool_name": normalized_expected,
                     "actual_tool_name": tool_name,
                     "available_recipes": available,
-                    "suggested_next_step": "Pick a recipe returned by %s."
-                    % C_WORKFLOW_TOOL_LIST_RECIPES,
+                    "suggested_next_step": "Choose an available recipe for this workflow.",
                 },
             )
 
         resolved = dict(item)
         resolved["cwd"] = str(item.get("cwd") or ".")
-        _apply_dynamic_recipe_command(workspace, resolved, target=target, profile=profile)
 
         if not bool(resolved.get("ready", True)):
             raise RecipeResolutionError(
@@ -117,8 +127,6 @@ def resolve_workspace_recipe(
                 },
             )
         resolved["recipe_id"] = normalized_id
-        resolved["profile"] = str(profile or "")
-        resolved["target"] = str(target or "")
         return resolved
 
     raise RecipeResolutionError(
@@ -128,44 +136,19 @@ def resolve_workspace_recipe(
             "retryable": False,
             "recipe_id": normalized_id,
             "available_recipes": available,
-            "suggested_next_step": (
-                "Call %s and choose an available ready recipe." % C_WORKFLOW_TOOL_LIST_RECIPES
-            ),
+            "suggested_next_step": "Choose an available workspace recipe.",
         },
     )
-
-
-def _apply_dynamic_recipe_command(
-    workspace: str,
-    resolved: Dict[str, Any],
-    target: str = "",
-    profile: str = "",
-) -> None:
-    if str(resolved.get("family") or "") != "cmake":
-        return
-    build_dir = _cmake_build_dir(profile)
-    stage = str(resolved.get("stage") or "")
-    if stage == "configure":
-        resolved["command"] = "cmake -S . -B %s" % build_dir
-        resolved["ready"] = True
-        return
-    if stage in ("build", "test") and profile:
-        _mark_cmake_stage_readiness(workspace, resolved, build_dir=build_dir)
-    if stage == "build":
-        command = "cmake --build %s" % build_dir
-        normalized_target = str(target or "").strip()
-        if normalized_target:
-            command += " --target %s" % normalized_target
-        resolved["command"] = command
-    elif stage == "test":
-        resolved["command"] = "ctest --test-dir %s --output-on-failure" % build_dir
 
 
 def _normalize_recipe_item(item: Dict[str, Any]) -> Dict[str, Any]:
     original_tool_name = str(item.get("tool_name") or "").strip()
     stage = str(item.get("stage") or "").strip()
     normalized = dict(item)
-    normalized["tool_name"] = C_WORKFLOW_TOOL_RUN_RECIPE
+    if original_tool_name:
+        normalized["tool_name"] = original_tool_name
+    else:
+        normalized.pop("tool_name", None)
     normalized["recipe_action"] = str(
         item.get("recipe_action") or _recipe_action_from(original_tool_name, stage)
     )
@@ -181,11 +164,10 @@ def _normalize_recipe_item(item: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _recipe_action_from(tool_name: str, stage: str) -> str:
+    del tool_name
     normalized_stage = str(stage or "").strip()
     if normalized_stage:
         return normalized_stage
-    if str(tool_name or "").strip() == C_WORKFLOW_TOOL_RUN_RECIPE:
-        return "custom"
     return "custom"
 
 
@@ -201,221 +183,26 @@ def _load_project_recipes(workspace: str) -> List[Dict[str, Any]]:
         recipe_id = str(entry.get("id") or "").strip()
         tool_name = str(entry.get("tool_name") or "").strip()
         command = str(entry.get("command") or "").strip()
-        if not recipe_id or not tool_name or not command:
+        if not recipe_id or not command:
             continue
-        recipe_action = str(entry.get("recipe_action") or "").strip() or _recipe_action_from(
-            tool_name, ""
-        )
-        items.append(
-            {
-                "id": recipe_id,
-                "tool_name": tool_name,
-                "recipe_action": recipe_action,
-                "label": str(entry.get("label") or recipe_id),
-                "command": command,
-                "cwd": str(entry.get("cwd") or "."),
-                "source": "project",
-                "ready": bool(entry.get("ready", True)),
-                "confidence": str(entry.get("confidence") or "high"),
-                "requires": list(entry.get("requires") or []),
-                "reason": str(entry.get("reason") or ""),
-                "suggested_next_step": str(entry.get("suggested_next_step") or ""),
-            }
-        )
+        item = {
+            "id": recipe_id,
+            "recipe_action": str(entry.get("recipe_action") or "").strip()
+            or _recipe_action_from(tool_name, ""),
+            "label": str(entry.get("label") or recipe_id),
+            "command": command,
+            "cwd": str(entry.get("cwd") or "."),
+            "source": "project",
+            "ready": bool(entry.get("ready", True)),
+            "confidence": str(entry.get("confidence") or "high"),
+            "requires": list(entry.get("requires") or []),
+            "reason": str(entry.get("reason") or ""),
+            "suggested_next_step": str(entry.get("suggested_next_step") or ""),
+        }
+        if tool_name:
+            item["tool_name"] = tool_name
+        items.append(item)
     return items
-
-
-def _detect_builtin_recipes(workspace: str) -> List[Dict[str, Any]]:
-    items = []
-    if os.path.isfile(os.path.join(workspace, "CMakeLists.txt")):
-        build_dir = _cmake_build_dir("")
-        configure = {
-            "id": "cmake.configure.default",
-            "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
-            "recipe_action": "configure",
-            "label": "CMake Configure",
-            "command": "cmake -S . -B build",
-            "cwd": ".",
-            "source": "detected",
-            "family": "cmake",
-            "stage": "configure",
-            "supports_target": False,
-            "supports_profile": True,
-            "ready": True,
-            "confidence": "medium",
-            "suggested_next_step": "Run this configure recipe before build or test.",
-        }
-        build = {
-            "id": "cmake.build.default",
-            "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
-            "recipe_action": "build",
-            "label": "CMake Build",
-            "command": "cmake --build build",
-            "cwd": ".",
-            "source": "detected",
-            "family": "cmake",
-            "stage": "build",
-            "supports_target": True,
-            "supports_profile": True,
-            "confidence": "medium",
-        }
-        test = {
-            "id": "cmake.test.default",
-            "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
-            "recipe_action": "test",
-            "label": "CTest",
-            "command": "ctest --test-dir build --output-on-failure",
-            "cwd": ".",
-            "source": "detected",
-            "family": "cmake",
-            "stage": "test",
-            "supports_target": False,
-            "supports_profile": True,
-            "confidence": "medium",
-        }
-        _mark_cmake_stage_readiness(workspace, build, build_dir=build_dir)
-        _mark_cmake_stage_readiness(workspace, test, build_dir=build_dir)
-        items.extend([configure, build, test])
-
-    makefile = _find_makefile(workspace)
-    if makefile:
-        has_test_target = _makefile_has_target(makefile, "test")
-        items.extend(
-            [
-                {
-                    "id": "make.build.default",
-                    "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
-                    "recipe_action": "build",
-                    "label": "Make Build",
-                    "command": "make",
-                    "cwd": ".",
-                    "source": "detected",
-                    "family": "make",
-                    "stage": "build",
-                    "supports_target": True,
-                    "supports_profile": False,
-                    "ready": True,
-                    "confidence": "medium",
-                    "suggested_next_step": "Run this recipe or use bash for a specific make target.",
-                },
-                {
-                    "id": "make.test.default",
-                    "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
-                    "recipe_action": "test",
-                    "label": "Make Test",
-                    "command": "make test",
-                    "cwd": ".",
-                    "source": "detected",
-                    "family": "make",
-                    "stage": "test",
-                    "supports_target": False,
-                    "supports_profile": False,
-                    "ready": has_test_target,
-                    "confidence": "medium" if has_test_target else "low",
-                    "requires": [] if has_test_target else ["make.test.target"],
-                    "reason": "" if has_test_target else "Makefile does not declare a test target.",
-                    "suggested_next_step": (
-                        "Use bash to inspect make targets before running tests."
-                        if not has_test_target
-                        else "Run this recipe to execute make test."
-                    ),
-                },
-            ]
-        )
-
-    ninja_path = os.path.join(workspace, "build.ninja")
-    if os.path.isfile(ninja_path):
-        has_test_target = _text_file_contains(ninja_path, r"(?m)^(?:build\s+)?test\b")
-        items.extend(
-            [
-                {
-                    "id": "ninja.build.default",
-                    "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
-                    "recipe_action": "build",
-                    "label": "Ninja Build",
-                    "command": "ninja",
-                    "cwd": ".",
-                    "source": "detected",
-                    "family": "ninja",
-                    "stage": "build",
-                    "supports_target": True,
-                    "supports_profile": False,
-                    "ready": True,
-                    "confidence": "medium",
-                },
-                {
-                    "id": "ninja.test.default",
-                    "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
-                    "recipe_action": "test",
-                    "label": "Ninja Test",
-                    "command": "ninja test",
-                    "cwd": ".",
-                    "source": "detected",
-                    "family": "ninja",
-                    "stage": "test",
-                    "supports_target": False,
-                    "supports_profile": False,
-                    "ready": has_test_target,
-                    "confidence": "medium" if has_test_target else "low",
-                    "requires": [] if has_test_target else ["ninja.test.target"],
-                    "reason": (
-                        "" if has_test_target else "build.ninja does not declare a test target."
-                    ),
-                    "suggested_next_step": (
-                        "Use bash to inspect ninja targets before running tests."
-                        if not has_test_target
-                        else "Run this recipe to execute ninja test."
-                    ),
-                },
-            ]
-        )
-    return items
-
-
-def _cmake_build_dir(profile: str) -> str:
-    normalized_profile = str(profile or "").strip()
-    if normalized_profile and normalized_profile.lower() not in ("default", "build"):
-        return "build/%s" % normalized_profile.replace("\\", "/")
-    return "build"
-
-
-def _mark_cmake_stage_readiness(
-    workspace: str,
-    item: Dict[str, Any],
-    build_dir: str,
-) -> None:
-    abs_build_dir = os.path.join(workspace, *build_dir.split("/"))
-    ready = os.path.isdir(abs_build_dir)
-    item["ready"] = ready
-    item["requires"] = [] if ready else ["cmake.configure.default"]
-    item["reason"] = "" if ready else "CMake build directory does not exist: %s" % build_dir
-    item["suggested_next_step"] = (
-        "Run cmake.configure.default before this recipe."
-        if not ready
-        else "Run this recipe or use bash for a more specific CMake command."
-    )
-
-
-def _find_makefile(workspace: str) -> str:
-    for name in ("Makefile", "makefile"):
-        candidate = os.path.join(workspace, name)
-        if os.path.isfile(candidate):
-            return candidate
-    return ""
-
-
-def _makefile_has_target(path: str, target: str) -> bool:
-    escaped = re.escape(target)
-    return _text_file_contains(path, r"(?m)^%s\s*:" % escaped)
-
-
-def _text_file_contains(path: str, pattern: str) -> bool:
-    try:
-        with open(path, "r", encoding="utf-8", errors="ignore") as handle:
-            text = handle.read()
-    except (OSError, ValueError):
-        return False
-    return re.search(pattern, text) is not None
 
 
 def _load_history_recipes(workspace: str) -> List[Dict[str, Any]]:
@@ -430,24 +217,24 @@ def _load_history_recipes(workspace: str) -> List[Dict[str, Any]]:
             continue
         tool_name = str(entry.get("tool_name") or "").strip()
         command = str(entry.get("command") or "").strip()
-        if not tool_name or not command:
+        if not command:
             continue
         recipe_action = _recipe_action_from(tool_name, str(entry.get("recipe_action") or ""))
         counts[recipe_action] = int(counts.get(recipe_action) or 0) + 1
-        items.append(
-            {
-                "id": "history.%s.%s" % (recipe_action, counts[recipe_action]),
-                "tool_name": tool_name,
-                "label": "History %s" % tool_name,
-                "command": command,
-                "cwd": str(entry.get("cwd") or "."),
-                "source": "history",
-                "recipe_action": recipe_action,
-                "ready": True,
-                "confidence": "medium",
-                "last_success": str(entry.get("last_success_at") or ""),
-            }
-        )
+        item = {
+            "id": "history.%s.%s" % (recipe_action, counts[recipe_action]),
+            "label": "History %s" % (tool_name or recipe_action),
+            "command": command,
+            "cwd": str(entry.get("cwd") or "."),
+            "source": "history",
+            "recipe_action": recipe_action,
+            "ready": True,
+            "confidence": "medium",
+            "last_success": str(entry.get("last_success_at") or ""),
+        }
+        if tool_name:
+            item["tool_name"] = tool_name
+        items.append(item)
     return items
 
 

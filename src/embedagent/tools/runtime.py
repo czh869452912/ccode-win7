@@ -291,6 +291,7 @@ class ToolRuntime(ToolRuntimePort):
             if cache is not None
             else ToolResultCache(tool_result_store=self.tool_result_store)
         )
+        self._workspace_recipe_provider = None
         core_tools = (
             file_ops.build_tools(self._ctx)
             + discovery_ops.build_tools(self._ctx)
@@ -497,7 +498,14 @@ class ToolRuntime(ToolRuntimePort):
         return descriptors
 
     def workspace_recipes(self) -> Dict[str, Any]:
+        if callable(self._workspace_recipe_provider):
+            payload = self._workspace_recipe_provider()
+            if isinstance(payload, dict):
+                return payload
         return self._ctx.list_workspace_recipes()
+
+    def set_workspace_recipe_provider(self, provider) -> None:
+        self._workspace_recipe_provider = provider
 
     def execute(self, name: str, arguments: Dict[str, Any]) -> Observation:
         return self.execute_with_interrupt(name, arguments, None)

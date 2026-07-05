@@ -9,6 +9,7 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from conftest import register_default_c_workflow_tools
 from query_engine_product_helpers import build_product_query_engine as QueryEngine
 
 from embedagent.config import AppConfig
@@ -2554,6 +2555,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("[test]", evidence[0].content)
 
     def test_recipe_provider_prefers_project_recipe_over_detected_in_build_mode(self):
+        register_default_c_workflow_tools(self.tools, self.workspace)
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
         with open(
             os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
@@ -2575,6 +2577,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
 
     def test_recipe_provider_prefers_history_test_recipe_over_detected_in_verify_mode(self):
+        register_default_c_workflow_tools(self.tools, self.workspace)
         history_root = os.path.join(self.workspace, ".embedagent", "memory", "project")
         os.makedirs(history_root, exist_ok=True)
         with open(

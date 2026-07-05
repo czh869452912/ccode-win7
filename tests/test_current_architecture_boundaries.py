@@ -364,11 +364,8 @@ def test_c_workflow_tools_are_declared_only_by_c_workflow_package_or_tests():
         "record_failing_evidence",
         "task_status",
     )
-    allowed_prefixes = (
-        "src/embedagent/workflow_packages/c_cpp/",
-        "src/embedagent/tools/recipe_ops.py",
-        "src/embedagent/tools/session_ops.py",
-    )
+    allowed_prefixes = ("src/embedagent/workflow_packages/c_cpp/",)
+    assert not (ROOT / "src/embedagent/tools/recipe_ops.py").exists()
     offenders = []
     for path in _source_files_under("src", suffixes=(".py", ".js", ".jsx")):
         rel = _relative(path)
@@ -399,4 +396,27 @@ def test_product_evidence_helpers_do_not_import_c_cpp_workflow_constants():
         for token in forbidden:
             if token in text:
                 offenders.append("%s imports %s" % (rel, token))
+    assert offenders == []
+
+
+def test_generic_workspace_recipe_facade_does_not_import_c_cpp_workflow_constants():
+    files = (
+        ROOT / "src/embedagent/workspace_recipes.py",
+        ROOT / "src/embedagent/workspace_profile.py",
+        ROOT / "src/embedagent/tools/_base.py",
+        ROOT / "src/embedagent/tools/runtime.py",
+    )
+    forbidden = (
+        "embedagent.workflow_packages.c_cpp",
+        "C_WORKFLOW_TOOL_",
+        "run_recipe",
+        "list_recipes",
+    )
+    offenders = []
+    for path in files:
+        text = _read(path)
+        rel = _relative(path)
+        for token in forbidden:
+            if token in text:
+                offenders.append("%s contains %s" % (rel, token))
     assert offenders == []

@@ -20,6 +20,7 @@ _HOOK_EVENT_TYPES = {
     "handle_tool_call": "extension.handle_tool_call",
     "package_manifest": "extension.package_manifest",
     "register_context_reducers": "extension.register_context_reducers",
+    "workspace_recipes": "extension.workspace_recipes",
 }
 
 
@@ -188,6 +189,7 @@ class ExtensionManager(object):
         self._event_bus = AgentEventBus()
         self._package_manifest_capabilities = []  # type: List[Dict[str, Any]]
         self._context_reducer_capabilities = []  # type: List[Dict[str, Any]]
+        self._workspace_recipe_capabilities = []  # type: List[Dict[str, Any]]
         for extension in list(extensions or []):
             self.register(extension)
 
@@ -243,6 +245,42 @@ class ExtensionManager(object):
             if isinstance(payload, dict):
                 manifests.append(dict(payload))
         return manifests
+
+    def workspace_recipes(self) -> Dict[str, Any]:
+        merged = {"workspace": "", "items": [], "resources": {}}  # type: Dict[str, Any]
+        seen = set()
+        for entry in list(self._workspace_recipe_capabilities):
+            handler = entry["handler"]
+            extension_id = str(entry["source_id"] or "")
+            source = str(entry["source_type"] or "project")
+            try:
+                payload = handler()
+            except (RuntimeError, ValueError, TypeError, OSError) as exc:
+                self.record_diagnostic(
+                    extension_id,
+                    "workspace_recipes",
+                    str(exc),
+                    severity="error",
+                    source=source,
+                )
+                if bool(entry.get("fail_closed")):
+                    raise
+                continue
+            if not isinstance(payload, dict):
+                continue
+            if not merged["workspace"]:
+                merged["workspace"] = str(payload.get("workspace") or "")
+            if not merged["resources"] and isinstance(payload.get("resources"), dict):
+                merged["resources"] = dict(payload.get("resources") or {})
+            for item in list(payload.get("items") or []):
+                if not isinstance(item, dict):
+                    continue
+                key = str(item.get("id") or "") or repr(sorted(item.items()))
+                if key in seen:
+                    continue
+                seen.add(key)
+                merged["items"].append(dict(item))
+        return merged
 
     def _extension_id(self, extension: Any) -> str:
         explicit = str(getattr(extension, "extension_id", "") or "").strip()
@@ -361,6 +399,9 @@ class ExtensionManager(object):
             return
         if capability.hook_name == "register_context_reducers":
             self._context_reducer_capabilities.append(entry)
+            return
+        if capability.hook_name == "workspace_recipes":
+            self._workspace_recipe_capabilities.append(entry)
             return
         event_type = str(capability.event_type or "")
         if not event_type:

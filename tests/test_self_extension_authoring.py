@@ -137,7 +137,7 @@ def test_generated_recipe_updates_resource_snapshot_after_runtime_reload(tmp_pat
     assert after_write_resources["counts"]["recipes"] == 0
     assert reloaded["counts"]["recipes"] == 1
     assert after_reload_resources["counts"]["recipes"] == 1
-    assert authored_recipe["tool_name"] == "run_recipe"
+    assert authored_recipe.get("tool_name", "") == ""
 
 
 def test_generated_extension_is_disabled_and_not_imported(tmp_path):

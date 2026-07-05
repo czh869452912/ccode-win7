@@ -129,6 +129,12 @@
   and quality-gate classification. These services no longer import default
   C/C++ workflow tool constants, so specialized agents can provide equivalent
   evidence through their own tool names.
+- Root `workspace_recipes` is now workflow-neutral: it lists explicit
+  project/local/history recipe resources without CMake/Make/Ninja detection
+  and without injecting `run_recipe`. The default C/C++ workflow package owns
+  CMake/Make/Ninja recipe detection, `run_recipe` normalization, and hosted
+  recipe projection through its explicit `workspace_recipes` extension
+  capability.
 - No-workspace GUI shell branding now comes from backend app metadata:
   `app-home-model.js` projects `app.productName`, and `NoWorkspaceState.jsx`
   renders that descriptor value instead of hard-coding the default product

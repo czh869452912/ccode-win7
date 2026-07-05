@@ -13,6 +13,10 @@ from embedagent.workflow_packages.c_cpp.tool_registry import build_c_workflow_to
 from embedagent.workflow_packages.c_cpp.workflow_projection import (
     build_c_harness_workflow_projection,
 )
+from embedagent.workflow_packages.c_cpp.workspace_recipes import (
+    list_workspace_recipes,
+    resolve_workspace_recipe,
+)
 from embedagent_core.extensions import ExtensionCapability, ToolRegistrationResult, WorkflowPrompt
 from embedagent_core.session import Observation
 
@@ -37,6 +41,7 @@ class CHarnessWorkflowExtension(object):
             ExtensionCapability("allowed_tool_names", self.allowed_tool_names),
             ExtensionCapability("register_tools", self.register_tools),
             ExtensionCapability("register_context_reducers", self.register_context_reducers),
+            ExtensionCapability("workspace_recipes", self.list_workspace_recipes),
             ExtensionCapability("load_session_tasks", self.load_session_tasks),
             ExtensionCapability("handle_tool_call", self.handle_tool_call),
         ]
@@ -253,11 +258,48 @@ class CHarnessWorkflowExtension(object):
                 source_id="embedagent.workflow_packages.c_cpp",
                 source_type="workflow_package",
             )
+        register_recipe_provider = getattr(registry, "set_workspace_recipe_provider", None)
+        if callable(register_recipe_provider):
+            register_recipe_provider(self.list_workspace_recipes)
         return ToolRegistrationResult(
-            tools=build_c_workflow_tools(tool_context),
+            tools=build_c_workflow_tools(_CWorkflowToolContext(tool_context, self)),
             source_id="embedagent.workflow_packages.c_cpp",
             source_type="workflow_package",
         )
+
+    def list_workspace_recipes(self) -> dict:
+        workspace = self._workspace()
+        if not workspace:
+            return {"workspace": "", "items": []}
+        return list_workspace_recipes(workspace, resource_paths=self._resource_paths())
+
+    def resolve_workspace_recipe(
+        self,
+        recipe_id: str,
+        expected_tool_name: str = "",
+        target: str = "",
+        profile: str = "",
+    ) -> dict:
+        return resolve_workspace_recipe(
+            self._workspace(),
+            recipe_id=recipe_id,
+            expected_tool_name=expected_tool_name,
+            target=target,
+            profile=profile,
+            resource_paths=self._resource_paths(),
+        )
+
+    def _workspace(self) -> str:
+        return str(getattr(self.tools, "workspace", "") or "")
+
+    def _resource_paths(self) -> dict:
+        local_resources = getattr(self.tools, "local_resources", None)
+        if not callable(local_resources):
+            return {}
+        payload = local_resources()
+        if not isinstance(payload, dict):
+            return {}
+        return dict(payload.get("resource_paths") or {})
 
     def register_context_reducers(self, reducer_registry: Any) -> None:
         register_c_workflow_context_reducers(reducer_registry)
@@ -357,3 +399,29 @@ class CHarnessWorkflowExtension(object):
             graph,
             context=context,
         )
+
+
+class _CWorkflowToolContext(object):
+    def __init__(self, base_context: Any, extension: CHarnessWorkflowExtension) -> None:
+        self._base_context = base_context
+        self._extension = extension
+
+    def list_workspace_recipes(self) -> dict:
+        return self._extension.list_workspace_recipes()
+
+    def resolve_workspace_recipe(
+        self,
+        recipe_id: str,
+        expected_tool_name: str = "",
+        target: str = "",
+        profile: str = "",
+    ) -> dict:
+        return self._extension.resolve_workspace_recipe(
+            recipe_id,
+            expected_tool_name=expected_tool_name,
+            target=target,
+            profile=profile,
+        )
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._base_context, name)

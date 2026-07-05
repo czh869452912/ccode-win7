@@ -498,7 +498,7 @@ class TestLocalResources(unittest.TestCase):
 
         self.assertIn("local.build", recipe_ids)
         self.assertEqual(local["source"], "local_resource")
-        self.assertEqual(local["tool_name"], "run_recipe")
+        self.assertEqual(local.get("tool_name", ""), "")
 
     def test_tool_runtime_reload_resources_updates_recipe_paths(self):
         runtime = ToolRuntime(self.workspace)
