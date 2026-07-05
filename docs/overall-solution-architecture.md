@@ -284,7 +284,11 @@ GUI initial app loading is owned by
 bootstrap and session command capability warmup, swallowing warmup failures so
 alternate base or specialized agents without that projection do not block app
 shell startup. `App.jsx` installs the controller but does not directly call
-`loadAppBootstrap()` or own the warmup catch behavior.
+`loadAppBootstrap()` or own the warmup catch behavior. Session command
+capability refresh is exposed through
+`session-loaders.js` `createSessionCommandCapabilityLoader(...)`; `App.jsx`
+uses that handle instead of repeating inline
+`loadSessionCommandCapabilities({ fetchJson, dispatch })` lambdas.
 
 GUI active-workspace read-model refresh is owned by
 `app-runtime/active-workspace-data-loader.js`. After workspace activation, that

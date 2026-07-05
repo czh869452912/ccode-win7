@@ -369,6 +369,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   owns session list loading and `app-runtime/http-client.js` owns shared JSON
   request/error handling; `app-runtime/initial-app-load-controller.js` owns app
   bootstrap plus session command capability warmup start;
+  `app-runtime/session-loaders.js` owns the reusable
+  `createSessionCommandCapabilityLoader(...)` handle for command capability
+  refresh instead of repeated root-level fetch/dispatch lambdas;
   `app-runtime/responding-request-ids-handle.js` owns pending interaction
   response busy-id normalization and sync;
   `app-runtime/interaction-response-controller.js` owns interaction response

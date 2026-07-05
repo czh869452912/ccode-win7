@@ -72,3 +72,9 @@ export async function loadSessionCommandCapabilities({ fetchJson, dispatch } = {
   send({ type: "session_capabilities_loaded", capabilities });
   return capabilities;
 }
+
+export function createSessionCommandCapabilityLoader(options = {}) {
+  return function loadCommandCapabilities() {
+    return loadSessionCommandCapabilities(options);
+  };
+}

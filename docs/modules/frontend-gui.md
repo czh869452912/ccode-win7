@@ -550,7 +550,9 @@ session history truth or backend policy.
 
 `webapp/src/app-runtime/` owns frontend-only runtime interpretation helpers.
 `session-loaders.js` owns private loader request vocabulary, loader request
-execution against injected GUI callbacks, while
+execution against injected GUI callbacks, and the reusable
+`createSessionCommandCapabilityLoader(...)` handle for session command
+capability refresh, while
 `session-activation-controller.js` owns session bootstrap activation from the
 official `/api/sessions/{id}/bootstrap` payload. `socket-message-effects.js`
 maps existing WebSocket messages into private webapp descriptors: reducer

@@ -118,7 +118,10 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
   capability warmup are started through
   `webapp/src/app-runtime/initial-app-load-controller.js`; `App.jsx` installs
   that controller and must not directly call `loadAppBootstrap()` or attach
-  renderer-local warmup catch handlers.
+  renderer-local warmup catch handlers. Session command capability refresh is
+  exposed to App through `createSessionCommandCapabilityLoader(...)`; `App.jsx`
+  must not repeat inline `loadSessionCommandCapabilities({ fetchJson, dispatch })`
+  lambdas.
 - Official GUI socket-message boundary: raw WebSocket messages are handled by
   `webapp/src/app-runtime/socket-message-controller.js`, which combines pure
   effect derivation with `socket-effect-executor.js`; `App.jsx` must not

@@ -824,6 +824,9 @@ def test_gui_initial_app_load_is_controller_owned():
     assert "createInitialAppLoadController" in app_text
     assert "loadAppBootstrap();" not in app_text
     assert "loadSessionCommandCapabilities({ fetchJson, dispatch }).catch" not in app_text
+    assert "createSessionCommandCapabilityLoader" in app_text
+    assert "loadSessionCommandCapabilitiesForApp" in app_text
+    assert "loadSessionCommandCapabilities({ fetchJson, dispatch })" not in app_text
     assert "export function createInitialAppLoadController" in controller_text
     assert "bootstrapResult" in controller_text
     assert "commandCapabilitiesResult" in controller_text

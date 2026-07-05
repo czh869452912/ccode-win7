@@ -44,6 +44,39 @@
 
 ## 3. 当前变更记录
 
+### DC-303
+
+- Date: 2026-07-05
+- Change Topic: GUI session command capability refresh uses a loader handle
+- Summary:
+  - `session-loaders.js` now exposes
+    `createSessionCommandCapabilityLoader(...)` for the GUI command capability
+    refresh path.
+  - `App.jsx` creates one `loadSessionCommandCapabilitiesForApp` handle and
+    passes it into initial app load, active workspace refresh, and loader
+    request execution instead of repeating inline
+    `loadSessionCommandCapabilities({ fetchJson, dispatch })` lambdas.
+  - Frontend and architecture guards reject the removed root-level inline
+    fetch/dispatch loader pattern.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/session-loaders.js`
+  - `src/embedagent/frontend/gui/webapp/test/session-loaders.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workspace-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue reducing remaining root-level dependency adapter lambdas where
+    they encode behavior instead of simple dependency injection.
+
 ### DC-302
 
 - Date: 2026-07-05

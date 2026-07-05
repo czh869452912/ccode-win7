@@ -546,7 +546,9 @@ renderer-owned `/api/workspace/recipes` feed or depend on a frontend-facing
 capability projection used by GUI composer slash-command menus. It is a
 read-only capability surface derived from Agent Core capability metadata; it is
 not session history, workflow truth, tool activation policy, permission policy,
-or an extension loading endpoint. Its application fields are display/control
+or an extension loading endpoint. The GUI refreshes this projection through
+the app-runtime `createSessionCommandCapabilityLoader(...)` handle rather than
+root-level fetch/dispatch lambdas. Its application fields are display/control
 metadata only: `agentApplication` identifies the selected scenario application,
 and `agentApplications` lists only applications available from the selected
 package/registry, so an externally injected Python/HTML/etc. application does

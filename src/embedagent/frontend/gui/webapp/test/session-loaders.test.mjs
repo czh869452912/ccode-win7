@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   LOADER_REQUESTS,
   createLoaderRequestExecutor,
+  createSessionCommandCapabilityLoader,
   deriveSessionActivation,
   loadSessionCommandCapabilities,
 } from "../src/app-runtime/session-loaders.js";
@@ -201,6 +202,23 @@ export async function runSessionLoadersTests() {
     {
       type: "session_capabilities_loaded",
       capabilities: loadedCapabilities,
+    },
+  ]);
+
+  const factoryActions = [];
+  const loadCapabilities = createSessionCommandCapabilityLoader({
+    fetchJson: async (url) => {
+      assert.equal(url, "/api/sessions/capabilities");
+      return { commands: [{ name: "mode", usage: "/mode", active: true }] };
+    },
+    dispatch: (action) => factoryActions.push(action),
+  });
+  const factoryCapabilities = await loadCapabilities();
+  assert.equal(factoryCapabilities.commands[0].usage, "/mode");
+  assert.deepEqual(factoryActions, [
+    {
+      type: "session_capabilities_loaded",
+      capabilities: factoryCapabilities,
     },
   ]);
 }

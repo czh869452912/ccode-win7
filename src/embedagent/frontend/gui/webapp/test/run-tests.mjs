@@ -1182,6 +1182,9 @@ async function main() {
   assert.equal(appSource.includes("createInitialAppLoadController"), true);
   assert.equal(appSource.includes("loadAppBootstrap();"), false);
   assert.equal(appSource.includes("loadSessionCommandCapabilities({ fetchJson, dispatch }).catch"), false);
+  assert.equal(appSource.includes("createSessionCommandCapabilityLoader"), true);
+  assert.equal(appSource.includes("loadSessionCommandCapabilitiesForApp"), true);
+  assert.equal(appSource.includes("loadSessionCommandCapabilities({ fetchJson, dispatch })"), false);
   assert.equal(
     initialAppLoadControllerSource.includes("export function createInitialAppLoadController"),
     true,
@@ -1468,6 +1471,7 @@ async function main() {
     "utf8",
   );
   assert.equal(sessionLoadersSource.includes("createLoaderRequestExecutor"), true);
+  assert.equal(sessionLoadersSource.includes("createSessionCommandCapabilityLoader"), true);
   assert.equal(sessionLoadersSource.includes("deriveSessionActivation"), true);
   assert.equal(sessionLoadersSource.includes("LOADER_REQUESTS"), true);
   assert.equal(sessionLoadersSource.includes("normalizeHistoryActivities"), true);

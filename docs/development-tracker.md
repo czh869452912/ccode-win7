@@ -150,6 +150,11 @@
   `app-runtime/initial-app-load-controller.js`. `App.jsx` installs the
   controller instead of directly calling `loadAppBootstrap()` or attaching
   renderer-local session command capability warmup catch logic.
+- GUI session command capability refresh now uses
+  `app-runtime/session-loaders.js` `createSessionCommandCapabilityLoader(...)`
+  as the reusable App handle; `App.jsx` no longer repeats inline
+  `loadSessionCommandCapabilities({ fetchJson, dispatch })` lambdas for
+  initial load, active-workspace refresh, or loader-request execution.
 - GUI active-workspace read-model refresh now lives in
   `app-runtime/active-workspace-data-loader.js`. Workspace activation no
   longer leaves a root-component `Promise.all` fanout for sessions,

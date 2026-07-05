@@ -13,7 +13,10 @@ import { createComposerController } from "./app-runtime/composer-controller.js";
 import { createInitialAppLoadController } from "./app-runtime/initial-app-load-controller.js";
 import { createDiffSurfaceController } from "./app-runtime/diff-surface-controller.js";
 import { createFilePreviewController } from "./app-runtime/file-preview-controller.js";
-import { createLoaderRequestExecutor, loadSessionCommandCapabilities } from "./app-runtime/session-loaders.js";
+import {
+  createLoaderRequestExecutor,
+  createSessionCommandCapabilityLoader,
+} from "./app-runtime/session-loaders.js";
 import { createPreviewController } from "./app-runtime/preview-controller.js";
 import { createRespondingRequestIdsHandle } from "./app-runtime/responding-request-ids-handle.js";
 import { createPanelResizeController } from "./app-runtime/panel-resize-controller.js";
@@ -217,6 +220,10 @@ function App() {
       }),
     [],
   );
+  const loadSessionCommandCapabilitiesForApp = useMemo(
+    () => createSessionCommandCapabilityLoader({ fetchJson, dispatch }),
+    [],
+  );
 
   useEffect(() => {
     currentSessionIdRef.current = currentSessionId;
@@ -238,9 +245,9 @@ function App() {
   useEffect(() => {
     createInitialAppLoadController({
       loadAppBootstrap,
-      loadSessionCommandCapabilities: () => loadSessionCommandCapabilities({ fetchJson, dispatch }),
+      loadSessionCommandCapabilities: loadSessionCommandCapabilitiesForApp,
     }).start();
-  }, []);
+  }, [loadSessionCommandCapabilitiesForApp]);
 
   // websocket lifecycle
   useEffect(() => {
@@ -381,12 +388,12 @@ function App() {
       createActiveWorkspaceDataLoader({
         getAppCapabilities: () => stateRef.current.app.capabilities || {},
         loadSessions,
-        loadSessionCommandCapabilities: () => loadSessionCommandCapabilities({ fetchJson, dispatch }),
+        loadSessionCommandCapabilities: loadSessionCommandCapabilitiesForApp,
         loadFileChildren,
         loadStatus: (refresh, assumeWorkspace, appCapabilities) =>
           sourceControlController.loadStatus(refresh, assumeWorkspace, appCapabilities),
       }),
-    [sourceControlController],
+    [loadSessionCommandCapabilitiesForApp, sourceControlController],
   );
   const workspaceController = useMemo(
     () =>
@@ -515,7 +522,7 @@ function App() {
     loadSessions,
     loadSession,
     loadFileChildren,
-    loadSessionCommandCapabilities: () => loadSessionCommandCapabilities({ fetchJson, dispatch }),
+    loadSessionCommandCapabilities: loadSessionCommandCapabilitiesForApp,
   });
 
   const socketMessageController = useMemo(
