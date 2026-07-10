@@ -2620,7 +2620,10 @@ def test_gui_right_panel_body_has_no_inspector_tab_renderer():
     )
     assert "surfaceDefinitionFor(surface.kind, appCapabilities)" in surface_body_text
     assert "surfaceDefinitionFor(surface.kind)" not in surface_body_text
-    assert app_text.count("appCapabilities={state.app.capabilities}") >= 3
+    assert "buildAppCapabilityModelFromState" in app_text
+    assert "state.app.capabilities" not in app_text
+    assert "stateRef.current.app.capabilities" not in app_text
+    assert app_text.count("appCapabilities={appCapabilities}") >= 3
     assert "activeDefinition.bodyKind" in surface_body_text
     assert "activeDefinition.panelKind" in surface_body_text
     assert "RIGHT_PANEL_BODY_RENDERERS" in surface_body_text

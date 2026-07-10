@@ -593,6 +593,10 @@
   app chrome, surface chrome, Preview servers, and empty-state copy; `App.jsx`
   consumes that read model instead of hand-splitting
   `state.app.capabilities` into per-surface optional-chain paths.
+- The same model now exposes `buildAppCapabilityModelFromState(...)` and
+  thread lifecycle descriptors, so App controller getters and right-panel
+  child props consume the model instead of direct
+  `state.app.capabilities` / `stateRef.current.app.capabilities` paths.
 - `App.jsx` wires the controller methods directly; it no longer imports `commandById` or dispatches palette/toggle reducer actions inline.
 - React webapp `webapp/src/workbench/commands.js` now owns
   `buildCommandVisibilityContext(...)` and `isTurnInterruptibleStatus(...)`;

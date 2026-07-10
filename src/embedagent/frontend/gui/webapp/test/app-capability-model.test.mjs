@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 
-import { buildAppCapabilityModel } from "../src/app-runtime/app-capability-model.js";
+import {
+  buildAppCapabilityModel,
+  buildAppCapabilityModelFromState,
+} from "../src/app-runtime/app-capability-model.js";
 
 export function runAppCapabilityModelTests() {
   const capabilities = {
@@ -19,6 +22,7 @@ export function runAppCapabilityModelTests() {
         diffPanel: { defaultTitle: "Diff" },
       },
     },
+    threadLifecycle: { actions: [{ id: "rename", label: "Rename" }] },
     emptyState: { primary: "Open a project" },
   };
 
@@ -36,7 +40,12 @@ export function runAppCapabilityModelTests() {
   assert.equal(model.surfaceChrome, capabilities.surfaces.chrome);
   assert.equal(model.filePreviewChrome, capabilities.surfaces.chrome.filePreview);
   assert.equal(model.diffPanelChrome, capabilities.surfaces.chrome.diffPanel);
+  assert.equal(model.threadLifecycleCapabilities, capabilities.threadLifecycle);
   assert.equal(model.emptyState, capabilities.emptyState);
+
+  const stateModel = buildAppCapabilityModelFromState({ app: { capabilities } });
+  assert.equal(stateModel.appCapabilities, capabilities);
+  assert.equal(stateModel.threadLifecycleCapabilities, capabilities.threadLifecycle);
 
   const empty = buildAppCapabilityModel(null);
   assert.deepEqual(empty.keybindings, []);
@@ -51,5 +60,9 @@ export function runAppCapabilityModelTests() {
   assert.deepEqual(empty.surfaceChrome, {});
   assert.deepEqual(empty.filePreviewChrome, {});
   assert.deepEqual(empty.diffPanelChrome, {});
+  assert.deepEqual(empty.threadLifecycleCapabilities, {});
   assert.equal(empty.emptyState, null);
+
+  const emptyStateModel = buildAppCapabilityModelFromState(null);
+  assert.deepEqual(emptyStateModel.appCapabilities, {});
 }

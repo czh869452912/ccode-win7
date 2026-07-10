@@ -73,8 +73,10 @@ terminal, and source-control do not provide their own request-failure copy when
 the backend omits error details; controllers fall through to app-shell chrome.
 `webapp/src/app-runtime/app-capability-model.js` owns renderer-side capability
 fanout for keybindings, command-palette descriptors, app chrome, surface
-chrome, Preview servers, and empty-state copy. `App.jsx` consumes that model
-instead of hand-splitting `state.app.capabilities` into per-surface variables.
+chrome, Preview servers, thread lifecycle descriptors, and empty-state copy.
+`App.jsx` consumes that model for controller getters and child props instead of
+hand-splitting `state.app.capabilities` or `stateRef.current.app.capabilities`
+into per-surface variables.
 Selected agent application manifests can narrow the injected app-shell spec
 through `metadata.appShell` allow-lists. `AppShellService` applies those lists
 before the renderer sees capabilities, so the Generic Agent can expose the base

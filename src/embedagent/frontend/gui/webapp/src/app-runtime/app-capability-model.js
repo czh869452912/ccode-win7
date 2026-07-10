@@ -32,6 +32,12 @@ export function buildAppCapabilityModel(capabilities = null) {
     surfaceChrome,
     filePreviewChrome: objectOrEmpty(surfaceChrome.filePreview),
     diffPanelChrome: objectOrEmpty(surfaceChrome.diffPanel),
+    threadLifecycleCapabilities: objectOrEmpty(appCapabilities.threadLifecycle),
     emptyState: appCapabilities.emptyState || null,
   };
+}
+
+export function buildAppCapabilityModelFromState(state = null) {
+  const appState = objectOrEmpty(state && state.app);
+  return buildAppCapabilityModel(appState.capabilities);
 }

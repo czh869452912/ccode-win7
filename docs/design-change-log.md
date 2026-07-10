@@ -44,6 +44,37 @@
 
 ## 3. 当前变更记录
 
+### DC-311
+
+- Date: 2026-07-10
+- Change Topic: GUI App capability getters consume the app-runtime read model
+- Summary:
+  - Added `buildAppCapabilityModelFromState(...)` so `App.jsx` can read the
+    current app-shell capability model from live renderer state without
+    scattering `state.app.capabilities` or `stateRef.current.app.capabilities`
+    paths.
+  - Controller getters for terminal, source-control, preview, file-preview,
+    diff, keyboard, active-workspace loading, right-panel, workbench commands,
+    and thread lifecycle now consume fields from the same model.
+  - Right panel, surface body, and bottom drawer receive `appCapabilities` from
+    that model instead of direct root state, and guards reject reintroducing the
+    old App-level capability paths.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/app-capability-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-capability-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue extracting remaining root App state projection that is unrelated
+    to app-shell capabilities into focused runtime read models.
+
 ### DC-310
 
 - Date: 2026-07-10

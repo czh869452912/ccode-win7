@@ -8,7 +8,7 @@ import { buildComposerCommandsFromCapabilities } from "./session-runtime/command
 import { createSocketMessageController } from "./app-runtime/socket-message-controller.js";
 import { createSurfacePanelController } from "./app-runtime/surface-panel-controller.js";
 import { buildSurfacePanelProps } from "./app-runtime/surface-panel-props.js";
-import { buildAppCapabilityModel } from "./app-runtime/app-capability-model.js";
+import { buildAppCapabilityModelFromState } from "./app-runtime/app-capability-model.js";
 import { createBrowserDialogService } from "./app-runtime/browser-dialog-service.js";
 import { fetchJson } from "./app-runtime/http-client.js";
 import { createComposerController } from "./app-runtime/composer-controller.js";
@@ -79,6 +79,10 @@ import {
   readPersistedWorkbenchUiState,
 } from "./workbench/ui-state.js";
 
+function readCurrentAppCapabilityModel(stateRef) {
+  return buildAppCapabilityModelFromState(stateRef.current);
+}
+
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState, (baseState) => ({
     ...baseState,
@@ -117,10 +121,11 @@ function App() {
   const currentMode = state.snapshot?.current_mode || state.requestedMode;
   const currentStatus = state.snapshot?.status || "idle";
   const appCapabilityModel = useMemo(
-    () => buildAppCapabilityModel(state.app.capabilities),
-    [state.app.capabilities],
+    () => buildAppCapabilityModelFromState(state),
+    [state.app],
   );
   const {
+    appCapabilities,
     appChrome,
     keybindings,
     commandPalette,
@@ -130,6 +135,7 @@ function App() {
     previewServers,
     filePreviewChrome,
     diffPanelChrome,
+    threadLifecycleCapabilities,
     emptyState,
   } = appCapabilityModel;
   const commandContext = useMemo(() => buildCommandVisibilityContext({
@@ -141,8 +147,7 @@ function App() {
   }), [
     currentStatus,
     currentSessionId,
-    state.app.capabilities,
-    state.app.hasActiveWorkspace,
+    state.app,
     state.workbench.commandPalette.open,
     state.sessionCapabilities,
   ]);
@@ -185,12 +190,10 @@ function App() {
     () =>
       createSourceControlController({
         dispatch,
-        getAppCapabilities: () => stateRef.current.app.capabilities || {},
+        getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
         hasActiveWorkspace: () => stateRef.current.app.hasActiveWorkspace,
-        getSourceControlChrome: () =>
-          stateRef.current.app.capabilities?.sourceControl?.chrome || {},
-        getDiffPanelChrome: () =>
-          stateRef.current.app.capabilities?.surfaces?.chrome?.diffPanel || {},
+        getSourceControlChrome: () => readCurrentAppCapabilityModel(stateRef).sourceControlChrome,
+        getDiffPanelChrome: () => readCurrentAppCapabilityModel(stateRef).diffPanelChrome,
       }),
     [],
   );
@@ -205,8 +208,8 @@ function App() {
     () =>
       createTerminalController({
         getState: () => stateRef.current,
-        getAppCapabilities: () => stateRef.current.app.capabilities || {},
-        getTerminalChrome: () => stateRef.current.app.capabilities?.terminal?.chrome || {},
+        getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
+        getTerminalChrome: () => readCurrentAppCapabilityModel(stateRef).terminalChrome,
         dispatch,
         api: {
           listTerminals,
@@ -295,7 +298,7 @@ function App() {
         defaultMode: INITIAL_REQUESTED_MODE,
         createTransportState: sessionTransportHandle.createRuntimeTransport,
         replaceTransportState: sessionTransportHandle.replace,
-        getAppCapabilities: () => stateRef.current.app.capabilities || {},
+        getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
         listTerminals,
       }),
     [sessionTransportHandle],
@@ -307,7 +310,7 @@ function App() {
       createWorkspaceFilesController({
         fetchJson,
         dispatch,
-        getAppCapabilities: () => stateRef.current.app.capabilities || {},
+        getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
       }),
     [],
   );
@@ -316,7 +319,7 @@ function App() {
       createRightPanelController({
         dispatch,
         terminalController,
-        getAppCapabilities: () => stateRef.current.app.capabilities || {},
+        getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
       }),
     [terminalController],
   );
@@ -328,8 +331,7 @@ function App() {
       createFilePreviewController({
         fetchJson,
         dispatch,
-        getFilePreviewChrome: () =>
-          stateRef.current.app.capabilities?.surfaces?.chrome?.filePreview || {},
+        getFilePreviewChrome: () => readCurrentAppCapabilityModel(stateRef).filePreviewChrome,
         rightPanelController,
       }),
     [rightPanelController],
@@ -339,7 +341,7 @@ function App() {
       createPreviewController({
         dispatch,
         getCurrentSessionId: () => readActiveThreadId(stateRef.current),
-        getPreviewChrome: () => stateRef.current.app.capabilities?.preview?.chrome || {},
+        getPreviewChrome: () => readCurrentAppCapabilityModel(stateRef).previewChrome,
         rightPanelController,
       }),
     [rightPanelController],
@@ -349,8 +351,7 @@ function App() {
       createDiffSurfaceController({
         dispatch,
         getRuntimeState: () => runtimeStateRef.current || {},
-        getDiffPanelChrome: () =>
-          stateRef.current.app.capabilities?.surfaces?.chrome?.diffPanel || {},
+        getDiffPanelChrome: () => readCurrentAppCapabilityModel(stateRef).diffPanelChrome,
       }),
     [],
   );
@@ -383,7 +384,7 @@ function App() {
   const activeWorkspaceDataLoader = useMemo(
     () =>
       createActiveWorkspaceDataLoader({
-        getAppCapabilities: () => stateRef.current.app.capabilities || {},
+        getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
         loadSessions,
         loadSessionCommandCapabilities: loadSessionCommandCapabilitiesForApp,
         loadFileChildren,
@@ -438,7 +439,8 @@ function App() {
         loadSessions,
         loadSession,
         getThreadSessions: () => readThreadSessions(stateRef.current),
-        getThreadLifecycleCapabilities: () => stateRef.current.app.capabilities?.threadLifecycle || {},
+        getThreadLifecycleCapabilities: () =>
+          readCurrentAppCapabilityModel(stateRef).threadLifecycleCapabilities,
         prompt: browserDialogService.prompt,
         confirm: browserDialogService.confirm,
       }),
@@ -466,7 +468,7 @@ function App() {
         getCurrentMode: () => stateRef.current.snapshot?.current_mode || stateRef.current.requestedMode,
         getActiveWorkspaceId: () => stateRef.current.app.activeWorkspace?.id || "",
         getSessionCapabilities: () => stateRef.current.sessionCapabilities || {},
-        getAppCapabilities: () => stateRef.current.app.capabilities || {},
+        getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
         createSession,
         loadSessions,
         loadSession,
@@ -489,7 +491,7 @@ function App() {
       createWorkbenchKeyboardController({
         windowObject: window,
         documentObject: document,
-        getKeybindings: () => buildAppCapabilityModel(stateRef.current.app.capabilities).keybindings,
+        getKeybindings: () => readCurrentAppCapabilityModel(stateRef).keybindings,
         getCommandContext: () => {
           const current = stateRef.current;
           return buildCommandVisibilityContext({
@@ -531,8 +533,7 @@ function App() {
         updateSessionTransportState: sessionTransportHandle.update,
         getCurrentSessionId: () => currentSessionIdRef.current,
         loadSession,
-        getDiffPanelChrome: () =>
-          stateRef.current.app.capabilities?.surfaces?.chrome?.diffPanel || {},
+        getDiffPanelChrome: () => readCurrentAppCapabilityModel(stateRef).diffPanelChrome,
         scheduleMessage: startTransition,
       }),
     [],
@@ -559,9 +560,9 @@ function App() {
       sessions: threadSessions,
       currentSessionId,
       defaultMode: INITIAL_REQUESTED_MODE,
-      threadLifecycleCapabilities: state.app.capabilities?.threadLifecycle || {},
+      threadLifecycleCapabilities,
     }),
-    [currentSessionId, state.app, threadSessions],
+    [currentSessionId, state.app, threadLifecycleCapabilities, threadSessions],
   );
   const branchToolbarModel = useMemo(
     () =>
@@ -694,7 +695,7 @@ function App() {
       }
       rightPanel={
         <RightPanelTabs
-          appCapabilities={state.app.capabilities}
+          appCapabilities={appCapabilities}
           surfaces={rightPanelSurfaces}
           activeSurfaceId={state.workbench.rightPanel.activeSurfaceId}
           onActivateSurface={rightPanelController.activateSurface}
@@ -705,7 +706,7 @@ function App() {
           onAddSurface={openRightPanelSurface}
         >
           <RightPanelSurfaceBody
-            appCapabilities={state.app.capabilities}
+            appCapabilities={appCapabilities}
             surface={activeRightPanelSurface}
             surfacePanelProps={surfacePanelProps}
             filePreviewsByPath={state.filePreviewsByPath}
@@ -736,7 +737,7 @@ function App() {
       }
       bottomDrawer={
         <BottomDrawer
-          appCapabilities={state.app.capabilities}
+          appCapabilities={appCapabilities}
           activeKind={state.workbench.bottomDrawer.activeKind}
           runOutput={state.runOutput}
           terminationReason={state.terminationDisplayReason || state.terminationReason}

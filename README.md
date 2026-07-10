@@ -72,10 +72,11 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official frontend application capability: hosted capability payloads expose the selected application as `agentApplication` and available same-package applications as `agentApplications`. GUI shells consume these backend-declared descriptors and must not hard-code C/C++ defaults, no-workspace copy, or application-specific mode/tool lists.
 - Official GUI app capability read model: renderer app-shell capability fanout
   lives in `webapp/src/app-runtime/app-capability-model.js`.
-  `App.jsx` consumes `buildAppCapabilityModel(...)` for keybindings,
-  command-palette descriptors, app chrome, surface chrome, Preview servers, and
-  empty-state copy instead of hand-splitting `state.app.capabilities` into
-  root-level per-surface variables.
+  `App.jsx` consumes `buildAppCapabilityModelFromState(...)` /
+  `buildAppCapabilityModel(...)` for keybindings, command-palette descriptors,
+  app chrome, surface chrome, Preview servers, thread lifecycle descriptors,
+  and empty-state copy instead of reading `state.app.capabilities` or
+  `stateRef.current.app.capabilities` directly.
 - Official GUI no-workspace shell copy: the empty workspace screen consumes
   app-shell metadata such as `app.productName`, `capabilities.home`, and
   `capabilities.emptyState`; renderer components must not hard-code the

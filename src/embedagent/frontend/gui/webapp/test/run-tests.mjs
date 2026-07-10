@@ -1307,13 +1307,19 @@ async function main() {
   assert.equal(workbenchCommandControllerSource.includes("command.surface"), true);
   assert.equal(workbenchCommandControllerSource.includes("import React"), false);
   assert.equal(appSource.includes("buildAppCapabilityModel"), true);
+  assert.equal(appSource.includes("buildAppCapabilityModelFromState"), true);
   assert.equal(appSource.includes("const EMPTY_KEYBINDINGS"), false);
+  assert.equal(appSource.includes("state.app.capabilities"), false);
+  assert.equal(appSource.includes("stateRef.current.app.capabilities"), false);
   assert.equal(appSource.includes("state.app.capabilities.keybindings"), false);
   assert.equal(appSource.includes("state.app.capabilities?.terminal?.chrome"), false);
   assert.equal(appSource.includes("state.app.capabilities?.sourceControl"), false);
   assert.equal(appSource.includes("state.app.capabilities?.preview"), false);
   assert.equal(appSource.includes("state.app.capabilities?.surfaces?.chrome"), false);
+  assert.equal(appSource.includes("appCapabilities={state.app.capabilities}"), false);
+  assert.equal(appSource.includes("threadLifecycleCapabilities: state.app.capabilities"), false);
   assert.equal(appSource.includes("commandPalette={state.app.capabilities?.commandPalette"), false);
+  assert.equal((appSource.match(/appCapabilities=\{appCapabilities\}/g) || []).length >= 3, true);
   assert.equal(appSource.includes("commandById"), false);
   assert.equal(appSource.includes("buildCommandVisibilityContext"), true);
   assert.equal(appSource.includes("function isTurnInterruptibleStatus"), false);
@@ -1373,7 +1379,7 @@ async function main() {
   assert.equal(appSource.includes("sourceControlController.openFile(file, scope)"), false);
   assert.equal(appSource.includes("RightPanelSurfaceBody"), true);
   assert.equal(
-    (appSource.match(/appCapabilities=\{state\.app\.capabilities\}/g) || []).length >= 3,
+    (appSource.match(/appCapabilities=\{appCapabilities\}/g) || []).length >= 3,
     true,
   );
   assert.equal(appSource.includes("onOpenFile={filePreviewController.openFile}"), true);
