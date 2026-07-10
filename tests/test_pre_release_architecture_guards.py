@@ -1165,7 +1165,8 @@ def test_gui_keybindings_are_app_shell_declared_not_renderer_defaults():
     assert '"keybindings": _copy_records(self.keybindings)' in app_shell_spec_text
     assert '_keybinding("mod+k", "palette.open", "not_palette")' in app_shell_spec_text
     assert "normalizeKeybinding" in app_model_text
-    assert "state.app.capabilities.keybindings" in app_text
+    assert "buildAppCapabilityModel" in app_text
+    assert "state.app.capabilities.keybindings" not in app_text
     assert "DEFAULT_KEYBINDINGS" not in app_text
     assert "DEFAULT_KEYBINDINGS" not in keybindings_text
 
@@ -1179,7 +1180,9 @@ def test_gui_app_shell_projects_active_agent_application_capabilities():
     assert '"agentApplication"' in app_shell_text
     assert '"agentApplications"' in app_shell_text
     assert "normalizeAgentApplicationDescriptor" in app_model_text
-    assert "state.app.capabilities?.emptyState" in app_text
+    assert "buildAppCapabilityModel" in app_text
+    assert "emptyState || state.sessionCapabilities?.emptyState" in app_text
+    assert "state.app.capabilities?.emptyState" not in app_text
 
 
 def test_gui_app_shell_projects_selected_agent_application_before_workspace():
@@ -1399,6 +1402,7 @@ def test_gui_chrome_copy_is_app_shell_declared():
     assert "normalizeChrome" in model_text
     assert "normalizeInteractionChrome" in model_text
     assert "chrome: normalizeChrome(input)" in model_text
+    assert "buildAppCapabilityModel" in app_text
     assert "appChrome" in app_text
     assert "chrome={appChrome.header || {}}" in app_text
     assert "chrome={appChrome}" in app_text
@@ -1802,9 +1806,9 @@ def test_gui_preview_copy_is_app_shell_declared():
     assert "chrome.failedNotice" in preview_controller_text
     assert "chrome.refreshFailedNotice" in preview_controller_text
     assert "chrome.openFailedNotice" in preview_controller_text
-    assert "previewCapability.localServers" in app_text
+    assert "previewCapability.localServers" not in app_text
     assert "previewChrome={previewChrome}" in app_text
-    assert "previewServers={previewCapability.localServers" in app_text
+    assert "previewServers={previewServers}" in app_text
     assert "previewChrome" in surface_body_text
     assert "previewServers" in surface_body_text
     assert "previewChrome" in preview_surface_text

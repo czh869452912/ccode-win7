@@ -23,7 +23,8 @@ export function runPreviewSurfaceSourceTests() {
   assert.equal(previewControllerSource.includes("chrome.sessionRequiredNotice"), true);
   assert.equal(previewControllerSource.includes("chrome.refreshFailedNotice"), true);
   assert.equal(previewControllerSource.includes("chrome.openFailedNotice"), true);
-  assert.equal(appSource.includes("previewCapability.localServers"), true);
+  assert.equal(appSource.includes("previewServers={previewServers}"), true);
+  assert.equal(appSource.includes("previewCapability.localServers"), false);
   assert.equal(surfaceBodySource.includes("previewChrome"), true);
   assert.equal(surfaceBodySource.includes("previewServers"), true);
   assert.equal(previewSurfaceSource.includes("previewChrome"), true);

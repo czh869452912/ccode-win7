@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-07-05
+> 更新日期：2026-07-10
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,37 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-310
+
+- Date: 2026-07-10
+- Change Topic: GUI App capability fanout uses app-runtime read model
+- Summary:
+  - Added `app-runtime/app-capability-model.js` as the pure renderer read model
+    for app-shell capabilities, command palette descriptors, keybindings,
+    app chrome, surface chrome, preview servers, and empty-state copy.
+  - `App.jsx` now consumes `buildAppCapabilityModel(...)` instead of
+    hand-splitting `state.app.capabilities` into terminal, Source Control,
+    Preview, File Preview, Diff Panel, command-palette, and keybinding fields.
+  - Frontend and architecture guards reject reintroducing those root-level
+    capability/chrome fanout paths in `App.jsx`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/app-capability-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-capability-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/preview-surface-source.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving remaining root App state projection and prop assembly into
+    focused app-runtime/workbench read models while leaving App as composition
+    glue.
 
 ### DC-309
 

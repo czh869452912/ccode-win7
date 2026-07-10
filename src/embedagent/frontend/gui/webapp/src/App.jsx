@@ -8,6 +8,7 @@ import { buildComposerCommandsFromCapabilities } from "./session-runtime/command
 import { createSocketMessageController } from "./app-runtime/socket-message-controller.js";
 import { createSurfacePanelController } from "./app-runtime/surface-panel-controller.js";
 import { buildSurfacePanelProps } from "./app-runtime/surface-panel-props.js";
+import { buildAppCapabilityModel } from "./app-runtime/app-capability-model.js";
 import { createBrowserDialogService } from "./app-runtime/browser-dialog-service.js";
 import { fetchJson } from "./app-runtime/http-client.js";
 import { createComposerController } from "./app-runtime/composer-controller.js";
@@ -78,8 +79,6 @@ import {
   readPersistedWorkbenchUiState,
 } from "./workbench/ui-state.js";
 
-const EMPTY_KEYBINDINGS = [];
-
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState, (baseState) => ({
     ...baseState,
@@ -117,7 +116,22 @@ function App() {
   const historyIntegrity = readThreadHistoryIntegrity(state);
   const currentMode = state.snapshot?.current_mode || state.requestedMode;
   const currentStatus = state.snapshot?.status || "idle";
-  const appChrome = state.app.capabilities?.chrome || {};
+  const appCapabilityModel = useMemo(
+    () => buildAppCapabilityModel(state.app.capabilities),
+    [state.app.capabilities],
+  );
+  const {
+    appChrome,
+    keybindings,
+    commandPalette,
+    terminalChrome,
+    sourceControlChrome,
+    previewChrome,
+    previewServers,
+    filePreviewChrome,
+    diffPanelChrome,
+    emptyState,
+  } = appCapabilityModel;
   const commandContext = useMemo(() => buildCommandVisibilityContext({
     currentSessionId,
     currentStatus,
@@ -133,8 +147,6 @@ function App() {
     state.sessionCapabilities,
   ]);
   const paletteCommands = useMemo(() => visibleCommands(commandContext), [commandContext]);
-  const keybindings = state.app.capabilities.keybindings || EMPTY_KEYBINDINGS;
-  const commandPalette = state.app.capabilities?.commandPalette || {};
   const composerCommandGroupLabels = useMemo(
     () => buildCommandGroupLabels(commandPalette),
     [commandPalette],
@@ -169,14 +181,6 @@ function App() {
   );
   runtimeStateRef.current = runtimeState;
   const interactionNotice = state.interactionNotice || runtimeState.interactionNotice;
-  const terminalChrome = state.app.capabilities?.terminal?.chrome || {};
-  const sourceControlCapability = state.app.capabilities?.sourceControl || {};
-  const sourceControlChrome = sourceControlCapability.chrome || {};
-  const previewCapability = state.app.capabilities?.preview || {};
-  const previewChrome = previewCapability.chrome || {};
-  const surfaceChrome = state.app.capabilities?.surfaces?.chrome || {};
-  const filePreviewChrome = surfaceChrome.filePreview || {};
-  const diffPanelChrome = surfaceChrome.diffPanel || {};
   const sourceControlController = useMemo(
     () =>
       createSourceControlController({
@@ -485,7 +489,7 @@ function App() {
       createWorkbenchKeyboardController({
         windowObject: window,
         documentObject: document,
-        getKeybindings: () => stateRef.current.app.capabilities.keybindings || EMPTY_KEYBINDINGS,
+        getKeybindings: () => buildAppCapabilityModel(stateRef.current.app.capabilities).keybindings,
         getCommandContext: () => {
           const current = stateRef.current;
           return buildCommandVisibilityContext({
@@ -681,7 +685,7 @@ function App() {
             activating={state.app.activatingWorkspace}
             workspaces={state.app.workspaces}
             appHome={appHomeModel}
-            emptyState={state.app.capabilities?.emptyState || state.sessionCapabilities?.emptyState}
+            emptyState={emptyState || state.sessionCapabilities?.emptyState}
             onChange={setWorkspacePath}
             onOpen={openWorkspace}
             onActivate={activateWorkspace}
@@ -723,7 +727,7 @@ function App() {
             onTerminalRestart={terminalController.restartById}
             onTerminalClose={terminalController.closeActiveRightPanelPane}
             previewChrome={previewChrome}
-            previewServers={previewCapability.localServers || []}
+            previewServers={previewServers}
             onPreviewOpenUrl={previewController.openUrl}
             onPreviewRefresh={previewController.refresh}
             onPreviewOpenExternal={previewController.openExternal}
@@ -763,7 +767,7 @@ function App() {
       workspaces={state.app.workspaces}
       activeWorkspaceId={activeWorkspaceId}
       keybindings={keybindings}
-      commandPalette={state.app.capabilities?.commandPalette || {}}
+      commandPalette={commandPalette}
       onQueryChange={workbenchCommandController.updatePaletteQuery}
       onClose={workbenchCommandController.closePalette}
       onSelect={workbenchCommandController.selectPaletteCommand}

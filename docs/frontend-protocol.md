@@ -151,6 +151,12 @@ the retired duplicate `workflow.diff` GUI command is replaced by the declared
 `surface.diff` entrypoint. A
 missing `capabilities` object or missing capability descriptor arrays mean no
 app-shell entrypoints, not GUI defaults.
+Renderer app-shell capability fanout is a local read model:
+`webapp/src/app-runtime/app-capability-model.js` owns the normalized accessors
+for keybindings, command-palette descriptors, app chrome, surface chrome,
+Preview servers, and empty-state copy. `App.jsx` should consume
+`buildAppCapabilityModel(...)` rather than repeating root-level optional-chain
+lookups for each surface or command subsystem.
 Header panel toggles, command-palette open/close/query state,
 command-palette command/session/workspace selection, and command-id resolution
 are renderer action-controller concerns in

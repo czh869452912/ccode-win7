@@ -588,6 +588,11 @@
 ### 2026-06-18 - GUI Workbench Command Controller Boundary
 
 - React webapp `webapp/src/app-runtime/workbench-command-controller.js` now owns header right-panel/bottom-drawer toggles, command-palette open/close/query state, command-palette command/session/workspace selection, and command-id resolution against the active capability snapshot.
+- React webapp `webapp/src/app-runtime/app-capability-model.js` now owns
+  app-shell capability fanout for keybindings, command-palette descriptors,
+  app chrome, surface chrome, Preview servers, and empty-state copy; `App.jsx`
+  consumes that read model instead of hand-splitting
+  `state.app.capabilities` into per-surface optional-chain paths.
 - `App.jsx` wires the controller methods directly; it no longer imports `commandById` or dispatches palette/toggle reducer actions inline.
 - React webapp `webapp/src/workbench/commands.js` now owns
   `buildCommandVisibilityContext(...)` and `isTurnInterruptibleStatus(...)`;

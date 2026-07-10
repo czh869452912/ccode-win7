@@ -70,6 +70,12 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official project extension loading: hosted product paths may load enabled `.embedagent/extensions/<name>/extension.json` manifests with workspace-bound `extension.py` entrypoints; `enabled` defaults to false, enabled manifests must declare permissions, no dependency installation or remote registry is allowed, and loaded extensions register explicit `api.ExtensionCapability` records through the same shared `ExtensionManager`
 - Official agent application assembly: `src/embedagent/agent_applications.py` defines the hosted scenario application boundary, manifest registry, and selected-application loader. The default hosted product loads `src/embedagent/workflow_packages/c_cpp/application.py`, which installs the bundled C/C++ workflow extension outside `QueryEngine`; profile-only built-ins such as `embedagent.generic`, `embedagent.python`, and `embedagent.html` load the same Agent Core and GUI without installing the C/C++ workflow package. `QueryEngine` itself has no built-in harness import or constructor fallback.
 - Official frontend application capability: hosted capability payloads expose the selected application as `agentApplication` and available same-package applications as `agentApplications`. GUI shells consume these backend-declared descriptors and must not hard-code C/C++ defaults, no-workspace copy, or application-specific mode/tool lists.
+- Official GUI app capability read model: renderer app-shell capability fanout
+  lives in `webapp/src/app-runtime/app-capability-model.js`.
+  `App.jsx` consumes `buildAppCapabilityModel(...)` for keybindings,
+  command-palette descriptors, app chrome, surface chrome, Preview servers, and
+  empty-state copy instead of hand-splitting `state.app.capabilities` into
+  root-level per-surface variables.
 - Official GUI no-workspace shell copy: the empty workspace screen consumes
   app-shell metadata such as `app.productName`, `capabilities.home`, and
   `capabilities.emptyState`; renderer components must not hard-code the
