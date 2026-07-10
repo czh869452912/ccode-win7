@@ -11,6 +11,12 @@ function DiffStatLabel({ additions = 0, deletions = 0 }) {
   );
 }
 
+function formatTemplate(template = "", values = {}) {
+  return String(template || "").replace(/\{(\w+)\}/g, (_match, key) =>
+    String(values[key] ?? ""),
+  );
+}
+
 function TreeNode({ node, depth, turnId, onOpenDiff, allExpanded }) {
   const [expanded, setExpanded] = React.useState(allExpanded);
   React.useEffect(() => {
@@ -67,7 +73,7 @@ function TreeNode({ node, depth, turnId, onOpenDiff, allExpanded }) {
   );
 }
 
-export default function ChangedFilesCard({ row, onOpenDiff }) {
+export default function ChangedFilesCard({ row, onOpenDiff, chrome = {} }) {
   const files = row.files || row.changedFiles || [];
   const [allExpanded, setAllExpanded] = React.useState(false);
   const tree = React.useMemo(() => buildChangedFilesTree(files), [files]);
@@ -81,7 +87,7 @@ export default function ChangedFilesCard({ row, onOpenDiff }) {
           type="button"
           onClick={() => onOpenDiff && onOpenDiff({ turnId: row.turnId || "", filePath: files[0]?.path || "" })}
         >
-          <span>{files.length} changed files</span>
+          <span>{formatTemplate(chrome.summaryTemplate, { count: files.length })}</span>
           <DiffStatLabel additions={row.additions ?? stats.additions} deletions={row.deletions ?? stats.deletions} />
         </button>
         <div className="t3-changed-files-actions">
@@ -90,14 +96,14 @@ export default function ChangedFilesCard({ row, onOpenDiff }) {
             className="t3-mini-button"
             onClick={() => setAllExpanded((value) => !value)}
           >
-            {allExpanded ? "Collapse" : "Expand"}
+            {allExpanded ? chrome.collapseLabel || "" : chrome.expandLabel || ""}
           </button>
           <button
             type="button"
             className="t3-mini-button"
             onClick={() => onOpenDiff && onOpenDiff({ turnId: row.turnId || "", filePath: files[0]?.path || "" })}
           >
-            View diff
+            {chrome.viewDiffLabel || ""}
           </button>
         </div>
       </header>

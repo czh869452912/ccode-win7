@@ -2,16 +2,18 @@ import React from "react";
 import { Tree } from "react-arborist";
 
 export default function FilesSurface({
+  surface,
   fileTree,
   treeHeight,
   onOpenFile,
   onLoadFileChildren,
 }) {
   const nodes = Array.isArray(fileTree) ? fileTree : [];
+  const title = String(surface?.title || "").trim();
   return (
     <div className="right-panel-files-surface" data-testid="right-panel-files-surface">
       <div className="right-panel-files-header">
-        <strong>Files</strong>
+        <strong>{title}</strong>
         <span>{nodes.length}</span>
       </div>
       <div className="right-panel-file-tree-scroll" data-testid="right-panel-file-tree-scroll">

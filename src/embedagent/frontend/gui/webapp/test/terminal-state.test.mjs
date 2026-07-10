@@ -14,11 +14,14 @@ import {
 } from "../src/terminal/terminal-state.js";
 
 export function runTerminalStateTests() {
-  assert.equal(getTerminalLabel("term-1"), "Terminal 1");
-  assert.equal(getTerminalLabel("terminal-12"), "Terminal 12");
-  assert.equal(getTerminalLabel("custom"), "custom");
+  const terminalChrome = { titlePrefix: "Shell", defaultTitle: "Shell" };
+  assert.equal(getTerminalLabel("term-1", terminalChrome), "Shell 1");
+  assert.equal(getTerminalLabel("terminal-12", terminalChrome), "Shell 12");
+  assert.equal(getTerminalLabel("custom", terminalChrome), "custom");
+  assert.equal(getTerminalLabel("", terminalChrome), "Shell");
+  assert.equal(getTerminalLabel("term-1"), "term-1");
   assert.equal(resolveTerminalSessionLabel("term-2", { label: "npm test" }), "npm test");
-  assert.equal(resolveTerminalSessionLabel("term-2", { label: "   " }), "Terminal 2");
+  assert.equal(resolveTerminalSessionLabel("term-2", { label: "   " }), "");
   assert.equal(nextTerminalId([]), "term-1");
   assert.equal(nextTerminalId(["term-1", "term-3"]), "term-2");
 

@@ -308,7 +308,7 @@ class TestGuiBackendApi(unittest.TestCase):
                 return item
         return None
 
-    def test_create_session_defaults_to_explore_mode(self):
+    def test_create_session_without_query_leaves_mode_to_core_default(self):
         with tempfile.TemporaryDirectory() as static_dir:
             with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
                 handle.write("<html><body>ok</body></html>")
@@ -323,8 +323,8 @@ class TestGuiBackendApi(unittest.TestCase):
                     break
             self.assertIsNotNone(route)
             payload = asyncio.run(route.endpoint())
-        self.assertEqual(core.create_modes, ["explore"])
-        self.assertEqual(payload["current_mode"], "explore")
+        self.assertEqual(core.create_modes, [""])
+        self.assertEqual(payload["current_mode"], "")
 
     def test_resume_session_does_not_override_restored_mode_by_default(self):
         with tempfile.TemporaryDirectory() as static_dir:

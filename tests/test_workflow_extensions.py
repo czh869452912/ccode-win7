@@ -264,7 +264,7 @@ def test_workflow_prompt_descriptor_uses_generic_name():
     ).read_text(encoding="utf-8")
 
     assert "class WorkflowPrompt" in extensions_source
-    assert "HarnessPrompt = WorkflowPrompt" in extensions_source
+    assert "HarnessPrompt = WorkflowPrompt" not in extensions_source
     assert "HarnessPrompt(" not in harness_source
     assert "from embedagent_core.extensions import HarnessPrompt" not in harness_source
 
@@ -299,6 +299,23 @@ def test_c_harness_workflow_projection_builder_shapes_generic_payload():
     assert workflow["metadata"] == {
         "current_phase": "context-phase",
         "discipline_profile": "context-discipline",
+        "display_rows": [
+            {
+                "key": "current_phase",
+                "label_key": "inspector.currentPhase",
+                "value": "context-phase",
+            },
+            {
+                "key": "discipline_profile",
+                "label_key": "inspector.disciplineProfile",
+                "value": "context-discipline",
+            },
+            {
+                "key": "current_activity",
+                "label_key": "inspector.currentActivity",
+                "value": "context activity",
+            },
+        ],
     }
 
 
@@ -669,6 +686,7 @@ def test_default_c_workflow_tool_metadata_survives_package_registration(tmp_path
     assert entry["activity_kind"] == "diagnostic"
     assert entry["interrupt_behavior"] == "cancel"
     assert entry["read_model_invalidations"] == ["tasks"]
+    assert entry["metadata"] == {"preview_arg": "recipe_id"}
 
 
 def test_tool_runtime_no_longer_imports_harness_mode_describer():

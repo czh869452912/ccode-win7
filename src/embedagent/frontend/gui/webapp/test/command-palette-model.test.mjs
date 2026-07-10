@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  buildCommandGroupLabels,
   buildCommandPaletteRootGroups,
   buildCommandPaletteSubmenuGroups,
   flattenPaletteGroups,
@@ -27,7 +28,7 @@ const sessions = [
   {
     session_id: "sess-next",
     user_goal: "Verify diff rendering",
-    current_mode: "verify",
+    current_mode: "",
     updated_at: "",
   },
   { session_id: "", user_goal: "ignored" },
@@ -47,11 +48,61 @@ const keybindings = [
   { key: "mod+b", commandId: "view.toggle_right_panel", when: "always" },
 ];
 
+const commandPalette = {
+  groups: [
+    { id: "surface", title: "Panels", description: "Open declared workbench panels", order: 10, leading: "P", meta: "Group" },
+    { id: "session", title: "Threads", description: "Create and resume threads", order: 20 },
+    { id: "mode", title: "Modes", description: "Switch agent mode", order: 30 },
+    { id: "view", title: "Layout", description: "Change workbench layout", order: 40 },
+    { id: "workspace", title: "Projects", description: "Open local projects", order: 50 },
+  ],
+  labels: {
+    commandsSection: "Actions",
+    sessionsSection: "Threads",
+    workspacesSection: "Projects",
+    currentLabel: "Selected",
+    missingLabel: "Unavailable",
+    workspaceMeta: "Project",
+    workspaceFallback: "Project",
+    sessionFallbackPrefix: "Thread",
+    sessionLeading: "T",
+    workspaceLeading: "P",
+    shortcutLabels: {
+      mod: "Cmd",
+      shift: "Shift",
+      escape: "Esc",
+    },
+    shortcutSeparator: "::",
+  },
+};
+
 export function runCommandPaletteModelTests() {
   assert.equal(normalizePaletteQuery("  Diff  "), "diff");
   assert.equal(normalizePaletteQuery(null), "");
-  assert.equal(formatPaletteShortcut("mod+3"), "Ctrl+3");
-  assert.equal(formatPaletteShortcut("mod+shift+p"), "Ctrl+Shift+P");
+  assert.deepEqual(buildCommandGroupLabels(commandPalette), {
+    surface: "Panels",
+    session: "Threads",
+    mode: "Modes",
+    view: "Layout",
+    workspace: "Projects",
+  });
+  assert.deepEqual(
+    buildCommandGroupLabels([
+      { id: "tools", title: "Tools" },
+      { id: "", title: "Ignored" },
+      { id: "empty", title: "" },
+    ]),
+    { tools: "Tools", empty: "" },
+  );
+  assert.equal(formatPaletteShortcut("mod+3"), "mod+3");
+  assert.equal(
+    formatPaletteShortcut(
+      "mod+shift+p",
+      commandPalette.labels.shortcutLabels,
+      commandPalette.labels.shortcutSeparator,
+    ),
+    "Cmd::Shift::P",
+  );
 
   const root = buildCommandPaletteRootGroups({
     commands,
@@ -60,17 +111,28 @@ export function runCommandPaletteModelTests() {
     workspaces,
     activeWorkspaceId: "ws-active",
     keybindings,
+    commandPalette,
     query: "",
   });
 
-  assert.deepEqual(root.map((group) => group.id), ["commands", "sessions", "workspaces"]);
+  assert.deepEqual(root.map((group) => [group.id, group.title]), [
+    ["commands", "Actions"],
+    ["sessions", "Threads"],
+    ["workspaces", "Projects"],
+  ]);
 
   const commandItems = root.find((group) => group.id === "commands").items;
   assert.equal(commandItems.some((item) => item.type === "submenu" && item.id === "submenu:surface"), true);
+  assert.equal(commandItems.find((item) => item.id === "submenu:surface").title, "Panels");
+  assert.equal(
+    commandItems.find((item) => item.id === "submenu:surface").description,
+    "Open declared workbench panels",
+  );
+  assert.equal(commandItems.find((item) => item.id === "submenu:surface").leading, "P");
   assert.equal(commandItems.some((item) => item.type === "command" && item.commandId === "surface.preview"), true);
   assert.equal(
     commandItems.find((item) => item.commandId === "surface.preview").shortcut,
-    "Ctrl+4",
+    "Cmd::4",
   );
   assert.equal(
     commandItems.find((item) => item.id === "submenu:surface").trailing,
@@ -82,17 +144,21 @@ export function runCommandPaletteModelTests() {
   assert.equal(sessionItems[0].id, "session:sess-active");
   assert.equal(sessionItems[0].title, "Fix parser recovery");
   assert.equal(sessionItems[0].description, "debug");
-  assert.equal(sessionItems[0].trailing, "Current");
+  assert.equal(sessionItems[0].leading, "T");
+  assert.equal(sessionItems[0].trailing, "Selected");
   assert.equal(sessionItems[1].title, "Verify diff rendering");
+  assert.equal(sessionItems[1].description, "");
 
   const workspaceItems = root.find((group) => group.id === "workspaces").items;
   assert.equal(workspaceItems.length, 2);
   assert.equal(workspaceItems[0].id, "workspace:ws-active");
-  assert.equal(workspaceItems[0].trailing, "Current");
+  assert.equal(workspaceItems[0].trailing, "Selected");
+  assert.equal(workspaceItems[0].leading, "P");
   assert.equal(workspaceItems[0].disabled, false);
   assert.equal(workspaceItems[1].title, "workspace");
   assert.equal(workspaceItems[1].description, "D:/missing/workspace");
-  assert.equal(workspaceItems[1].trailing, "Missing");
+  assert.equal(workspaceItems[1].meta, "Project");
+  assert.equal(workspaceItems[1].trailing, "Unavailable");
   assert.equal(workspaceItems[1].disabled, true);
 
   const diffRoot = buildCommandPaletteRootGroups({
@@ -102,6 +168,7 @@ export function runCommandPaletteModelTests() {
     workspaces,
     activeWorkspaceId: "ws-active",
     keybindings,
+    commandPalette,
     query: "diff",
   });
   const diffItems = flattenPaletteGroups(diffRoot);
@@ -112,16 +179,100 @@ export function runCommandPaletteModelTests() {
   const submenu = buildCommandPaletteSubmenuGroups({
     commands,
     keybindings,
+    commandPalette,
     groupId: "surface",
     query: "browser",
   });
   assert.deepEqual(submenu.map((group) => group.id), ["surface"]);
-  assert.equal(submenu[0].title, "Surface");
+  assert.equal(submenu[0].title, "Panels");
   assert.equal(submenu[0].items.length, 1);
   assert.equal(submenu[0].items[0].commandId, "surface.preview");
   assert.equal(submenu[0].items[0].meta, "/preview");
-  assert.equal(submenu[0].items[0].shortcut, "Ctrl+4");
+  assert.equal(submenu[0].items[0].shortcut, "Cmd::4");
 
   assert.deepEqual(buildCommandPaletteSubmenuGroups({ commands, groupId: "missing" }), []);
+  assert.deepEqual(
+    flattenPaletteGroups(buildCommandPaletteRootGroups({
+      commands: [{ id: "app.hidden", group: "app", label: "" }],
+      commandPalette,
+    })).filter((item) => item.type === "command"),
+    [],
+  );
+  assert.deepEqual(
+    buildCommandPaletteSubmenuGroups({
+      commands: [{ id: "app.hidden", group: "app", label: "" }],
+      commandPalette,
+      groupId: "app",
+    }),
+    [],
+  );
+  const orphanCommands = [
+    { id: "app.orphan", group: "orphan", label: "Orphan Command" },
+    { id: "app.untitled", group: "untitled", label: "Untitled Group Command" },
+  ];
+  const partialPalette = {
+    groups: [{ id: "untitled", title: "", description: "", order: 1 }],
+    labels: { commandsSection: "Actions" },
+  };
+  assert.deepEqual(
+    flattenPaletteGroups(buildCommandPaletteRootGroups({
+      commands: orphanCommands,
+      commandPalette: partialPalette,
+    })).filter((item) => item.type === "command" || item.type === "submenu"),
+    [],
+  );
+  assert.deepEqual(
+    buildCommandPaletteSubmenuGroups({
+      commands: orphanCommands,
+      commandPalette: partialPalette,
+      groupId: "orphan",
+    }),
+    [],
+  );
+  assert.deepEqual(
+    buildCommandPaletteSubmenuGroups({
+      commands: orphanCommands,
+      commandPalette: partialPalette,
+      groupId: "untitled",
+    }),
+    [],
+  );
+  const noCopyItems = flattenPaletteGroups(buildCommandPaletteRootGroups({
+    commands: [{ id: "app.no_copy", group: "app", label: "Visible Command", slash: "" }],
+    commandPalette: {
+      groups: [{ id: "app", title: "App", description: "", order: 1 }],
+      labels: { commandsSection: "Actions" },
+    },
+  }));
+  const noCopyCommand = noCopyItems.find((item) => item.commandId === "app.no_copy");
+  assert.equal(noCopyCommand.title, "Visible Command");
+  assert.equal(noCopyCommand.description, "");
+  assert.equal(noCopyCommand.meta, "");
+  assert.equal(noCopyCommand.leading, "");
+  assert.equal(noCopyItems.find((item) => item.id === "submenu:app").leading, "");
+  const surfaceNoCopyItems = flattenPaletteGroups(buildCommandPaletteRootGroups({
+    commands: [
+      { id: "surface.preview", group: "surface", label: "Show Preview", surface: "preview", slash: "" },
+      { id: "drawer.terminal", group: "surface", label: "Show Terminal", drawer: "terminal", slash: "" },
+    ],
+    commandPalette: {
+      groups: [{ id: "surface", title: "Panels", description: "", order: 1 }],
+      labels: { commandsSection: "Actions" },
+    },
+  }));
+  assert.equal(surfaceNoCopyItems.find((item) => item.commandId === "surface.preview").description, "");
+  assert.equal(surfaceNoCopyItems.find((item) => item.commandId === "drawer.terminal").description, "");
+  const noLeadingRoot = buildCommandPaletteRootGroups({
+    sessions: [{ session_id: "sess-leading", title: "Visible session" }],
+    workspaces: [{ id: "ws-leading", label: "Visible workspace", path: "D:/visible" }],
+    commandPalette: {
+      labels: {
+        sessionsSection: "Threads",
+        workspacesSection: "Projects",
+      },
+    },
+  });
+  assert.equal(flattenPaletteGroups(noLeadingRoot).find((item) => item.id === "session:sess-leading").leading, "");
+  assert.equal(flattenPaletteGroups(noLeadingRoot).find((item) => item.id === "workspace:ws-leading").leading, "");
   assert.deepEqual(flattenPaletteGroups([{ id: "x", items: [{ id: "a" }, { id: "b" }] }]).map((item) => item.id), ["a", "b"]);
 }

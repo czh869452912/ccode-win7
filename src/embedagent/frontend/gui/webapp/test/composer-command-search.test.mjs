@@ -9,7 +9,6 @@ import {
 const COMMANDS = [
   { id: "session.resume", group: "session", label: "Resume Session", slash: "/resume", visibleWhen: "always" },
   { id: "surface.diff", group: "surface", label: "Open Diff", slash: "/diff", visibleWhen: "always", keywords: ["git", "changes"] },
-  { id: "workflow.diff", group: "workflow", label: "Review Diff", slash: "/diff", visibleWhen: "has_session" },
   { id: "mode.build", group: "mode", label: "Mode: Build", slash: "/mode build", visibleWhen: "has_session" },
   { id: "mode.debug", group: "mode", label: "Mode: Debug", slash: "/mode debug", visibleWhen: "has_session" },
   { id: "resources", group: "command", label: "/resources [reload]", slash: "/resources [reload]", insertion: "/resources ", visibleWhen: "always" },
@@ -17,7 +16,12 @@ const COMMANDS = [
 ];
 
 export function runComposerCommandSearchTests() {
-  const items = buildComposerCommandItems(COMMANDS);
+  const items = buildComposerCommandItems(COMMANDS, {
+    mode: "Agent modes",
+    surface: "Views",
+    session: "Runs",
+    command: "Action",
+  });
   assert.deepEqual(
     items.map((item) => item.id),
     ["slash:session.resume", "slash:surface.diff", "slash:mode.build", "slash:mode.debug", "slash:resources"],
@@ -27,6 +31,13 @@ export function runComposerCommandSearchTests() {
   assert.equal(items[1].type, "slash-command");
   assert.equal(items[4].detail, "/resources [reload]");
   assert.equal(items[4].insertion, "/resources ");
+  const defaultGroupItems = buildComposerCommandItems(
+    [{ id: "resources", label: "/resources", slash: "/resources" }],
+    { action: "Action" },
+    { defaultCommandGroupId: "action", commandGroupFallbackLabel: "Fallback" },
+  );
+  assert.equal(defaultGroupItems[0].group, "action");
+  assert.equal(defaultGroupItems[0].groupLabel, "Action");
 
   assert.deepEqual(
     searchComposerCommandItems(items, "diff").map((item) => item.slash),
@@ -53,10 +64,16 @@ export function runComposerCommandSearchTests() {
   const grouped = groupComposerCommandItems(searchComposerCommandItems(items, "mode"));
   assert.deepEqual(
     grouped.map((group) => group.label),
-    ["Mode"],
+    ["Agent modes"],
   );
   assert.deepEqual(
     grouped[0].items.map((item) => item.slash),
     ["/mode build", "/mode debug"],
   );
+  const defaultGrouped = groupComposerCommandItems(defaultGroupItems, { action: "Action" }, {
+    defaultCommandGroupId: "action",
+  });
+  assert.deepEqual(defaultGrouped.map((group) => [group.id, group.label]), [
+    ["command-group:action", "Action"],
+  ]);
 }

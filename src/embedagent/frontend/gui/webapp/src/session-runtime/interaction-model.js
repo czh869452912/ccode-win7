@@ -27,10 +27,10 @@ function permissionRequestKind(interaction) {
   return "file-change";
 }
 
-function summaryForPermission(kind) {
-  if (kind === "command") return "Command approval requested";
-  if (kind === "file-read") return "File-read approval requested";
-  return "File-change approval requested";
+function summaryForPermission(kind, copy = {}) {
+  if (kind === "command") return cleanString(copy.commandApprovalSummary);
+  if (kind === "file-read") return cleanString(copy.fileReadApprovalSummary);
+  return cleanString(copy.fileChangeApprovalSummary);
 }
 
 function detailRowsFor(details) {
@@ -65,15 +65,15 @@ function normalizeOptions(options) {
   }).filter((option) => option.text);
 }
 
-export function interactionNoticeView(notice) {
+export function interactionNoticeView(notice, copy = {}) {
   if (!notice) return null;
   const kind = cleanString(notice.kind);
   if (kind === "expired") {
     return {
       kind: "notice",
       tone: "expired",
-      title: "Interaction expired",
-      body: "This request is no longer active. Trigger the action again to continue.",
+      title: cleanString(copy.expiredTitle),
+      body: cleanString(copy.expiredBody),
       detail: cleanString(notice.detail),
     };
   }
@@ -81,16 +81,16 @@ export function interactionNoticeView(notice) {
     return {
       kind: "notice",
       tone: "conflict",
-      title: "Interaction already handled",
-      body: "This request changed in another flow. Refresh the current interaction and try again if needed.",
+      title: cleanString(copy.conflictTitle),
+      body: cleanString(copy.conflictBody),
       detail: cleanString(notice.detail),
     };
   }
   return null;
 }
 
-export function normalizeComposerInteraction(interaction, notice = null) {
-  const noticeView = interactionNoticeView(notice);
+export function normalizeComposerInteraction(interaction, notice = null, copy = {}) {
+  const noticeView = interactionNoticeView(notice, copy);
   if (noticeView) return noticeView;
   if (!interaction) return null;
   const kind = cleanString(interaction.kind);
@@ -98,17 +98,21 @@ export function normalizeComposerInteraction(interaction, notice = null) {
     const requestKind = permissionRequestKind(interaction);
     return {
       kind: "permission",
-      interactionId: cleanString(interaction.interaction_id || interaction.permission_id),
+      interactionId: cleanString(
+        interaction.interaction_id || interaction.interactionId || interaction.permission_id,
+      ),
       requestKind,
-      summary: summaryForPermission(requestKind),
+      summary: summaryForPermission(requestKind, copy),
+      kicker: cleanString(copy.pendingApprovalKicker),
       toolName: cleanString(interaction.tool_name || interaction.toolName),
       category: cleanString(interaction.category),
       reason: cleanString(interaction.reason),
       details: interaction.details || {},
       detailRows: detailRowsFor(interaction.details),
-      primaryLabel: "Approve",
-      secondaryLabel: "Deny",
-      rememberLabel: "Remember for this session",
+      primaryLabel: cleanString(copy.approveOnceLabel),
+      secondaryLabel: cleanString(copy.declineLabel),
+      cancelLabel: cleanString(copy.cancelTurnLabel),
+      rememberLabel: cleanString(copy.alwaysAllowSessionLabel),
       rawInteraction: interaction,
     };
   }
@@ -131,14 +135,18 @@ export function normalizeComposerInteraction(interaction, notice = null) {
   const firstQuestion = questions[0] || { question: "", options: [] };
   return {
     kind: "user_input",
-    interactionId: cleanString(interaction.interaction_id || interaction.request_id),
-    summary: "Input requested",
+    interactionId: cleanString(
+      interaction.interaction_id || interaction.interactionId || interaction.request_id,
+    ),
+    summary: cleanString(copy.inputSummary),
+    kicker: cleanString(copy.inputRequiredKicker),
     toolName: cleanString(interaction.tool_name || interaction.toolName),
     questions,
     question: firstQuestion.question || "",
     options: firstQuestion.options || [],
-    customPlaceholder: "Or type a custom answer...",
-    submitLabel: "Submit",
+    customPlaceholder: cleanString(copy.customAnswerPlaceholder),
+    submitLabel: cleanString(copy.submitLabel),
+    modeLabelPrefix: cleanString(copy.modeLabelPrefix),
     rawInteraction: interaction,
   };
 }
@@ -185,7 +193,7 @@ export function currentInteractionFromActivities(activities = []) {
       return normalizeComposerInteraction({
         interaction_id: item.requestId,
         kind: "user_input",
-        tool_name: payload.toolName || payload.tool_name || "ask_user",
+        tool_name: payload.toolName || payload.tool_name,
         questions: Array.isArray(payload.questions) ? payload.questions : [],
         question: payload.question || payload.summary,
         options: Array.isArray(payload.options) ? payload.options : [],

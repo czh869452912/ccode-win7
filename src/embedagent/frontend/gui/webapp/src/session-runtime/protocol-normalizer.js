@@ -44,10 +44,15 @@ export function normalizeModeDescriptor(item = {}) {
 export function normalizeCommandDescriptor(item = {}) {
   const data = objectValue(item);
   const id = firstText(data.id, data.name);
-  const label = firstText(data.label, data.usage, id);
-  if (!id || !label || data.active === false) return null;
   const dispatch = objectValue(data.dispatch);
   const dispatchCommand = text(dispatch.command);
+  const label = firstText(
+    data.label,
+    data.usage,
+    data.slash,
+    dispatchCommand.startsWith("/") ? dispatchCommand : "",
+  );
+  if (!id || !label || data.active === false) return null;
   const slash = firstText(
     data.slash,
     data.usage,
@@ -60,7 +65,7 @@ export function normalizeCommandDescriptor(item = {}) {
     name: firstText(data.name, id),
     usage,
     label,
-    group: firstText(data.group, data.sourceType, data.source_type, "command"),
+    group: text(data.group),
     dispatch,
     slash,
     summary: text(data.summary),

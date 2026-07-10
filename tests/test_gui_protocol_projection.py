@@ -64,6 +64,21 @@ class GuiProtocolProjectionTests(unittest.TestCase):
         )
         self.assertEqual(payload["workflow"]["package_id"], "workflow-python")
 
+    def test_session_bootstrap_does_not_invent_missing_workflow_state(self):
+        payload = serialize_session_bootstrap(
+            {
+                "snapshot": {
+                    "session_id": "sess-generic",
+                    "status": "idle",
+                    "current_mode": "python-build",
+                },
+                "history": {"activities": []},
+            }
+        )
+
+        self.assertEqual(payload["snapshot"]["workflow_state"], "")
+        self.assertEqual(payload["workflow"], {})
+
     def test_app_bootstrap_is_app_shell_only(self):
         payload = serialize_app_bootstrap(
             {

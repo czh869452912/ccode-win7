@@ -1,19 +1,5 @@
 import { commandById } from "./commands.js";
 
-export const DEFAULT_KEYBINDINGS = [
-  { key: "mod+k", commandId: "palette.open", when: "not_palette" },
-  { key: "escape", commandId: "palette.close", when: "palette" },
-  { key: "escape", commandId: "message.stop", when: "running" },
-  { key: "mod+b", commandId: "view.toggle_right_panel", when: "always" },
-  { key: "mod+,", commandId: "app.settings", when: "always" },
-  { key: "mod+j", commandId: "view.toggle_bottom_drawer", when: "always" },
-  { key: "mod+1", commandId: "surface.files", when: "always" },
-  { key: "mod+2", commandId: "surface.terminal", when: "always" },
-  { key: "mod+3", commandId: "surface.diff", when: "always" },
-  { key: "mod+4", commandId: "surface.preview", when: "always" },
-  { key: "mod+enter", commandId: "message.send", when: "composer" },
-];
-
 function normalizeKeyName(key) {
   const value = String(key || "").toLowerCase();
   if (value === " ") return "space";
@@ -50,10 +36,15 @@ function matchesWhen(rule, context) {
 }
 
 export function resolveKeybinding(bindings, key, context) {
+  const view = context || {};
   const normalizedKey = String(key || "").toLowerCase();
   const match = (bindings || []).find(
-    (binding) => binding.key === normalizedKey && matchesWhen(binding.when, context || {}),
+    (binding) => binding.key === normalizedKey && matchesWhen(binding.when, view),
   );
   if (!match) return null;
-  return commandById(match.commandId);
+  return commandById(
+    match.commandId,
+    view.capabilities || view.sessionCapabilities || {},
+    view.appCapabilities || null,
+  );
 }

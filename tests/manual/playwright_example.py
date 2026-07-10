@@ -87,19 +87,23 @@ def test_basic_interaction(page):
     print("  测试完成!")
 
 
-def test_inspector_tabs(page):
-    """测试 Inspector 标签切换"""
-    print("\n测试: Inspector 标签切换")
+def test_right_panel_surfaces(page):
+    """测试右侧面板 surface 切换"""
+    print("\n测试: 右侧面板 surface 切换")
 
-    tabs = ["tasks", "plan", "artifacts", "runtime", "log"]
-    for tab in tabs:
+    surfaces = ["preview", "files", "diff", "plan"]
+    for surface in surfaces:
+        surface_tab = f'[data-testid="right-panel-surface-tab--{surface}"]'
+        empty_launcher = f'[data-testid="right-panel-empty-surface--{surface}"]'
         try:
-            page.click(f'[data-testid="inspector-tab--{tab}"]')
+            if page.locator(surface_tab).count() == 0:
+                page.click(empty_launcher)
+            page.click(f'{surface_tab} [role="tab"]')
             time.sleep(0.3)
-            page.screenshot(path=f"tests/manual/screenshots/05_inspector_{tab}.png")
-            print(f"  - 已截图: 05_inspector_{tab}.png")
+            page.screenshot(path=f"tests/manual/screenshots/05_surface_{surface}.png")
+            print(f"  - 已截图: 05_surface_{surface}.png")
         except Exception as e:
-            print(f"  - 跳过 {tab}: {e}")
+            print(f"  - 跳过 {surface}: {e}")
 
     print("  测试完成!")
 
@@ -115,7 +119,7 @@ def test_sidebar_interaction(page):
     print("  - 已截图: 06_sidebar_files.png")
 
     # 切换回 Chats 标签
-    page.click('[data-testid="sidebar-tab--chats"]')
+    page.click('[data-testid="sidebar-tab--threads"]')
     time.sleep(0.3)
     page.screenshot(path="tests/manual/screenshots/07_sidebar_chats.png")
     print("  - 已截图: 07_sidebar_chats.png")
@@ -149,7 +153,7 @@ def main():
 
         # 运行测试
         test_basic_interaction(page)
-        test_inspector_tabs(page)
+        test_right_panel_surfaces(page)
         test_sidebar_interaction(page)
 
         print("\n=== 所有测试完成 ===")

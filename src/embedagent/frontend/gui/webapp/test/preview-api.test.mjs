@@ -21,6 +21,19 @@ function createFetchHarness() {
   return { calls, fetch };
 }
 
+function createFailingFetchHarness() {
+  const calls = [];
+  const fetch = async (url, options = {}) => {
+    calls.push({ url, options });
+    return {
+      ok: false,
+      statusText: "",
+      json: async () => ({}),
+    };
+  };
+  return { calls, fetch };
+}
+
 export async function runPreviewApiTests() {
   {
     const harness = createFetchHarness();
@@ -49,6 +62,14 @@ export async function runPreviewApiTests() {
         ["/api/sessions/sess%201/preview/tab%2F1/close", "POST"],
         ["/api/app/preview/open-external", "POST"],
       ],
+    );
+  }
+
+  {
+    const harness = createFailingFetchHarness();
+    await assert.rejects(
+      () => openPreviewSession("sess-1", "http://localhost:5173", { fetch: harness.fetch }),
+      (error) => error instanceof Error && error.message === "",
     );
   }
 }

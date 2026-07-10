@@ -22,6 +22,7 @@ export async function runWorkspaceControllerTests() {
           active_workspace: { id: "ws-1", path: "D:/work/demo", label: "demo" },
           workspaces: [{ id: "ws-1", path: "D:/work/demo", label: "demo" }],
           has_active_workspace: true,
+          capabilities: { terminal: { enabled: true } },
         };
       }
       if (url === "/api/app/workspaces") {
@@ -29,6 +30,7 @@ export async function runWorkspaceControllerTests() {
           active_workspace: { id: "ws-2", path: "D:/work/new", label: "new" },
           workspaces: [{ id: "ws-2", path: "D:/work/new", label: "new" }],
           has_active_workspace: true,
+          capabilities: { terminal: { enabled: true } },
         };
       }
       if (url === "/api/app/workspaces/ws-2/activate") {
@@ -36,6 +38,7 @@ export async function runWorkspaceControllerTests() {
           active_workspace: { id: "ws-2", path: "D:/work/new", label: "new" },
           workspaces: [{ id: "ws-2", path: "D:/work/new", label: "new" }],
           has_active_workspace: true,
+          capabilities: { terminal: { enabled: true } },
         };
       }
       if (url === "/api/app/workspaces/ws-2") {
@@ -50,15 +53,22 @@ export async function runWorkspaceControllerTests() {
       workspacePathInput: "D:/work/new",
     }),
     canSwitchWorkspace: () => ({ allowed: true, reason: "" }),
-    loadWorkspaceData: async (sessionId, assumeWorkspace) => {
-      calls.push(["loadWorkspaceData", sessionId, assumeWorkspace]);
+    loadWorkspaceData: async (sessionId, assumeWorkspace, appCapabilities) => {
+      calls.push(["loadWorkspaceData", sessionId, assumeWorkspace, appCapabilities]);
     },
   });
 
   await controller.loadAppBootstrap();
   assert.equal(actions[0].type, "app_bootstrap_loaded");
   assert.equal(actions[0].bootstrap.hasActiveWorkspace, true);
-  assert.deepEqual(calls[1], ["loadWorkspaceData", "", true]);
+  assert.deepEqual(calls[1].slice(0, 3), ["loadWorkspaceData", "", true]);
+  assert.equal(calls[1][3]?.terminal?.enabled === true, true);
+
+  controller.setWorkspacePath("D:/work/typed");
+  assert.deepEqual(actions.at(-1), {
+    type: "workspace_path_changed",
+    value: "D:/work/typed",
+  });
 
   await controller.openWorkspace();
   assert.equal(actions.at(-1).type, "workspace_switched");
@@ -93,13 +103,22 @@ export async function runWorkspaceControllerTests() {
   assert.equal(appSource.includes("async function activateWorkspace"), false);
   assert.equal(appSource.includes("async function removeWorkspace"), false);
   assert.equal(appSource.includes("async function loadAppBootstrap"), false);
+  assert.equal(appSource.includes("workspace_path_changed"), false);
+  assert.equal(appSource.includes("onWorkspacePathChange={setWorkspacePath}"), true);
+  assert.equal(appSource.includes("onChange={setWorkspacePath}"), true);
   assert.equal(appSource.includes("createWorkspaceController"), true);
+  assert.equal(appSource.includes("createWorkspaceFilesController"), true);
+  assert.equal(appSource.includes("fetchJson(`/api/files/tree?path="), false);
 
   const controllerSource = readSource("app-runtime", "workspace-controller.js");
   assert.equal(controllerSource.includes("export function createWorkspaceController"), true);
+  assert.equal(controllerSource.includes("function setWorkspacePath"), true);
+  assert.equal(controllerSource.includes('type: "workspace_path_changed"'), true);
   assert.equal(controllerSource.includes("/api/app/bootstrap"), true);
   assert.equal(controllerSource.includes("/api/app/workspaces"), true);
   assert.equal(controllerSource.includes("import React"), false);
 
-  assert.equal(appSource.includes("loadSessionCommandCapabilities({ fetchJson, dispatch })"), true);
+  assert.equal(appSource.includes("createSessionCommandCapabilityLoader"), true);
+  assert.equal(appSource.includes("loadSessionCommandCapabilities({ fetchJson, dispatch })"), false);
+  assert.equal(appSource.includes("loadSessionCommandCapabilitiesForApp"), true);
 }

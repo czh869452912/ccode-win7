@@ -240,7 +240,7 @@ class QueryEngine(object):
         return self._session_lock
 
     def _append_transcript_event(
-        self, session: Session, event_type: str, payload: Dict[str, Any], schema_version: int = 1
+        self, session: Session, event_type: str, payload: Dict[str, Any], schema_version: int = 2
     ) -> None:
         if self.transcript_store is None:
             return
@@ -608,7 +608,8 @@ class QueryEngine(object):
         return reply
 
     def _append_message_event(self, session: Session, payload: Dict[str, Any]) -> None:
-        self._append_transcript_event(session, "message", payload)
+        event_type = str(payload.get("role") or "message")
+        self._append_transcript_event(session, event_type, payload)
 
     def _tool_presentation_snapshot(self, tool_name: str) -> ToolPresentationSnapshot:
         lookup = getattr(self.tools, "tool_catalog_entry", None)

@@ -9,6 +9,14 @@ const VISUAL_WORKSPACE = Object.freeze({
   last_opened_at: "",
 });
 
+function surface(id, title, launcherOrder) {
+  return { id, title, launcher_order: launcherOrder, command_label: `Open ${title}` };
+}
+
+function keybinding(key, commandId, when = "always") {
+  return { key, command_id: commandId, when };
+}
+
 function visualAppBootstrap() {
   return {
     app: { shell_version: 1, product_name: "EmbedAgent", protocol: "gui_app_shell_v1" },
@@ -16,11 +24,233 @@ function visualAppBootstrap() {
     active_workspace: VISUAL_WORKSPACE,
     has_active_workspace: true,
     capabilities: {
-      thread_lifecycle: { rename: true, fork: true, archive: true },
-      surfaces: {
-        right_panel: ["preview", "files", "terminal", "diff", "plan", "source_control", "settings", "diagnostics"],
-        bottom_drawer: ["terminal", "run_output", "logs"],
+      app_commands: [
+        { id: "app.settings", label: "Open Settings", group: "app", order: 10, surface: "settings" },
+        { id: "app.diagnostics", label: "Open Diagnostics", group: "app", order: 20, surface: "diagnostics" },
+        { id: "app.source_control", label: "Open Source Control", group: "app", order: 30, surface: "source_control" },
+        { id: "app.reload", label: "Reload App Shell", group: "app", order: 40 },
+      ],
+      workspace_commands: [
+        { id: "workspace.open", label: "Open Workspace", group: "workspace", order: 10 },
+        { id: "workspace.refresh", label: "Refresh Workspaces", group: "workspace", order: 20 },
+        { id: "workspace.remove_current", label: "Remove Current Workspace From Recents", group: "workspace", order: 30, visible_when: "has_workspace" },
+      ],
+      workbench_commands: [
+        { id: "session.new", label: "New Session", group: "session", order: 10, slash: "/new" },
+        { id: "thread.new", label: "New Thread", group: "session", order: 20, keywords: ["session", "chat"] },
+        { id: "session.refresh", label: "Refresh Sessions", group: "session", order: 30, slash: "/sessions" },
+        { id: "session.resume", label: "Resume Session", group: "session", order: 40, slash: "/resume" },
+        { id: "message.send", label: "Send Message", group: "message", order: 10, visible_when: "composer_ready" },
+        { id: "message.stop", label: "Stop Running Turn", group: "message", order: 20, visible_when: "running" },
+        { id: "view.toggle_right_panel", label: "Toggle Right Panel", group: "view", order: 10 },
+        { id: "view.toggle_bottom_drawer", label: "Toggle Bottom Drawer", group: "view", order: 20 },
+        { id: "palette.open", label: "Open Command Palette", group: "view", order: 30 },
+        { id: "palette.close", label: "Close Command Palette", group: "view", order: 40, visible_when: "palette_open" },
+      ],
+      command_palette: {
+        groups: [
+          { id: "app", title: "App", description: "App shell commands", order: 10 },
+          { id: "session", title: "Sessions", description: "Create, refresh, and resume threads", order: 20 },
+          { id: "message", title: "Message", description: "Send or stop the current turn", order: 30 },
+          { id: "mode", title: "Mode", description: "Switch the active agent mode", order: 40 },
+          { id: "surface", title: "Surface", description: "Open workbench surfaces", order: 50 },
+          { id: "workspace", title: "Workspace", description: "Open or refresh local workspaces", order: 60 },
+          { id: "workflow", title: "Workflow", description: "Run workflow views", order: 70 },
+          { id: "view", title: "View", description: "Toggle workbench layout", order: 80 },
+        ],
+        labels: {
+          root_title: "Command palette",
+          submenu_title: "Command group",
+          search_label: "Command search",
+          root_placeholder: "Search commands, sessions, workspaces",
+          submenu_placeholder: "Search this group",
+          root_empty: "No matching commands, sessions, or workspaces",
+          submenu_empty: "No matching commands in this group",
+          commands_section: "Commands",
+          sessions_section: "Sessions",
+          workspaces_section: "Workspaces",
+          current_label: "Current",
+          missing_label: "Missing",
+          workspace_meta: "Workspace",
+          workspace_fallback: "Workspace",
+          session_fallback_prefix: "Session",
+        },
       },
+      chrome: {
+        brand_subtitle: "Local agent workbench",
+        sidebar_aria_label: "Sidebar",
+        thread_panel_aria_label: "Chats",
+        header: {
+          command_palette_label: "Command palette",
+          command_palette_short_label: "Cmd",
+          refresh_label: "Refresh",
+          bottom_drawer_label: "Run",
+          bottom_drawer_title: "Toggle run output",
+          right_panel_label: "Panel",
+          right_panel_title: "Toggle right panel",
+          turns_label: "turns",
+        },
+        composer: {
+          placeholder: "Message",
+          command_palette_label: "Open command palette",
+          send_label: "Send",
+          stop_label: "Stop",
+          hints: [
+            { id: "command", label: "/ commands", visible_when: "always" },
+            { id: "file", label: "@ files", visible_when: "always" },
+            { id: "select", label: "select", visible_when: "always" },
+            { id: "newline", label: "Shift+Enter newline", visible_when: "always" },
+            {
+              id: "status.running",
+              label: "running turns disable editing",
+              visible_when: "running",
+              tone: "warning",
+              status: "running",
+            },
+            {
+              id: "status.interaction",
+              label: "interaction pending",
+              visible_when: "interaction",
+              tone: "warning",
+              status: "interaction",
+            },
+          ],
+        },
+        interaction: {
+          pending_approval_kicker: "PENDING APPROVAL",
+          input_required_kicker: "INPUT REQUIRED",
+          command_approval_summary: "Command approval requested",
+          file_read_approval_summary: "File-read approval requested",
+          file_change_approval_summary: "File-change approval requested",
+          expired_title: "Interaction expired",
+          expired_body: "This request is no longer active. Trigger the action again to continue.",
+          conflict_title: "Interaction already handled",
+          conflict_body: "This request changed in another flow. Refresh the current interaction and try again if needed.",
+          approve_once_label: "Approve once",
+          decline_label: "Decline",
+          cancel_turn_label: "Cancel turn",
+          always_allow_session_label: "Always allow this session",
+          input_summary: "Input requested",
+          custom_answer_placeholder: "Or type a custom answer...",
+          submit_label: "Submit",
+          mode_label_prefix: "mode:",
+        },
+        surface_panel: {
+          aria_label: "Surface panel",
+          settings_title: "Settings",
+          confirm_workspace_switch_label: "Confirm workspace switch",
+          show_diagnostics_badge_label: "Show diagnostics badge",
+          diagnostics_title: "Diagnostics",
+          capabilities_title: "Capabilities",
+          no_diagnostics: "No app diagnostics loaded.",
+          plan_title: "Plan",
+          no_plan: "No active plan in this session.",
+          diagnostic_groups: {
+            host: "Host",
+            runtime: "Runtime",
+            renderer: "Renderer",
+            workspace_registry: "Workspace Registry",
+            active_core: "Active Core",
+          },
+        },
+      },
+      thread_lifecycle: {
+        actions: [
+          {
+            id: "rename",
+            label: "Rename",
+            capability: "rename",
+            order: 10,
+            prompt_title: "Rename thread",
+            empty_title: "Rename failed",
+            empty_body: "Thread title cannot be empty.",
+            failure_title: "Rename failed",
+          },
+          {
+            id: "fork",
+            label: "Fork",
+            capability: "fork",
+            order: 20,
+            prompt_title: "Fork thread title",
+            prompt_initial: "",
+            failure_title: "Fork failed",
+          },
+          {
+            id: "archive",
+            label: "Archive",
+            capability: "archive",
+            order: 30,
+            danger: true,
+            confirm_title: "Archive this thread?",
+            success_title: "Thread archived",
+            success_body: "The thread was archived and hidden from the normal thread list.",
+            failure_title: "Archive failed",
+          },
+        ],
+      },
+      home: {
+        workspace: {
+          section_title: "Project",
+          inactive_label: "No workspace",
+          inactive_path: "Open a local project",
+          path_placeholder: "Workspace path",
+          open_label: "Open",
+          open_aria_label: "Open workspace",
+          recents_label: "Recent projects",
+          missing_path_label: "Missing path",
+          remove_label: "Remove",
+        },
+        threads: {
+          section_title: "Threads",
+          new_label: "New",
+          empty_title: "No threads yet",
+          empty_body: "Start one for this project.",
+          active_label: "active",
+          actions_label_prefix: "Thread actions for",
+        },
+      },
+      surfaces: {
+        chrome: {
+          right_panel_aria_label: "Right panel",
+          add_surface_label: "Add panel surface",
+          empty_title: "Open a surface",
+          empty_body: "Choose what to show in the right panel.",
+          surface_actions_label_prefix: "Surface actions for",
+          close_label_prefix: "Close",
+          close_action_label: "Close",
+          close_others_action_label: "Close others",
+          close_to_right_action_label: "Close to the right",
+          close_all_action_label: "Close all",
+          default_icon: "S",
+        },
+        right_panel: [
+          surface("preview", "Preview", 10),
+          surface("files", "Files", 20),
+          surface("terminal", "Terminal", 30),
+          surface("diff", "Diff", 40),
+          surface("plan", "Plan", 50),
+          surface("source_control", "Source Control", 60),
+          surface("settings", "Settings", 70),
+          surface("diagnostics", "Diagnostics", 80),
+        ],
+        bottom_drawer: [
+          surface("run_output", "Run Output", 10),
+          surface("terminal", "Terminal", 20),
+        ],
+      },
+      keybindings: [
+        keybinding("mod+k", "palette.open", "not_palette"),
+        keybinding("escape", "palette.close", "palette"),
+        keybinding("escape", "message.stop", "running"),
+        keybinding("mod+b", "view.toggle_right_panel"),
+        keybinding("mod+,", "app.settings"),
+        keybinding("mod+j", "view.toggle_bottom_drawer"),
+        keybinding("mod+1", "surface.files"),
+        keybinding("mod+2", "surface.terminal"),
+        keybinding("mod+3", "surface.diff"),
+        keybinding("mod+4", "surface.preview"),
+        keybinding("mod+enter", "message.send", "composer"),
+      ],
       terminal: { enabled: true, pty: false, resize: false, history_persistent: false, max_buffer_bytes: 200000 },
       source_control: {
         enabled: true,
@@ -66,14 +296,6 @@ function dispatchTimelineFixture(dispatch, action) {
       },
     });
   }
-  if (action.inspectorTab) {
-    dispatch({ type: "set_inspector", value: action.inspectorTab });
-    dispatch({
-      type: "workbench_surface_activated",
-      placement: "right",
-      kind: action.inspectorTab,
-    });
-  }
   if (action.activeTurnId || action.activeStepId) {
     dispatch({
       type: "step_started",
@@ -104,13 +326,11 @@ function dispatchInteractionFixture(dispatch, action) {
     activities: [],
     historyIntegrity: null,
   });
-  dispatch({ type: "set_inspector", value: "interaction" });
 }
 
 function dispatchThreadFixture(dispatch, action) {
   ensureVisualWorkspace(dispatch);
   const sessionId = action.sessionId || "visual-thread-active";
-  dispatch({ type: "set_sidebar", value: "chats" });
   dispatch({ type: "sessions_loaded", sessions: Array.isArray(action.sessions) ? action.sessions : [] });
   dispatch({
     type: "session_activated",
@@ -189,7 +409,6 @@ export function buildTimelineFixtureAction({ currentMode = "explore" } = {}) {
   return {
     type: "dev_fixture_timeline",
     sessionId: "visual-debug-timeline",
-    inspectorTab: "tasks",
     timeline: [
       {
         id: "visual-user-1",
@@ -411,7 +630,6 @@ export function buildLongTimelineFixtureAction({ currentMode = "explore", turnCo
   return {
     type: "dev_fixture_timeline",
     sessionId: "visual-debug-long-timeline",
-    inspectorTab: "tasks",
     timeline,
     snapshot: {
       session_id: "visual-debug-long-timeline",

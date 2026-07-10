@@ -7,9 +7,6 @@ export const LOADER_REQUESTS = Object.freeze({
   LOAD_ACTIVE_WORKSPACE_DATA: "load_active_workspace_data",
   LOAD_SESSIONS: "load_sessions",
   LOAD_SESSION: "load_session",
-  LOAD_TASKS: "load_tasks",
-  LOAD_ARTIFACTS: "load_artifacts",
-  LOAD_PERMISSION_CONTEXT: "load_permission_context",
   LOAD_FILE_CHILDREN: "load_file_children",
   LOAD_SESSION_CAPABILITIES: "load_session_capabilities",
 });
@@ -41,17 +38,6 @@ export function createLoaderRequestExecutor(loaders = {}) {
       if (!request.sessionId) return Promise.resolve();
       return invoke(loaders.loadSession, request.sessionId);
     }
-    if (name === LOADER_REQUESTS.LOAD_TASKS) {
-      if (!request.sessionId) return Promise.resolve();
-      return invoke(loaders.loadTasks, request.sessionId);
-    }
-    if (name === LOADER_REQUESTS.LOAD_ARTIFACTS) {
-      return invoke(loaders.loadArtifacts);
-    }
-    if (name === LOADER_REQUESTS.LOAD_PERMISSION_CONTEXT) {
-      if (!request.sessionId) return Promise.resolve();
-      return invoke(loaders.loadPermissionContext, request.sessionId);
-    }
     if (name === LOADER_REQUESTS.LOAD_FILE_CHILDREN) {
       return invoke(loaders.loadFileChildren, request.path || ".");
     }
@@ -67,7 +53,7 @@ export function deriveSessionActivation(payload = {}, sessionId = "", options = 
   const history = safePayload.history || {};
   const snapshot = normalizeSessionPayload(
     safePayload.snapshot || {},
-    options.defaultMode || "explore",
+    options.defaultMode || "",
   );
   return {
     sessionId,
@@ -75,7 +61,6 @@ export function deriveSessionActivation(payload = {}, sessionId = "", options = 
     activities: normalizeHistoryActivities(history.activities || []),
     historyIntegrity: history.integrity || null,
     plan: safePayload.plan || null,
-    permissionContext: safePayload.permission_context || null,
     capabilities: normalizeCommandCapabilities(safePayload.capabilities || {}),
   };
 }
@@ -86,4 +71,10 @@ export async function loadSessionCommandCapabilities({ fetchJson, dispatch } = {
   const capabilities = normalizeCommandCapabilities(await request("/api/sessions/capabilities"));
   send({ type: "session_capabilities_loaded", capabilities });
   return capabilities;
+}
+
+export function createSessionCommandCapabilityLoader(options = {}) {
+  return function loadCommandCapabilities() {
+    return loadSessionCommandCapabilities(options);
+  };
 }

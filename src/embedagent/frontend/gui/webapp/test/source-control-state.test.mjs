@@ -9,6 +9,7 @@ import {
 } from "../src/source-control/source-control-state.js";
 import {
   fileStatusLabel,
+  groupLabel,
   providerLabel,
 } from "../src/source-control/source-control-presentation.js";
 
@@ -98,6 +99,17 @@ export function runSourceControlStateTests() {
   assert.equal(state.diff.path, "include/api.h");
   assert.equal(state.diff.available, true);
 
-  assert.equal(fileStatusLabel({ status: "modified" }), "M");
+  assert.equal(
+    fileStatusLabel({ status: "modified" }, { fileStatusLabels: { modified: "~" } }),
+    "~",
+  );
+  assert.equal(fileStatusLabel({ status: "unknown" }, { fileStatusLabels: {} }), "");
   assert.equal(providerLabel(normalized.provider), "GitHub");
+  assert.equal(groupLabel("unstaged", { groupLabels: { unstaged: "Modified" } }), "Modified");
+  assert.equal(groupLabel("mystery", { groupLabels: {} }), "");
+  assert.equal(
+    providerLabel({ kind: "local" }, { providerLabels: { local: "Workspace Git" } }),
+    "Workspace Git",
+  );
+  assert.equal(providerLabel({ kind: "unknown" }, { providerLabels: {} }), "");
 }

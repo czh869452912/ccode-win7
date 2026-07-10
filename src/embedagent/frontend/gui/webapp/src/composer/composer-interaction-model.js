@@ -21,23 +21,43 @@ function flattenGroups(groups) {
   }, []);
 }
 
-function commandsFromHints(commandHints) {
-  return (Array.isArray(commandHints) ? commandHints : [])
-    .filter(Boolean)
-    .map((slash) => ({
-      id: `hint.${String(slash).replace(/[^a-z0-9]+/gi, ".")}`,
-      group: "command",
-      label: slash,
-      slash,
-      visibleWhen: "always",
-    }));
-}
-
 function boundedActiveIndex(index, length) {
   if (length <= 0) return 0;
   const value = Number(index);
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(Math.trunc(value), length - 1));
+}
+
+function normalizeHintDescriptor(input = {}) {
+  const value = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  const id = String(value.id || "").trim();
+  if (!id) return null;
+  return {
+    id,
+    label: String(value.label || ""),
+    visibleWhen: String(value.visibleWhen || value.visible_when || "always"),
+    tone: String(value.tone || ""),
+    status: String(value.status || ""),
+  };
+}
+
+function isHintVisible(hint, isRunning, hasInteraction) {
+  if (hint.visibleWhen === "always" || !hint.visibleWhen) return true;
+  if (hint.visibleWhen === "running") return isRunning;
+  if (hint.visibleWhen === "interaction") return hasInteraction;
+  if (hint.visibleWhen === "idle") return !isRunning && !hasInteraction;
+  return false;
+}
+
+function visibleHints(hintDescriptors, isRunning, hasInteraction) {
+  return (Array.isArray(hintDescriptors) ? hintDescriptors : [])
+    .map((item) => normalizeHintDescriptor(item))
+    .filter((hint) => hint && isHintVisible(hint, isRunning, hasInteraction));
+}
+
+function hasVisibleHint(hints, id) {
+  const normalizedId = String(id || "").trim();
+  return (Array.isArray(hints) ? hints : []).some((hint) => hint.id === normalizedId);
 }
 
 export function moveComposerMenuIndex(currentIndex, direction, itemCount) {
@@ -62,40 +82,53 @@ export function buildComposerInteractionModel({
   value = "",
   cursor = 0,
   commands = [],
-  commandHints = [],
   fileTree = [],
   currentMode = "",
   isRunning = false,
   hasInteraction = false,
   dismissedTriggerKey = "",
   activeIndex = 0,
+  commandMenuChrome = {},
+  commandGroupLabels = {},
+  hintDescriptors = [],
 } = {}) {
   const textValue = String(value || "");
   const boundedCursor = Math.max(0, Math.min(Math.trunc(Number(cursor) || 0), textValue.length));
   const disabled = Boolean(isRunning || hasInteraction);
   const trigger = detectComposerTrigger(textValue, boundedCursor);
   const triggerKey = composerTriggerKey(trigger);
-  const menuOpen = Boolean(!disabled && trigger && triggerKey !== dismissedTriggerKey);
-  const commandSource = commands.length > 0 ? commands : commandsFromHints(commandHints);
-  const slashItems = buildComposerCommandItems(commandSource);
-  const pathCandidates = flattenComposerPathCandidates(fileTree);
+  const hints = visibleHints(hintDescriptors, isRunning, hasInteraction);
+  const pathContextEnabled = hasVisibleHint(hints, "file");
+  const menuOpen = Boolean(
+    !disabled &&
+      trigger &&
+      triggerKey !== dismissedTriggerKey &&
+      (trigger.kind !== "path" || pathContextEnabled),
+  );
+  const slashItems = buildComposerCommandItems(
+    commands,
+    commandGroupLabels,
+    commandMenuChrome,
+  );
+  const pathCandidates = pathContextEnabled ? flattenComposerPathCandidates(fileTree) : [];
 
   let groups = [];
   if (menuOpen && trigger && trigger.kind === "slash") {
-    groups = groupComposerCommandItems(searchComposerCommandItems(slashItems, trigger.query, 8));
+    groups = groupComposerCommandItems(
+      searchComposerCommandItems(slashItems, trigger.query, 8),
+      commandGroupLabels,
+      commandMenuChrome,
+    );
   } else if (menuOpen && trigger && trigger.kind === "path") {
-    groups = groupComposerPathCandidates(searchComposerPathCandidates(pathCandidates, trigger.query, 8));
+    groups = groupComposerPathCandidates(
+      searchComposerPathCandidates(pathCandidates, trigger.query, 8),
+      commandMenuChrome,
+    );
   }
 
   const items = flattenGroups(groups);
   const resolvedActiveIndex = boundedActiveIndex(activeIndex, items.length);
   const activeItem = items[resolvedActiveIndex] || null;
-  const statusHint = isRunning
-    ? { id: "status.running", status: "running", tone: "warning" }
-    : hasInteraction
-      ? { id: "status.interaction", status: "interaction", tone: "warning" }
-      : null;
-
   return {
     disabled,
     action: isRunning ? "stop" : "send",
@@ -110,14 +143,11 @@ export function buildComposerInteractionModel({
       items,
       activeIndex: resolvedActiveIndex,
       activeItem,
-      emptyText: trigger && trigger.kind === "path" ? "No files found" : "No commands found",
+      emptyText:
+        trigger && trigger.kind === "path"
+          ? commandMenuChrome.pathEmptyText || ""
+          : commandMenuChrome.commandEmptyText || "",
     },
-    hints: [
-      { id: "command" },
-      { id: "file" },
-      { id: "select" },
-      { id: "newline" },
-      ...(statusHint ? [statusHint] : []),
-    ],
+    hints,
   };
 }

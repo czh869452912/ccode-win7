@@ -52,7 +52,7 @@ file does not require changing source code.
   "chars_per_token": 3.0,
   "max_recent_turns": 4,
   "default_mode": "explore",
-  "agent_application_id": "embedagent.default_c_cpp",
+  "agent_application_id": "<application-id>",
   "mode_writable_globs": {
     "<mode_name>": ["glob_pattern", "..."]
   },
@@ -99,7 +99,7 @@ frequency. Keep `reserve_output_tokens` large enough for tool plans and final an
 | Field | Type | Default | Meaning |
 |------|------|---------|---------|
 | `default_mode` | string | `explore` | Initial mode for new sessions |
-| `agent_application_id` | string | `embedagent.default_c_cpp` | Hosted scenario application to load |
+| `agent_application_id` | string | omitted | Hosted scenario application to load |
 
 Valid `default_mode` values are:
 
@@ -112,9 +112,10 @@ Valid `default_mode` values are:
 Unknown mode names fail fast. `code` is not a valid first-class mode.
 
 `agent_application_id` selects the hosted application package before the
-session engine is built. The default value loads the bundled C/C++ application;
-other packaged applications can provide different profiles, workflow packages,
-and GUI capability metadata while keeping the same Agent Core and GUI shell.
+session engine is built. Omit it to let the hosted application registry choose
+the packaged default application. Set it explicitly to pin a base or
+specialized agent with a different profile, workflow packages, and GUI
+capability metadata while keeping the same Agent Core and GUI shell.
 Built-in application ids are:
 
 - `embedagent.default_c_cpp`
@@ -132,7 +133,7 @@ CLI/TUI/GUI launchers accept `--agent-application <id>`.
 ```json
 {
   "mode_writable_globs": {
-    "build": ["src/**/*.c", "src/**/*.h", "CMakeLists.txt"],
+    "build": ["src/**/*.py", "pyproject.toml"],
     "spec": ["docs/**/*.md"]
   }
 }
@@ -151,8 +152,8 @@ defaults.
 ```json
 {
   "mode_extra_writable_globs": {
-    "build": ["cmake/**/*.cmake", "cmake/**/*.txt"],
-    "debug": ["repro/**/*.c"]
+    "build": ["scripts/**/*.ps1", "tools/**/*.json"],
+    "debug": ["repro/**/*.py"]
   }
 }
 ```
@@ -202,8 +203,8 @@ can still require confirmation or be denied by `PermissionPolicy`.
 {
   "default_mode": "explore",
   "mode_writable_globs": {
-    "build": ["src/mymodule/**/*.c", "src/mymodule/**/*.h"],
-    "debug": ["src/mymodule/**/*.c", "src/mymodule/**/*.h", "tests/**/*.c"]
+    "build": ["src/mymodule/**/*.py"],
+    "debug": ["src/mymodule/**/*.py", "tests/**/*.py"]
   }
 }
 ```
@@ -213,7 +214,7 @@ can still require confirmation or be denied by `PermissionPolicy`.
 ```json
 {
   "mode_extra_writable_globs": {
-    "build": ["cmake/**/*.cmake", "toolchains/**/*.cmake", "CMakePresets.json"]
+    "build": ["scripts/**/*.ps1", "tools/**/*.json", "pyproject.toml"]
   }
 }
 ```

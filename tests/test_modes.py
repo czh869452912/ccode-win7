@@ -82,11 +82,9 @@ class TestWritableGlobs(unittest.TestCase):
         for m in ("explore", "verify"):
             self.assertEqual(get_writable_globs(m), [])
 
-    def test_build_mode_default_globs(self):
+    def test_build_mode_default_globs_are_generic(self):
         globs = get_writable_globs("build")
-        self.assertIn("**/*.py", globs)
-        self.assertIn("**/*.c", globs)
-        self.assertIn("**/*.h", globs)
+        self.assertEqual(globs, ["**/*"])
 
     def test_spec_mode_default_globs(self):
         globs = get_writable_globs("spec")
@@ -106,8 +104,7 @@ class TestWritableGlobs(unittest.TestCase):
     def test_extra_globs_append_to_defaults(self):
         cfg = AppConfig(mode_extra_writable_globs={"build": ["**/*.cmake"]})
         globs = get_writable_globs("build", cfg)
-        self.assertIn("**/*.py", globs)
-        self.assertIn("**/*.cmake", globs)
+        self.assertEqual(globs, ["**/*", "**/*.cmake"])
 
     def test_config_none_uses_defaults(self):
         default_globs = get_writable_globs("build")
@@ -196,6 +193,11 @@ class TestBuildSystemPrompt(unittest.TestCase):
         prompt = build_system_prompt("build")
         self.assertNotIn("lite_spec_tdd", prompt)
         self.assertNotIn("当前阶段先以", prompt)
+
+    def test_build_prompt_uses_generic_profile_copy(self):
+        prompt = build_system_prompt("build")
+        self.assertIn("通用工程", prompt)
+        self.assertNotIn("C/C++", prompt)
 
 
 class TestParseModeCommand(unittest.TestCase):

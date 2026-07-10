@@ -61,15 +61,6 @@ def test_core_adapter_read_file_missing():
     assert result.path == "missing.txt"
 
 
-def test_artifact_service_list_items():
-    """Verify artifact_service handles adapter errors gracefully."""
-    from embedagent.frontend.tui.services.artifacts import ArtifactService
-
-    service = ArtifactService(None)
-    result = service.list_items()
-    assert result == []
-
-
 def test_timeline_service_load():
     """Verify timeline_service handles adapter errors gracefully."""
     from embedagent.frontend.tui.services.timeline import TimelineService

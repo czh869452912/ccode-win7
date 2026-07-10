@@ -1,6 +1,5 @@
 from __future__ import annotations  # noqa: I001
 
-import fnmatch
 import os
 import threading
 import uuid
@@ -15,8 +14,13 @@ from embedagent_core.capabilities import (
     workflow_package_capability_descriptors,
 )
 from embedagent.agent_applications import (
-    available_agent_application_manifests,
+    agent_application_capability_payload,
     build_agent_application,
+)
+from embedagent.agent_profile_runtime import (
+    AgentProfileRuntimePolicy,
+    AgentProfileToolPolicy,
+    AgentProfileWritePathPolicy,
 )
 from embedagent_core.compaction_state import CompactionStateReducer
 from embedagent.context import ContextManager
@@ -30,6 +34,7 @@ from embedagent.project_extensions import load_project_extensions
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.protocol import PermissionContextView, PlanSnapshot
 from embedagent_core.recovery_state import RecoveryStateReducer
+from embedagent_host.agent_application_registry import product_agent_application_registry
 from embedagent_host.hosted_command_service import HostedCommandService
 from embedagent_host.hosted_interaction_service import (
     HostedInteractionService,
@@ -73,163 +78,16 @@ from embedagent.workspace_profile import build_workspace_profile_message
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
 
 
-class _ProductModeToolPolicy(object):
-    def __init__(self, profile: Any = None) -> None:
-        self._profile = profile
-
-    def allowed_tools_for(self, mode_name: str, workflow_state: Any = None) -> List[str]:
-        del workflow_state
-        if self._profile is None:
-            return []
-        return self._profile.allowed_tools_for(mode_name)
-
-
-def _fnmatch_with_doublestar(path: str, pattern: str) -> bool:
-    if fnmatch.fnmatch(path, pattern):
-        return True
-    if pattern.startswith("**/") and fnmatch.fnmatch(path, pattern[3:]):
-        return True
-    return False
-
-
-def _profile_writable_globs(profile: Any, mode_name: str, config: Any = None) -> List[str]:
-    base_globs = list(profile.writable_globs_for(mode_name))
-    if config is not None:
-        override = getattr(config, "mode_writable_globs", {}).get(mode_name)
-        if override is not None and isinstance(override, list):
-            base_globs = list(override)
-        extra = getattr(config, "mode_extra_writable_globs", {}).get(mode_name)
-        if extra is not None and isinstance(extra, list):
-            base_globs.extend([str(item) for item in extra if str(item or "").strip()])
-    deduped = []
-    seen = set()
-    for item in base_globs:
-        text = str(item or "").strip()
-        if not text or text in seen:
-            continue
-        seen.add(text)
-        deduped.append(text)
-    return deduped
-
-
-class _ProductWritePathPolicy(object):
-    def __init__(self, profile: Any) -> None:
-        self._profile = profile
-
-    def is_path_writable(
-        self,
-        mode_name: str,
-        normalized_path: str,
-        app_config: Any = None,
-    ) -> bool:
-        path = normalized_path.replace("\\", "/")
-        result = False
-        for raw_pattern in _profile_writable_globs(self._profile, mode_name, app_config):
-            pattern = raw_pattern.replace("\\", "/")
-            if pattern.startswith("!"):
-                if _fnmatch_with_doublestar(path, pattern[1:]):
-                    result = False
-            elif _fnmatch_with_doublestar(path, pattern):
-                result = True
-        return result
-
-
-class _ProductModeRuntimePolicy(object):
-    def __init__(self, profile: Any) -> None:
-        self._profile = profile
-
-    def default_mode(self) -> str:
-        return str(self._profile.default_mode)
-
-    def require_mode(self, mode_name: str) -> Dict[str, Any]:
-        return self._profile.require_mode(mode_name or self.default_mode()).to_mode_definition()
-
-    def build_system_prompt(
-        self,
-        mode_name: str,
-        app_config: Any = None,
-        workspace: str = "",
-        local_resources: Any = None,
-    ) -> str:
-        mode = self._profile.require_mode(mode_name or self.default_mode())
-        allowed_tools = list(mode.allowed_tools)
-        writable_globs = _profile_writable_globs(self._profile, mode.slug, app_config)
-        writable_text = ", ".join(writable_globs) if writable_globs else "只读"
-        can_ask_user = "ask_user" in allowed_tools
-        ask_rule = (
-            "当缺少关键决策时，向用户提供 2 到 4 个明确选项并等待确认。"
-            if can_ask_user
-            else "当需要用户决策时，用自然语言说明建议并等待用户输入。"
-        )
-        del workspace, local_resources
-        return (
-            "你是 EmbedAgent 的受控模式原型。"
-            "请优先用中文回答，并严格遵守当前模式边界。"
-            "模式不是权限系统；权限审批由运行时单独处理。"
-            "工程结构是可探测的软约定，不是你必须强推的模板。\n\n"
-            "当前模式：{mode_name}\n"
-            "模式说明：{mode_description}\n"
-            "模式切换规则：你不能主动切换模式。若需要切换，向用户提供明确选项并等待确认；或建议用户使用 /mode 命令。\n"
-            "用户确认规则：{ask_rule}\n"
-            "写入边界：{writable_globs}"
-        ).format(
-            mode_name=mode.slug,
-            mode_description=str(mode.system_prompt),
-            ask_rule=ask_rule,
-            writable_globs=writable_text,
-        )
-
-    def parse_mode_switch_request(self, user_text: str, fallback_mode: str):
-        fallback = fallback_mode or self.default_mode()
-        stripped = str(user_text or "").strip()
-        if not stripped:
-            return fallback, user_text, False
-        parts = stripped.split(None, 2)
-        if parts and parts[0] == "/mode" and len(parts) >= 2:
-            resolved = self.require_mode(parts[1])["slug"]
-            remainder = parts[2].strip() if len(parts) >= 3 else ""
-            return str(resolved), remainder, True
-        lowered = stripped.lower()
-        prefixes = (
-            "切换到",
-            "切到",
-            "进入",
-            "转到",
-            "switch to ",
-            "switch mode ",
-            "change to ",
-            "change mode ",
-        )
-        if not any(lowered.startswith(prefix.lower()) for prefix in prefixes):
-            return fallback, user_text, False
-        for mode in self._profile.modes:
-            mode_text = str(mode.slug or "").strip()
-            if not mode_text:
-                continue
-            candidates = (
-                "切换到%s模式" % mode_text,
-                "切换到%s" % mode_text,
-                "切到%s模式" % mode_text,
-                "切到%s" % mode_text,
-                "进入%s模式" % mode_text,
-                "进入%s" % mode_text,
-                "转到%s模式" % mode_text,
-                "转到%s" % mode_text,
-                "switch to %s mode" % mode_text,
-                "switch to %s" % mode_text,
-                "switch mode %s" % mode_text,
-                "change to %s mode" % mode_text,
-                "change to %s" % mode_text,
-                "change mode %s" % mode_text,
-            )
-            if lowered in [candidate.lower() for candidate in candidates]:
-                return mode.slug, "", True
-        return fallback, user_text, False
-
-
 class _WorkspaceProfilePort(object):
+    def __init__(self, detectors: Any = None) -> None:
+        self._detectors = tuple(detectors or ())
+
     def build_message(self, workspace: str, session_id: str) -> str:
-        return build_workspace_profile_message(workspace, session_id)
+        return build_workspace_profile_message(
+            workspace,
+            session_id,
+            detectors=self._detectors,
+        )
 
 
 def _display_transition_reason(reason: str) -> str:
@@ -315,6 +173,7 @@ class InProcessAdapter(object):
         event_handler: Optional[EventHandler] = None,
         agent_application_id: str = "",
         agent_application: Optional[Any] = None,
+        agent_application_registry: Optional[Any] = None,
     ) -> None:
         if tools is None:
             tools = ToolRuntime(os.getcwd())
@@ -349,17 +208,23 @@ class InProcessAdapter(object):
             getattr(self.tools, "projection_db", None),
             self.transcript_store,
         )
-        self.workspace_profile = _WorkspaceProfilePort()
         self.session_restorer = SessionRestorer()
         self.snapshot_projector = SessionSnapshotProjector()
+        self.agent_application_registry = (
+            agent_application_registry or product_agent_application_registry()
+        )
         self.agent_application = agent_application or build_agent_application(
             agent_application_id,
             self.tools,
+            registry=self.agent_application_registry,
+        )
+        self.workspace_profile = _WorkspaceProfilePort(
+            getattr(self.agent_application, "workspace_profile_detectors", ()),
         )
         self._agent_profile = self.agent_application.profile
-        self._mode_tool_policy = _ProductModeToolPolicy(self._agent_profile)
-        self._write_path_policy = _ProductWritePathPolicy(self._agent_profile)
-        self._mode_runtime_policy = _ProductModeRuntimePolicy(self._agent_profile)
+        self._mode_tool_policy = AgentProfileToolPolicy(self._agent_profile)
+        self._write_path_policy = AgentProfileWritePathPolicy(self._agent_profile)
+        self._mode_runtime_policy = AgentProfileRuntimePolicy(self._agent_profile)
         self.extension_manager = self.agent_application.extension_manager
         self.extension_manager.register_context_reducers(self.context_manager.reducers)
         self.project_extension_state = self._load_project_extensions()
@@ -415,7 +280,6 @@ class InProcessAdapter(object):
             list_workspace_recipes=self.list_workspace_recipes,
             reload_resources=self.reload_resources,
             list_tasks=self.list_tasks,
-            list_artifacts=self.list_artifacts,
             get_permission_context=self.get_permission_context,
             emit=self._emit,
             emit_with_snapshot=self._emit_with_snapshot,
@@ -542,17 +406,23 @@ class InProcessAdapter(object):
         self._ensure_extension_tools_registered(reason="capabilities")
         payload = app_capability_payload(self.capability_snapshot())
         current_application = self._agent_application_capability_payload(active=True)
+        if str(current_application.get("sourceType") or "") == "builtin":
+            try:
+                payload.update(
+                    agent_application_capability_payload(
+                        str(current_application.get("applicationId") or ""),
+                        registry=self.agent_application_registry,
+                    )
+                )
+                return payload
+            except ValueError:
+                pass
         if current_application:
             payload["agentApplication"] = current_application
         registry_payloads = []
         current_id = (
             str(current_application.get("applicationId") or "") if current_application else ""
         )
-        for manifest in available_agent_application_manifests():
-            item = manifest.to_dict()
-            item_id = str(item.get("applicationId") or "")
-            item["active"] = bool(item_id and item_id == current_id)
-            registry_payloads.append(item)
         registry_ids = set(str(item.get("applicationId") or "") for item in registry_payloads)
         if current_id in registry_ids:
             available = registry_payloads
@@ -1161,30 +1031,6 @@ class InProcessAdapter(object):
             return "transcript_missing"
         return str(exc or "history_unavailable")
 
-    def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
-        items = self.tools.projection_db.list_tool_results(limit=limit)
-        result = []
-        for item in items:
-            result.append(
-                {
-                    "path": item["stored_path"],
-                    "tool_name": item["tool_name"],
-                    "field_name": item["field_name"],
-                    "created_at": item["created_at"],
-                    "preview_text": item["preview_text"],
-                    "byte_count": item["byte_count"],
-                    "kind": item["content_kind"],
-                }
-            )
-        return result
-
-    def read_artifact(self, reference: str) -> Dict[str, Any]:
-        absolute_path = self.tools.tool_result_store.resolve_existing_path(reference)
-        with open(absolute_path, "r", encoding="utf-8") as handle:
-            content = handle.read()
-        kind = "json" if absolute_path.lower().endswith(".json") else "text"
-        return {"path": reference, "kind": kind, "content": content}
-
     def list_tasks(self, session_id: str = "") -> Dict[str, Any]:
         if not session_id:
             return {
@@ -1258,6 +1104,11 @@ class InProcessAdapter(object):
         return []
 
     def list_workspace_recipes(self) -> Dict[str, Any]:
+        extension_method = getattr(self.extension_manager, "workspace_recipes", None)
+        if callable(extension_method):
+            payload = extension_method()
+            if isinstance(payload, dict) and payload.get("items"):
+                return payload
         method = getattr(self.tools, "workspace_recipes", None)
         if callable(method):
             return method()

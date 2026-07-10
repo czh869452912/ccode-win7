@@ -21,6 +21,8 @@ export function runCommandPaletteSourceTests() {
   assert.equal(resultsSource.includes("cmd-palette-row-shortcut"), true);
   assert.equal(resultsSource.includes("cmd-palette-row-chevron"), true);
   assert.equal(resultsSource.includes("aria-disabled"), true);
+  assert.equal(resultsSource.includes('emptyLabel = ""'), true);
+  assert.equal(resultsSource.includes("No matching commands, sessions, or workspaces"), false);
   assert.equal(resultsSource.includes("fetch("), false);
   assert.equal(resultsSource.includes("transcript"), false);
   assert.equal(resultsSource.includes("embedagent"), false);
@@ -54,9 +56,19 @@ export function runCommandPaletteSourceTests() {
   assert.equal(appSource.includes("sessions={threadSessions}"), true);
   assert.equal(appSource.includes("currentSessionId={currentSessionId}"), true);
   assert.equal(appSource.includes("workspaces={state.app.workspaces}"), true);
-  assert.equal(appSource.includes("keybindings={DEFAULT_KEYBINDINGS}"), true);
-  assert.equal(appSource.includes("onSelectSession={(sessionId) =>"), true);
-  assert.equal(appSource.includes("void loadSession(sessionId)"), true);
-  assert.equal(appSource.includes("onSelectWorkspace={(workspaceId) =>"), true);
-  assert.equal(appSource.includes("void activateWorkspace(workspaceId)"), true);
+  assert.equal(appSource.includes("keybindings={keybindings}"), true);
+  assert.equal(appSource.includes("DEFAULT_KEYBINDINGS"), false);
+  assert.equal(appSource.includes("commandById"), false);
+  assert.equal(
+    appSource.includes("onSelect={workbenchCommandController.selectPaletteCommand}"),
+    true,
+  );
+  assert.equal(
+    appSource.includes("onSelectSession={workbenchCommandController.selectPaletteSession}"),
+    true,
+  );
+  assert.equal(
+    appSource.includes("onSelectWorkspace={workbenchCommandController.selectPaletteWorkspace}"),
+    true,
+  );
 }

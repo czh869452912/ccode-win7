@@ -9,7 +9,7 @@ export default function ComposerPendingApprovalActions({ approval, busy = false,
   return (
     <div className="composer-interaction-actions">
       <button type="button" className="ghost" disabled={busy} onClick={() => send("cancel")}>
-        Cancel turn
+        {approval.cancelLabel}
       </button>
       <button
         type="button"
@@ -18,7 +18,7 @@ export default function ComposerPendingApprovalActions({ approval, busy = false,
         onClick={() => send("decline")}
         data-testid="permission-deny-button"
       >
-        {approval.secondaryLabel || "Decline"}
+        {approval.secondaryLabel}
       </button>
       <button
         type="button"
@@ -26,7 +26,7 @@ export default function ComposerPendingApprovalActions({ approval, busy = false,
         disabled={busy}
         onClick={() => send("acceptForSession")}
       >
-        Always allow this session
+        {approval.rememberLabel}
       </button>
       <button
         type="button"
@@ -35,7 +35,7 @@ export default function ComposerPendingApprovalActions({ approval, busy = false,
         onClick={() => send("accept")}
         data-testid="permission-approve-button"
       >
-        {approval.primaryLabel || "Approve once"}
+        {approval.primaryLabel}
       </button>
     </div>
   );

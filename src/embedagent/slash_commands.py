@@ -37,7 +37,6 @@ _COMMAND_SPECS = [
     SlashCommandSpec("diff", "/diff", "查看当前工作区 Git diff。"),
     SlashCommandSpec("permissions", "/permissions", "查看当前会话权限上下文。"),
     SlashCommandSpec("tasks", "/tasks", "查看当前会话任务。"),
-    SlashCommandSpec("artifacts", "/artifacts", "查看最近工件。"),
 ]
 
 _COMMAND_LOOKUP = dict(

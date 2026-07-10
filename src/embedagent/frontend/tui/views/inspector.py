@@ -80,20 +80,6 @@ def build_inspector_text(state: TerminalState, summary, latest_reply: str):
                 prefix = "[x]" if item.get("done") else "[ ]"
                 lines.append("%s %s" % (prefix, item.get("content") or ""))
         return "\n".join(lines)
-    if tab == "artifacts":
-        lines = ["Artifacts", ""]
-        if not state.inspector.artifact_items:
-            lines.append("当前没有 artifact。")
-        else:
-            for item in state.inspector.artifact_items:
-                lines.append(
-                    "- %s (%s/%s)" % (item.path, item.tool_name or "-", item.field_name or "-")
-                )
-        if state.inspector.selected_artifact_ref:
-            lines.append("")
-            lines.append("Selected")
-            lines.append(state.inspector.selected_artifact_ref)
-        return "\n".join(lines)
     if tab == "diff":
         lines = ["Diff", ""]
         if state.editor.warning:

@@ -496,11 +496,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         reloaded = self.adapter.read_workspace_file("src/pkg/demo.c")
         self.assertIn("return 1;", reloaded["content"])
 
-    def test_artifact_and_task_apis(self):
-        artifacts = self.adapter.list_artifacts(limit=10)
-        self.assertGreaterEqual(len(artifacts), 1)
-        payload = self.adapter.read_artifact(artifacts[0]["path"])
-        self.assertEqual(payload["kind"], "text")
+    def test_task_api(self):
         tasks = self.adapter.list_tasks(session_id=str(self.snapshot.get("session_id") or ""))
         # No harness state pre-generated on session creation
         self.assertEqual(tasks["count"], 0)
@@ -616,6 +612,18 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertNotIn("_order", modes[0])
         build = [item for item in modes if item.get("id") == "build"][0]
         self.assertEqual(build.get("dispatch"), {"kind": "mode.set", "mode": "build"})
+
+    def test_session_capabilities_include_tool_catalog_presentation_metadata(self):
+        capabilities = self.adapter.get_session_capabilities(self.snapshot["session_id"])
+        tools = capabilities.get("tools") or []
+
+        read_file = [item for item in tools if item.get("name") == "read_file"][0]
+        run_recipe = [item for item in tools if item.get("name") == "run_recipe"][0]
+
+        self.assertEqual(read_file.get("metadata"), {"preview_arg": "path"})
+        self.assertEqual(run_recipe.get("metadata"), {"preview_arg": "recipe_id"})
+        self.assertEqual(read_file.get("permission_category"), "read")
+        self.assertEqual(run_recipe.get("permission_category"), "toolchain_exec")
 
     def test_session_snapshot_projector_is_side_effect_free(self):
         from embedagent.session_projector import SessionSnapshotProjector

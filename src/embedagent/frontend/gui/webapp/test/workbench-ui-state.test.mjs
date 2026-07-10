@@ -158,5 +158,6 @@ export function runWorkbenchUiStateTests() {
   });
   const fallback = readPersistedWorkbenchUiState(brokenStorage);
   assert.deepEqual(fallback.rightPanel.surfaces, []);
+  assert.equal(fallback.bottomDrawer.activeKind, "");
   assert.equal(fallback.commandPalette.query, "");
 }

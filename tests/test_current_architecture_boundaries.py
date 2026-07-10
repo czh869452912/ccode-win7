@@ -130,13 +130,12 @@ class TestPublicImports(object):
         assert not hasattr(adapter, "_get_adapter" + "_class")
         assert adapter.get_inprocess_adapter() is not None
 
-    def test_core_adapter_snapshot_falls_back_to_default_mode(self):
+    def test_core_adapter_snapshot_does_not_inject_default_mode(self):
         from embedagent.core.adapter import _session_snapshot_from_dict
-        from embedagent.modes import DEFAULT_MODE
 
         snapshot = _session_snapshot_from_dict({})
 
-        assert snapshot.current_mode == DEFAULT_MODE
+        assert snapshot.current_mode == ""
 
 
 class TestInProcessAdapterBoundaries(object):
@@ -351,6 +350,39 @@ def test_no_compatibility_reexports_for_core_extraction():
         assert result is InProcessAdapter
 
 
+def test_transcript_store_has_no_schema_v1_compatibility_path():
+    checked_files = (
+        ROOT / "src/embedagent/transcript_store.py",
+        ROOT / "src/embedagent_core/agent_lifecycle.py",
+        ROOT / "src/embedagent_core/query_engine.py",
+        ROOT / "src/embedagent_core/ports.py",
+        ROOT / "tests/test_transcript_store.py",
+        ROOT / "tests/test_session_integration.py",
+        ROOT / "tests/test_diff_engine.py",
+        ROOT / "tests/test_agent_lifecycle.py",
+        ROOT / "tests/test_session_restore.py",
+        ROOT / "tests/test_session_fault_injection.py",
+    )
+    forbidden_tokens = (
+        "schema_v1",
+        "schema v1",
+        "schema_version=1",
+        "schema_version: int = 1",
+        '"schema_version": 1',
+        '"schema_version":1',
+        "schema_version == 1",
+        "backward_compatibility",
+    )
+    offenders = []
+    for path in checked_files:
+        text = _read(path)
+        rel = _relative(path)
+        for token in forbidden_tokens:
+            if token in text:
+                offenders.append("%s contains %s" % (rel, token))
+    assert offenders == []
+
+
 def test_tool_runtime_does_not_import_mode_registry_for_schema_projection():
     runtime_source = _read(ROOT / "src/embedagent/tools/runtime.py")
     assert "from embedagent.modes import allowed_tools_for" not in runtime_source
@@ -365,11 +397,8 @@ def test_c_workflow_tools_are_declared_only_by_c_workflow_package_or_tests():
         "record_failing_evidence",
         "task_status",
     )
-    allowed_prefixes = (
-        "src/embedagent/workflow_packages/c_cpp/",
-        "src/embedagent/tools/recipe_ops.py",
-        "src/embedagent/tools/session_ops.py",
-    )
+    allowed_prefixes = ("src/embedagent/workflow_packages/c_cpp/",)
+    assert not (ROOT / "src/embedagent/tools/recipe_ops.py").exists()
     offenders = []
     for path in _source_files_under("src", suffixes=(".py", ".js", ".jsx")):
         rel = _relative(path)
@@ -380,3 +409,175 @@ def test_c_workflow_tools_are_declared_only_by_c_workflow_package_or_tests():
             if '"%s"' % tool_name in text or "'%s'" % tool_name in text:
                 offenders.append("%s hard-codes %s" % (rel, tool_name))
     assert offenders == []
+
+
+def test_c_cpp_agent_profile_lives_in_c_workflow_package():
+    base_profile = ROOT / "src/embedagent/agent_profiles.py"
+    c_profile = ROOT / "src/embedagent/workflow_packages/c_cpp/agent_profile.py"
+    application = ROOT / "src/embedagent/workflow_packages/c_cpp/application.py"
+    loader = ROOT / "src/embedagent/agent_applications.py"
+
+    assert c_profile.is_file()
+
+    base_text = _read(base_profile)
+    forbidden_base_tokens = (
+        "default_c_cpp_agent_profile",
+        "DEVELOPMENT_WRITABLE_GLOBS",
+        "CMakeLists.txt",
+        "**/*.cpp",
+        "**/*.hpp",
+    )
+    offenders = []
+    for token in forbidden_base_tokens:
+        if token in base_text:
+            offenders.append("src/embedagent/agent_profiles.py contains %s" % token)
+    assert offenders == []
+
+    assert "default_c_cpp_agent_profile" not in _read(loader)
+    assert "embedagent.workflow_packages.c_cpp.agent_profile" in _read(application)
+
+
+def test_default_c_cpp_application_record_lives_in_c_workflow_package():
+    registry = ROOT / "src/embedagent/agent_applications.py"
+    record = ROOT / "src/embedagent/workflow_packages/c_cpp/application_record.py"
+    product_registry = ROOT / "src/embedagent_host/agent_application_registry.py"
+
+    assert record.is_file()
+    assert product_registry.is_file()
+    registry_text = _read(registry)
+    record_text = _read(record)
+    product_registry_text = _read(product_registry)
+
+    for token in (
+        "_C_CPP_APP_SHELL",
+        '"Default C/C++ Agent"',
+        '"Path to C/C++ project"',
+        '"embedagent.c_workflow"',
+        'profile_kind="default_c_cpp"',
+        "embedagent.workflow_packages.c_cpp",
+        "default_c_cpp_agent_application_record",
+    ):
+        assert token not in registry_text
+    assert "AgentApplicationRegistry" in registry_text
+    assert "default_c_cpp_agent_application_record" in product_registry_text
+    assert "DEFAULT_C_CPP_AGENT_APPLICATION_ID" in product_registry_text
+    assert "C_WORKFLOW_PACKAGE_ID" in record_text
+    assert '"Default C/C++ Agent"' in record_text
+    assert 'profile_kind="workflow_package"' in record_text
+
+
+def test_hosted_adapter_uses_shared_agent_profile_runtime_policies():
+    adapter = ROOT / "src/embedagent_host/inprocess_adapter.py"
+    runtime = ROOT / "src/embedagent/agent_profile_runtime.py"
+
+    assert runtime.is_file()
+    adapter_text = _read(adapter)
+    runtime_text = _read(runtime)
+
+    assert "AgentProfileRuntimePolicy" in adapter_text
+    assert "AgentProfileToolPolicy" in adapter_text
+    assert "AgentProfileWritePathPolicy" in adapter_text
+    for token in (
+        "class _ProductModeToolPolicy",
+        "class _ProductWritePathPolicy",
+        "class _ProductModeRuntimePolicy",
+        "_profile_writable_globs",
+        "你是 EmbedAgent 的受控模式原型。",
+    ):
+        assert token not in adapter_text
+    assert "PROFILE_PROMPT_FRAME" in runtime_text
+
+
+def test_base_config_does_not_pin_default_c_cpp_application():
+    config_files = (
+        ROOT / "src/embedagent/config.py",
+        ROOT / "config/config.json.template",
+    )
+    forbidden_config_tokens = (
+        '"agent_application_id": "embedagent.default_c_cpp"',
+        "CMakeLists.txt",
+    )
+    offenders = []
+    for path in config_files:
+        text = _read(path)
+        rel = _relative(path)
+        for token in forbidden_config_tokens:
+            if token in text:
+                offenders.append("%s contains %s" % (rel, token))
+    assert offenders == []
+
+    guide = _read(ROOT / "docs/guides/configuration-guide.md")
+    assert "| `agent_application_id` | string | `embedagent.default_c_cpp` |" not in guide
+
+
+def test_generic_workspace_profile_uses_workflow_owned_c_cpp_detectors():
+    generic = ROOT / "src/embedagent/workspace_profile.py"
+    c_detector = ROOT / "src/embedagent/workflow_packages/c_cpp/workspace_profile.py"
+
+    generic_text = _read(generic)
+    for token in (
+        "CMakeLists.txt",
+        "Makefile",
+        '".cpp"',
+        '".hpp"',
+    ):
+        assert token not in generic_text
+
+    detector_text = _read(c_detector)
+    assert "CMakeLists.txt" in detector_text
+    assert '".cpp"' in detector_text
+    assert "CCppWorkspaceProfileDetector" in detector_text
+
+
+def test_product_evidence_helpers_do_not_import_c_cpp_workflow_constants():
+    files = (
+        ROOT / "src/embedagent/review_command.py",
+        ROOT / "src/embedagent/project_memory.py",
+        ROOT / "src/embedagent/workspace_intelligence.py",
+    )
+    forbidden = (
+        "embedagent.workflow_packages.c_cpp",
+        "C_WORKFLOW_TOOL_",
+        "C_WORKFLOW_DIAGNOSTIC_TOOL_NAMES",
+    )
+    offenders = []
+    for path in files:
+        text = _read(path)
+        rel = _relative(path)
+        for token in forbidden:
+            if token in text:
+                offenders.append("%s imports %s" % (rel, token))
+    assert offenders == []
+
+
+def test_generic_workspace_recipe_facade_does_not_import_c_cpp_workflow_constants():
+    files = (
+        ROOT / "src/embedagent/workspace_recipes.py",
+        ROOT / "src/embedagent/workspace_profile.py",
+        ROOT / "src/embedagent/tools/_base.py",
+        ROOT / "src/embedagent/tools/runtime.py",
+    )
+    forbidden = (
+        "embedagent.workflow_packages.c_cpp",
+        "C_WORKFLOW_TOOL_",
+        "run_recipe",
+        "list_recipes",
+    )
+    offenders = []
+    for path in files:
+        text = _read(path)
+        rel = _relative(path)
+        for token in forbidden:
+            if token in text:
+                offenders.append("%s contains %s" % (rel, token))
+    assert offenders == []
+
+
+def test_tools_module_docs_keep_workspace_recipes_workflow_neutral():
+    text = _read(ROOT / "docs/modules/tools-and-tooling.md")
+
+    assert "聚合与 `run_recipe` 归一化位于 `src/embedagent/workspace_recipes.py`" not in text
+    assert "`src/embedagent/workspace_recipes.py`" in text
+    assert "workflow-neutral file-resource/read-model facade" in text
+    assert "不做 CMake/Make/Ninja 检测" in text
+    assert "src/embedagent/workflow_packages/c_cpp/workspace_recipes.py" in text

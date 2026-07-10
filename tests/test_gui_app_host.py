@@ -19,8 +19,18 @@ def _assert_app_shell_payload(testcase, payload):
     testcase.assertIn("diagnostics", payload)
     testcase.assertIn("capabilities", payload)
     testcase.assertIn("settings", payload)
-    testcase.assertIn("app.settings", payload["capabilities"]["app_commands"])
-    testcase.assertIn("settings", payload["capabilities"]["surfaces"]["right_panel"])
+    testcase.assertIn(
+        "app.settings",
+        [item["id"] for item in payload["capabilities"]["app_commands"]],
+    )
+    testcase.assertIn(
+        "palette.open",
+        [item["command_id"] for item in payload["capabilities"]["keybindings"]],
+    )
+    testcase.assertIn(
+        "settings",
+        [item["id"] for item in payload["capabilities"]["surfaces"]["right_panel"]],
+    )
 
 
 class _FakeCore(object):
@@ -43,6 +53,27 @@ class _FakeCore(object):
                 "updated_at": "2026-06-15T10:00:00Z",
             }
         ]
+
+    def get_session_capabilities(self, session_id=""):
+        return {
+            "agentApplication": {
+                "applicationId": "tests.generic",
+                "label": "Generic Agent",
+                "profileId": "tests.generic.profile",
+                "workflowPackageIds": [],
+                "active": True,
+            },
+            "agentApplications": [
+                {
+                    "applicationId": "tests.generic",
+                    "label": "Generic Agent",
+                    "profileId": "tests.generic.profile",
+                    "workflowPackageIds": [],
+                    "active": True,
+                }
+            ],
+            "emptyState": {"scenario_label": "Generic workspace"},
+        }
 
     def get_workspace_snapshot(self):
         return {"path": self.workspace}
@@ -133,6 +164,10 @@ class TestGuiAppHost(unittest.TestCase):
 
         _assert_app_shell_payload(self, payload)
         self.assertEqual(payload["active_workspace"]["path"], os.path.realpath(workspace))
+        self.assertEqual(
+            payload["capabilities"]["agentApplication"]["applicationId"],
+            "tests.generic",
+        )
         self.assertEqual(payload["diagnostics"]["active_core"]["present"], True)
         self.assertEqual(len(created), 1)
         self.assertIs(created[0].frontend, backend.frontend)

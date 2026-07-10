@@ -147,7 +147,7 @@ Local offline self-extension is an official architecture capability, limited to 
 
 `InProcessAdapter` owns the hosted runtime's shared `ExtensionManager` and passes it to session-scoped `QueryEngine` instances. Frontend tool catalog visibility must use that same manager instead of a separate adapter-only harness extension chain.
 
-`ExtensionManager` is also the shared in-process capability boundary for prompt/context hooks, tool-call and tool-result hooks, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Extensions participate only by exposing `extension_capabilities()` records built from `ExtensionCapability`; method-name hooks such as `context`, `register_tools`, `allowed_tool_names`, or `handle_tool_call` are ignored unless explicitly declared in that capability list. Its hook internals dispatch through `AgentEventBus` with source metadata, observer/reducer separation, event-specific merge/stop semantics, and diagnostics; do not add new extension hook merge semantics outside that bus. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are discoverable and reloadable as file resources only. Skills support Agent Skills-style frontmatter and visible skills are summarized through a single lightweight local skill listing prompt unit. Skill bodies expand only through `/skill:<name> [args]`; prompt bodies expand only through `/prompt:<name-or-path> [args]`. Both remain Markdown/resource loading, not code execution. `author_local_capability` may generate those resources and disabled extension skeletons, but it must not reload resources or load Python extension code. Project-local Python extensions are loaded only from enabled `.embedagent/extensions/<name>/extension.json` manifests with workspace-bound `extension.py` entrypoints, declared permissions, explicit `api.ExtensionCapability` registrations for any hooks/tools they expose, no dependency installation, no remote registry, and no built-in tool replacement.
+`ExtensionManager` is also the shared in-process capability boundary for prompt/context hooks, tool-call and tool-result hooks, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Extensions participate only by exposing `extension_capabilities()` records built from `ExtensionCapability`; method-name hooks such as `context`, `register_tools`, `allowed_tool_names`, or `handle_tool_call` are ignored unless explicitly declared in that capability list. Its hook internals dispatch through `AgentEventBus` with source metadata, observer/reducer separation, event-specific merge/stop semantics, and diagnostics; do not add new extension hook merge semantics outside that bus. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are discoverable and reloadable as file resources only. Skills support Agent Skills-style frontmatter and visible skills are summarized through a single lightweight local skill listing prompt unit. Skill bodies expand only through `/skill:<name> [args]`; prompt bodies expand only through `/prompt:<name-or-path> [args]`. Both remain Markdown/resource loading, not code execution. `author_local_capability` may generate those resources and disabled extension skeletons, but it must not reload resources, load Python extension code, or stamp generated recipe JSON with default C/C++ workflow tool names. Project-local Python extensions are loaded only from enabled `.embedagent/extensions/<name>/extension.json` manifests with workspace-bound `extension.py` entrypoints, declared permissions, explicit `api.ExtensionCapability` registrations for any hooks/tools they expose, no dependency installation, no remote registry, and no built-in tool replacement.
 
 `AgentExtensionHost` is the QueryEngine-side extension dispatch boundary. `QueryEngine` must not scatter direct `ExtensionManager` hook calls for prompt injection, context patching, dynamic tool registration, active-tool schema projection, tool-call hooks, tool-result hooks, or extension-owned tool handling.
 `WorkflowPatch` from tool-result hooks carries only the generic `workflow`
@@ -223,9 +223,9 @@ Command sanitization uses `get_command_sanitizer()` directly. Do not reintroduce
 removed sanitizer proxy/wrapper aliases; shell execution must continue through
 the official sanitizer accessor and normal permission policy.
 
-Dynamic in-process extension tools are registered into the shared `ToolRuntime` with source metadata and explicit permission categories. The runtime catalog is the source of truth for tool permission category; `PermissionPolicy` must not maintain a parallel built-in tool taxonomy, and missing or invalid metadata falls back to ask-by-default `other`. The default C/C++ workflow package uses the same registration boundary for recipe, quality, evidence, and task-status tools. A registered extension tool is model-visible only when active through the shared `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` path and remains subject to `PermissionPolicy`. Tool completion read-model refresh must use catalog/event `read_model_invalidations`; do not maintain Core, adapter, or GUI hard-coded tool-name refresh lists.
+Dynamic in-process extension tools are registered into the shared `ToolRuntime` with source metadata and explicit permission categories. The runtime catalog is the source of truth for tool permission category; `PermissionPolicy` must not maintain a parallel built-in tool taxonomy, and missing or invalid metadata falls back to ask-by-default `other`. The default C/C++ workflow package uses the same registration boundary for recipe, quality, evidence, and task-status tools. A registered extension tool is model-visible only when active through the shared `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` path and remains subject to `PermissionPolicy`. Tool completion read-model refresh must use catalog/event `read_model_invalidations`; do not maintain Core, adapter, or GUI hard-coded tool-name refresh lists. GUI tool preview text and changed-file path inference must come from safe catalog presentation metadata such as `metadata.preview_arg` and `metadata.changed_path_arg` projected through session capabilities; do not add renderer-side preview/request-kind/changed-file branches for built-in or workflow tool names.
 
-Local resource reload is a file discovery operation. `ToolRuntime.reload_resources()`, `InProcessAdapter.reload_resources(...)`, `/resources reload`, and `POST /api/sessions/{session_id}/resources/reload` refresh workspace-bound skills, prompts, and recipe JSON resources. Skills/prompts are surfaced as resources; `.embedagent/recipes/*.json` feeds the existing recipe contract. Agent Skills-style frontmatter (`name`, `description`, `disable-model-invocation`) controls skill metadata and the lightweight local skill listing prompt unit. `/skill:<name> [args]` expands a workspace-bound skill Markdown file into a normal user turn; `/prompt:<name-or-path> [args]` expands a workspace-bound prompt file into a normal user turn. Neither bypasses tools, permissions, or extension loading. Reload does not execute local Python code. `author_local_capability` writes local self-extension artifacts under `.embedagent` and reports next actions; it does not implicitly reload resources or enable/load project extensions.
+Local resource reload is a file discovery operation. `ToolRuntime.reload_resources()`, `InProcessAdapter.reload_resources(...)`, `/resources reload`, and `POST /api/sessions/{session_id}/resources/reload` refresh workspace-bound skills, prompts, and recipe JSON resources. Skills/prompts are surfaced as resources; `.embedagent/recipes/*.json` feeds workflow-neutral recipe definitions, and the default C/C++ workflow package applies its own `run_recipe` normalization only at the workflow-owned recipe aggregation boundary. Agent Skills-style frontmatter (`name`, `description`, `disable-model-invocation`) controls skill metadata and the lightweight local skill listing prompt unit. `/skill:<name> [args]` expands a workspace-bound skill Markdown file into a normal user turn; `/prompt:<name-or-path> [args]` expands a workspace-bound prompt file into a normal user turn. Neither bypasses tools, permissions, or extension loading. Reload does not execute local Python code. `author_local_capability` writes local self-extension artifacts under `.embedagent` and reports next actions; it does not implicitly reload resources or enable/load project extensions.
 
 Slash command specs for workspace-local skill and prompt resources must be projected through `slash_commands.resource_command_specs(resources)`. Hosted adapters and capability projections must not own parallel resource command spec builders.
 
@@ -247,10 +247,27 @@ Official session-history truth is:
 - `GET /api/sessions/{id}/bootstrap` as the only GUI/TUI activation bootstrap contract
 
 `GET /api/app/bootstrap` is the GUI app-shell activation bootstrap only. It may expose GUI-owned workspace registry projection, safe host/runtime/renderer diagnostics, app-level commands, app surfaces, and local shell settings; it must not become session history truth, workflow truth, provider/runtime policy, permission policy, extension loading policy, or a replacement for `GET /api/sessions/{id}/bootstrap`.
+No-workspace shell branding and copy must come from app-shell metadata such as
+`app.productName`, `capabilities.home`, and `capabilities.emptyState`; renderer
+components must not hard-code the default product or agent name, and renderer
+app-shell normalizers must preserve missing product names as empty rather than
+inventing a default.
+Right-panel surface titles and surface-owned panel headings, including the
+Files surface header, must come from backend-declared app-shell surface
+descriptors rather than renderer-local default copy.
 
-GUI thread lifecycle operations (`rename`, `fork`, and `archive`) must flow through the session lifecycle facade and update session summary/projection metadata used by app thread lists. They must not rewrite transcript history, own workflow state, activate tools, decide permissions, load extensions, or create source-control checkpoints.
+GUI thread lifecycle operations (`rename`, `fork`, and `archive`) must flow through the session lifecycle facade and update session summary/projection metadata used by app thread lists. Action labels, disabled reason labels, prompt, confirmation, success, empty-title, and failure copy must come from app-shell action descriptors; actions with missing labels stay out of the visible rail, and missing notice copy stays absent rather than being synthesized from action ids or labels. They must not rewrite transcript history, own workflow state, activate tools, decide permissions, load extensions, or create source-control checkpoints.
 
 Hosted slash-command dispatch, command result emission, and command-owned tool execution are owned by `HostedCommandService`, not by `InProcessAdapter` or Agent Core. Hosted permission/user-input approve/reject/reply/respond glue and pending ticket state are owned by `HostedInteractionService`. Hosted `/review` synthesis is owned by `ReviewCommandService` underneath the command service. Session tool-evidence extraction, review finding rules, git-diff evidence shaping, and markdown rendering must stay in hosted command services; the adapter only invokes those services and bridges resulting state/events.
+GUI session-load effects from command results must use structured payload
+fields such as `switch_session_id`, not slash command names such as `/resume`.
+GUI run-output log labels for command results must also come from explicit
+payload fields such as `log_label` / `log_detail`; renderer code must not
+synthesize visible log copy from slash command names or success booleans.
+GUI session bootstrap serializers and renderer session normalizers must not
+invent a missing workflow-state name such as `chat`; they should preserve the
+explicit snapshot value and render workflow details from the separate generic
+`workflow` payload.
 
 There is no durable timeline-backed session-history store or timeline-backed
 history replay path, and there is no session event replay HTTP route. GUI
@@ -269,7 +286,10 @@ GUI live interaction activity must enter the renderer through backend-owned
 `permission_request` / `user_input_request` WebSocket messages exist only to
 drive the current blocking interaction UI and response path; renderer code must
 not synthesize interaction-created activity/history records from those raw
-request messages or maintain a parallel interaction activity stream.
+request messages or maintain a parallel interaction activity stream. User-input
+interaction display must be driven by `kind` / `sourceActivityKind` plus
+payload fields; when `tool_name` is absent, renderer code must not fill in the
+default built-in `ask_user` tool name.
 
 Official durable operation truth is:
 
@@ -367,8 +387,8 @@ display buffers remain under `src/embedagent/frontend/gui/webapp/src/terminal/`;
 workbench surface persistence remains under
 `src/embedagent/frontend/gui/webapp/src/workbench/`. Do not reintroduce
 root-level `sessions`, `currentSessionId`, `composer`, `historyIntegrity`,
-`connectionState`, `set_connection`, or timeline reload state as parallel GUI
-state.
+`connectionState`, retired sidebar tab state/actions such as `sidebarTab` or
+`set_sidebar`, `set_connection`, or timeline reload state as parallel GUI state.
 
 GUI visual debug fixtures are development-only. `?visual_debug=1` may expose
 `window.__EMBEDAGENT_VISUAL_DEBUG__`, but fixture helpers must expand private
@@ -380,9 +400,43 @@ current release artifacts. When webapp source changes, rebuild them through the
 webapp build command, but normal review and architecture reasoning should use
 `src/embedagent/frontend/gui/webapp/src/` as source of truth.
 
+GUI workbench surface titles are app-shell display descriptors. Renderer-local
+surface registries may keep known renderer kind, resource, close-behavior, and
+persistence metadata, but visible launcher/command entries require explicit
+app-shell `title` metadata, and renderer helpers must not synthesize surface
+titles from surface kind or id values. Resource instance titles such as file
+basenames, preview ids/URLs, or terminal ids remain instance data, not
+app-shell defaults; missing preview instance data must not create a renderer
+fallback tab.
+
+GUI workbench command labels are app-shell or capability display descriptors.
+App/workspace/workbench command entries without explicit labels must stay out
+of visible command lists, and dynamic slash commands are visible only when
+their capability descriptors provide explicit `label`, `usage`, or `slash`
+metadata. Commands in command-palette groups without explicit descriptor titles
+must also stay hidden. Renderer command lists and command-palette rows must not
+synthesize visible titles from command ids or group ids, and missing command
+row description/meta copy must remain empty instead of falling back to command
+ids. Surface command row descriptions must come from surface descriptors and
+must not be synthesized from surface or drawer ids. Session/workspace palette
+row leading markers must also come from command-palette label descriptors and
+remain empty when absent. Command-palette group leading markers must come from
+explicit group descriptors and must not be synthesized from group titles.
+
 The GUI terminal bottom drawer is an app-shell hosted surface, not Agent Core. It uses Windows 7-compatible Python stdlib subprocess pipes, is not a full PTY, and must not depend on ConPTY, `node-pty`, `pywinpty`, `pexpect`, Electron, runtime Node, Docker, WSL, VS Code, or online services. Terminal output is GUI-local display state only: it must not be written to `transcript.jsonl`, telemetry, workflow state, source-control checkpoints, or permission/runtime reducer truth.
 
-The GUI Source Control right-panel is an app-shell hosted, active-workspace surface, not Agent Core and not the default C/C++ workflow package. It may use bundled/workspace MinGit through the GUI backend for read-only local `status` and `diff` views. It must remain local/offline by default and must not implement remote providers, push/pull, staging, commit, checkpoint mutation, transcript writes, workflow state, telemetry, permission policy, runtime reducer truth, provider configuration, extension loading, or hidden network behavior. Future source-control mutations or remote/intranet Git work must enter through explicit hosted extension/provider/workflow-package boundaries with normal permission categories and must not weaken Win7/offline support.
+The GUI File Preview right-panel is an app-shell hosted, read-only display surface over already-loaded workspace file content, not Agent Core and not a file editing workflow. Its chrome/copy, metadata labels, fallback messages, and language labels must come from `capabilities.surfaces.chrome.file_preview` rather than renderer-local defaults. It must not save files, write transcript history, own workflow state, decide permissions, load extensions, update telemetry, or become a source-control checkpoint or Agent Core policy path.
+
+The GUI Composer slash-command and file-context menu is app-shell display state. Its menu aria labels, empty states, path/kind labels, fallback command group copy, default slash-command group id, and hint-bar descriptors must come from `capabilities.chrome.composer`, and slash command group titles must reuse `capabilities.command_palette.groups`. Slash menu items must come from command capability projection, not renderer-local static command hints. Renderer composer modules must not keep a parallel English command/path menu string table, hard-coded hint item list, synthesize missing command groups as `"command"`, or infer agent/workflow identity from those labels.
+
+The GUI Timeline is app-shell display projection over session bootstrap/live activities, not durable history truth and not Agent Core. Its log aria label, empty/history/termination copy, work-group labels, activity-row labels/status/timer templates, work-row default heading/icon/status labels, changed-files card labels, and structured tool-detail field/section labels must come from `capabilities.chrome.timeline` rather than renderer-local defaults. The T3 timeline projection may carry display data such as `createdAt`, `completedAt`, `interrupted`, detail field keys, and detail section kinds, but it must not precompute renderer chrome labels. Review-result row classification must use structured review payload fields such as `data.review` / `review`, not slash command names such as `/review`; command-result row labels must come from explicit payload labels or app-shell `commandDefaultName`, not synthesized `/${commandName}` strings. It must not rewrite transcript history, own workflow state, decide permissions, load extensions, update telemetry, or become provider/runtime policy.
+
+The GUI Source Control right-panel and composer Branch Toolbar are app-shell hosted, active-workspace surfaces, not Agent Core and not the default C/C++ workflow package. They may use bundled/workspace MinGit through the GUI backend for read-only local `status` and `diff` views, and their surface chrome/copy, including group order, group/provider labels, and file status badge labels, must come from `capabilities.source_control.chrome` and `capabilities.source_control.chrome.branch_toolbar` rather than renderer-local defaults. Missing group/provider labels must not fall back to raw protocol ids as visible UI. They must remain local/offline by default and must not implement remote providers, push/pull, staging, commit, checkpoint mutation, transcript writes, workflow state, telemetry, permission policy, runtime reducer truth, provider configuration, extension loading, or hidden network behavior. Future source-control mutations or remote/intranet Git work must enter through explicit hosted extension/provider/workflow-package boundaries with normal permission categories and must not weaken Win7/offline support.
+Source-control, terminal, and preview frontend API helpers must not carry
+renderer-local request-failure copy; if the backend omits detail/error text,
+controllers should fall through to the relevant app-shell chrome fallback.
+
+The GUI Diff right-panel is an app-shell hosted display surface over already-projected unified diff text, not Agent Core, not source-control policy, and not a workflow package. Command results may open it only through structured diff payload fields such as `data.diff`, not slash command names such as `/diff`. Its default title, empty state, controls, file rail labels, collapse labels, and source-control diff title template must come from `capabilities.surfaces.chrome.diff_panel` rather than renderer-local defaults. Workbench tab titles must come from explicit diff payload titles or the app-shell surface descriptor, not a renderer `"diff"` fallback. It must not write transcript history, own workflow state, decide permissions, load extensions, update telemetry, mutate source control, or become an Agent Core policy path.
 
 ## Documentation Maintenance
 

@@ -87,11 +87,12 @@ def test_turn_experience_projects_failed_validation_as_next_fix_step():
                     "success": False,
                     "error": "命令退出码为 1。",
                     "data": {
-                        "command": "python tests/test_calcstats.py",
+                        "command": "custom validation runner",
                         "exit_code": 1,
                         "stderr": "FAIL: compilation error",
                         "outcome_class": "diagnostic_failure",
                         "error_kind": "command_failed",
+                        "validation": True,
                     },
                 },
             },
@@ -105,18 +106,53 @@ def test_turn_experience_projects_failed_validation_as_next_fix_step():
     assert payload["status"] == "completed"
     assert payload["last_failure"] == {
         "tool_name": "bash",
-        "command": "python tests/test_calcstats.py",
+        "command": "custom validation runner",
         "exit_code": 1,
         "error": "命令退出码为 1。",
     }
     assert payload["unverified"] == [
         {
             "kind": "validation_failed",
-            "command": "python tests/test_calcstats.py",
+            "command": "custom validation runner",
             "exit_code": 1,
         }
     ]
     assert payload["next_steps"] == ["Inspect the failed validation output and fix the project."]
+
+
+def test_turn_experience_does_not_infer_validation_from_command_names():
+    events = [
+        _event(
+            "tool_result",
+            {
+                "tool_name": "bash",
+                "observation": {
+                    "success": False,
+                    "error": "命令退出码为 1。",
+                    "data": {
+                        "command": "cmake --build build && ctest --test-dir build",
+                        "exit_code": 1,
+                        "stderr": "FAILED",
+                        "outcome_class": "diagnostic_failure",
+                        "error_kind": "command_failed",
+                    },
+                },
+            },
+            1,
+        ),
+        _event("loop_transition", {"reason": "completed", "message": ""}, 2),
+    ]
+
+    payload = TurnExperienceReducer().reduce(events).to_dict()
+
+    assert payload["last_failure"] == {
+        "tool_name": "bash",
+        "command": "cmake --build build && ctest --test-dir build",
+        "exit_code": 1,
+        "error": "命令退出码为 1。",
+    }
+    assert payload["unverified"] == []
+    assert payload["next_steps"] == []
 
 
 def test_turn_experience_projects_only_latest_turn_window():

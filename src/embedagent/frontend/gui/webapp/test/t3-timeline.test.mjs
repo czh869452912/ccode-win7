@@ -74,7 +74,10 @@ export function runT3TimelineTests() {
     });
     assert.deepEqual(rows.map((row) => row.kind), ["message", "turn_fold", "message"]);
     const fold = rows.find((row) => row.kind === "turn_fold");
-    assert.equal(fold.label, "Worked for 8s");
+    assert.equal(fold.label, "");
+    assert.equal(fold.createdAt, "2026-06-22T00:00:00.000Z");
+    assert.equal(fold.completedAt, "2026-06-22T00:00:08.000Z");
+    assert.equal(fold.interrupted, false);
     assert.equal(fold.entries.some((entry) => entry.kind === "work"), true);
     assert.equal(fold.entries.some((entry) => entry.kind === "context_summary"), true);
     assert.equal(rows.some((row) => row.kind === "compact"), false);
@@ -247,7 +250,10 @@ export function runT3TimelineTests() {
     });
     assert.deepEqual(rows.map((row) => row.kind), ["message", "turn_fold", "message"]);
     const fold = rows.find((row) => row.kind === "turn_fold");
-    assert.equal(fold.label, "Worked for 12s");
+    assert.equal(fold.label, "");
+    assert.equal(fold.createdAt, "2026-06-22T00:03:00.000Z");
+    assert.equal(fold.completedAt, "2026-06-22T00:03:12.000Z");
+    assert.equal(fold.interrupted, false);
     assert.equal(fold.workCount, 2);
     assert.equal(fold.entries.some((entry) => entry.status === "error"), true);
   }
@@ -345,7 +351,9 @@ export function runT3TimelineTests() {
     currentStatus: "idle",
   });
   assert.equal(timedFoldRows[1].kind, T3_ROW_KINDS.TURN_FOLD);
-  assert.equal(timedFoldRows[1].label, "Worked for 4s");
+  assert.equal(timedFoldRows[1].label, "");
+  assert.equal(timedFoldRows[1].createdAt, "2026-06-18T00:00:00.000Z");
+  assert.equal(timedFoldRows[1].completedAt, "2026-06-18T00:00:04.000Z");
 
   const runningRows = projectT3TimelineRows({
     turnGroups: [
@@ -480,6 +488,128 @@ export function runT3TimelineTests() {
   assert.equal(metadataWork.presentation.heading, "Pytest");
   assert.equal(metadataWork.presentation.iconName, "terminal");
 
+  const catalogDrivenRows = projectT3TimelineRows({
+    toolCatalog: {
+      bash: {
+        name: "bash",
+        label: "Shell",
+        iconKey: "terminal",
+        rendererKey: "command",
+        permissionCategory: "shell_exec",
+        metadata: { preview_arg: "command" },
+      },
+      read_file: {
+        name: "read_file",
+        label: "Read File",
+        iconKey: "eye",
+        rendererKey: "file",
+        permissionCategory: "read",
+        metadata: { preview_arg: "path" },
+      },
+    },
+    turnGroups: [
+      {
+        turnId: "turn-catalog-preview",
+        userItem: {
+          id: "u-catalog-preview",
+          kind: "user",
+          content: "inspect catalog preview",
+          turnId: "turn-catalog-preview",
+        },
+        steps: [
+          {
+            stepId: "step-catalog-preview",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "bash-catalog-preview",
+                kind: "tool",
+                toolName: "bash",
+                status: "success",
+                arguments: { command: "uv run pytest tests/catalog" },
+                turnId: "turn-catalog-preview",
+                stepId: "step-catalog-preview",
+              },
+              {
+                id: "read-catalog-preview",
+                kind: "tool",
+                toolName: "read_file",
+                status: "success",
+                arguments: { path: "src/from-catalog.c" },
+                turnId: "turn-catalog-preview",
+                stepId: "step-catalog-preview",
+              },
+            ],
+            assistantItem: null,
+          },
+        ],
+        trailingTurnItems: [],
+        leadingSystemItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "running",
+    activeTurnId: "turn-catalog-preview",
+  });
+  const bashCatalogPreview = catalogDrivenRows.find((row) => row.id === "bash-catalog-preview");
+  assert.equal(bashCatalogPreview.requestKind, "command");
+  assert.equal(bashCatalogPreview.commandPreview, "uv run pytest tests/catalog");
+  const readCatalogPreview = catalogDrivenRows.find((row) => row.id === "read-catalog-preview");
+  assert.equal(readCatalogPreview.requestKind, "file-read");
+  assert.equal(readCatalogPreview.commandPreview, "src/from-catalog.c");
+
+  const undeclaredBuiltInRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-undeclared-preview",
+        userItem: {
+          id: "u-undeclared-preview",
+          kind: "user",
+          content: "inspect undeclared preview",
+          turnId: "turn-undeclared-preview",
+        },
+        steps: [
+          {
+            stepId: "step-undeclared-preview",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "bash-undeclared-preview",
+                kind: "tool",
+                toolName: "bash",
+                status: "success",
+                arguments: { command: "uv run pytest tests/undeclared" },
+                turnId: "turn-undeclared-preview",
+                stepId: "step-undeclared-preview",
+              },
+              {
+                id: "read-undeclared-preview",
+                kind: "tool",
+                toolName: "read_file",
+                status: "success",
+                arguments: { path: "src/undeclared.c" },
+                turnId: "turn-undeclared-preview",
+                stepId: "step-undeclared-preview",
+              },
+            ],
+            assistantItem: null,
+          },
+        ],
+        trailingTurnItems: [],
+        leadingSystemItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "running",
+    activeTurnId: "turn-undeclared-preview",
+  });
+  const undeclaredBash = undeclaredBuiltInRows.find((row) => row.id === "bash-undeclared-preview");
+  assert.equal(undeclaredBash.requestKind, "");
+  assert.equal(undeclaredBash.commandPreview, "");
+  const undeclaredRead = undeclaredBuiltInRows.find((row) => row.id === "read-undeclared-preview");
+  assert.equal(undeclaredRead.requestKind, "");
+  assert.equal(undeclaredRead.commandPreview, "");
+
   const actionPresentationRows = projectT3TimelineRows({
     turnGroups: [
       {
@@ -602,6 +732,19 @@ export function runT3TimelineTests() {
       expandedBody: "TODO",
     },
   );
+  assert.deepEqual(
+    buildWorkPresentation({}),
+    {
+      heading: "",
+      preview: "",
+      iconName: "",
+      statusIndicator: "",
+      headingTone: "normal",
+      iconTone: "normal",
+      canExpand: false,
+      expandedBody: "",
+    },
+  );
 
   const detailRows = projectT3TimelineRows({
     turnGroups: [
@@ -683,6 +826,19 @@ export function runT3TimelineTests() {
                 stepId: "step-detail",
                 stepIndex: 1,
               },
+              {
+                id: "summary-detail",
+                kind: "tool",
+                toolName: "custom_agent_report",
+                label: "Custom Agent Report",
+                status: "success",
+                data: {
+                  summary: "custom agent summary",
+                },
+                turnId: "turn-detail",
+                stepId: "step-detail",
+                stepIndex: 1,
+              },
             ],
             assistantItem: null,
           },
@@ -697,26 +853,37 @@ export function runT3TimelineTests() {
   });
 
   const detailWorkRows = detailRows.filter((row) => row.kind === T3_ROW_KINDS.WORK);
-  assert.equal(detailWorkRows.length, 4);
+  assert.equal(detailWorkRows.length, 5);
   const readDetail = detailWorkRows.find((row) => row.toolName === "read_file").detailModel;
   assert.equal(readDetail.kind, "tool_detail");
-  assert.equal(readDetail.fields.find((field) => field.label === "path").value, "src/parser.c");
-  assert.equal(readDetail.fields.find((field) => field.label === "lines").value, "12");
-  assert.equal(readDetail.sections.find((section) => section.kind === "preview").content, "int parse(void);");
+  assert.equal(readDetail.fields.find((field) => field.key === "path").value, "src/parser.c");
+  assert.equal(readDetail.fields.find((field) => field.key === "lines").value, "12");
+  assert.equal(readDetail.fields.find((field) => field.key === "path").label, "");
+  const readPreviewSection = readDetail.sections.find((section) => section.kind === "preview");
+  assert.equal(readPreviewSection.content, "int parse(void);");
+  assert.equal(readPreviewSection.title, "");
   assert.equal(readDetail.rawJson, undefined);
 
   const grepDetail = detailWorkRows.find((row) => row.toolName === "grep_text").detailModel;
-  assert.equal(grepDetail.fields.find((field) => field.label === "pattern").value, "parse");
+  assert.equal(grepDetail.fields.find((field) => field.key === "pattern").value, "parse");
   assert.equal(grepDetail.sections.find((section) => section.kind === "matches").items.length, 2);
+  assert.equal(grepDetail.sections.find((section) => section.kind === "matches").title, "");
 
   const editDetail = detailWorkRows.find((row) => row.toolName === "edit_file").detailModel;
   assert.equal(editDetail.sections.find((section) => section.kind === "diff").content.includes("@@ -1 +1 @@"), true);
+  assert.equal(editDetail.sections.find((section) => section.kind === "diff").title, "");
   assert.equal(detailWorkRows.find((row) => row.toolName === "edit_file").changedFiles[0].path, "src/parser.c");
 
   const recipeDetail = detailWorkRows.find((row) => row.toolName === "workflow_task").detailModel;
-  assert.equal(recipeDetail.fields.find((field) => field.label === "recipe").value, "python-test");
-  assert.equal(recipeDetail.fields.find((field) => field.label === "exit").value, "1");
+  assert.equal(recipeDetail.fields.find((field) => field.key === "recipe").value, "python-test");
+  assert.equal(recipeDetail.fields.find((field) => field.key === "exit").value, "1");
   assert.equal(recipeDetail.sections.find((section) => section.kind === "stderr").content.includes("failed"), true);
+  assert.equal(recipeDetail.sections.find((section) => section.kind === "stderr").title, "");
+
+  const summaryDetail = detailWorkRows.find((row) => row.toolName === "custom_agent_report").detailModel;
+  const summarySection = summaryDetail.sections.find((section) => section.kind === "summary");
+  assert.equal(summarySection.content, "custom agent summary");
+  assert.equal(summarySection.title, "");
 
   const changed = summarizeChangedFiles([
     {
@@ -745,6 +912,114 @@ export function runT3TimelineTests() {
   assert.deepEqual(changed.files.map((file) => file.path), ["src/demo.c", "README.md"]);
   assert.equal(changed.additions, 2);
   assert.equal(changed.deletions, 2);
+
+  const catalogChanged = summarizeChangedFiles(
+    [
+      {
+        id: "catalog-write-1",
+        kind: "tool",
+        toolName: "write_file",
+        status: "success",
+        arguments: { path: "src/catalog-driven.c" },
+        data: { additions: 1 },
+      },
+    ],
+    {
+      toolCatalog: {
+        write_file: {
+          name: "write_file",
+          metadata: { changed_path_arg: "path" },
+        },
+      },
+    },
+  );
+  assert.deepEqual(catalogChanged.files.map((file) => file.path), ["src/catalog-driven.c"]);
+  assert.equal(catalogChanged.additions, 1);
+
+  const undeclaredChanged = summarizeChangedFiles([
+    {
+      id: "undeclared-write-1",
+      kind: "tool",
+      toolName: "write_file",
+      status: "success",
+      arguments: { path: "src/undeclared-write.c" },
+      data: { additions: 1 },
+    },
+  ]);
+  assert.deepEqual(undeclaredChanged.files, []);
+
+  const catalogDiffRows = projectT3TimelineRows({
+    toolCatalog: {
+      write_file: {
+        name: "write_file",
+        metadata: { changed_path_arg: "path" },
+      },
+    },
+    turnGroups: [
+      {
+        turnId: "turn-catalog-changed-files",
+        userItem: { id: "u-catalog-changed", kind: "user", content: "write", turnId: "turn-catalog-changed-files" },
+        steps: [
+          {
+            stepId: "step-catalog-changed",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "catalog-write-row",
+                kind: "tool",
+                toolName: "write_file",
+                status: "success",
+                arguments: { path: "src/catalog-row.c" },
+                data: { additions: 1 },
+                turnId: "turn-catalog-changed-files",
+                stepId: "step-catalog-changed",
+              },
+            ],
+            assistantItem: null,
+          },
+        ],
+        trailingTurnItems: [],
+        leadingSystemItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "idle",
+  });
+  const catalogDiffSummary = catalogDiffRows.find((row) => row.kind === T3_ROW_KINDS.DIFF_SUMMARY);
+  assert.deepEqual(catalogDiffSummary.files.map((file) => file.path), ["src/catalog-row.c"]);
+
+  const undeclaredDiffRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-undeclared-changed-files",
+        userItem: { id: "u-undeclared-changed", kind: "user", content: "write", turnId: "turn-undeclared-changed-files" },
+        steps: [
+          {
+            stepId: "step-undeclared-changed",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "undeclared-write-row",
+                kind: "tool",
+                toolName: "write_file",
+                status: "success",
+                arguments: { path: "src/undeclared-row.c" },
+                data: { additions: 1 },
+                turnId: "turn-undeclared-changed-files",
+                stepId: "step-undeclared-changed",
+              },
+            ],
+            assistantItem: null,
+          },
+        ],
+        trailingTurnItems: [],
+        leadingSystemItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "idle",
+  });
+  assert.equal(undeclaredDiffRows.some((row) => row.kind === T3_ROW_KINDS.DIFF_SUMMARY), false);
 
   const interruptedRows = projectT3TimelineRows({
     turnGroups: [
@@ -833,6 +1108,34 @@ export function runT3TimelineTests() {
   assert.equal(experienceRows.length, 1);
   assert.equal(experienceRows[0].kind, "system_notice");
   assert.equal(experienceRows[0].content.includes("Unverified: validation_missing Created files have not been validated."), true);
+
+  const reviewNameOnlyRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-review-name-only",
+        userItem: { id: "u-review-name-only", kind: "user", content: "run review command", turnId: "turn-review-name-only" },
+        leadingSystemItems: [],
+        steps: [],
+        trailingTurnItems: [
+          {
+            id: "review-name-only",
+            kind: "command_result",
+            commandName: "review",
+            success: true,
+            content: "Command completed without structured review payload.",
+            turnId: "turn-review-name-only",
+          },
+        ],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "idle",
+  });
+  const reviewNameOnlyRow = reviewNameOnlyRows.find((row) => row.id === "review-name-only");
+  assert.ok(reviewNameOnlyRow);
+  assert.equal(reviewNameOnlyRow.kind, T3_ROW_KINDS.COMMAND_RESULT);
+  assert.equal(reviewNameOnlyRow.label, "");
+  assert.equal(reviewNameOnlyRows.some((row) => row.kind === T3_ROW_KINDS.REVIEW_RESULT), false);
 
   const richRows = projectT3TimelineRows({
     turnGroups: [
@@ -962,7 +1265,7 @@ export function runT3TimelineTests() {
   assert.equal(thinkingRows.some((row) => row.kind === T3_ROW_KINDS.WORKING), true);
   const thinkingRow = thinkingRows.find((row) => row.kind === T3_ROW_KINDS.WORKING);
   assert.equal(thinkingRow.turnId, "turn-thinking");
-  assert.equal(thinkingRow.label, "Working");
+  assert.equal(thinkingRow.label, undefined);
 
   const streamingReasoningRows = projectT3TimelineRows({
     turnGroups: [

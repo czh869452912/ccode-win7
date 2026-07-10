@@ -34,6 +34,14 @@ export function runRightPanelTabsSourceTests() {
   assert.equal(surfacesSource.includes("RIGHT_PANEL_SURFACE_REGISTRY"), true);
   assert.equal(surfacesSource.includes("persistFields"), true);
   assert.equal(surfacesSource.includes("closeBehavior"), true);
+  assert.equal(surfacesSource.includes('title: "Preview"'), false);
+  assert.equal(surfacesSource.includes('title: "Diff"'), false);
+  assert.equal(surfacesSource.includes('title: "Files"'), false);
+  assert.equal(surfacesSource.includes('title: "Terminal"'), false);
+  assert.equal(surfacesSource.includes('title: "Run Output"'), false);
+  assert.equal(surfacesSource.includes('commandLabel: "Open Terminal"'), false);
+  assert.equal(surfacesSource.includes('description: "'), false);
+  assert.equal(surfacesSource.includes("titleForSurfaceKind(kind, appCapabilities = null)"), true);
 
   const tabScrollRule = /\.right-panel-tab-scroll\s*\{[\s\S]*?\}/.exec(cssSource)?.[0] || "";
   assert.equal(tabScrollRule.includes("overflow-y: hidden"), true);

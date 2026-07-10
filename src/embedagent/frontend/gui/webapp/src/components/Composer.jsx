@@ -1,6 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useLang } from "../LangContext.js";
-import { t } from "../strings.js";
 import {
   buildComposerInteractionModel,
   moveComposerMenuIndex,
@@ -11,15 +9,6 @@ import ComposerInteractionPanel from "./composer/ComposerInteractionPanel.jsx";
 import ComposerPrimaryActions from "./composer/ComposerPrimaryActions.jsx";
 import BranchToolbar from "./workbench/BranchToolbar.jsx";
 import { modeBadgeLabel, modeBadgeStyle } from "../session-runtime/mode-style.js";
-
-const COMPOSER_HINT_LABELS = {
-  command: "composer.hint.command",
-  file: "composer.hint.file",
-  select: "composer.hint.select",
-  newline: "composer.hint.newline",
-  "status.running": "composer.hint.running",
-  "status.interaction": "composer.hint.interaction",
-};
 
 const COMPOSER_INPUT_MAX_HEIGHT = 160;
 
@@ -32,6 +21,7 @@ function syncComposerTextareaSize(target) {
 }
 
 export default function Composer({
+  chrome = {},
   value,
   onChange,
   onSend,
@@ -39,7 +29,7 @@ export default function Composer({
   isRunning,
   currentMode,
   modeCatalog = {},
-  commandHints = [],
+  commandGroupLabels = {},
   commands = [],
   fileTree = [],
   onOpenCommandPalette,
@@ -50,7 +40,6 @@ export default function Composer({
   branchToolbar = null,
   onRefreshSourceControl,
 }) {
-  const lang = useLang();
   const textareaRef = useRef(null);
   const [cursor, setCursor] = useState(String(value || "").length);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -58,29 +47,34 @@ export default function Composer({
 
   const hasInteraction = Boolean(interaction || interactionNotice);
   const textValue = String(value || "");
+  const commandMenuChrome = chrome.commandMenu || {};
   const interactionModel = useMemo(
     () =>
       buildComposerInteractionModel({
         value: textValue,
         cursor,
         commands,
-        commandHints,
         fileTree,
         currentMode,
         isRunning,
         hasInteraction,
         dismissedTriggerKey,
         activeIndex,
+        commandMenuChrome,
+        commandGroupLabels,
+        hintDescriptors: chrome.hints || [],
       }),
     [
       activeIndex,
-      commandHints,
+      commandGroupLabels,
+      commandMenuChrome,
       commands,
       currentMode,
       cursor,
       dismissedTriggerKey,
       fileTree,
       hasInteraction,
+      chrome.hints,
       isRunning,
       textValue,
     ],
@@ -194,6 +188,7 @@ export default function Composer({
       <ComposerInteractionPanel
         interaction={interaction}
         notice={interactionNotice}
+        chrome={chrome.interaction || {}}
         busy={interactionBusy}
         onRespond={onRespondInteraction}
       />
@@ -206,6 +201,7 @@ export default function Composer({
           onHighlight={handleHighlight}
           onSelect={selectMenuItem}
           emptyText={interactionModel.menu.emptyText}
+          chrome={commandMenuChrome}
         />
         {currentMode && (
           <span className="composer-mode-badge" style={modeBadgeStyle(currentMode, modeCatalog)}>
@@ -220,8 +216,8 @@ export default function Composer({
           onClick={(event) => recordCursor(event.target)}
           onKeyUp={(event) => recordCursor(event.target)}
           onSelect={(event) => recordCursor(event.target)}
-          placeholder={t("composer.placeholder", lang)}
-          aria-label={t("composer.placeholder", lang)}
+          placeholder={chrome.placeholder}
+          aria-label={chrome.placeholder}
           aria-expanded={menuOpen}
           aria-controls={menuOpen ? "composer-command-menu" : undefined}
           disabled={composerDisabled}
@@ -232,7 +228,7 @@ export default function Composer({
           className="composer-tool"
           type="button"
           onClick={onOpenCommandPalette}
-          aria-label="Open command palette"
+          aria-label={chrome.commandPaletteLabel}
           disabled={composerDisabled}
           data-testid="composer-command-palette"
         >
@@ -244,8 +240,8 @@ export default function Composer({
           canSend={interactionModel.canSend}
           onSend={onSend}
           onStop={onStop}
-          sendLabel={t("composer.send", lang)}
-          stopLabel={t("composer.stop", lang)}
+          sendLabel={chrome.sendLabel}
+          stopLabel={chrome.stopLabel}
         />
       </div>
       <div className="composer-hint-bar" aria-hidden="true">
@@ -255,7 +251,7 @@ export default function Composer({
             key={hint.id}
           >
             {hint.tone === "warning" ? "● " : ""}
-            {t(COMPOSER_HINT_LABELS[hint.id] || hint.id, lang)}
+            {hint.label || hint.id}
           </span>
         ))}
       </div>

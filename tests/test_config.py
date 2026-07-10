@@ -52,7 +52,8 @@ class TestAppConfigDefaults(unittest.TestCase):
 
         self.assertIsNone(payload.get("max_turns"))
         self.assertEqual(payload.get("default_mode"), "explore")
-        self.assertEqual(payload.get("agent_application_id"), "embedagent.default_c_cpp")
+        self.assertNotIn("agent_application_id", payload)
+        self.assertNotIn("embedagent.default_c_cpp", json.dumps(payload))
 
     def test_current_config_docs_do_not_show_removed_defaults(self):
         repo_root = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
@@ -66,6 +67,8 @@ class TestAppConfigDefaults(unittest.TestCase):
             '"default_mode": "code"',
             '"default_mode": "build"',
             '"max_turns": 8',
+            '"agent_application_id": "embedagent.default_c_cpp"',
+            "CMakeLists.txt",
         )
         for path in paths:
             with open(path, "r", encoding="utf-8") as handle:

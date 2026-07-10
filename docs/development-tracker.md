@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-07-01（superpowers archive closeout）
+> 更新日期：2026-07-05（Pi/T3 decoupling continuation）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -37,6 +37,278 @@
   callbacks are not product paths.
 - `docs/modules/frontend-gui.md` has been synchronized away from the removed
   synchronous callback model.
+- Current Pi/T3 decoupling continuation has removed the GUI workflow-runtime
+  display helper and its old webapp test; renderer workflow detail now stays on
+  backend-declared snapshot/capability/activity projections instead of a
+  retired Inspector runtime panel path.
+- The GUI artifact refetch facade has been removed from the current contract:
+  `/api/artifacts`, `artifacts_refresh`, `on_artifacts_refresh`, and the
+  CoreAdapter callback bridge for artifact invalidation are no longer GUI
+  paths.
+- The hosted `/artifacts` slash command and TUI artifact browser surface/service
+  have also been removed; current frontends consume transcript/session evidence
+  projections instead of a standalone artifact browse API.
+- GUI webapp source CSS and the manual Playwright example no longer keep the
+  retired artifact browser/Inspector-tab shell; manual GUI checks now target
+  the current right-panel surface model.
+- The old `Inspector.jsx` right-panel body and `inspectorTab` /
+  `inspectorKind` adapter have been retired. `RightPanelSurfaceBody` now hands
+  renderer-local `panelKind` metadata to `SurfacePanel`, so the right panel no
+  longer has a hidden tab renderer behind the T3-style surface state.
+- `/api/app/bootstrap` app-shell surface capabilities now use descriptor
+  records instead of string ids. The renderer merges those backend-declared
+  titles, icons, ordering, command/slash metadata, and safety hints with local
+  supported renderers, so visible right-panel/bottom-drawer entrypoints are no
+  longer presented from a GUI-owned surface id list.
+- Generic local resource discovery no longer imports default C/C++ workflow
+  tool names. Workspace-local recipes without an explicit `tool_name` stay
+  workflow-neutral in `discover_local_resources(...)`; the default C/C++
+  workflow recipe list applies its own `run_recipe` normalization only at the
+  workflow-owned aggregation boundary.
+- Local self-extension authoring now follows the same boundary: generated
+  `.embedagent/recipes/*.json` and extension validation recipes no longer carry
+  a default C/C++ `tool_name`, while active workflow packages remain responsible
+  for projecting runnable recipe tools.
+- Agent application loading no longer branches on a generic `workflow_kind`
+  string. Built-in profile-only agents build from their `AgentApplicationRecord`
+  profile data, while workflow-backed specialized agents declare a
+  package-owned `builder_path`; the default C/C++ agent is therefore one hosted
+  product registry record rather than a hard-coded loader branch.
+- The base application registry now keeps only profile-only records. The hosted
+  product registry in `src/embedagent_host/agent_application_registry.py`
+  explicitly composes those records with the bundled default C/C++ application,
+  so constructing Generic/Python/HTML agents through the base registry does not
+  import `embedagent.workflow_packages.c_cpp`.
+- `/api/app/bootstrap` now declares Preview surface chrome and local-server
+  presets under `capabilities.preview`. The renderer uses those descriptors for
+  Preview toolbar labels, empty states, status labels, and failure notices
+  instead of keeping Preview-specific English copy in `App.jsx`,
+  `PreviewSurface.jsx`, or `preview-surface-model.js`.
+- Bottom drawer run-output chrome now comes from
+  `capabilities.surfaces.chrome`: aria label, empty output text, and
+  termination reason prefix are backend-declared descriptors consumed through
+  `surfaceChromeLabels(appCapabilities)`.
+- Timeline structured tool-detail chrome now comes from
+  `capabilities.chrome.timeline.tool_detail`: field labels, section titles, and
+  match fallback labels are backend-declared descriptors, while
+  `t3-timeline.js` only projects field keys, section kinds, and display data.
+- Timeline work-row chrome now comes from
+  `capabilities.chrome.timeline.work_row`: fallback headings, fallback icon
+  names, and status aria labels are backend-declared descriptors rather than
+  renderer-local work-row defaults.
+- Timeline tool-call preview text and command/file request kind are now
+  catalog-driven: `ToolRuntime` projects safe `metadata.preview_arg` through
+  session capabilities, the default C/C++ workflow package declares its
+  workflow preview argument, and `t3-timeline.js` no longer keeps
+  `bash`/`read_file`/`grep_text`/workflow-tool preview branches.
+- Timeline changed-file path inference is now catalog-driven as well:
+  `write_file` and `edit_file` declare safe `metadata.changed_path_arg`, and
+  the GUI T3 timeline no longer keeps a `WRITE_TOOLS` or command-name diff
+  table for changed-file summaries.
+- GUI mode badges no longer keep a renderer-local `verify` color token or CSS
+  variable. Agent profiles emit only generic color tokens, so specialized
+  agents can choose mode labels and ordering without the renderer carrying a
+  specific product mode palette.
+- Timeline review-result classification is now structured-payload driven:
+  command results become review rows only when they carry `data.review` or
+  `review`, so the GUI no longer treats the slash command name `/review` as a
+  row-type policy.
+- Command-result Diff surface activation is now structured-payload driven:
+  WebSocket command results open the Diff right-panel from `data.diff` rather
+  than from the slash command name `/diff`, so specialized agents can expose
+  diff-producing commands without GUI command-name coupling.
+- GUI session list loading now lives in `app-runtime/session-list-controller.js`.
+  `App.jsx` wires the controller handle directly and no longer keeps a
+  `loadSessions` wrapper, directly fetches `/api/sessions`, or dispatches
+  `sessions_loaded`, keeping thread-list refresh as a focused renderer
+  controller responsibility.
+- GUI session bootstrap activation now wires
+  `app-runtime/session-activation-controller.js` as the direct `loadSession`
+  handle; `App.jsx` no longer keeps an inline `loadSession` wrapper around
+  activation derivation, transport reset, plan loading, or terminal-summary
+  refresh.
+- GUI composer action wiring now lives in `app-runtime/composer-controller.js`:
+  composer draft updates, current-draft submit, composer command-palette open,
+  and Branch Toolbar source-control refresh no longer use a root-level
+  `sendMessage` wrapper or inline composer dispatch/refresh handlers in
+  `App.jsx`.
+- GUI socket message orchestration now lives in
+  `app-runtime/socket-message-controller.js`, backed by
+  `socket-message-effects.js` and `socket-effect-executor.js`. `App.jsx` no
+  longer calls socket effect derivation directly or owns the transport-event
+  append loop, reload recovery branch, reducer-action loop, or loader-request
+  loop; React transition scheduling is injected as `scheduleMessage` instead
+  of a root-level `startTransition` message wrapper.
+- GUI session transport state bridging now lives in
+  `app-runtime/session-transport-handle.js`. `App.jsx` keeps the React state
+  cell but no longer owns `sessionTransportRef`, transport replace/update
+  helpers, or runtime transport reset construction.
+- GUI shared JSON HTTP handling now lives in `app-runtime/http-client.js`.
+  `App.jsx` imports `fetchJson` instead of defining an inline fetch wrapper, so
+  request/error normalization is no longer rooted in the GUI composition
+  component.
+- GUI initial app loading now lives in
+  `app-runtime/initial-app-load-controller.js`. `App.jsx` installs the
+  controller instead of directly calling `loadAppBootstrap()` or attaching
+  renderer-local session command capability warmup catch logic.
+- GUI session command capability refresh now uses
+  `app-runtime/session-loaders.js` `createSessionCommandCapabilityLoader(...)`
+  as the reusable App handle; `App.jsx` no longer repeats inline
+  `loadSessionCommandCapabilities({ fetchJson, dispatch })` lambdas for
+  initial load, active-workspace refresh, or loader-request execution.
+- GUI active-workspace read-model refresh now lives in
+  `app-runtime/active-workspace-data-loader.js`. Workspace activation no
+  longer leaves a root-component `Promise.all` fanout for sessions,
+  capabilities, file tree, and local status surfaces; the loader receives
+  `sourceControlController.loadStatus` directly rather than through a
+  root-level status-refresh forwarding lambda.
+- GUI panel resize pointer/DOM handling now lives in
+  `app-runtime/panel-resize-controller.js`. `App.jsx` wires
+  `startSidebarResize` / `startRightPanelResize` directly but no longer owns
+  CSS variable names, resize direction constants, `documentElement.style`
+  mutation, or pointer listener cleanup for the sidebar/right-panel handles.
+- GUI Timeline bottom-follow scroll behavior now lives in
+  `app-runtime/timeline-scroll-controller.js`. `App.jsx` wires the Timeline ref
+  and direct controller scroll handler but no longer owns `handleTimelineScroll`,
+  `scrollTop`, `scrollHeight`, `clientHeight`, or the old `isAtBottomRef` state.
+- GUI browser prompt/confirm access for thread lifecycle prompts now lives in
+  `app-runtime/browser-dialog-service.js`; `App.jsx` injects the service into
+  the lifecycle controller instead of calling `window.prompt` /
+  `window.confirm` directly.
+- GUI global workbench keyboard handling now lives in
+  `app-runtime/workbench-keyboard-controller.js`; `App.jsx` installs the
+  controller and no longer owns the keydown listener, Escape cancellation,
+  composer-focus DOM inspection, or shortcut resolution.
+- GUI user-input interaction projection no longer defaults missing
+  `tool_name` values to the built-in `ask_user` tool. Pending user-input
+  display is driven by `kind` / `sourceActivityKind` and whatever safe payload
+  fields the backend provides.
+- GUI session-load follow-up effects from command results are now
+  structured-payload driven: a command result with `data.switch_session_id`
+  triggers session load regardless of slash command name, so specialized
+  resume/session-switch commands do not need GUI command-name branches.
+- GUI session bootstrap projection and renderer session normalization no
+  longer invent `workflow_state: "chat"` when a backend snapshot omits the
+  state name; workflow display stays on explicit snapshot values plus the
+  separate generic `workflow` payload.
+- Agent application manifests now declare `metadata.appShell` profiles for
+  GUI app-shell filtering. `AppShellService` applies those allow-lists before
+  returning `/api/app/bootstrap`, so Generic Agent no longer receives the
+  default C/C++ Preview/Diff/Source Control entrypoints and specialized agents
+  can narrow or extend the shell through capability data.
+- GUI semantic surface open paths now obey the same app-shell boundary:
+  `openFileSurface(...)`, `openPreviewSurface(...)`, and right-panel terminal
+  creation refuse to open when the active app capabilities omit the
+  corresponding right-panel surface.
+- The global `embedagent.modes` facade now uses the Generic Agent profile
+  instead of importing `default_c_cpp_agent_profile()`. C/C++ writable globs,
+  prompt copy, mode descriptors, and base tool policy now live in
+  `src/embedagent/workflow_packages/c_cpp/agent_profile.py` and enter hosted
+  runtime only through the selected default C/C++ `AgentApplication`.
+- Selected profile runtime policy now lives in
+  `src/embedagent/agent_profile_runtime.py`. `InProcessAdapter` composes
+  shared prompt rendering, write-glob evaluation, base-tool policy, and
+  mode-switch parsing instead of keeping hosted copies, so generic and
+  specialized agents use the same runtime-policy boundary.
+- Base configuration no longer pins the default C/C++ application id:
+  `config/config.json.template`, `src/embedagent/config.py`, and the active
+  configuration guides leave `agent_application_id` optional, with omitted
+  values resolved by the hosted application registry.
+- The default C/C++ agent application's manifest record and GUI app-shell
+  overlay now live in
+  `src/embedagent/workflow_packages/c_cpp/application_record.py`; the generic
+  application registry includes that package-owned record instead of inlining
+  C workflow ids or C/C++ workbench copy.
+- Hosted review, project memory, and workspace intelligence now consume the
+  generic `tool_evidence` payload schema for recipe/test/coverage/diagnostic
+  and quality-gate classification. These services no longer import default
+  C/C++ workflow tool constants, so specialized agents can provide equivalent
+  evidence through their own tool names.
+- Root `workspace_recipes` is now workflow-neutral: it lists explicit
+  project/local/history recipe resources without CMake/Make/Ninja detection
+  and without injecting `run_recipe`. The default C/C++ workflow package owns
+  CMake/Make/Ninja recipe detection, `run_recipe` normalization, and hosted
+  recipe projection through its explicit `workspace_recipes` extension
+  capability.
+- Workspace profile C/C++ file signals now follow the same package-owned
+  boundary. Generic `src/embedagent/workspace_profile.py` no longer hard-codes
+  CMake/Make/C++ source roots; the default C/C++ application contributes
+  `CCppWorkspaceProfileDetector` from
+  `src/embedagent/workflow_packages/c_cpp/workspace_profile.py`.
+- No-workspace GUI shell branding now comes from backend app metadata:
+  `app-home-model.js` projects `app.productName`, and `NoWorkspaceState.jsx`
+  renders that descriptor value instead of hard-coding the default product
+  name. The renderer app-shell normalizer also preserves a missing
+  `productName` as empty instead of falling back to the bundled product name.
+- Files right-panel surface title now comes from the active app-shell surface
+  descriptor: `RightPanelSurfaceBody.jsx` passes the surface record into
+  `FilesSurface.jsx`, and the panel header no longer hard-codes the default
+  Files copy.
+- Right-panel surface opening now prefers the active app-shell surface
+  descriptor title and no longer strips English command-label prefixes to
+  invent panel titles.
+- Command palette shortcut display labels now come from
+  `command_palette.labels.shortcut_labels` / `shortcut_separator` instead of
+  renderer-local `Ctrl` / `Shift` / `Esc` defaults.
+- File Preview right-panel chrome now comes from
+  `capabilities.surfaces.chrome.file_preview`: default file/project labels,
+  loading/error fallback copy, retry/copy/explorer actions, metadata
+  separators, breadcrumb aria text, markdown mode glyphs, line labels,
+  language labels, and file-surface fallback tab title copy are
+  backend-declared descriptors consumed by the file-preview model, right-panel
+  controller, and surface.
+- Diff right-panel chrome now comes from
+  `capabilities.surfaces.chrome.diff_panel`: default titles, empty-state copy,
+  controls, file rail labels, collapse labels, and source-control diff title
+  templates are backend-declared descriptors consumed by the Diff model,
+  socket effects, App source-control bridge, and surface; workbench tab titles
+  come from explicit diff payload titles or the app-shell surface descriptor
+  rather than a renderer `"diff"` fallback.
+- Composer slash/path menu chrome now comes from
+  `capabilities.chrome.composer.command_menu`, while slash command group labels
+  reuse `capabilities.command_palette.groups` through
+  `workbench/command-palette-model.js` `buildCommandGroupLabels(...)`; the composer search,
+  interaction, and menu components no longer keep a parallel command/path menu
+  copy table. The default slash-command group id also comes from app-shell
+  chrome, and renderer command helpers no longer synthesize missing command
+  groups as `"command"`. Composer slash-command items now come only from
+  command capability projection; the old renderer-local `commandHints`
+  fallback path has been removed. Composer hint-bar items are now ordered
+  `capabilities.chrome.composer.hints` descriptors instead of a renderer-owned
+  fixed hint id list.
+- Command Palette empty-state copy is now entirely descriptor-owned through
+  `capabilities.command_palette.labels`; `CommandPaletteResults` no longer
+  carries a renderer-local English fallback for missing app-shell labels.
+- Timeline chrome now comes from `capabilities.chrome.timeline`: log aria label,
+  empty/history/termination copy, work-group labels, activity-row labels/status
+  and timer templates, and changed-files card labels are backend-declared
+  descriptors consumed by Timeline, TimelineRows, and ChangedFilesCard. The T3
+  timeline projection now carries turn-fold timing/interruption data without
+  precomputing renderer chrome labels.
+- Source Control right-panel chrome now comes from
+  `capabilities.source_control.chrome`: panel title, status/diff fallback
+  notices, empty states, group order, count/group/provider labels, file status
+  badge labels, runtime labels, and refresh action copy are backend-declared
+  descriptors consumed by the renderer. Missing group/provider descriptors do
+  not fall back to raw ids as visible UI.
+- Preview, Terminal, and Source Control frontend API helpers no longer carry
+  local request-failure copy. When backend responses omit `detail` / `error`
+  and status text, controllers fall through to app-shell chrome fallback
+  notices instead of helper-level English strings.
+- Command-result run-output logging is now payload-driven: WebSocket effects
+  consume optional `log_label` / `log_detail` fields and no longer synthesize
+  visible `command: /...` or ok/error copy from slash command names.
+- Command-result timeline labels are now payload/app-shell driven: T3 timeline
+  projection preserves command names as data but visible row labels come only
+  from explicit payload labels or `activity_rows.commandDefaultName`.
+- The retired GUI sidebar tab sidecar has been removed: root `sidebarTab`,
+  `set_sidebar`, the old `sidebar-tab--chats` test id, and unused workbench
+  `activeSection` / `projectSection` state are no longer product paths.
+- Composer Branch Toolbar chrome now comes from
+  `capabilities.source_control.chrome.branch_toolbar`: checkout labels,
+  change/conflict summaries, disabled reasons, action labels, refresh title,
+  and metadata separators are backend-declared descriptors consumed by the
+  source-control toolbar model.
 
 ### 2026-06-27 - Pi/T3 Residual Debt Cleanup Closed
 
@@ -67,10 +339,10 @@
 
 - Tool catalog metadata now carries `read_model_invalidations` for safe
   projection refresh hints such as `workspace_files`, `tasks`, and
-  `artifacts`.
+  `capabilities`.
 - `InProcessAdapter`, `CallbackBridge`, GUI WebSocket payloads, and renderer
   loader effects now consume those invalidation hints instead of hard-coded
-  tool-name lists for file/task/artifact refresh.
+  tool-name lists for file/task/capability refresh.
 - GUI interaction and timeline request-kind classification has been trimmed
   toward explicit request kind / permission category metadata, and stale
   inactive tool-label aliases were removed from the renderer store.
@@ -198,7 +470,11 @@
 
 ### 2026-06-20 - Pi/T3 Residual Contract Cleanup
 
-- GUI smoke validation now follows the current T3-style app-shell task contract: `build` sessions, `/api/tasks`, `task_status`, permission/user-input flows, and `/review`; stale `mode=code`, `/api/todos`, and `manage_todos` references are guarded by a focused contract test.
+- GUI smoke validation now follows the current T3-style app-shell task contract:
+  `build` sessions, session bootstrap `task_items`, `task_status`,
+  permission/user-input flows, and `/review`; stale `mode=code`, `/api/todos`,
+  `/api/tasks`, and `manage_todos` references are guarded by a focused contract
+  test.
 - Agent Core prompt behavior is slimmer and more Pi-like: build mode no longer hard-codes a `lite_spec_tdd` phase prescription in the base mode prompt, leaving workflow package prompt injection behind the extension boundary.
 - C harness workflow injection now recognizes common Chinese development/debug/verification requests while keeping casual chat in build/debug from initializing workflow state.
 - Tool result cache documentation and stats now describe only implemented cache tiers; the unused L3 projection placeholder has been removed instead of being treated as a public capability.
@@ -305,21 +581,70 @@
 ### 2026-06-18 - GUI Terminal Runtime Controller Boundary
 
 - React webapp `webapp/src/app-runtime/terminal-controller.js` now owns GUI terminal action orchestration for bottom-drawer terminal actions and right-panel terminal open/split/activate/close behavior.
-- `App.jsx` wires the controller through injected state, dispatch, terminal API helpers, and terminal id generation, while root render composition and command routing remain incremental follow-on work.
+- `App.jsx` wires the controller through injected state, dispatch, and terminal API helpers; terminal id generation, bottom drawer new/select actions, and right-panel active terminal pane new/split/select/close actions are controller-owned instead of root inline callbacks.
 - Existing terminal HTTP helpers remain in `webapp/src/terminal/terminal-api.js`, and terminal snapshot/event normalization remains in `webapp/src/terminal/terminal-state.js`.
 - This slice stays in the GUI app shell: no Agent Core, backend protocol, terminal backend service, workflow package, permission policy, transcript, source-control, provider configuration, extension loading, telemetry, or runtime reducer semantics changed.
+
+### 2026-06-18 - GUI Workbench Command Controller Boundary
+
+- React webapp `webapp/src/app-runtime/workbench-command-controller.js` now owns header right-panel/bottom-drawer toggles, command-palette open/close/query state, command-palette command/session/workspace selection, and command-id resolution against the active capability snapshot.
+- React webapp `webapp/src/app-runtime/app-capability-model.js` now owns
+  app-shell capability fanout for keybindings, command-palette descriptors,
+  app chrome, surface chrome, Preview servers, and empty-state copy; `App.jsx`
+  consumes that read model instead of hand-splitting
+  `state.app.capabilities` into per-surface optional-chain paths.
+- The same model now exposes `buildAppCapabilityModelFromState(...)` and
+  thread lifecycle descriptors, so App controller getters and right-panel
+  child props consume the model instead of direct
+  `state.app.capabilities` / `stateRef.current.app.capabilities` paths.
+- React webapp `webapp/src/session-runtime/session-capability-model.js` now
+  owns session capability fanout for mode catalog, tool catalog, the raw
+  session capability payload, and session empty-state fallback; `App.jsx`
+  consumes that read model instead of hand-splitting
+  `state.sessionCapabilities` fields into timeline/composer/header/sidebar
+  props.
+- React webapp `webapp/src/workbench/workbench-parity-model.js` now reuses the
+  app/session capability read models for T3-style surface-command parity
+  projection instead of directly reading raw app/session capability state.
+- `App.jsx` wires the controller methods directly; it no longer imports `commandById` or dispatches palette/toggle reducer actions inline.
+- React webapp `webapp/src/workbench/commands.js` now owns
+  `buildCommandVisibilityContext(...)` and `isTurnInterruptibleStatus(...)`;
+  `App.jsx` passes app/workbench state slices into that read model instead of
+  hand-building command visibility fields, and `workbench-parity-model.js`
+  reuses the same running-status semantics.
+- The keyboard-shortcut `getCommandContext` bridge now also uses
+  `buildCommandVisibilityContext(...)`; App no longer keeps a second
+  shortcut-specific visibility object with local `paletteOpen` / `isRunning`
+  fields.
+- `CommandPalette.jsx` remains a display component for root/submenu navigation, Escape, and backdrop close; selected command/session/workspace items hand intent to the controller-owned callbacks.
+- This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, terminal backend service, source-control execution, provider configuration, extension loading, telemetry, or runtime reducer semantics changed.
+
+### 2026-06-18 - GUI Workspace Path Input Controller Boundary
+
+- React webapp `webapp/src/app-runtime/workspace-controller.js` now owns workspace-path input updates in addition to app bootstrap and workspace open/activate/remove flows.
+- `App.jsx` wires `setWorkspacePath` directly into Sidebar and NoWorkspaceState instead of dispatching `workspace_path_changed` inline.
+- This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, source-control execution, provider configuration, extension loading, telemetry, or runtime reducer semantics changed.
+
+### 2026-06-18 - GUI SurfacePanel Action Controller Boundary
+
+- React webapp `webapp/src/app-runtime/surface-panel-controller.js` now owns generic SurfacePanel actions for diff-file focus, Source Control refresh/file selection, and app-shell settings patching.
+- React webapp `webapp/src/app-runtime/surface-panel-props.js` now owns the `SurfacePanel` prop mapping from state/chrome/controller handles.
+- `App.jsx` wires `buildSurfacePanelProps(...)` instead of inline reducer dispatch, source-control controller lambdas, or per-action `surfacePanelController.*` prop mapping.
+- This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, source-control backend execution, provider configuration, extension loading, telemetry, or runtime reducer semantics changed.
 
 ### 2026-06-18 - GUI Session/App Loader Runtime Boundary
 
 - React webapp `webapp/src/app-runtime/session-loaders.js` now owns the GUI-private loader request vocabulary, defensive loader request executor, and session bootstrap projection helper.
 - `socket-message-effects.js` shares that loader vocabulary instead of defining a second copy, while remaining a pure frontend effect derivation module.
-- `App.jsx` now delegates session bootstrap projection and loader request execution branching to the app-runtime boundary, but still owns concrete HTTP route calls, reducer dispatch, event-log reset, terminal summary loading, task/artifact refreshes, and render composition.
+- `App.jsx` now delegates session bootstrap projection and loader request execution branching to the app-runtime boundary, but still owns concrete HTTP route calls, reducer dispatch, event-log reset, terminal summary loading, task refreshes, and render composition.
 - This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, runtime reducer, operation reducer, compaction reducer, recovery reducer, terminal execution, or source-control execution semantics changed.
 
 ### 2026-06-18 - GUI App Runtime Controller Boundary
 
 - React webapp now has a GUI-only `webapp/src/app-runtime/` boundary: socket messages are interpreted by pure descriptor derivation before `App.jsx` executes reducer actions, session event-log entries, and existing loader requests.
-- Dev-only visual timeline/interaction/thread fixtures moved out of `App.jsx` into `visual-debug-fixtures.js`, while remaining gated by `?visual_debug=1`.
+- Dev-only visual timeline/interaction/thread fixtures moved out of `App.jsx`:
+  `visual-debug-controller.js` now owns the `?visual_debug=1` installer bridge,
+  and `visual-debug-fixtures.js` owns private fixture descriptor expansion.
 - This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, runtime reducer, operation reducer, compaction reducer, recovery reducer, terminal execution, or source-control execution semantics changed.
 
 ### 2026-06-18 - T3 Timeline Rich Projection
@@ -346,7 +671,7 @@
 ### 2026-06-17 - T3 Right-Panel Surface Tabs
 
 - React webapp right panel 已从固定 Inspector tab 列表改为 T3 Code-like ordered surface descriptors：当前首批 right-panel surfaces 为 `diff`、`files`、`terminal`、`plan`，由 `activeSurfaceId` 驱动激活、关闭、close others、close to right 和 close all。
-- `RightPanelTabs` 现在复制 T3 的 surface tabbar / add menu / empty-state cards 结构；`RightPanelSurfaceBody` 负责把 Diff/Plan 复用 Inspector 内容，把 Files/Terminal 挂到 GUI app-shell hosted surfaces。
+- `RightPanelTabs` 现在复制 T3 的 surface tabbar / add menu / empty-state cards 结构；`RightPanelSurfaceBody` 负责把 Diff/Plan 交给 `SurfacePanel`，把 Files/Terminal 挂到 GUI app-shell hosted surfaces。
 - Command palette 与默认 keybindings 已收敛到 T3 surface workflow：`mod+1` files、`mod+2` terminal、`mod+3` diff；旧 source-control/tasks 作为固定 right-panel tab 的入口不再属于本组 surface shell。
 - 该切片只改变 GUI-local app-shell state 与 presentation，不写 transcript、workflow state、permission/runtime reducers、telemetry、provider config、extension loading、checkpoint/source-control mutation 或 Agent Core policy。
 
@@ -367,8 +692,8 @@
 ### 2026-06-17 - GUI Thread Lifecycle Boundary
 
 - Session lifecycle facade 现在暴露 `rename` / `archive` / `fork`：rename 只更新 summary/projection thread title metadata，archive 默认隐藏 thread 但保留 transcript、summary 和外置 artifact/tool-result 引用，fork 复制 transcript 到新 session id 并写入 fork provenance。
-- GUI backend 新增 `POST /api/sessions/{id}/rename`、`/archive`、`/fork`，`/api/app/bootstrap` 的 capabilities 暴露 `thread_lifecycle`，让 GUI 只消费显式 backend 能力而不是伪造第二份 session truth。
-- React sidebar thread action rail 已接入真实 backend lifecycle API；frontend 只做 prompt/confirm、状态刷新和 notice，不拥有 transcript、workflow、permission、extension、provider 或 source-control/checkpoint policy。
+- GUI backend 新增 `POST /api/sessions/{id}/rename`、`/archive`、`/fork`，`/api/app/bootstrap` 的 capabilities 暴露 `thread_lifecycle.actions` descriptor records，让 GUI 只消费显式 backend action 声明而不是伪造第二份 session truth 或固定 action list。
+- React sidebar thread action rail 已接入真实 backend lifecycle API；frontend 从 app-shell descriptors 投影 action label/order/danger/enabled/disabled reason 状态，缺失 label 的 action 不进入可见 action rail，prompt/confirm/success/empty/failure copy 也来自同一 action descriptor；缺失的 notice copy 保持缺失，不再由 renderer 从 action id/label 拼 fallback 标题；renderer lifecycle controller 只做状态刷新和 notice，不拥有 transcript、workflow、permission、extension、provider 或 source-control/checkpoint policy。
 
 ### 2026-06-17 - T3code App-Shell Boundary
 
@@ -376,6 +701,45 @@
 - GUI backend route 依赖已从兼容 `_ActiveCoreProxy` 收敛为显式 app-host active-core resolution；workspace-bound routes 通过 `GUIAppHost.require_core()` 取得当前 core，不再在 backend 上保留 `self.core` 代理状态。
 - React webapp 新增 `webapp/src/app-shell/` 纯 read-model/reducer helpers，并把现有 app bootstrap / workspace switch legacy actions 统一路由到 app-shell reducer；root `resetWorkspaceScopedState` 仍只负责清空 session/timeline/task 等 workspace-scoped GUI 状态。
 - Right panel 新增 Settings / Diagnostics 两个 app-level surfaces，命令 palette 新增 `app.settings` / `app.diagnostics` / `app.reload`，并保持这些命令与 session/workflow commands 分离。
+- 当前收敛：命令 palette、right-panel add-surface launcher、bottom drawer tab 与 keybinding target 现在全部按 `/api/app/bootstrap` 的 `app_commands`、`workspace_commands`、`workbench_commands`、`command_palette.groups` / `command_palette.labels`、`surfaces.right_panel`、`surfaces.bottom_drawer`、`surfaces.chrome` 和 `keybindings` descriptor records 过滤/合并；app/workspace/workbench command 的 label/order/visible_when/surface/drawer/keywords/dispatch.kind、surface title/icon/description/command_label/slash/launcher_order/keywords、right-panel aria/add-surface/empty/action/close copy，以及 command-palette group title/description/order、placeholder、empty/current/missing/root-section/leading-marker copy 也来自 backend descriptor，renderer-local command/surface registry 只保留已支持 renderer 的 mounting/execution、resource、close-behavior 和 persistence metadata，并且不再导出固定 app command、workbench command、command group 或 surface id list 给调用方当能力真相，内置 GUI shell command execution 也不再由 renderer switch 固定 command id 推断，缺失整个 `capabilities` 对象或相关 descriptor arrays 时都不再填充 GUI 默认入口，缺失 label 的 command descriptor 不进入可见 workbench command 或 command-palette row，动态 slash command 只能从显式 label/usage/slash 获得可见文案，未声明或缺失 title 的 command-palette group 不承载可见命令也不从 group id 合成标题，缺失 command row description/meta 时保持为空而不回退到 command id，surface/drawer command row description 从 surface descriptor 透传而不从 surface/drawer id 拼接，session/workspace palette row leading marker 从 command-palette labels 透传且缺失时为空，command-palette group leading marker 从 group descriptor 透传且不从 title 首字母或符号兜底，缺失 title 的 surface descriptor 只作为 capability 诊断记录保留，不进入可见 launcher/command，也不从 kind/id 合成标题；资源 surface helper 标题只使用文件 basename、preview id/URL、terminal id 等实例数据，缺失 preview 实例数据时不再创建 fallback tab；旧重复 `workflow.diff` 默认命令已删除，Diff 入口只走 `surface.diff` descriptor。
+- 当前收敛：Workbench command execution 的内置 `dispatch.kind` 现在通过 renderer-local `COMMAND_DISPATCH_HANDLERS` 查表执行；controller 不再保留 `switch (dispatchDescriptor.kind)` 分支。
+- 当前收敛：Terminal bottom-drawer command 的打开行为现在来自 `surfaces.bottom_drawer` descriptor 上的 `dispatch.kind: terminal.ensure_open`；renderer 只识别该 dispatch kind，不再把 `drawer: "terminal"` 当作特殊执行策略。
+- 当前收敛：Right-panel surface 打开行为现在来自 renderer-supported surface definition 的 `openKind` metadata，并通过 renderer-local `RIGHT_PANEL_OPEN_HANDLERS` 查表执行；terminal right-panel session 创建不再由 controller 固定判断 `surfaceKind === "terminal"` 或 `openKind` switch 触发，`file` 也不再作为 controller 特例保活。
+- 当前收敛：Right-panel tab 激活副作用现在来自 renderer-supported surface definition 的 `activationKind` metadata，并通过 `right-panel-controller.js` 的 `RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]` 查表执行；App 只直连 `rightPanelController.activateSurface`，不再导入 `surfaceDefinitionFor(...)`、检查 `definition.activationKind` 或直接调用 `terminalController.openSession(...)`。
+- 当前收敛：Right-panel tab close / close-others / close-to-right / close-all / add-surface / Files-surface open 生命周期动作也已归入 `right-panel-controller.js`；`App.jsx` 不再为这些 right-panel tab 动作保留 inline reducer dispatch blocks 或 `rightPanelController.openFilesSurface()` forwarding wrapper。
+- 当前收敛：App-level resource open flows 也不再持有具体 right-panel surface kind：预览和 Files 浏览器打开分别委托 `rightPanelController.openPreviewSurface(...)` 和 `rightPanelController.openFilesSurface`，文件打开与 `/api/files/...` 内容加载委托 `file-preview-controller.js`；App 不再直接 dispatch `kind: "file"` / `kind: "preview"`、调用 `openRightPanelSurface("files")`，或派发 `file_preview_load_*` 动作，文件预览 payload 也删除了旧的 `preview.kind = "file"` 冗余字段。
+- 当前收敛：Right-panel semantic open methods now return whether the surface actually opened; `file-preview-controller.js` 的文件打开流程在 `openFileSurface(...)` 返回 false 时停止 `file_preview_load_started` 与 `/api/files/...` 内容加载，避免未声明 File Preview 的 agent 仍触发隐藏预览副作用。
+- 当前收敛：Preview open / refresh / external-open flows now live in `preview-controller.js`, which calls `rightPanelController.canOpenPreviewSurface()` before invoking backend preview routes, so agents that do not declare the Preview surface do not trigger hidden preview service calls and `App.jsx` no longer imports Preview API helpers directly.
+- 当前收敛：Timeline/manual Diff surface opening now lives in `diff-surface-controller.js`; `App.jsx` no longer imports `createDiffSurfaceState`, scans timeline items for `data.diff` / `diff_preview`, or dispatches `diff_surface_opened` directly.
+- 当前收敛：App-level file/diff/preview open props now directly wire
+  `filePreviewController.openFile`, `diffSurfaceController.open`, and
+  `previewController.openUrl/refresh/openExternal`; root forwarding wrappers
+  such as `openFile`, `openDiffSurface`, and `openPreview*` are removed.
+- 当前收敛：Source Control status refresh and file-diff flows now require `sourceControlCapabilityEnabled(stateRef.current.app.capabilities)` before invoking backend source-control routes, so agents that do not declare Source Control do not trigger hidden VCS service calls during workspace bootstrap or panel callbacks.
+- 当前收敛：Terminal controller service calls now require `capabilities.terminal.enabled === true` before opening, listing, writing, clearing, restarting, closing, or attaching terminal panes, so hidden/stale Terminal UI state cannot reach backend terminal routes when the active agent omits Terminal.
+- 当前收敛：Right-panel body lookup 也使用 active app-shell capabilities：`RightPanelSurfaceBody` 通过 `surfaceDefinitionFor(surface.kind, appCapabilities)` 解析 body metadata；backend app-shell spec 显式声明 hidden `file` resource surface，并通过 `launcher=False` / `command=False` 防止它进入可见 launcher 或 command。
+- 当前收敛：Bottom drawer tab 激活副作用也来自 renderer-supported surface definition 的 `activationKind` metadata，并通过 renderer-local `BOTTOM_DRAWER_ACTIVATION_HANDLERS` 查表执行；terminal-controller 不再用固定 `kind === "terminal"` 或 `activationKind` switch 分支决定是否 ensure-open。
+- 当前收敛：Terminal controller 内部的 right-panel terminal surface 适配现在集中在 `TERMINAL_SURFACE_KIND` 和 `terminalSurfaceActionInput(...)`；split/activate/close pane action 不再各自重复 `surface.kind !== "terminal"` 或直接用 `surfaceDefinitionFor("terminal", ...)`。
+- 当前收敛：Workbench UI localStorage 的浅层 surface descriptor 持久化现在通过 renderer-supported surface model 的 `persistedSurfaceFrom(...)` 统一规范化；app capability 裁剪通过 `persistedSurfaceDefinitions(appCapabilities, placement)` 消费 registry-declared persisted surface definitions，Files surface 通过 `persistedRelatedKinds` 声明可保留 File resource surface；`ui-state.js` 不再硬编码 `files -> file`，也不再用固定 `kind === "file"` / `kind === "terminal"` 分支保存文件路径、reveal marker 或 terminal pane metadata；surface 实例字段初始化也通过 `SURFACE_INITIALIZERS[kind]` 查表处理 file/terminal/preview metadata，`makeSurface(...)` 不再保留 file/terminal/preview 初始化分支。
+- 当前收敛：Right-panel surface 打开前准备现在通过 renderer-local `SURFACE_OPEN_PREPARERS[surface.kind]` 查表处理；file reveal/dedup 与 preview 占位清理不再写在 `openSurface(...)` 主流程分支里。
+- 当前收敛：Right-panel surface 内部 pane 操作现在通过 renderer-local `SURFACE_PANE_HANDLERS[surface.kind]` 查表处理；terminal split/activate/close pane metadata 不再写成 workbench reducer 主流程里的 `surface.kind === "terminal"` 分支。
+- 当前收敛：Right-panel active surface lookup 现在也归入 `workbench/surfaces.js` read model，`rightPanelSurfacesFrom(...)` / `activeRightPanelSurfaceFrom(...)` 被 `App.jsx` 和 terminal controller 复用；root-level `surfaces.find(...)` 与 terminal-controller 私有 `activeRightPanelSurface` helper 已删除。
+- 当前收敛：Bottom drawer body 选择现在来自 renderer-supported surface definition 的 `bodyKind` metadata，并通过 renderer-local `BOTTOM_DRAWER_BODY_RENDERERS` 查表挂载；未实现的默认 `logs` drawer 已删除，初始/持久化 fallback 不再把 active drawer 写死为 `run_output`，`BottomDrawer` 也不再保留 `bodyKind` switch。
+- 当前收敛：Right-panel body 选择也已改为 renderer-supported surface definition 的 `bodyKind` metadata，并通过 renderer-local `RIGHT_PANEL_BODY_RENDERERS` 查表挂载；`RightPanelSurfaceBody` 不再用固定 `surface.kind === ...` 分支或 `bodyKind` switch 推断 Files/File Preview/Preview/Terminal body。
+- 当前收敛：Generic `SurfacePanel` 子面板选择也已改为 renderer-supported surface definition 的 `panelKind` metadata；`SurfacePanel` 不再用固定 `surfaceKind === ...` 分支推断 Plan/Diff/Source Control/Settings/Diagnostics body。
+- 当前收敛：App Home/sidebar 的 workspace/thread copy 现在来自 `/api/app/bootstrap` 的 `home.workspace` / `home.threads` descriptors，并与 selected agent `emptyState` 组合展示；renderer 不再持有默认 no-workspace、workspace path、missing-path、empty-thread 文案或 untitled thread fallback prefix。
+- 当前收敛：Workbench header/sidebar/composer/composer-interaction/legacy panel chrome copy 现在来自 `/api/app/bootstrap` 的 `capabilities.chrome` descriptor；旧 `webapp/src/strings.js`、`LangContext.js` 和未挂载的 `components/InteractionPanel.jsx` 已删除，renderer 不再保留第二套全局 i18n/string registry。
+- 当前收敛：Terminal surface/drawer 的 pane label fallback、toolbar action、placeholder、empty/unavailable state 和 failure notice copy 现在来自 `/api/app/bootstrap` 的 `capabilities.terminal.chrome` descriptor；`terminal-labels.js` 无 descriptor 时只回退到 terminal id，不再生成 renderer-owned `"Terminal N"` 文案。
+- 当前收敛：默认 GUI shell descriptors 已移到可注入 `AppShellSpec`（`frontend/gui/backend/app_shell_spec.py`）；`AppShellService` 只组合 spec 与 active-core 安全投影，不再内联维护 surface、command 或 keybinding 清单。
+- 当前收敛：`/api/app/bootstrap` 在没有 active workspace/core 时也会从 host/launcher 选中的 agent application registry 投影安全的 `agentApplication`、`agentApplications` 和 `emptyState`；workspace 激活后由 active core 的 capability projection 接管，因此 GUI 可在打开 session 前按当前基础/专用 agent 调整空状态文案。
+- 当前收敛：workbench 持久化 surface 状态在 app bootstrap / workspace switch 后也会按同一份 app-shell capabilities 重新裁剪；旧 localStorage 里的 `preview`、`source_control`、`terminal` 等 surface 不能绕过当前 active app 的声明重新出现。
+- 当前收敛：live `workbench_surface_opened` / `diff_surface_opened` reducer 入口也按同一份 app-shell capabilities 拒绝未声明的 right-panel 或 bottom-drawer surface；payload-driven Diff intent 不再能绕过 active agent/app surface 声明创建 GUI 面板。
+- 当前收敛：旧 Inspector sidecar 的 artifacts/review/permissions/runtime/workspace-preview/log state、loader request 和 socket action 已删除；review 结果只作为 timeline activity 呈现，permission/user-input 只走 session interaction state，诊断只走 app-shell diagnostics surface。
+- 当前收敛：工具展示 catalog 现在只来自 session capabilities/bootstrap 的 `toolCatalog`；GUI `/api/tool-catalog` route、root `toolCatalog` fallback state 和 frontend-facing `CoreInterface.get_tool_catalog` facade 已删除。
+- 当前收敛：旧 `Inspector.jsx` 组件、`inspectorTab` / `inspectorKind` adapter、内部 `RIGHT_PANEL_SURFACES` tab registry、`showTabs` 和 `onTabChange` 导航入口都已删除；right-panel surfaces 是唯一的右栏导航真相。
+- 当前收敛：renderer root `inspectorTab` / `inspectorOpen` state 和 `set_inspector` / `toggle_inspector` reducer actions 已删除，socket effects、visual fixtures 与 App 打开面板动作都不再写这条旧状态。
+- 当前收敛：GUI webapp 源码中的旧 Inspector shell 命名也已清理为 right-panel/surface 词汇：`surface.*` i18n keys、`surface-panel` CSS、`--right-panel-w-raw` layout variable、`right-panel-toggle` test id，并已重建 GUI static assets。
+- 当前收敛：`AgentCoreAdapter` frontend protocol projection 不再导入 built-in `DEFAULT_MODE`，也不再把缺失 `current_mode` 注入为 `explore`；模式默认值由选中 application/profile 后端声明。
 - 该切片补齐 T3code-like standalone app shell 的第一层边界；terminal 已由后续 bottom-drawer slice 补齐，source-control foundation 已由后续 right-panel slice 补齐，后续 mutation/checkpoint 仍不得把 Agent Core 加厚为 GUI-owned policy layer。
 
 ### 2026-06-15 - T3code Timeline / Diff / Visual Debug Harness
@@ -397,7 +761,7 @@
 - GUI sidebar/no-workspace home 已增加 frontend-local `app-home-model` read model，将现有 app bootstrap workspace records 与 session summaries 投影成 T3code-like project/thread 管理表面；该模型只负责 label、count、active/missing/disabled 状态和紧凑时间展示，不改变 workspace registry、session truth 或 Agent Core lifecycle。
 - Project 管理区改为局部滚动并限制高度，避免最近项目累积时把 Threads 管理区挤出首屏；visual harness 的 app 场景已加入 sidebar bounding-rect 检查，确保 project manager、thread manager 和 empty-thread state 均在真实 GUI 中可见。
 - `scripts/gui-visual-debug.mjs` 现在为每次 run 设置隔离的 `EMBEDAGENT_GUI_APP_HOME=<output>/app-home`，继续走真实 GUI backend registry/app host 路径，但不会污染开发机正常最近项目列表。
-- Thread rows 已增加 T3code-like lifecycle action rail：`Rename` / `Fork` / `Archive` 由 frontend-local read model 投影并通过 explicit lifecycle capabilities 门控；当前动作已接入 backend/Core session lifecycle facade，持久化到 summary/projection thread metadata，仍避免 GUI 伪造第二份 session truth。
+- Thread rows 已增加 T3code-like lifecycle action rail：可见 action 来自 app-shell `thread_lifecycle.actions` descriptors，当前默认声明 `Rename` / `Fork` / `Archive` 并接入 backend/Core session lifecycle facade，持久化到 summary/projection thread metadata，仍避免 GUI 伪造第二份 session truth。
 - visual harness 新增 `thread` 场景，可在真实 GUI 中加载多 thread fixture、验证 action rail 数量/默认禁用状态/侧边栏边界并截图，继续保持 dev-only、Win10/Win11 开发流程内使用。
 
 ### 2026-06-15 - T3code/Pi Workbench Shell
@@ -421,14 +785,14 @@
 - 最新 intelligence cutover：`ProjectMemoryStore` 与 `WorkspaceIntelligence` 现已按 `run_recipe + recipe_action + report_quality_v2` 工作，历史 recipe id 也已从 `history.run_tests.1` 之类旧命名收敛为 `history.test.1`；当前 `src/` 里剩余的 live legacy 主要集中在 frontend/protocol 旧接口与 `workspace_recipes` 的内部旧名映射。`
 - 最新 shell cutover：frontend/protocol/backend 侧的 `list_files` 旧接口名已切为 `list_workspace_tree`；webapp tool labels、review 语义和 workspace recipe 数据也已移除 `legacy_tool_name` 及旧 verify 工具名。当前 `src/embedagent/` grep 已不再出现 `compile_project/run_tests/manage_todos/list_files/search_text/tools_v2` 这类 legacy 词汇。`
 - 最新 agent core cutover：`QueryEngine` 已改为 session-scoped owner，`InProcessAdapter` 不再为前端事件重新生成 `step_id`；pending permission/user-input 的 resume 现已回到统一 action pipeline，`TaskGraph` 已进入 `Session` 真相层并驱动 task projection，`SessionSnapshotProjector` 已抽成纯投影器，`transcript/timeline` 追加序号也已改为缓存分配。`
-- 最新 workflow extension boundary：`src/embedagent/extensions.py` 已建立本地 workflow extension contract，默认 C/C++ harness 现在通过 `src/embedagent/harness/extension.py` 接入；`src/embedagent/default_extensions.py` 负责 hosted runtime 的默认扩展装配，`src/embedagent/harness/workflow_projection.py` 负责把 C harness 内部状态映射为通用 workflow payload；`QueryEngine` 不再直接 import/构造默认 C harness extension；`QueryEngine` 不再直接 import/实例化 `TaskGraph`，schema 投影统一走 `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` 并由 `AgentLoop -> AgentExtensionHost` 直接请求 active schemas；导入和实例化 `embedagent.session.Session` 不再加载 `embedagent.harness.task_graph`；`ToolRuntime.allowed_tool_names()` 与 `OfficialRuntimeModes.allowed_tool_names()` 已删除；旧 `TurnOrchestrator` 并行执行器已删除，`AgentLoop` 是唯一 turn-loop owner，`AgentToolActionService` 是唯一非 LLM action execution owner；`QueryEngine` 里的 `_allowed_tools_for_mode`、`_schemas_for_active_tools`、`_execute_action` 与 `_execute_parallel_tool_action` 兼容转发已删除；`SessionSnapshotProjector` 与 live frontend task API 已改为从 `Session.workflow_state["workflow"]` 投影任务字段，`InProcessAdapter` 不再直接构造 `HarnessRunner`，且 `/review` finding/markdown 规则已下沉到 hosted `ReviewCommandService`；`HarnessStateSynchronizer` service facade 已删除，refresh 与 task snapshot persistence 只走默认 C harness workflow extension；`Session.task_graph` 已删除，默认 C harness 图状态由 `CHarnessWorkflowExtension` 背后的 harness-owned session graph state 持有。`
+- 最新 workflow extension boundary：`src/embedagent_core/extensions.py` 是共享 in-process extension/capability boundary；默认 C/C++ workflow package 通过 `src/embedagent/workflow_packages/c_cpp/extension.py` 接入，package-owned `src/embedagent/workflow_packages/c_cpp/application.py` 负责构造专用 application extension manager，`src/embedagent/workflow_packages/c_cpp/workflow_projection.py` 负责把 C harness 内部状态映射为通用 workflow payload。`QueryEngine` 不再直接 import/构造默认 C/C++ workflow extension，也不直接 import/实例化 `TaskGraph`；schema 投影统一走 `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` 并由 `AgentLoop -> AgentExtensionHost` 请求 active schemas；导入和实例化 `embedagent_core.session.Session` 不加载 C/C++ task graph internals；`ToolRuntime.allowed_tool_names()` 与 `OfficialRuntimeModes.allowed_tool_names()` 已删除；旧 `TurnOrchestrator` 并行执行器已删除，`AgentLoop` 是唯一 turn-loop owner，`AgentToolActionService` 是唯一非 LLM action execution owner；`QueryEngine` 里的 `_allowed_tools_for_mode`、`_schemas_for_active_tools`、`_execute_action` 与 `_execute_parallel_tool_action` 兼容转发已删除；`SessionSnapshotProjector` 与 live frontend task API 已改为从 `Session.workflow_state["workflow"]` 投影任务字段，`InProcessAdapter` 不再直接构造 C harness runner，且 `/review` finding/markdown 规则已下沉到 hosted `ReviewCommandService`；`HarnessStateSynchronizer` service facade 已删除，refresh 与 task snapshot persistence 只走默认 C/C++ workflow extension；`Session.task_graph` 已删除，默认 C harness 图状态由 `CHarnessWorkflowExtension` 背后的 harness-owned session graph state 持有。`
 - 最新 self-extensible Agent Core：`ExtensionManager` 已从默认 C/C++ workflow extension 边界扩展为共享 in-process capability boundary，新增通用 extension diagnostics、resource discovery contract、context hook、tool-call/tool-result hooks、dynamic in-process tool registration、frontend snapshot diagnostics 与 manifest-gated project-local Python extension loading；当前扩展参与路径已改为显式 `extension_capabilities()` / `ExtensionCapability` 记录，旧方法名 hook 不再自动注册。`.embedagent/skills`、`.embedagent/prompts`、`.embedagent/recipes` 本地文件资源已可通过 runtime、adapter、slash command 与 GUI/core API reload；`.embedagent/extensions/<name>/extension.json` 可在 `enabled: true` 且声明 permissions 时加载 workspace-bound `extension.py`，但 hooks/tools 必须通过 `api.ExtensionCapability` 显式声明，并继续禁止依赖安装、远程 registry、built-in tool replacement 与权限绕行。`QueryEngine` 已继续瘦身为 session facade：`AgentExtensionHost` 集中 extension hook dispatch 与 active schema projection，`AgentToolActionService` 集中非 LLM tool action execution、pending permission/user-input action、mode-switch proposal、resumed action execution 与 workflow-patch capture，`AgentLoop` 承担 turn-loop 与 active-schema 请求边界，`ReviewCommandService` 承担 hosted `/review` synthesis。Slice 6 已将 active source-of-truth docs、module docs 与 self-extensible archive index 同步到当前官方口径，completed self-extensible slice materials 归档到 `docs/archive/self-extensible-agent-core/`。`
 - 最新 Pi-inspired minimal Core 蓝图：`docs/pi-inspired-agent-core-blueprint.md` 已建立为下一阶段长期目标蓝图，同时学习 Pi 的功能设计和架构哲学；目标是把 Agent Core 继续收敛为更小的 Agent Kernel、durable SessionLog/reducer、source-aware HookBus、CapabilityRegistry、RuntimeConfigReducer、WorkflowPackageManifest、CompactionStateReducer、RecoveryStateReducer、Policy Boundary 与默认 C/C++ workflow package。当前官方 baseline 不变；durable operation log、HookBus/reducer registry、AgentKernel lifecycle extraction、default C/C++ workflow package、self-extension authoring loop、repo-side offline bundle validation、turn snapshot / capability registry foundation、runtime configuration reducer、workflow package manifest/read model、structured compaction state、recovery state、pack compatibility cleanup、core alias cleanup 已按 Phase A-M 渐进收口。`
 - 最新 enterprise/intranet capability boundary：`参考 Pi 的 custom provider / package / observability adapter 结构，但不复制其开放度。EmbedAgent 允许未来接入内网 Git、custom service、组织内 catalog、provider gateway 和内网 telemetry sink，但这些能力必须作为显式配置、受信、可关闭、可降级的 hosted extension/provider/workflow-package/sink；Agent Core 只保留安全事件、capability/read model、permission 与 reducer 边界，默认离线 C/C++ 工作流不得依赖网络。`network` 与 `telemetry` 已成为正式 permission categories，并贯穿 `PermissionPolicy`、dynamic tool registration、project extension manifest 和 self-extension authoring；`src/embedagent/telemetry.py` 已提供本地 safe envelope helper，用于在未来 sink 之前剔除 prompt、源码、原始工具输出、API key、permission payload、token 或审批 secret。`
 - 最新 durable operation log 切片：`Phase A 已完成`。`src/embedagent/session_operation_log.py` 已新增纯 `OperationLogReducer`，并已硬切为只从 schema_v2 `operation_started/operation_finished/operation_interrupted` 推导 operation state；`step_started/tool_call/tool_result/loop_transition` 继续服务 session replay/history，不再参与 operation 推断。`SessionRestorer` 已暴露 `operation_state` 并消费显式 operation lifecycle 事件；`QueryEngine` 已为 turn、agent step、context assembly、context snapshot、provider request、tool call、pending interaction、workflow patch 与 save point 写入显式 operation lifecycle；restore-time 与 live session snapshot 均已投影 reducer-backed `operation_diagnostics`。`
 - 最新 HookBus/reducer registry 切片：`Phase B 已收口`，pre-release explicit capability cleanup 已完成。`src/embedagent/agent_event_bus.py` 已建立 source-aware `AgentEventBus`、observer/reducer registration、event-specific reducer stopping、dispatch diagnostics 与 trusted fail-closed 行为；`ExtensionManager` 现在只从 `extension_capabilities()` 注册 `ExtensionCapability` 记录，并通过 `AgentEventBus` 分发 context、tool-call、tool-result、resource discovery、dynamic tool registration、prompt patch、workflow initialization、active tool names、task snapshot loading 与 extension-owned tool handling。公共 method-name hook compatibility 已删除；后续 operation lifecycle 编排已由 Phase C AgentKernel extraction 收口。`
 - 最新 AgentKernel lifecycle extraction / continuation 切片：`Phase C 已收口`，且后续 Pi-style continuation 已落地。`src/embedagent/agent_lifecycle.py` 已建立 `AgentLifecycleJournal`，集中 durable lifecycle operation 写入、transition save point、pending interaction lifecycle 与 context operation payload helper；`src/embedagent/agent_kernel.py` 已建立 `AgentKernel` / `AgentTurnFrame`，统一 user/command/resume turn frame 与 pending create/resolve boundary；`src/embedagent/agent_loop.py` 已从 runner callback 包装器升级为 Pi-style open turn-loop owner，负责 agent step、context/provider attempt、compact retry、tool batch interruption、guard-stop、abort 与显式 loop safety-limit 兼容 transition。默认 hosted 路径不再按 8 个 model/tool cycles 截断；`QueryEngine` 不再拥有 `_run_loop_impl`、`_run_loop` 或 `_is_completion_signal`，继续作为 session-scoped facade 与 transcript/session mutation 兼容面；后续 Phase D default C/C++ workflow package 已由下一切片收口。`
-- 最新 default C/C++ workflow package 切片：`Phase D 已收口`。bare `ToolRuntime` 构造现在只注册 workflow-neutral built-ins；默认 C/C++ workflow package 通过 `CHarnessWorkflowExtension.register_tools(...)` 注册 recipe、quality、evidence 与 `task_status` 工具；workflow tool metadata 已迁到 `src/embedagent/harness/tool_metadata.py`，workflow packs 已迁到 `src/embedagent/harness/packs.py`，旧 `src/embedagent/tools/harness_runtime.py` 已删除。hosted adapter 仍通过 `default_extensions.py` 默认装载 C/C++ package，bare Agent Core 不再加载 harness runtime facade；后续 Phase E self-extension authoring loop 已由下一切片收口。`
+- 最新 default C/C++ workflow package 切片：`Phase D 已收口`。bare `ToolRuntime` 构造现在只注册 workflow-neutral built-ins；默认 C/C++ workflow package 通过 `CHarnessWorkflowExtension.register_tools(...)` 注册 recipe、quality、evidence 与 `task_status` 工具；workflow tool metadata 与 packs 现在分别归属 `src/embedagent/workflow_packages/c_cpp/tool_metadata.py` 与 `src/embedagent/workflow_packages/c_cpp/packs.py`，旧 `src/embedagent/tools/harness_runtime.py` 已删除。hosted adapter 通过 selected `AgentApplication` 装载 C/C++ package，bare Agent Core 不再加载 harness runtime facade；后续 Phase E self-extension authoring loop 已由下一切片收口。`
 - 最新 self-extension authoring loop 切片：`Phase E 已收口`。`src/embedagent/self_extension_authoring.py` 新增 `SelfExtensionAuthoringService`，可在 workspace 内生成 `.embedagent/skills`、`.embedagent/prompts`、`.embedagent/recipes` 和 disabled-by-default `.embedagent/extensions/<name>` skeleton；`author_local_capability` 作为 build/debug 下的 workflow-neutral `workspace_write` 工具暴露该能力。authoring 只写文件，不 reload resource，不 enable/load Python extension；resource reload 与 executable extension loading 继续分离。最新 skill slice 已让生成的 skill 带 Agent Skills-style frontmatter，并支持系统提示词列表与 `/skill:<name> [args]` 显式展开。`
 - 最新 offline bundle validation 切片：`Phase F 已收口`。`scripts/offline-runtime-contract.json` 现在是 runtime-invoked bundled external tools 的 repo-side 单一契约，覆盖 Python、MinGit、ripgrep、Universal Ctags 与 LLVM/Clang child executables；`scripts/validate-offline-bundle.ps1` 与 `scripts/check-bundle-dependencies.py` 均消费同一契约并输出结构化 runtime_contract 结果；回归测试已锁定 extension loading 不调用依赖安装器，generated validation recipe 使用 managed Python command。clean Windows 7 unpack-and-run smoke 仍是 release gate。`
 - 最新 turn snapshot / capability registry 切片：`Phase G 已收口`。`src/embedagent/turn_snapshot.py` 现在提供 `TurnSnapshot` / `TurnSnapshotBuilder`，`QueryEngine` 在 context assembly 与 active schema projection 后构造 snapshot，并以 `snapshot.messages` / `snapshot.tool_schemas` 调用 provider；`src/embedagent/capabilities.py` 现在提供非执行型 `CapabilityRegistry`，可投影 runtime tools、本地 file resources、slash commands 与 credential-free model profile。activation 仍由 `ExtensionManager` / `AgentExtensionHost` 决定，execution 仍由 `ToolRuntime` / `AgentToolActionService` 决定。`
@@ -436,9 +800,9 @@
 - 最新 workflow package manifest 切片：`Phase I 已收口`。`src/embedagent/workflow_package_manifest.py` 新增 `WorkflowPackageManifest` read model，描述 workflow package identity、supported modes/workflow states、tool declarations、packs、resource scopes 与 diagnostics；默认 C/C++ package 通过 `CHarnessWorkflowExtension.package_manifest()` 暴露由 harness-owned metadata/packs 派生的 manifest，`ExtensionManager.package_manifests()` 负责通用收集，`CapabilityRegistry` 现在可投影 `workflow_package` descriptors。manifest projection 只用于诊断/控制面，不驱动 tool activation、execution、resource reload、extension loading 或 permission policy。`
 - 最新 structured compaction state 切片：`Phase J 已收口`。`src/embedagent/compaction_state.py` 新增 `CompactionStateReducer`，从 `compact_boundary` transcript events 投影结构化 compaction state；`ContextManager` 现在支持基于 `auto_compact_threshold_ratio` 的 deterministic pre-provider compact-policy rebuild，`ContextWindowState` 作为内部 value object 统一派生 safe trigger/phase/window-generation diagnostics，`QueryEngine` 会在 compact boundary payload 中写入 safe token/message counts、preserved message anchors、trigger/phase/window-generation diagnostics、file activity paths、evidence refs 与 extension-summary flag；`SessionRestorer`、`ManagedSession`、protocol snapshots 与 session snapshots 现在暴露 reducer-backed `compaction_state`。该投影只用于 diagnostics/replay，不驱动 context selection、summary generation、extension loading、tool execution 或 permission policy。`
 - 最新 recovery state 切片：`Phase K 已收口`。`src/embedagent/recovery_state.py` 新增 `RecoveryStateReducer`，从 `recovery_marker` transcript events 投影 hosted resume recovery state；`InProcessAdapter.resume_session(...)` 现在会在 restore 出可信 prefix 后写入 safe recovery marker，记录 trusted/transcript event counts、stop reason、operation/compaction/runtime summaries 与 skip metadata；`SessionRestorer`、`ManagedSession`、protocol snapshots 与 session snapshots 现在暴露 reducer-backed `recovery_state`。该投影只用于 diagnostics/replay，不改变 restore validation、mode/tool/context policy、extension loading、tool execution 或 permission policy。`
-- 最新 pack compatibility cleanup 切片：`Phase L 已收口`。`src/embedagent/tooling/packs.py` 已删除，`embedagent.tooling` 不再 re-export `BUILD_LITE_PACK` / `CORE_PACK` / `pack_tool_names` 等旧 pack aliases；默认 C/C++ workflow pack truth 只从 `src/embedagent/harness/packs.py` 暴露。active tool selection、runtime schema projection、permission policy 与 hosted C/C++ 行为不变。`
+- 最新 pack compatibility cleanup 切片：`Phase L 已收口`。`src/embedagent/tooling/packs.py` 已删除，`embedagent.tooling` 不再 re-export `BUILD_LITE_PACK` / `CORE_PACK` / `pack_tool_names` 等旧 pack aliases；默认 C/C++ workflow pack truth 只从 `src/embedagent/workflow_packages/c_cpp/packs.py` 暴露。active tool selection、runtime schema projection、permission policy 与 hosted C/C++ 行为不变。`
 - 最新 core alias cleanup 切片：`Phase M 已收口`。`MODE_REGISTRY`、`_DEFAULT_SANITIZER`、`get_default_sanitizer()`、`_inprocess_adapter` 与 `_get_adapter_class()` 等核心兼容别名已删除；当前代码通过 `get_mode_registry()`、`get_command_sanitizer()` 与 `get_inprocess_adapter()` 直接访问正式边界。mode behavior、shell sanitizer behavior、adapter lifecycle、permission policy 与 hosted C/C++ 行为不变。`
-- 最新 workflow extension cleanup：`InProcessAdapter.list_tasks()` 的 inactive-session task snapshot fallback 已改为通过共享 `ExtensionManager.load_session_tasks(...)` 查询，默认 C harness extension 继续负责读取自己的 task snapshot；adapter 不再直接 import `embedagent.harness.task_store`。`
+- 最新 workflow extension cleanup：`InProcessAdapter.list_tasks()` 的 inactive-session task snapshot fallback 已改为通过共享 `ExtensionManager.load_session_tasks(...)` 查询，默认 C/C++ workflow extension 继续负责读取自己的 task snapshot；adapter 不再直接 import package-private task store internals。`
 - 最新 workflow extension validation：`2026-05-29 repo-side 验证已通过：fast suite 为 685 passed / 11 deselected，focused C/C++ build/debug/verify workflow 回归为 15 passed。官方 harness 门禁已修复 marker 漏标问题，uv run pytest tests/ -m harness -v 现在会选中并通过 23 个 task_graph / phase_engine / harness runner / prompt stack / harness injection 测试。本机 release bundle 已用当前分支源码重建并通过：validate-offline-bundle.ps1 -RequireComplete 为 59 pass / 0 warn / 0 fail，check-bundle-dependencies.py 全部通过，scripts/package.ps1 verify -Profile release -Json 返回 final_status READY。clean Windows 7 unpack-and-run smoke 尚未执行。`
 - 最新 documentation cleanup：`docs/guides/configuration-guide.md` 已改写为当前正式配置指南，使用 `explore/spec/build/debug/verify` 与 `build` 实现模式口径，不再把 `code` 或 `manage_todos` 作为当前配置/工作流示例。`
 - 最新 runtime cleanup：`task_status` 前端元数据现已统一为 `tasks/task` 词汇，workspace profile 不再输出待办语义提示，运行时残留 `todos.py` 已删除。`
@@ -543,6 +907,12 @@
 - GUI turn 锚点已收口：webapp reducer 现在会给本地用户消息分配 provisional turn anchor，并在 `turn_started` 到来时整体回填，`/mode ... <message>` 这类“先命令结果、后真实 turn”链路不再把 command card 绑到伪 turn id 上
 - GUI active-session runtime 已推进到 transport-state + activity-state：GUI backend 已新增统一 `session_event` envelope 和统一的 interaction response route；S04 后已删除 `GET /api/sessions/{session_id}/events?after_seq=N` reload 信号入口，transport recovery 通过 session bootstrap reload 收口；前端当前会以 `sessionTransport + history.activities` 作为 active session 读模型骨架
 - Inspector / Timeline 交互边界已收口：Inspector 现在使用统一 `InteractionPanel` 处理当前 pending interaction，Timeline 只显示交互历史摘要，不再保留第二套 inline approve / answer 控件
+- GUI pending interaction response busy-state 已抽离到 `app-runtime/responding-request-ids-handle.js`：`App.jsx` 只保留用于渲染 composer interaction busy indicator 的 React state cell，不再维护 `respondingRequestIdsRef`、`respondToInteraction` / `logEvent` forwarding wrapper，或 inline request-id normalization / update helper。
+- GUI interaction response 提交与响应事件记录现在由
+  `app-runtime/interaction-response-controller.js` 拥有：controller 负责
+  POST response、应用 snapshot 或 reload session，并直接发
+  `interaction_response` `log_event`；`App.jsx` 不再注入 root-level
+  `logEvent` callback。
 - transport / restore 退化语义已补齐第一版：`ThreadsafeAsyncDispatcher` 现在会返回带 `reason` 的调度结果；`SessionRestorer` 遇到缺失可信 `interaction_id` 的 pending interaction 时会显式停在 `interaction_expired`；webapp transport state 已升级到 typed reload state
 - GUI runtime hardening 第二段已完成：transport/bootstrap recovery 现在显式区分 `reload_required / degraded`，HTTP / WebSocket 错误边界已 typed 化；当前 webapp activity runtime 接管 reload state、command-result fallback、detached turn item 排序与 session-scoped runtime reset
 - GUI runtime hardening slice 已关闭：相关设计与实施文档已归档到 `docs/archive/gui-runtime-hardening/`
@@ -568,7 +938,7 @@
 - todo 已切换为 session-scoped：真实会话默认使用 `.embedagent/memory/sessions/<session_id>/todos.json`，新建会话不再继承旧会话 todo
 - 新 GUI webapp 已建立：`src/embedagent/frontend/gui/webapp/` 使用 React + Vite 构建，产物已写回 `src/embedagent/frontend/gui/static/`
 - `scripts/validate-gui-smoke.py` 已升级：当前源码路径 smoke 可覆盖 tool / permission / ask_user / session todo 隔离、`/review` workflow 与 renderer 报告
-- unified input / slash command / workflow 第一版已落地：`submit_user_message` 已统一分发普通消息与 `/help` `/mode` `/sessions` `/resume` `/workspace` `/clear` `/plan` `/review` `/diff` `/permissions` `/todos` `/artifacts`
+- unified input / slash command / workflow 第一版已落地：`submit_user_message` 已统一分发普通消息与 `/help` `/mode` `/sessions` `/resume` `/workspace` `/clear` `/plan` `/review` `/diff` `/permissions` `/todos`
 - 协议层已扩展 `CommandResult`、`PlanSnapshot`、`TurnRecord`、`TimelineItem` 与增强版 `SessionSnapshot`；GUI 已接入 command result、plan pane、command cards 与 slash command hint
 - `/review` 已升级为结构化 findings 输出；GUI 工具卡片开始使用 Core 下发的 `tool_label` / `progress_renderer_key` / `result_renderer_key` 做分支渲染
 - GUI 已新增独立 review inspector；后端已暴露 tool catalog API，前端开始用 Core 的工具目录为旧 timeline / fallback 展示补足 label 与 renderer
@@ -647,7 +1017,7 @@
 | T-029 | Pi-inspired minimal Core 第一阶段：durable operation log / reducer | `completed` | Phase A 已收口：新增 `OperationLogReducer`、`SessionRestoreResult.operation_state`，并将 operation reducer 硬切为只消费显式 schema_v2 lifecycle；`QueryEngine` 已覆盖 turn、agent step、context assembly、context snapshot、provider request、tool call、pending interaction、workflow patch 与 save point；restore-time snapshot 会关闭未完成 operation，live snapshot 会保留 active operation，二者均已投影 `operation_diagnostics`；Phase B HookBus/reducer registry 已由 T-030 收口 |
 | T-030 | Pi-inspired minimal Core Phase B：HookBus / reducer registry | `completed` | Phase B 已收口：新增 `AgentEventBus`，`ExtensionManager` 公开 extension hook family 已迁到 source-aware reducer dispatch，并保留公共 extension API；后续 operation lifecycle 编排已由 Phase C AgentKernel lifecycle extraction 收口 |
 | T-031 | Pi-inspired minimal Core Phase C：AgentKernel lifecycle extraction | `completed` | Phase C 已收口：新增 `AgentLifecycleJournal`、`AgentKernel` / `AgentTurnFrame`，并将 `AgentLoop` 升级为 turn-loop owner；turn frames、save points、pending create/resolve、abort、compact retry、guard-stop 与 safety-limit compatibility transition 均已通过 lifecycle boundary；`QueryEngine` 不再拥有 `_run_loop_impl`、`_run_loop` 或 `_is_completion_signal` |
-| T-032 | Pi-inspired minimal Core Phase D：default C/C++ workflow package | `completed` | Phase D 已收口：bare `ToolRuntime` 不再注册默认 C/C++ workflow tools，也不再 import `tools/harness_runtime.py`；默认 C/C++ package 通过 `CHarnessWorkflowExtension.register_tools(...)` 注册 recipe、quality、evidence 与 `task_status` 工具，metadata/packs 归属 `src/embedagent/harness/`；hosted adapter catalog 仍默认暴露 C/C++ workflow tools |
+| T-032 | Pi-inspired minimal Core Phase D：default C/C++ workflow package | `completed` | Phase D 已收口：bare `ToolRuntime` 不再注册默认 C/C++ workflow tools，也不再 import `tools/harness_runtime.py`；默认 C/C++ package 通过 `CHarnessWorkflowExtension.register_tools(...)` 注册 recipe、quality、evidence 与 `task_status` 工具，metadata/packs 归属 `src/embedagent/workflow_packages/c_cpp/`；hosted adapter catalog 仍默认暴露 C/C++ workflow tools |
 | T-033 | Pi-inspired minimal Core Phase E：self-extension authoring loop | `completed` | Phase E 已收口：`SelfExtensionAuthoringService` 与 `author_local_capability` 可生成 skills/prompts/recipes/disabled extension skeletons；authoring 只写 workspace-bound 文件，不 reload resources，不 load Python code，仍通过 `workspace_write` 权限与后续 reload/load 分离 |
 | T-034 | Pi-inspired minimal Core Phase F：repo-side offline bundle validation | `completed` | Phase F 已收口：`scripts/offline-runtime-contract.json` 成为 runtime-invoked bundled external tools 的单一契约；bundle validators 共享该契约；clean Win7 smoke 仍是实机发布门禁 |
 | T-035 | Pi-inspired minimal Core Phase G：turn snapshot / capability registry foundation | `completed` | Phase G 已收口：`TurnSnapshot` 成为 provider-request 冻结输入；`CapabilityRegistry` 可投影 tools、local file resources、slash commands 与 credential-free model profile；activation/execution 仍由 extension/runtime 边界负责 |
@@ -655,7 +1025,7 @@
 | T-037 | Pi-inspired minimal Core Phase I：workflow package manifest/read model | `completed` | Phase I 已收口：`WorkflowPackageManifest` 描述 package identity、tools、packs、supported modes/workflow states 与 resource scopes；默认 C/C++ package manifest 由 harness-owned constants 派生并通过 `ExtensionManager.package_manifests()` 投影到 `CapabilityRegistry.workflow_package` descriptors；manifest 不驱动 tool activation 或 permission |
 | T-038 | Pi-inspired minimal Core Phase J：structured compaction state | `completed` | Phase J 已收口：`CompactionStateReducer` 从 `compact_boundary` transcript events 投影 structured compaction state；restore results、managed sessions、protocol snapshots 与 session snapshots 暴露 `compaction_state`；projection 不驱动 context selection 或 permission |
 | T-039 | Pi-inspired minimal Core Phase K：recovery state | `completed` | Phase K 已收口：`RecoveryStateReducer` 从 `recovery_marker` transcript events 投影 hosted resume recovery state；resume 写入 safe recovery marker；projection 不改变 restore validation、tool activation、context selection 或 permission |
-| T-040 | Pi-inspired minimal Core Phase L：pack compatibility cleanup | `completed` | Phase L 已收口：删除 `src/embedagent/tooling/packs.py` 与 `embedagent.tooling` package-root pack aliases；默认 C/C++ workflow pack truth 只从 `src/embedagent/harness/packs.py` 暴露，active tool selection 与 schema projection 不变 |
+| T-040 | Pi-inspired minimal Core Phase L：pack compatibility cleanup | `completed` | Phase L 已收口：删除 `src/embedagent/tooling/packs.py` 与 `embedagent.tooling` package-root pack aliases；默认 C/C++ workflow pack truth 只从 `src/embedagent/workflow_packages/c_cpp/packs.py` 暴露，active tool selection 与 schema projection 不变 |
 | T-041 | Pi-inspired minimal Core Phase M：core alias cleanup | `completed` | Phase M 已收口：删除 `MODE_REGISTRY`、`_DEFAULT_SANITIZER`、`get_default_sanitizer()`、`_inprocess_adapter` 与 `_get_adapter_class()` 等核心兼容别名；正式访问入口收敛为 `get_mode_registry()`、`get_command_sanitizer()` 与 `get_inprocess_adapter()` |
 | T-042 | Pi-aligned tool architecture：minimal bash-centered tool surface | `completed` | 已收口：Core 模型可见命令原语收敛为 `bash`，旧 `run_build`/compiler helper surface 从公开工具、workflow packs 与文档中删除；C/C++ workflow helper 继续由默认 workflow extension 激活；recipes 增加 readiness/prerequisite/refusal 语义；命令输出改为 bytes-first 解码并同步离线 Bash runtime contract |
 
@@ -717,7 +1087,7 @@
 | 2026-06-16 | GUI timeline interaction polish slice: timeline work row / turn fold expansion 改为 frontend-local controlled UI state；`?visual_debug=1` hook 新增 deterministic `timeline` / `interaction` fixtures；`scripts/gui-visual-debug.mjs --scenario timeline,interaction` 可由 Codex 自动加载真实 GUI 状态、点击展开、截图并检查 console/DOM，不改变 Agent Core、产品协议或 Win7/offline runtime 依赖。 |
 | 2026-06-16 | T3code GUI timeline/diff refinement 收口：changed-files card 改为目录树，Diff right-panel 改为 file rail + diff viewport，窄栏/移动端自动单列；`scripts/gui-visual-debug.mjs --scenario diff` 改用显式 `?visual_debug=1` fixture hook 稳定打开真实 DiffPanel 并检查 file rail/DOM/console；修复 T3 timeline projection 的 loose system item 与 detached item 丢失问题。 |
 | 2026-06-15 | T3code GUI 核心体验切片落地：新增 T3-style timeline rows、composer 内 permission/user-input panel、right-panel Diff surface 与 dev-only Playwright visual harness；`npm run visual:gui -- --scenario all --bundle-root <bundle-root>` 已可启动真实 GUI、截图并检查 console/DOM；同时修复 streaming final content 重放导致的 assistant 文本重复问题；completed working docs 已迁入 `docs/archive/t3-parity-gui-debug/` |
-| 2026-06-14 | Pi-inspired minimal Core Phase D 收口：bare `ToolRuntime` 已恢复 workflow-neutral 构造；默认 C/C++ workflow package 通过 `CHarnessWorkflowExtension.register_tools(...)` 注册 workflow tools，并在 `src/embedagent/harness/tool_metadata.py` / `src/embedagent/harness/packs.py` 内拥有 metadata 与 pack 定义；旧 `src/embedagent/tools/harness_runtime.py` 已删除。下一步进入 Phase E self-extension authoring loop |
+| 2026-06-14 | Pi-inspired minimal Core Phase D 收口：bare `ToolRuntime` 已恢复 workflow-neutral 构造；默认 C/C++ workflow package 通过 `CHarnessWorkflowExtension.register_tools(...)` 注册 workflow tools；metadata 与 pack 定义现归属 `src/embedagent/workflow_packages/c_cpp/tool_metadata.py` / `src/embedagent/workflow_packages/c_cpp/packs.py`；旧 `src/embedagent/tools/harness_runtime.py` 已删除。下一步进入 Phase E self-extension authoring loop |
 | 2026-06-14 | Pi-inspired minimal Core Phase C 收口：新增 `AgentLifecycleJournal`、`AgentKernel` / `AgentTurnFrame`，`AgentLoop` 已成为 turn-loop owner；`QueryEngine` 继续作为 session facade，但不再拥有 `_run_loop_impl`、`_run_loop` 或 `_is_completion_signal`。下一步进入 Phase D default C/C++ workflow package |
 | 2026-06-14 | Pi-inspired minimal Core Phase B 收口：`AgentEventBus` 现在承载 `ExtensionManager` 公开 extension hook family 的 source-aware reducer dispatch；tool-call block/update、resource discovery、dynamic tool registration、prompt patch、active tools、workflow init、task snapshot 与 extension-owned tool handling 均统一诊断。该阶段保留的公共 method-name API 已在 2026-06-25 explicit capability cleanup 中删除。Phase C AgentKernel lifecycle extraction 已由后续收口记录完成 |
 | 2026-06-13 | Pi-inspired minimal Core Phase B 第一切片启动：新增 source-aware `AgentEventBus`，`ExtensionManager.context(...)` 与 `after_tool_result(...)` 已迁到 `extension.context` / `extension.tool_result` reducer event；当时保留的公共 extension method API 已在 2026-06-25 explicit capability cleanup 中删除 |
@@ -733,21 +1103,21 @@
 | 2026-06-04 | Dynamic tool registration Slice 2 落地：in-process extensions 可向共享 `ToolRuntime` 注册 source-aware `ToolDefinition`，schema/catalog 可见性仍由共享 `ExtensionManager.allowed_tool_names(...)` 激活路径控制，权限分类通过 catalog metadata 接入 `PermissionPolicy` |
 | 2026-06-04 | Capability extension contract Slice 1 落地：新增通用 extension diagnostics、resource discovery contract、context hook、tool-call/tool-result hooks 与 session snapshot diagnostics；project-local Python extension loading 当时尚未启用，后续已由 Slice 4 收口 |
 | 2026-05-26 | Workflow extension boundary Slice 1 落地：新增 in-process extension manager、默认 C harness extension、`Session.workflow_state` 兼容位，并修复 parallel tool batch 失败后后续任务抢跑的竞态；fast/non-gui 测试通过 |
-| 2026-05-26 | Workflow extension boundary Slice 2 落地：`SessionSnapshotProjector` 与 live frontend task API 已从 `task_graph` 直读迁到 `Session.workflow_state["workflow"]`，`HarnessStateSynchronizer` 降为兼容门面，adapter 的 harness 刷新与 task snapshot 持久化委托给默认 C harness extension |
+| 2026-05-26 | Workflow extension boundary Slice 2 落地：`SessionSnapshotProjector` 与 live frontend task API 已从 `task_graph` 直读迁到 `Session.workflow_state["workflow"]`；当时保留的刷新兼容门面已由后续切片删除，adapter 的 workflow 刷新与 task snapshot 持久化现在委托给默认 C/C++ workflow extension |
 | 2026-05-27 | Workflow extension boundary Slice 3 落地：`QueryEngine` 的 schema/allowed-tool 计算改为 mode fallback + workflow extension active tools，并通过 explicit tool names 调用 runtime；`CORE_PACK` 已移除 `run_recipe/list_recipes/task_status` 等默认 harness workflow 工具 |
 | 2026-05-27 | Workflow extension boundary Slice 4 落地：内置 mode `allowed_tools` 已收缩为 workflow-neutral permission/write contract；默认 C harness 的 recipe/quality/evidence/task-status 工具由 extension pack 激活，frontend tool catalog 改为 mode contract + extension active tools 的并集 |
 | 2026-05-27 | Workflow extension boundary Slice 5 落地：`InProcessAdapter` 现在拥有共享 `ExtensionManager`，并将同一 manager 传给 session-scoped `QueryEngine` 与 frontend tool catalog，消除 adapter/engine 各自持有 harness extension 的分叉 |
-| 2026-05-27 | Workflow extension boundary Slice 6 落地：`InProcessAdapter` 已不再直接导入或构造 `HarnessStateSynchronizer`；product harness refresh 只走默认 C harness workflow extension，synchronizer 继续作为 services 惰性导出的兼容门面保留 |
+| 2026-05-27 | Workflow extension boundary Slice 6 落地：`InProcessAdapter` 已不再直接导入或构造早期刷新兼容门面；product workflow refresh 只走默认 C/C++ workflow extension，兼容门面已由后续收口切片删除 |
 | 2026-05-28 | Runtime schema boundary Slice 7 落地：`ToolRuntime.schemas_for_mode()` 与 `allowed_tool_names()` 不再默认合入 C harness pack，只保留纯 mode-contract 兼容投影；默认 harness-aware schema 继续由共享 `ExtensionManager` 的 active tool names 显式驱动 |
-| 2026-05-28 | Default harness extension factory Slice 8 落地：默认 C harness extension 装配迁入 `default_extensions.py`，`QueryEngine` 默认只创建空 `ExtensionManager`，host/adapter 显式注入默认扩展集 |
-| 2026-05-28 | Harness workflow projection builder Slice 9 落地：新增 `src/embedagent/harness/workflow_projection.py`，C harness 到 `Session.workflow_state["workflow"]` 的 payload 组装从 extension 内联逻辑抽为 harness-owned 适配器 |
-| 2026-05-28 | Session task graph lazy boundary Slice 10 落地：`embedagent.session` 不再在模块导入期加载 `embedagent.harness.task_graph`，`Session().task_graph` 仍按需创建默认 C harness 兼容镜像 |
+| 2026-05-28 | Default harness extension factory Slice 8 落地：默认 C/C++ workflow extension 装配现在由 selected `AgentApplication` 和 `src/embedagent/workflow_packages/c_cpp/application.py` 负责，`QueryEngine` 默认只创建空 `ExtensionManager`，host/adapter 显式注入选定应用的扩展集 |
+| 2026-05-28 | Harness workflow projection builder Slice 9 落地：`src/embedagent/workflow_packages/c_cpp/workflow_projection.py` 集中提供 C harness 到 `Session.workflow_state["workflow"]` 的 payload 组装适配器 |
+| 2026-05-28 | Session task graph lazy boundary Slice 10 落地：`embedagent_core.session` 不再在模块导入期加载 C/C++ task graph internals；当时的 session task graph 兼容镜像已由后续收口切片删除 |
 | 2026-05-28 | Turn orchestrator task-status projection Slice 11 落地：提取出的 core `TurnOrchestrator` 不再直读 `Session.task_graph`，legacy `task_status` 兼容响应改从 `Session.workflow_state["workflow"]` 读取 |
 | 2026-05-29 | Workflow extension boundary Task 1 收口：删除 `HarnessStateSynchronizer` service facade，focused service tests 改为覆盖 `CHarnessWorkflowExtension.refresh_managed_session()` 正式刷新路径，product refresh 不再保留并行兼容入口 |
 | 2026-05-29 | Workflow extension boundary Task 2 收口：`Session.task_graph` dataclass 字段已删除，默认 C harness `TaskGraph` 由 `CHarnessWorkflowExtension` 的 harness-owned session graph state 持有，并继续投影到 `Session.workflow_state["workflow"]` |
 | 2026-05-29 | Workflow extension boundary Task 3 收口：删除 `ToolRuntime.schemas_for_mode()` runtime alias，runtime schema projection 统一为 `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` |
 | 2026-05-29 | Workflow extension boundary Task 4 收口：删除 `ToolRuntime.allowed_tool_names()` 与 `OfficialRuntimeModes.allowed_tool_names()` wrappers，`TurnOrchestrator` 改为通过注入的 allowed-tool policy gating |
-| 2026-05-29 | Workflow extension boundary Task 5 收口：默认扩展配置决策关闭，hosted product paths 继续通过 `default_extensions.py` 装配 bundled C harness，bare `QueryEngine` 保持空 manager；不引入 project-local discovery、registry、marketplace 或 multi-agent orchestration |
+| 2026-05-29 | Workflow extension boundary Task 5 收口：默认扩展配置决策关闭，hosted product paths 继续通过 selected `AgentApplication` 装配 bundled C/C++ workflow package，bare `QueryEngine` 保持空 manager；不引入 project-local discovery、registry、marketplace 或 multi-agent orchestration |
 | 2026-05-29 | Workflow extension boundary Task 6 收口：completed slice plans 与 handoff 已迁入 `docs/archive/workflow-extension-boundary/`，活动 `docs/superpowers/plans/` 只保留 remaining validation plan |
 | 2026-06-03 | Workflow extension boundary 本机剩余清理收口：`InProcessAdapter` 的 inactive task fallback 改走 `ExtensionManager.load_session_tasks(...)`，不再直接 import harness task store；配置指南已改写为当前 mode/task 口径 |
 | 2026-04-09 | 文档治理 Batch B 完成：归档 10 份 superseded 文档至 archive/，下沉 8 份操作文档（6 份 packaging 归档 + 2 份 guides/），更新 docs/README.md 和模块文档 |
@@ -763,8 +1133,8 @@
 | 2026-04-06 | `gui-bundled-runtime-discovery-failure` 问题分析文档已迁入 `docs/archive/issues/`，当前该问题视为关闭并退出活动 issue 入口 |
 | 2026-04-06 | GUI interaction 生命周期已收口到专属 `interaction` tab：当前交互不再挂在所有 inspector tab 的公共尾部；`pending_interaction_valid=false` / `interaction_expired` 现在只显示 notice，不再伪装成可操作的 expired card；webapp helper 回归与 `tests.test_gui_runtime`、`tests.test_gui_backend_api` 已通过 |
 | 2026-04-06 | 已建立 `docs/agent-harness-v2.md` 作为新一轮 mode/tool/permission 整体重构设计基线：保留用户可见 mode，但引入 execution phase、discipline profile、tool pack、permission DSL 与 failure taxonomy；后续建议以该文档为主线推进重构，而不是继续做局部补丁 |
-| 2026-04-06 | Agent Harness V2 Program A/B 已开始实现：新增 `src/embedagent/harness/`、`tooling/`、`tools_v2/`、`permissions_v2/` 第一批基础包，`build` mode 已可挂载最小 harness context，`InProcessAdapter` snapshot 已暴露 `current_phase / discipline_profile / current_activity`，且新切片测试与定向旧回归均已通过 |
-| 2026-04-06 | Agent Harness V2 Program D 已推进到第一批可运行切片：新增 `src/embedagent/harness/task_graph.py`，`build` mode 已支持 `full_spec_tdd` 的最小 task summary 与 artifact gate，`QueryEngine` / `InProcessAdapter` 现已开始暴露 `task_summary`，且新切片测试与定向旧回归均已通过 |
+| 2026-04-06 | Agent Harness V2 Program A/B 已开始实现：早期 Harness V2 基础包、`tooling/`、`tools_v2/` 与 `permissions_v2/` 第一批基础能力落地；这些旧包已由后续正式边界替换为 `src/embedagent_core/`、`src/embedagent/tools/` 与 `src/embedagent/workflow_packages/c_cpp/`。`build` mode 已可挂载最小 harness context，`InProcessAdapter` snapshot 已暴露 `current_phase / discipline_profile / current_activity`，且新切片测试与定向旧回归均已通过 |
+| 2026-04-06 | Agent Harness V2 Program D 已推进到第一批可运行切片：早期 task graph 原型落地；当前正式实现已迁入 `src/embedagent/workflow_packages/c_cpp/` 并通过 workflow extension 投影为通用 `task_summary`，`build` mode 已支持 `full_spec_tdd` 的最小 task summary 与 artifact gate，`QueryEngine` / `InProcessAdapter` 现已开始暴露 `task_summary`，且新切片测试与定向旧回归均已通过 |
 | 2026-04-07 | 已完成一轮文档归档收口：`gui-redesign`、`packaging-pipeline-redesign`、`agent-harness-v2` 与 `session-history-single-source-cutover` 相关的 plan/spec/review/handoff 文档已迁入 `docs/archive/`，同时补归档了 `2026-04-02-full-transcript-persistence-design.md` 与 documentation alignment 审查报告，并修正了活动文档中的旧路径引用 |
 | 2026-04-06 | 已完成一轮“V2 是否可直接扶正”的仓库审查，并确认当前还不能直接暴力删除 legacy；已新增 `docs/archive/agent-harness-v2/2026-04-06-agent-harness-v2-official-cutover-plan.md`，明确后续需要按 runtime、mode、context、permission/task、frontend/protocol、docs/legacy deletion 六个程序完成正式 cutover |
 | 2026-04-06 | official cutover 第 1、2 步已完成：官方 `ToolRuntime` 已提升为唯一 runtime 主入口，`HarnessToolBridge` 与 `ToolRuntimeV2` 已退出产品路径；同时产品和测试默认 mode 已从 `code` 切到 `build`，内建 mode 集现在以 `explore/spec/build/debug/verify` 为正式主词汇 |

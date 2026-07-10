@@ -27,27 +27,22 @@ _TEST_DIR_NAMES = {
     "specs",
 }
 _CODE_EXTENSIONS = {
-    ".c",
-    ".cc",
-    ".cpp",
-    ".cxx",
-    ".h",
-    ".hh",
-    ".hpp",
-    ".hxx",
     ".py",
     ".pyi",
     ".js",
+    ".jsx",
     ".ts",
     ".tsx",
 }
 _TEST_FILE_HINTS = ("test_", "_test", "_spec", "spec_")
-_BUILD_FILE_NAMES = {"CMakeLists.txt", "Makefile", "makefile", "meson.build"}
 _INTERNAL_DIR_NAMES = {".embedagent", ".venv", "build"}
 
 
 def profile_workspace(
-    workspace: str, max_depth: int = 3, max_entries: int = 400
+    workspace: str,
+    max_depth: int = 3,
+    max_entries: int = 400,
+    detectors: object = None,
 ) -> Dict[str, object]:
     workspace = os.path.realpath(workspace)
     doc_roots = set()  # type: Set[str]
@@ -101,7 +96,7 @@ def profile_workspace(
             scanned += 1
             ext = os.path.splitext(name)[1].lower()
             lower_name = name.lower()
-            if name in _BUILD_FILE_NAMES or ext in _CODE_EXTENSIONS:
+            if ext in _CODE_EXTENSIONS:
                 local_has_code = True
             if (
                 lower_name.endswith((".json", ".yaml", ".yml"))
@@ -109,6 +104,17 @@ def profile_workspace(
             ):
                 local_has_tests = True
             if ext in _CODE_EXTENSIONS and any(hint in lower_name for hint in _TEST_FILE_HINTS):
+                local_has_tests = True
+            detector_signals = _detector_file_signals(
+                detectors,
+                name=name,
+                absolute_path=candidate,
+                relative_root=relative_root,
+                root_name=lowered_root_name,
+            )
+            if detector_signals.get("code"):
+                local_has_code = True
+            if detector_signals.get("tests"):
                 local_has_tests = True
         if local_has_code:
             code_roots.add(relative_root.replace("\\", "/"))
@@ -131,9 +137,12 @@ def _pending_tasks_hint(workspace: str, session_id: str = "") -> str:
 
 
 def build_workspace_profile_message(
-    workspace: str, session_id: str = "", char_limit: int = 900
+    workspace: str,
+    session_id: str = "",
+    char_limit: int = 900,
+    detectors: object = None,
 ) -> str:
-    profile = profile_workspace(workspace)
+    profile = profile_workspace(workspace, detectors=detectors)
     recipe_payload = list_workspace_recipes(workspace)
     recipe_items = recipe_payload.get("items") if isinstance(recipe_payload, dict) else []
     if profile.get("workspace_empty"):
@@ -152,7 +161,7 @@ def build_workspace_profile_message(
     else:
         lines.append("尚未探测到明显文档目录；spec 模式如需新建文档，可默认创建 docs/。")
     if code_roots:
-        lines.append("已探测代码/构建目录：%s" % ", ".join(code_roots[:8]))
+        lines.append("已探测代码/工程目录：%s" % ", ".join(code_roots[:8]))
     if test_roots:
         lines.append("已探测测试目录：%s" % ", ".join(test_roots[:6]))
     root_entries = profile.get("root_entries") or []
@@ -182,3 +191,45 @@ def _sorted_unique(values: Set[str]) -> List[str]:
         normalized.append(value.replace("\\", "/"))
     normalized.sort(key=lambda item: (item.count("/"), item.lower()))
     return normalized
+
+
+def _detector_file_signals(
+    detectors: object,
+    name: str,
+    absolute_path: str,
+    relative_root: str,
+    root_name: str,
+) -> Dict[str, bool]:
+    aggregate = {"code": False, "tests": False}
+    try:
+        detector_items = list(detectors or ())
+    except TypeError:
+        detector_items = []
+    for detector in detector_items:
+        detect_file = getattr(detector, "detect_file", None)
+        try:
+            if callable(detect_file):
+                signals = detect_file(
+                    name=name,
+                    absolute_path=absolute_path,
+                    relative_root=relative_root.replace("\\", "/"),
+                    root_name=root_name,
+                )
+            elif callable(detector):
+                signals = detector(
+                    name=name,
+                    absolute_path=absolute_path,
+                    relative_root=relative_root.replace("\\", "/"),
+                    root_name=root_name,
+                )
+            else:
+                signals = {}
+        except (AttributeError, OSError, RuntimeError, TypeError, ValueError):
+            signals = {}
+        if not isinstance(signals, dict):
+            continue
+        if signals.get("code"):
+            aggregate["code"] = True
+        if signals.get("tests"):
+            aggregate["tests"] = True
+    return aggregate

@@ -15,7 +15,7 @@ export default function ComposerPendingUserInputPanel({ prompt, busy = false, on
   return (
     <div className="composer-interaction-user-input">
       <div className="composer-interaction-heading">
-        <span className="composer-interaction-kicker">INPUT REQUIRED</span>
+        <span className="composer-interaction-kicker">{prompt.kicker}</span>
         <span className="composer-interaction-summary">{prompt.question || prompt.summary}</span>
       </div>
       {(prompt.options || []).length > 0 ? (
@@ -34,7 +34,7 @@ export default function ComposerPendingUserInputPanel({ prompt, busy = false, on
                 <strong>{option.label || option.text}</strong>
                 {option.description ? <small>{option.description}</small> : null}
               </span>
-              {option.mode ? <em>mode: {option.mode}</em> : null}
+              {option.mode ? <em>{prompt.modeLabelPrefix} {option.mode}</em> : null}
             </button>
           ))}
         </div>
@@ -56,7 +56,7 @@ export default function ComposerPendingUserInputPanel({ prompt, busy = false, on
           onClick={() => submit(buildUserInputResponse(prompt, { answer }))}
           data-testid="user-input-submit-button"
         >
-          {prompt.submitLabel || "Submit"}
+          {prompt.submitLabel}
         </button>
       </div>
     </div>

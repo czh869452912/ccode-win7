@@ -859,15 +859,20 @@ class TestModuleIsolation(unittest.TestCase):
 
         self.assertTrue(callable(discovery_ops.build_tools))
 
-    def test_recipe_ops_importable(self):
-        from embedagent.tools import recipe_ops
-
-        self.assertTrue(callable(recipe_ops.build_tools))
-
     def test_session_ops_importable(self):
         from embedagent.tools import session_ops
 
-        self.assertTrue(callable(session_ops.build_tools))
+        self.assertTrue(callable(session_ops.build_interaction_tools))
+
+    def test_c_workflow_recipe_ops_importable(self):
+        from embedagent.workflow_packages.c_cpp import recipe_ops
+
+        self.assertTrue(callable(recipe_ops.build_tools))
+
+    def test_c_workflow_session_ops_importable(self):
+        from embedagent.workflow_packages.c_cpp import session_ops
+
+        self.assertTrue(callable(session_ops.build_workflow_tools))
 
     def test_file_ops_importable(self):
         from embedagent.tools import file_ops
@@ -1055,7 +1060,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
             handle.write(
                 '[{"key":"build|.|clang demo.c","tool_name":"run_recipe","recipe_action":"build","command":"clang demo.c","cwd":".","last_mode":"build","created_at":"2026-04-01T00:00:00Z","last_success_at":"2026-04-01T00:00:00Z","success_count":1}]'
             )
-        from embedagent.workspace_recipes import list_workspace_recipes
+        from embedagent.workflow_packages.c_cpp.workspace_recipes import list_workspace_recipes
 
         payload = list_workspace_recipes(self.workspace)
         recipe_ids = [item["id"] for item in payload["items"]]
@@ -1072,7 +1077,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
     def test_list_recipes_marks_cmake_build_not_ready_without_build_dir(self):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
             handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")
-        from embedagent.workspace_recipes import list_workspace_recipes
+        from embedagent.workflow_packages.c_cpp.workspace_recipes import list_workspace_recipes
 
         payload = list_workspace_recipes(self.workspace)
         build = [item for item in payload["items"] if item["id"] == "cmake.build.default"][0]
@@ -1098,6 +1103,27 @@ class TestWorkspaceRecipes(unittest.TestCase):
         self.assertTrue(recipe["ready"])
         self.assertEqual(recipe["confidence"], "high")
 
+    def test_generic_workspace_recipes_do_not_detect_cmake_or_default_tool_name(self):
+        with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
+            handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")
+        os.makedirs(os.path.join(self.workspace, ".embedagent", "recipes"))
+        with open(
+            os.path.join(self.workspace, ".embedagent", "recipes", "custom.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
+            handle.write(
+                '{"id":"local.custom","recipe_action":"build","command":"echo ok","cwd":"."}'
+            )
+
+        from embedagent.workspace_recipes import list_workspace_recipes
+
+        payload = list_workspace_recipes(self.workspace)
+        recipe_ids = [item["id"] for item in payload["items"]]
+        self.assertNotIn("cmake.build.default", recipe_ids)
+        local = [item for item in payload["items"] if item["id"] == "local.custom"][0]
+        self.assertEqual(local.get("tool_name", ""), "")
+
     @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_run_recipe_can_run_cmake_build_recipe_id(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"))
@@ -1121,7 +1147,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
             handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")
         os.makedirs(os.path.join(self.workspace, "build", "debug"))
-        from embedagent.workspace_recipes import resolve_workspace_recipe
+        from embedagent.workflow_packages.c_cpp.workspace_recipes import resolve_workspace_recipe
 
         payload = resolve_workspace_recipe(
             self.workspace,
@@ -1211,7 +1237,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
     def test_detects_ninja_recipes(self):
         with open(os.path.join(self.workspace, "build.ninja"), "w", encoding="utf-8") as handle:
             handle.write("rule cc\n  command = clang -c $in -o $out\n")
-        from embedagent.workspace_recipes import list_workspace_recipes
+        from embedagent.workflow_packages.c_cpp.workspace_recipes import list_workspace_recipes
 
         payload = list_workspace_recipes(self.workspace)
         recipe_ids = [item["id"] for item in payload["items"]]
@@ -1227,7 +1253,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
     def test_detects_make_recipes_with_target_support(self):
         with open(os.path.join(self.workspace, "Makefile"), "w", encoding="utf-8") as handle:
             handle.write("all:\n\techo hello\n")
-        from embedagent.workspace_recipes import list_workspace_recipes
+        from embedagent.workflow_packages.c_cpp.workspace_recipes import list_workspace_recipes
 
         payload = list_workspace_recipes(self.workspace)
         recipe_ids = [item["id"] for item in payload["items"]]

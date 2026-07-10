@@ -1,29 +1,43 @@
 import React, { startTransition, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { DEFAULT_MODE, initialState, reducer } from "./store.js";
-import {
-  createTreeNode,
-  makeEventId,
-  normalizeSessionPayload,
-} from "./state-helpers.js";
-import { appendSessionTransportEvent, createSessionTransportState } from "./session-runtime/session-transport-state.js";
-import { createDiffSurfaceState } from "./session-runtime/diff-model.js";
+import { INITIAL_REQUESTED_MODE, initialState, reducer } from "./store.js";
+import { normalizeSessionPayload } from "./state-helpers.js";
+import { createSessionTransportState } from "./session-runtime/session-transport-state.js";
 import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
 import { buildSessionActivityRuntime } from "./session-runtime/activity-state.js";
 import { buildComposerCommandsFromCapabilities } from "./session-runtime/command-capabilities.js";
-import { deriveSocketMessageEffects } from "./app-runtime/socket-message-effects.js";
-import { createLoaderRequestExecutor, loadSessionCommandCapabilities } from "./app-runtime/session-loaders.js";
+import { buildSessionCapabilityModelFromState } from "./session-runtime/session-capability-model.js";
+import { createSocketMessageController } from "./app-runtime/socket-message-controller.js";
+import { createSurfacePanelController } from "./app-runtime/surface-panel-controller.js";
+import { buildSurfacePanelProps } from "./app-runtime/surface-panel-props.js";
+import { buildAppCapabilityModelFromState } from "./app-runtime/app-capability-model.js";
+import { createBrowserDialogService } from "./app-runtime/browser-dialog-service.js";
+import { fetchJson } from "./app-runtime/http-client.js";
+import { createComposerController } from "./app-runtime/composer-controller.js";
+import { createInitialAppLoadController } from "./app-runtime/initial-app-load-controller.js";
+import { createDiffSurfaceController } from "./app-runtime/diff-surface-controller.js";
+import { createFilePreviewController } from "./app-runtime/file-preview-controller.js";
+import {
+  createLoaderRequestExecutor,
+  createSessionCommandCapabilityLoader,
+} from "./app-runtime/session-loaders.js";
+import { createPreviewController } from "./app-runtime/preview-controller.js";
+import { createRespondingRequestIdsHandle } from "./app-runtime/responding-request-ids-handle.js";
+import { createPanelResizeController } from "./app-runtime/panel-resize-controller.js";
 import { createRightPanelController } from "./app-runtime/right-panel-controller.js";
 import { createSessionActivationController } from "./app-runtime/session-activation-controller.js";
 import { createSessionController } from "./app-runtime/session-controller.js";
+import { createSessionTransportHandle } from "./app-runtime/session-transport-handle.js";
+import { createSessionListController } from "./app-runtime/session-list-controller.js";
 import { createSessionTransportController } from "./app-runtime/session-transport-controller.js";
+import { createSourceControlController } from "./app-runtime/source-control-controller.js";
 import { createTerminalController } from "./app-runtime/terminal-controller.js";
 import { createThreadLifecycleController } from "./app-runtime/thread-lifecycle-controller.js";
+import { createTimelineScrollController } from "./app-runtime/timeline-scroll-controller.js";
+import { createWorkspaceFilesController } from "./app-runtime/workspace-files-controller.js";
 import { createInteractionResponseController } from "./app-runtime/interaction-response-controller.js";
 import { createWorkbenchCommandController } from "./app-runtime/workbench-command-controller.js";
 import { createWorkspaceController } from "./app-runtime/workspace-controller.js";
-import { installVisualDebugFixtures } from "./app-runtime/visual-debug-fixtures.js";
-import { LangContext } from "./LangContext.js";
-import { t } from "./strings.js";
+import { createVisualDebugController } from "./app-runtime/visual-debug-controller.js";
 import {
   clearTerminal,
   closeTerminal,
@@ -32,17 +46,6 @@ import {
   restartTerminal,
   writeTerminal,
 } from "./terminal/terminal-api.js";
-import { nextTerminalId } from "./terminal/terminal-labels.js";
-import {
-  getSourceControlDiff,
-  getSourceControlStatus,
-  refreshSourceControlStatus,
-} from "./source-control/source-control-api.js";
-import {
-  openPreviewExternal,
-  openPreviewSession,
-  refreshPreviewSession,
-} from "./preview/preview-api.js";
 import { buildBranchToolbarModel } from "./source-control/branch-toolbar-model.js";
 import { readComposerDraft } from "./composer/composer-state.js";
 import {
@@ -60,17 +63,29 @@ import CommandPalette from "./components/workbench/CommandPalette.jsx";
 import RightPanelSurfaceBody from "./components/workbench/RightPanelSurfaceBody.jsx";
 import RightPanelTabs from "./components/workbench/RightPanelTabs.jsx";
 import WorkbenchHeader from "./components/workbench/WorkbenchHeader.jsx";
-import { commandById, visibleCommands } from "./workbench/commands.js";
-import { DEFAULT_KEYBINDINGS, eventToKey, resolveKeybinding } from "./workbench/keybindings.js";
+import {
+  buildCommandVisibilityContext,
+  isTurnInterruptibleStatus,
+  visibleCommands,
+} from "./workbench/commands.js";
+import { buildCommandGroupLabels } from "./workbench/command-palette-model.js";
+import {
+  activeRightPanelSurfaceFrom,
+  rightPanelSurfacesFrom,
+} from "./workbench/surfaces.js";
+import { createActiveWorkspaceDataLoader } from "./app-runtime/active-workspace-data-loader.js";
+import { createWorkbenchKeyboardController } from "./app-runtime/workbench-keyboard-controller.js";
 import {
   persistWorkbenchUiState,
   readPersistedWorkbenchUiState,
 } from "./workbench/ui-state.js";
 
-const EMPTY_COMMAND_HINTS = [];
+function readCurrentAppCapabilityModel(stateRef) {
+  return buildAppCapabilityModelFromState(stateRef.current);
+}
 
-function isTurnInterruptibleStatus(status) {
-  return status === "running" || status === "waiting_permission" || status === "waiting_user_input";
+function readCurrentSessionCapabilityModel(stateRef) {
+  return buildSessionCapabilityModelFromState(stateRef.current);
 }
 
 function App() {
@@ -82,14 +97,27 @@ function App() {
   const [respondingRequestIds, setRespondingRequestIdsState] = useState([]);
   const [sessionTransport, setSessionTransport] = useState(() => createSessionTransportState());
   const timelineRef = useRef(null);
-  const isAtBottomRef = useRef(true);
   const currentSessionIdRef = useRef("");
-  const respondingRequestIdsRef = useRef([]);
   const runtimeStateRef = useRef(null);
-  const sessionTransportRef = useRef(sessionTransport);
   const sessionTransportControllerRef = useRef(null);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const respondingRequestIdsHandle = useMemo(
+    () =>
+      createRespondingRequestIdsHandle({
+        initialRequestIds: respondingRequestIds,
+        setRequestIds: setRespondingRequestIdsState,
+      }),
+    [],
+  );
+  const sessionTransportHandle = useMemo(
+    () =>
+      createSessionTransportHandle({
+        initialTransport: sessionTransport,
+        setTransport: setSessionTransport,
+      }),
+    [],
+  );
 
   const currentSessionId = readActiveThreadId(state);
   const threadSessions = readThreadSessions(state);
@@ -97,23 +125,58 @@ function App() {
   const historyIntegrity = readThreadHistoryIntegrity(state);
   const currentMode = state.snapshot?.current_mode || state.requestedMode;
   const currentStatus = state.snapshot?.status || "idle";
-  const commandContext = useMemo(() => ({
-    hasSession: Boolean(currentSessionId),
-    hasWorkspace: Boolean(state.app.hasActiveWorkspace),
-    isRunning: isTurnInterruptibleStatus(currentStatus),
-    paletteOpen: state.workbench.commandPalette.open,
-    capabilities: state.sessionCapabilities || {},
+  const appCapabilityModel = useMemo(
+    () => buildAppCapabilityModelFromState(state),
+    [state.app],
+  );
+  const {
+    appCapabilities,
+    appChrome,
+    keybindings,
+    commandPalette,
+    terminalChrome,
+    sourceControlChrome,
+    previewChrome,
+    previewServers,
+    filePreviewChrome,
+    diffPanelChrome,
+    threadLifecycleCapabilities,
+    emptyState: appEmptyState,
+  } = appCapabilityModel;
+  const sessionCapabilityModel = useMemo(
+    () => buildSessionCapabilityModelFromState(state),
+    [state],
+  );
+  const {
+    sessionCapabilities,
+    modeCatalog,
+    toolCatalog,
+    emptyState: sessionEmptyState,
+  } = sessionCapabilityModel;
+  const commandContext = useMemo(() => buildCommandVisibilityContext({
+    currentSessionId,
+    currentStatus,
+    appState: state.app,
+    workbenchState: state.workbench,
+    sessionCapabilities,
   }), [
     currentStatus,
     currentSessionId,
-    state.app.hasActiveWorkspace,
+    state.app,
     state.workbench.commandPalette.open,
-    state.sessionCapabilities,
+    sessionCapabilities,
   ]);
   const paletteCommands = useMemo(() => visibleCommands(commandContext), [commandContext]);
+  const composerCommandGroupLabels = useMemo(
+    () => buildCommandGroupLabels(commandPalette),
+    [commandPalette],
+  );
   const composerCommands = useMemo(
-    () => buildComposerCommandsFromCapabilities(state.sessionCapabilities || {}),
-    [state.sessionCapabilities],
+    () =>
+      buildComposerCommandsFromCapabilities(sessionCapabilities, {
+        defaultGroupId: appChrome.composer?.commandMenu?.defaultCommandGroupId || "",
+      }),
+    [appChrome.composer, sessionCapabilities],
   );
   const activeWorkspaceId = state.app.activeWorkspace?.id || "";
   const runtimeState = useMemo(
@@ -122,10 +185,10 @@ function App() {
         snapshot: state.snapshot,
         sessionTransport,
         activities: state.activities,
-        defaultMode: DEFAULT_MODE,
+        defaultMode: INITIAL_REQUESTED_MODE,
         activeTurnId: state.activeTurnId,
         thinkingActive: state.thinkingActive,
-        toolCatalog: state.sessionCapabilities?.toolCatalog || state.toolCatalog,
+        toolCatalog,
       }),
     [
       sessionTransport,
@@ -133,16 +196,35 @@ function App() {
       state.snapshot,
       state.thinkingActive,
       state.activities,
-      state.sessionCapabilities,
-      state.toolCatalog,
+      toolCatalog,
     ],
   );
   runtimeStateRef.current = runtimeState;
   const interactionNotice = state.interactionNotice || runtimeState.interactionNotice;
+  const sourceControlController = useMemo(
+    () =>
+      createSourceControlController({
+        dispatch,
+        getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
+        hasActiveWorkspace: () => stateRef.current.app.hasActiveWorkspace,
+        getSourceControlChrome: () => readCurrentAppCapabilityModel(stateRef).sourceControlChrome,
+        getDiffPanelChrome: () => readCurrentAppCapabilityModel(stateRef).diffPanelChrome,
+      }),
+    [],
+  );
+  const timelineScrollController = useMemo(
+    () =>
+      createTimelineScrollController({
+        getElement: () => timelineRef.current,
+      }),
+    [],
+  );
   const terminalController = useMemo(
     () =>
       createTerminalController({
         getState: () => stateRef.current,
+        getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
+        getTerminalChrome: () => readCurrentAppCapabilityModel(stateRef).terminalChrome,
         dispatch,
         api: {
           listTerminals,
@@ -152,8 +234,11 @@ function App() {
           restartTerminal,
           closeTerminal,
         },
-        nextTerminalId,
       }),
+    [],
+  );
+  const loadSessionCommandCapabilitiesForApp = useMemo(
+    () => createSessionCommandCapabilityLoader({ fetchJson, dispatch }),
     [],
   );
 
@@ -166,56 +251,29 @@ function App() {
   }, [state.workbench]);
 
   useEffect(() => {
-    sessionTransportRef.current = sessionTransport;
-  }, [sessionTransport]);
+    sessionTransportHandle.sync(sessionTransport);
+  }, [sessionTransport, sessionTransportHandle]);
 
-  function replaceSessionTransport(nextTransport) {
-    sessionTransportRef.current = nextTransport;
-    setSessionTransport(nextTransport);
-    return nextTransport;
-  }
-
-  function updateSessionTransport(updater) {
-    const nextTransport = updater(sessionTransportRef.current);
-    sessionTransportRef.current = nextTransport;
-    setSessionTransport(nextTransport);
-    return nextTransport;
-  }
-
-  function setRespondingRequestIds(value) {
-    const nextValue =
-      typeof value === "function" ? value(respondingRequestIdsRef.current) : value;
-    const normalized = Array.isArray(nextValue)
-      ? nextValue.map((item) => String(item || "")).filter(Boolean)
-      : [];
-    respondingRequestIdsRef.current = normalized;
-    setRespondingRequestIdsState(normalized);
-  }
-
-  function createRuntimeSessionTransport() {
-    const connectionState = sessionTransportRef.current?.connectionState || "connecting";
-    return createSessionTransportState({
-      connectionState,
-      reloadState: "healthy",
-    });
-  }
+  useEffect(() => {
+    respondingRequestIdsHandle.sync(respondingRequestIds);
+  }, [respondingRequestIds, respondingRequestIdsHandle]);
 
   // initial app/workspace data load
   useEffect(() => {
-    loadAppBootstrap();
-    loadSessionCommandCapabilities({ fetchJson, dispatch }).catch(() => {});
-  }, []);
+    createInitialAppLoadController({
+      loadAppBootstrap,
+      loadSessionCommandCapabilities: loadSessionCommandCapabilitiesForApp,
+    }).start();
+  }, [loadSessionCommandCapabilitiesForApp]);
 
   // websocket lifecycle
   useEffect(() => {
     const controller = createSessionTransportController({
       getCurrentSessionId: () => currentSessionIdRef.current,
-      getTransportState: () => sessionTransportRef.current,
-      updateTransportState: updateSessionTransport,
+      getTransportState: sessionTransportHandle.read,
+      updateTransportState: sessionTransportHandle.update,
       loadSession,
-      handleMessage: (message) => {
-        startTransition(() => handleSocketMessage(message.type, message.data || {}));
-      },
+      handleMessage: socketMessageController.handleMessage,
       locationObject: window.location,
     });
     sessionTransportControllerRef.current = controller;
@@ -228,262 +286,127 @@ function App() {
     };
   }, []);
 
-  // Escape key cancels running session
-  useEffect(() => {
-    function onKeyDown(e) {
-      if (e.key === "Escape" && isTurnInterruptibleStatus(currentStatus)) {
-        cancelSession();
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [currentStatus, currentSessionId]);
-
   // smart auto-scroll: only follow when user is at bottom
   useEffect(() => {
-    if (isAtBottomRef.current && timelineRef.current) {
-      timelineRef.current.scrollTop = timelineRef.current.scrollHeight;
-    }
-  }, [runtimeState.t3TimelineRows, state.thinkingActive, runtimeState.currentInteraction]);
+    timelineScrollController.syncToBottom();
+  }, [
+    runtimeState.t3TimelineRows,
+    state.thinkingActive,
+    runtimeState.currentInteraction,
+    timelineScrollController,
+  ]);
 
-  function handleTimelineScroll() {
-    const el = timelineRef.current;
-    if (!el) return;
-    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-  }
-
-  // ── API helpers ────────────────────────────────────────────────────
-
-  async function fetchJson(url, options) {
-    const res = await fetch(url, options);
-    const payload = await res.json().catch(() => null);
-    if (!res.ok) {
-      const detail =
-        typeof payload?.detail === "string" ? payload.detail : JSON.stringify(payload?.detail || "");
-      const error = new Error(detail || `HTTP ${res.status}`);
-      error.status = res.status;
-      error.detail = detail;
-      throw error;
-    }
-    return payload;
-  }
-
-  async function loadSourceControlStatus(refresh = false, assumeWorkspace = state.app.hasActiveWorkspace) {
-    if (!assumeWorkspace) {
-      dispatch({ type: "source_control_reset" });
-      return null;
-    }
-    dispatch({ type: "source_control_load_started" });
-    try {
-      const payload = refresh ? await refreshSourceControlStatus() : await getSourceControlStatus();
-      dispatch({ type: "source_control_status_loaded", status: payload });
-      return payload;
-    } catch (error) {
-      dispatch({ type: "source_control_load_failed", error: error.message || "Source control unavailable" });
-      return null;
-    }
-  }
-
-  async function openSourceControlFile(file, scope = "unstaged") {
-    const path = file?.path || "";
-    if (!path) return;
-    const selectedScope = scope || file?.diffScopes?.[0] || "unstaged";
-    dispatch({ type: "source_control_file_selected", path, scope: selectedScope });
-    dispatch({ type: "source_control_diff_started" });
-    try {
-      const diff = await getSourceControlDiff(path, selectedScope);
-      dispatch({ type: "source_control_diff_loaded", diff });
-      if (diff.available && diff.diff) {
-        dispatch({
-          type: "diff_surface_opened",
-          diffSurface: createDiffSurfaceState({
-            title: `Git Diff: ${path}`,
-            diff: diff.diff,
-            source: "source-control",
-            filePath: path,
-          }),
-        });
-        dispatch({ type: "set_inspector", value: "diff" });
-      } else {
-        dispatch({ type: "source_control_diff_failed", error: diff.reason || "Diff unavailable" });
-      }
-    } catch (error) {
-      dispatch({ type: "source_control_diff_failed", error: error.message || "Diff unavailable" });
-    }
-  }
-
-  async function loadSessions() {
-    const payload = await fetchJson("/api/sessions");
-    dispatch({ type: "sessions_loaded", sessions: payload.sessions || [] });
-  }
-
-  async function loadToolCatalog() {
-    const payload = await fetchJson("/api/tool-catalog");
-    const items = Array.isArray(payload.items) ? payload.items : [];
-    const catalog = {};
-    for (const item of items) {
-      if (!item || !item.name) continue;
-      catalog[item.name] = item;
-    }
-    dispatch({ type: "tool_catalog_loaded", catalog });
-  }
-
-  async function loadPermissionContext(sessionId) {
-    if (!sessionId) {
-      dispatch({ type: "permission_context_loaded", context: null });
-      return;
-    }
-    const payload = await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/permissions`);
-    dispatch({ type: "permission_context_loaded", context: payload });
-  }
-
-  async function loadSession(sessionId) {
-    const loadSessionController = createSessionActivationController({
-      fetchJson,
-      dispatch,
-      defaultMode: DEFAULT_MODE,
-      createTransportState: createRuntimeSessionTransport,
-      replaceTransportState: replaceSessionTransport,
-      listTerminals,
-      loadTasks,
-      loadArtifacts,
-    });
-    await loadSessionController(sessionId);
-  }
-
-  async function loadTasks(sessionId) {
-    const payload = await fetchJson(`/api/tasks?session_id=${encodeURIComponent(sessionId || "")}`);
-    dispatch({ type: "tasks_loaded", tasks: payload.tasks || [] });
-  }
-
-  async function loadArtifacts() {
-    const payload = await fetchJson("/api/artifacts");
-    dispatch({ type: "artifacts_loaded", items: payload.items || [] });
-  }
-
-  async function loadWorkspaceRecipes() {
-    const payload = await fetchJson("/api/workspace/recipes");
-    dispatch({ type: "recipes_loaded", items: payload.items || [] });
-  }
-
-  async function loadFileChildren(path) {
-    const payload = await fetchJson(`/api/files/tree?path=${encodeURIComponent(path || ".")}`);
-    const children = (payload.items || []).map(createTreeNode);
-    if ((path || ".") === ".") {
-      dispatch({ type: "file_tree_loaded", nodes: children });
-    } else {
-      dispatch({ type: "file_children_loaded", path, children: payload.items || [] });
-    }
-  }
-
-  async function openFile(path, line) {
-    const filePath = normalizeFileSurfacePath(path);
-    if (!filePath) return;
-    dispatch({
-      type: "workbench_surface_opened",
-      placement: "right",
-      kind: "file",
-      title: fileSurfaceTitle(filePath),
-      resourceId: filePath,
-      filePath,
-      revealLine: line,
-    });
-    dispatch({ type: "file_preview_load_started", path: filePath });
-    try {
-      const payload = await fetchJson(`/api/files/${encodeURIComponent(filePath)}`);
-      dispatch({
-        type: "file_preview_loaded",
-        path: filePath,
-        preview: {
-          kind: "file",
-          title: payload.path || filePath,
-          content: payload.content || "",
-        },
-      });
-    } catch (error) {
-      dispatch({
-        type: "file_preview_load_failed",
-        path: filePath,
-        error: error.message || "File unavailable",
-      });
-    }
-  }
-
-  async function openArtifact(reference) {
-    const payload = await fetchJson(`/api/artifacts/${encodeURIComponent(reference)}`);
-    const content =
-      typeof payload.content === "string"
-        ? payload.content
-        : JSON.stringify(payload.content || {}, null, 2);
-    dispatch({
-      type: "preview_loaded",
-      preview: { kind: "artifact", title: payload.path || reference, content },
-      inspectorTab: "preview",
-    });
-  }
-
-  async function openReviewEvidence(entry) {
-    if (entry?.artifactRef) {
-      await openArtifact(entry.artifactRef);
-      return;
-    }
-    if (entry?.diff) {
-      dispatch({
-        type: "diff_surface_opened",
-        diffSurface: createDiffSurfaceState({
-          title: entry?.title || "Review Diff",
-          diff: entry.diff,
-          source: entry?.kind || "review",
-        }),
-      });
-      return;
-    }
-    dispatch({
-      type: "preview_loaded",
-      preview: {
-        kind: entry?.kind || "review",
-        title: entry?.title || "Review Evidence",
-        content: entry?.content || "",
-      },
-      inspectorTab: "preview",
-    });
-  }
-
-  function openDiffSurface({ title = "Diff", diff = "", turnId = "", filePath = "" } = {}) {
-    let resolvedDiff = diff;
-    if (!resolvedDiff) {
-      const item = runtimeState.timelineItems.find((candidate) => {
-        if (turnId && candidate.turnId !== turnId) return false;
-        const data = candidate.data || {};
-        const args = candidate.arguments || {};
-        if (filePath && data.path !== filePath && args.path !== filePath) return false;
-        return typeof data.diff === "string" || typeof data.diff_preview === "string";
-      });
-      resolvedDiff = item?.data?.diff || item?.data?.diff_preview || "";
-    }
-    if (!resolvedDiff) return;
-    dispatch({
-      type: "diff_surface_opened",
-      diffSurface: createDiffSurfaceState({
-        title: filePath || title || "Diff",
-        diff: resolvedDiff,
-        source: "gui",
-        turnId,
-        filePath,
+  const sessionListController = useMemo(
+    () =>
+      createSessionListController({
+        fetchJson,
+        dispatch,
       }),
-    });
-  }
+    [],
+  );
+  const { loadSessions } = sessionListController;
+  const sessionActivationController = useMemo(
+    () =>
+      createSessionActivationController({
+        fetchJson,
+        dispatch,
+        defaultMode: INITIAL_REQUESTED_MODE,
+        createTransportState: sessionTransportHandle.createRuntimeTransport,
+        replaceTransportState: sessionTransportHandle.replace,
+        getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
+        listTerminals,
+      }),
+    [sessionTransportHandle],
+  );
+  const loadSession = sessionActivationController;
+
+  const workspaceFilesController = useMemo(
+    () =>
+      createWorkspaceFilesController({
+        fetchJson,
+        dispatch,
+        getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
+      }),
+    [],
+  );
+  const rightPanelController = useMemo(
+    () =>
+      createRightPanelController({
+        dispatch,
+        terminalController,
+        getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
+      }),
+    [terminalController],
+  );
+  const {
+    openSurface: openRightPanelSurface,
+  } = rightPanelController;
+  const filePreviewController = useMemo(
+    () =>
+      createFilePreviewController({
+        fetchJson,
+        dispatch,
+        getFilePreviewChrome: () => readCurrentAppCapabilityModel(stateRef).filePreviewChrome,
+        rightPanelController,
+      }),
+    [rightPanelController],
+  );
+  const previewController = useMemo(
+    () =>
+      createPreviewController({
+        dispatch,
+        getCurrentSessionId: () => readActiveThreadId(stateRef.current),
+        getPreviewChrome: () => readCurrentAppCapabilityModel(stateRef).previewChrome,
+        rightPanelController,
+      }),
+    [rightPanelController],
+  );
+  const diffSurfaceController = useMemo(
+    () =>
+      createDiffSurfaceController({
+        dispatch,
+        getRuntimeState: () => runtimeStateRef.current || {},
+        getDiffPanelChrome: () => readCurrentAppCapabilityModel(stateRef).diffPanelChrome,
+      }),
+    [],
+  );
+  const { loadFileChildren } = workspaceFilesController;
+
+  const surfacePanelController = useMemo(
+    () =>
+      createSurfacePanelController({
+        dispatch,
+        sourceControlController,
+      }),
+    [sourceControlController],
+  );
+
+  const visualDebugController = useMemo(
+    () =>
+      createVisualDebugController({
+        windowObject: typeof window === "undefined" ? null : window,
+        dispatch,
+        openDiffFixture: diffSurfaceController.open,
+        getCurrentMode: () => stateRef.current.requestedMode || INITIAL_REQUESTED_MODE,
+      }),
+    [diffSurfaceController],
+  );
 
   useEffect(() => {
-    return installVisualDebugFixtures({
-      windowObject: typeof window === "undefined" ? null : window,
-      locationSearch: typeof window === "undefined" ? "" : window.location.search || "",
-      dispatch,
-      openDiffFixture: openDiffSurface,
-      currentMode: state.requestedMode || DEFAULT_MODE,
-    });
-  }, [runtimeState.timelineItems, state.requestedMode]);
+    return visualDebugController.install();
+  }, [runtimeState.timelineItems, state.requestedMode, visualDebugController]);
 
+  const activeWorkspaceDataLoader = useMemo(
+    () =>
+      createActiveWorkspaceDataLoader({
+        getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
+        loadSessions,
+        loadSessionCommandCapabilities: loadSessionCommandCapabilitiesForApp,
+        loadFileChildren,
+        loadStatus: sourceControlController.loadStatus,
+      }),
+    [loadSessionCommandCapabilitiesForApp, sourceControlController],
+  );
   const workspaceController = useMemo(
     () =>
       createWorkspaceController({
@@ -491,20 +414,9 @@ function App() {
         dispatch,
         getState: () => stateRef.current,
         getCurrentSessionId: () => readActiveThreadId(stateRef.current),
-        loadWorkspaceData: async (sessionId, assumeWorkspace) => {
-          await Promise.all([
-            loadSessions(),
-            loadArtifacts(),
-            loadSessionCommandCapabilities({ fetchJson, dispatch }),
-            loadTasks(sessionId || ""),
-            loadFileChildren("."),
-            loadToolCatalog(),
-            loadWorkspaceRecipes(),
-            loadSourceControlStatus(false, assumeWorkspace),
-          ]);
-        },
+        loadWorkspaceData: activeWorkspaceDataLoader.loadActiveWorkspaceData,
       }),
-    [],
+    [activeWorkspaceDataLoader],
   );
   const {
     activateWorkspace,
@@ -512,6 +424,7 @@ function App() {
     loadAppBootstrap,
     openWorkspace,
     removeWorkspace,
+    setWorkspacePath,
   } = workspaceController;
 
   const sessionController = useMemo(
@@ -523,12 +436,14 @@ function App() {
         getCurrentSessionId: () => readActiveThreadId(stateRef.current),
         getCurrentMode: () => stateRef.current.snapshot?.current_mode || stateRef.current.requestedMode,
         hasActiveWorkspace: () => Boolean(stateRef.current.app.hasActiveWorkspace),
-        markTimelineBottom: () => {
-          isAtBottomRef.current = true;
-        },
+        markTimelineBottom: timelineScrollController.markFollowingBottom,
         loadSessions,
         loadSession,
       }),
+    [timelineScrollController],
+  );
+  const browserDialogService = useMemo(
+    () => createBrowserDialogService({ windowObject: window }),
     [],
   );
   const threadLifecycleController = useMemo(
@@ -539,40 +454,26 @@ function App() {
         loadSessions,
         loadSession,
         getThreadSessions: () => readThreadSessions(stateRef.current),
-        prompt: (message, initialValue) => window.prompt(message, initialValue),
-        confirm: (message) => window.confirm(message),
+        getThreadLifecycleCapabilities: () =>
+          readCurrentAppCapabilityModel(stateRef).threadLifecycleCapabilities,
+        prompt: browserDialogService.prompt,
+        confirm: browserDialogService.confirm,
       }),
-    [],
+    [browserDialogService],
   );
   const { createSession, setMode, cancelSession, submitText } = sessionController;
   const { handleThreadLifecycleAction } = threadLifecycleController;
-
-  async function sendMessage() {
-    await submitText(composerDraft);
-  }
-
-  async function runRecipe(recipeId, options = {}) {
-    const target = (options.target || "").trim();
-    const profile = (options.profile || "").trim();
-    const parts = ["/run", recipeId];
-    if (target) parts.push(target);
-    if (profile) parts.push(profile);
-    await submitText(parts.join(" "));
-  }
-
-  const rightPanelController = useMemo(
+  const composerController = useMemo(
     () =>
-      createRightPanelController({
+      createComposerController({
         dispatch,
-        terminalController,
+        getComposerDraft: () => readComposerDraft(stateRef.current),
+        submitText,
+        refreshSourceControl: sourceControlController.loadStatus,
       }),
-    [terminalController],
+    [sourceControlController, submitText],
   );
-  const {
-    fileSurfaceTitle,
-    normalizeFileSurfacePath,
-    openSurface: openRightPanelSurface,
-  } = rightPanelController;
+
   const workbenchCommandController = useMemo(
     () =>
       createWorkbenchCommandController({
@@ -581,98 +482,77 @@ function App() {
         setTimeoutFn: window.setTimeout.bind(window),
         getCurrentMode: () => stateRef.current.snapshot?.current_mode || stateRef.current.requestedMode,
         getActiveWorkspaceId: () => stateRef.current.app.activeWorkspace?.id || "",
+        getSessionCapabilities: () => readCurrentSessionCapabilityModel(stateRef).sessionCapabilities,
+        getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
         createSession,
         loadSessions,
+        loadSession,
         loadAppBootstrap,
+        activateWorkspace,
         removeWorkspace,
-        sendMessage: () => submitText(readComposerDraft(stateRef.current)),
+        sendMessage: composerController.sendMessage,
         cancelSession,
         submitText,
         setMode,
         openRightPanelSurface,
         terminalController,
       }),
-    [openRightPanelSurface, terminalController],
+    [composerController, openRightPanelSurface, terminalController],
   );
   const executeWorkbenchCommand = workbenchCommandController.execute;
 
-  useEffect(() => {
-    function onWorkbenchKeyDown(event) {
-      const command = resolveKeybinding(DEFAULT_KEYBINDINGS, eventToKey(event), {
-        paletteOpen: state.workbench.commandPalette.open,
-        isRunning: isTurnInterruptibleStatus(currentStatus),
-        composerFocused: document.activeElement?.dataset?.testid === "composer-input",
-      });
-      if (!command) return;
-      event.preventDefault();
-      void executeWorkbenchCommand(command);
-    }
-    window.addEventListener("keydown", onWorkbenchKeyDown);
-    return () => window.removeEventListener("keydown", onWorkbenchKeyDown);
-  }, [state.workbench.commandPalette.open, currentStatus, composerDraft, currentSessionId]);
+  const workbenchKeyboardController = useMemo(
+    () =>
+      createWorkbenchKeyboardController({
+        windowObject: window,
+        documentObject: document,
+        getKeybindings: () => readCurrentAppCapabilityModel(stateRef).keybindings,
+        getCommandContext: () => {
+          const current = stateRef.current;
+          return buildCommandVisibilityContext({
+            currentSessionId: readActiveThreadId(current),
+            currentStatus: current.snapshot?.status || "idle",
+            appState: current.app,
+            workbenchState: current.workbench,
+            sessionCapabilities: buildSessionCapabilityModelFromState(current).sessionCapabilities,
+          });
+        },
+        getCurrentStatus: () => stateRef.current.snapshot?.status || "idle",
+        isTurnInterruptibleStatus,
+        cancelSession,
+        executeWorkbenchCommand,
+      }),
+    [executeWorkbenchCommand],
+  );
 
-  function logEvent(label, detail) {
-    dispatch({ type: "log_event", label, detail });
-  }
+  useEffect(() => {
+    return workbenchKeyboardController.install();
+  }, [workbenchKeyboardController]);
 
   const executeLoaderRequest = createLoaderRequestExecutor({
     loadAppBootstrap,
     loadActiveWorkspaceData,
     loadSessions,
     loadSession,
-    loadTasks,
-    loadArtifacts,
-    loadPermissionContext,
     loadFileChildren,
-    loadSessionCommandCapabilities: () => loadSessionCommandCapabilities({ fetchJson, dispatch }),
+    loadSessionCommandCapabilities: loadSessionCommandCapabilitiesForApp,
   });
 
-  function executeSocketEffects(effects = {}) {
-    const transportEvents = effects.transportEvents || [];
-    if (transportEvents.length) {
-      const transportController = sessionTransportControllerRef.current;
-      let nextTransport = sessionTransportRef.current;
-      for (const entry of transportEvents) {
-        if (transportController) {
-          nextTransport = transportController.appendEvent(entry || {});
-        } else {
-          nextTransport = updateSessionTransport((current) =>
-            appendSessionTransportEvent(current, entry || {}),
-          );
-        }
-      }
-      if (
-        (nextTransport.reloadState === "reload_required" || nextTransport.reloadState === "degraded") &&
-        currentSessionIdRef.current
-      ) {
-        if (transportController) {
-          void transportController.recover(currentSessionIdRef.current, nextTransport);
-        } else {
-          void loadSession(currentSessionIdRef.current);
-        }
-      }
-    }
-
-    for (const action of effects.actions || []) {
-      dispatch(action);
-    }
-
-    for (const request of effects.loaderRequests || []) {
-      void executeLoaderRequest(request);
-    }
-  }
-
-  function handleSocketMessage(type, data) {
-    const effects = deriveSocketMessageEffects({
-      type,
-      data: data || {},
-      currentSessionId: currentSessionIdRef.current,
-      sessionTransport: sessionTransportRef.current,
-      makeId: makeEventId,
-      nowIso: () => new Date().toISOString(),
-    });
-    executeSocketEffects(effects);
-  }
+  const socketMessageController = useMemo(
+    () =>
+      createSocketMessageController({
+        dispatch,
+        executeLoaderRequest,
+        getSessionTransportController: () => sessionTransportControllerRef.current,
+        getSessionTransportState: sessionTransportHandle.read,
+        updateSessionTransportState: sessionTransportHandle.update,
+        getCurrentSessionId: () => currentSessionIdRef.current,
+        loadSession,
+        getDiffPanelChrome: () => readCurrentAppCapabilityModel(stateRef).diffPanelChrome,
+        scheduleMessage: startTransition,
+      }),
+    [],
+  );
 
   const interactionResponseController = useMemo(
     () =>
@@ -682,199 +562,85 @@ function App() {
         normalizeSessionPayload,
         getCurrentSessionId: () => currentSessionIdRef.current,
         getCurrentInteraction: () => runtimeStateRef.current?.currentInteraction || null,
-        getRespondingRequestIds: () => respondingRequestIdsRef.current,
-        setRespondingRequestIds,
+        getRespondingRequestIds: respondingRequestIdsHandle.read,
+        setRespondingRequestIds: respondingRequestIdsHandle.set,
         loadSession,
-        loadPermissionContext,
-        logEvent,
       }),
-    [],
+    [respondingRequestIdsHandle],
   );
-
-  async function respondToInteraction(payload) {
-    await interactionResponseController.respondToInteraction(payload);
-  }
 
   const appHomeModel = useMemo(
     () => buildAppHomeModel({
       app: state.app,
       sessions: threadSessions,
       currentSessionId,
-      defaultMode: DEFAULT_MODE,
-      threadLifecycleCapabilities: state.app.capabilities?.threadLifecycle || {},
+      defaultMode: INITIAL_REQUESTED_MODE,
+      threadLifecycleCapabilities,
     }),
-    [currentSessionId, state.app, threadSessions],
+    [currentSessionId, state.app, threadLifecycleCapabilities, threadSessions],
   );
   const branchToolbarModel = useMemo(
     () =>
       buildBranchToolbarModel({
         activeWorkspace: state.app.activeWorkspace,
         sourceControl: state.sourceControl,
+        sourceControlChrome,
       }),
-    [state.app.activeWorkspace, state.sourceControl],
+    [sourceControlChrome, state.app.activeWorkspace, state.sourceControl],
   );
 
-  const rightPanelSurfaces = state.workbench.rightPanel.surfaces || [];
-  const activeRightPanelSurface =
-    rightPanelSurfaces.find((surface) => surface.id === state.workbench.rightPanel.activeSurfaceId) || null;
+  const rightPanelSurfaces = rightPanelSurfacesFrom(state.workbench);
+  const activeRightPanelSurface = activeRightPanelSurfaceFrom(state.workbench);
 
-  async function openPreviewUrl(url) {
-    const sessionId = readActiveThreadId(stateRef.current);
-    if (!sessionId) {
-      dispatch({ type: "interaction_notice_set", notice: "Open a session before using preview." });
-      return null;
-    }
-    try {
-      const result = await openPreviewSession(sessionId, url);
-      const snapshot = result.preview || null;
-      const resourceId = snapshot?.url || url;
-      dispatch({
-        type: "workbench_surface_opened",
-        placement: "right",
-        kind: "preview",
-        title: resourceId,
-        resourceId,
-        previewSnapshot: snapshot,
-      });
-      dispatch({ type: "set_inspector", value: "preview" });
-      return result;
-    } catch (error) {
-      dispatch({
-        type: "interaction_notice_set",
-        notice: error instanceof Error ? error.message : "Preview failed",
-      });
-      throw error;
-    }
-  }
+  const surfacePanelProps = buildSurfacePanelProps({
+    state,
+    appChrome,
+    sourceControlChrome,
+    diffPanelChrome,
+    surfacePanelController,
+  });
 
-  async function refreshPreview(snapshot) {
-    const sessionId = readActiveThreadId(stateRef.current);
-    const tabId = snapshot?.tabId || snapshot?.tab_id || "";
-    if (!sessionId || !tabId) return null;
-    try {
-      const result = await refreshPreviewSession(sessionId, tabId);
-      const nextSnapshot = result.preview || null;
-      const resourceId = nextSnapshot?.url || snapshot?.url || "";
-      dispatch({
-        type: "workbench_surface_opened",
-        placement: "right",
-        kind: "preview",
-        title: resourceId,
-        resourceId,
-        previewSnapshot: nextSnapshot,
-      });
-      return result;
-    } catch (error) {
-      dispatch({
-        type: "interaction_notice_set",
-        notice: error instanceof Error ? error.message : "Preview refresh failed",
-      });
-      throw error;
-    }
-  }
-
-  async function openPreviewInSystemBrowser(url) {
-    try {
-      return await openPreviewExternal(url);
-    } catch (error) {
-      dispatch({
-        type: "interaction_notice_set",
-        notice: error instanceof Error ? error.message : "Open preview failed",
-      });
-      throw error;
-    }
-  }
-
-  const inspectorProps = {
-    tasks: state.tasks,
-    artifacts: state.artifacts,
-    plan: state.plan,
-    review: state.review,
-    recipes: state.recipes,
-    timeline: runtimeState.timelineItems,
-    currentInteraction: runtimeState.currentInteraction,
-    interactionNotice,
-    permissionContext: state.permissionContext,
-    preview: state.preview,
-    diffSurface: state.diffSurface,
-    sourceControl: state.sourceControl,
-    snapshot: state.snapshot,
-    appShell: state.app,
-    runOutput: state.runOutput,
-    onTabChange: (v) => {
-      dispatch({ type: "set_inspector", value: v });
-      openRightPanelSurface(v);
-    },
-    onOpenArtifact: openArtifact,
-    onOpenReviewEvidence: openReviewEvidence,
-    onRunRecipe: runRecipe,
-    onFocusDiffFile: (filePath) => dispatch({ type: "diff_file_focused", filePath }),
-    onRefreshSourceControl: () => loadSourceControlStatus(true),
-    onSelectSourceControlFile: openSourceControlFile,
-    onAppSettingsChange: (patch) => dispatch({ type: "app_shell_settings_changed", patch }),
-  };
-
-  const RESIZE_RIGHT = 1;   // sidebar: drag right = expand
-  const RESIZE_LEFT  = -1;  // inspector: drag right = shrink
-
-  function startResize(e, cssVar, direction) {
-    e.preventDefault();
-    const handle = e.currentTarget;
-    handle.classList.add("dragging");
-    const startX = e.clientX;
-    const startVal =
-      parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
-      ) || (cssVar === "--sidebar-w-raw" ? 220 : 260);
-
-    function onMove(ev) {
-      const delta = (ev.clientX - startX) * direction;
-      const newVal = Math.max(160, Math.min(480, startVal + delta));
-      document.documentElement.style.setProperty(cssVar, `${newVal}px`);
-    }
-    function onEnd() {
-      handle.classList.remove("dragging");
-      handle.removeEventListener("pointermove", onMove);
-      handle.removeEventListener("pointerup",   onEnd);
-      handle.removeEventListener("pointercancel", onEnd);
-    }
-    handle.setPointerCapture(e.pointerId);
-    handle.addEventListener("pointermove",   onMove);
-    handle.addEventListener("pointerup",     onEnd);
-    handle.addEventListener("pointercancel", onEnd);
-  }
+  const panelResizeController = useMemo(
+    () =>
+      createPanelResizeController({
+        documentObject: document,
+        getComputedStyleFn: getComputedStyle,
+      }),
+    [],
+  );
 
   return (
-    <LangContext.Provider value={state.lang}>
+    <>
     <AppSidebarLayout
       header={
         <WorkbenchHeader
-          lang={state.lang}
+          productName={state.app.app.productName}
+          chrome={appChrome.header || {}}
           currentMode={currentMode}
           currentStatus={currentStatus}
           currentSessionId={currentSessionId}
           activeWorkspace={state.app.activeWorkspace}
-          modeCatalog={state.sessionCapabilities?.modeCatalog || {}}
+          modeCatalog={modeCatalog}
           turnsUsed={state.turnsUsed}
           maxTurns={state.maxTurns}
           rightPanelOpen={state.workbench.rightPanel.open}
           bottomDrawerOpen={state.workbench.bottomDrawer.open}
           onRefresh={loadSessions}
-          onToggleLang={() => dispatch({ type: "set_lang", value: state.lang === "en" ? "zh" : "en" })}
-          onToggleRightPanel={() => dispatch({ type: "workbench_right_panel_toggled" })}
-          onToggleBottomDrawer={() => dispatch({ type: "workbench_bottom_drawer_toggled" })}
-          onOpenPalette={() => dispatch({ type: "workbench_command_palette_opened" })}
+          onToggleRightPanel={workbenchCommandController.toggleRightPanel}
+          onToggleBottomDrawer={workbenchCommandController.toggleBottomDrawer}
+          onOpenPalette={workbenchCommandController.openPalette}
         />
       }
       sidebar={
         <Sidebar
           app={state.app}
           appHome={appHomeModel}
+          chrome={appChrome}
           currentSessionId={currentSessionId}
           currentMode={currentMode}
-          modeCatalog={state.sessionCapabilities?.modeCatalog || {}}
+          modeCatalog={modeCatalog}
           workspacePathInput={state.app.workspacePathInput}
-          onWorkspacePathChange={(value) => dispatch({ type: "workspace_path_changed", value })}
+          onWorkspacePathChange={setWorkspacePath}
           onLoadSession={loadSession}
           onCreateSession={createSession}
           onThreadLifecycleAction={handleThreadLifecycleAction}
@@ -890,7 +656,7 @@ function App() {
               ref={timelineRef}
               timeline={runtimeState.timelineView}
               rows={runtimeState.t3TimelineRows}
-              toolCatalog={state.toolCatalog}
+              toolCatalog={toolCatalog}
               historyIntegrity={historyIntegrity}
               thinkingActive={state.thinkingActive}
               streamingReasoningId={state.streamingReasoningId}
@@ -899,31 +665,33 @@ function App() {
               terminationMessage={state.terminationMessage}
               turnsUsed={state.turnsUsed}
               maxTurns={state.maxTurns}
-              onScroll={handleTimelineScroll}
-              onOpenDiff={openDiffSurface}
-              onOpenFile={openFile}
+              onScroll={timelineScrollController.handleScroll}
+              onOpenDiff={diffSurfaceController.open}
+              onOpenFile={filePreviewController.openFile}
+              chrome={appChrome.timeline || {}}
             />
             <Composer
+              chrome={appChrome.composer || {}}
               value={composerDraft}
-              onChange={(v) => dispatch({ type: "set_composer", value: v })}
-              onSend={sendMessage}
+              onChange={composerController.setDraft}
+              onSend={composerController.sendMessage}
               onStop={cancelSession}
               isRunning={isTurnInterruptibleStatus(currentStatus)}
               currentMode={currentMode}
-              modeCatalog={state.sessionCapabilities?.modeCatalog || {}}
-              commandHints={EMPTY_COMMAND_HINTS}
+              modeCatalog={modeCatalog}
+              commandGroupLabels={composerCommandGroupLabels}
               commands={composerCommands}
               fileTree={state.fileTree}
-              onOpenCommandPalette={() => dispatch({ type: "workbench_command_palette_opened" })}
+              onOpenCommandPalette={composerController.openCommandPalette}
               interaction={runtimeState.currentInteraction}
               interactionNotice={interactionNotice}
               interactionBusy={Boolean(
                 runtimeState.currentInteraction?.interactionId &&
                   respondingRequestIds.includes(runtimeState.currentInteraction.interactionId)
               )}
-              onRespondInteraction={respondToInteraction}
+              onRespondInteraction={interactionResponseController.respondToInteraction}
               branchToolbar={branchToolbarModel}
-              onRefreshSourceControl={() => loadSourceControlStatus(true)}
+              onRefreshSourceControl={composerController.refreshSourceControl}
             />
           </main>
         ) : (
@@ -933,8 +701,8 @@ function App() {
             activating={state.app.activatingWorkspace}
             workspaces={state.app.workspaces}
             appHome={appHomeModel}
-            emptyState={state.sessionCapabilities?.emptyState}
-            onChange={(value) => dispatch({ type: "workspace_path_changed", value })}
+            emptyState={appEmptyState || sessionEmptyState}
+            onChange={setWorkspacePath}
             onOpen={openWorkspace}
             onActivate={activateWorkspace}
           />
@@ -942,91 +710,58 @@ function App() {
       }
       rightPanel={
         <RightPanelTabs
+          appCapabilities={appCapabilities}
           surfaces={rightPanelSurfaces}
           activeSurfaceId={state.workbench.rightPanel.activeSurfaceId}
-          onActivateSurface={(surface) => {
-            dispatch({
-              type: "workbench_surface_activated",
-              placement: "right",
-              surfaceId: surface.id,
-              kind: surface.kind,
-            });
-            dispatch({ type: "set_inspector", value: surface.kind });
-            if (surface.kind === "terminal" && surface.activeTerminalId) {
-              void terminalController.openSession(surface.activeTerminalId);
-            }
-          }}
-          onCloseSurface={(surface) => {
-            dispatch({
-              type: "workbench_surface_closed",
-              placement: "right",
-              surfaceId: surface.id,
-              kind: surface.kind,
-              resourceId: surface.resourceId,
-            });
-          }}
-          onCloseOtherSurfaces={(surface) => {
-            dispatch({
-              type: "workbench_surface_close_others",
-              placement: "right",
-              surfaceId: surface.id,
-            });
-          }}
-          onCloseSurfacesToRight={(surface) => {
-            dispatch({
-              type: "workbench_surface_close_to_right",
-              placement: "right",
-              surfaceId: surface.id,
-            });
-          }}
-          onCloseAllSurfaces={() => {
-            dispatch({ type: "workbench_surface_close_all", placement: "right" });
-          }}
-          onAddSurface={(kind) => openRightPanelSurface(kind)}
+          onActivateSurface={rightPanelController.activateSurface}
+          onCloseSurface={rightPanelController.closeSurface}
+          onCloseOtherSurfaces={rightPanelController.closeOtherSurfaces}
+          onCloseSurfacesToRight={rightPanelController.closeSurfacesToRight}
+          onCloseAllSurfaces={rightPanelController.closeAllSurfaces}
+          onAddSurface={openRightPanelSurface}
         >
           <RightPanelSurfaceBody
+            appCapabilities={appCapabilities}
             surface={activeRightPanelSurface}
-            inspectorProps={inspectorProps}
+            surfacePanelProps={surfacePanelProps}
             filePreviewsByPath={state.filePreviewsByPath}
+            filePreviewChrome={filePreviewChrome}
             projectName={state.app.activeWorkspace?.label || ""}
             fileTree={state.fileTree}
             treeHeight={treeHeight}
-            onOpenFile={openFile}
-            onOpenFilesSurface={() => openRightPanelSurface("files")}
+            onOpenFile={filePreviewController.openFile}
+            onOpenFilesSurface={rightPanelController.openFilesSurface}
             onLoadFileChildren={loadFileChildren}
             terminal={state.terminal}
-            onTerminalNew={() => terminalController.openRightPanelSurface()}
-            onTerminalSplit={() => terminalController.splitRightPanelSurface(activeRightPanelSurface)}
-            onTerminalSplitVertical={() =>
-              terminalController.splitRightPanelSurface(activeRightPanelSurface, "vertical")
-            }
-            onTerminalSelect={(terminalId) =>
-              terminalController.activateRightPanelPane(activeRightPanelSurface, terminalId)
-            }
+            terminalChrome={terminalChrome}
+            onTerminalNew={terminalController.openRightPanelSurface}
+            onTerminalSplit={terminalController.splitActiveRightPanelSurface}
+            onTerminalSplitVertical={terminalController.splitActiveRightPanelSurfaceVertical}
+            onTerminalSelect={terminalController.activateActiveRightPanelPane}
             onTerminalSend={terminalController.sendTo}
             onTerminalClear={terminalController.clearById}
             onTerminalRestart={terminalController.restartById}
-            onTerminalClose={(terminalId) =>
-              terminalController.closeRightPanelPane(activeRightPanelSurface, terminalId)
-            }
-            onPreviewOpenUrl={openPreviewUrl}
-            onPreviewRefresh={refreshPreview}
-            onPreviewOpenExternal={openPreviewInSystemBrowser}
+            onTerminalClose={terminalController.closeActiveRightPanelPane}
+            previewChrome={previewChrome}
+            previewServers={previewServers}
+            onPreviewOpenUrl={previewController.openUrl}
+            onPreviewRefresh={previewController.refresh}
+            onPreviewOpenExternal={previewController.openExternal}
           />
         </RightPanelTabs>
       }
       bottomDrawer={
         <BottomDrawer
+          appCapabilities={appCapabilities}
           activeKind={state.workbench.bottomDrawer.activeKind}
           runOutput={state.runOutput}
           terminationReason={state.terminationDisplayReason || state.terminationReason}
           terminationMessage={state.terminationMessage}
           terminal={state.terminal}
-          onKindSelect={(kind) => {
-            void terminalController.selectBottomDrawerKind(kind);
-          }}
-          onTerminalNew={() => terminalController.ensureOpen(nextTerminalId(state.terminal.terminalIds))}
-          onTerminalSelect={(terminalId) => dispatch({ type: "terminal_active_set", terminalId })}
+          terminalChrome={terminalChrome}
+          onKindSelect={terminalController.selectBottomDrawerKind}
+          onTerminalNew={terminalController.openNewBottomDrawerTerminal}
+          onTerminalSelect={terminalController.activateBottomDrawerTerminal}
           onTerminalSend={terminalController.sendActive}
           onTerminalClear={terminalController.clearActive}
           onTerminalRestart={terminalController.restartActive}
@@ -1036,8 +771,8 @@ function App() {
       rightPanelOpen={state.workbench.rightPanel.open}
       bottomDrawerOpen={state.workbench.bottomDrawer.open}
       bottomDrawerHeight={state.workbench.bottomDrawer.height}
-      onResizeSidebar={(e) => startResize(e, "--sidebar-w-raw", RESIZE_RIGHT)}
-      onResizeRightPanel={(e) => startResize(e, "--inspector-w-raw", RESIZE_LEFT)}
+      onResizeSidebar={panelResizeController.startSidebarResize}
+      onResizeRightPanel={panelResizeController.startRightPanelResize}
     />
     <CommandPalette
       open={state.workbench.commandPalette.open}
@@ -1047,23 +782,15 @@ function App() {
       currentSessionId={currentSessionId}
       workspaces={state.app.workspaces}
       activeWorkspaceId={activeWorkspaceId}
-      keybindings={DEFAULT_KEYBINDINGS}
-      onQueryChange={(query) => dispatch({ type: "workbench_command_palette_query_changed", query })}
-      onClose={() => dispatch({ type: "workbench_command_palette_closed" })}
-      onSelect={(command) => {
-        dispatch({ type: "workbench_command_palette_closed" });
-        void executeWorkbenchCommand(commandById(command.id, state.sessionCapabilities || {}));
-      }}
-      onSelectSession={(sessionId) => {
-        dispatch({ type: "workbench_command_palette_closed" });
-        void loadSession(sessionId);
-      }}
-      onSelectWorkspace={(workspaceId) => {
-        dispatch({ type: "workbench_command_palette_closed" });
-        void activateWorkspace(workspaceId);
-      }}
+      keybindings={keybindings}
+      commandPalette={commandPalette}
+      onQueryChange={workbenchCommandController.updatePaletteQuery}
+      onClose={workbenchCommandController.closePalette}
+      onSelect={workbenchCommandController.selectPaletteCommand}
+      onSelectSession={workbenchCommandController.selectPaletteSession}
+      onSelectWorkspace={workbenchCommandController.selectPaletteWorkspace}
     />
-    </LangContext.Provider>
+    </>
   );
 }
 

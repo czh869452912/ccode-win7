@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import sys
@@ -10,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent import project_memory
 from embedagent.project_memory import ProjectMemoryStore, _atomic_write_json
+from embedagent_core.session import Action, AssistantReply, Observation, Session
 
 
 class ProjectMemoryStoreConcurrencyTests(unittest.TestCase):
@@ -73,6 +75,40 @@ class ProjectMemoryStoreConcurrencyTests(unittest.TestCase):
         parent = os.path.dirname(path)
         leftovers = [name for name in os.listdir(parent) if name.endswith(".tmp")]
         self.assertEqual(leftovers, [])
+
+    def test_refresh_records_recipe_evidence_by_payload_shape_not_tool_name(self):
+        store = ProjectMemoryStore(self.workspace)
+        session = Session(session_id="memory-custom-recipe")
+        session.add_user_message("build")
+        action = Action(
+            "custom_build_runner",
+            {"command": "custom build", "cwd": "."},
+            "call-custom-build",
+        )
+        session.add_assistant_reply(
+            AssistantReply(content="", actions=[action], finish_reason="tool_calls")
+        )
+        session.add_observation(
+            action,
+            Observation(
+                "custom_build_runner",
+                True,
+                None,
+                {
+                    "command": "custom build",
+                    "cwd": ".",
+                    "recipe_action": "build",
+                },
+            ),
+        )
+
+        store.refresh(session, "build")
+
+        with open(store.recipes_path, "r", encoding="utf-8") as handle:
+            recipes = json.load(handle)
+        self.assertEqual(len(recipes), 1)
+        self.assertEqual(recipes[0]["tool_name"], "custom_build_runner")
+        self.assertEqual(recipes[0]["recipe_action"], "build")
 
 
 if __name__ == "__main__":

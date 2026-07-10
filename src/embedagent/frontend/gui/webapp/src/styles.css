@@ -25,7 +25,6 @@
   --color-error: #ff7b72;
   --color-info: #8ab4ff;
   --color-accent: #c8a7ff;
-  --color-verify: #e6c36a;
   --color-diff-add:#99e2aa;
   --color-diff-del:#ffaaa5;
 
@@ -49,7 +48,7 @@
   /* layout */
   --header-h: 40px;
   --sidebar-w-raw:   220px;
-  --inspector-w-raw: 260px;
+  --right-panel-w-raw: 260px;
   --bottom-drawer-h-raw: 220px;
 }
 
@@ -167,7 +166,7 @@ body {
     4px
     1fr
     4px
-    clamp(200px, var(--inspector-w-raw), 480px);
+    clamp(200px, var(--right-panel-w-raw), 480px);
   overflow: hidden;
 }
 
@@ -185,7 +184,7 @@ body {
 
 .workbench-body {
   display: grid;
-  grid-template-columns: clamp(180px, var(--sidebar-w-raw), 380px) 4px minmax(0, 1fr) 4px clamp(220px, var(--inspector-w-raw), 520px);
+  grid-template-columns: clamp(180px, var(--sidebar-w-raw), 380px) 4px minmax(0, 1fr) 4px clamp(220px, var(--right-panel-w-raw), 520px);
   min-height: 0;
   overflow: hidden;
 }
@@ -512,12 +511,8 @@ body {
   overflow: hidden;
 }
 
-.right-panel-body .inspector {
+.right-panel-body .surface-panel {
   border-left: 0;
-}
-
-.right-panel-body .inspector-tabs {
-  display: none;
 }
 
 .right-panel-empty-state {
@@ -2694,38 +2689,15 @@ body {
 }
 
 /* ═══════════════════════════════════════════
-   INSPECTOR
+   RIGHT PANEL SURFACE
    ═══════════════════════════════════════════ */
-.inspector {
+.surface-panel {
   background: var(--bg-default);
   border-left: 1px solid var(--bg-subtle);
   display: flex; flex-direction: column;
   overflow: hidden;
   position: relative;
 }
-
-.inspector-tabs {
-  display: flex; align-items: center;
-  border-bottom: 1px solid var(--border-default);
-  padding: 0 var(--sp-2);
-  flex-shrink: 0;
-  overflow-x: auto;
-  scrollbar-width: none; /* Firefox */
-}
-.inspector-tabs::-webkit-scrollbar { display: none; } /* Chrome/Safari */
-
-.insp-tab {
-  flex: 0 0 auto;
-  padding: 9px 8px;
-  min-width: 44px;
-  font-size: 10px; color: var(--text-muted);
-  cursor: pointer; white-space: nowrap;
-  font-family: var(--font-mono);
-  background: none; border: none;
-  border-bottom: 2px solid transparent; margin-bottom: -1px;
-}
-.insp-tab:hover { color: var(--text-secondary); }
-.insp-tab.active { color: var(--color-success); border-bottom-color: var(--color-success); }
 
 .tab-badge {
   display: inline-block;
@@ -2735,14 +2707,7 @@ body {
   font-size: 8px; font-weight: bold; margin-left: 3px;
 }
 
-.inspector-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: var(--sp-3); }
-
-.artifact-item {
-  padding: 7px var(--sp-2); border-radius: var(--r-sm); cursor: pointer;
-  border: 1px solid var(--border-default); margin-bottom: var(--sp-2);
-  background: var(--bg-subtle);
-}
-.artifact-item:hover { border-color: var(--color-info); }
+.surface-panel-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: var(--sp-3); }
 
 .plan-block {
   background: rgba(188,140,255,.07);
@@ -3474,7 +3439,7 @@ body {
 .workbench-sidebar-slot,
 .sidebar,
 .right-panel,
-.inspector,
+.surface-panel,
 .bottom-drawer,
 .workbench-bottom-slot {
   background: var(--bg-panel);
@@ -3485,13 +3450,12 @@ body {
 }
 
 .right-panel,
-.inspector {
+.surface-panel {
   border-left-color: var(--border-subtle);
 }
 
 .workbench-bottom-slot,
 .right-panel-tabs,
-.inspector-tabs,
 .sidebar-tabs,
 .bottom-drawer-tabs,
 .brand {
@@ -3499,14 +3463,12 @@ body {
 }
 
 .right-panel-tabs,
-.inspector-tabs,
 .sidebar-tabs,
 .bottom-drawer-tabs {
   background: rgba(255,255,255,.012);
 }
 
 .right-panel-surface-tab,
-.insp-tab,
 .sidebar-tab,
 .bottom-drawer-tab {
   border-bottom-width: 1px;
@@ -3516,7 +3478,6 @@ body {
 }
 
 .right-panel-surface-tab:hover,
-.insp-tab:hover,
 .sidebar-tab:hover,
 .bottom-drawer-tab:hover {
   background: rgba(255,255,255,.035);
@@ -3524,7 +3485,6 @@ body {
 }
 
 .right-panel-surface-tab.active,
-.insp-tab.active,
 .sidebar-tab.active,
 .bottom-drawer-tab.active {
   color: var(--text-primary);
@@ -3554,9 +3514,7 @@ body {
 .thread-card,
 .session-item.active,
 .task-row,
-.artifact-row,
 .runtime-row,
-.recipe-card,
 .permission-rule-card,
 .review-finding,
 .review-section-card,
@@ -3574,7 +3532,6 @@ body {
 
 .thread-card:hover,
 .thread-card.selected,
-.artifact-row:hover,
 .option-card:hover {
   border-color: var(--border-focus);
   background: rgba(255,255,255,.045);
@@ -3737,7 +3694,6 @@ body {
 
 .code-block-wrapper,
 .panel-preview pre,
-.recipe-command,
 .tool-output {
   border-color: var(--border-default);
   background: #111112;
@@ -3955,7 +3911,7 @@ body {
 }
 
 .right-panel,
-.inspector {
+.surface-panel {
   background: var(--bg-panel);
 }
 
@@ -4102,12 +4058,12 @@ body {
 }
 
 .workbench-right-slot .diff-panel-body,
-.inspector .diff-panel-body {
+.surface-panel .diff-panel-body {
   grid-template-columns: 1fr;
 }
 
 .workbench-right-slot .diff-file-rail,
-.inspector .diff-file-rail {
+.surface-panel .diff-file-rail {
   max-height: 186px;
 }
 
@@ -5257,7 +5213,6 @@ body {
   color: var(--color-danger);
 }
 .task-row,
-.artifact-row,
 .runtime-row {
   display: flex;
   align-items: center;
@@ -5266,30 +5221,6 @@ body {
   border: 1px solid var(--border-default);
   border-radius: var(--r-sm);
   background: var(--bg-subtle);
-}
-.artifact-row {
-  justify-content: space-between;
-  color: var(--text-primary);
-  background: var(--bg-subtle);
-  cursor: pointer;
-  text-align: left;
-  min-width: 0;
-}
-.artifact-row > span:first-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-.artifact-row > small {
-  flex-shrink: 0;
-  color: var(--text-muted);
-  font-size: 10px;
-  font-family: var(--font-mono);
-  margin-left: 6px;
-}
-.artifact-row:hover {
-  border-color: var(--color-info);
 }
 .task-mark {
   font-size: 10px;
@@ -5403,64 +5334,10 @@ body {
   flex-direction: column;
   gap: 8px;
 }
-.recipe-list,
 .problem-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-.recipe-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--r-md);
-  background: var(--bg-subtle);
-}
-.recipe-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.recipe-label {
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 600;
-}
-.recipe-tool {
-  color: var(--text-muted);
-  font-size: 10px;
-  font-family: var(--font-mono);
-}
-.recipe-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.recipe-inputs {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.recipe-input {
-  min-width: 0;
-  flex: 1;
-  background: var(--bg-canvas);
-  border: 1px solid var(--border-default);
-  border-radius: var(--r-sm);
-  color: var(--text-primary);
-  padding: 8px 10px;
-}
-.recipe-command {
-  display: block;
-  background: var(--bg-canvas);
-  border: 1px solid var(--border-default);
-  border-radius: var(--r-sm);
-  color: var(--text-secondary);
-  padding: 8px 10px;
-  overflow-x: auto;
 }
 .runtime-key {
   width: 140px;

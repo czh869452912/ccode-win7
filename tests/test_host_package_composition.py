@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -26,6 +27,7 @@ class HostPackageCompositionTests(unittest.TestCase):
         with open(adapter_path, "r", encoding="utf-8") as handle:
             source = handle.read()
         self.assertIn("build_agent_application", source)
+        self.assertIn("product_agent_application_registry", source)
         self.assertNotIn("build_default_extension_set", source)
         self.assertNotIn("default_c_cpp_agent_profile", source)
         self.assertNotIn("_refresh_harness_state", source)
@@ -43,9 +45,9 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertNotIn("refresh_harness_state", command_service_source)
         self.assertNotIn("_refresh_harness_state", command_service_source)
 
-    def test_agent_application_registry_exposes_default_c_cpp_manifest(self):
+    def test_base_agent_application_registry_is_profile_only(self):
         from embedagent.agent_applications import (
-            DEFAULT_AGENT_APPLICATION_ID,
+            GENERIC_AGENT_APPLICATION_ID,
             available_agent_application_manifests,
             build_agent_application,
         )
@@ -54,24 +56,58 @@ class HostPackageCompositionTests(unittest.TestCase):
         manifests = available_agent_application_manifests()
         manifest_by_id = dict((item.application_id, item) for item in manifests)
 
-        self.assertIn(DEFAULT_AGENT_APPLICATION_ID, manifest_by_id)
-        default_manifest = manifest_by_id[DEFAULT_AGENT_APPLICATION_ID]
+        self.assertNotIn("embedagent.default_c_cpp", manifest_by_id)
+        self.assertIn(GENERIC_AGENT_APPLICATION_ID, manifest_by_id)
+
+        with tempfile.TemporaryDirectory() as workspace:
+            application = build_agent_application("", ToolRuntime(workspace))
+
+        self.assertEqual(application.application_id, GENERIC_AGENT_APPLICATION_ID)
+        self.assertEqual(application.manifest.workflow_package_ids, ())
+
+    def test_product_agent_application_registry_exposes_default_c_cpp_manifest(self):
+        from embedagent.agent_applications import (
+            available_agent_application_manifests,
+            build_agent_application,
+        )
+        from embedagent.tools import ToolRuntime
+        from embedagent.workflow_packages.c_cpp.application_record import (
+            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
+        )
+        from embedagent_host.agent_application_registry import (
+            product_agent_application_registry,
+        )
+
+        registry = product_agent_application_registry()
+        manifests = available_agent_application_manifests(registry)
+        manifest_by_id = dict((item.application_id, item) for item in manifests)
+
+        self.assertIn(DEFAULT_C_CPP_AGENT_APPLICATION_ID, manifest_by_id)
+        default_manifest = manifest_by_id[DEFAULT_C_CPP_AGENT_APPLICATION_ID]
         self.assertEqual(default_manifest.label, "Default C/C++ Agent")
         self.assertEqual(default_manifest.profile_id, "embedagent.default_c_cpp")
         self.assertEqual(default_manifest.workflow_package_ids, ("embedagent.c_workflow",))
-        self.assertEqual(default_manifest.to_dict()["applicationId"], DEFAULT_AGENT_APPLICATION_ID)
+        self.assertEqual(
+            default_manifest.to_dict()["applicationId"],
+            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
+        )
 
         with tempfile.TemporaryDirectory() as workspace:
             application = build_agent_application(
-                DEFAULT_AGENT_APPLICATION_ID,
+                "",
                 ToolRuntime(workspace),
+                registry=registry,
             )
 
-        self.assertEqual(application.application_id, DEFAULT_AGENT_APPLICATION_ID)
-        self.assertEqual(application.manifest.application_id, DEFAULT_AGENT_APPLICATION_ID)
+        self.assertEqual(application.application_id, DEFAULT_C_CPP_AGENT_APPLICATION_ID)
+        self.assertEqual(
+            application.manifest.application_id,
+            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
+        )
 
     def test_agent_application_registry_exposes_builtin_non_c_applications(self):
         from embedagent.agent_applications import (
+            agent_application_capability_payload,
             available_agent_application_manifests,
             build_agent_application,
         )
@@ -83,6 +119,7 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertIn("embedagent.generic", manifest_by_id)
         self.assertIn("embedagent.python", manifest_by_id)
         self.assertIn("embedagent.html", manifest_by_id)
+        self.assertNotIn("embedagent.default_c_cpp", manifest_by_id)
         self.assertEqual(manifest_by_id["embedagent.generic"].workflow_package_ids, ())
         self.assertEqual(manifest_by_id["embedagent.python"].workflow_package_ids, ())
         self.assertEqual(manifest_by_id["embedagent.html"].workflow_package_ids, ())
@@ -97,6 +134,111 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertEqual(html_app.manifest.workflow_package_ids, ())
         self.assertEqual(python_app.extension_manager.package_manifests(), [])
         self.assertEqual(html_app.extension_manager.package_manifests(), [])
+
+        payload = agent_application_capability_payload("embedagent.python")
+        available = dict((item["applicationId"], item) for item in payload["agentApplications"])
+        self.assertEqual(payload["agentApplication"]["applicationId"], "embedagent.python")
+        self.assertEqual(payload["agentApplication"]["profileId"], "embedagent.python")
+        self.assertTrue(payload["agentApplication"]["active"])
+        self.assertTrue(available["embedagent.python"]["active"])
+        self.assertNotIn("embedagent.default_c_cpp", available)
+        self.assertEqual(payload["emptyState"]["scenario_label"], "Python workspace")
+        self.assertEqual(payload["emptyState"]["primary"], "Open a Python project")
+        app_shell = payload["agentApplication"]["metadata"]["appShell"]
+        self.assertEqual(
+            app_shell["rightPanelSurfaceIds"],
+            [
+                "files",
+                "file",
+                "terminal",
+                "diff",
+                "plan",
+                "source_control",
+                "settings",
+                "diagnostics",
+            ],
+        )
+        self.assertEqual(
+            app_shell["disabledCapabilityIds"],
+            ["preview"],
+        )
+
+    def test_agent_application_registry_uses_lazy_builder_paths_not_workflow_kind_branch(self):
+        module_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "src",
+            "embedagent",
+            "agent_applications.py",
+        )
+        with open(module_path, "r", encoding="utf-8") as handle:
+            source = handle.read()
+
+        self.assertIn("class AgentApplicationRecord", source)
+        self.assertIn("class AgentApplicationRegistry", source)
+        self.assertIn("BUILTIN_AGENT_APPLICATION_RECORDS", source)
+        self.assertIn("builder_path", source)
+        self.assertNotIn("workflow_kind", source)
+        self.assertNotIn('== "c_cpp"', source)
+        self.assertNotIn("_lazy_agent_application_records", source)
+        self.assertNotIn("default_c_cpp_agent_application_record", source)
+        self.assertNotIn("embedagent.workflow_packages.c_cpp", source)
+        self.assertNotIn(
+            "from embedagent.workflow_packages.c_cpp.application import "
+            "build_c_cpp_agent_application",
+            source,
+        )
+
+    def test_importing_base_agent_application_registry_does_not_load_c_workflow(self):
+        repo_src = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "src"))
+        script = (
+            "import sys, tempfile\n"
+            "sys.path.insert(0, %r)\n"
+            "from embedagent.agent_applications import build_agent_application\n"
+            "from embedagent.tools import ToolRuntime\n"
+            "with tempfile.TemporaryDirectory() as workspace:\n"
+            "    build_agent_application('embedagent.generic', ToolRuntime(workspace))\n"
+            "loaded = any(name.startswith('embedagent.workflow_packages.c_cpp') for name in sys.modules)\n"
+            "raise SystemExit(1 if loaded else 0)\n"
+        ) % repo_src
+
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_default_c_cpp_application_record_is_package_owned(self):
+        root = os.path.join(os.path.dirname(__file__), "..")
+        registry_path = os.path.join(root, "src", "embedagent", "agent_applications.py")
+        record_path = os.path.join(
+            root,
+            "src",
+            "embedagent",
+            "workflow_packages",
+            "c_cpp",
+            "application_record.py",
+        )
+        self.assertTrue(os.path.isfile(record_path))
+
+        with open(registry_path, "r", encoding="utf-8") as handle:
+            registry_source = handle.read()
+        with open(record_path, "r", encoding="utf-8") as handle:
+            record_source = handle.read()
+
+        self.assertNotIn("_C_CPP_APP_SHELL", registry_source)
+        for token in ('"Default C/C++ Agent"', '"Path to C/C++ project"'):
+            self.assertNotIn(token, registry_source)
+            self.assertIn(token, record_source)
+        self.assertNotIn('"embedagent.c_workflow"', registry_source)
+        self.assertNotIn("embedagent.workflow_packages.c_cpp", registry_source)
+        self.assertNotIn("default_c_cpp_agent_application_record", registry_source)
+        self.assertIn("C_WORKFLOW_PACKAGE_ID", record_source)
+        self.assertNotIn('profile_kind="default_c_cpp"', registry_source)
+        self.assertIn('profile_kind="workflow_package"', record_source)
 
     def test_default_application_compatibility_wrapper_is_removed(self):
         import embedagent.agent_applications as agent_applications
@@ -183,30 +325,58 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertEqual(capabilities["modes"][0]["label"], "Python Build")
         self.assertNotIn("C/C++", str(capabilities))
 
+    def test_inprocess_adapter_uses_shared_agent_profile_runtime_policies(self):
+        module_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "src",
+            "embedagent_host",
+            "inprocess_adapter.py",
+        )
+        with open(module_path, "r", encoding="utf-8") as handle:
+            source = handle.read()
+
+        self.assertIn("AgentProfileRuntimePolicy", source)
+        self.assertIn("AgentProfileToolPolicy", source)
+        self.assertIn("AgentProfileWritePathPolicy", source)
+        for token in (
+            "class _ProductModeToolPolicy",
+            "class _ProductWritePathPolicy",
+            "class _ProductModeRuntimePolicy",
+            "_profile_writable_globs",
+            "你是 EmbedAgent 的受控模式原型。",
+        ):
+            self.assertNotIn(token, source)
+
     def test_inprocess_adapter_loads_application_by_id(self):
-        from embedagent.agent_applications import DEFAULT_AGENT_APPLICATION_ID
         from embedagent.tools import ToolRuntime
+        from embedagent.workflow_packages.c_cpp.application_record import (
+            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
+        )
         from embedagent_host.inprocess_adapter import InProcessAdapter
 
         with tempfile.TemporaryDirectory() as workspace:
             adapter = InProcessAdapter(
                 tools=ToolRuntime(workspace),
-                agent_application_id=DEFAULT_AGENT_APPLICATION_ID,
+                agent_application_id=DEFAULT_C_CPP_AGENT_APPLICATION_ID,
             )
             capabilities = adapter.get_session_capabilities()
 
-        self.assertEqual(adapter.agent_application.application_id, DEFAULT_AGENT_APPLICATION_ID)
+        self.assertEqual(
+            adapter.agent_application.application_id,
+            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
+        )
         self.assertEqual(
             adapter.agent_application.manifest.workflow_package_ids,
             ("embedagent.c_workflow",),
         )
         self.assertEqual(
             capabilities["agentApplication"]["applicationId"],
-            DEFAULT_AGENT_APPLICATION_ID,
+            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
         )
         self.assertEqual(
             capabilities["agentApplications"][0]["applicationId"],
-            DEFAULT_AGENT_APPLICATION_ID,
+            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
         )
 
     def test_inprocess_adapter_loads_builtin_non_c_application_by_id(self):

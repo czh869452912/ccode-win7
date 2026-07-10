@@ -18,10 +18,18 @@ is classified as `other`, which asks by default.
 
 Catalog metadata may also declare `read_model_invalidations`, a list of safe
 read models that should be refreshed after a tool finishes, such as
-`workspace_files`, `tasks`, or `artifacts`. Hosted adapters and GUI/TUI shells
+`workspace_files`, `tasks`, or `capabilities`. Hosted adapters and GUI/TUI shells
 may use those hints to refresh read-only projections, but they must not infer
 refresh behavior from hard-coded tool-name lists. These hints do not activate
 tools, grant permissions, mutate workflow state, or bypass `PermissionPolicy`.
+
+Catalog metadata may declare safe presentation metadata such as `preview_arg`
+and `changed_path_arg`. The runtime projects only the whitelisted presentation
+metadata under catalog-entry `metadata`, and GUI timeline previews/changed-file
+summaries consume that projection through session capabilities instead of
+checking names such as `bash`, `read_file`, `write_file`, or `grep_text`.
+Presentation metadata affects display only; it does not activate tools, grant
+permissions, execute tools, or change workflow state.
 
 The official runtime facade is:
 
@@ -56,7 +64,7 @@ owning adapter-local resource command spec builders.
 
 Allowed-tool gating is not a runtime wrapper. Hosted product paths use `AgentExtensionHost.allowed_tool_names(...)` through the shared extension host and request runtime schemas with explicit active tool names.
 
-`author_local_capability` is a workflow-neutral write tool for local self-extension authoring. It creates workspace-bound skills, prompts, recipes, and disabled-by-default project extension skeletons under `.embedagent`; it does not reload resource caches and does not load, enable, import, or trust generated Python extension code.
+`author_local_capability` is a workflow-neutral write tool for local self-extension authoring. It creates workspace-bound skills, prompts, workflow-neutral recipe JSON, and disabled-by-default project extension skeletons under `.embedagent`; it does not reload resource caches, stamp generated recipe files with default C/C++ workflow tool names, or load, enable, import, or trust generated Python extension code.
 
 Runtime-invoked external binaries are governed by `scripts/offline-runtime-contract.json`. If a tool implementation, recipe path, or workflow package starts invoking a new bundled binary, the runtime contract and packaging validators must be updated in the same change. The contract currently covers Python, Bash from MinGit, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables.
 
@@ -85,11 +93,12 @@ In-process extensions may register tools into the shared `ToolRuntime` through t
 - mode and workflow visibility metadata when they need to override defaults
 - read-only and concurrency metadata through either the `ToolDefinition` or explicit metadata
 - optional read-model invalidation hints such as `read_model_invalidations`
+- optional presentation metadata such as `preview_arg` and `changed_path_arg`
 - source metadata supplied by the extension runtime
 
 Registration does not make a tool active by itself. A dynamic tool appears in model schemas and frontend catalog views only when its name is active through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` as consumed by `AgentExtensionHost`. Project-local Python extensions use the same registration path and source metadata. Extensions cannot replace built-in tools.
 
-Internally the runtime catalog is faceted into execution, presentation, and context-policy metadata while preserving the legacy flat `tool_catalog_entry(...)` payload for protocol/frontend compatibility. Extension tool declarations only require a valid `permission_category`; the runtime derives conservative defaults for the remaining facets unless the tool metadata overrides them.
+Internally the runtime catalog is faceted into execution, presentation, and context-policy metadata while preserving the flat `tool_catalog_entry(...)` payload for protocol/frontend consumption. Extension tool declarations only require a valid `permission_category`; the runtime derives conservative defaults for the remaining facets unless the tool metadata overrides them. Only safe presentation fields are copied into catalog-entry `metadata`.
 
 `ToolRuntime.capability_descriptors()` may project these catalog entries for diagnostics and future reducer work. It must stay read-only and must not become an active-tool policy shortcut.
 
@@ -113,7 +122,7 @@ Workspace-local resources are file-only inputs to the runtime:
 
 `ToolRuntime.reload_resources()` refreshes the cached resource snapshot. Hosted product paths expose the same operation through `InProcessAdapter.reload_resources(...)`, `/resources reload`, and `POST /api/sessions/{session_id}/resources/reload`.
 
-Recipe JSON resources feed the existing `list_recipes` and `run_recipe` contract. Skills and prompts are discovered and surfaced with diagnostics, but they are not executed as project-local Python code. Skill Markdown may include Agent Skills-style frontmatter (`name`, `description`, `disable-model-invocation`). Skills with valid names, descriptions, and no disable flag are summarized once through the hosted local skill listing prompt unit; disabled skills remain discoverable resources but are omitted from model-invocation listings. Prompt resources are never inlined into default system prompts.
+Recipe JSON resources are workflow-neutral file resources. The default C/C++ workflow package feeds them into its `list_recipes` and `run_recipe` contract only after applying package-owned recipe normalization. Skills and prompts are discovered and surfaced with diagnostics, but they are not executed as project-local Python code. Skill Markdown may include Agent Skills-style frontmatter (`name`, `description`, `disable-model-invocation`). Skills with valid names, descriptions, and no disable flag are summarized once through the hosted local skill listing prompt unit; disabled skills remain discoverable resources but are omitted from model-invocation listings. Prompt resources are never inlined into default system prompts.
 
 Skill discovery under `.embedagent/skills` honors local `.gitignore`, `.ignore`, and `.fdignore` files with a dependency-free subset: blank lines and `#` comments, exact relative paths, directory rules ending in `/`, `fnmatch`-style globs, and `!` negation. Ignore handling is a file-discovery filter only; it does not execute ignore-file logic, load extensions, grant permissions, or change workspace-bound path checks.
 
@@ -137,7 +146,7 @@ grant tool activation, permission, or history authority.
 
 Generated extension skeletons from `author_local_capability` start disabled. They become executable only through the existing hosted project-extension loading path after a manifest is explicitly enabled and passes validation.
 
-Generated extension validation recipes must remain offline-friendly. They should execute through `run_recipe` and managed bundle commands such as `python -m py_compile ...`, not through dependency installers or remote package managers.
+Generated extension validation recipes must remain offline-friendly and workflow-neutral on disk. When the bundled C/C++ workflow package is active, they execute through that package's `run_recipe` projection with managed bundle commands such as `python -m py_compile ...`, not through dependency installers or remote package managers.
 
 ## 2. Official Workflow Tools
 

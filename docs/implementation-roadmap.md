@@ -59,13 +59,13 @@ product composition and default C/C++ behavior:
 - `src/embedagent/workflow_packages/c_cpp/workflow_projection.py` now owns the C harness to generic workflow payload adapter
 - `InProcessAdapter` no longer constructs `HarnessRunner` directly; managed-session workflow refresh is delegated through the selected `AgentApplication`, and the bundled C/C++ application delegates task-snapshot persistence to the built-in C harness extension
 - `QueryEngine` now asks for schemas using explicit active tool names through `ToolRuntime.schemas_for(...)`, so default harness pack activation is owned by the workflow extension boundary
-- Agent profile contracts now own hosted scenario mode/base-tool metadata and GUI mode capability projection, while workflow package contracts own scenario-specific workflow tools, package-owned tool names, and packs; `ToolRuntime.schemas_for(...)` no longer performs implicit mode fallback when active tool names are omitted
+- Agent profile contracts now own hosted scenario mode/base-tool metadata and GUI mode capability projection, while workflow package contracts own scenario-specific workflow tools, package-owned tool names, and packs; the global `embedagent.modes` facade uses the generic base profile, and selected hosted applications provide specialized mode policy; `ToolRuntime.schemas_for(...)` no longer performs implicit mode fallback when active tool names are omitted
 - `CORE_PACK` is the minimal file/search/editing/shell foundation; build/debug/verify packs keep harness-only recipe, quality, evidence, and task-status tools explicit
 - built-in mode `allowed_tools` no longer own default harness workflow tools; recipe, quality, evidence, and task-status tools are activated by the C harness extension
 - `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is now the single runtime schema projection entry point; default-harness paths use extension-active explicit tool names, and omitted `tool_names` project no provider-facing schemas
 - `InProcessAdapter` now owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
 - `ExtensionManager` now carries generic diagnostics, resource discovery hooks, context hooks, tool-call/tool-result hooks, and dynamic in-process tool registration through explicit `ExtensionCapability` records returned by `extension_capabilities()`
-- local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` can be refreshed through the runtime, adapter, slash command, and GUI/core API; recipe JSON files feed the existing recipe contract, visible Agent Skills-style Markdown resources are summarized through one lightweight prompt unit, skill bodies expand only through `/skill:<name> [args]`, and prompt bodies expand only through `/prompt:<name-or-path> [args]`
+- local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` can be refreshed through the runtime, adapter, slash command, and GUI/core API; root workspace recipe listing is workflow-neutral and does not assign default C/C++ tool names, while the bundled C/C++ workflow package owns CMake/Make/Ninja detection plus `list_recipes` / `run_recipe` projection; visible Agent Skills-style Markdown resources are summarized through one lightweight prompt unit, skill bodies expand only through `/skill:<name> [args]`, and prompt bodies expand only through `/prompt:<name-or-path> [args]`
 - manifest-gated project-local Python extensions can be loaded from enabled `.embedagent/extensions/<name>/extension.json` manifests by hosted product paths and are registered into the shared `ExtensionManager`; hooks/tools are active only when declared with `api.ExtensionCapability`
 - `AgentExtensionHost` now centralizes QueryEngine-side extension dispatch, dynamic tool registration, extension-aware active schema projection, context patches, tool-call hooks, tool-result hooks, and extension-owned tool handling
 - `AgentEventBus` now provides the internal source-aware observer/reducer boundary for explicitly declared extension capabilities; method-name hook compatibility is no longer a product path
@@ -75,7 +75,7 @@ product composition and default C/C++ behavior:
 - `AgentLoop` now owns Pi-style open turn-loop continuation behind `QueryEngine`, including agent steps, context/provider attempts, active schema requests through `AgentExtensionHost`, compact retry, tool batch interruption, guard stops, abort, and explicit loop safety-limit compatibility transitions; `ProgressGuard` uses action-plus-observation evidence fingerprints for no-progress/runaway detection instead of repeated tool-name stopping; ordinary command/build/test failures are diagnostic tool results for the next model turn rather than automatic guard-stop conditions; `QueryEngine` no longer owns `_run_loop_impl`, `_run_loop`, `_is_completion_signal`, private active-tool schema wrappers, or action-execution forwarding wrappers, and hosted defaults no longer stop merely because eight model/tool cycles were used
 - `ToolRuntime` construction is now workflow-neutral; the bundled C/C++ workflow package registers recipe, quality, evidence, and task-status tools with metadata through `CHarnessWorkflowExtension.register_tools(...)`
 - C/C++ workflow context reducers have moved out of Core `ReducerRegistry`; harness-owned reducers now cover recipe results, quality reports, failing evidence, and task status through `CHarnessWorkflowExtension.register_context_reducers(...)`
-- workflow prompt descriptors now use generic `WorkflowPrompt` naming and new prompt messages use `workflow_prompt`; old harness prompt names are no longer active prompt assembly kinds
+- workflow prompt descriptors now use generic `WorkflowPrompt` naming and new prompt messages use `workflow_prompt`; old harness prompt names and compatibility aliases are no longer active prompt assembly kinds
 - `propose_mode_switch` is no longer projected as an unconditional model tool; it appears only when explicitly activated through the active-tool boundary
 - `ToolCatalogEntry` now keeps internal execution, presentation, and context-policy facets while preserving the legacy flat catalog payload for protocol/frontend compatibility
 - C/C++ workflow pack definitions now live only under `src/embedagent/workflow_packages/c_cpp/packs.py`; the obsolete tooling-package compatibility export has been removed
@@ -86,6 +86,9 @@ product composition and default C/C++ behavior:
 - `CapabilityRegistry` is now the non-executing read model for tools, modes, local file resources, slash commands, model profiles, and workflow packages; activation and execution remain owned by `AgentExtensionHost` / `ExtensionManager` and `ToolRuntime` / `AgentToolActionService`
 - `RuntimeConfigReducer` now projects safe runtime configuration from transcript events, including model profile metadata, registered tool names, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records
 - `WorkflowPackageManifest` now describes the bundled C/C++ workflow package identity, declared tools, packs, supported modes/workflow states, and resource scopes as read-only non-executing control-plane data exposed through the shared extension manager
+- `TurnExperienceReducer` now treats validation state as explicit tool-result metadata, not a command-name heuristic; build/test/compiler command strings remain diagnostic evidence for the next model turn unless the owning workflow/tool marks the result as validation
+- Hosted `/review`, project memory, and workspace intelligence now classify recipe, test, coverage, diagnostic, and quality-gate evidence through workflow-neutral payload fields in `src/embedagent/tool_evidence.py`; they no longer import default C/C++ workflow tool constants
+- `CHarnessWorkflowExtension` now owns default C/C++ workspace recipe projection through an explicit `workspace_recipes` capability; `src/embedagent/workspace_recipes.py` remains a generic local resource read model without CMake/Make/Ninja detection
 - `SelfExtensionAuthoringService` and `author_local_capability` can generate local skills, prompts, recipes, and disabled-by-default project extension skeletons without reloading resources or loading Python code
 - `scripts/offline-runtime-contract.json` is now the single repo-side contract for runtime-invoked bundled external tools; `validate-offline-bundle.ps1` and `check-bundle-dependencies.py` consume it for Python, Bash from MinGit, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executable validation
 - Slice 6 completed the documentation cutover for self-extensible Agent Core: active source-of-truth docs and module docs now treat local offline self-extension as official architecture while keeping marketplaces, online installs, dependency installation, built-in tool replacement, and multi-agent orchestration out of scope
@@ -127,22 +130,230 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   app surfaces, and GUI-local settings
 - frontend app-shell normalization/reducer helpers live under
   `webapp/src/app-shell/` and drive Settings/Diagnostics right-panel surfaces
-- GUI thread lifecycle actions now route through the session lifecycle facade:
-  rename updates summary/projection title metadata, archive hides a session from
-  default thread lists without deleting transcript/summary/artifact references,
-  and fork copies the transcript to a new session id with fork provenance
+- GUI workbench commands, right-panel launchers, bottom-drawer tabs, and
+  keybinding targets are filtered from `/api/app/bootstrap` app-shell
+  capabilities; app-shell app/workspace/workbench commands, surfaces, and
+  keybindings are descriptor records carrying display, ordering, command,
+  slash, shortcut, and safety metadata, while renderer-local surface
+  registries now provide only known renderer mounting details through derived
+  helper functions rather than exported fixed id lists, and do not invent
+  visible app entrypoints when the `capabilities` object or relevant descriptor
+  arrays are missing; command descriptors without explicit visible labels stay
+  out of workbench command lists and command-palette rows, and dynamic slash
+  commands require explicit `label`, `usage`, or `slash` metadata rather than
+  command-id fallback copy; commands in undeclared or untitled palette groups
+  remain hidden rather than using title-cased group ids; missing command row
+  description/meta copy remains empty rather than falling back to command ids;
+  surface command row descriptions come from surface descriptors rather than
+  surface/drawer ids;
+  session/workspace palette row leading markers come from command-palette label
+  descriptors and remain empty when absent;
+  command-palette group leading markers come from explicit group descriptors
+  and are not synthesized from group titles;
+  command-palette shortcut key labels and separators come from
+  `command_palette.labels` rather than renderer-local platform-label defaults;
+  right-panel surface open titles prefer the active surface descriptor and are
+  no longer derived by stripping English command label prefixes;
+  right-panel surface open behavior is selected by renderer-local `openKind`
+  metadata rather than fixed surface-id branches in the controller, and
+  supported `openKind` values route through a handler registry rather than a
+  controller switch;
+  App-level preview and Files-browser open flows call semantic right-panel
+  controller methods rather than dispatching concrete right-panel resource
+  surface kinds; file-preview opening and workspace-file content loading are
+  delegated to `file-preview-controller.js`; those semantic methods require an
+  active app-shell surface declaration before opening File Preview, Preview, or
+  right-panel Terminal; File Preview loading stops when the semantic open
+  returns false, and Preview open/refresh/external-open orchestration is
+  delegated to `preview-controller.js`, which preflights the same semantic
+  Preview capability before invoking preview routes; Source
+  Control status/diff callers similarly require the active app-shell Source
+  Control capability before invoking source-control routes; timeline/manual
+  Diff surface opening is delegated to `diff-surface-controller.js` instead of
+  `App.jsx` constructing diff surface state directly; `App.jsx` wires
+  file/diff/preview controller methods directly instead of retaining
+  `openFile`, `openDiffSurface`, or `openPreview*` wrappers; workspace path
+  input updates are delegated to `workspace-controller.js`
+  instead of inline `workspace_path_changed` dispatches; session list loading is
+  delegated to `session-list-controller.js` as a direct controller handle instead of
+  `App.jsx` keeping a `loadSessions` wrapper, directly fetching `/api/sessions`,
+  or dispatching `sessions_loaded`; session bootstrap activation is delegated to
+  `session-activation-controller.js` as the direct `loadSession` handle instead
+  of an inline activation wrapper; composer draft/submit/palette/Branch Toolbar
+  refresh actions are delegated to `composer-controller.js` instead of `App.jsx`
+  keeping a `sendMessage` wrapper or inline composer dispatch/refresh handlers;
+  SurfacePanel diff focus, Source Control refresh/file selection, and app-shell
+  settings patch actions are delegated to `surface-panel-controller.js`
+  instead of inline App callbacks, with `surface-panel-props.js` owning the
+  `SurfacePanel` prop mapping;
+  header panel toggles, command-palette open/close/query/selection, and
+  command-id resolution are delegated to `workbench-command-controller.js`
+  instead of `App.jsx` importing `commandById` or dispatching palette/toggle
+  reducer actions inline;
+  Terminal service calls
+  require the active app-shell Terminal capability before invoking
+  terminal routes or pane attachment side effects;
+  right-panel tab activation side effects are selected by renderer-local
+  `activationKind` metadata through
+  `RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]` in
+  `right-panel-controller.js` rather than inline App surface-id or terminal
+  session branches; right-panel tab close/add/Files-open lifecycle actions are
+  wired directly to `right-panel-controller.js` methods instead of inline App
+  reducer dispatch blocks;
+  bottom-drawer surface commands may also carry descriptor-owned dispatch
+  records, and the Terminal drawer opens through `terminal.ensure_open` rather
+  than a renderer branch on `drawer: "terminal"`;
+  bottom-drawer body selection uses renderer-local `bodyKind` metadata for
+  supported surfaces, and stale declarations without a renderer body are
+  removed instead of being shown through a misleading fallback; supported body
+  kinds route through `BOTTOM_DRAWER_BODY_RENDERERS` rather than a component
+  switch;
+  bottom-drawer activation side effects use renderer-local `activationKind`
+  metadata instead of drawer-kind branches in the terminal controller, and
+  supported activation kinds route through a handler registry rather than a
+  controller switch; bottom-drawer terminal new/select actions and terminal id
+  generation plus right-panel active terminal pane new/split/select/close
+  actions are controller-owned rather than inline App callbacks;
+  terminal-controller right-panel surface validation and
+  action payload assembly now route through `TERMINAL_SURFACE_KIND` and
+  `terminalSurfaceActionInput(...)` instead of repeated surface-kind checks;
+  right-panel body selection now follows the same renderer metadata path
+  instead of branching on fixed surface kind strings in
+  `RightPanelSurfaceBody`, and supported body kinds route through
+  `RIGHT_PANEL_BODY_RENDERERS` rather than a component switch; body definition
+  lookup is scoped by active app-shell capabilities, and hidden resource
+  surfaces such as `file` are backend-declared with `launcher=False` /
+  `command=False` rather than renderer-only body fallbacks;
+  generic `SurfacePanel` content is selected by renderer-local `panelKind`
+  metadata rather than surface-id branches;
+  surface descriptors without explicit titles remain
+  diagnostic capability records and do not enter visible launchers or surface
+  commands; persisted workbench surface state is also re-sanitized
+  after app bootstrap or workspace switch against those app-shell capabilities,
+  live reducer-level workbench surface-open actions are rejected when the active
+  app shell does not declare the target right-panel or bottom-drawer surface,
+  shallow persisted surface fields are normalized by the renderer-local
+  surface registry rather than `ui-state.js` file/terminal branches, and
+  capability cleanup uses `persistedSurfaceDefinitions(appCapabilities, placement)`
+  plus registry-declared `persistedRelatedKinds` rather than UI-state
+  `files -> file` expansion; per-kind
+  surface instance metadata is initialized through `SURFACE_INITIALIZERS[kind]`
+  rather than `makeSurface(...)` file/terminal/preview branches, and
+  right-panel open-time preparation routes through
+  `SURFACE_OPEN_PREPARERS[surface.kind]` rather than `openSurface(...)`
+  file/preview branches; right-panel surface-local pane operations route
+  through `SURFACE_PANE_HANDLERS[surface.kind]` rather than reducer-level
+  terminal kind branches; active right-panel surface lookup routes through
+  `rightPanelSurfacesFrom(...)` / `activeRightPanelSurfaceFrom(...)` instead
+  of root-level App or terminal-controller `surfaces.find(...)` selectors;
+  app bootstrap now also carries a safe selected-agent application registry and
+  empty-state read model before a workspace/core exists, then defers to the
+  active core's capability projection after workspace activation. This lets the
+  GUI adapt for generic or specialized agents before a session is opened.
+  Selected agent application manifests also declare `metadata.appShell`
+  allow-lists for app commands, surfaces, keybinding targets, palette groups,
+  and disabled GUI capability ids; `AppShellService` applies those lists to the
+  injected spec so the Generic Agent does not inherit Preview/Diff/Source
+  Control entrypoints from the default C/C++ application. The
+  default descriptor set is now an injected backend `AppShellSpec`, so
+  alternate hosts can provide a smaller or specialized GUI shell without
+  editing `AppShellService`
+- retired Inspector sidecar loaders/state/actions for artifacts, review panes,
+  permission-rule panes, runtime panes, workspace previews, and event logs have
+  been removed; the GUI uses active surfaces, session activities, interaction
+  state, and app-shell diagnostics instead. The split GUI artifact refetch
+  facade has also been removed: no `/api/artifacts` route, no
+  `artifacts_refresh` WebSocket event, and no frontend callback bridge for
+  artifact invalidation remains. The hosted `/artifacts` slash command and TUI
+  artifact browser service/surface have also been retired; tool-result stored
+  paths remain evidence metadata, not a standalone frontend browse API.
+  The old `Inspector.jsx` component and `inspectorTab` / `inspectorKind`
+  renderer adapter are also retired; right-panel fallback content now renders
+  through `SurfacePanel` from renderer-local `panelKind` metadata.
+- GUI thread lifecycle actions now route through the session lifecycle facade
+  and are displayed from app-shell `thread_lifecycle.actions` descriptors
+  rather than a renderer-owned fixed action list: the default descriptors map
+  rename to summary/projection title metadata updates, archive to hiding a
+  session from default thread lists without deleting transcript/summary/artifact
+  references, and fork to copying the transcript to a new session id with fork
+  provenance; action labels, disabled reason labels, prompt, confirmation,
+  success, empty-title, and failure copy now travel on the same descriptors
+  instead of being hard-coded by the renderer lifecycle controller, actions with
+  missing labels stay out of the visible rail, and missing notice copy remains
+  absent rather than being synthesized from action ids or labels
+- GUI command-palette command group metadata now comes from app-shell
+  `command_palette.groups` descriptors; the renderer no longer owns a fixed
+  `COMMAND_GROUPS`, group title, group description table, palette placeholder,
+  empty-state, current/missing badge, or root-section copy
+- GUI composer slash-command default grouping is now app-shell declared through
+  `capabilities.chrome.composer.command_menu.default_command_group_id`; session
+  command normalization and renderer command helpers no longer synthesize
+  missing command groups as `"command"`.
+- GUI composer slash-command items now come only from command capability
+  projection; the retired renderer-local `commandHints` fallback path has been
+  deleted instead of preserved for compatibility.
+- GUI composer hint-bar items are now app-shell descriptors under
+  `capabilities.chrome.composer.hints`; renderer code no longer owns a fixed
+  hint id/order list.
+- GUI right-panel surface chrome now comes from app-shell `surfaces.chrome`
+  descriptors; the renderer no longer owns right-panel aria copy, add-surface
+  label, empty-state text, surface action menu labels, close labels, or
+  surface command-label string concatenation. Surface-owned panel headings,
+  including the Files surface header, use the active app-shell surface
+  descriptor title instead of renderer-local defaults, and missing descriptor
+  titles are not synthesized from surface kind/id values. Resource surface
+  helper titles use only instance data such as file basenames, preview ids/URLs,
+  and terminal ids; missing preview instance data does not create a fallback
+  tab. File Preview breadcrumb aria text and markdown mode glyphs also come
+  from `surfaces.chrome.file_preview` instead of renderer defaults. Diff
+  workbench tab titles come from explicit diff payload titles or the app-shell
+  surface descriptor rather than a renderer `"diff"` fallback
+- GUI workbench session/message/view/palette command entries now come from
+  app-shell `workbench_commands` descriptors; the renderer no longer owns a
+  `LOCAL_COMMANDS` list, commands without visible labels are omitted instead of
+  labeled from command ids, built-in shell actions route through
+  descriptor-owned `dispatch.kind` records instead of command-id switches,
+  supported dispatch kinds are implemented by a handler registry rather than a
+  dispatch-kind switch,
+  Terminal drawer opening is likewise declared by the bottom-drawer surface
+  descriptor instead of inferred from the drawer kind, and the retired duplicate
+  `workflow.diff` command is removed in favor of the declared `surface.diff`
+  entrypoint
+- GUI home/sidebar workspace and thread copy now comes from app-shell
+  `home.workspace` / `home.threads` descriptors plus the selected agent
+  `emptyState`; renderer components no longer own the default no-workspace,
+  workspace path, missing-path, or empty-thread wording, and renderer
+  app-shell normalizers do not invent the bundled product name when backend
+  app metadata omits it. Untitled thread fallback prefixes are also declared
+  by `home.threads` instead of hard-coded in the renderer
 - GUI terminal bottom drawer is now an app-shell hosted, thread-scoped surface:
   the backend owns a workspace-bound in-memory terminal service using Python
   stdlib subprocess pipes for Win7/offline compatibility, while the React
-  terminal reducer/API/UI keep terminal buffers as GUI-local display state
+  terminal reducer/API/UI keep terminal buffers as GUI-local display state.
+  The default bottom drawer now exposes only implemented Run Output and
+  Terminal renderer bodies; the stale Logs drawer declaration was removed
 - GUI Source Control foundation is now an app-shell hosted, active-workspace
   surface: the backend owns a read-only `SourceControlService` over bundled or
   workspace MinGit, while the React source-control model/panel displays local
-  status and opens existing Diff views for selected files
+  status and opens existing Diff views for selected files. File status badges
+  and group order are declared by app-shell chrome instead of synthesized from
+  Git status initials, fixed group arrays, or raw group/provider ids in the
+  renderer
 - GUI Preview runtime boundary is now app-shell hosted and local-only: the
   backend owns a `PreviewService` that opens/probes loopback HTTP URLs, while
   the React preview model/API/chrome surface renders loading, success, and
-  unreachable states without adding browser automation or Agent Core behavior
+  unreachable states without adding browser automation or Agent Core behavior.
+  Preview, terminal, and source-control API helpers no longer carry
+  helper-local request-failure copy, so missing backend error text falls through
+  to app-shell chrome fallbacks
+- GUI command-result run-output logging is now payload-declared: socket effects
+  write bottom-drawer log entries only when `log_label` / `log_detail` is
+  present, and no longer synthesize `command: /...` or ok/error labels from
+  slash command names and success booleans
+- GUI command-result timeline labels are now payload/app-shell declared:
+  `t3-timeline.js` preserves command names as structured data without creating
+  `/${commandName}` labels, and `TimelineRows.jsx` falls back only to
+  app-shell `activity_rows.commandDefaultName`
 - GUI renderer runtime state has started moving onto focused T3-style modules:
   `session-runtime/thread-state.js` owns thread/session selection, session
   summaries, and history-integrity display state, while
@@ -151,18 +362,83 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   state, `session-runtime/session-transport-state.js` owns active session
   transport connection/reload projection,
   `app-runtime/session-transport-controller.js` owns WebSocket lifecycle, and
-  `app-runtime/session-activation-controller.js` owns bootstrap activation.
+  `app-runtime/session-transport-handle.js` owns the React-facing transport
+  state bridge, `app-runtime/session-activation-controller.js` owns bootstrap
+  activation, `app-runtime/socket-message-controller.js` owns raw WebSocket
+  message scheduling, derivation, and effect execution, `app-runtime/socket-effect-executor.js`
+  owns application of derived socket transport/action/loader effects, while `app-runtime/session-list-controller.js`
+  owns session list loading and `app-runtime/http-client.js` owns shared JSON
+  request/error handling; `app-runtime/initial-app-load-controller.js` owns app
+  bootstrap plus session command capability warmup start;
+  `app-runtime/session-loaders.js` owns the reusable
+  `createSessionCommandCapabilityLoader(...)` handle for command capability
+  refresh instead of repeated root-level fetch/dispatch lambdas;
+  `app-runtime/responding-request-ids-handle.js` owns pending interaction
+  response busy-id normalization and sync;
+  `app-runtime/interaction-response-controller.js` owns interaction response
+  submission, snapshot/reload handling, and response `log_event` emission;
+  `app-runtime/active-workspace-data-loader.js` owns active-workspace read-model
+  refresh fanout and receives the Source Control status-refresh controller
+  handle directly, and
+  `app-runtime/panel-resize-controller.js` owns pointer/DOM resizing for
+  workbench panels through `startSidebarResize` / `startRightPanelResize`
+  instead of root-level CSS variable or direction parameters,
+  `app-runtime/timeline-scroll-controller.js` owns Timeline
+  bottom-follow scroll DOM handling, and `app-runtime/browser-dialog-service.js`
+  owns native prompt/confirm access for thread lifecycle prompts, while
+  `app-runtime/workbench-keyboard-controller.js` owns global workbench keydown
+  handling, Escape cancellation, composer-focus detection, and app-shell
+  keybinding resolution.
   `App.jsx`, command palette, terminal
   controller, workspace reset, and tests consume those read models instead of
   root-level `sessions`, `currentSessionId`, `composer`, `historyIntegrity`,
-  or `connectionState` fields.
+  `connectionState`, or retired sidebar tab sidecars such as `sidebarTab` /
+  `set_sidebar`.
 - GUI visual-debug fixtures are now outside the product reducer state machine:
+  `visual-debug-controller.js` owns the URL-gated installer bridge,
   `visual-debug-fixtures.js` keeps private `dev_fixture_*` descriptors and
-  expands them into ordinary product actions, while `store.js` and
-  `thread-state.js` no longer define `visual_*fixture` cases.
+  expands them into ordinary product actions, while `App.jsx`, `store.js`, and
+  `thread-state.js` no longer define fixture install logic or
+  `visual_*fixture` cases.
 - Generated GUI static assets remain committed release artifacts for the
   current offline packaging model; source review should use `webapp/src/`, and
   `npm run build` refreshes `frontend/gui/static/` after source changes.
+- The retired GUI workflow-runtime display helper and its tests have been
+  removed; workflow detail now stays in backend-declared session snapshot,
+  capability, or activity projections, and the renderer no longer synthesizes
+  C/C++ phase, discipline, or activity rows from compatibility snapshot
+  fields. New sessions without an explicit mode leave mode selection to the
+  selected backend application/profile instead of injecting `explore` in GUI
+  routes or renderer state.
+- GUI tool presentation is now catalog-driven: labels, renderer keys,
+  permission categories, and preview arguments come from backend-declared tool
+  catalog metadata, while unknown tools fall back only to their tool id. The old
+  renderer-owned built-in tool label table has been removed.
+- GUI tasks now come only from session bootstrap/snapshot `task_items`; the old
+  split `/api/tasks`, `tasks_refresh`, `tasks_loaded`, `/api/workspace/recipes`,
+  renderer recipe-list load paths, and frontend-facing CoreInterface
+  `list_tasks` / `list_workspace_recipes` facades have been removed.
+  Workflow-specific quick actions must be exposed through backend capability or
+  command metadata.
+- GUI tool catalog display now comes from session capability/bootstrap
+  `toolCatalog`; the old `/api/tool-catalog` route, root renderer
+  `toolCatalog` fallback state, and frontend-facing `CoreInterface.get_tool_catalog`
+  facade have been removed.
+- Right-panel surface navigation is now the only GUI right-panel entrypoint
+  truth. `SurfacePanel` receives renderer-local `panelKind` metadata from
+  `RightPanelSurfaceBody`; the removed `Inspector` component no longer keeps an
+  internal `RIGHT_PANEL_SURFACES` tab registry, `inspectorTab` adapter,
+  `showTabs` flag, or `onTabChange` navigation contract.
+- Root renderer `inspectorTab` / `inspectorOpen` state and `set_inspector` /
+  `toggle_inspector` reducer actions have been removed; right-panel navigation
+  now flows only through workbench surface state.
+- GUI webapp source now uses active right-panel/surface vocabulary here:
+  `surface.*` i18n keys, `surface-panel` CSS, `--right-panel-w-raw`, and
+  `right-panel-toggle`. Retired Inspector shell names are guarded from active
+  source.
+- `AgentCoreAdapter` no longer imports built-in `DEFAULT_MODE` or injects
+  `explore` into missing frontend protocol `current_mode`; selected
+  application/profile mode state remains backend-declared.
 - Offline GUI packaging now includes a native Win32 launcher exe in the portable
   bundle, preserving the one-folder delivery model while improving double-click
   startup.
@@ -194,8 +470,8 @@ Recent stabilization work has also completed the agent-core ownership cutover:
 - session snapshots are now built by a pure `SessionSnapshotProjector`
 - live tool-completion refresh has moved to `read_model_invalidations`
   metadata on tool catalog entries and events, so GUI/Core paths no longer
-  maintain parallel tool-name lists for workspace file, task, or artifact
-  refresh
+  maintain parallel tool-name lists for workspace file or task refresh; GUI
+  artifact invalidation no longer opens a sidecar refetch facade
 - transcript sequence allocation uses cached counters instead of rescanning on every append
 
 ## 4. Remaining Near-Term Work
@@ -337,11 +613,17 @@ The current self-extensible Agent Core baseline remains valid. The next program 
 
 14. **Agent application manifest and capability projection**
    - current implementation status: Phase N is complete for the hosted boundary and first built-in multi-application registry
-   - `AgentApplicationManifest` records describe application id, label, profile id, workflow package ids, source metadata, and default status
-   - `build_agent_application(application_id, tools)` is the hosted selected-application loader; the default C/C++ application is one builtin application, not a `QueryEngine` fallback
-   - built-in ids now include `embedagent.default_c_cpp`, `embedagent.generic`, `embedagent.python`, and `embedagent.html`; the non-C applications are profile-only and do not install the C/C++ workflow package
+- `AgentApplicationManifest` records describe application id, label, profile id, workflow package ids, source metadata, and default status
+- `build_agent_application(application_id, tools, registry=...)` is the selected-application loader; the default C/C++ application is one hosted product registry record, not a `QueryEngine` fallback
+- built-in applications are declared as `AgentApplicationRecord` data; profile-only applications build directly from their profile record, while workflow-backed specialized applications declare a `builder_path` so the generic loader does not hard-code C/C++ workflow branches; the default C/C++ application record/app-shell overlay lives in `src/embedagent/workflow_packages/c_cpp/application_record.py`, and its mode profile lives in `src/embedagent/workflow_packages/c_cpp/agent_profile.py`
+- base registry ids are `embedagent.generic`, `embedagent.python`, and `embedagent.html`; the hosted product registry in `src/embedagent_host/agent_application_registry.py` composes those base records with packaged `embedagent.default_c_cpp`
+   - profile-only records remain in the base application registry; workflow-backed built-in records are added by the hosted product registry, so building `embedagent.generic`, `embedagent.python`, or `embedagent.html` through the base registry no longer imports `embedagent.workflow_packages.c_cpp`
+   - profile runtime policy is now shared through `src/embedagent/agent_profile_runtime.py`; hosted adapters compose `AgentProfileRuntimePolicy`, `AgentProfileToolPolicy`, and `AgentProfileWritePathPolicy` instead of carrying product prompt, write-glob, or mode-switch parsing copies
+   - base config examples and `config/config.json.template` no longer pin `embedagent.default_c_cpp`; omitted `agent_application_id` is resolved by the hosted application registry
+   - C/C++ workspace-profile file signals now live in `src/embedagent/workflow_packages/c_cpp/workspace_profile.py`; generic `src/embedagent/workspace_profile.py` consumes optional application detectors and no longer hard-codes CMake/Make/C++ source roots
    - GUI/session capability payloads expose `agentApplication` and `agentApplications` from the backend, and injected external applications do not leak the bundled C/C++ application into their available-application list
    - renderer no-workspace copy, capability normalizers, mode order, `workflowPackages`, and runtime workflow summary rows now come from backend-declared capability/snapshot payloads instead of C/C++ defaults
+   - hosted review, project-memory, and workspace-intelligence helpers consume structured evidence payloads rather than default C/C++ workflow tool constants, so specialized applications can emit their own recipe/quality/diagnostic tools
 
 This program must not introduce public online extension marketplaces, runtime dependency installation, public remote registries, built-in tool replacement by project-local code, container requirements, WSL requirements, VS Code dependency, or general multi-agent orchestration in Agent Core. Optional intranet Git/custom-service/provider/catalog/telemetry integrations may be considered only as trusted, explicitly configured hosted capabilities with disable/fallback behavior, safe diagnostics, source metadata, and normal permission checks.
 

@@ -42,7 +42,11 @@ def test_authors_skill_prompt_recipe_and_disabled_extension(tmp_path):
     assert "description: Review local C changes.\n" in skill_text
     assert "disable-model-invocation: false\n" in skill_text
     assert (tmp_path / ".embedagent" / "prompts" / "triage-prompt.md").is_file()
-    assert (tmp_path / ".embedagent" / "recipes" / "local-verify.json").is_file()
+    recipe_path = tmp_path / ".embedagent" / "recipes" / "local-verify.json"
+    assert recipe_path.is_file()
+    recipe_payload = json.loads(recipe_path.read_text(encoding="utf-8"))
+    assert "tool_name" not in recipe_payload
+    assert recipe_payload["recipe_action"] == "test"
     manifest_path = tmp_path / ".embedagent" / "extensions" / "project-echo" / "extension.json"
     assert manifest_path.is_file()
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -124,13 +128,16 @@ def test_generated_recipe_updates_resource_snapshot_after_runtime_reload(tmp_pat
     reloaded = runtime.reload_resources(reason="authoring-test")
     after_reload_resources = runtime.local_resources()
     recipes = runtime.workspace_recipes()
+    authored_recipe = [
+        item for item in recipes["items"] if item.get("id") == "local.author_verify"
+    ][0]
 
     assert result.success is True
     assert before_resources["counts"]["recipes"] == 0
     assert after_write_resources["counts"]["recipes"] == 0
     assert reloaded["counts"]["recipes"] == 1
     assert after_reload_resources["counts"]["recipes"] == 1
-    assert "local.author_verify" in [item["id"] for item in recipes["items"]]
+    assert authored_recipe.get("tool_name", "") == ""
 
 
 def test_generated_extension_is_disabled_and_not_imported(tmp_path):
@@ -172,6 +179,6 @@ def test_generated_extension_validation_recipe_uses_managed_python_command(tmp_p
     recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
 
     assert result.success is True
-    assert recipe["tool_name"] == "run_recipe"
+    assert "tool_name" not in recipe
     assert recipe["recipe_action"] == "test"
     assert recipe["command"].startswith("python -m py_compile ")

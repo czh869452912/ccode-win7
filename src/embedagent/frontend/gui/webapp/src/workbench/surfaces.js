@@ -19,8 +19,10 @@ const TERMINAL_PERSIST_FIELDS = [
 
 function defineSurface(input) {
   return Object.freeze({
+    activationKind: "",
     ...input,
     persistFields: Object.freeze((input.persistFields || DEFAULT_PERSIST_FIELDS).slice()),
+    persistedRelatedKinds: Object.freeze((input.persistedRelatedKinds || []).slice()),
     keywords: Object.freeze((input.keywords || []).slice()),
   });
 }
@@ -28,181 +30,387 @@ function defineSurface(input) {
 export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
   defineSurface({
     kind: "preview",
-    title: "Preview",
-    icon: "B",
-    description: "Open a local browser preview.",
     placement: "right",
     resourceId: "optional",
     defaultResourceId: "",
     closeBehavior: "closable",
     persistFields: DEFAULT_PERSIST_FIELDS,
+    bodyKind: "preview",
+    openKind: "workbench.surface",
     launcher: true,
     launcherOrder: 10,
     command: true,
-    slash: "/preview",
-    visibleWhen: "always",
-    keywords: ["browser", "localhost", "web"],
   }),
   defineSurface({
     kind: "diff",
-    title: "Diff",
-    icon: "D",
-    description: "Review local changes.",
     placement: "right",
     resourceId: "current",
     defaultResourceId: "current",
     closeBehavior: "closable",
     persistFields: DEFAULT_PERSIST_FIELDS,
+    bodyKind: "surface_panel",
+    openKind: "workbench.surface",
+    panelKind: "diff",
     launcher: true,
     launcherOrder: 40,
     command: true,
-    slash: "/diff",
-    visibleWhen: "always",
-    keywords: ["git", "changes", "diff"],
-    inspectorKind: "diff",
   }),
   defineSurface({
     kind: "files",
-    title: "Files",
-    icon: "F",
-    description: "Browse workspace files.",
     placement: "right",
     resourceId: "singleton",
     defaultResourceId: "",
     closeBehavior: "closable",
     persistFields: DEFAULT_PERSIST_FIELDS,
+    bodyKind: "files",
+    openKind: "workbench.surface",
+    persistedRelatedKinds: ["file"],
     launcher: true,
     launcherOrder: 20,
     command: true,
-    slash: "/workspace",
-    visibleWhen: "always",
   }),
   defineSurface({
     kind: "file",
-    title: "File",
-    icon: "F",
-    description: "View a workspace file.",
     placement: "right",
     resourceId: "file_path",
     defaultResourceId: "",
     closeBehavior: "closable",
     persistFields: DEFAULT_PERSIST_FIELDS,
+    bodyKind: "file_preview",
+    openKind: "",
     launcher: false,
     launcherOrder: 0,
     command: false,
   }),
   defineSurface({
     kind: "terminal",
-    title: "Terminal",
-    icon: "T",
-    description: "Use a shell in this workspace.",
     placement: "right",
     resourceId: "terminal_id",
     defaultResourceId: "",
     closeBehavior: "closable",
     persistFields: TERMINAL_PERSIST_FIELDS,
+    bodyKind: "terminal",
+    openKind: "terminal.right_panel",
+    activationKind: "terminal.open_active",
     launcher: true,
     launcherOrder: 30,
     command: true,
-    slash: "",
-    visibleWhen: "has_session",
   }),
   defineSurface({
     kind: "plan",
-    title: "Plan",
-    icon: "P",
-    description: "Inspect the current plan.",
     placement: "right",
     resourceId: "singleton",
     defaultResourceId: "",
     closeBehavior: "closable",
     persistFields: DEFAULT_PERSIST_FIELDS,
+    bodyKind: "surface_panel",
+    openKind: "workbench.surface",
+    panelKind: "plan",
     launcher: true,
     launcherOrder: 50,
     command: true,
-    slash: "/plan",
-    visibleWhen: "always",
-    inspectorKind: "plan",
   }),
   defineSurface({
     kind: "source_control",
-    title: "Source Control",
-    icon: "S",
-    description: "Review local Git status.",
     placement: "right",
     resourceId: "singleton",
     defaultResourceId: "",
     closeBehavior: "closable",
     persistFields: DEFAULT_PERSIST_FIELDS,
+    bodyKind: "surface_panel",
+    openKind: "workbench.surface",
+    panelKind: "source_control",
     launcher: true,
     launcherOrder: 60,
     command: true,
-    slash: "",
-    visibleWhen: "always",
     readOnly: true,
     offline: true,
-    inspectorKind: "source_control",
-    keywords: ["git", "changes", "local"],
   }),
   defineSurface({
     kind: "settings",
-    title: "Settings",
-    icon: "G",
-    description: "Adjust app-shell preferences.",
     placement: "right",
     resourceId: "singleton",
     defaultResourceId: "",
     closeBehavior: "closable",
     persistFields: DEFAULT_PERSIST_FIELDS,
+    bodyKind: "surface_panel",
+    openKind: "workbench.surface",
+    panelKind: "settings",
     launcher: true,
     launcherOrder: 70,
     command: true,
-    slash: "",
-    visibleWhen: "always",
-    inspectorKind: "settings",
   }),
   defineSurface({
     kind: "diagnostics",
-    title: "Diagnostics",
-    icon: "I",
-    description: "Inspect app-shell health.",
     placement: "right",
     resourceId: "singleton",
     defaultResourceId: "",
     closeBehavior: "closable",
     persistFields: DEFAULT_PERSIST_FIELDS,
+    bodyKind: "surface_panel",
+    openKind: "workbench.surface",
+    panelKind: "diagnostics",
     launcher: true,
     launcherOrder: 80,
     command: true,
-    slash: "",
-    visibleWhen: "always",
-    inspectorKind: "diagnostics",
   }),
 ]);
+
+export const BOTTOM_DRAWER_SURFACE_REGISTRY = Object.freeze([
+  defineSurface({
+    kind: "run_output",
+    placement: "bottom",
+    closeBehavior: "pinned",
+    bodyKind: "run_output",
+    activationKind: "workbench.surface",
+    launcher: true,
+    launcherOrder: 10,
+    command: true,
+  }),
+  defineSurface({
+    kind: "terminal",
+    placement: "bottom",
+    closeBehavior: "pinned",
+    bodyKind: "terminal",
+    activationKind: "terminal.ensure_open",
+    launcher: true,
+    launcherOrder: 20,
+    command: true,
+  }),
+]);
+
+const SAFE_DYNAMIC_RIGHT_PANEL_BODY_KINDS = Object.freeze(["surface_panel"]);
+const SAFE_DYNAMIC_SURFACE_PANEL_KINDS = Object.freeze(["descriptor", "diagnostics", "plan"]);
+
+function normalizeKeywords(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item || "").trim()).filter(Boolean);
+}
+
+function surfaceCapabilityRecords(appCapabilities, placement) {
+  if (!appCapabilities || typeof appCapabilities !== "object") return [];
+  const surfaces = appCapabilities.surfaces && typeof appCapabilities.surfaces === "object"
+    ? appCapabilities.surfaces
+    : {};
+  const value =
+    placement === "bottom"
+      ? (surfaces.bottomDrawer || surfaces.bottom_drawer)
+      : (surfaces.rightPanel || surfaces.right_panel);
+  if (!Array.isArray(value)) return [];
+  return value;
+}
+
+function normalizeSurfaceCapabilityRecord(input, placement, index) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const kind = String(input.kind || input.id || "").trim();
+  if (!kind) return null;
+  const launcherOrder = Number(input.launcherOrder ?? input.launcher_order ?? index);
+  return {
+    kind,
+    title: String(input.title || ""),
+    icon: String(input.icon || ""),
+    description: String(input.description || ""),
+    placement,
+    resourceId: String(input.resourceId || input.resource_id || ""),
+    defaultResourceId: String(input.defaultResourceId || input.default_resource_id || ""),
+    closeBehavior: String(input.closeBehavior || input.close_behavior || ""),
+    launcher: input.launcher !== false,
+    launcherOrder: Number.isFinite(launcherOrder) ? launcherOrder : index,
+    command: input.command !== false,
+    commandLabel: String(input.commandLabel || input.command_label || ""),
+    slash: String(input.slash || ""),
+    visibleWhen: String(input.visibleWhen || input.visible_when || ""),
+    readOnly: input.readOnly === true || input.read_only === true,
+    offline: input.offline === true,
+    keywords: normalizeKeywords(input.keywords),
+    dispatch: input.dispatch && typeof input.dispatch === "object" ? { ...input.dispatch } : {},
+    bodyKind: String(input.bodyKind || input.body_kind || ""),
+    panelKind: String(input.panelKind || input.panel_kind || ""),
+    openKind: String(input.openKind || input.open_kind || ""),
+    activationKind: String(input.activationKind || input.activation_kind || ""),
+  };
+}
+
+export function surfaceCapabilityDefinitions(appCapabilities, placement) {
+  return surfaceCapabilityRecords(appCapabilities, placement)
+    .map((item, index) => normalizeSurfaceCapabilityRecord(item, placement, index))
+    .filter(Boolean);
+}
+
+export function surfaceChromeLabels(appCapabilities = null) {
+  const surfaces = appCapabilities?.surfaces && typeof appCapabilities.surfaces === "object"
+    ? appCapabilities.surfaces
+    : {};
+  const chrome = surfaces.chrome && typeof surfaces.chrome === "object" ? surfaces.chrome : {};
+  return {
+    rightPanelAriaLabel: String(chrome.rightPanelAriaLabel || ""),
+    addSurfaceLabel: String(chrome.addSurfaceLabel || ""),
+    emptyTitle: String(chrome.emptyTitle || ""),
+    emptyBody: String(chrome.emptyBody || ""),
+    surfaceActionsLabelPrefix: String(chrome.surfaceActionsLabelPrefix || ""),
+    closeLabelPrefix: String(chrome.closeLabelPrefix || ""),
+    closeActionLabel: String(chrome.closeActionLabel || ""),
+    closeOthersActionLabel: String(chrome.closeOthersActionLabel || ""),
+    closeToRightActionLabel: String(chrome.closeToRightActionLabel || ""),
+    closeAllActionLabel: String(chrome.closeAllActionLabel || ""),
+    defaultIcon: String(chrome.defaultIcon || ""),
+    bottomDrawerAriaLabel: String(chrome.bottomDrawerAriaLabel || ""),
+    runOutputEmptyMessage: String(chrome.runOutputEmptyMessage || ""),
+    terminationReasonPrefix: String(chrome.terminationReasonPrefix || ""),
+  };
+}
+
+function surfaceDefinitionsForPlacement(placement) {
+  return placement === "bottom" ? BOTTOM_DRAWER_SURFACE_REGISTRY : RIGHT_PANEL_SURFACE_REGISTRY;
+}
+
+function surfaceDefinitionForPlacement(kind, placement) {
+  const normalized = String(kind || "");
+  return surfaceDefinitionsForPlacement(normalizePlacement(placement))
+    .find((item) => item.kind === normalized) || null;
+}
+
+function dynamicSurfaceDefinitionFromCapability(capability, placement) {
+  if (normalizePlacement(placement) !== "right") return null;
+  if (!capability || !capability.kind) return null;
+  if (surfaceDefinitionForPlacement(capability.kind, placement)) return null;
+  const bodyKind = String(capability.bodyKind || "");
+  const panelKind = String(capability.panelKind || "descriptor");
+  if (!SAFE_DYNAMIC_RIGHT_PANEL_BODY_KINDS.includes(bodyKind)) return null;
+  if (!SAFE_DYNAMIC_SURFACE_PANEL_KINDS.includes(panelKind)) return null;
+  return defineSurface({
+    kind: capability.kind,
+    placement: "right",
+    resourceId: capability.resourceId || "singleton",
+    defaultResourceId: capability.defaultResourceId || "",
+    closeBehavior: capability.closeBehavior || "closable",
+    persistFields: DEFAULT_PERSIST_FIELDS,
+    bodyKind,
+    openKind: "workbench.surface",
+    activationKind: "",
+    panelKind,
+    launcher: true,
+    command: true,
+    readOnly: true,
+    offline: true,
+    dynamic: true,
+  });
+}
+
+function mergedSurfaceDefinition(definition, capability) {
+  return {
+    ...definition,
+    title: capability.title,
+    icon: capability.icon,
+    description: capability.description,
+    resourceId: capability.resourceId || definition.resourceId,
+    defaultResourceId: capability.defaultResourceId || definition.defaultResourceId,
+    closeBehavior: capability.closeBehavior || definition.closeBehavior,
+    launcher: capability.launcher && definition.launcher !== false,
+    launcherOrder: capability.launcherOrder,
+    command: capability.command && definition.command !== false,
+    commandLabel: capability.commandLabel,
+    slash: capability.slash || definition.slash || "",
+    visibleWhen: capability.visibleWhen || definition.visibleWhen || "always",
+    readOnly: capability.readOnly || definition.readOnly === true,
+    offline: capability.offline || definition.offline === true,
+    keywords: Object.freeze(Array.from(new Set(capability.keywords || []))),
+    dispatch: capability.dispatch && typeof capability.dispatch === "object"
+      ? { ...capability.dispatch }
+      : {},
+    bodyKind: definition.bodyKind || "",
+    openKind: definition.openKind || "",
+    activationKind: definition.activationKind || "",
+    panelKind: definition.panelKind || "",
+    dynamic: definition.dynamic === true,
+  };
+}
+
+function hasDisplayTitle(definition) {
+  return Boolean(String(definition && definition.title || "").trim());
+}
+
+function filterSurfaceDefinitions(definitions, placement, appCapabilities) {
+  const capabilities = surfaceCapabilityDefinitions(appCapabilities, placement);
+  if (capabilities.length === 0) return [];
+  const byKind = new Map(definitions.map((definition) => [definition.kind, definition]));
+  return capabilities
+    .map((capability) => {
+      const definition =
+        byKind.get(capability.kind) || dynamicSurfaceDefinitionFromCapability(capability, placement);
+      return definition ? mergedSurfaceDefinition(definition, capability) : null;
+    })
+    .filter((definition) => definition && definition.launcher && hasDisplayTitle(definition))
+    .sort((left, right) => (left.launcherOrder || 0) - (right.launcherOrder || 0));
+}
+
+function configuredSurfaceDefinitionFor(kind, placement, appCapabilities = null) {
+  const normalized = String(kind || "");
+  const staticDefinition = surfaceDefinitionForPlacement(normalized, placement);
+  if (!appCapabilities) return staticDefinition;
+  const capability = surfaceCapabilityDefinitions(appCapabilities, placement)
+    .find((item) => item.kind === normalized);
+  if (!capability) return null;
+  const definition = staticDefinition || dynamicSurfaceDefinitionFromCapability(capability, placement);
+  if (!definition) return null;
+  const merged = mergedSurfaceDefinition(definition, capability);
+  return hasDisplayTitle(merged) ? merged : null;
+}
 
 export function rightPanelSurfaceDefinitions() {
   return RIGHT_PANEL_SURFACE_REGISTRY;
 }
 
-export function surfaceDefinitionFor(kind) {
-  const normalized = String(kind || "");
-  return RIGHT_PANEL_SURFACE_REGISTRY.find((definition) => definition.kind === normalized) || null;
+export function surfaceDefinitionFor(kind, appCapabilities = null) {
+  return configuredSurfaceDefinitionFor(kind, "right", appCapabilities);
 }
 
-export function rightPanelLauncherSurfaceDefinitions() {
-  return RIGHT_PANEL_SURFACE_REGISTRY
-    .filter((definition) => definition.launcher)
-    .slice()
-    .sort((left, right) => (left.launcherOrder || 0) - (right.launcherOrder || 0));
+export function bottomDrawerSurfaceDefinitionFor(kind, appCapabilities = null) {
+  return configuredSurfaceDefinitionFor(kind, "bottom", appCapabilities);
 }
 
-export function surfaceCommandDefinitions() {
-  return rightPanelLauncherSurfaceDefinitions()
-    .filter((definition) => definition.command !== false)
+export function rightPanelLauncherSurfaceDefinitions(appCapabilities = null) {
+  return filterSurfaceDefinitions(RIGHT_PANEL_SURFACE_REGISTRY, "right", appCapabilities);
+}
+
+export function bottomDrawerSurfaceDefinitions(appCapabilities = null) {
+  return filterSurfaceDefinitions(BOTTOM_DRAWER_SURFACE_REGISTRY, "bottom", appCapabilities);
+}
+
+function appendSurfaceDefinition(result, seen, definition) {
+  if (!definition || seen.has(definition.kind)) return;
+  seen.add(definition.kind);
+  result.push(definition);
+}
+
+export function persistedSurfaceDefinitions(appCapabilities = null, placement = "right") {
+  const normalized = normalizePlacement(placement);
+  const definitions =
+    normalized === "bottom"
+      ? bottomDrawerSurfaceDefinitions(appCapabilities)
+      : rightPanelLauncherSurfaceDefinitions(appCapabilities);
+  const registryByKind = new Map(
+    surfaceDefinitionsForPlacement(normalized).map((definition) => [definition.kind, definition]),
+  );
+  const result = [];
+  const seen = new Set();
+  for (const definition of definitions) {
+    appendSurfaceDefinition(result, seen, definition);
+    for (const relatedKind of definition.persistedRelatedKinds || []) {
+      appendSurfaceDefinition(result, seen, registryByKind.get(relatedKind));
+    }
+  }
+  return result;
+}
+
+export function surfaceCommandDefinitions(appCapabilities = null) {
+  return rightPanelLauncherSurfaceDefinitions(appCapabilities)
+    .filter((definition) => definition.command !== false && definition.commandLabel)
     .map((definition) => ({
       id: `surface.${definition.kind}`,
       group: "surface",
-      label: `Open ${definition.title}`,
+      label: definition.commandLabel,
+      description: definition.description,
       slash: definition.slash || "",
       surface: definition.kind,
       visibleWhen: definition.visibleWhen || "always",
@@ -210,10 +418,27 @@ export function surfaceCommandDefinitions() {
     }));
 }
 
-export const RIGHT_PANEL_KINDS = RIGHT_PANEL_SURFACE_REGISTRY.map((definition) => definition.kind);
-export const RIGHT_PANEL_SURFACES = rightPanelLauncherSurfaceDefinitions()
-  .map((definition) => definition.kind);
-export const BOTTOM_DRAWER_SURFACES = ["terminal", "run_output", "logs"];
+export function bottomDrawerCommandDefinitions(appCapabilities = null) {
+  return bottomDrawerSurfaceDefinitions(appCapabilities)
+    .filter((definition) => definition.command !== false && definition.commandLabel)
+    .map((definition) => ({
+      id: `drawer.${definition.kind}`,
+      group: "surface",
+      label: definition.commandLabel,
+      description: definition.description,
+      slash: definition.slash || "",
+      drawer: definition.kind,
+      dispatch: definition.dispatch && typeof definition.dispatch === "object"
+        ? { ...definition.dispatch }
+        : {},
+      visibleWhen: definition.visibleWhen || "always",
+      ...(definition.keywords.length > 0 ? { keywords: Array.from(definition.keywords) } : {}),
+    }));
+}
+
+export function supportedSurfaceKinds(placement = "right") {
+  return surfaceDefinitionsForPlacement(placement).map((definition) => definition.kind);
+}
 
 export const DEFAULT_SESSION_KEY = "__global__";
 
@@ -226,12 +451,21 @@ function normalizePlacement(placement) {
   return placement === "bottom" ? "bottom" : "right";
 }
 
-function defaultActiveKind(placement) {
-  return placement === "bottom" ? "run_output" : "";
+function defaultActiveKind() {
+  return "";
 }
 
 function allowedKinds(placement) {
-  return placement === "bottom" ? BOTTOM_DRAWER_SURFACES : RIGHT_PANEL_KINDS;
+  return supportedSurfaceKinds(placement);
+}
+
+function actionSurfaceDefinition(input, placement, kind) {
+  const source = input && input.surfaceDefinition;
+  if (!source || typeof source !== "object" || Array.isArray(source)) return null;
+  const capability = normalizeSurfaceCapabilityRecord(source, placement, 0);
+  if (!capability || capability.kind !== kind) return null;
+  return surfaceDefinitionForPlacement(kind, placement)
+    || dynamicSurfaceDefinitionFromCapability(capability, placement);
 }
 
 function normalizeFilePath(path) {
@@ -246,6 +480,7 @@ function basenameForPath(path) {
 }
 
 function normalizeRevealLine(line) {
+  if (line === null || line === undefined || line === "") return null;
   const value = Number(line);
   if (!Number.isFinite(value)) return null;
   return Math.max(1, Math.trunc(value));
@@ -262,6 +497,70 @@ function uniqueTerminalIds(ids) {
   return result;
 }
 
+const SURFACE_INITIALIZERS = Object.freeze(Object.assign(Object.create(null), {
+  file: (input) => {
+    const filePath = normalizeFilePath(input && (input.filePath || input.resourceId));
+    return {
+      filePath,
+      resourceId: filePath,
+      title: basenameForPath(filePath),
+      revealLine: normalizeRevealLine(input && input.revealLine),
+      revealRequestId: Number.isSafeInteger(Number(input && input.revealRequestId))
+        ? Number(input.revealRequestId)
+        : 0,
+    };
+  },
+  terminal: (input, context) => {
+    const terminalIds = uniqueTerminalIds(
+      Array.isArray(input && input.terminalIds)
+        ? input.terminalIds
+        : [input && (input.terminalId || input.resourceId)],
+    );
+    const activeTerminalId = String((input && input.activeTerminalId) || terminalIds[0] || "");
+    const terminalId = String(
+      (input && input.terminalId) ||
+        (context && context.resourceId) ||
+        terminalIds[0] ||
+        activeTerminalId,
+    );
+    const normalizedTerminalIds = terminalIds.length > 0 ? terminalIds : [terminalId].filter(Boolean);
+    return {
+      resourceId: terminalId,
+      terminalId,
+      terminalIds: normalizedTerminalIds,
+      activeTerminalId: normalizedTerminalIds.includes(activeTerminalId)
+        ? activeTerminalId
+        : normalizedTerminalIds[0] || terminalId,
+      ...(input && input.splitDirection === "vertical" ? { splitDirection: "vertical" } : {}),
+    };
+  },
+  preview: (input) => ({
+    previewSnapshot:
+      input && input.previewSnapshot && typeof input.previewSnapshot === "object"
+        ? { ...input.previewSnapshot }
+        : null,
+  }),
+}));
+
+function initializerValue(values, key, fallback) {
+  return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : fallback;
+}
+
+function initializerExtras(values) {
+  const result = { ...values };
+  for (const key of [
+    "filePath",
+    "resourceId",
+    "terminalId",
+    "title",
+    "revealLine",
+    "revealRequestId",
+  ]) {
+    delete result[key];
+  }
+  return result;
+}
+
 function surfaceIdFor(input) {
   const placement = normalizePlacement(input && input.placement);
   const kind = String((input && input.kind) || defaultActiveKind(placement));
@@ -273,76 +572,70 @@ function surfaceIdFor(input) {
 function makeSurface(input) {
   const placement = normalizePlacement(input && input.placement);
   const kind = String((input && input.kind) || defaultActiveKind(placement));
-  const definition = placement === "right" ? surfaceDefinitionFor(kind) : null;
-  const filePath =
-    kind === "file"
-      ? normalizeFilePath(input && (input.filePath || input.resourceId))
-      : String((input && input.filePath) || "");
-  const resourceId =
-    kind === "file"
-      ? filePath
-      : String((input && input.resourceId) || (definition && definition.defaultResourceId) || "");
-  const terminalIds =
-    kind === "terminal"
-      ? uniqueTerminalIds(
-          Array.isArray(input && input.terminalIds)
-            ? input.terminalIds
-            : [input && (input.terminalId || input.resourceId)],
-        )
-      : [];
-  const activeTerminalId =
-    kind === "terminal"
-      ? String((input && input.activeTerminalId) || terminalIds[0] || "")
-      : "";
-  const terminalId =
-    kind === "terminal"
-      ? String((input && input.terminalId) || resourceId || terminalIds[0] || activeTerminalId)
-      : String((input && input.terminalId) || resourceId || "");
-  const effectiveResourceId = kind === "terminal" ? terminalId : resourceId;
+  const definition =
+    actionSurfaceDefinition(input, placement, kind) || surfaceDefinitionForPlacement(kind, placement);
+  const defaultFilePath = String((input && input.filePath) || "");
+  const defaultResourceId = String(
+    (input && input.resourceId) || (definition && definition.defaultResourceId) || "",
+  );
+  const defaultTerminalId = String((input && input.terminalId) || "");
+  const initializer = SURFACE_INITIALIZERS[kind] || null;
+  const initialized = initializer
+    ? initializer(input, {
+        placement,
+        kind,
+        definition,
+        filePath: defaultFilePath,
+        resourceId: defaultResourceId,
+        terminalId: defaultTerminalId,
+      })
+    : {};
+  const filePath = initializerValue(initialized, "filePath", defaultFilePath);
+  const resourceId = initializerValue(initialized, "resourceId", defaultResourceId);
+  const terminalId = initializerValue(initialized, "terminalId", defaultTerminalId);
   const base = {
     id: String(
       (input && input.surfaceId) ||
-        surfaceIdFor({ ...input, filePath, resourceId: effectiveResourceId }),
+        surfaceIdFor({ ...input, filePath, resourceId }),
     ),
     placement,
     kind,
     title: String(
       (input && input.title) ||
-        (kind === "file" ? basenameForPath(filePath) : titleForSurfaceKind(kind)),
+        initializerValue(initialized, "title", titleForSurfaceKind(kind)),
     ),
-    resourceId: effectiveResourceId,
+    resourceId,
     filePath,
     terminalId,
-    revealLine: kind === "file" ? normalizeRevealLine(input && input.revealLine) : null,
-    revealRequestId:
-      kind === "file" && Number.isSafeInteger(Number(input && input.revealRequestId))
-        ? Number(input.revealRequestId)
-        : 0,
+    revealLine: initializerValue(initialized, "revealLine", null),
+    revealRequestId: initializerValue(initialized, "revealRequestId", 0),
   };
-  if (kind === "preview") {
-    return {
-      ...base,
-      previewSnapshot:
-        input && input.previewSnapshot && typeof input.previewSnapshot === "object"
-          ? { ...input.previewSnapshot }
-          : null,
-    };
-  }
-  if (kind !== "terminal") {
-    return base;
-  }
-  const normalizedTerminalIds = terminalIds.length > 0 ? terminalIds : [terminalId].filter(Boolean);
-  return {
-    ...base,
-    terminalIds: normalizedTerminalIds,
-    activeTerminalId: activeTerminalId || terminalId,
-    ...(input && input.splitDirection === "vertical" ? { splitDirection: "vertical" } : {}),
-  };
+  return { ...base, ...initializerExtras(initialized) };
 }
 
-export function titleForSurfaceKind(kind) {
-  const definition = surfaceDefinitionFor(kind);
-  return definition ? definition.title : String(kind || "");
+function pickSurfaceFields(surface, fields) {
+  const result = {};
+  for (const field of fields || []) {
+    if (Object.prototype.hasOwnProperty.call(surface, field) && surface[field] !== undefined) {
+      result[field] = surface[field];
+    }
+  }
+  return result;
+}
+
+export function persistedSurfaceFrom(input, fallbackPlacement = "right", appCapabilities = null) {
+  const source = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  const placement = normalizePlacement(source.placement || fallbackPlacement);
+  const kind = String(source.kind || "").trim();
+  const definition = configuredSurfaceDefinitionFor(kind, placement, appCapabilities);
+  if (!definition && !allowedKinds(placement).includes(kind)) return null;
+  const surface = makeSurface({ ...source, placement, kind });
+  return definition ? pickSurfaceFields(surface, definition.persistFields) : surface;
+}
+
+export function titleForSurfaceKind(kind, appCapabilities = null) {
+  const definition = surfaceDefinitionFor(kind, appCapabilities);
+  return definition && definition.title ? definition.title : "";
 }
 
 function emptySessionSurfaces() {
@@ -371,6 +664,19 @@ function removeSurface(items, surfaceId) {
 
 function activeSurfaceFrom(items, activeSurfaceId) {
   return items.find((item) => item.id === activeSurfaceId) || null;
+}
+
+export function rightPanelSurfacesFrom(workbenchState) {
+  const rightPanel = workbenchState && workbenchState.rightPanel;
+  return Array.isArray(rightPanel && rightPanel.surfaces) ? rightPanel.surfaces : [];
+}
+
+export function activeRightPanelSurfaceFrom(workbenchState) {
+  const rightPanel = workbenchState && workbenchState.rightPanel;
+  return activeSurfaceFrom(
+    rightPanelSurfacesFrom(workbenchState),
+    rightPanel ? rightPanel.activeSurfaceId : null,
+  );
 }
 
 function activateRightPanelSurface(panel, surface) {
@@ -414,13 +720,97 @@ function nextActiveAfterClose(items, closedIndex) {
   return items[boundedIndex] || items[items.length - 1] || null;
 }
 
+const SURFACE_OPEN_PREPARERS = Object.freeze(Object.assign(Object.create(null), {
+  file: ({ currentItems, input, surface }) => {
+    const filePath = normalizeFilePath(surface.filePath || surface.resourceId);
+    const existingFile = filePath
+      ? currentItems.find(
+          (item) =>
+            item.kind === "file" &&
+            normalizeFilePath(item.filePath || item.resourceId) === filePath,
+        )
+      : null;
+    return {
+      surface: makeSurface({
+        ...input,
+        placement: "right",
+        kind: "file",
+        filePath,
+        resourceId: filePath,
+        revealRequestId: Number((existingFile && existingFile.revealRequestId) || 0) + 1,
+      }),
+      items: currentItems.filter((item) => item.kind !== "files"),
+    };
+  },
+  preview: ({ currentItems, surface }) => ({
+    surface,
+    items: surface.resourceId
+      ? currentItems.filter((item) => !(item.kind === "preview" && !item.resourceId))
+      : currentItems,
+  }),
+}));
+
+const SURFACE_PANE_HANDLERS = Object.freeze(Object.assign(Object.create(null), {
+  terminal: Object.freeze({
+    split(surface, input) {
+      const terminalId = String((input && input.terminalId) || "").trim();
+      if (!terminalId) return null;
+      const terminalIds = uniqueTerminalIds([...(surface.terminalIds || []), terminalId]);
+      const nextSurface = {
+        ...surface,
+        terminalIds,
+        activeTerminalId: terminalId,
+      };
+      if (input && input.splitDirection === "vertical") {
+        return { ...nextSurface, splitDirection: "vertical" };
+      }
+      const { splitDirection, ...withoutDirection } = nextSurface;
+      return withoutDirection;
+    },
+    activate(surface, input) {
+      const terminalId = String((input && input.terminalId) || "").trim();
+      if (
+        !terminalId ||
+        !Array.isArray(surface.terminalIds) ||
+        !surface.terminalIds.includes(terminalId)
+      ) {
+        return null;
+      }
+      return { ...surface, activeTerminalId: terminalId };
+    },
+    close(surface, input) {
+      const terminalId = String((input && input.terminalId) || "").trim();
+      if (!terminalId) return null;
+      const terminalIds = (surface.terminalIds || []).filter((id) => id !== terminalId);
+      if (terminalIds.length === 0) {
+        return { closeSurface: true };
+      }
+      return {
+        surface: {
+          ...surface,
+          terminalIds,
+          activeTerminalId:
+            surface.activeTerminalId === terminalId
+              ? terminalIds[terminalIds.length - 1] || terminalIds[0]
+              : surface.activeTerminalId,
+        },
+      };
+    },
+  }),
+}));
+
+function prepareRightPanelSurfaceOpen(currentItems, surface, input) {
+  const preparer = SURFACE_OPEN_PREPARERS[surface.kind] || null;
+  return preparer ? preparer({ currentItems, surface, input }) : { surface, items: currentItems };
+}
+
+function paneHandlerFor(surface) {
+  return surface ? SURFACE_PANE_HANDLERS[surface.kind] || null : null;
+}
+
 export function createWorkbenchState() {
   return {
     activeSessionKey: DEFAULT_SESSION_KEY,
-    sidebar: {
-      activeSection: "threads",
-      projectSection: "files",
-    },
     rightPanel: {
       open: true,
       activeKind: "",
@@ -430,7 +820,7 @@ export function createWorkbenchState() {
     },
     bottomDrawer: {
       open: false,
-      activeKind: "run_output",
+      activeKind: "",
       height: 220,
     },
     commandPalette: {
@@ -478,45 +868,20 @@ export function openSurface(state, input) {
   const current = state || createWorkbenchState();
   const surface = makeSurface(input || {});
   const placement = normalizePlacement(surface.placement);
-  if (!allowedKinds(placement).includes(surface.kind)) {
+  const definition =
+    actionSurfaceDefinition(input, placement, surface.kind)
+    || surfaceDefinitionForPlacement(surface.kind, placement);
+  if (!definition && !allowedKinds(placement).includes(surface.kind)) {
     return current;
   }
   if (placement === "right") {
     const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
     const currentItems = current.rightPanel.surfaces || [];
-    const filePath =
-      surface.kind === "file"
-        ? normalizeFilePath(surface.filePath || surface.resourceId)
-        : "";
-    const existingFile = filePath
-      ? currentItems.find(
-          (item) =>
-            item.kind === "file" &&
-            normalizeFilePath(item.filePath || item.resourceId) === filePath,
-        )
-      : null;
-    const nextSurface =
-      surface.kind === "file"
-        ? makeSurface({
-            ...input,
-            placement: "right",
-            kind: "file",
-            filePath,
-            resourceId: filePath,
-            revealRequestId: Number((existingFile && existingFile.revealRequestId) || 0) + 1,
-          })
-        : surface;
-    const hasPreviewResource = nextSurface.kind === "preview" && Boolean(nextSurface.resourceId);
-    const sourceItems =
-      nextSurface.kind === "file"
-        ? currentItems.filter((item) => item.kind !== "files")
-        : hasPreviewResource
-          ? currentItems.filter((item) => !(item.kind === "preview" && !item.resourceId))
-          : currentItems;
-    const surfaces = upsertSurface(sourceItems, nextSurface);
+    const prepared = prepareRightPanelSurfaceOpen(currentItems, surface, input);
+    const surfaces = upsertSurface(prepared.items, prepared.surface);
     const nextPanel = activateRightPanelSurface(
       { ...current.rightPanel, surfaces },
-      nextSurface,
+      prepared.surface,
     );
     return rememberRightPanelSession({
       ...current,
@@ -548,18 +913,20 @@ export function openFileSurface(state, input = {}) {
     kind: "file",
     filePath,
     resourceId: filePath,
-    title: basenameForPath(filePath) || "File",
+    title: basenameForPath(filePath),
   });
 }
 
 export function openPreviewSurface(state, input = {}) {
   const previewId = String(input.previewId || input.resourceId || "").trim();
+  const title = String(input.title || previewId).trim();
+  if (!title) return state || createWorkbenchState();
   return openSurface(state, {
     ...input,
     placement: "right",
     kind: "preview",
     resourceId: previewId,
-    title: input.title || "Preview",
+    title,
   });
 }
 
@@ -570,7 +937,7 @@ export function openTerminalSurface(state, input = {}) {
     ...input,
     placement: "right",
     kind: "terminal",
-    title: input.title || "Terminal",
+    title: input.title || terminalId,
     resourceId: terminalId,
     terminalId,
     terminalIds: [terminalId],
@@ -735,21 +1102,14 @@ function splitTerminalSurface(state, input) {
   const surfaceId = String((input && input.surfaceId) || "");
   const terminalId = String((input && input.terminalId) || "").trim();
   if (!surfaceId || !terminalId) return current;
+  let active = null;
   const surfaces = (current.rightPanel.surfaces || []).map((surface) => {
-    if (surface.id !== surfaceId || surface.kind !== "terminal") return surface;
-    const terminalIds = uniqueTerminalIds([...(surface.terminalIds || []), terminalId]);
-    const nextSurface = {
-      ...surface,
-      terminalIds,
-      activeTerminalId: terminalId,
-    };
-    if (input && input.splitDirection === "vertical") {
-      return { ...nextSurface, splitDirection: "vertical" };
-    }
-    const { splitDirection, ...withoutDirection } = nextSurface;
-    return withoutDirection;
+    if (surface.id !== surfaceId) return surface;
+    const handler = paneHandlerFor(surface);
+    const nextSurface = handler && handler.split ? handler.split(surface, input) : null;
+    active = nextSurface;
+    return nextSurface || surface;
   });
-  const active = activeSurfaceFrom(surfaces, surfaceId);
   if (!active) return current;
   const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
   const nextPanel = activateRightPanelSurface({ ...current.rightPanel, surfaces }, active);
@@ -765,15 +1125,14 @@ function activateTerminalPane(state, input) {
   const surfaceId = String((input && input.surfaceId) || "");
   const terminalId = String((input && input.terminalId) || "").trim();
   if (!surfaceId || !terminalId) return current;
-  const surfaces = (current.rightPanel.surfaces || []).map((surface) =>
-    surface.id === surfaceId &&
-    surface.kind === "terminal" &&
-    Array.isArray(surface.terminalIds) &&
-    surface.terminalIds.includes(terminalId)
-      ? { ...surface, activeTerminalId: terminalId }
-      : surface,
-  );
-  const active = activeSurfaceFrom(surfaces, surfaceId);
+  let active = null;
+  const surfaces = (current.rightPanel.surfaces || []).map((surface) => {
+    if (surface.id !== surfaceId) return surface;
+    const handler = paneHandlerFor(surface);
+    const nextSurface = handler && handler.activate ? handler.activate(surface, input) : null;
+    active = nextSurface;
+    return nextSurface || surface;
+  });
   if (!active) return current;
   const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
   const nextPanel = activateRightPanelSurface({ ...current.rightPanel, surfaces }, active);
@@ -789,26 +1148,21 @@ function closeTerminalPane(state, input) {
   const surfaceId = String((input && input.surfaceId) || "");
   const terminalId = String((input && input.terminalId) || "").trim();
   const items = current.rightPanel.surfaces || [];
-  const index = items.findIndex((surface) => surface.id === surfaceId && surface.kind === "terminal");
+  const index = items.findIndex((surface) => surface.id === surfaceId && paneHandlerFor(surface));
   if (index < 0 || !terminalId) return current;
   const surface = items[index];
-  const terminalIds = (surface.terminalIds || []).filter((id) => id !== terminalId);
-  if (terminalIds.length === 0) {
+  const handler = paneHandlerFor(surface);
+  const result = handler && handler.close ? handler.close(surface, input) : null;
+  if (!result) return current;
+  if (result.closeSurface) {
     return closeSurface(current, {
       placement: "right",
       surfaceId,
-      kind: "terminal",
+      kind: surface.kind,
       resourceId: surface.resourceId,
     });
   }
-  const nextSurface = {
-    ...surface,
-    terminalIds,
-    activeTerminalId:
-      surface.activeTerminalId === terminalId
-        ? terminalIds[terminalIds.length - 1] || terminalIds[0]
-        : surface.activeTerminalId,
-  };
+  const nextSurface = result.surface;
   const surfaces = items.map((item, itemIndex) => (itemIndex === index ? nextSurface : item));
   const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
   const nextPanel = activateRightPanelSurface({ ...current.rightPanel, surfaces }, nextSurface);

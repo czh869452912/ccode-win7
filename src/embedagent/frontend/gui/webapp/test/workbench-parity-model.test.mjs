@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
 
 import { initialState, reducer } from "../src/store.js";
-import { surfaceCommandDefinitions } from "../src/workbench/surfaces.js";
+import {
+  bottomDrawerCommandDefinitions,
+  surfaceCommandDefinitions,
+} from "../src/workbench/surfaces.js";
 import { buildWorkbenchParityModel } from "../src/workbench/workbench-parity-model.js";
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function surface(id, title = id, launcherOrder = 0) {
+  return { id, title, launcherOrder };
 }
 
 function sessionWorkspaceState(patch = {}) {
@@ -15,6 +22,38 @@ function sessionWorkspaceState(patch = {}) {
       ...initialState.app,
       hasActiveWorkspace: true,
       activeWorkspace: { id: "ws-1", label: "demo", path: "D:/work/demo" },
+      capabilities: {
+        appCommands: [
+          { id: "app.settings", group: "app", label: "Preferences" },
+          { id: "app.diagnostics", group: "app", label: "Health" },
+          { id: "app.source_control", group: "app", label: "Changes", surface: "source_control" },
+          { id: "app.reload", group: "app", label: "Reload Shell" },
+        ],
+        workspaceCommands: [
+          { id: "workspace.open", group: "workspace", label: "Open Project" },
+          { id: "workspace.refresh", group: "workspace", label: "Refresh Projects" },
+          { id: "workspace.remove_current", group: "workspace", label: "Forget Project" },
+        ],
+        surfaces: {
+          rightPanel: [
+            surface("preview", "Preview", 10),
+            surface("files", "Files", 20),
+            surface("terminal", "Terminal", 30),
+            surface("diff", "Diff", 40),
+            surface("plan", "Plan", 50),
+            surface("source_control", "Source Control", 60),
+            surface("settings", "Settings", 70),
+            surface("diagnostics", "Diagnostics", 80),
+          ],
+          bottomDrawer: [
+            surface("run_output", "Run Output", 10),
+            surface("terminal", "Terminal", 20),
+          ],
+        },
+        sourceControl: initialState.app.capabilities.sourceControl,
+        terminal: initialState.app.capabilities.terminal,
+        threadLifecycle: initialState.app.capabilities.threadLifecycle,
+      },
     },
     thread: {
       ...initialState.thread,
@@ -56,10 +95,33 @@ export function runWorkbenchParityModelTests() {
   assert.equal(desktopModel.composer.mode, "command-ready");
   assert.equal(desktopModel.timeline.density, "compact");
   assert.deepEqual(desktopModel.commandPalette.availableSurfaceCommands, [
-    ...surfaceCommandDefinitions().map((command) => command.id),
-    "drawer.run_output",
-    "drawer.terminal",
+    ...surfaceCommandDefinitions(desktop.app.capabilities).map((command) => command.id),
+    ...bottomDrawerCommandDefinitions(desktop.app.capabilities).map((command) => command.id),
   ]);
+
+  const undeclaredModel = buildWorkbenchParityModel(
+    {
+      ...desktop,
+      app: {
+        ...desktop.app,
+        capabilities: null,
+      },
+    },
+    { width: 1440, height: 900 },
+  );
+  assert.deepEqual(undeclaredModel.commandPalette.availableSurfaceCommands, []);
+
+  const missingSessionCapabilitiesModel = buildWorkbenchParityModel(
+    {
+      ...desktop,
+      sessionCapabilities: null,
+    },
+    { width: 1440, height: 900 },
+  );
+  assert.deepEqual(
+    missingSessionCapabilitiesModel.commandPalette.availableSurfaceCommands,
+    desktopModel.commandPalette.availableSurfaceCommands,
+  );
 
   let narrow = sessionWorkspaceState({ snapshot: { status: "running" } });
   narrow = openRightSurface(narrow, "terminal", {

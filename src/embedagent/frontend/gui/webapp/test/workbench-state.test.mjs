@@ -1,48 +1,193 @@
 import assert from "node:assert/strict";
 
 import {
-  APP_COMMANDS,
-  isAppCommand,
-} from "../src/app-shell/commands.js";
-import {
-  COMMAND_GROUPS,
-  WORKBENCH_COMMANDS,
+  buildCommandVisibilityContext,
   commandById,
+  isTurnInterruptibleStatus,
   visibleCommands,
 } from "../src/workbench/commands.js";
 import {
-  DEFAULT_KEYBINDINGS,
   eventToKey,
   resolveKeybinding,
 } from "../src/workbench/keybindings.js";
 import {
-  BOTTOM_DRAWER_SURFACES,
-  RIGHT_PANEL_KINDS,
   RIGHT_PANEL_SURFACE_REGISTRY,
-  RIGHT_PANEL_SURFACES,
+  activeRightPanelSurfaceFrom,
   activateSurface,
+  bottomDrawerCommandDefinitions,
+  bottomDrawerSurfaceDefinitionFor,
+  bottomDrawerSurfaceDefinitions,
   closeAllSurfaces,
   closeOtherSurfaces,
   closeSurface,
   closeSurfacesToRight,
   createWorkbenchState,
   openSurface,
+  persistedSurfaceFrom,
   reduceWorkbenchState,
   rightPanelLauncherSurfaceDefinitions,
+  rightPanelSurfacesFrom,
   rightPanelSurfaceDefinitions,
   surfaceCommandDefinitions,
+  surfaceChromeLabels,
   surfaceDefinitionFor,
+  supportedSurfaceKinds,
 } from "../src/workbench/surfaces.js";
+
+function surface(id, title = id, launcherOrder = 0, metadata = {}) {
+  return { id, title, launcherOrder, commandLabel: `Show ${title}`, ...metadata };
+}
+
+const RIGHT_PANEL_CAPABILITY_DESCRIPTORS = Object.freeze([
+  surface("preview", "Preview", 10),
+  surface("files", "Files", 20),
+  surface("file", "File", 25, { command: false, launcher: false }),
+  surface("terminal", "Terminal", 30),
+  surface("diff", "Diff", 40),
+  surface("plan", "Plan", 50),
+  surface("source_control", "Source Control", 60),
+  surface("settings", "Settings", 70),
+  surface("diagnostics", "Diagnostics", 80),
+]);
+
+const BOTTOM_DRAWER_CAPABILITY_DESCRIPTORS = Object.freeze([
+  surface("run_output", "Run Output", 10),
+  surface("terminal", "Terminal", 20),
+]);
+
+const KEYBINDING_DESCRIPTORS = Object.freeze([
+  { key: "mod+k", commandId: "palette.open", when: "not_palette" },
+  { key: "mod+,", commandId: "app.settings", when: "always" },
+  { key: "mod+1", commandId: "surface.files", when: "always" },
+  { key: "mod+2", commandId: "surface.terminal", when: "always" },
+  { key: "mod+3", commandId: "surface.diff", when: "always" },
+  { key: "mod+4", commandId: "surface.preview", when: "always" },
+]);
+
+const APP_COMMAND_DESCRIPTORS = Object.freeze([
+  { id: "app.settings", group: "app", label: "Preferences", visibleWhen: "always", order: 10 },
+  { id: "app.diagnostics", group: "app", label: "Health", visibleWhen: "always", order: 20 },
+  { id: "app.source_control", group: "app", label: "Changes", surface: "source_control", visibleWhen: "always", order: 30 },
+  { id: "app.reload", group: "app", label: "Reload Shell", visibleWhen: "always", order: 40 },
+]);
+
+const WORKSPACE_COMMAND_DESCRIPTORS = Object.freeze([
+  { id: "workspace.open", group: "workspace", label: "Open Project", visibleWhen: "always", order: 10 },
+  { id: "workspace.refresh", group: "workspace", label: "Refresh Projects", visibleWhen: "always", order: 20 },
+  { id: "workspace.remove_current", group: "workspace", label: "Forget Project", visibleWhen: "has_workspace", order: 30 },
+]);
+
+const WORKBENCH_COMMAND_DESCRIPTORS = Object.freeze([
+  { id: "session.new", group: "session", label: "New Session", slash: "/new", visibleWhen: "always", order: 10 },
+  { id: "thread.new", group: "session", label: "New Thread", slash: "", visibleWhen: "always", order: 20 },
+  { id: "session.refresh", group: "session", label: "Refresh Sessions", slash: "/sessions", visibleWhen: "always", order: 30 },
+  { id: "session.resume", group: "session", label: "Resume Session", slash: "/resume", visibleWhen: "always", order: 40 },
+  { id: "message.send", group: "message", label: "Send Message", slash: "", visibleWhen: "composer_ready", order: 10 },
+  { id: "message.stop", group: "message", label: "Stop Running Turn", slash: "", visibleWhen: "running", order: 20 },
+  { id: "view.toggle_right_panel", group: "view", label: "Toggle Right Panel", slash: "", visibleWhen: "always", order: 10 },
+  { id: "view.toggle_bottom_drawer", group: "view", label: "Toggle Bottom Drawer", slash: "", visibleWhen: "always", order: 20 },
+  { id: "palette.open", group: "view", label: "Open Command Palette", slash: "", visibleWhen: "always", order: 30 },
+  { id: "palette.close", group: "view", label: "Close Command Palette", slash: "", visibleWhen: "palette_open", order: 40 },
+]);
+
+function cloneSurfaces(items) {
+  return items.map((item) => ({ ...item }));
+}
+
+function capabilityIds(items) {
+  return items.map((item) => item.id);
+}
+
+function launcherCapabilityIds(items) {
+  return capabilityIds(items.filter((item) => item.launcher !== false));
+}
 
 export function runWorkbenchStateTests() {
   const registryDefinitions = rightPanelSurfaceDefinitions();
+  const fullAppCapabilities = {
+    appCommands: APP_COMMAND_DESCRIPTORS.map((item) => ({ ...item })),
+    workspaceCommands: WORKSPACE_COMMAND_DESCRIPTORS.map((item) => ({ ...item })),
+    workbenchCommands: WORKBENCH_COMMAND_DESCRIPTORS.map((item) => ({ ...item })),
+    surfaces: {
+      chrome: {
+        rightPanelAriaLabel: "Workspace panel",
+        addSurfaceLabel: "Add workspace view",
+        emptyTitle: "Open workspace view",
+        emptyBody: "Choose a view.",
+        surfaceActionsLabelPrefix: "View actions for",
+        closeLabelPrefix: "Close view",
+        closeActionLabel: "Close view",
+        closeOthersActionLabel: "Close other views",
+        closeToRightActionLabel: "Close views to the right",
+        closeAllActionLabel: "Close all views",
+        defaultIcon: "V",
+        bottomDrawerAriaLabel: "Output drawer",
+        runOutputEmptyMessage: "No output yet.",
+        terminationReasonPrefix: "finished",
+      },
+      rightPanel: cloneSurfaces(RIGHT_PANEL_CAPABILITY_DESCRIPTORS),
+      bottomDrawer: cloneSurfaces(BOTTOM_DRAWER_CAPABILITY_DESCRIPTORS),
+    },
+    keybindings: KEYBINDING_DESCRIPTORS.map((item) => ({ ...item })),
+  };
   assert.equal(registryDefinitions, RIGHT_PANEL_SURFACE_REGISTRY);
-  assert.deepEqual(registryDefinitions.map((definition) => definition.kind), RIGHT_PANEL_KINDS);
-  assert.deepEqual(rightPanelLauncherSurfaceDefinitions().map((definition) => definition.kind), RIGHT_PANEL_SURFACES);
+  assert.deepEqual(registryDefinitions.map((definition) => definition.kind), supportedSurfaceKinds("right"));
+  assert.deepEqual(rightPanelLauncherSurfaceDefinitions().map((definition) => definition.kind), []);
+  assert.deepEqual(
+    rightPanelLauncherSurfaceDefinitions(fullAppCapabilities).map((definition) => definition.kind),
+    launcherCapabilityIds(RIGHT_PANEL_CAPABILITY_DESCRIPTORS),
+  );
+  assert.equal(surfaceChromeLabels(fullAppCapabilities).emptyTitle, "Open workspace view");
+  assert.equal(surfaceChromeLabels(fullAppCapabilities).closeAllActionLabel, "Close all views");
+  assert.equal(surfaceChromeLabels(fullAppCapabilities).bottomDrawerAriaLabel, "Output drawer");
+  assert.equal(surfaceChromeLabels(fullAppCapabilities).runOutputEmptyMessage, "No output yet.");
+  assert.equal(surfaceChromeLabels(fullAppCapabilities).terminationReasonPrefix, "finished");
+  assert.equal(rightPanelLauncherSurfaceDefinitions(fullAppCapabilities)[0].title, "Preview");
+  assert.equal(rightPanelLauncherSurfaceDefinitions(fullAppCapabilities)[0].commandLabel, "Show Preview");
+  const describedSurfaceCommands = surfaceCommandDefinitions({
+    surfaces: {
+      rightPanel: [
+        {
+          id: "preview",
+          title: "Preview",
+          description: "Open a local preview descriptor.",
+          commandLabel: "Show Preview",
+          launcherOrder: 10,
+        },
+      ],
+    },
+  });
+  assert.equal(describedSurfaceCommands[0].description, "Open a local preview descriptor.");
+  assert.equal(bottomDrawerSurfaceDefinitions(fullAppCapabilities)[0].title, "Run Output");
+  assert.equal(bottomDrawerSurfaceDefinitions(fullAppCapabilities)[0].commandLabel, "Show Run Output");
+  const describedDrawerCommands = bottomDrawerCommandDefinitions({
+    surfaces: {
+      bottomDrawer: [
+        {
+          id: "terminal",
+          title: "Terminal",
+          description: "Open a terminal descriptor.",
+          commandLabel: "Show Terminal",
+          dispatch: { kind: "terminal.ensure_open" },
+          launcherOrder: 10,
+        },
+      ],
+    },
+  });
+  assert.equal(describedDrawerCommands[0].description, "Open a terminal descriptor.");
+  assert.deepEqual(describedDrawerCommands[0].dispatch, { kind: "terminal.ensure_open" });
+  assert.equal(bottomDrawerSurfaceDefinitions(fullAppCapabilities)[0].bodyKind, "run_output");
+  assert.equal(bottomDrawerSurfaceDefinitions(fullAppCapabilities)[1].bodyKind, "terminal");
+  assert.equal(bottomDrawerSurfaceDefinitionFor("run_output").activationKind, "workbench.surface");
+  assert.equal(bottomDrawerSurfaceDefinitionFor("terminal").activationKind, "terminal.ensure_open");
+  assert.equal(surfaceDefinitionFor("preview", fullAppCapabilities).title, "Preview");
   for (const definition of registryDefinitions) {
     assert.equal(definition.placement, "right");
     assert.equal(typeof definition.kind, "string");
-    assert.equal(Boolean(definition.title), true);
+    assert.equal(Object.hasOwn(definition, "title"), false);
+    assert.equal(Object.hasOwn(definition, "icon"), false);
+    assert.equal(Object.hasOwn(definition, "description"), false);
+    assert.equal(Object.hasOwn(definition, "commandLabel"), false);
     assert.equal(Boolean(definition.resourceId), true);
     assert.equal(Boolean(definition.closeBehavior), true);
     assert.equal(Array.isArray(definition.persistFields), true);
@@ -56,30 +201,145 @@ export function runWorkbenchStateTests() {
   assert.equal(surfaceDefinitionFor("file").launcher, false);
   assert.equal(surfaceDefinitionFor("file").command, false);
   assert.equal(surfaceDefinitionFor("diff").defaultResourceId, "current");
+  assert.equal(surfaceDefinitionFor("files").bodyKind, "files");
+  assert.equal(surfaceDefinitionFor("file").bodyKind, "file_preview");
+  assert.equal(surfaceDefinitionFor("preview").bodyKind, "preview");
+  assert.equal(surfaceDefinitionFor("terminal").bodyKind, "terminal");
+  assert.equal(surfaceDefinitionFor("settings").bodyKind, "surface_panel");
+  assert.equal(surfaceDefinitionFor("preview").openKind, "workbench.surface");
+  assert.equal(surfaceDefinitionFor("terminal").openKind, "terminal.right_panel");
+  assert.equal(surfaceDefinitionFor("file").openKind, "");
+  assert.equal(surfaceDefinitionFor("terminal").activationKind, "terminal.open_active");
+  assert.equal(surfaceDefinitionFor("preview").activationKind, "");
+  assert.equal(surfaceDefinitionFor("diff").panelKind, "diff");
+  assert.equal(surfaceDefinitionFor("plan").panelKind, "plan");
+  assert.equal(surfaceDefinitionFor("source_control").panelKind, "source_control");
+  assert.equal(surfaceDefinitionFor("settings").panelKind, "settings");
+  assert.equal(surfaceDefinitionFor("diagnostics").panelKind, "diagnostics");
+  assert.deepEqual(
+    persistedSurfaceFrom(
+      {
+        placement: "right",
+        kind: "file",
+        resourceId: "src/main.c",
+        content: "must not persist",
+      },
+      "right",
+    ),
+    {
+      id: "right:file:src/main.c",
+      placement: "right",
+      kind: "file",
+      title: "main.c",
+      resourceId: "src/main.c",
+      filePath: "src/main.c",
+      terminalId: "",
+      revealLine: null,
+      revealRequestId: 0,
+    },
+  );
 
-  assert.deepEqual(RIGHT_PANEL_KINDS, [
-    "preview",
-    "diff",
-    "files",
-    "file",
-    "terminal",
-    "plan",
-    "source_control",
-    "settings",
-    "diagnostics",
-  ]);
-  assert.deepEqual(RIGHT_PANEL_SURFACES, [
-    "preview",
-    "files",
-    "terminal",
-    "diff",
-    "plan",
-    "source_control",
-    "settings",
-    "diagnostics",
-  ]);
-  assert.equal(BOTTOM_DRAWER_SURFACES.includes("terminal"), true);
-  assert.equal(BOTTOM_DRAWER_SURFACES.includes("run_output"), true);
+  assert.equal(supportedSurfaceKinds("right").includes("file"), true);
+  assert.equal(supportedSurfaceKinds("bottom").includes("terminal"), true);
+  assert.equal(supportedSurfaceKinds("bottom").includes("run_output"), true);
+  assert.equal(supportedSurfaceKinds("bottom").includes("logs"), false);
+  assert.deepEqual(bottomDrawerSurfaceDefinitions().map((definition) => definition.kind), []);
+  assert.deepEqual(
+    bottomDrawerSurfaceDefinitions(fullAppCapabilities).map((definition) => definition.kind),
+    capabilityIds(BOTTOM_DRAWER_CAPABILITY_DESCRIPTORS),
+  );
+
+  const untitledAppCapabilities = {
+    surfaces: {
+      rightPanel: [
+        { id: "settings", title: "", commandLabel: "Open Preferences", launcherOrder: 10 },
+        { id: "diagnostics", title: "Health", commandLabel: "Open Health", launcherOrder: 20 },
+      ],
+      bottomDrawer: [
+        { id: "logs", title: "", commandLabel: "Open Logs", launcherOrder: 10 },
+        { id: "terminal", title: "Shell", commandLabel: "Open Shell", launcherOrder: 20 },
+      ],
+    },
+  };
+  assert.deepEqual(
+    rightPanelLauncherSurfaceDefinitions(untitledAppCapabilities).map((definition) => definition.kind),
+    ["diagnostics"],
+  );
+  assert.deepEqual(
+    surfaceCommandDefinitions(untitledAppCapabilities).map((definition) => definition.id),
+    ["surface.diagnostics"],
+  );
+  assert.deepEqual(
+    bottomDrawerSurfaceDefinitions(untitledAppCapabilities).map((definition) => definition.kind),
+    ["terminal"],
+  );
+  assert.deepEqual(
+    bottomDrawerCommandDefinitions(untitledAppCapabilities).map((definition) => definition.id),
+    ["drawer.terminal"],
+  );
+  assert.equal(surfaceDefinitionFor("settings", untitledAppCapabilities), null);
+  assert.equal(surfaceDefinitionFor("diagnostics", untitledAppCapabilities).title, "Health");
+
+  const dynamicAppCapabilities = {
+    surfaces: {
+      rightPanel: [
+        {
+          id: "quality",
+          title: "Quality",
+          description: "Local quality gates",
+          commandLabel: "Show Quality",
+          launcherOrder: 65,
+          bodyKind: "surface_panel",
+          panelKind: "descriptor",
+          readOnly: true,
+          offline: true,
+        },
+      ],
+    },
+  };
+  const dynamicSurface = surfaceDefinitionFor("quality", dynamicAppCapabilities);
+  assert.equal(dynamicSurface.kind, "quality");
+  assert.equal(dynamicSurface.bodyKind, "surface_panel");
+  assert.equal(dynamicSurface.panelKind, "descriptor");
+  assert.equal(dynamicSurface.openKind, "workbench.surface");
+  assert.equal(dynamicSurface.readOnly, true);
+  assert.equal(dynamicSurface.offline, true);
+  assert.deepEqual(
+    rightPanelLauncherSurfaceDefinitions(dynamicAppCapabilities).map((definition) => definition.kind),
+    ["quality"],
+  );
+  assert.deepEqual(
+    surfaceCommandDefinitions(dynamicAppCapabilities).map((definition) => definition.id),
+    ["surface.quality"],
+  );
+  const rejectedDynamicSurface = openSurface(createWorkbenchState(), {
+    placement: "right",
+    kind: "quality",
+    title: "Quality",
+  });
+  assert.deepEqual(rejectedDynamicSurface.rightPanel.surfaces, []);
+  const openedDynamicSurface = openSurface(createWorkbenchState(), {
+    placement: "right",
+    kind: "quality",
+    title: "Quality",
+    surfaceDefinition: dynamicSurface,
+  });
+  assert.equal(openedDynamicSurface.rightPanel.activeKind, "quality");
+  assert.equal(openedDynamicSurface.rightPanel.surfaces[0].id, "right:quality");
+  assert.deepEqual(
+    persistedSurfaceFrom(openedDynamicSurface.rightPanel.surfaces[0], "right", dynamicAppCapabilities),
+    {
+      id: "right:quality",
+      placement: "right",
+      kind: "quality",
+      title: "Quality",
+      resourceId: "",
+      filePath: "",
+      terminalId: "",
+      revealLine: null,
+      revealRequestId: 0,
+    },
+  );
 
   const initial = createWorkbenchState();
   assert.equal(initial.rightPanel.open, true);
@@ -87,6 +347,7 @@ export function runWorkbenchStateTests() {
   assert.equal(initial.rightPanel.activeKind, "");
   assert.deepEqual(initial.rightPanel.surfaces, []);
   assert.equal(initial.bottomDrawer.open, false);
+  assert.equal(initial.bottomDrawer.activeKind, "");
 
   const withFiles = openSurface(initial, {
     placement: "right",
@@ -99,6 +360,10 @@ export function runWorkbenchStateTests() {
   assert.equal(withFiles.rightPanel.activeSurfaceId, "right:files");
   assert.equal(withFiles.rightPanel.surfaces.length, 1);
   assert.equal(withFiles.rightPanel.surfaces[0].id, "right:files");
+  assert.deepEqual(rightPanelSurfacesFrom(withFiles), withFiles.rightPanel.surfaces);
+  assert.deepEqual(activeRightPanelSurfaceFrom(withFiles), withFiles.rightPanel.surfaces[0]);
+  assert.deepEqual(rightPanelSurfacesFrom({}), []);
+  assert.equal(activeRightPanelSurfaceFrom({}), null);
 
   const withFile = openSurface(withFiles, {
     placement: "right",
@@ -251,7 +516,7 @@ export function runWorkbenchStateTests() {
       id: "right:terminal:term-1",
       placement: "right",
       kind: "terminal",
-      title: "Terminal",
+      title: "",
       resourceId: "term-1",
       filePath: "",
       terminalId: "term-1",
@@ -264,7 +529,7 @@ export function runWorkbenchStateTests() {
       id: "right:terminal:term-2",
       placement: "right",
       kind: "terminal",
-      title: "Terminal",
+      title: "",
       resourceId: "term-2",
       filePath: "",
       terminalId: "term-2",
@@ -360,50 +625,165 @@ export function runWorkbenchStateTests() {
   });
   assert.equal(unknownRightSurface, initial);
 
-  assert.equal(COMMAND_GROUPS.includes("session"), true);
-  assert.equal(COMMAND_GROUPS.includes("app"), true);
-  assert.equal(COMMAND_GROUPS.includes("surface"), true);
-  assert.equal(COMMAND_GROUPS.includes("workspace"), true);
-  assert.equal(APP_COMMANDS.some((item) => item.id === "app.settings"), true);
-  assert.equal(isAppCommand("app.diagnostics"), true);
-  assert.equal(isAppCommand("app.source_control"), true);
-  assert.equal(isAppCommand("workspace.open"), false);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.settings"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.diagnostics"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.source_control"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.reload"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.files"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.preview"), true);
-  assert.deepEqual(
-    WORKBENCH_COMMANDS.filter((item) => item.group === "surface" && item.surface)
-      .map((item) => item.id),
-    surfaceCommandDefinitions().map((item) => item.id),
-  );
-  assert.equal(commandById("surface.preview").surface, "preview");
-  assert.equal(commandById("surface.diff").surface, "diff");
-  assert.equal(commandById("surface.source_control").surface, "source_control");
-  assert.equal(commandById("surface.settings").surface, "settings");
-  assert.equal(commandById("surface.diagnostics").surface, "diagnostics");
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.open"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.refresh"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.remove_current"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "thread.new"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "drawer.terminal"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id.includes("code")), false);
-  assert.equal(commandById("message.send").slash, "");
+  assert.equal(commandById("surface.preview"), null);
+  assert.equal(commandById("app.settings", {}, fullAppCapabilities).label, "Preferences");
+  assert.equal(commandById("workspace.open", {}, fullAppCapabilities).label, "Open Project");
+  assert.equal(commandById("surface.preview", {}, fullAppCapabilities).surface, "preview");
+  assert.equal(commandById("surface.preview", {}, fullAppCapabilities).label, "Show Preview");
+  assert.equal(commandById("surface.diff", {}, fullAppCapabilities).surface, "diff");
+  assert.equal(commandById("surface.source_control", {}, fullAppCapabilities).surface, "source_control");
+  assert.equal(commandById("surface.settings", {}, fullAppCapabilities).surface, "settings");
+  assert.equal(commandById("surface.diagnostics", {}, fullAppCapabilities).surface, "diagnostics");
+  assert.equal(commandById("message.send"), null);
+  assert.equal(commandById("message.send", {}, fullAppCapabilities).slash, "");
+  assert.equal(commandById("help", { commands: [{ name: "help", usage: "/help" }] }).label, "/help");
+  assert.equal(commandById("raw", { commands: [{ name: "raw" }] }), null);
 
-  const visibleWhenIdle = visibleCommands({ hasSession: true, isRunning: false });
+  const commandLabelCapabilities = {
+    appCommands: [
+      { id: "app.hidden", group: "app", label: "", visibleWhen: "always" },
+      { id: "app.visible", group: "app", label: "Visible", visibleWhen: "always" },
+    ],
+    workbenchCommands: [
+      { id: "message.unlabeled", group: "message", label: "", visibleWhen: "always" },
+    ],
+  };
+  assert.equal(commandById("app.hidden", {}, commandLabelCapabilities), null);
+  assert.equal(commandById("message.unlabeled", {}, commandLabelCapabilities), null);
+  assert.equal(commandById("app.visible", {}, commandLabelCapabilities).label, "Visible");
+  assert.equal(isTurnInterruptibleStatus("running"), true);
+  assert.equal(isTurnInterruptibleStatus("waiting_permission"), true);
+  assert.equal(isTurnInterruptibleStatus("waiting_user_input"), true);
+  assert.equal(isTurnInterruptibleStatus("idle"), false);
+  const runningCommandContext = buildCommandVisibilityContext({
+    currentSessionId: "sess-1",
+    currentStatus: "waiting_permission",
+    hasActiveWorkspace: true,
+    paletteOpen: true,
+    sessionCapabilities: { commands: [] },
+    appCapabilities: commandLabelCapabilities,
+  });
+  assert.deepEqual(runningCommandContext, {
+    hasSession: true,
+    hasWorkspace: true,
+    isRunning: true,
+    paletteOpen: true,
+    capabilities: { commands: [] },
+    appCapabilities: commandLabelCapabilities,
+  });
+  assert.equal(
+    buildCommandVisibilityContext({
+      currentSessionId: "",
+      currentStatus: "idle",
+      hasActiveWorkspace: false,
+    }).isRunning,
+    false,
+  );
+  assert.deepEqual(
+    buildCommandVisibilityContext({
+      currentSessionId: "sess-2",
+      currentStatus: "running",
+      appState: { hasActiveWorkspace: true, capabilities: commandLabelCapabilities },
+      workbenchState: { commandPalette: { open: true } },
+    }),
+    {
+      hasSession: true,
+      hasWorkspace: true,
+      isRunning: true,
+      paletteOpen: true,
+      capabilities: {},
+      appCapabilities: commandLabelCapabilities,
+    },
+  );
+  assert.equal(
+    visibleCommands({ hasSession: true, isRunning: false, appCapabilities: commandLabelCapabilities })
+      .some((item) => item.id === "app.hidden"),
+    false,
+  );
+
+  const visibleWithoutAppShell = visibleCommands({ hasSession: true, isRunning: false });
+  assert.equal(visibleWithoutAppShell.some((item) => item.id === "app.settings"), false);
+  assert.equal(visibleWithoutAppShell.some((item) => item.id === "message.send"), false);
+
+  const visibleWhenIdle = visibleCommands({
+    hasSession: true,
+    isRunning: false,
+    appCapabilities: fullAppCapabilities,
+  });
   assert.equal(visibleWhenIdle.some((item) => item.id === "app.settings"), true);
   assert.equal(visibleWhenIdle.some((item) => item.id === "app.source_control"), true);
   assert.equal(visibleWhenIdle.some((item) => item.id === "message.send"), true);
   assert.equal(visibleWhenIdle.some((item) => item.id === "message.stop"), false);
 
-  const visibleWithoutSession = visibleCommands({ hasSession: false, isRunning: false });
+  const visibleWithoutSession = visibleCommands({
+    hasSession: false,
+    isRunning: false,
+    appCapabilities: fullAppCapabilities,
+  });
   assert.equal(visibleWithoutSession.some((item) => item.id === "app.settings"), true);
   assert.equal(visibleWithoutSession.some((item) => item.id === "mode.build"), false);
 
-  const visibleWhenRunning = visibleCommands({ hasSession: true, isRunning: true });
+  const visibleWhenRunning = visibleCommands({
+    hasSession: true,
+    isRunning: true,
+    appCapabilities: fullAppCapabilities,
+  });
   assert.equal(visibleWhenRunning.some((item) => item.id === "message.stop"), true);
+
+  const limitedAppCapabilities = {
+    appCommands: [
+      { id: "app.settings", group: "app", label: "Preferences", visibleWhen: "always" },
+    ],
+    workspaceCommands: [
+      { id: "workspace.open", group: "workspace", label: "Open Project", visibleWhen: "always" },
+    ],
+    surfaces: {
+      chrome: {
+        rightPanelAriaLabel: "Workspace panel",
+        addSurfaceLabel: "Add workspace view",
+        emptyTitle: "Open workspace view",
+        emptyBody: "Choose a view.",
+        surfaceActionsLabelPrefix: "View actions for",
+        closeLabelPrefix: "Close view",
+        closeActionLabel: "Close view",
+        closeOthersActionLabel: "Close other views",
+        closeToRightActionLabel: "Close views to the right",
+        closeAllActionLabel: "Close all views",
+        defaultIcon: "V",
+      },
+      rightPanel: [surface("settings", "Settings")],
+      bottomDrawer: [surface("logs", "Logs")],
+    },
+  };
+  assert.deepEqual(
+    rightPanelLauncherSurfaceDefinitions(limitedAppCapabilities).map((item) => item.kind),
+    ["settings"],
+  );
+  assert.equal(surfaceDefinitionFor("preview", limitedAppCapabilities), null);
+  assert.deepEqual(
+    surfaceCommandDefinitions(limitedAppCapabilities).map((item) => item.id),
+    ["surface.settings"],
+  );
+  assert.deepEqual(
+    bottomDrawerCommandDefinitions(limitedAppCapabilities).map((item) => item.id),
+    [],
+  );
+  const limitedVisible = visibleCommands({
+    hasSession: true,
+    hasWorkspace: true,
+    isRunning: false,
+    appCapabilities: limitedAppCapabilities,
+  }).map((item) => item.id);
+  assert.equal(limitedVisible.includes("app.settings"), true);
+  assert.equal(limitedVisible.includes("app.diagnostics"), false);
+  assert.equal(limitedVisible.includes("app.source_control"), false);
+  assert.equal(limitedVisible.includes("workspace.open"), true);
+  assert.equal(limitedVisible.includes("workspace.refresh"), false);
+  assert.equal(limitedVisible.includes("surface.settings"), true);
+  assert.equal(limitedVisible.includes("surface.diagnostics"), false);
+  assert.equal(limitedVisible.includes("surface.preview"), false);
+  assert.equal(limitedVisible.includes("drawer.logs"), false);
+  assert.equal(limitedVisible.includes("drawer.terminal"), false);
 
   const syntheticEvent = {
     key: "k",
@@ -413,26 +793,42 @@ export function runWorkbenchStateTests() {
     shiftKey: false,
   };
   assert.equal(eventToKey(syntheticEvent), "mod+k");
-  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+k"), true);
-  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+," && item.commandId === "app.settings"), true);
-  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+1" && item.commandId === "surface.files"), true);
-  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+2" && item.commandId === "surface.terminal"), true);
-  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+3" && item.commandId === "surface.diff"), true);
-  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+4" && item.commandId === "surface.preview"), true);
+  assert.equal(fullAppCapabilities.keybindings.some((item) => item.key === "mod+k"), true);
+  assert.equal(fullAppCapabilities.keybindings.some((item) => item.key === "mod+," && item.commandId === "app.settings"), true);
+  assert.equal(fullAppCapabilities.keybindings.some((item) => item.key === "mod+1" && item.commandId === "surface.files"), true);
+  assert.equal(fullAppCapabilities.keybindings.some((item) => item.key === "mod+2" && item.commandId === "surface.terminal"), true);
+  assert.equal(fullAppCapabilities.keybindings.some((item) => item.key === "mod+3" && item.commandId === "surface.diff"), true);
+  assert.equal(fullAppCapabilities.keybindings.some((item) => item.key === "mod+4" && item.commandId === "surface.preview"), true);
 
-  const command = resolveKeybinding(DEFAULT_KEYBINDINGS, "mod+k", {
+  const command = resolveKeybinding(fullAppCapabilities.keybindings, "mod+k", {
     paletteOpen: false,
     isRunning: false,
+    appCapabilities: fullAppCapabilities,
   });
   assert.equal(command.id, "palette.open");
+  assert.equal(
+    resolveKeybinding(fullAppCapabilities.keybindings, "mod+k", {
+      paletteOpen: false,
+      isRunning: false,
+    }),
+    null,
+  );
 
-  const settingsCommand = resolveKeybinding(DEFAULT_KEYBINDINGS, "mod+,", {
+  const settingsCommand = resolveKeybinding(fullAppCapabilities.keybindings, "mod+,", {
     paletteOpen: false,
     isRunning: false,
+    appCapabilities: fullAppCapabilities,
   });
   assert.equal(settingsCommand.id, "app.settings");
+  assert.equal(
+    resolveKeybinding(fullAppCapabilities.keybindings, "mod+,", {
+      paletteOpen: false,
+      isRunning: false,
+    }),
+    null,
+  );
 
-  const blocked = resolveKeybinding(DEFAULT_KEYBINDINGS, "enter", {
+  const blocked = resolveKeybinding(fullAppCapabilities.keybindings, "enter", {
     paletteOpen: false,
     composerFocused: false,
   });

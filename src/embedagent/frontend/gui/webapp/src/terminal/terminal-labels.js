@@ -1,13 +1,18 @@
-export function getTerminalLabel(terminalId) {
+function chromeText(chrome, key) {
+  return String((chrome && chrome[key]) || "").trim();
+}
+
+export function getTerminalLabel(terminalId, chrome = {}) {
   const id = String(terminalId || "").trim();
   const match = /^term(?:inal)?-(\d+)$/i.exec(id);
-  if (match) return `Terminal ${match[1]}`;
-  return id || "Terminal";
+  const prefix = chromeText(chrome, "titlePrefix");
+  if (match && prefix) return `${prefix} ${match[1]}`;
+  return id || chromeText(chrome, "defaultTitle");
 }
 
 export function resolveTerminalSessionLabel(terminalId, summary) {
   const label = String((summary && summary.label) || "").trim();
-  return label || getTerminalLabel(terminalId);
+  return label;
 }
 
 export function nextTerminalId(existingTerminalIds) {

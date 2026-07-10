@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import json
 from typing import Dict, Optional
 
 import embedagent.frontend.tui.reducer as reducer
 from embedagent.frontend.tui.commands import parse_command
-from embedagent.frontend.tui.models import ArtifactRow, ExplorerItem
+from embedagent.frontend.tui.models import ExplorerItem
 from embedagent.frontend.tui.views.timeline import (
     format_activity_records,
     format_context_line,
@@ -24,7 +23,6 @@ class TerminalController(object):
         self.refresh_workspace_snapshot()
         self.refresh_sessions()
         self.refresh_tasks()
-        self.refresh_artifacts()
         if self.owner.resume_reference:
             snapshot = self.owner.session_service.resume_session(
                 self.owner.resume_reference,
@@ -219,17 +217,6 @@ class TerminalController(object):
             self.show_plan()
             self.owner.refresh_views()
             return
-        if name == "artifacts":
-            self.show_artifacts()
-            self.owner.refresh_views()
-            return
-        if name == "artifact":
-            if not args:
-                reducer.append_line(self.owner.state, "[system] 用法：/artifact <ref>")
-            else:
-                self.open_artifact(args[0])
-            self.owner.refresh_views()
-            return
         if name == "open":
             if not args:
                 reducer.append_line(self.owner.state, "[system] 用法：/open <path>")
@@ -321,11 +308,6 @@ class TerminalController(object):
         self.refresh_inspector("help")
         self.owner.refresh_views()
 
-    def show_artifacts(self) -> None:
-        self.refresh_artifacts()
-        self.refresh_inspector("artifacts")
-        self.owner.refresh_views()
-
     def show_plan(self) -> None:
         self.refresh_tasks()
         self.refresh_inspector("plan")
@@ -390,21 +372,6 @@ class TerminalController(object):
             reducer.append_line(self.owner.state, "[error] %s" % exc)
             return
         reducer.set_editor_buffer(self.owner.state, buffer, diff_preview="", warning="")
-
-    def open_artifact(self, reference: str) -> None:
-        try:
-            payload = self.owner.artifact_service.read_item(reference)
-        except (OSError, ValueError, TypeError) as exc:
-            reducer.append_line(self.owner.state, "[error] %s" % exc)
-            return
-        reducer.set_selected_artifact(self.owner.state, str(payload.get("path") or reference))
-        content = payload.get("content")
-        if isinstance(content, str):
-            preview = content
-        else:
-            preview = json.dumps(content, ensure_ascii=False, indent=2, sort_keys=True)
-        reducer.set_preview(self.owner.state, str(payload.get("path") or reference), preview)
-        self.refresh_inspector("artifacts")
 
     def save_editor(self) -> None:
         buffer = self.owner.state.editor.buffer
@@ -544,7 +511,6 @@ class TerminalController(object):
             self.refresh_workspace_snapshot()
             self.refresh_sessions()
             self.refresh_tasks()
-            self.refresh_artifacts()
             self.reload_timeline()
         elif event_name == "session_resumed":
             reducer.set_last_error(self.owner.state, "")
@@ -625,22 +591,6 @@ class TerminalController(object):
                 root=payload.get("path") or ".embedagent/memory/sessions/tasks.json",
             )
         self.owner.state.workspace_snapshot["tasks"] = payload.get("tasks") or []
-
-    def refresh_artifacts(self) -> None:
-        items = []
-        for item in self.owner.artifact_service.list_items(limit=20):
-            if not isinstance(item, dict):
-                continue
-            items.append(
-                ArtifactRow(
-                    path=str(item.get("path") or ""),
-                    tool_name=str(item.get("tool_name") or ""),
-                    field_name=str(item.get("field_name") or ""),
-                    kind=str(item.get("kind") or ""),
-                    created_at=str(item.get("created_at") or ""),
-                )
-            )
-        reducer.set_artifact_items(self.owner.state, items)
 
     def refresh_explorer(self, tab: str, root: str = ".") -> None:
         tab_name = (tab or "workspace").lower()

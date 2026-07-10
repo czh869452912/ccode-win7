@@ -16,7 +16,6 @@ export const T3_ROW_KINDS = Object.freeze({
   SYSTEM_NOTICE: "system_notice",
 });
 
-const WRITE_TOOLS = new Set(["write_file", "edit_file", "git_diff"]);
 const META_ARG_PREFIX = "_";
 const DETAIL_TEXT_LIMIT = 4000;
 const TOOL_LIFECYCLE_STATUSES = new Set(["inProgress", "completed", "failed", "declined", "stopped"]);
@@ -272,10 +271,12 @@ function diffTextFromItem(item) {
   return "";
 }
 
-function changedPathFromItem(item) {
+function changedPathFromItem(item, presentation = null) {
+  const key = stringValue(presentation?.changedPathArg);
+  if (!key) return "";
   const data = item?.data || {};
-  const args = item?.arguments || {};
-  return stringValue(data.path || data.file || args.path || args.file || item?.path);
+  const args = publicArgs(item?.arguments || {});
+  return stringValue(args[key] || data[key]);
 }
 
 function normalizeChangedFileEntry(entry) {
@@ -306,14 +307,15 @@ function explicitChangedFiles(item) {
   return source.map(normalizeChangedFileEntry).filter(Boolean);
 }
 
-export function summarizeChangedFiles(items = []) {
+export function summarizeChangedFiles(items = [], options = {}) {
   const fileMap = new Map();
+  const toolCatalog = options?.toolCatalog || {};
   for (const item of items || []) {
     for (const file of explicitChangedFiles(item)) {
       mergeFileStats(fileMap, { ...file, sourceId: item?.id || item?.call_id || "" });
     }
     const toolName = stringValue(item?.toolName || item?.tool_name);
-    const commandName = stringValue(item?.commandName || item?.command_name);
+    const toolPresentation = resolveToolPresentation(toolName, toolCatalog);
     const diffText = diffTextFromItem(item);
     const diffFiles = parseDiffFiles(diffText);
     if (diffFiles.length > 0) {
@@ -322,16 +324,14 @@ export function summarizeChangedFiles(items = []) {
       }
       continue;
     }
-    if (WRITE_TOOLS.has(toolName) || commandName === "diff") {
-      const path = changedPathFromItem(item);
-      if (path) {
-        mergeFileStats(fileMap, {
-          path,
-          additions: numberValue(item?.data?.additions),
-          deletions: numberValue(item?.data?.deletions),
-          sourceId: item?.id || item?.call_id || "",
-        });
-      }
+    const path = changedPathFromItem(item, toolPresentation);
+    if (path) {
+      mergeFileStats(fileMap, {
+        path,
+        additions: numberValue(item?.data?.additions),
+        deletions: numberValue(item?.data?.deletions),
+        sourceId: item?.id || item?.call_id || "",
+      });
     }
   }
   const files = Array.from(fileMap.values());
@@ -342,19 +342,9 @@ export function summarizeChangedFiles(items = []) {
   };
 }
 
-function commandPreviewFor(toolName, args, presentation = null) {
+function commandPreviewFor(args, presentation = null) {
   if (!args || typeof args !== "object") return "";
-  const metadataPreview = commandPreviewFromToolPresentation(presentation, args);
-  if (metadataPreview) return metadataPreview;
-  if (toolName === "shell" || toolName === "bash") {
-    return stringValue(args.command);
-  }
-  if (toolName === "grep_text") return stringValue(args.pattern || args.query);
-  if (toolName === "glob_files") return stringValue(args.pattern);
-  if (toolName === "read_file" || toolName === "write_file" || toolName === "edit_file") {
-    return stringValue(args.path);
-  }
-  return "";
+  return commandPreviewFromToolPresentation(presentation, args);
 }
 
 function permissionCategoryToRequestKind(value) {
@@ -362,13 +352,6 @@ function permissionCategoryToRequestKind(value) {
   if (["command", "shell", "shell_exec", "toolchain_exec", "process", "network", "telemetry"].includes(text)) return "command";
   if (text === "file-read" || text === "read" || text === "workspace_read") return "file-read";
   if (text === "file-change" || text === "write" || text === "workspace_write" || text === "git_write") return "file-change";
-  return "";
-}
-
-function toolNameRequestKind(toolName) {
-  if (toolName === "shell" || toolName === "bash") {
-    return "command";
-  }
   return "";
 }
 
@@ -515,12 +498,12 @@ function workEntryIconName(entry) {
   if (itemType === "dynamic_tool_call" || itemType === "collab_agent_tool_call") return "hammer";
   if (entry?.tone === "thinking") return "bot";
   if (entry?.tone === "info") return "check";
-  return "zap";
+  return "";
 }
 
 function workEntryHeading(entry) {
   const base = entry?.toolTitle ? entry.toolTitle : entry?.label;
-  return capitalizePhrase(normalizeCompactToolLabel(base || "Tool"));
+  return base ? capitalizePhrase(normalizeCompactToolLabel(base)) : "";
 }
 
 export function buildWorkPresentation(entry = {}) {
@@ -564,10 +547,11 @@ function truncateText(value, limit = DETAIL_TEXT_LIMIT) {
   return `${text.slice(0, limit)}\n...[truncated]`;
 }
 
-function pushField(fields, label, value, options = {}) {
+function pushField(fields, key, value, options = {}) {
   if (value == null || value === "") return;
   fields.push({
-    label,
+    key,
+    label: stringValue(options.label),
     value: stringValue(value),
     mono: options.mono !== false,
   });
@@ -670,7 +654,10 @@ function buildToolDetailModel(item, args, changed) {
   const command = stringValue(data.command || args.command);
   const recipe = stringValue(data.recipe_id || data.recipeId || args.recipe_id || args.recipeId);
   const target = stringValue(data.target || args.target);
-  const preview = firstString(data.content_preview, data.preview, data.summary, data.message);
+  const previewContent = firstString(data.content_preview, data.preview);
+  const summaryContent = firstString(data.summary, data.message);
+  const preview = previewContent || summaryContent;
+  const previewKind = previewContent ? "preview" : summaryContent ? "summary" : "";
   const stdout = firstString(data.stdout_preview, data.stdout);
   const stderr = firstString(data.stderr_preview, data.stderr);
   const diff = diffTextFromItem(item);
@@ -691,63 +678,63 @@ function buildToolDetailModel(item, args, changed) {
     pushField(fields, "returned", `${data.returned_count}/${data.total_count}`);
   }
   for (const [key, value] of publicValuePairs(args, data)) {
-    if (fields.some((field) => field.label === key)) continue;
+    if (fields.some((field) => field.key === key)) continue;
     pushField(fields, key, value);
   }
 
   if (item?.error) {
     sections.push({
       kind: "error",
-      title: "Error",
+      title: "",
       content: truncateText(item.error),
     });
   }
   if (preview) {
     sections.push({
-      kind: "preview",
-      title: toolName === "read_file" ? "Preview" : "Summary",
+      kind: previewKind,
+      title: "",
       content: truncateText(preview),
     });
   }
   if (matches.length > 0) {
     sections.push({
       kind: "matches",
-      title: "Matches",
+      title: "",
       items: matches,
     });
   }
   if (files.length > 0) {
     sections.push({
       kind: "files",
-      title: "Files",
+      title: "",
       items: files,
     });
   }
   if (stdout) {
     sections.push({
       kind: "stdout",
-      title: "stdout",
+      title: "",
       content: truncateText(stdout),
     });
   }
   if (stderr) {
     sections.push({
       kind: "stderr",
-      title: "stderr",
+      title: "",
       content: truncateText(stderr),
     });
   }
   if (diff) {
     sections.push({
       kind: "diff",
-      title: "Diff",
+      title: "",
       content: truncateText(diff),
     });
   }
   if (Array.isArray(changed?.files) && changed.files.length > 0) {
     sections.push({
       kind: "changed_files",
-      title: "Changed files",
+      title: "",
       items: changed.files.map((file) => ({
         id: file.path,
         path: file.path,
@@ -792,16 +779,15 @@ export function normalizeWorkEntry(item, options = {}) {
   const toolName = stringValue(item?.toolName || item?.tool_name);
   const toolPresentation = resolveToolPresentation(toolName, options.toolCatalog || {});
   const status = stringValue(item?.status || "running");
-  const changed = summarizeChangedFiles([item]);
+  const changed = summarizeChangedFiles([item], { toolCatalog: options.toolCatalog || {} });
   const data = item?.data && typeof item.data === "object" ? item.data : {};
   const requestKind =
     normalizeRequestKind(item?.requestKind || item?.request_kind || data.requestKind || data.request_kind) ||
     normalizeRequestKind(item?.permissionCategory || item?.permission_category) ||
-    permissionCategoryToRequestKind(toolPresentation.permissionCategory) ||
-    toolNameRequestKind(toolName);
+    permissionCategoryToRequestKind(toolPresentation.permissionCategory);
   const command =
-    firstString(item?.command, item?.rawCommand ? "" : "", data.command, args.command) ||
-    commandPreviewFor(toolName, args, toolPresentation);
+    firstString(item?.command, item?.rawCommand ? "" : "", data.command) ||
+    commandPreviewFor(args, toolPresentation);
   const rawCommand = firstString(item?.rawCommand, item?.raw_command, data.rawCommand, data.raw_command);
   const detail = firstString(item?.detail, data.detail) || detailTextFor(item);
   const itemType = normalizeItemType(item?.itemType || item?.item_type || data.itemType || data.item_type);
@@ -830,8 +816,7 @@ export function normalizeWorkEntry(item, options = {}) {
         item?.toolTitle ||
         item?.tool_title ||
         toolPresentation.label ||
-        toolName ||
-        "Work",
+        toolName,
     ),
     detail,
     command,
@@ -867,7 +852,7 @@ export function normalizeWorkEntry(item, options = {}) {
     requestKind,
     command,
     rawCommand,
-    commandPreview: command || commandPreviewFor(toolName, args, toolPresentation),
+    commandPreview: command || commandPreviewFor(args, toolPresentation),
     args,
     detail,
     detailModel: buildToolDetailModel(item, args, changed),
@@ -911,7 +896,7 @@ function reasoningRow(item) {
     stepIndex: numberValue(item?.stepIndex || item?.step_index),
     createdAt: timestampValue(item?.createdAt, item?.created_at),
     completedAt: timestampValue(item?.completedAt, item?.completed_at),
-    label: "Thinking",
+    label: stringValue(item?.label),
     content,
     wordCount,
     streaming: Boolean(item?.streaming),
@@ -927,8 +912,8 @@ function contextSummaryRow(item, placement = "fold_body") {
     createdAt: timestampValue(item?.createdAt, item?.created_at),
     placement,
     tone: "context",
-    label: stringValue(item?.label || "Context"),
-    content: stringValue(item?.content || item?.summary || "Context compacted"),
+    label: stringValue(item?.label),
+    content: stringValue(item?.content || item?.summary),
     summarizedTurns:
       item?.summarizedTurns !== undefined
         ? numberValue(item.summarizedTurns)
@@ -963,14 +948,14 @@ function commandResultContent(item) {
 }
 
 function commandResultRow(item) {
-  const commandName = stringValue(item?.commandName || item?.command_name || "command");
+  const commandName = stringValue(item?.commandName || item?.command_name);
   return {
     id: stringValue(item?.id || `command-${commandName}-${item?.turnId || item?.turn_id || "row"}`),
     kind: T3_ROW_KINDS.COMMAND_RESULT,
     turnId: stringValue(item?.turnId || item?.turn_id),
     createdAt: timestampValue(item?.createdAt, item?.created_at),
     commandName,
-    label: `/${commandName}`,
+    label: stringValue(item?.label),
     success: item?.success !== false,
     tone: item?.success === false ? "error" : "context",
     content: commandResultContent(item),
@@ -984,7 +969,7 @@ function normalizeReviewFinding(finding, index) {
     id: stringValue(finding?.id || `finding-${index + 1}`),
     severity: stringValue(finding?.severity || ""),
     priority: finding?.priority !== undefined ? numberValue(finding.priority) : undefined,
-    title: stringValue(finding?.title || finding?.message || "Review finding"),
+    title: stringValue(finding?.title || finding?.message),
     body: stringValue(finding?.body || finding?.detail || finding?.description || ""),
     file: stringValue(finding?.file || finding?.path || ""),
     line: finding?.line !== undefined ? numberValue(finding.line) : undefined,
@@ -1004,8 +989,8 @@ function reviewResultRow(item) {
   return {
     ...commandResultRow(item),
     kind: T3_ROW_KINDS.REVIEW_RESULT,
-    commandName: "review",
-    label: "/review",
+    commandName: stringValue(item?.commandName || item?.command_name),
+    label: stringValue(item?.label),
     findings,
     residualRisks,
   };
@@ -1017,7 +1002,6 @@ function workingRow({ activeTurnId, idSuffix = "active", createdAt = "" } = {}) 
     kind: T3_ROW_KINDS.WORKING,
     turnId: stringValue(activeTurnId),
     createdAt: timestampValue(createdAt),
-    label: "Working",
     streaming: true,
   };
 }
@@ -1093,8 +1077,7 @@ function activityRowForItem(item, context = {}) {
   if (item.kind === "reasoning") return item.streaming ? null : reasoningRow(item);
   if (item.kind === "compact") return contextSummaryRow(item);
   if (item.kind === "command_result" || item.kind === "command_result_fallback") {
-    const commandName = stringValue(item?.commandName || item?.command_name);
-    if (commandName === "review" || item?.data?.review || item?.review) {
+    if (item?.data?.review || item?.review) {
       return reviewResultRow(item);
     }
     return commandResultRow(item);
@@ -1300,20 +1283,6 @@ function maxTimestamp(...values) {
   return best;
 }
 
-function formatElapsedDuration(startIso, endIso) {
-  const start = timestampMs(startIso);
-  const end = timestampMs(endIso);
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return "";
-  const totalSeconds = Math.max(0, Math.floor((end - start) / 1000));
-  if (totalSeconds < 60) return `${totalSeconds}s`;
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  if (minutes < 60) return `${minutes}m ${seconds}s`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return `${hours}h ${remainingMinutes}m`;
-}
-
 function turnStartTimestamp(group, entries) {
   const candidates = [
     group?.startedAt,
@@ -1334,14 +1303,6 @@ function turnEndTimestamp(group, entries) {
     ...(entries || []).map((entry) => entry.completedAt || entry.createdAt),
   ];
   return maxTimestamp(candidates);
-}
-
-function turnFoldLabel(group, entries) {
-  const duration = formatElapsedDuration(turnStartTimestamp(group, entries), turnEndTimestamp(group, entries));
-  if (hasInterruptedWork(entries)) {
-    return duration ? `You stopped after ${duration}` : "You stopped this response";
-  }
-  return duration ? `Worked for ${duration}` : "Worked for this turn";
 }
 
 export function isTurnFoldedByDefault(group, context = {}) {
@@ -1368,8 +1329,8 @@ function pushLooseItem(push, item, context = {}) {
   }
 }
 
-function diffSummaryRow(group) {
-  const changed = summarizeChangedFiles(allTurnItems(group));
+function diffSummaryRow(group, context = {}) {
+  const changed = summarizeChangedFiles(allTurnItems(group), { toolCatalog: context.toolCatalog || {} });
   if (changed.files.length === 0) return null;
   return {
     id: `diff-summary-${group?.turnId || changed.files.map((file) => file.path).join("-")}`,
@@ -1426,7 +1387,9 @@ export function projectT3TimelineRows({
           kind: T3_ROW_KINDS.TURN_FOLD,
           turnId: stringValue(group.turnId),
           createdAt: turnStartTimestamp(group, entries),
-          label: turnFoldLabel(group, entries),
+          completedAt: turnEndTimestamp(group, entries),
+          interrupted: hasInterruptedWork(entries),
+          label: stringValue(group?.label),
           workCount: entries.filter((entry) => entry.kind === T3_ROW_KINDS.WORK).length,
           reasoningCount: entries.filter((entry) => entry.kind === "reasoning").length,
           entryCount: foldEntries.length,
@@ -1438,7 +1401,7 @@ export function projectT3TimelineRows({
       }
     }
 
-    const changedRow = diffSummaryRow(group);
+    const changedRow = diffSummaryRow(group, context);
     if (changedRow) pushRow(changedRow);
 
     if (entries.length === 0 || shouldFold) {
@@ -1503,7 +1466,6 @@ export function projectT3TimelineRows({
     pushRow({
       id: "working",
       kind: T3_ROW_KINDS.WORKING,
-      label: "Working",
       createdAt: "",
     });
   }

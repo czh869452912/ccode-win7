@@ -37,6 +37,9 @@ function serializedTextFor(value) {
 export function runRightPanelStoreParityTests() {
   let state = createWorkbenchState();
 
+  const emptyPreviewState = createWorkbenchState();
+  assert.equal(openPreviewSurface(emptyPreviewState, {}), emptyPreviewState);
+
   state = openSurface(state, { placement: "right", kind: "files", sessionId: "thread-a" });
   state = openSurface(state, { placement: "right", kind: "files", sessionId: "thread-a" });
   assert.deepEqual(surfaceIds(state), ["right:files"]);
@@ -70,7 +73,7 @@ export function runRightPanelStoreParityTests() {
     id: "right:terminal:term-2",
     placement: "right",
     kind: "terminal",
-    title: "Terminal",
+    title: "term-2",
     resourceId: "term-2",
     filePath: "",
     terminalId: "term-2",

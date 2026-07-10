@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, Iterable, Optional
 
-from embedagent.frontend.tui.models import ArtifactRow, EditorBuffer, ExplorerItem
+from embedagent.frontend.tui.models import EditorBuffer, ExplorerItem
 from embedagent.frontend.tui.state import TerminalState
 from embedagent.frontend.tui.workbench import (
     close_palette,
@@ -110,14 +110,6 @@ def set_main_view(state: TerminalState, name: str) -> None:
 
 def set_inspector_tab(state: TerminalState, tab: str) -> None:
     state.inspector.tab = tab
-
-
-def set_artifact_items(state: TerminalState, items: Iterable[ArtifactRow]) -> None:
-    state.inspector.artifact_items = list(items)
-
-
-def set_selected_artifact(state: TerminalState, reference: str) -> None:
-    state.inspector.selected_artifact_ref = reference
 
 
 def set_pending_interaction(state: TerminalState, ticket: Optional[Dict[str, object]]) -> None:

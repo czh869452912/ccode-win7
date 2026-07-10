@@ -12,22 +12,42 @@ import {
   resolveVisiblePermission,
 } from "../src/state-helpers.js";
 import { runDiffModelTests } from "./diff-model.test.mjs";
+import { runDiffSurfaceControllerTests } from "./diff-surface-controller.test.mjs";
 import { runInteractionModelTests } from "./interaction-model.test.mjs";
 import { runActivityStateTests } from "./activity-state.test.mjs";
 import { runSessionRuntimeTests } from "./session-runtime.test.mjs";
 import { runT3TimelineTests } from "./t3-timeline.test.mjs";
+import { runSourceControlCapabilityTests } from "./source-control-capability.test.mjs";
 import { runSourceControlStateTests } from "./source-control-state.test.mjs";
 import { runTerminalStateTests } from "./terminal-state.test.mjs";
 import { runTerminalControllerTests } from "./terminal-controller.test.mjs";
 import { runTimelineUiStateTests } from "./timeline-ui-state.test.mjs";
 import { runVisualLanguageCssTests } from "./visual-language-css.test.mjs";
 import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
+import { runVisualDebugControllerTests } from "./visual-debug-controller.test.mjs";
 import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
+import { runHttpClientTests } from "./http-client.test.mjs";
+import { runInitialAppLoadControllerTests } from "./initial-app-load-controller.test.mjs";
 import { runSessionLoadersTests } from "./session-loaders.test.mjs";
 import { runSessionActivationControllerTests } from "./session-activation-controller.test.mjs";
+import { runSessionListControllerTests } from "./session-list-controller.test.mjs";
 import { runSessionControllerTests } from "./session-controller.test.mjs";
+import { runSourceControlControllerTests } from "./source-control-controller.test.mjs";
+import { runSurfacePanelPropsTests } from "./surface-panel-props.test.mjs";
+import { runFilePreviewControllerTests } from "./file-preview-controller.test.mjs";
+import { runPreviewControllerTests } from "./preview-controller.test.mjs";
+import { runPanelResizeControllerTests } from "./panel-resize-controller.test.mjs";
+import { runTimelineScrollControllerTests } from "./timeline-scroll-controller.test.mjs";
+import { runBrowserDialogServiceTests } from "./browser-dialog-service.test.mjs";
+import { runWorkbenchKeyboardControllerTests } from "./workbench-keyboard-controller.test.mjs";
+import { runWorkbenchCommandControllerTests } from "./workbench-command-controller.test.mjs";
+import { runThreadLifecycleControllerTests } from "./thread-lifecycle-controller.test.mjs";
+import { runSessionTransportHandleTests } from "./session-transport-handle.test.mjs";
 import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
+import { runSocketEffectExecutorTests } from "./socket-effect-executor.test.mjs";
+import { runSocketMessageControllerTests } from "./socket-message-controller.test.mjs";
 import { runInteractionResponseControllerTests } from "./interaction-response-controller.test.mjs";
+import { runRespondingRequestIdsHandleTests } from "./responding-request-ids-handle.test.mjs";
 import { runSocketMessageEffectsTests } from "./socket-message-effects.test.mjs";
 import { runVisualDebugFixturesTests } from "./visual-debug-fixtures.test.mjs";
 import { runWorkbenchParityModelTests } from "./workbench-parity-model.test.mjs";
@@ -36,6 +56,10 @@ import { runWorkbenchUiStateTests } from "./workbench-ui-state.test.mjs";
 import { runAppShellModelTests } from "./app-shell-model.test.mjs";
 import { runAppWorkspaceTests } from "./app-workspaces.test.mjs";
 import { runWorkspaceControllerTests } from "./workspace-controller.test.mjs";
+import { runActiveWorkspaceDataLoaderTests } from "./active-workspace-data-loader.test.mjs";
+import { runWorkspaceFilesControllerTests } from "./workspace-files-controller.test.mjs";
+import { runAppCapabilityModelTests } from "./app-capability-model.test.mjs";
+import { runSessionCapabilityModelTests } from "./session-capability-model.test.mjs";
 import { runAppHomeModelTests } from "./app-home-model.test.mjs";
 import { runBranchToolbarModelTests } from "./branch-toolbar-model.test.mjs";
 import { runCommandCapabilitiesTests } from "./command-capabilities.test.mjs";
@@ -51,14 +75,15 @@ import { runComposerStateTests } from "./composer-state.test.mjs";
 import { runComposerTriggerTests } from "./composer-trigger.test.mjs";
 import { runFilePreviewModelTests } from "./file-preview-model.test.mjs";
 import { runPreviewSurfaceModelTests } from "./preview-surface-model.test.mjs";
+import { runPreviewSurfaceSourceTests } from "./preview-surface-source.test.mjs";
 import { runPreviewApiTests } from "./preview-api.test.mjs";
 import { runRightPanelStoreParityTests } from "./right-panel-store-parity.test.mjs";
+import { runRightPanelControllerTests } from "./right-panel-controller.test.mjs";
 import { runRightPanelTabsSourceTests } from "./right-panel-tabs-source.test.mjs";
 import { runTerminalShellSourceTests } from "./terminal-shell-source.test.mjs";
 import { runThreadStateTests } from "./thread-state.test.mjs";
 import { runRunOutputStateTests } from "./run-output-state.test.mjs";
 import { runStoreReducerTests } from "./store-reducer.test.mjs";
-import { runWorkflowDisplayTests } from "./workflow-display.test.mjs";
 import { createComposerState, readComposerDraft } from "../src/composer/composer-state.js";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -72,7 +97,7 @@ function readWebappSourceText(...parts) {
 }
 
 async function main() {
-  assert.equal(initialState.requestedMode, "explore");
+  assert.equal(initialState.requestedMode, "");
   assert.equal(initialState.maxTurns, null);
   assert.equal(initialState.app.bootstrapLoaded, false);
   assert.equal(initialState.app.app.protocol, "gui_app_shell_v1");
@@ -82,6 +107,10 @@ async function main() {
   assert.deepEqual(initialState.sessionCapabilities.commands, []);
   assert.deepEqual(initialState.sessionCapabilities.modes, []);
   assert.deepEqual(initialState.sessionCapabilities.toolCatalog, {});
+  runSourceControlCapabilityTests();
+  assert.equal(Object.hasOwn(initialState, "toolCatalog"), false);
+  assert.equal(Object.hasOwn(initialState, "inspectorTab"), false);
+  assert.equal(Object.hasOwn(initialState, "inspectorOpen"), false);
   const storeTerminalSurface = reducer(initialState, {
     type: "workbench_surface_opened",
     placement: "right",
@@ -156,7 +185,9 @@ async function main() {
       active_workspace: null,
       has_active_workspace: false,
       diagnostics: { host: { platform: "win32" } },
-      capabilities: { app_commands: ["app.settings"] },
+      capabilities: {
+        app_commands: [{ id: "app.settings", label: "Preferences", group: "app" }],
+      },
       settings: { confirm_workspace_switch: true },
     },
   });
@@ -192,6 +223,7 @@ async function main() {
   assert.deepEqual(switchedWorkspaceState.sessionCapabilities.commands, []);
   assert.deepEqual(switchedWorkspaceState.sessionCapabilities.modes, []);
   assert.deepEqual(switchedWorkspaceState.sessionCapabilities.toolCatalog, {});
+  assert.equal(Object.hasOwn(switchedWorkspaceState, "toolCatalog"), false);
   assert.deepEqual(switchedWorkspaceState.activities, []);
   assert.deepEqual(switchedWorkspaceState.fileTree, []);
   assert.equal(switchedWorkspaceState.app.hasActiveWorkspace, false);
@@ -219,6 +251,7 @@ async function main() {
   assert.deepEqual(activatedThreadState.sessionCapabilities.commands, []);
   assert.deepEqual(activatedThreadState.sessionCapabilities.modes, []);
   assert.deepEqual(activatedThreadState.sessionCapabilities.toolCatalog, {});
+  assert.equal(Object.hasOwn(activatedThreadState, "toolCatalog"), false);
 
   const fileTreeState = reducer(initialState, {
     type: "file_tree_loaded",
@@ -275,7 +308,8 @@ async function main() {
   assert.equal(snapshot.pending_interaction_valid, false);
 
   const defaultModeSnapshot = normalizeSessionPayload({ session_id: "sess-default" });
-  assert.equal(defaultModeSnapshot.current_mode, "explore");
+  assert.equal(defaultModeSnapshot.current_mode, "");
+  assert.equal(defaultModeSnapshot.workflow_state, "");
 
   const pendingTurnAnchor = resolveActivityAnchor({
     explicitTurnId: "",
@@ -462,7 +496,6 @@ async function main() {
   assert.equal(reviewState.activities.length, 1);
   assert.equal(reviewState.activities[0].kind, "command_result");
   assert.equal(reviewState.activities[0].projectionSource, "raw_events");
-  assert.equal(reviewState.review.summary, "quality summary");
 
   const diffSurfaceState = reducer(initialState, {
     type: "diff_surface_opened",
@@ -474,7 +507,7 @@ async function main() {
       focusedDiff: "--- a/demo.c\n+++ b/demo.c\n",
     },
   });
-  assert.equal(diffSurfaceState.inspectorTab, "diff");
+  assert.equal(Object.hasOwn(diffSurfaceState, "inspectorTab"), false);
   assert.equal(diffSurfaceState.workbench.rightPanel.activeKind, "diff");
   assert.equal(diffSurfaceState.workbench.rightPanel.activeSurfaceId, "right:diff:current");
   assert.equal(diffSurfaceState.diffSurface.title, "Git Diff");
@@ -485,17 +518,15 @@ async function main() {
   });
   assert.equal(filePreviewLoadingState.filePreviewsByPath["src/main.c"].status, "loading");
   assert.equal(filePreviewLoadingState.filePreviewsByPath["src/main.c"].path, "src/main.c");
-  assert.equal(filePreviewLoadingState.preview, null);
 
   const filePreviewLoadedState = reducer(filePreviewLoadingState, {
     type: "file_preview_loaded",
     path: "src/main.c",
-    preview: { kind: "file", title: "main.c", content: "int main(void) { return 0; }" },
+    preview: { title: "main.c", content: "int main(void) { return 0; }" },
   });
   assert.equal(filePreviewLoadedState.filePreviewsByPath["src/main.c"].status, "loaded");
   assert.equal(filePreviewLoadedState.filePreviewsByPath["src/main.c"].title, "main.c");
   assert.equal(filePreviewLoadedState.filePreviewsByPath["src/main.c"].content.includes("return 0"), true);
-  assert.equal(filePreviewLoadedState.preview, null);
 
   const filePreviewFailedState = reducer(filePreviewLoadedState, {
     type: "file_preview_load_failed",
@@ -544,18 +575,6 @@ async function main() {
   assert.equal(compactedState.activities[0].projectionKind, "raw_event");
   assert.equal(compactedState.activities[0].synthetic, false);
 
-  const permissionState = reducer(initialState, {
-    type: "permission_context_loaded",
-    context: {
-      session_id: "sess-1",
-      remembered_categories: ["workspace_write"],
-      rules: [{ decision: "ask", category: "workspace_write", reason: "write" }],
-    },
-    inspectorTab: "permissions",
-  });
-  assert.equal(permissionState.inspectorTab, "permissions");
-  assert.deepEqual(permissionState.permissionContext.remembered_categories, ["workspace_write"]);
-
   const pendingPermissionState = reducer(initialState, {
     type: "session_snapshot",
     snapshot: {
@@ -575,8 +594,8 @@ async function main() {
   });
   assert.equal(pendingPermissionState.snapshot.pending_interaction.interaction_id, "perm-panel-1");
   assert.equal(Object.prototype.hasOwnProperty.call(pendingPermissionState, "permission"), false);
-  assert.equal(pendingPermissionState.inspectorTab, "interaction");
-  assert.equal(pendingPermissionState.inspectorOpen, true);
+  assert.equal(Object.hasOwn(pendingPermissionState, "inspectorTab"), false);
+  assert.equal(Object.hasOwn(pendingPermissionState, "inspectorOpen"), false);
   assert.equal(pendingPermissionState.activities.length, 0);
 
   const clearedPermissionState = reducer(pendingPermissionState, {
@@ -613,8 +632,8 @@ async function main() {
   });
   assert.equal(pendingUserInputState.snapshot.pending_interaction.interaction_id, "ask-panel-1");
   assert.equal(Object.prototype.hasOwnProperty.call(pendingUserInputState, "userInput"), false);
-  assert.equal(pendingUserInputState.inspectorTab, "interaction");
-  assert.equal(pendingUserInputState.inspectorOpen, true);
+  assert.equal(Object.hasOwn(pendingUserInputState, "inspectorTab"), false);
+  assert.equal(Object.hasOwn(pendingUserInputState, "inspectorOpen"), false);
   assert.equal(pendingUserInputState.activities.length, 0);
 
   const answeredUserInputState = reducer(pendingUserInputState, {
@@ -631,15 +650,6 @@ async function main() {
   assert.equal(answeredUserInputState.snapshot.pending_interaction, null);
   assert.equal(Object.prototype.hasOwnProperty.call(answeredUserInputState, "userInput"), false);
   assert.equal(answeredUserInputState.activities.length, 0);
-
-  const recipeState = reducer(initialState, {
-    type: "recipes_loaded",
-    items: [
-      { id: "python.test.default", tool_name: "pytest", recipe_action: "test", label: "Pytest", source: "detected" },
-      { id: "html.lint.default", tool_name: "html_lint", recipe_action: "lint", label: "HTML Lint", source: "detected" },
-    ],
-  });
-  assert.equal(recipeState.recipes.length, 2);
 
   const activatedState = reducer(
     {
@@ -663,8 +673,8 @@ async function main() {
     },
   );
   assert.equal(activatedState.runOutput.length, 0);
-  assert.equal(activatedState.inspectorTab, "interaction");
-  assert.equal(activatedState.inspectorOpen, true);
+  assert.equal(Object.hasOwn(activatedState, "inspectorTab"), false);
+  assert.equal(Object.hasOwn(activatedState, "inspectorOpen"), false);
 
   const bootstrapToolState = reducer(initialState, {
     type: "session_activated",
@@ -720,8 +730,67 @@ async function main() {
   assert.equal(timelineSource.includes("onOpenFile"), true);
   assert.equal(timelineSource.includes("handleTimelineFileLink"), true);
   assert.equal(timelineSource.includes("parseTimelineFileHref"), true);
-  assert.equal(timelineSource.includes("history partially restored"), true);
-  assert.equal(timelineSource.includes("session history unavailable"), true);
+  assert.equal(timelineSource.includes("chrome.historyPartialLabel"), true);
+  assert.equal(timelineSource.includes("chrome.historyUnavailable"), true);
+  for (const hardcodedTimelineCopy of [
+    "Conversation",
+    "No conversation yet.",
+    "history partially restored",
+    "restore stopped early",
+    "session history unavailable",
+    "Explicit loop safety limit reached.",
+    "Maximum turn limit reached",
+    "Stopped by guard.",
+    "Cancelled.",
+  ]) {
+    assert.equal(timelineSource.includes(hardcodedTimelineCopy), false);
+  }
+
+  const t3TimelineSource = fs.readFileSync(
+    webappSourcePath("session-runtime", "t3-timeline.js"),
+    "utf8",
+  );
+  assert.equal(t3TimelineSource.includes("completedAt: turnEndTimestamp"), true);
+  assert.equal(t3TimelineSource.includes("interrupted: hasInterruptedWork"), true);
+  for (const hardcodedProjectionChromeCopy of [
+    "Worked for ",
+    "Worked for this turn",
+    "You stopped after",
+    "You stopped this response",
+    '"Thinking"',
+    "Context compacted",
+    'label: "/review"',
+    'title: "Error"',
+    'title: "Preview"',
+    'title: "Summary"',
+    'title: "Matches"',
+    'title: "Files"',
+    'title: "stdout"',
+    'title: "stderr"',
+    'title: "Diff"',
+    'title: "Changed files"',
+  ]) {
+    assert.equal(t3TimelineSource.includes(hardcodedProjectionChromeCopy), false);
+  }
+  assert.equal(t3TimelineSource.includes("commandPreviewFromToolPresentation"), true);
+  for (const hardcodedToolPreviewCopy of [
+    'if (toolName === "shell" || toolName === "bash")',
+    'if (toolName === "grep_text")',
+    'if (toolName === "glob_files")',
+    'if (toolName === "read_file" || toolName === "write_file" || toolName === "edit_file")',
+    "function toolNameRequestKind",
+  ]) {
+    assert.equal(t3TimelineSource.includes(hardcodedToolPreviewCopy), false);
+  }
+  for (const hardcodedChangedFileCopy of [
+    "const WRITE_TOOLS",
+    "WRITE_TOOLS.has",
+    'commandName === "diff"',
+    'commandName === "review"',
+  ]) {
+    assert.equal(t3TimelineSource.includes(hardcodedChangedFileCopy), false);
+  }
+  assert.equal(t3TimelineSource.includes("`/${commandName}`"), false);
 
   const timelineRowsSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "TimelineRows.jsx"),
@@ -739,6 +808,41 @@ async function main() {
   assert.equal(timelineRowsSource.includes("ContextSummaryRow"), true);
   assert.equal(timelineRowsSource.includes("CommandResultRow"), true);
   assert.equal(timelineRowsSource.includes("ReviewResultRow"), true);
+  assert.equal(timelineRowsSource.includes("changedFilesChrome"), true);
+  assert.equal(timelineRowsSource.includes("workGroupChrome"), true);
+  assert.equal(timelineRowsSource.includes("activityRowsChrome"), true);
+  assert.equal(timelineRowsSource.includes("toolDetailChrome"), true);
+  assert.equal(timelineRowsSource.includes("workRowChrome"), true);
+  assert.equal(timelineRowsSource.includes("chrome.streamingStatus"), true);
+  assert.equal(timelineRowsSource.includes("chrome.contextSummarizedTemplate"), true);
+  assert.equal(timelineRowsSource.includes("chrome.contextSizeTemplate"), true);
+  assert.equal(timelineRowsSource.includes("chrome.commandCompletedStatus"), true);
+  for (const hardcodedWorkGroupCopy of [
+    "1 tool call",
+    "tool calls",
+    "Show fewer tool calls",
+    "previous tool",
+  ]) {
+    assert.equal(timelineRowsSource.includes(hardcodedWorkGroupCopy), false);
+  }
+  for (const hardcodedActivityRowCopy of [
+    "Working...",
+    "Working for",
+    "Worked for this turn",
+    " steps",
+    '"Thinking"',
+    "Context updated",
+    " summarized",
+    " retained",
+    " tokens",
+    "failed",
+    '"completed"',
+    "1 finding",
+    " findings",
+    "0s",
+  ]) {
+    assert.equal(timelineRowsSource.includes(hardcodedActivityRowCopy), false);
+  }
   assert.equal(timelineRowsSource.includes("TimelineRowSwitch"), true);
   assert.equal(timelineRowsSource.includes("MAX_VISIBLE_WORK_LOG_ENTRIES"), true);
   assert.equal(timelineRowsSource.includes("WorkGroupSection"), true);
@@ -754,6 +858,7 @@ async function main() {
   assert.equal(timelineRowsSource.includes('data-testid="timeline-review-result-row"'), true);
   assert.equal(timelineRowsSource.includes('data-testid="timeline-work-group"'), true);
   assert.equal(timelineRowsSource.includes('data-testid="timeline-working-row"'), true);
+  assert.equal(timelineRowsSource.includes("`/${row.commandName"), false);
 
   const workRowSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "WorkRow.jsx"),
@@ -772,8 +877,31 @@ async function main() {
   assert.equal(workRowSource.includes("data-icon-name={presentation.iconName}"), true);
   assert.equal(workRowSource.includes("data-status-indicator={presentation.statusIndicator}"), true);
   assert.equal(workRowSource.includes("presentation.expandedBody"), true);
+  assert.equal(workRowSource.includes("toolDetailChrome"), true);
+  assert.equal(workRowSource.includes("workRowChrome"), true);
+  assert.equal(workRowSource.includes("statusLabels"), true);
+  assert.equal(workRowSource.includes("defaultHeading"), true);
+  assert.equal(workRowSource.includes("defaultIconName"), true);
   assert.equal(workRowSource.includes("TOOL_ICONS"), false);
   assert.equal(workRowSource.includes("<pre>{row.detail}</pre>"), false);
+  for (const hardcodedWorkRowCopy of [
+    'return "failed"',
+    'return "completed"',
+    'return "empty"',
+    'return "cancelled"',
+    'return "skipped"',
+    '"Work"',
+    'iconName: "zap"',
+  ]) {
+    assert.equal(workRowSource.includes(hardcodedWorkRowCopy), false);
+  }
+  for (const hardcodedWorkProjectionCopy of [
+    'base || "Tool"',
+    '"Work"',
+    'return "zap"',
+  ]) {
+    assert.equal(t3TimelineSource.includes(hardcodedWorkProjectionCopy), false);
+  }
   assert.equal(fs.existsSync(webappSourcePath("components", "timeline", "ToolDetail.jsx")), true);
   const toolDetailSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "ToolDetail.jsx"),
@@ -782,37 +910,54 @@ async function main() {
   assert.equal(toolDetailSource.includes("timeline-file-link"), true);
   assert.equal(toolDetailSource.includes("data-testid={`timeline-tool-file-link--"), true);
   assert.equal(toolDetailSource.includes("onOpenFile(item.path, item.line || undefined)"), true);
+  assert.equal(toolDetailSource.includes("fieldLabel"), true);
+  assert.equal(toolDetailSource.includes("sectionTitle"), true);
+  assert.equal(toolDetailSource.includes("fallbackMatchLabel"), true);
+  assert.equal(toolDetailSource.includes('"Detail"'), false);
+  assert.equal(toolDetailSource.includes('|| "match"'), false);
   assert.equal(timelineRowsSource.includes("onOpenFile={onOpenFile}"), true);
 
-  const interactionPanelSource = fs.readFileSync(
-    webappSourcePath("components", "InteractionPanel.jsx"),
-    "utf8",
-  );
-  assert.equal(interactionPanelSource.includes("notice?.kind"), true);
+  assert.equal(fs.existsSync(webappSourcePath("components", "InteractionPanel.jsx")), false);
+  assert.equal(fs.existsSync(webappSourcePath("LangContext.js")), false);
+  assert.equal(fs.existsSync(webappSourcePath("strings.js")), false);
 
-  const inspectorSource = fs.readFileSync(
-    webappSourcePath("components", "Inspector.jsx"),
+  assert.equal(fs.existsSync(webappSourcePath("components", "Inspector.jsx")), false);
+  const surfacePanelSource = fs.readFileSync(
+    webappSourcePath("components", "SurfacePanel.jsx"),
     "utf8",
   );
-  assert.equal(inspectorSource.includes("RIGHT_PANEL_SURFACES"), true);
-  assert.equal(inspectorSource.includes("showTabs = true"), true);
-  assert.equal(inspectorSource.includes("{showTabs ? ("), true);
-  assert.equal(inspectorSource.includes('{inspectorTab === "interaction"'), true);
-  assert.equal(inspectorSource.includes('{inspectorTab === "diff"'), true);
-  assert.equal(inspectorSource.includes("formatDiagnosticsRows"), true);
-  assert.equal(inspectorSource.includes("SettingsPanel"), true);
-  assert.equal(inspectorSource.includes("DiagnosticsPanel"), true);
-  assert.equal(inspectorSource.includes("appShell"), true);
-  assert.equal(inspectorSource.includes("onAppSettingsChange"), true);
-  assert.equal(inspectorSource.includes("SourceControlPanel"), true);
-  assert.equal(inspectorSource.includes("sourceControl={sourceControl}"), true);
-  assert.equal(inspectorSource.includes("todo-row"), false);
-  assert.equal(inspectorSource.includes("todo-mark"), false);
+  assert.equal(surfacePanelSource.includes("RIGHT_PANEL_SURFACES"), false);
+  assert.equal(surfacePanelSource.includes("function InspectorTabs"), false);
+  assert.equal(surfacePanelSource.includes("showTabs"), false);
+  assert.equal(surfacePanelSource.includes("onTabChange"), false);
+  assert.equal(surfacePanelSource.includes("inspectorTab"), false);
+  assert.equal(surfacePanelSource.includes("PANEL_RENDERERS"), true);
+  assert.equal(surfacePanelSource.includes("panelKind"), true);
+  assert.equal(surfacePanelSource.includes('{surfaceKind === "diff"'), false);
+  assert.equal(surfacePanelSource.includes("formatDiagnosticsRows"), true);
+  assert.equal(surfacePanelSource.includes("SettingsPanel"), true);
+  assert.equal(surfacePanelSource.includes("DiagnosticsPanel"), true);
+  assert.equal(surfacePanelSource.includes("appShell"), true);
+  assert.equal(surfacePanelSource.includes("chrome"), true);
+  assert.equal(surfacePanelSource.includes("../strings.js"), false);
+  assert.equal(surfacePanelSource.includes("LangContext"), false);
+  assert.equal(surfacePanelSource.includes("onAppSettingsChange"), true);
+  assert.equal(surfacePanelSource.includes("SourceControlPanel"), true);
+  assert.equal(surfacePanelSource.includes("sourceControl={sourceControl}"), true);
+  assert.equal(surfacePanelSource.includes("todo-row"), false);
+  assert.equal(surfacePanelSource.includes("todo-mark"), false);
+  assert.equal(surfacePanelSource.includes("RunPanel"), false);
+  assert.equal(surfacePanelSource.includes("RecipeCard"), false);
+  assert.equal(surfacePanelSource.includes("onRunRecipe"), false);
 
   const stylesSource = readWebappSourceText("styles.css");
+  const modeStyleSource = readWebappSourceText("session-runtime", "mode-style.js");
   assert.equal(stylesSource.includes("todo-"), false);
+  assert.equal(stylesSource.includes("recipe-"), false);
   assert.equal(stylesSource.includes("mode-code"), false);
   assert.equal(stylesSource.includes("mode-build"), false);
+  assert.equal(stylesSource.includes("--color-verify"), false);
+  assert.equal(modeStyleSource.includes("verify:"), false);
   assert.equal(stylesSource.includes("--mode-badge-color"), true);
   assert.equal(stylesSource.includes("--mode-badge-rgb"), true);
   assert.equal(stylesSource.includes(".t3-work-row.error"), true);
@@ -861,13 +1006,65 @@ async function main() {
     webappSourcePath("App.jsx"),
     "utf8",
   );
+  const workbenchParityModelSource = fs.readFileSync(
+    webappSourcePath("workbench", "workbench-parity-model.js"),
+    "utf8",
+  );
+  assert.equal(workbenchParityModelSource.includes("buildAppCapabilityModelFromState"), true);
+  assert.equal(workbenchParityModelSource.includes("buildSessionCapabilityModelFromState"), true);
+  assert.equal(workbenchParityModelSource.includes("state.app.capabilities"), false);
+  assert.equal(workbenchParityModelSource.includes("state.sessionCapabilities"), false);
   assert.equal(appSource.includes("createTerminalController"), true);
   assert.equal(appSource.includes("stateRef.current = state"), true);
-  assert.equal(appSource.includes("terminalController.ensureOpen"), true);
-  assert.equal(appSource.includes("terminalController.openSession"), true);
-  assert.equal(appSource.includes("terminalController.openRightPanelSurface"), true);
-  assert.equal(appSource.includes("terminalController.splitRightPanelSurface"), true);
-  assert.equal(appSource.includes("terminalController.closeRightPanelPane"), true);
+  assert.equal(appSource.includes("terminalController.ensureOpen"), false);
+  assert.equal(appSource.includes("nextTerminalId"), false);
+  assert.equal(appSource.includes("onKindSelect={terminalController.selectBottomDrawerKind}"), true);
+  assert.equal(appSource.includes("onTerminalNew={terminalController.openNewBottomDrawerTerminal}"), true);
+  assert.equal(
+    appSource.includes("onTerminalSelect={terminalController.activateBottomDrawerTerminal}"),
+    true,
+  );
+  assert.equal(appSource.includes('type: "terminal_active_set"'), false);
+  assert.equal(appSource.includes("terminalController.openSession"), false);
+  assert.equal(appSource.includes("onTerminalNew={terminalController.openRightPanelSurface}"), true);
+  assert.equal(appSource.includes("onTerminalSplit={terminalController.splitActiveRightPanelSurface}"), true);
+  assert.equal(
+    appSource.includes("onTerminalSplitVertical={terminalController.splitActiveRightPanelSurfaceVertical}"),
+    true,
+  );
+  assert.equal(appSource.includes("onTerminalSelect={terminalController.activateActiveRightPanelPane}"), true);
+  assert.equal(appSource.includes("onTerminalClose={terminalController.closeActiveRightPanelPane}"), true);
+  assert.equal(appSource.includes("terminalController.splitRightPanelSurface"), false);
+  assert.equal(appSource.includes("terminalController.closeRightPanelPane"), false);
+  assert.equal(appSource.includes("terminalController.activateRightPanelPane"), false);
+  assert.equal(appSource.includes("activeRightPanelSurface, terminalId"), false);
+  assert.equal(appSource.includes("surfaceDefinitionFor("), false);
+  assert.equal(appSource.includes('kind: "file"'), false);
+  assert.equal(appSource.includes('kind: "preview"'), false);
+  assert.equal(appSource.includes('openRightPanelSurface("files")'), false);
+  assert.equal(appSource.includes("surface.kind"), false);
+  assert.equal(appSource.includes("definition.activationKind"), false);
+  assert.equal(appSource.includes('definition.activationKind === "terminal.open_active"'), false);
+  assert.equal(appSource.includes("onActivateSurface={rightPanelController.activateSurface}"), true);
+  assert.equal(appSource.includes("onCloseSurface={rightPanelController.closeSurface}"), true);
+  assert.equal(appSource.includes("onCloseOtherSurfaces={rightPanelController.closeOtherSurfaces}"), true);
+  assert.equal(appSource.includes("onCloseSurfacesToRight={rightPanelController.closeSurfacesToRight}"), true);
+  assert.equal(appSource.includes("onCloseAllSurfaces={rightPanelController.closeAllSurfaces}"), true);
+  assert.equal(appSource.includes("onAddSurface={openRightPanelSurface}"), true);
+  assert.equal(appSource.includes("rightPanelController.openFileSurface("), false);
+  assert.equal(appSource.includes("const opened = rightPanelController.openFileSurface("), false);
+  assert.equal(appSource.includes("if (!opened) return;"), false);
+  assert.equal(appSource.includes("rightPanelController.openPreviewSurface("), false);
+  assert.equal(appSource.includes("rightPanelController.canOpenPreviewSurface()"), false);
+  assert.equal(appSource.includes("createPreviewController"), true);
+  assert.equal(appSource.includes("onPreviewOpenUrl={previewController.openUrl}"), true);
+  assert.equal(appSource.includes("onPreviewRefresh={previewController.refresh}"), true);
+  assert.equal(appSource.includes("onPreviewOpenExternal={previewController.openExternal}"), true);
+  assert.equal(appSource.includes("openPreviewSession"), false);
+  assert.equal(appSource.includes("refreshPreviewSession"), false);
+  assert.equal(appSource.includes("openPreviewExternal"), false);
+  assert.equal(appSource.includes("onOpenFilesSurface={rightPanelController.openFilesSurface}"), true);
+  assert.equal(appSource.includes('surface.kind === "terminal"'), false);
   assert.equal(appSource.includes("async function ensureTerminalOpen"), false);
   assert.equal(appSource.includes("async function openTerminalSession"), false);
   assert.equal(appSource.includes("async function refreshTerminals"), false);
@@ -885,14 +1082,24 @@ async function main() {
   assert.equal(appSource.includes("function allKnownTerminalIds"), false);
   assert.equal(appSource.includes("AppSidebarLayout"), true);
   assert.equal(appSource.includes("WorkbenchHeader"), true);
-  assert.equal(appSource.includes("currentSessionId: currentSessionIdRef.current"), true);
+  assert.equal(appSource.includes("getCurrentSessionId: () => currentSessionIdRef.current"), true);
   assert.equal(appSource.includes("loadAppBootstrap"), true);
   assert.equal(appSource.includes("openWorkspace"), true);
   assert.equal(appSource.includes("activateWorkspace"), true);
-  assert.equal(appSource.includes("deriveSocketMessageEffects"), true);
-  assert.equal(appSource.includes("executeSocketEffects"), true);
+  assert.equal(appSource.includes("createSocketMessageController"), true);
+  assert.equal(appSource.includes("deriveSocketMessageEffects"), false);
+  assert.equal(appSource.includes("executeSocketEffects"), false);
   assert.equal(appSource.includes("executeLoaderRequest"), true);
-  assert.equal(appSource.includes("installVisualDebugFixtures"), true);
+  assert.equal(appSource.includes("createVisualDebugController"), true);
+  assert.equal(appSource.includes("installVisualDebugFixtures"), false);
+  assert.equal(appSource.includes("window.location.search"), false);
+  assert.equal(appSource.includes("/api/tasks"), false);
+  assert.equal(appSource.includes("/api/workspace/recipes"), false);
+  assert.equal(appSource.includes("/api/tool-catalog"), false);
+  assert.equal(appSource.includes("loadTasks"), false);
+  assert.equal(appSource.includes("loadWorkspaceRecipes"), false);
+  assert.equal(appSource.includes("loadToolCatalog"), false);
+  assert.equal(appSource.includes("state.toolCatalog"), false);
   assert.equal(appSource.includes("createLoaderRequestExecutor"), true);
   assert.equal(appSource.includes("deriveSessionActivation"), false);
   assert.equal(appSource.includes("function connectWebSocket"), false);
@@ -916,6 +1123,29 @@ async function main() {
     assert.equal(appSource.includes(directSessionFunction), false);
   }
   assert.equal(appSource.includes("createSessionController"), true);
+  assert.equal(appSource.includes("createComposerController"), true);
+  assert.equal(appSource.includes("function sendMessage"), false);
+  assert.equal(appSource.includes("onChange={composerController.setDraft}"), true);
+  assert.equal(appSource.includes("onSend={composerController.sendMessage}"), true);
+  assert.equal(
+    appSource.includes("onOpenCommandPalette={composerController.openCommandPalette}"),
+    true,
+  );
+  assert.equal(
+    appSource.includes("onRefreshSourceControl={composerController.refreshSourceControl}"),
+    true,
+  );
+  assert.equal(appSource.includes("createSessionListController"), true);
+  assert.equal(appSource.includes("const { loadSessions } = sessionListController"), true);
+  assert.equal(appSource.includes("async function loadSessions"), false);
+  assert.equal(appSource.includes("createSessionActivationController"), true);
+  assert.equal(appSource.includes("const loadSession = sessionActivationController"), true);
+  assert.equal(appSource.includes("async function loadSession"), false);
+  assert.equal(appSource.includes('import { fetchJson } from "./app-runtime/http-client.js"'), true);
+  assert.equal(appSource.includes("async function fetchJson"), false);
+  assert.equal(appSource.includes("fetch("), false);
+  assert.equal(appSource.includes('fetchJson("/api/sessions")'), false);
+  assert.equal(appSource.includes('type: "sessions_loaded"'), false);
   assert.equal(appSource.includes("createThreadLifecycleController"), true);
   const directCommandIdCases = (appSource.match(/command\.id ===/g) || []).length;
   assert.ok(directCommandIdCases <= 2);
@@ -931,8 +1161,55 @@ async function main() {
   assert.equal(sessionControllerSource.includes("/api/sessions?mode="), true);
   assert.equal(sessionControllerSource.includes("/message"), true);
   assert.equal(sessionControllerSource.includes("import React"), false);
+  const composerControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "composer-controller.js"),
+    "utf8",
+  );
+  assert.equal(composerControllerSource.includes("export function createComposerController"), true);
+  assert.equal(composerControllerSource.includes('type: "set_composer"'), true);
+  assert.equal(composerControllerSource.includes('type: "workbench_command_palette_opened"'), true);
+  assert.equal(composerControllerSource.includes("refreshSourceControl"), true);
+  assert.equal(composerControllerSource.includes("import React"), false);
+  const sessionListControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "session-list-controller.js"),
+    "utf8",
+  );
+  assert.equal(sessionListControllerSource.includes("export function createSessionListController"), true);
+  assert.equal(sessionListControllerSource.includes("/api/sessions"), true);
+  assert.equal(sessionListControllerSource.includes('type: "sessions_loaded"'), true);
+  assert.equal(sessionListControllerSource.includes("import React"), false);
+  const httpClientSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "http-client.js"),
+    "utf8",
+  );
+  assert.equal(httpClientSource.includes("export function createJsonHttpClient"), true);
+  assert.equal(httpClientSource.includes("export const { fetchJson }"), true);
+  assert.equal(httpClientSource.includes("error.status"), true);
+  assert.equal(httpClientSource.includes("import React"), false);
+  const initialAppLoadControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "initial-app-load-controller.js"),
+    "utf8",
+  );
+  assert.equal(appSource.includes("createInitialAppLoadController"), true);
+  assert.equal(appSource.includes("loadAppBootstrap();"), false);
+  assert.equal(appSource.includes("loadSessionCommandCapabilities({ fetchJson, dispatch }).catch"), false);
+  assert.equal(appSource.includes("createSessionCommandCapabilityLoader"), true);
+  assert.equal(appSource.includes("loadSessionCommandCapabilitiesForApp"), true);
+  assert.equal(appSource.includes("loadSessionCommandCapabilities({ fetchJson, dispatch })"), false);
+  assert.equal(
+    initialAppLoadControllerSource.includes("export function createInitialAppLoadController"),
+    true,
+  );
+  assert.equal(initialAppLoadControllerSource.includes("bootstrapResult"), true);
+  assert.equal(initialAppLoadControllerSource.includes("commandCapabilitiesResult"), true);
+  assert.equal(initialAppLoadControllerSource.includes("catch(() => null)"), true);
+  assert.equal(initialAppLoadControllerSource.includes("import React"), false);
   const threadLifecycleControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "thread-lifecycle-controller.js"),
+    "utf8",
+  );
+  const browserDialogServiceSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "browser-dialog-service.js"),
     "utf8",
   );
   assert.equal(threadLifecycleControllerSource.includes("export function createThreadLifecycleController"), true);
@@ -940,48 +1217,286 @@ async function main() {
   assert.equal(threadLifecycleControllerSource.includes("/archive"), true);
   assert.equal(threadLifecycleControllerSource.includes("/fork"), true);
   assert.equal(threadLifecycleControllerSource.includes("import React"), false);
+  assert.equal(threadLifecycleControllerSource.includes("${action.label} failed"), false);
+  assert.equal(threadLifecycleControllerSource.includes("label: id"), false);
+  assert.equal(appSource.includes("createBrowserDialogService"), true);
+  assert.equal(appSource.includes("prompt: browserDialogService.prompt"), true);
+  assert.equal(appSource.includes("confirm: browserDialogService.confirm"), true);
+  assert.equal(appSource.includes("window.prompt"), false);
+  assert.equal(appSource.includes("window.confirm"), false);
+  assert.equal(browserDialogServiceSource.includes("export function createBrowserDialogService"), true);
+  assert.equal(browserDialogServiceSource.includes("target.prompt"), true);
+  assert.equal(browserDialogServiceSource.includes("target.confirm"), true);
+  assert.equal(browserDialogServiceSource.includes("import React"), false);
   const rightPanelControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "right-panel-controller.js"),
     "utf8",
   );
+  const filePreviewControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "file-preview-controller.js"),
+    "utf8",
+  );
+  const previewControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "preview-controller.js"),
+    "utf8",
+  );
+  const diffSurfaceControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "diff-surface-controller.js"),
+    "utf8",
+  );
   assert.equal(rightPanelControllerSource.includes("export function createRightPanelController"), true);
   assert.equal(rightPanelControllerSource.includes("rightPanelSurfaceTitle"), true);
+  assert.equal(rightPanelControllerSource.includes('replace(/^Open\\s+/i, "")'), false);
+  assert.equal(rightPanelControllerSource.includes("fileSurfaceTitle(path, filePreviewChrome"), true);
+  assert.equal(rightPanelControllerSource.includes('return "File"'), false);
+  assert.equal(rightPanelControllerSource.includes("getAppCapabilities"), true);
+  assert.equal(rightPanelControllerSource.includes("declaredRightPanelSurfaceDefinition"), true);
+  assert.equal(rightPanelControllerSource.includes("surfaceDefinitionFor(kind, capabilities)"), true);
+  assert.equal(rightPanelControllerSource.includes("definition.openKind"), true);
+  assert.equal(rightPanelControllerSource.includes("RIGHT_PANEL_OPEN_HANDLERS"), true);
+  assert.equal(rightPanelControllerSource.includes("RIGHT_PANEL_OPEN_HANDLERS[definition.openKind]"), true);
+  assert.equal(rightPanelControllerSource.includes('switch (definition ? definition.openKind : "")'), false);
+  assert.equal(rightPanelControllerSource.includes("definition.activationKind"), true);
+  assert.equal(rightPanelControllerSource.includes("RIGHT_PANEL_ACTIVATION_HANDLERS"), true);
+  assert.equal(
+    rightPanelControllerSource.includes("RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]"),
+    true,
+  );
+  assert.equal(rightPanelControllerSource.includes("rightPanelSurfaceTitle(surfaceKind, title, appCapabilities)"), true);
   assert.equal(rightPanelControllerSource.includes("terminalController.openRightPanelSurface"), true);
+  assert.equal(rightPanelControllerSource.includes("terminalController.openSession"), true);
+  assert.equal(rightPanelControllerSource.includes("openFileSurface"), true);
+  assert.equal(rightPanelControllerSource.includes("canOpenPreviewSurface"), true);
+  assert.equal(rightPanelControllerSource.includes("openPreviewSurface"), true);
+  assert.equal(rightPanelControllerSource.includes("openFilesSurface"), true);
+  assert.equal(rightPanelControllerSource.includes("function closeSurface"), true);
+  assert.equal(rightPanelControllerSource.includes("function closeOtherSurfaces"), true);
+  assert.equal(rightPanelControllerSource.includes("function closeSurfacesToRight"), true);
+  assert.equal(rightPanelControllerSource.includes("function closeAllSurfaces"), true);
+  assert.equal(rightPanelControllerSource.includes('type: "workbench_surface_closed"'), true);
+  assert.equal(rightPanelControllerSource.includes('type: "workbench_surface_close_others"'), true);
+  assert.equal(rightPanelControllerSource.includes('type: "workbench_surface_close_to_right"'), true);
+  assert.equal(rightPanelControllerSource.includes('type: "workbench_surface_close_all"'), true);
+  assert.equal(rightPanelControllerSource.includes("return false"), true);
+  assert.equal(rightPanelControllerSource.includes("return true"), true);
+  assert.equal(rightPanelControllerSource.includes('surfaceKind === "file"'), false);
+  assert.equal(rightPanelControllerSource.includes('surfaceKind === "terminal"'), false);
+  assert.equal(rightPanelControllerSource.includes('type: "set_inspector"'), false);
   assert.equal(rightPanelControllerSource.includes("import React"), false);
   const workbenchCommandControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "workbench-command-controller.js"),
     "utf8",
   );
   assert.equal(workbenchCommandControllerSource.includes("export function createWorkbenchCommandController"), true);
-  assert.equal(workbenchCommandControllerSource.includes('case "app.settings"'), true);
-  assert.equal(workbenchCommandControllerSource.includes('case "app.diagnostics"'), true);
-  assert.equal(workbenchCommandControllerSource.includes('case "app.source_control"'), true);
-  assert.equal(workbenchCommandControllerSource.includes('case "app.reload"'), true);
+  assert.equal(workbenchCommandControllerSource.includes("command.dispatch"), true);
+  assert.equal(workbenchCommandControllerSource.includes("COMMAND_DISPATCH_HANDLERS"), true);
+  assert.equal(workbenchCommandControllerSource.includes("COMMAND_DISPATCH_HANDLERS[dispatchDescriptor.kind]"), true);
+  assert.equal(workbenchCommandControllerSource.includes("commandById"), true);
+  assert.equal(workbenchCommandControllerSource.includes("function openPalette"), true);
+  assert.equal(workbenchCommandControllerSource.includes("function closePalette"), true);
+  assert.equal(workbenchCommandControllerSource.includes("function updatePaletteQuery"), true);
+  assert.equal(workbenchCommandControllerSource.includes("function toggleRightPanel"), true);
+  assert.equal(workbenchCommandControllerSource.includes("function toggleBottomDrawer"), true);
+  assert.equal(workbenchCommandControllerSource.includes("function selectPaletteCommand"), true);
+  assert.equal(workbenchCommandControllerSource.includes("function selectPaletteSession"), true);
+  assert.equal(workbenchCommandControllerSource.includes("function selectPaletteWorkspace"), true);
+  assert.equal(workbenchCommandControllerSource.includes("switch (dispatchDescriptor.kind)"), false);
+  assert.equal(workbenchCommandControllerSource.includes('case "terminal.ensure_open"'), false);
+  assert.equal(workbenchCommandControllerSource.includes("switch (command.id)"), false);
+  assert.equal(workbenchCommandControllerSource.includes('command.drawer === "terminal"'), false);
+  assert.equal(workbenchCommandControllerSource.includes('case "app.settings"'), false);
+  assert.equal(workbenchCommandControllerSource.includes('case "app.diagnostics"'), false);
+  assert.equal(workbenchCommandControllerSource.includes('case "app.source_control"'), false);
+  assert.equal(workbenchCommandControllerSource.includes('case "app.reload"'), false);
+  assert.equal(workbenchCommandControllerSource.includes('case "palette.open"'), false);
+  assert.equal(workbenchCommandControllerSource.includes('case "workspace.open"'), false);
+  assert.equal(workbenchCommandControllerSource.includes('case "session.new"'), false);
+  assert.equal(workbenchCommandControllerSource.includes('case "message.send"'), false);
   assert.equal(workbenchCommandControllerSource.includes('case "surface.preview"'), false);
   assert.equal(workbenchCommandControllerSource.includes("command.surface"), true);
   assert.equal(workbenchCommandControllerSource.includes("import React"), false);
-  assert.equal(appSource.includes("getSourceControlStatus"), true);
-  assert.equal(appSource.includes("loadSourceControlStatus"), true);
-  assert.equal(appSource.includes("openSourceControlFile"), true);
+  assert.equal(appSource.includes("buildAppCapabilityModel"), true);
+  assert.equal(appSource.includes("buildAppCapabilityModelFromState"), true);
+  assert.equal(appSource.includes("buildSessionCapabilityModelFromState"), true);
+  assert.equal(appSource.includes("const EMPTY_KEYBINDINGS"), false);
+  assert.equal(appSource.includes("state.app.capabilities"), false);
+  assert.equal(appSource.includes("stateRef.current.app.capabilities"), false);
+  assert.equal(appSource.includes("state.app.capabilities.keybindings"), false);
+  assert.equal(appSource.includes("state.app.capabilities?.terminal?.chrome"), false);
+  assert.equal(appSource.includes("state.app.capabilities?.sourceControl"), false);
+  assert.equal(appSource.includes("state.app.capabilities?.preview"), false);
+  assert.equal(appSource.includes("state.app.capabilities?.surfaces?.chrome"), false);
+  assert.equal(appSource.includes("appCapabilities={state.app.capabilities}"), false);
+  assert.equal(appSource.includes("threadLifecycleCapabilities: state.app.capabilities"), false);
+  assert.equal(appSource.includes("commandPalette={state.app.capabilities?.commandPalette"), false);
+  assert.equal((appSource.match(/appCapabilities=\{appCapabilities\}/g) || []).length >= 3, true);
+  assert.equal(appSource.includes("state.sessionCapabilities?.modeCatalog"), false);
+  assert.equal(appSource.includes("state.sessionCapabilities?.toolCatalog"), false);
+  assert.equal(appSource.includes("state.sessionCapabilities?.emptyState"), false);
+  assert.equal(appSource.includes("state.sessionCapabilities || {}"), false);
+  assert.equal(appSource.includes("stateRef.current.sessionCapabilities"), false);
+  assert.equal(appSource.includes("commandById"), false);
+  assert.equal(appSource.includes("buildCommandVisibilityContext"), true);
+  assert.equal(appSource.includes("function isTurnInterruptibleStatus"), false);
+  assert.equal(appSource.includes("hasSession: Boolean(currentSessionId)"), false);
+  assert.equal(appSource.includes("paletteOpen: state.workbench.commandPalette.open"), false);
+  assert.equal(appSource.includes("paletteOpen: current.workbench.commandPalette.open"), false);
+  assert.equal(appSource.includes("isRunning: isTurnInterruptibleStatus(status)"), false);
+  assert.equal(appSource.includes("onToggleRightPanel={workbenchCommandController.toggleRightPanel}"), true);
+  assert.equal(appSource.includes("onToggleBottomDrawer={workbenchCommandController.toggleBottomDrawer}"), true);
+  assert.equal(appSource.includes("onOpenPalette={workbenchCommandController.openPalette}"), true);
+  assert.equal(appSource.includes("onQueryChange={workbenchCommandController.updatePaletteQuery}"), true);
+  assert.equal(appSource.includes("onClose={workbenchCommandController.closePalette}"), true);
+  assert.equal(appSource.includes("onSelect={workbenchCommandController.selectPaletteCommand}"), true);
+  assert.equal(appSource.includes("onSelectSession={workbenchCommandController.selectPaletteSession}"), true);
+  assert.equal(appSource.includes("onSelectWorkspace={workbenchCommandController.selectPaletteWorkspace}"), true);
+  assert.equal(appSource.includes("workbench_command_palette_closed"), false);
+  assert.equal(appSource.includes("workbench_command_palette_query_changed"), false);
+  assert.equal(appSource.includes("workbench_right_panel_toggled"), false);
+  assert.equal(appSource.includes("workbench_bottom_drawer_toggled"), false);
+  assert.equal(appSource.includes("createSourceControlController"), true);
+  assert.equal(appSource.includes("getSourceControlStatus"), false);
+  assert.equal(appSource.includes("loadSourceControlStatus"), false);
+  assert.equal(appSource.includes("openSourceControlFile"), false);
+  assert.equal(appSource.includes("sourceControlCapabilityEnabled"), false);
+  assert.equal(
+    appSource.includes("!sourceControlCapabilityEnabled(stateRef.current.app.capabilities)"),
+    false,
+  );
   assert.equal(appSource.includes("buildBranchToolbarModel"), true);
   assert.equal(appSource.includes("branchToolbarModel"), true);
-  assert.equal(appSource.includes("onRefreshSourceControl"), true);
+  assert.equal(appSource.includes("sourceControlChrome"), true);
+  assert.equal(appSource.includes("buildCommandGroupLabels"), true);
+  assert.equal(appSource.includes("commandPaletteGroups.reduce"), false);
+  assert.equal(appSource.includes("group?.id) labels[group.id]"), false);
+  assert.equal(appSource.includes("createSurfacePanelController"), true);
+  assert.equal(appSource.includes("buildSurfacePanelProps"), true);
+  assert.equal(appSource.includes("surfacePanelController.focusDiffFile"), false);
+  assert.equal(appSource.includes("surfacePanelController.refreshSourceControl"), false);
+  assert.equal(appSource.includes("surfacePanelController.selectSourceControlFile"), false);
+  assert.equal(appSource.includes("surfacePanelController.changeAppSettings"), false);
+  assert.equal(appSource.includes("onFocusDiffFile: surfacePanelController.focusDiffFile"), false);
+  assert.equal(
+    appSource.includes("onRefreshSourceControl: surfacePanelController.refreshSourceControl"),
+    false,
+  );
+  assert.equal(
+    appSource.includes("onSelectSourceControlFile: surfacePanelController.selectSourceControlFile"),
+    false,
+  );
+  assert.equal(
+    appSource.includes("onAppSettingsChange: surfacePanelController.changeAppSettings"),
+    false,
+  );
+  assert.equal(appSource.includes("diff_file_focused"), false);
+  assert.equal(appSource.includes("app_shell_settings_changed"), false);
+  assert.equal(appSource.includes("sourceControlController.loadStatus(true)"), false);
+  assert.equal(appSource.includes("sourceControlController.openFile(file, scope)"), false);
   assert.equal(appSource.includes("RightPanelSurfaceBody"), true);
-  assert.equal(appSource.includes("onOpenFile={openFile}"), true);
-  assert.equal(appSource.includes("activeRightPanelSurface"), true);
-  assert.equal(appSource.includes("workbench_surface_close_others"), true);
-  assert.equal(appSource.includes("workbench_surface_close_to_right"), true);
-  assert.equal(appSource.includes("workbench_surface_close_all"), true);
-  assert.equal(appSource.includes("file_preview_load_started"), true);
-  assert.equal(appSource.includes("file_preview_loaded"), true);
-  assert.equal(appSource.includes("file_preview_load_failed"), true);
-  assert.equal(appSource.includes('kind: "file"'), true);
+  assert.equal(
+    (appSource.match(/appCapabilities=\{appCapabilities\}/g) || []).length >= 3,
+    true,
+  );
+  assert.equal(appSource.includes("onOpenFile={filePreviewController.openFile}"), true);
+  assert.equal(appSource.includes("onOpenDiff={diffSurfaceController.open}"), true);
+  assert.equal(appSource.includes("openDiffFixture: diffSurfaceController.open"), true);
+  assert.equal(appSource.includes("onPreviewOpenUrl={previewController.openUrl}"), true);
+  assert.equal(appSource.includes("onPreviewRefresh={previewController.refresh}"), true);
+  assert.equal(appSource.includes("onPreviewOpenExternal={previewController.openExternal}"), true);
+  assert.equal(appSource.includes("async function openFile"), false);
+  const surfacePanelControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "surface-panel-controller.js"),
+    "utf8",
+  );
+  const surfacePanelPropsSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "surface-panel-props.js"),
+    "utf8",
+  );
+  assert.equal(surfacePanelControllerSource.includes("createSurfacePanelController"), true);
+  assert.equal(surfacePanelControllerSource.includes("function focusDiffFile"), true);
+  assert.equal(surfacePanelControllerSource.includes("function refreshSourceControl"), true);
+  assert.equal(surfacePanelControllerSource.includes("function selectSourceControlFile"), true);
+  assert.equal(surfacePanelControllerSource.includes("function changeAppSettings"), true);
+  assert.equal(surfacePanelControllerSource.includes('type: "diff_file_focused"'), true);
+  assert.equal(surfacePanelControllerSource.includes('type: "app_shell_settings_changed"'), true);
+  assert.equal(surfacePanelControllerSource.includes("import React"), false);
+  assert.equal(surfacePanelPropsSource.includes("export function buildSurfacePanelProps"), true);
+  assert.equal(surfacePanelPropsSource.includes("appShell: state.app"), true);
+  assert.equal(surfacePanelPropsSource.includes("onFocusDiffFile: controller.focusDiffFile"), true);
+  assert.equal(
+    surfacePanelPropsSource.includes("onRefreshSourceControl: controller.refreshSourceControl"),
+    true,
+  );
+  assert.equal(
+    surfacePanelPropsSource.includes("onSelectSourceControlFile: controller.selectSourceControlFile"),
+    true,
+  );
+  assert.equal(
+    surfacePanelPropsSource.includes("onAppSettingsChange: controller.changeAppSettings"),
+    true,
+  );
+  assert.equal(surfacePanelPropsSource.includes("import React"), false);
+  assert.equal(appSource.includes("function openDiffSurface"), false);
+  assert.equal(appSource.includes("async function openPreviewUrl"), false);
+  assert.equal(appSource.includes("async function refreshPreview"), false);
+  assert.equal(appSource.includes("async function openPreviewInSystemBrowser"), false);
+  assert.equal(appSource.includes("activeRightPanelSurfaceFrom(state.workbench)"), true);
+  assert.equal(appSource.includes("rightPanelSurfacesFrom(state.workbench)"), true);
+  assert.equal(appSource.includes("rightPanelSurfaces.find"), false);
+  assert.equal(
+    appSource.includes("surface.id === state.workbench.rightPanel.activeSurfaceId"),
+    false,
+  );
+  assert.equal(appSource.includes('type: "workbench_surface_closed"'), false);
+  assert.equal(appSource.includes('type: "workbench_surface_close_others"'), false);
+  assert.equal(appSource.includes('type: "workbench_surface_close_to_right"'), false);
+  assert.equal(appSource.includes('type: "workbench_surface_close_all"'), false);
+  assert.equal(appSource.includes("createFilePreviewController"), true);
+  assert.equal(appSource.includes("filePreviewController.openFile(path, line)"), false);
+  assert.equal(appSource.includes("file_preview_load_started"), false);
+  assert.equal(appSource.includes("file_preview_loaded"), false);
+  assert.equal(appSource.includes("file_preview_load_failed"), false);
+  assert.equal(appSource.includes("filePreviewChrome.unavailableMessage"), false);
+  assert.equal(appSource.includes("fileSurfaceTitle(filePath, filePreviewChrome)"), false);
+  assert.equal(filePreviewControllerSource.includes("export function createFilePreviewController"), true);
+  assert.equal(filePreviewControllerSource.includes("file_preview_load_started"), true);
+  assert.equal(filePreviewControllerSource.includes("file_preview_loaded"), true);
+  assert.equal(filePreviewControllerSource.includes("file_preview_load_failed"), true);
+  assert.equal(filePreviewControllerSource.includes("chrome.unavailableMessage"), true);
+  assert.equal(filePreviewControllerSource.includes("/api/files/"), true);
+  assert.equal(filePreviewControllerSource.includes("import React"), false);
+  assert.equal(previewControllerSource.includes("export function createPreviewController"), true);
+  assert.equal(previewControllerSource.includes("canOpenPreviewSurface"), true);
+  assert.equal(previewControllerSource.includes("openPreviewSurface"), true);
+  assert.equal(previewControllerSource.includes("chrome.sessionRequiredNotice"), true);
+  assert.equal(previewControllerSource.includes("chrome.failedNotice"), true);
+  assert.equal(previewControllerSource.includes("chrome.refreshFailedNotice"), true);
+  assert.equal(previewControllerSource.includes("chrome.openFailedNotice"), true);
+  assert.equal(previewControllerSource.includes("import React"), false);
+  assert.equal(appSource.includes("createDiffSurfaceController"), true);
+  assert.equal(appSource.includes("onOpenDiff={diffSurfaceController.open}"), true);
+  assert.equal(appSource.includes("openDiffFixture: diffSurfaceController.open"), true);
+  assert.equal(appSource.includes("createDiffSurfaceState"), false);
+  assert.equal(appSource.includes('type: "diff_surface_opened"'), false);
+  assert.equal(diffSurfaceControllerSource.includes("export function createDiffSurfaceController"), true);
+  assert.equal(diffSurfaceControllerSource.includes("createDiffSurfaceState"), true);
+  assert.equal(diffSurfaceControllerSource.includes('type: "diff_surface_opened"'), true);
+  assert.equal(diffSurfaceControllerSource.includes("timelineItems"), true);
+  assert.equal(diffSurfaceControllerSource.includes("import React"), false);
+  assert.equal(appSource.includes('kind: "file"'), false);
   assert.equal(appSource.includes('preview: { kind: "file"'), false);
   assert.equal(appSource.includes("showTabs={false}"), false);
+  assert.equal(appSource.includes("onTabChange:"), false);
+  assert.equal(appSource.includes('type: "set_inspector"'), false);
+  assert.equal(appSource.includes("inspectorTab:"), false);
   assert.equal(appSource.includes("activeKind={state.inspectorTab}"), false);
-  assert.equal(appSource.includes("appShell: state.app"), true);
+  assert.equal(appSource.includes("appShell: state.app"), false);
   assert.equal(appSource.includes("projectSessionRuntime"), false);
   assert.equal(appSource.includes("buildSessionActivityRuntime"), true);
+  assert.equal(appSource.includes("LangContext"), false);
+  assert.equal(appSource.includes("strings.js"), false);
+  assert.equal(appSource.includes("set_lang"), false);
+  assert.equal(appSource.includes("appChrome"), true);
 
   const visualFixturesSource = fs.readFileSync(
     webappSourcePath("app-runtime", "visual-debug-fixtures.js"),
@@ -989,6 +1504,14 @@ async function main() {
   );
   assert.equal(visualFixturesSource.includes("buildLongTimelineFixtureAction"), true);
   assert.equal(visualFixturesSource.includes("loadLongTimelineFixture"), true);
+  assert.equal(visualFixturesSource.includes('type: "set_inspector"'), false);
+  assert.equal(visualFixturesSource.includes("inspectorTab"), false);
+
+  const interactionModelSource = fs.readFileSync(
+    webappSourcePath("session-runtime", "interaction-model.js"),
+    "utf8",
+  );
+  assert.equal(interactionModelSource.includes('|| "ask_user"'), false);
 
   const socketMessageEffectsSource = fs.readFileSync(
     webappSourcePath("app-runtime", "socket-message-effects.js"),
@@ -1000,14 +1523,19 @@ async function main() {
   assert.equal(socketMessageEffectsSource.includes("export const LOADER_REQUESTS"), false);
   assert.equal(socketMessageEffectsSource.includes("workspace_changed"), true);
   assert.equal(socketMessageEffectsSource.includes("terminal_event"), true);
+  assert.equal(socketMessageEffectsSource.includes('type: "set_inspector"'), false);
+  assert.equal(socketMessageEffectsSource.includes("inspectorTab"), false);
   assert.equal(socketMessageEffectsSource.includes("session_event"), true);
   assert.equal(socketMessageEffectsSource.includes('type === "permission_request"'), true);
   assert.equal(socketMessageEffectsSource.includes('type === "user_input_request"'), true);
   assert.equal(socketMessageEffectsSource.includes("command_result"), true);
+  assert.equal(socketMessageEffectsSource.includes("command: /"), false);
   assert.equal(socketMessageEffectsSource.includes('event_kind: "interaction' + '.created"'), false);
   assert.equal(socketMessageEffectsSource.includes("approval.requested"), true);
   assert.equal(socketMessageEffectsSource.includes("user-input.requested"), true);
   assert.equal(socketMessageEffectsSource.includes("fetch("), false);
+  assert.equal(socketMessageEffectsSource.includes('commandName === "diff"'), false);
+  assert.equal(socketMessageEffectsSource.includes('commandName === "resume"'), false);
 
   assert.equal(socketMessageEffectsSource.includes("new WebSocket"), false);
   assert.equal(socketMessageEffectsSource.includes("useEffect"), false);
@@ -1017,6 +1545,7 @@ async function main() {
     "utf8",
   );
   assert.equal(sessionLoadersSource.includes("createLoaderRequestExecutor"), true);
+  assert.equal(sessionLoadersSource.includes("createSessionCommandCapabilityLoader"), true);
   assert.equal(sessionLoadersSource.includes("deriveSessionActivation"), true);
   assert.equal(sessionLoadersSource.includes("LOADER_REQUESTS"), true);
   assert.equal(sessionLoadersSource.includes("normalizeHistoryActivities"), true);
@@ -1032,6 +1561,7 @@ async function main() {
     webappSourcePath("state-helpers.js"),
     "utf8",
   );
+  assert.equal(stateHelpersSource.includes('workflow_state: payload.workflow_state || "chat"'), false);
   assert.equal(stateHelpersSource.includes("timeline" + "FromEvents"), false);
   assert.equal(stateHelpersSource.includes("timeline" + "FromTurns"), false);
   assert.equal(stateHelpersSource.includes("summarizeTimelineProjection"), false);
@@ -1045,7 +1575,40 @@ async function main() {
   );
   assert.equal(terminalControllerSource.includes("createTerminalController"), true);
   assert.equal(terminalControllerSource.includes("TERMINAL_DIMENSIONS"), true);
-  assert.equal(terminalControllerSource.includes("Open a session before using the terminal."), true);
+  assert.equal(terminalControllerSource.includes("terminalChromeText"), true);
+  assert.equal(terminalControllerSource.includes("terminalCapabilityEnabled"), true);
+  assert.equal(terminalControllerSource.includes("../terminal/terminal-capability.js"), true);
+  assert.equal(terminalControllerSource.includes("appCapabilities?.terminal?.enabled === true"), false);
+  assert.equal(terminalControllerSource.includes("TERMINAL_SURFACE_KIND"), true);
+  assert.equal(terminalControllerSource.includes("terminalSurfaceActionInput"), true);
+  assert.equal(terminalControllerSource.includes("defaultNextTerminalId"), true);
+  assert.equal(terminalControllerSource.includes("openNewBottomDrawerTerminal"), true);
+  assert.equal(terminalControllerSource.includes("activateBottomDrawerTerminal"), true);
+  assert.equal(terminalControllerSource.includes("function activeRightPanelSurface"), false);
+  assert.equal(terminalControllerSource.includes("activeRightPanelSurfaceFrom"), true);
+  assert.equal(terminalControllerSource.includes("function splitActiveRightPanelSurface"), true);
+  assert.equal(terminalControllerSource.includes("function splitActiveRightPanelSurfaceVertical"), true);
+  assert.equal(terminalControllerSource.includes("function activateActiveRightPanelPane"), true);
+  assert.equal(terminalControllerSource.includes("function closeActiveRightPanelPane"), true);
+  assert.equal(terminalControllerSource.includes('type: "terminal_active_set"'), true);
+  assert.equal(terminalControllerSource.includes("surfaceDefinitionFor"), true);
+  assert.equal(terminalControllerSource.includes("bottomDrawerSurfaceDefinitionFor"), true);
+  assert.equal(terminalControllerSource.includes("definition.activationKind"), true);
+  assert.equal(terminalControllerSource.includes("BOTTOM_DRAWER_ACTIVATION_HANDLERS"), true);
+  assert.equal(terminalControllerSource.includes("BOTTOM_DRAWER_ACTIVATION_HANDLERS[definition.activationKind]"), true);
+  assert.equal(terminalControllerSource.includes('switch (definition ? definition.activationKind : "")'), false);
+  assert.equal(terminalControllerSource.includes('kind === "terminal"'), false);
+
+  const terminalCapabilitySource = fs.readFileSync(
+    webappSourcePath("terminal", "terminal-capability.js"),
+    "utf8",
+  );
+  assert.equal(terminalCapabilitySource.includes("terminalCapabilityEnabled"), true);
+  assert.equal(terminalCapabilitySource.includes("capabilities?.terminal?.enabled === true"), true);
+  assert.equal(terminalControllerSource.includes('surface.kind !== "terminal"'), false);
+  assert.equal(terminalControllerSource.includes('surfaceDefinitionFor("terminal"'), false);
+  assert.equal(terminalControllerSource.includes("Open a session before using the terminal."), false);
+  assert.equal(terminalControllerSource.includes("Terminal failed to open."), false);
   assert.equal(terminalControllerSource.includes("workbench_surface_opened"), true);
   assert.equal(terminalControllerSource.includes("workbench_terminal_surface_split"), true);
   assert.equal(terminalControllerSource.includes("workbench_terminal_surface_terminal_closed"), true);
@@ -1063,11 +1626,21 @@ async function main() {
   );
   assert.equal(terminalApiSource.includes("/api/sessions/"), true);
   assert.equal(terminalApiSource.includes("fetch("), true);
+  assert.equal(terminalApiSource.includes("Terminal request failed"), false);
 
   const visualDebugFixturesSource = fs.readFileSync(
     webappSourcePath("app-runtime", "visual-debug-fixtures.js"),
     "utf8",
   );
+  const visualDebugControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "visual-debug-controller.js"),
+    "utf8",
+  );
+  assert.equal(visualDebugControllerSource.includes("export function createVisualDebugController"), true);
+  assert.equal(visualDebugControllerSource.includes("installVisualDebugFixtures"), true);
+  assert.equal(visualDebugControllerSource.includes("getLocationSearch"), true);
+  assert.equal(visualDebugControllerSource.includes("getCurrentMode"), true);
+  assert.equal(visualDebugControllerSource.includes("import React"), false);
   assert.equal(visualDebugFixturesSource.includes("__EMBEDAGENT_VISUAL_DEBUG__"), true);
   assert.equal(visualDebugFixturesSource.includes("visual_debug"), true);
   assert.equal(visualDebugFixturesSource.includes("loadTimelineFixture"), true);
@@ -1099,10 +1672,25 @@ async function main() {
   assert.equal(storeSource.includes("file_preview_load_started"), true);
   assert.equal(storeSource.includes("file_preview_loaded"), true);
   assert.equal(storeSource.includes("file_preview_load_failed"), true);
+  assert.equal(storeSource.includes('"File unavailable"'), false);
   assert.equal(storeSource.includes("reduceActivityState"), true);
   assert.equal(storeSource.includes('case "assistant_delta":'), false);
   assert.equal(storeSource.includes('case "tool_started":'), false);
   assert.equal(storeSource.includes('case "tool_finished":'), false);
+  assert.equal(storeSource.includes('case "tasks_loaded":'), false);
+  assert.equal(storeSource.includes('case "recipes_loaded":'), false);
+  assert.equal(storeSource.includes('case "tool_catalog_loaded":'), false);
+  assert.equal(storeSource.includes("toolCatalog: {}"), false);
+  assert.equal(storeSource.includes("inspectorTab"), false);
+  assert.equal(storeSource.includes("inspectorOpen"), false);
+  assert.equal(storeSource.includes('case "set_inspector":'), false);
+  assert.equal(storeSource.includes('case "toggle_inspector":'), false);
+  assert.equal(storeSource.includes("sidebarTab"), false);
+  assert.equal(storeSource.includes('case "set_sidebar":'), false);
+  assert.equal(storeSource.includes("TOOL_LABELS"), false);
+  assert.equal(storeSource.includes("export function toolLabel"), false);
+  assert.equal(storeSource.includes("Read  "), false);
+  assert.equal(storeSource.includes('title: action.diffSurface?.title || "diff"'), false);
 
   const noWorkspaceSource = fs.readFileSync(
     webappSourcePath("components", "NoWorkspaceState.jsx"),
@@ -1114,6 +1702,7 @@ async function main() {
   assert.equal(noWorkspaceSource.includes("local workspace"), false);
   assert.equal(noWorkspaceSource.includes("Open a project"), false);
   assert.equal(noWorkspaceSource.includes("D:\\\\work\\\\project"), false);
+  assert.equal(noWorkspaceSource.includes(">EmbedAgent<"), false);
 
   const sidebarSource = fs.readFileSync(
     webappSourcePath("components", "Sidebar.jsx"),
@@ -1131,6 +1720,8 @@ async function main() {
   assert.equal(sidebarSource.includes("appHome?.threads"), true);
   assert.equal(sidebarSource.includes("new Date("), false);
   assert.equal(sidebarSource.includes("state.sessions.map"), false);
+  assert.equal(sidebarSource.includes('data-testid="sidebar-tab--chats"'), false);
+  assert.equal(sidebarSource.includes('data-testid="sidebar-tab--threads"'), true);
   assert.equal(sidebarSource.includes('data-testid="sidebar-tab--files"'), false);
   assert.equal(sidebarSource.includes("file-tree-node--"), false);
   assert.equal(sidebarSource.includes("react-arborist"), false);
@@ -1141,10 +1732,60 @@ async function main() {
     webappSourcePath("session-runtime", "app-home-model.js"),
     "utf8",
   );
-  assert.equal(appHomeModelSource.includes("THREAD_LIFECYCLE_ACTIONS"), true);
+  const appShellModelSource = fs.readFileSync(
+    webappSourcePath("app-shell", "model.js"),
+    "utf8",
+  );
+  const workbenchCommandsSource = fs.readFileSync(
+    webappSourcePath("workbench", "commands.js"),
+    "utf8",
+  );
+  const commandPaletteModelSource = fs.readFileSync(
+    webappSourcePath("workbench", "command-palette-model.js"),
+    "utf8",
+  );
+  const protocolNormalizerSource = fs.readFileSync(
+    webappSourcePath("session-runtime", "protocol-normalizer.js"),
+    "utf8",
+  );
+  assert.equal(appShellModelSource.includes('"EmbedAgent"'), false);
+  assert.equal(appHomeModelSource.includes("THREAD_LIFECYCLE_ACTIONS"), false);
+  assert.equal(appHomeModelSource.includes("capabilities?.actions"), true);
   assert.equal(appHomeModelSource.includes("buildThreadLifecycleActions"), true);
   assert.equal(appHomeModelSource.includes("session.thread?.title"), true);
-  assert.equal(sidebarSource.includes("Threads"), true);
+  assert.equal(appHomeModelSource.includes("sessionFallbackPrefix"), true);
+  assert.equal(appHomeModelSource.includes("`Session ${sessionId.slice(0, 8)}`"), false);
+  assert.equal(appShellModelSource.includes("label: String(input.label || id)"), false);
+  assert.equal(appShellModelSource.includes("String(input.label || id).trim() || id"), false);
+  assert.equal(workbenchCommandsSource.includes("item.label || item.usage || id"), false);
+  assert.equal(workbenchCommandsSource.includes("!command.label"), true);
+  assert.equal(commandPaletteModelSource.includes("asText(command.label) || asText(command.id)"), false);
+  assert.equal(commandPaletteModelSource.includes("descriptor.description || command.id"), false);
+  assert.equal(commandPaletteModelSource.includes("command.slash || command.id"), false);
+  assert.equal(commandPaletteModelSource.includes("`Open ${command.surface}`"), false);
+  assert.equal(commandPaletteModelSource.includes("`Open ${command.drawer}`"), false);
+  assert.equal(commandPaletteModelSource.includes('leading: "T"'), false);
+  assert.equal(commandPaletteModelSource.includes('leading: "W"'), false);
+  assert.equal(commandPaletteModelSource.includes("title: asText(group.title) || titleCase(id)"), false);
+  assert.equal(commandPaletteModelSource.includes("title: titleCase(id)"), false);
+  assert.equal(commandPaletteModelSource.includes("descriptor.title || titleCase"), false);
+  assert.equal(commandPaletteModelSource.includes("slice(0, 1)"), false);
+  assert.equal(commandPaletteModelSource.includes('|| ">"'), false);
+  assert.equal(commandPaletteModelSource.includes('asText(command.group) || "commands"'), false);
+  const commandPaletteResultsSource = fs.readFileSync(
+    webappSourcePath("components", "workbench", "CommandPaletteResults.jsx"),
+    "utf8",
+  );
+  assert.equal(commandPaletteResultsSource.includes('item.leading || ">"'), false);
+  assert.equal(protocolNormalizerSource.includes("firstText(data.label, data.usage, id)"), false);
+  assert.equal(appHomeModelSource.includes("Backend lifecycle API is not available yet"), false);
+  assert.equal(appHomeModelSource.includes("Thread is missing"), false);
+  assert.equal(appHomeModelSource.includes("label: String(action?.label || actionId)"), false);
+  assert.equal(sidebarSource.includes("threadCopy.sectionTitle"), true);
+  assert.equal(sidebarSource.includes("Threads"), false);
+  assert.equal(sidebarSource.includes("../strings.js"), false);
+  assert.equal(sidebarSource.includes("useLang"), false);
+  assert.equal(sidebarSource.includes("chrome.brandSubtitle"), true);
 
   const workbenchHeaderSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "WorkbenchHeader.jsx"),
@@ -1155,8 +1796,10 @@ async function main() {
   assert.equal(workbenchHeaderSource.includes("modeBadgeStyle(currentMode, modeCatalog)"), true);
   assert.equal(workbenchHeaderSource.includes("header-status-group"), true);
   assert.equal(workbenchHeaderSource.includes("header-action-group"), true);
-  assert.equal(workbenchHeaderSource.includes("turns {turnsUsed}/{maxTurns}"), true);
+  assert.equal(workbenchHeaderSource.includes("chrome.turnsLabel"), true);
   assert.equal(workbenchHeaderSource.includes("turnsUsed > 0 && maxTurns != null"), true);
+  assert.equal(workbenchHeaderSource.includes("lang-toggle"), false);
+  assert.equal(workbenchHeaderSource.includes("../../strings.js"), false);
 
   const appSidebarLayoutSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "AppSidebarLayout.jsx"),
@@ -1166,6 +1809,18 @@ async function main() {
 
   const rightPanelTabsSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "RightPanelTabs.jsx"),
+    "utf8",
+  );
+  const workbenchSurfacesSource = fs.readFileSync(
+    webappSourcePath("workbench", "surfaces.js"),
+    "utf8",
+  );
+  const workbenchUiStateSource = fs.readFileSync(
+    webappSourcePath("workbench", "ui-state.js"),
+    "utf8",
+  );
+  const appShellSurfaceModelSource = fs.readFileSync(
+    webappSourcePath("app-shell", "model.js"),
     "utf8",
   );
   assert.equal(rightPanelTabsSource.includes("right-panel-empty-state"), true);
@@ -1183,6 +1838,54 @@ async function main() {
   assert.equal(rightPanelTabsSource.includes("right-panel-surface-tab--file"), true);
   assert.equal(rightPanelTabsSource.includes("right-panel-surface-tab--preview"), true);
   assert.equal(rightPanelTabsSource.includes("to" + "dos"), false);
+  assert.equal(workbenchSurfacesSource.includes('title: "Preview"'), false);
+  assert.equal(workbenchSurfacesSource.includes('title: "Diff"'), false);
+  assert.equal(workbenchSurfacesSource.includes('title: "Terminal"'), false);
+  assert.equal(workbenchSurfacesSource.includes('commandLabel: "Open Terminal"'), false);
+  assert.equal(workbenchSurfacesSource.includes('description: "'), false);
+  assert.equal(workbenchSurfacesSource.includes("titleForSurfaceKind(kind, appCapabilities = null)"), true);
+  assert.equal(appShellSurfaceModelSource.includes("String(input.title || kind)"), false);
+  assert.equal(
+    workbenchSurfacesSource.includes(
+      'return definition && definition.title ? definition.title : String(kind || "");',
+    ),
+    false,
+  );
+  assert.equal(workbenchSurfacesSource.includes('|| "file"'), false);
+  assert.equal(workbenchSurfacesSource.includes('|| "preview"'), false);
+  assert.equal(workbenchSurfacesSource.includes('|| "terminal"'), false);
+  assert.equal(workbenchSurfacesSource.includes("SURFACE_INITIALIZERS"), true);
+  assert.equal(workbenchSurfacesSource.includes("SURFACE_INITIALIZERS[kind]"), true);
+  assert.equal(workbenchSurfacesSource.includes('kind === "file"\n      ? normalizeFilePath'), false);
+  assert.equal(workbenchSurfacesSource.includes('kind === "terminal"\n      ? uniqueTerminalIds'), false);
+  assert.equal(workbenchSurfacesSource.includes('if (kind === "preview")'), false);
+  assert.equal(workbenchSurfacesSource.includes('if (kind !== "terminal")'), false);
+  assert.equal(workbenchSurfacesSource.includes("SURFACE_OPEN_PREPARERS"), true);
+  assert.equal(workbenchSurfacesSource.includes("SURFACE_OPEN_PREPARERS[surface.kind]"), true);
+  assert.equal(workbenchSurfacesSource.includes('surface.kind === "file"\n        ? normalizeFilePath'), false);
+  assert.equal(workbenchSurfacesSource.includes('nextSurface.kind === "file"'), false);
+  assert.equal(workbenchSurfacesSource.includes('nextSurface.kind === "preview"'), false);
+  assert.equal(workbenchSurfacesSource.includes("SURFACE_PANE_HANDLERS"), true);
+  assert.equal(workbenchSurfacesSource.includes("SURFACE_PANE_HANDLERS[surface.kind]"), true);
+  assert.equal(workbenchSurfacesSource.includes("persistedRelatedKinds"), true);
+  assert.equal(workbenchUiStateSource.includes("persistedSurfaceDefinitions"), true);
+  assert.equal(
+    workbenchSurfacesSource.includes('surface.id !== surfaceId || surface.kind !== "terminal"'),
+    false,
+  );
+  assert.equal(workbenchSurfacesSource.includes('surface.kind === "terminal" &&'), false);
+  assert.equal(
+    workbenchSurfacesSource.includes('surface.id === surfaceId && surface.kind === "terminal"'),
+    false,
+  );
+  assert.equal(workbenchSurfacesSource.includes("activeSection"), false);
+  assert.equal(workbenchSurfacesSource.includes("projectSection"), false);
+  assert.equal(workbenchUiStateSource.includes("persistedSurfaceFrom"), true);
+  assert.equal(workbenchUiStateSource.includes('kind === "file"'), false);
+  assert.equal(workbenchUiStateSource.includes('kind === "terminal"'), false);
+  assert.equal(workbenchUiStateSource.includes('kind !== "terminal"'), false);
+  assert.equal(workbenchUiStateSource.includes('kinds.includes("files")'), false);
+  assert.equal(workbenchUiStateSource.includes('kinds.concat("file")'), false);
 
   const changedFilesCardSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "ChangedFilesCard.jsx"),
@@ -1190,7 +1893,16 @@ async function main() {
   );
   assert.equal(changedFilesCardSource.includes("buildChangedFilesTree"), true);
   assert.equal(changedFilesCardSource.includes('data-testid="changed-files-tree"'), true);
-  assert.equal(changedFilesCardSource.includes("View diff"), true);
+  assert.equal(changedFilesCardSource.includes("chrome.viewDiffLabel"), true);
+  assert.equal(changedFilesCardSource.includes("chrome.summaryTemplate"), true);
+  for (const hardcodedChangedFilesCopy of [
+    "View diff",
+    '"Collapse"',
+    '"Expand"',
+    " changed files",
+  ]) {
+    assert.equal(changedFilesCardSource.includes(hardcodedChangedFilesCopy), false);
+  }
 
   const diffPanelSource = fs.readFileSync(
     webappSourcePath("components", "diff", "DiffPanel.jsx"),
@@ -1205,6 +1917,24 @@ async function main() {
   assert.equal(diffPanelSource.includes('data-testid="diff-whitespace-toggle"'), true);
   assert.equal(diffPanelSource.includes("collapsedDiffFilePaths"), true);
   assert.equal(diffPanelSource.includes("diff-selection-chip-strip"), true);
+  assert.equal(diffPanelSource.includes("chrome.selectionAriaLabel"), true);
+  assert.equal(diffPanelSource.includes("chrome.expandDiffLabel"), true);
+  for (const hardcodedDiffCopy of [
+    "No diff selected.",
+    "Diff selection",
+    "Diff controls",
+    "Stacked diff view",
+    "Split diff view",
+    "Disable line wrapping",
+    "Enable line wrapping",
+    "Show whitespace changes",
+    "Hide whitespace changes",
+    "Changed files",
+    ">Files<",
+    "Expand diff",
+  ]) {
+    assert.equal(diffPanelSource.includes(hardcodedDiffCopy), false);
+  }
 
   const sourceControlPanelSource = fs.readFileSync(
     webappSourcePath("components", "source-control", "SourceControlPanel.jsx"),
@@ -1212,8 +1942,38 @@ async function main() {
   );
   assert.equal(sourceControlPanelSource.includes('data-testid="source-control-panel"'), true);
   assert.equal(sourceControlPanelSource.includes("groupSourceControlFiles"), true);
-  assert.equal(sourceControlPanelSource.includes("fileStatusLabel"), true);
+  assert.equal(sourceControlPanelSource.includes("fileStatusLabel(file, sourceControlChrome)"), true);
+  assert.equal(sourceControlPanelSource.includes("sourceControlChrome.groupOrder"), true);
+  assert.equal(
+    sourceControlPanelSource.includes('["conflicted", "staged", "unstaged", "untracked"]'),
+    false,
+  );
   assert.equal(sourceControlPanelSource.includes("onRefresh"), true);
+  assert.equal(sourceControlPanelSource.includes("sourceControlChrome"), true);
+  const sourceControlPresentationSource = fs.readFileSync(
+    webappSourcePath("source-control", "source-control-presentation.js"),
+    "utf8",
+  );
+  assert.equal(sourceControlPresentationSource.includes("fileStatusLabels"), true);
+  assert.equal(sourceControlPresentationSource.includes("slice(0, 1)"), false);
+  assert.equal(sourceControlPresentationSource.includes('"?"'), false);
+  assert.equal(sourceControlPresentationSource.includes("|| normalized"), false);
+  for (const hardcodedSourceControlCopy of [
+    "Source control unavailable.",
+    "Loading changes...",
+    "Git runtime is not available for this workspace.",
+    "The active workspace is not a Git repository.",
+    "No local changes.",
+    "No branch",
+    '"Refresh"',
+  ]) {
+    assert.equal(sourceControlPanelSource.includes(hardcodedSourceControlCopy), false);
+  }
+  const sourceControlApiSource = fs.readFileSync(
+    webappSourcePath("source-control", "source-control-api.js"),
+    "utf8",
+  );
+  assert.equal(sourceControlApiSource.includes("Source control request failed"), false);
 
   const branchToolbarSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "BranchToolbar.jsx"),
@@ -1223,15 +1983,60 @@ async function main() {
   assert.equal(branchToolbarSource.includes('data-testid="branch-toolbar-mode"'), true);
   assert.equal(branchToolbarSource.includes('data-testid="branch-toolbar-branch"'), true);
   assert.equal(branchToolbarSource.includes("onRefresh"), true);
+  assert.equal(branchToolbarSource.includes("model.worktreeLabel"), true);
+  assert.equal(branchToolbarSource.includes("model.branchActionLabel"), true);
+  assert.equal(branchToolbarSource.includes("model.refreshLabel"), true);
+  assert.equal(branchToolbarSource.includes("model.branchMetaLabel"), true);
   assert.equal(branchToolbarSource.includes("fetch("), false);
   assert.equal(branchToolbarSource.includes("transcript"), false);
+  for (const hardcodedBranchToolbarCopy of [
+    "This action is read-only in the current GUI shell.",
+    ">Worktree<",
+    ">Branch<",
+    "Refresh local Git status",
+    ">Refresh<",
+  ]) {
+    assert.equal(branchToolbarSource.includes(hardcodedBranchToolbarCopy), false);
+  }
+  const branchToolbarModelSource = fs.readFileSync(
+    webappSourcePath("source-control", "branch-toolbar-model.js"),
+    "utf8",
+  );
+  assert.equal(branchToolbarModelSource.includes("sourceControlChrome?.branchToolbar"), true);
+  for (const hardcodedBranchToolbarModelCopy of [
+    "Checking Git...",
+    "Git status unavailable",
+    "Git unavailable",
+    "No repository",
+    "Unknown ref",
+    "Clean",
+    "Current checkout",
+    "Run in the active workspace checkout.",
+    "Git is unavailable in this offline bundle or workspace.",
+    "This workspace is not a Git repository.",
+    "Git status is unavailable.",
+  ]) {
+    assert.equal(branchToolbarModelSource.includes(hardcodedBranchToolbarModelCopy), false);
+  }
 
   const bottomDrawerSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "BottomDrawer.jsx"),
     "utf8",
   );
   assert.equal(bottomDrawerSource.includes("TerminalShell"), true);
-  assert.equal(bottomDrawerSource.includes("run_output"), true);
+  assert.equal(bottomDrawerSource.includes("bottomDrawerSurfaceDefinitions"), true);
+  assert.equal(bottomDrawerSource.includes("surfaceChromeLabels"), true);
+  assert.equal(bottomDrawerSource.includes("chrome.bottomDrawerAriaLabel"), true);
+  assert.equal(bottomDrawerSource.includes("chrome.runOutputEmptyMessage"), true);
+  assert.equal(bottomDrawerSource.includes("chrome.terminationReasonPrefix"), true);
+  assert.equal(bottomDrawerSource.includes("activeDefinition.bodyKind"), true);
+  assert.equal(bottomDrawerSource.includes("BOTTOM_DRAWER_BODY_RENDERERS"), true);
+  assert.equal(bottomDrawerSource.includes("BOTTOM_DRAWER_BODY_RENDERERS[activeBodyKind]"), true);
+  assert.equal(bottomDrawerSource.includes("switch (activeBodyKind)"), false);
+  assert.equal(bottomDrawerSource.includes('activeKind === "terminal"'), false);
+  assert.equal(bottomDrawerSource.includes('"Bottom drawer"'), false);
+  assert.equal(bottomDrawerSource.includes('"No run output yet."'), false);
+  assert.equal(bottomDrawerSource.includes("reason={terminationReason}"), false);
   assert.equal(bottomDrawerSource.includes("export function TerminalSurface"), false);
 
   const filesSurfaceSource = fs.readFileSync(
@@ -1243,20 +2048,45 @@ async function main() {
   assert.equal(filesSurfaceSource.includes('data-testid="right-panel-file-tree-scroll"'), true);
   assert.equal(filesSurfaceSource.includes("right-panel-file-node--"), true);
   assert.equal(filesSurfaceSource.includes("onLoadFileChildren"), true);
+  assert.equal(filesSurfaceSource.includes("surface?.title"), true);
+  assert.equal(filesSurfaceSource.includes("<strong>Files</strong>"), false);
 
   const rightPanelSurfaceBodySource = fs.readFileSync(
     webappSourcePath("components", "workbench", "RightPanelSurfaceBody.jsx"),
     "utf8",
   );
   assert.equal(rightPanelSurfaceBodySource.includes("FilesSurface"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("surface={surface}"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("FilePreviewSurface"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("PreviewSurface"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("TerminalShell"), true);
-  assert.equal(rightPanelSurfaceBodySource.includes("Inspector"), true);
-  assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "file"'), true);
-  assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "preview"'), true);
-  assert.equal(rightPanelSurfaceBodySource.includes("surface.kind === \"terminal\""), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("SurfacePanel"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("surfaceDefinitionFor(surface.kind, appCapabilities)"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("surfaceDefinitionFor(surface.kind)"), false);
+  assert.equal(rightPanelSurfaceBodySource.includes("activeDefinition.bodyKind"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("activeDefinition.panelKind"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("RIGHT_PANEL_BODY_RENDERERS"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("RIGHT_PANEL_BODY_RENDERERS[activeBodyKind]"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("switch (activeBodyKind)"), false);
+  assert.equal(rightPanelSurfaceBodySource.includes("Inspector"), false);
+  assert.equal(rightPanelSurfaceBodySource.includes("inspectorTab"), false);
+  assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "file"'), false);
+  assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "files"'), false);
+  assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "preview"'), false);
+  assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "terminal"'), false);
   assert.equal(rightPanelSurfaceBodySource.includes("filePreviewsByPath"), true);
+
+  const surfacePanelRendererSource = fs.readFileSync(
+    webappSourcePath("components", "SurfacePanel.jsx"),
+    "utf8",
+  );
+  assert.equal(surfacePanelRendererSource.includes("PANEL_RENDERERS"), true);
+  assert.equal(surfacePanelRendererSource.includes("panelKind"), true);
+  assert.equal(surfacePanelRendererSource.includes('surfaceKind === "plan"'), false);
+  assert.equal(surfacePanelRendererSource.includes('surfaceKind === "diff"'), false);
+  assert.equal(surfacePanelRendererSource.includes('surfaceKind === "source_control"'), false);
+  assert.equal(surfacePanelRendererSource.includes('surfaceKind === "settings"'), false);
+  assert.equal(surfacePanelRendererSource.includes('surfaceKind === "diagnostics"'), false);
 
   const terminalShellSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "TerminalShell.jsx"),
@@ -1296,6 +2126,39 @@ async function main() {
   assert.equal(filePreviewSurfaceSource.includes("file-preview-action-icon"), true);
   assert.equal(filePreviewSurfaceSource.includes("breadcrumbRef"), true);
   assert.equal(filePreviewSurfaceSource.includes("onOpenFilesSurface"), true);
+  assert.equal(filePreviewSurfaceSource.includes("filePreviewChrome"), true);
+  assert.equal(filePreviewSurfaceSource.includes("filePreviewChrome.loadingMessage"), true);
+  assert.equal(filePreviewSurfaceSource.includes("filePreviewChrome.breadcrumbAriaLabel"), true);
+  assert.equal(filePreviewSurfaceSource.includes("filePreviewChrome.markdownSourceGlyph"), true);
+  assert.equal(filePreviewSurfaceSource.includes("filePreviewChrome.markdownPreviewGlyph"), true);
+  for (const hardcodedFilePreviewCopy of [
+    "Loading file...",
+    "File unavailable",
+    ">Retry<",
+    "Copy ${title} path",
+    "Show markdown source",
+    "Show rendered markdown",
+    "Show file explorer",
+    'aria-label="File path"',
+    '{showPreview ? "C" : "P"}',
+    ", ${meta.lineCount} lines",
+  ]) {
+    assert.equal(filePreviewSurfaceSource.includes(hardcodedFilePreviewCopy), false);
+  }
+  const filePreviewModelSource = fs.readFileSync(
+    webappSourcePath("session-runtime", "file-preview-model.js"),
+    "utf8",
+  );
+  assert.equal(filePreviewModelSource.includes("chrome.languageLabels"), true);
+  for (const hardcodedFilePreviewModelCopy of [
+    '"File"',
+    '"Workspace"',
+    '"Plain"',
+    '"Markdown"',
+    '"TypeScript"',
+  ]) {
+    assert.equal(filePreviewModelSource.includes(hardcodedFilePreviewModelCopy), false);
+  }
 
   const previewSurfaceSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "PreviewSurface.jsx"),
@@ -1319,6 +2182,7 @@ async function main() {
   assert.equal(previewApiSource.includes("/api/sessions/"), true);
   assert.equal(previewApiSource.includes("/preview/open"), true);
   assert.equal(previewApiSource.includes("/api/app/preview/open-external"), true);
+  assert.equal(previewApiSource.includes("Preview request failed"), false);
 
   const repoRoot = path.resolve(WEBAPP_ROOT, "..", "..", "..", "..", "..");
   const visualDebugSource = fs.readFileSync(
@@ -1355,6 +2219,39 @@ async function main() {
   assert.equal(composerSource.includes("BranchToolbar"), true);
   assert.equal(composerSource.includes("branchToolbar"), true);
   assert.equal(composerSource.includes("onRefreshSourceControl"), true);
+  assert.equal(composerSource.includes("../strings.js"), false);
+  assert.equal(composerSource.includes("useLang"), false);
+  assert.equal(composerSource.includes("chrome.placeholder"), true);
+  assert.equal(composerSource.includes("chrome={chrome.interaction || {}}"), true);
+  assert.equal(composerSource.includes("hintLabels[hint.id]"), false);
+  assert.equal(composerSource.includes("hint.label || hint.id"), true);
+  const composerInteractionModelSource = fs.readFileSync(
+    webappSourcePath("composer", "composer-interaction-model.js"),
+    "utf8",
+  );
+  assert.equal(composerInteractionModelSource.includes('id: "command"'), false);
+  assert.equal(composerInteractionModelSource.includes('id: "file"'), false);
+  assert.equal(composerInteractionModelSource.includes('"status.running"'), false);
+  assert.equal(composerInteractionModelSource.includes("hintDescriptors"), true);
+  const commandCapabilitiesSource = fs.readFileSync(
+    webappSourcePath("session-runtime", "command-capabilities.js"),
+    "utf8",
+  );
+  const composerCommandSearchSource = fs.readFileSync(
+    webappSourcePath("composer", "composer-command-search.js"),
+    "utf8",
+  );
+  for (const commandGroupSource of [
+    commandCapabilitiesSource,
+    composerCommandSearchSource,
+    workbenchCommandsSource,
+    protocolNormalizerSource,
+  ]) {
+    assert.equal(commandGroupSource.includes('|| "command"'), false);
+  }
+  assert.equal(commandCapabilitiesSource.includes('group: "command"'), false);
+  assert.equal(composerCommandSearchSource.includes("defaultCommandGroupId"), true);
+  assert.equal(workbenchCommandsSource.includes("defaultCommandGroupId"), true);
 
   const sessionActivationControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "session-activation-controller.js"),
@@ -1367,18 +2264,201 @@ async function main() {
     webappSourcePath("app-runtime", "session-transport-controller.js"),
     "utf8",
   );
+  const sessionTransportHandleSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "session-transport-handle.js"),
+    "utf8",
+  );
+  const respondingRequestIdsHandleSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "responding-request-ids-handle.js"),
+    "utf8",
+  );
+  const interactionResponseControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "interaction-response-controller.js"),
+    "utf8",
+  );
+  const socketEffectExecutorSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "socket-effect-executor.js"),
+    "utf8",
+  );
+  const socketMessageControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "socket-message-controller.js"),
+    "utf8",
+  );
+  const activeWorkspaceDataLoaderSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "active-workspace-data-loader.js"),
+    "utf8",
+  );
+  const panelResizeControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "panel-resize-controller.js"),
+    "utf8",
+  );
+  const timelineScrollControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "timeline-scroll-controller.js"),
+    "utf8",
+  );
+  const workbenchKeyboardControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "workbench-keyboard-controller.js"),
+    "utf8",
+  );
   assert.equal(sessionTransportControllerSource.includes("shouldReconnectSocket"), true);
   assert.equal(sessionTransportControllerSource.includes("appendSessionTransportEvent"), true);
   assert.equal(sessionTransportControllerSource.includes("/events?after_seq"), false);
+  assert.equal(appSource.includes("createSessionTransportHandle"), true);
+  assert.equal(appSource.includes("sessionTransportRef"), false);
+  assert.equal(appSource.includes("function replaceSessionTransport"), false);
+  assert.equal(appSource.includes("function updateSessionTransport"), false);
+  assert.equal(appSource.includes("function createRuntimeSessionTransport"), false);
+  assert.equal(sessionTransportHandleSource.includes("export function createSessionTransportHandle"), true);
+  assert.equal(sessionTransportHandleSource.includes("createRuntimeTransport"), true);
+  assert.equal(sessionTransportHandleSource.includes("function replace"), true);
+  assert.equal(sessionTransportHandleSource.includes("function update"), true);
+  assert.equal(sessionTransportHandleSource.includes("function sync"), true);
+  assert.equal(sessionTransportHandleSource.includes("createSessionTransportState"), true);
+  assert.equal(sessionTransportHandleSource.includes("import React"), false);
+  assert.equal(appSource.includes("createRespondingRequestIdsHandle"), true);
+  assert.equal(appSource.includes("respondingRequestIdsRef"), false);
+  assert.equal(appSource.includes("function setRespondingRequestIds"), false);
+  assert.equal(appSource.includes("setRespondingRequestIdsState(normalized)"), false);
+  assert.equal(
+    respondingRequestIdsHandleSource.includes("export function createRespondingRequestIdsHandle"),
+    true,
+  );
+  assert.equal(respondingRequestIdsHandleSource.includes("normalizeRequestIds"), true);
+  assert.equal(respondingRequestIdsHandleSource.includes("function set"), true);
+  assert.equal(respondingRequestIdsHandleSource.includes("function sync"), true);
+  assert.equal(respondingRequestIdsHandleSource.includes("import React"), false);
+  assert.equal(appSource.includes("createSocketMessageController"), true);
+  assert.equal(appSource.includes("createSocketEffectExecutor"), false);
+  assert.equal(appSource.includes("const executeSocketEffects = createSocketEffectExecutor"), false);
+  assert.equal(appSource.includes("function handleSocketMessage"), false);
+  assert.equal(appSource.includes("deriveSocketMessageEffects"), false);
+  assert.equal(appSource.includes("appendSessionTransportEvent"), false);
+  assert.equal(appSource.includes("transportEvents.length"), false);
+  assert.equal(appSource.includes('nextTransport.reloadState === "reload_required"'), false);
+  assert.equal(appSource.includes("for (const action of effects.actions"), false);
+  assert.equal(appSource.includes("handleMessage: socketMessageController.handleMessage"), true);
+  assert.equal(
+    appSource.includes("startTransition(() => socketMessageController.handleMessage"),
+    false,
+  );
+  assert.equal(appSource.includes("handleMessage: (message) =>"), false);
+  assert.equal(appSource.includes("scheduleMessage: startTransition"), true);
+  assert.equal(
+    socketMessageControllerSource.includes("export function createSocketMessageController"),
+    true,
+  );
+  assert.equal(socketMessageControllerSource.includes("deriveSocketMessageEffects"), true);
+  assert.equal(socketMessageControllerSource.includes("createSocketEffectExecutor"), true);
+  assert.equal(socketMessageControllerSource.includes("scheduleMessage"), true);
+  assert.equal(socketMessageControllerSource.includes("function handleMessage"), true);
+  assert.equal(socketMessageControllerSource.includes("import React"), false);
+  assert.equal(socketEffectExecutorSource.includes("export function createSocketEffectExecutor"), true);
+  assert.equal(socketEffectExecutorSource.includes("appendSessionTransportEvent"), true);
+  assert.equal(socketEffectExecutorSource.includes("recover(currentSessionId, nextTransport)"), true);
+  assert.equal(socketEffectExecutorSource.includes("executeLoaderRequest"), true);
+  assert.equal(socketEffectExecutorSource.includes("import React"), false);
+  assert.equal(appSource.includes("function handleTimelineScroll"), false);
+  assert.equal(appSource.includes("onScroll={timelineScrollController.handleScroll}"), true);
+  assert.equal(appSource.includes("function logEvent"), false);
+  assert.equal(appSource.includes("logEvent:"), false);
+  assert.equal(appSource.includes("function respondToInteraction"), false);
+  assert.equal(
+    appSource.includes("onRespondInteraction={interactionResponseController.respondToInteraction}"),
+    true,
+  );
+  assert.equal(interactionResponseControllerSource.includes("logEvent"), false);
+  assert.equal(interactionResponseControllerSource.includes('type: "log_event"'), true);
+  assert.equal(appSource.includes("createActiveWorkspaceDataLoader"), true);
+  assert.equal(
+    appSource.includes("loadWorkspaceData: activeWorkspaceDataLoader.loadActiveWorkspaceData"),
+    true,
+  );
+  assert.equal(appSource.includes("Promise.all(["), false);
+  assert.equal(appSource.includes('loadFileChildren(".", { appCapabilities'), false);
+  assert.equal(appSource.includes("sourceControlController.loadStatus(false, assumeWorkspace"), false);
+  assert.equal(appSource.includes("loadStatus: sourceControlController.loadStatus"), true);
+  assert.equal(
+    appSource.includes("loadStatus: (refresh, assumeWorkspace, appCapabilities)"),
+    false,
+  );
+  assert.equal(
+    appSource.includes(
+      "sourceControlController.loadStatus(refresh, assumeWorkspace, appCapabilities)",
+    ),
+    false,
+  );
+  assert.equal(activeWorkspaceDataLoaderSource.includes("export function createActiveWorkspaceDataLoader"), true);
+  assert.equal(activeWorkspaceDataLoaderSource.includes("Promise.all(["), true);
+  assert.equal(activeWorkspaceDataLoaderSource.includes('invoke(loadFileChildren, ".",'), true);
+  assert.equal(activeWorkspaceDataLoaderSource.includes("invoke(loadStatus, false,"), true);
+  assert.equal(activeWorkspaceDataLoaderSource.includes("import React"), false);
+  assert.equal(appSource.includes("createPanelResizeController"), true);
+  assert.equal(appSource.includes("onResizeSidebar={panelResizeController.startSidebarResize}"), true);
+  assert.equal(
+    appSource.includes("onResizeRightPanel={panelResizeController.startRightPanelResize}"),
+    true,
+  );
+  assert.equal(appSource.includes("panelResizeController.startResize"), false);
+  assert.equal(appSource.includes("RESIZE_DIRECTIONS"), false);
+  assert.equal(appSource.includes("function startResize"), false);
+  assert.equal(appSource.includes("setPointerCapture"), false);
+  assert.equal(appSource.includes("document.documentElement.style.setProperty"), false);
+  assert.equal(appSource.includes("getComputedStyle(document.documentElement)"), false);
+  assert.equal(panelResizeControllerSource.includes("export function createPanelResizeController"), true);
+  assert.equal(panelResizeControllerSource.includes("function startSidebarResize"), true);
+  assert.equal(panelResizeControllerSource.includes("function startRightPanelResize"), true);
+  assert.equal(panelResizeControllerSource.includes("return { startResize"), false);
+  assert.equal(panelResizeControllerSource.includes("export const RESIZE_DIRECTIONS"), false);
+  assert.equal(panelResizeControllerSource.includes("RESIZE_DIRECTIONS"), true);
+  assert.equal(panelResizeControllerSource.includes("setPointerCapture"), true);
+  assert.equal(panelResizeControllerSource.includes("documentRef.documentElement.style.setProperty"), true);
+  assert.equal(panelResizeControllerSource.includes("import React"), false);
+  assert.equal(appSource.includes("createTimelineScrollController"), true);
+  assert.equal(appSource.includes("timelineScrollController.syncToBottom()"), true);
+  assert.equal(appSource.includes("onScroll={timelineScrollController.handleScroll}"), true);
+  assert.equal(appSource.includes("isAtBottomRef"), false);
+  assert.equal(appSource.includes("scrollTop"), false);
+  assert.equal(appSource.includes("scrollHeight"), false);
+  assert.equal(appSource.includes("clientHeight"), false);
+  assert.equal(
+    timelineScrollControllerSource.includes("export function createTimelineScrollController"),
+    true,
+  );
+  assert.equal(timelineScrollControllerSource.includes("scrollTop"), true);
+  assert.equal(timelineScrollControllerSource.includes("scrollHeight"), true);
+  assert.equal(timelineScrollControllerSource.includes("clientHeight"), true);
+  assert.equal(timelineScrollControllerSource.includes("import React"), false);
+  assert.equal(appSource.includes("createWorkbenchKeyboardController"), true);
+  assert.equal(appSource.includes("workbenchKeyboardController.install()"), true);
+  assert.equal(appSource.includes("function onWorkbenchKeyDown"), false);
+  assert.equal(appSource.includes('window.addEventListener("keydown"'), false);
+  assert.equal(appSource.includes('window.removeEventListener("keydown"'), false);
+  assert.equal(appSource.includes("document.activeElement?.dataset?.testid"), false);
+  assert.equal(appSource.includes("resolveKeybinding("), false);
+  assert.equal(appSource.includes("eventToKey("), false);
+  assert.equal(
+    workbenchKeyboardControllerSource.includes("export function createWorkbenchKeyboardController"),
+    true,
+  );
+  assert.equal(workbenchKeyboardControllerSource.includes('addEventListener("keydown"'), true);
+  assert.equal(workbenchKeyboardControllerSource.includes("resolveKeybinding"), true);
+  assert.equal(workbenchKeyboardControllerSource.includes("eventToKey"), true);
+  assert.equal(workbenchKeyboardControllerSource.includes("composerFocused"), true);
+  assert.equal(workbenchKeyboardControllerSource.includes("import React"), false);
 
   runWorkbenchStateTests();
   runWorkbenchParityModelTests();
   runWorkbenchUiStateTests();
   runRightPanelTabsSourceTests();
+  runRightPanelControllerTests();
   runRightPanelStoreParityTests();
   runAppShellModelTests();
   runAppWorkspaceTests();
   await runWorkspaceControllerTests();
+  await runActiveWorkspaceDataLoaderTests();
+  await runWorkspaceFilesControllerTests();
+  runAppCapabilityModelTests();
+  runSessionCapabilityModelTests();
   runAppHomeModelTests();
   runBranchToolbarModelTests();
   runProtocolNormalizerTests();
@@ -1388,7 +2468,6 @@ async function main() {
   runThreadStateTests();
   runRunOutputStateTests();
   runStoreReducerTests();
-  runWorkflowDisplayTests();
   runComposerTriggerTests();
   runComposerCommandSearchTests();
   runComposerPathContextTests();
@@ -1407,16 +2486,36 @@ async function main() {
   runVisualLanguageCssTests();
   runInteractionModelTests();
   runDiffModelTests();
+  runDiffSurfaceControllerTests();
+  await runHttpClientTests();
+  await runInitialAppLoadControllerTests();
   runFilePreviewModelTests();
   runPreviewSurfaceModelTests();
+  runPreviewSurfaceSourceTests();
   await runPreviewApiTests();
   runWebSocketLifecycleTests();
   await runSessionLoadersTests();
   await runSessionActivationControllerTests();
+  await runSessionListControllerTests();
   await runSessionControllerTests();
+  await runSourceControlControllerTests();
+  runSurfacePanelPropsTests();
+  await runFilePreviewControllerTests();
+  await runPreviewControllerTests();
+  runPanelResizeControllerTests();
+  runTimelineScrollControllerTests();
+  runBrowserDialogServiceTests();
+  runWorkbenchKeyboardControllerTests();
+  await runWorkbenchCommandControllerTests();
+  await runThreadLifecycleControllerTests();
+  runSessionTransportHandleTests();
   await runSessionTransportControllerTests();
+  await runSocketEffectExecutorTests();
+  runSocketMessageControllerTests();
   await runInteractionResponseControllerTests();
+  runRespondingRequestIdsHandleTests();
   runSocketMessageEffectsTests();
+  runVisualDebugControllerTests();
   runVisualDebugFixturesTests();
   await runVisualDebugRunnerTests();
 

@@ -1,10 +1,9 @@
 import {
-  BOTTOM_DRAWER_SURFACES,
   DEFAULT_SESSION_KEY,
-  RIGHT_PANEL_KINDS,
   createWorkbenchState,
-  surfaceDefinitionFor,
-  titleForSurfaceKind,
+  persistedSurfaceDefinitions,
+  persistedSurfaceFrom,
+  supportedSurfaceKinds,
 } from "./surfaces.js";
 
 export const WORKBENCH_UI_STATE_KEY = "embedagent:workbench-ui-state:v1";
@@ -23,116 +22,16 @@ function clampNumber(value, fallback, min, max) {
   return Math.max(min, Math.min(max, Math.trunc(number)));
 }
 
-function clampOptionalNumber(value, min, max) {
-  if (value === null || value === undefined || value === "") return null;
-  return clampNumber(value, null, min, max);
-}
-
 function normalizePlacement(placement) {
   return placement === "bottom" ? "bottom" : "right";
 }
 
-function normalizeFilePath(path) {
-  return asString(path).replace(/\\/g, "/").replace(/^\/+/, "");
-}
-
-function titleFor(kind, title, resourceId) {
-  const explicit = asString(title);
-  if (explicit) return explicit;
-  if (kind === "file") {
-    const parts = normalizeFilePath(resourceId).split("/");
-    return parts[parts.length - 1] || "File";
-  }
-  return titleForSurfaceKind(kind);
-}
-
-function surfaceIdFor(placement, kind, resourceId) {
-  const idResource = asString(resourceId);
-  return idResource ? `${placement}:${kind}:${idResource}` : `${placement}:${kind}`;
-}
-
-function uniqueStrings(values) {
-  const result = [];
-  for (const value of values || []) {
-    const item = asString(value);
-    if (item && !result.includes(item)) result.push(item);
-  }
-  return result;
-}
-
-function sanitizeSurface(input, fallbackPlacement) {
-  const source = asObject(input);
-  const placement = normalizePlacement(source.placement || fallbackPlacement);
-  const allowed = placement === "bottom" ? BOTTOM_DRAWER_SURFACES : RIGHT_PANEL_KINDS;
-  const kind = asString(source.kind);
-  if (!allowed.includes(kind)) return null;
-  const definition = placement === "right" ? surfaceDefinitionFor(kind) : null;
-
-  const filePath = kind === "file" ? normalizeFilePath(source.filePath || source.resourceId) : "";
-  const resourceId =
-    kind === "file"
-      ? filePath
-      : kind === "terminal"
-        ? asString(source.terminalId || source.resourceId)
-        : asString(source.resourceId);
-  const terminalIds =
-    kind === "terminal"
-      ? uniqueStrings(
-          Array.isArray(source.terminalIds)
-            ? source.terminalIds
-            : [source.terminalId || source.resourceId],
-        )
-      : [];
-  const terminalId =
-    kind === "terminal" ? asString(source.terminalId || resourceId || terminalIds[0]) : "";
-  const revealLine = kind === "file" ? clampOptionalNumber(source.revealLine, 1, 1000000) : null;
-  const revealRequestId = kind === "file" ? clampNumber(source.revealRequestId, 0, 0, 1000000) : 0;
-
-  const base = {
-    id: surfaceIdFor(placement, kind, resourceId),
-    placement,
-    kind,
-    title: titleFor(kind, source.title, resourceId),
-    resourceId,
-    filePath,
-    terminalId,
-    revealLine,
-    revealRequestId,
-  };
-
-  if (kind !== "terminal") {
-    return definition ? pickSurfaceFields(base, definition.persistFields) : base;
-  }
-  const normalizedTerminalIds = terminalIds.length > 0 ? terminalIds : [terminalId].filter(Boolean);
-  const activeTerminalId = asString(source.activeTerminalId);
-  const terminalSurface = {
-    ...base,
-    terminalIds: normalizedTerminalIds,
-    activeTerminalId: normalizedTerminalIds.includes(activeTerminalId)
-      ? activeTerminalId
-      : normalizedTerminalIds[0] || terminalId,
-    ...(source.splitDirection === "vertical" ? { splitDirection: "vertical" } : {}),
-  };
-  if (!definition) return terminalSurface;
-  return pickSurfaceFields(terminalSurface, definition.persistFields);
-}
-
-function pickSurfaceFields(surface, fields) {
-  const result = {};
-  for (const field of fields || []) {
-    if (Object.prototype.hasOwnProperty.call(surface, field) && surface[field] !== undefined) {
-      result[field] = surface[field];
-    }
-  }
-  return result;
-}
-
-function sanitizeSurfaceList(items, placement) {
+function sanitizeSurfaceList(items, placement, appCapabilities = null) {
   if (!Array.isArray(items)) return [];
   const result = [];
   const seen = new Set();
   for (const item of items) {
-    const surface = sanitizeSurface(item, placement);
+    const surface = persistedSurfaceFrom(item, placement, appCapabilities);
     if (!surface || seen.has(surface.id)) continue;
     seen.add(surface.id);
     result.push(surface);
@@ -140,10 +39,32 @@ function sanitizeSurfaceList(items, placement) {
   return result.slice(-12);
 }
 
-function sanitizeSessionSurfaces(value) {
+function appCapabilitySurfaceKinds(placement, appCapabilities) {
+  return persistedSurfaceDefinitions(appCapabilities, placement)
+    .map((definition) => definition.kind);
+}
+
+function filterSurfacesByAppCapabilities(items, placement, appCapabilities) {
+  const allowed = new Set(appCapabilitySurfaceKinds(placement, appCapabilities));
+  return (items || []).filter((surface) => allowed.has(surface.kind));
+}
+
+function sanitizeSessionSurfaces(value, appCapabilities = null) {
   const source = asObject(value);
-  const right = sanitizeSurfaceList(source.right, "right");
-  const bottom = sanitizeSurfaceList(source.bottom, "bottom");
+  const right = appCapabilities
+    ? filterSurfacesByAppCapabilities(
+        sanitizeSurfaceList(source.right, "right", appCapabilities),
+        "right",
+        appCapabilities,
+      )
+    : sanitizeSurfaceList(source.right, "right");
+  const bottom = appCapabilities
+    ? filterSurfacesByAppCapabilities(
+        sanitizeSurfaceList(source.bottom, "bottom", appCapabilities),
+        "bottom",
+        appCapabilities,
+      )
+    : sanitizeSurfaceList(source.bottom, "bottom");
   const requestedActive = asString(source.activeRightSurfaceId);
   return {
     right,
@@ -154,17 +75,64 @@ function sanitizeSessionSurfaces(value) {
   };
 }
 
-function sanitizeSurfacesBySession(value) {
+function sanitizeSurfacesBySession(value, appCapabilities = null) {
   const source = asObject(value);
   const result = {};
   for (const [key, surfaces] of Object.entries(source)) {
     const sessionKey = asString(key) || DEFAULT_SESSION_KEY;
-    const sanitized = sanitizeSessionSurfaces(surfaces);
+    const sanitized = sanitizeSessionSurfaces(surfaces, appCapabilities);
     if (sanitized.right.length > 0 || sanitized.bottom.length > 0) {
       result[sessionKey] = sanitized;
     }
   }
   return result;
+}
+
+function currentSessionSurfacesForState(current, activeSessionKey) {
+  const currentRight = Array.isArray(current.rightPanel?.surfaces) ? current.rightPanel.surfaces : [];
+  return {
+    ...asObject(current.surfacesBySession),
+    [activeSessionKey]: {
+      ...asObject(current.surfacesBySession && current.surfacesBySession[activeSessionKey]),
+      right: currentRight,
+      activeRightSurfaceId: current.rightPanel?.activeSurfaceId || null,
+    },
+  };
+}
+
+export function sanitizeWorkbenchUiStateForAppCapabilities(state, appCapabilities) {
+  const current = state || createWorkbenchState();
+  const activeSessionKey = asString(current.activeSessionKey) || DEFAULT_SESSION_KEY;
+  const surfacesBySession = sanitizeSurfacesBySession(
+    currentSessionSurfacesForState(current, activeSessionKey),
+    appCapabilities || {},
+  );
+  const activeSession = surfacesBySession[activeSessionKey] || { right: [], activeRightSurfaceId: null };
+  const activeRightSurface =
+    activeSession.right.find((surface) => surface.id === activeSession.activeRightSurfaceId) ||
+    activeSession.right[activeSession.right.length - 1] ||
+    null;
+  const allowedBottomKinds = appCapabilitySurfaceKinds("bottom", appCapabilities || {});
+  const requestedBottomKind = asString(current.bottomDrawer?.activeKind);
+  const activeBottomKind = allowedBottomKinds.includes(requestedBottomKind)
+    ? requestedBottomKind
+    : allowedBottomKinds[0] || "";
+  return {
+    ...current,
+    activeSessionKey,
+    rightPanel: {
+      ...current.rightPanel,
+      surfaces: activeSession.right,
+      activeKind: activeRightSurface ? activeRightSurface.kind : "",
+      activeSurfaceId: activeRightSurface ? activeRightSurface.id : null,
+    },
+    bottomDrawer: {
+      ...current.bottomDrawer,
+      open: Boolean(current.bottomDrawer?.open && allowedBottomKinds.length > 0),
+      activeKind: activeBottomKind,
+    },
+    surfacesBySession,
+  };
 }
 
 export function parsePersistedWorkbenchUiState(value) {
@@ -192,7 +160,7 @@ export function parsePersistedWorkbenchUiState(value) {
     bottomDrawer: {
       ...base.bottomDrawer,
       open: Boolean(source.bottomDrawer?.open),
-      activeKind: BOTTOM_DRAWER_SURFACES.includes(source.bottomDrawer?.activeKind)
+      activeKind: supportedSurfaceKinds("bottom").includes(source.bottomDrawer?.activeKind)
         ? source.bottomDrawer.activeKind
         : base.bottomDrawer.activeKind,
       height: clampNumber(source.bottomDrawer?.height, base.bottomDrawer.height, 140, 520),
@@ -205,16 +173,9 @@ export function parsePersistedWorkbenchUiState(value) {
 export function serializeWorkbenchUiState(state) {
   const current = state || createWorkbenchState();
   const activeSessionKey = asString(current.activeSessionKey) || DEFAULT_SESSION_KEY;
-  const currentRight = Array.isArray(current.rightPanel?.surfaces) ? current.rightPanel.surfaces : [];
-  const currentSurfacesBySession = {
-    ...asObject(current.surfacesBySession),
-    [activeSessionKey]: {
-      ...asObject(current.surfacesBySession && current.surfacesBySession[activeSessionKey]),
-      right: currentRight,
-      activeRightSurfaceId: current.rightPanel?.activeSurfaceId || null,
-    },
-  };
-  const surfacesBySession = sanitizeSurfacesBySession(currentSurfacesBySession);
+  const surfacesBySession = sanitizeSurfacesBySession(
+    currentSessionSurfacesForState(current, activeSessionKey),
+  );
   return {
     version: 1,
     activeSessionKey,
@@ -224,7 +185,7 @@ export function serializeWorkbenchUiState(state) {
     },
     bottomDrawer: {
       open: Boolean(current.bottomDrawer?.open),
-      activeKind: BOTTOM_DRAWER_SURFACES.includes(current.bottomDrawer?.activeKind)
+      activeKind: supportedSurfaceKinds("bottom").includes(current.bottomDrawer?.activeKind)
         ? current.bottomDrawer.activeKind
         : createWorkbenchState().bottomDrawer.activeKind,
       height: clampNumber(current.bottomDrawer?.height, createWorkbenchState().bottomDrawer.height, 140, 520),

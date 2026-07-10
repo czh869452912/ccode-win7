@@ -6,8 +6,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class AgentProfileTests(unittest.TestCase):
-    def test_default_profile_declares_current_product_modes(self):
-        from embedagent.agent_profiles import default_c_cpp_agent_profile
+    def test_c_cpp_profile_declares_current_product_modes(self):
+        from embedagent.workflow_packages.c_cpp.agent_profile import (
+            default_c_cpp_agent_profile,
+        )
 
         profile = default_c_cpp_agent_profile()
         self.assertEqual(profile.default_mode, "explore")
@@ -17,7 +19,9 @@ class AgentProfileTests(unittest.TestCase):
         )
 
     def test_profile_base_tools_exclude_c_workflow_tools(self):
-        from embedagent.agent_profiles import default_c_cpp_agent_profile
+        from embedagent.workflow_packages.c_cpp.agent_profile import (
+            default_c_cpp_agent_profile,
+        )
 
         profile = default_c_cpp_agent_profile()
         harness_tools = {
@@ -31,7 +35,9 @@ class AgentProfileTests(unittest.TestCase):
             self.assertEqual(set(profile.allowed_tools_for(mode_name)) & harness_tools, set())
 
     def test_profile_mode_descriptor_payload_is_gui_safe(self):
-        from embedagent.agent_profiles import default_c_cpp_agent_profile
+        from embedagent.workflow_packages.c_cpp.agent_profile import (
+            default_c_cpp_agent_profile,
+        )
 
         profile = default_c_cpp_agent_profile()
         payload = profile.mode_descriptor_payloads()
@@ -42,12 +48,75 @@ class AgentProfileTests(unittest.TestCase):
         self.assertEqual(build["source_type"], "agent_profile")
         self.assertEqual(build["source_id"], profile.profile_id)
 
+    def test_builtin_profile_color_tokens_are_generic_not_mode_names(self):
+        from embedagent.agent_profiles import (
+            generic_agent_profile,
+            html_agent_profile,
+            python_agent_profile,
+        )
+        from embedagent.workflow_packages.c_cpp.agent_profile import (
+            default_c_cpp_agent_profile,
+        )
+
+        profiles = [
+            default_c_cpp_agent_profile(),
+            generic_agent_profile(),
+            python_agent_profile(),
+            html_agent_profile(),
+        ]
+        for profile in profiles:
+            tokens = [item.color_token for item in profile.modes]
+            self.assertNotIn("verify", tokens)
+
     def test_unknown_mode_raises_in_profile_lookup(self):
-        from embedagent.agent_profiles import default_c_cpp_agent_profile
+        from embedagent.workflow_packages.c_cpp.agent_profile import (
+            default_c_cpp_agent_profile,
+        )
 
         profile = default_c_cpp_agent_profile()
         with self.assertRaises(ValueError):
             profile.require_mode("python-build")
+
+    def test_agent_profile_runtime_policy_renders_and_routes_profile_modes(self):
+        from embedagent.agent_profile_runtime import AgentProfileRuntimePolicy
+        from embedagent.agent_profiles import python_agent_profile
+
+        policy = AgentProfileRuntimePolicy(python_agent_profile())
+
+        prompt = policy.build_system_prompt("build")
+        self.assertIn("Python 工程", prompt)
+        self.assertIn("当前模式：build", prompt)
+        self.assertEqual(
+            policy.parse_mode_switch_request("/mode debug fix it", "explore"),
+            ("debug", "fix it", True),
+        )
+        self.assertEqual(
+            policy.parse_mode_switch_request("切换到verify模式", "explore"),
+            ("verify", "", True),
+        )
+
+    def test_base_agent_profiles_do_not_export_c_cpp_specialization(self):
+        import embedagent.agent_profiles as profiles
+
+        self.assertFalse(hasattr(profiles, "default_c_cpp_agent_profile"))
+
+        module_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "src",
+            "embedagent",
+            "agent_profiles.py",
+        )
+        with open(module_path, "r", encoding="utf-8") as handle:
+            source = handle.read()
+        for token in (
+            "default_c_cpp_agent_profile",
+            "DEVELOPMENT_WRITABLE_GLOBS",
+            "CMakeLists.txt",
+            "**/*.cpp",
+            "**/*.hpp",
+        ):
+            self.assertNotIn(token, source)
 
     def test_builtin_non_c_profiles_are_domain_scoped(self):
         from embedagent.agent_profiles import (

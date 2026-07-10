@@ -11,9 +11,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from embedagent.persistence_sanitize import sanitize_jsonable
 from embedagent.projection_db import ProjectionDb
-from embedagent.workflow_packages.c_cpp.tool_names import (
-    C_WORKFLOW_TOOL_REPORT_QUALITY,
-    C_WORKFLOW_TOOL_RUN_RECIPE,
+from embedagent.tool_evidence import (
+    is_quality_gate_data,
+    is_recipe_evidence_data,
+    recipe_action_from_data,
 )
 from embedagent_core.session import Observation, Session
 
@@ -274,7 +275,7 @@ class ProjectMemoryStore(object):
         arguments: Dict[str, Any],
         observation: Observation,
     ) -> None:
-        if action_name not in ("bash", C_WORKFLOW_TOOL_RUN_RECIPE):
+        if action_name != "bash" and not is_recipe_evidence_data(observation.data):
             return
         if not isinstance(observation.data, dict):
             return
@@ -330,6 +331,7 @@ class ProjectMemoryStore(object):
         issue = {
             "key": key,
             "tool_name": observation.tool_name,
+            "evidence_kind": self._issue_evidence_kind(observation),
             "recipe_action": self._recipe_action_from(observation.tool_name, observation.data),
             "mode_name": current_mode,
             "path": self._primary_path(observation),
@@ -491,10 +493,9 @@ class ProjectMemoryStore(object):
         return observation.data.get("command")
 
     def _recipe_action_from(self, action_name: str, data: Dict[str, Any]) -> str:
-        if str(action_name or "") == C_WORKFLOW_TOOL_RUN_RECIPE:
-            value = str((data or {}).get("recipe_action") or "").strip()
-            if value:
-                return value
+        value = recipe_action_from_data(data)
+        if value:
+            return value
         if str(action_name or "") == "bash":
             return "bash"
         return ""
@@ -509,15 +510,21 @@ class ProjectMemoryStore(object):
         return tool_name
 
     def _issue_kind(self, item: Dict[str, Any]) -> str:
+        evidence_kind = str(item.get("evidence_kind") or "").strip()
+        if evidence_kind:
+            return evidence_kind
         tool_name = str(item.get("tool_name") or "").strip()
-        if tool_name == C_WORKFLOW_TOOL_REPORT_QUALITY:
-            return "quality"
         recipe_action = str(item.get("recipe_action") or "").strip()
         if recipe_action:
             return recipe_action
         if tool_name == "bash":
             return "bash"
         return tool_name
+
+    def _issue_evidence_kind(self, observation: Observation) -> str:
+        if is_quality_gate_data(observation.data):
+            return "quality"
+        return ""
 
     def _stored_refs(self, observation: Observation) -> List[str]:
         if not isinstance(observation.data, dict):

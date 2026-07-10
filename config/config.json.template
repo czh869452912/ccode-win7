@@ -7,6 +7,5 @@
   "max_context_tokens": 32000,
   "reserve_output_tokens": 3000,
   "chars_per_token": 3.0,
-  "default_mode": "explore",
-  "agent_application_id": "embedagent.default_c_cpp"
+  "default_mode": "explore"
 }

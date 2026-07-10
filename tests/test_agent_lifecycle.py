@@ -17,7 +17,7 @@ class TestAgentLifecycleJournal(unittest.TestCase):
         session.begin_step(step_id="step-1")
         events = []
         journal = AgentLifecycleJournal(
-            append_event=lambda session, event_type, payload, schema_version=1: events.append(
+            append_event=lambda session, event_type, payload, schema_version=2: events.append(
                 {
                     "session_id": session.session_id,
                     "type": event_type,
@@ -66,7 +66,7 @@ class TestAgentLifecycleJournal(unittest.TestCase):
         )
         events = []
         journal = AgentLifecycleJournal(
-            append_event=lambda session, event_type, payload, schema_version=1: events.append(
+            append_event=lambda session, event_type, payload, schema_version=2: events.append(
                 {
                     "type": event_type,
                     "payload": payload,
@@ -115,7 +115,7 @@ class TestAgentLifecycleJournal(unittest.TestCase):
         )
         events = []
         journal = AgentLifecycleJournal(
-            append_event=lambda session, event_type, payload, schema_version=1: events.append(
+            append_event=lambda session, event_type, payload, schema_version=2: events.append(
                 {
                     "type": event_type,
                     "payload": payload,
@@ -139,7 +139,7 @@ class TestAgentLifecycleJournal(unittest.TestCase):
         session.begin_step(step_id="step-1")
         events = []
         journal = AgentLifecycleJournal(
-            append_event=lambda session, event_type, payload, schema_version=1: events.append(
+            append_event=lambda session, event_type, payload, schema_version=2: events.append(
                 {
                     "type": event_type,
                     "payload": payload,
@@ -173,7 +173,7 @@ class TestAgentLifecycleJournal(unittest.TestCase):
         session = Session(session_id="sess-kernel")
         events = []
         journal = AgentLifecycleJournal(
-            append_event=lambda session, event_type, payload, schema_version=1: events.append(
+            append_event=lambda session, event_type, payload, schema_version=2: events.append(
                 {
                     "type": event_type,
                     "payload": payload,

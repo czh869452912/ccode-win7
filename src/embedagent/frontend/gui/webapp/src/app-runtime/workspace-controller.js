@@ -28,15 +28,15 @@ export function createWorkspaceController({
   const readCurrentSessionId =
     typeof getCurrentSessionId === "function" ? getCurrentSessionId : () => "";
 
-  async function loadWorkspaceScopedData(sessionId, assumeWorkspace) {
-    await invoke(loadWorkspaceData, sessionId || "", Boolean(assumeWorkspace));
+  async function loadWorkspaceScopedData(sessionId, assumeWorkspace, appCapabilities = {}) {
+    await invoke(loadWorkspaceData, sessionId || "", Boolean(assumeWorkspace), appCapabilities);
   }
 
   async function applyBootstrap(payload, actionType) {
     const bootstrap = normalizeAppBootstrap(payload || {});
     send({ type: actionType, bootstrap });
     if (bootstrap.hasActiveWorkspace) {
-      await loadWorkspaceScopedData("", true);
+      await loadWorkspaceScopedData("", true, bootstrap.capabilities);
     } else {
       send({ type: "source_control_reset" });
     }
@@ -48,7 +48,7 @@ export function createWorkspaceController({
     const bootstrap = normalizeAppBootstrap(payload || {});
     send({ type: "app_bootstrap_loaded", bootstrap });
     if (bootstrap.hasActiveWorkspace) {
-      await loadWorkspaceScopedData("", true);
+      await loadWorkspaceScopedData("", true, bootstrap.capabilities);
     } else {
       send({ type: "source_control_reset" });
     }
@@ -58,8 +58,13 @@ export function createWorkspaceController({
   async function loadActiveWorkspaceData(
     sessionId = readCurrentSessionId(),
     assumeWorkspace = readAppState().hasActiveWorkspace,
+    appCapabilities = readAppState().capabilities || {},
   ) {
-    await loadWorkspaceScopedData(sessionId, assumeWorkspace);
+    await loadWorkspaceScopedData(sessionId, assumeWorkspace, appCapabilities);
+  }
+
+  function setWorkspacePath(value) {
+    send({ type: "workspace_path_changed", value });
   }
 
   function assertCanSwitch() {
@@ -118,5 +123,6 @@ export function createWorkspaceController({
     loadAppBootstrap,
     openWorkspace,
     removeWorkspace,
+    setWorkspacePath,
   };
 }

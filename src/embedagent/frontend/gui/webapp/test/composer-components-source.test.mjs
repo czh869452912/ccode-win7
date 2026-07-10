@@ -22,6 +22,17 @@ export function runComposerComponentsSourceTests() {
   assert.equal(menuSource.includes("composer-menu-group"), true);
   assert.equal(menuSource.includes("composer-menu-item"), true);
   assert.equal(menuSource.includes("composer-menu-empty"), true);
+  assert.equal(menuSource.includes("chrome.pathAriaLabel"), true);
+  assert.equal(menuSource.includes("chrome.pathItemKindLabel"), true);
+  for (const hardcodedComposerMenuCopy of [
+    "No matches",
+    "File context suggestions",
+    "Slash command suggestions",
+    ">file<",
+    ">command<",
+  ]) {
+    assert.equal(menuSource.includes(hardcodedComposerMenuCopy), false);
+  }
   assert.equal(menuSource.includes("onMouseDown"), true);
   assertNoCoreBoundaryLeak(menuSource, "ComposerCommandMenu");
 
@@ -34,6 +45,8 @@ export function runComposerComponentsSourceTests() {
 
   const interactionPanelSource = readSource("components", "composer", "ComposerInteractionPanel.jsx");
   assert.equal(interactionPanelSource.includes("busy = false"), true);
+  assert.equal(interactionPanelSource.includes("chrome = {}"), true);
+  assert.equal(interactionPanelSource.includes("normalizeComposerInteraction(interaction, notice, chrome)"), true);
   assertNoCoreBoundaryLeak(interactionPanelSource, "ComposerInteractionPanel");
 
   const approvalPanelSource = readSource("components", "composer", "ComposerPendingApprovalPanel.jsx");
@@ -41,11 +54,19 @@ export function runComposerComponentsSourceTests() {
   const userInputPanelSource = readSource("components", "composer", "ComposerPendingUserInputPanel.jsx");
 
   assert.equal(approvalPanelSource.includes("buildPermissionResponse"), false);
+  assert.equal(approvalPanelSource.includes("PENDING APPROVAL"), false);
+  assert.equal(approvalPanelSource.includes("approval.kicker"), true);
   assert.equal(approvalActionsSource.includes('"acceptForSession"'), true);
   assert.equal(approvalActionsSource.includes('"decline"'), true);
   assert.equal(approvalActionsSource.includes('"cancel"'), true);
+  assert.equal(approvalActionsSource.includes("Approve once"), false);
+  assert.equal(approvalActionsSource.includes("Always allow this session"), false);
+  assert.equal(approvalActionsSource.includes("Cancel turn"), false);
   assert.equal(approvalActionsSource.includes("disabled={busy}"), true);
   assert.equal(userInputPanelSource.includes("buildUserInputResponse"), true);
+  assert.equal(userInputPanelSource.includes("INPUT REQUIRED"), false);
+  assert.equal(userInputPanelSource.includes("Submit"), false);
+  assert.equal(userInputPanelSource.includes("mode:"), false);
   assert.equal(userInputPanelSource.includes("disabled={busy || !answer.trim()}"), true);
   assertNoCoreBoundaryLeak(approvalPanelSource, "ComposerPendingApprovalPanel");
   assertNoCoreBoundaryLeak(approvalActionsSource, "ComposerPendingApprovalActions");

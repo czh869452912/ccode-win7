@@ -25,6 +25,7 @@ C_WORKFLOW_TOOL_METADATA = {
         "progress_renderer_key": "toolchain",
         "result_renderer_key": "toolchain",
         "supports_diff_preview": False,
+        "preview_arg": "recipe_id",
         "context_reducer_key": "run_recipe",
         "read_only": False,
         "concurrency_safe": False,

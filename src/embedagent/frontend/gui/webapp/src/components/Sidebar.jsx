@@ -1,11 +1,10 @@
 import React from "react";
-import { useLang } from "../LangContext.js";
-import { t } from "../strings.js";
 import { modeBadgeLabel, modeBadgeStyle } from "../session-runtime/mode-style.js";
 
 export default function Sidebar({
   app,
   appHome,
+  chrome = {},
   currentSessionId,
   currentMode,
   modeCatalog = {},
@@ -18,9 +17,10 @@ export default function Sidebar({
   onActivateWorkspace,
   onRemoveWorkspace,
 }) {
-  const lang = useLang();
   const workspaceModel = appHome?.workspace || {};
   const threadModel = appHome?.threads || {};
+  const workspaceCopy = workspaceModel.copy || {};
+  const threadCopy = threadModel.copy || {};
   const workspaces = Array.isArray(workspaceModel.rows) ? workspaceModel.rows : [];
   const threads = Array.isArray(threadModel.rows) ? threadModel.rows : [];
   const activatingWorkspace = Boolean(app?.activatingWorkspace);
@@ -31,41 +31,41 @@ export default function Sidebar({
   }
 
   return (
-    <aside className="sidebar" role="navigation" aria-label="Sidebar" data-testid="sidebar">
+    <aside className="sidebar" role="navigation" aria-label={chrome.sidebarAriaLabel} data-testid="sidebar">
       <div className="brand app-nav-brand">
-        <div className="brand-mark">EmbedAgent</div>
-        <div className="brand-sub">{t("brand.sub", lang)}</div>
+        <div className="brand-mark">{app?.app?.productName}</div>
+        <div className="brand-sub">{chrome.brandSubtitle}</div>
       </div>
       <div className="workspace-switcher app-workspace-manager" data-testid="workspace-switcher">
         <div className="workspace-section-header">
-          <span className="workspace-section-title">Project</span>
+          <span className="workspace-section-title">{workspaceCopy.sectionTitle}</span>
           <span className="workspace-count">{workspaces.length}</span>
         </div>
         <div className="workspace-current" data-testid="workspace-current-card">
           <span className="workspace-current-label">
-            {workspaceModel.activeLabel || "No workspace"}
+            {workspaceModel.activeLabel}
           </span>
           <span className="workspace-current-path">
-            {workspaceModel.activePath || "Open a local project"}
+            {workspaceModel.activePath}
           </span>
         </div>
         <form className="workspace-mini-form" onSubmit={handleOpenWorkspace}>
           <input
             value={workspacePathInput}
             onChange={(event) => onWorkspacePathChange(event.target.value)}
-            placeholder="Workspace path"
+            placeholder={workspaceCopy.pathPlaceholder}
             disabled={activatingWorkspace}
             data-testid="sidebar-workspace-path-input"
           />
           <button className="ghost" type="submit" disabled={activatingWorkspace}>
-            Open
+            {workspaceCopy.openLabel}
           </button>
         </form>
         {app?.workspaceError ? (
           <div className="workspace-error compact">{app.workspaceError}</div>
         ) : null}
         {workspaces.length ? (
-          <div className="workspace-list" aria-label="Recent workspaces">
+          <div className="workspace-list" aria-label={workspaceCopy.recentsLabel}>
             {workspaces.map((workspace) => (
               <div
                 key={workspace.id}
@@ -80,12 +80,12 @@ export default function Sidebar({
                   onClick={() => onActivateWorkspace(workspace.id)}
                 >
                   <span>{workspace.label}</span>
-                  <small>{workspace.exists ? workspace.path : "Missing path"}</small>
+                  <small>{workspace.pathLabel}</small>
                 </button>
                 <button
                   type="button"
                   className="workspace-remove"
-                  aria-label={`Remove ${workspace.label}`}
+                  aria-label={`${workspaceCopy.removeLabel} ${workspace.label}`.trim()}
                   disabled={activatingWorkspace}
                   onClick={() => onRemoveWorkspace(workspace.id)}
                 >
@@ -101,20 +101,20 @@ export default function Sidebar({
           role="tab"
           aria-selected="true"
           className="sidebar-tab active"
-          data-testid="sidebar-tab--chats"
+          data-testid="sidebar-tab--threads"
         >
-          <span data-testid="sidebar-tab--threads">Threads</span>
+          <span>{threadCopy.sectionTitle}</span>
         </button>
       </div>
       <div
         className="thread-panel"
         role="tabpanel"
-        aria-label={t("sidebar.chats", lang)}
+        aria-label={chrome.threadPanelAriaLabel}
         data-testid="thread-lifecycle-panel"
       >
         <div className="thread-panel-header" data-testid="thread-panel-header">
           <div>
-            <span className="thread-panel-kicker">Threads</span>
+            <span className="thread-panel-kicker">{threadCopy.sectionTitle}</span>
             <span className="thread-panel-count">{threadModel.count || 0}</span>
           </div>
           <button
@@ -123,14 +123,14 @@ export default function Sidebar({
             disabled={!threadModel.canCreateThread}
             data-testid="new-session-btn"
           >
-            <span data-testid="new-thread-btn">New</span>
+            <span data-testid="new-thread-btn">{threadCopy.newLabel}</span>
           </button>
         </div>
         <div className="thread-list" role="list" data-testid="thread-list">
           {threadModel.empty ? (
             <div className="thread-empty" data-testid="thread-empty-state">
-              <span>No threads yet</span>
-              <small>Start one for this project.</small>
+              <span>{threadCopy.emptyTitle}</span>
+              <small>{threadCopy.emptyBody}</small>
             </div>
           ) : null}
           {threads.map((session) => (
@@ -153,7 +153,7 @@ export default function Sidebar({
                     {modeBadgeLabel(session.mode, modeCatalog)}
                   </span>
                   {session.isActive ? (
-                    <span className="thread-state">active</span>
+                    <span className="thread-state">{threadCopy.activeLabel}</span>
                   ) : null}
                   {session.updated ? (
                     <span className="thread-detail">{session.updated}</span>
@@ -162,7 +162,7 @@ export default function Sidebar({
               </button>
               <div
                 className="thread-actions"
-                aria-label={`Thread actions for ${session.title}`}
+                aria-label={`${threadCopy.actionsLabelPrefix} ${session.title}`.trim()}
                 data-testid={`thread-actions--${session.id}`}
               >
                 {(session.actions || []).map((action) => (

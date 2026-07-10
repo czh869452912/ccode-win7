@@ -90,6 +90,10 @@ export function runProtocolNormalizerTests() {
   assert.equal(fallbackPresentation.iconKey, "wrench");
   assert.equal(fallbackPresentation.rendererKey, "generic");
 
+  const builtInNameFallbackPresentation = resolveToolPresentation("read_file", {});
+  assert.equal(builtInNameFallbackPresentation.label, "read_file");
+  assert.equal(builtInNameFallbackPresentation.rendererKey, "generic");
+
   const emptyCapabilities = normalizeProtocolCapabilities({});
   assert.deepEqual(emptyCapabilities.emptyState, {
     scenarioLabel: "",

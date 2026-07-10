@@ -99,11 +99,12 @@ export function diffSummaryFromTimelineItems(items = []) {
 }
 
 export function createDiffSurfaceState({
-  title = "Diff",
+  title = "",
   diff = "",
   source = "",
   turnId = "",
   filePath = "",
+  chrome = {},
 } = {}) {
   const rawDiff = textValue(diff);
   const files = parseUnifiedDiffFiles(rawDiff);
@@ -111,8 +112,10 @@ export function createDiffSurfaceState({
     textValue(filePath) ||
     (files.length > 0 ? files[0].path : "");
   const focusedFile = files.find((file) => file.path === focusedFilePath) || null;
+  const chromeValue = chrome && typeof chrome === "object" ? chrome : {};
+  const chromeDefaultTitle = chromeValue.defaultTitle || "";
   return {
-    title: textValue(title || "Diff"),
+    title: textValue(title || chromeDefaultTitle),
     source: textValue(source),
     turnId: textValue(turnId),
     rawDiff,

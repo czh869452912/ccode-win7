@@ -40,16 +40,324 @@ surfaces, thread/session selection, composer drafts, terminal display buffers,
 source-control display state, and preview display state. In particular,
 `webapp/src/session-runtime/thread-state.js` owns the active thread id, session
 summary list, and history-integrity display read model, and
-`webapp/src/composer/composer-state.js` owns draft text. These modules are
+`webapp/src/composer/composer-state.js` owns draft text. The retired
+`sidebarTab` / `set_sidebar` sidecar is not part of this renderer state model.
+These modules are
 renderer read models only and must not become session history, workflow truth,
 tool policy, permission policy, extension loading policy, provider
 configuration, telemetry, or Agent Core runtime reducers.
+Workbench command visibility, right-panel launchers, bottom-drawer tabs, and
+keybinding targets are filtered from GUI app-shell capabilities returned by
+`GET /api/app/bootstrap`. App-shell app/workspace/workbench commands, surfaces,
+and keybindings are backend-declared descriptor records rather than bare string ids;
+command-palette group titles/descriptions/order and palette labels/placeholders
+are also app-shell descriptors. Right-panel chrome copy, tab action labels,
+aria labels, empty-state text, and default surface icon fallback come from
+`capabilities.surfaces.chrome`; File Preview breadcrumb aria text and markdown
+mode glyphs are part of the same app-shell chrome contract.
+Workbench command labels are visible descriptors too: app/workspace/workbench
+commands without explicit labels are omitted from visible command entrypoints,
+dynamic slash commands must provide explicit `label`, `usage`, or `slash`
+metadata, and command-palette rows must not fall back to command ids for
+titles. Built-in GUI shell command execution is also descriptor-owned through
+`dispatch.kind`; renderer controllers do not switch on fixed command ids to
+infer actions, and supported dispatch kinds are routed through an explicit
+renderer-local handler registry rather than a dispatch-kind switch.
+Bottom-drawer surface commands may carry the same
+dispatch descriptors; the Terminal drawer opens through
+`terminal.ensure_open`, not through a renderer branch on the drawer kind.
+Bottom-drawer body mounting is renderer-local `bodyKind` metadata on supported
+surface definitions, and the default shell does not expose drawer surfaces
+without an implemented body. Supported body kinds route through
+`BOTTOM_DRAWER_BODY_RENDERERS`, not a component switch.
+Bottom-drawer activation side effects use renderer-local `activationKind`
+metadata, so selecting the terminal drawer is not inferred from a fixed drawer
+kind in the terminal controller. Supported bottom-drawer activation kinds route
+through an explicit renderer-local handler registry rather than a controller
+switch.
+Terminal-controller right-panel surface validation and terminal pane action
+payload assembly are centralized in `TERMINAL_SURFACE_KIND` and
+`terminalSurfaceActionInput(...)`, not repeated per-action surface-kind
+checks.
+Right-panel body mounting uses the same renderer-local metadata path scoped by
+active app-shell capabilities; app-shell surface ids select visibility and
+labels, while renderer registry records select the concrete body component.
+Hidden resource surfaces such as `file` are backend-declared with
+`launcher=False` / `command=False` rather than renderer-only body fallback.
+Supported body kinds route through `RIGHT_PANEL_BODY_RENDERERS`, not a
+component switch.
+Generic `SurfacePanel` bodies are selected by renderer-local `panelKind`
+metadata, so Plan, Diff, Source Control, Settings, and Diagnostics panels do
+not require branches on app-shell surface ids.
+SurfacePanel action wiring is owned by
+`app-runtime/surface-panel-controller.js`: diff-file focus, Source Control
+refresh/file selection, and app-shell settings patch actions leave `App.jsx`
+as direct controller methods rather than inline reducer dispatch or
+source-control controller lambdas. `app-runtime/surface-panel-props.js` owns
+the state/chrome/controller-to-`SurfacePanel` prop mapping so `App.jsx` does
+not keep per-action SurfacePanel prop assembly.
+Commands in undeclared or untitled palette groups remain hidden
+rather than using title-cased group ids, and missing command row description/meta copy
+remains empty instead of falling back to command ids. Surface command row
+descriptions come from surface descriptors rather than surface/drawer ids.
+Session/workspace palette row leading markers also come from command-palette
+label descriptors and remain empty when absent. Command-palette group leading
+markers come from explicit group descriptors and are not synthesized from group
+titles. Command-palette shortcut labels and separators are app-shell label
+descriptors rather than renderer-local platform defaults.
+Labels, descriptions, icon keys, command/slash metadata, ordering, visibility,
+and read-only/offline hints come from the app shell. Surface-owned panel
+headings, including the right-panel Files surface header, use the active
+surface descriptor title rather than renderer-local defaults. Opening a
+right-panel surface also uses the declared surface title instead of parsing
+command labels such as `Open ...`. Right-panel surface open behavior uses
+renderer-local `openKind` metadata, so terminal session creation is not
+inferred from a fixed surface id in the controller; supported `openKind`
+values are routed through an explicit renderer-local handler registry rather
+than a controller switch. App-level preview and Files-browser open flows call
+semantic right-panel controller methods instead of dispatching concrete
+resource surface kinds directly, while file-preview opening and workspace-file
+content loading are delegated to `file-preview-controller.js`. Those semantic
+open methods still require the active app shell to declare the target
+right-panel surface; hidden capabilities such as Generic Agent without Preview
+or a specialized agent without File Preview do not reopen the local renderer's
+supported bodies through direct controller calls. Those semantic open methods
+return whether a surface was actually opened, and the file-preview controller
+stops loading when File Preview is not declared so unsupported agents do not
+fetch preview content behind a hidden UI. Preview session
+open/refresh/external-open orchestration is delegated to
+`preview-controller.js`, which preflights the same semantic Preview capability
+before invoking backend preview routes. `App.jsx` wires file, diff, and preview
+controller methods directly into Timeline and right-panel props rather than
+retaining `openFile`, `openDiffSurface`, or `openPreview*` forwarding wrappers.
+Source Control status refresh and file-diff requests likewise require the
+active app shell's Source Control capability before invoking backend
+source-control routes.
+Active right-panel surface selection is a workbench surface read model:
+`workbench/surfaces.js` exposes `rightPanelSurfacesFrom(...)` and
+`activeRightPanelSurfaceFrom(...)`, and `App.jsx` must not reimplement
+active-surface lookup with root-level `surfaces.find(...)` logic.
+Timeline/manual Diff surface opening is delegated to `diff-surface-controller.js`,
+so `App.jsx` does not construct diff surface state or dispatch
+`diff_surface_opened` directly.
+Terminal service calls require the active app shell's Terminal capability
+before opening, listing, writing, clearing, restarting, closing, or attaching
+terminal panes, even when stale terminal UI state still exists locally.
+Bottom drawer terminal new/select callbacks, terminal id generation, and
+right-panel active terminal pane new/split/select/close callbacks are owned by
+`app-runtime/terminal-controller.js`; `App.jsx` wires the controller methods
+directly instead of importing `nextTerminalId`, dispatching
+`terminal_active_set` inline, or passing `activeRightPanelSurface` through
+terminal callback lambdas.
+Right-panel terminal surface creation follows the same rule
+and refuses to start a terminal session when the active app shell omits the
+right-panel Terminal surface. Right-panel activation side effects use
+renderer-local `activationKind` metadata through the
+`right-panel-controller.js` `RIGHT_PANEL_ACTIVATION_HANDLERS` registry, not
+inline App checks for terminal surface ids or direct terminal-session calls.
+Right-panel tab lifecycle actions are also controller-owned: activate, close,
+close others, close to right, close all, add surface, and Files-surface opening
+are wired from `App.jsx` directly to `right-panel-controller.js` methods rather
+than inline reducer dispatch blocks in the root component.
+Surface
+capability records without explicit app-shell titles remain diagnostics only;
+they do not become visible launchers or surface commands, and the renderer does
+not derive titles from surface kind/id strings. Resource surface helper titles
+use only instance data such as file basenames, preview ids/URLs, and terminal
+ids; missing preview instance data does not create a fallback tab.
+GUI home/sidebar copy for workspace and thread sections is also app-shell
+declared through `capabilities.home`; renderer components consume that read
+model instead of owning the default workspace/thread wording.
+Renderer-local surface registries describe only how a known
+surface renderer is mounted and are exposed through derived helpers rather than
+fixed surface id lists; they do not grant app-shell entrypoints when the backend
+declaration omits the `capabilities` object or the relevant command, surface,
+or keybinding descriptor arrays. Persisted workbench surface state is re-sanitized after app
+bootstrap or workspace switch against the same declaration, so stale local UI
+state cannot reopen surfaces that the active app shell does not expose.
+Live workbench surface-open actions use the same app-shell declaration gate:
+payload-driven Diff intents, direct `workbench_surface_opened` actions, and
+other reducer-level opens must not create right-panel or bottom-drawer surfaces
+that the active app shell does not declare.
+Shallow persisted surface descriptors are normalized by the renderer-local
+surface registry through `persistedSurfaceFrom(...)`; the browser localStorage
+state module must not own fixed file/terminal surface field rules. Per-kind
+surface instance metadata is initialized through `SURFACE_INITIALIZERS[kind]`
+inside that same renderer-local model, not by branches in `makeSurface(...)`.
+App capability cleanup reads `persistedSurfaceDefinitions(appCapabilities,
+placement)` and registry-declared `persistedRelatedKinds`, so hidden/resource
+surfaces such as File under Files are not hard-coded in UI-state sanitization.
+Right-panel open-time preparation also routes through
+`SURFACE_OPEN_PREPARERS[surface.kind]`; `openSurface(...)` must not own
+file/preview preparation branches. Right-panel surface-local pane operations
+also route through `SURFACE_PANE_HANDLERS[surface.kind]`; terminal
+split/activate/close metadata must not live as generic reducer terminal-kind
+branches.
+The default GUI app-shell descriptor set is an injected `AppShellSpec` from
+`src/embedagent/frontend/gui/backend/app_shell_spec.py`; `AppShellService`
+composes that spec with safe active-core projections instead of owning inline
+surface, command, or keybinding lists.
+App bootstrap also projects a safe selected-agent application registry and
+empty-state read model into app-shell capabilities. Before workspace activation
+that projection comes from the backend-selected application registry declared
+by the app host or launcher; after workspace activation the active Core's
+capability projection is authoritative. The GUI can adapt labels/copy for
+generic or specialized agents without creating a core or making app bootstrap a
+session-history source. Selected agent application manifests may also declare
+`metadata.appShell` allow-lists for app commands, right-panel surfaces,
+bottom-drawer surfaces, keybinding command targets, command-palette groups,
+and disabled GUI capability ids. `AppShellService` applies that profile to the
+injected `AppShellSpec` before returning capabilities, so a generic base agent
+does not inherit Preview, Diff, or Source Control entrypoints from the default
+C/C++ application. Surface capabilities may additionally declare safe dynamic
+right-panel descriptor surfaces: unknown surface kinds are retained only when
+they map to a non-executing `surface_panel` body with a safe generic panel kind,
+so specialized agents can add read-only GUI affordances without frontend plugin
+execution or new service calls. Renderer app-shell normalizers preserve a missing
+backend product name as empty rather than inventing the bundled product name;
+untitled thread fallback prefixes come from `home.threads` descriptors rather
+than renderer-local English copy.
+Retired Inspector sidecar state for artifacts, review panes, permission-rule
+panes, runtime panes, workspace previews, and event logs has been removed; those
+concerns now appear only through active surfaces, session activities,
+interaction state, or app-shell diagnostics.
+The old `Inspector.jsx` component and `inspectorTab` / `inspectorKind` dispatch
+path are retired. Right-panel fallback content is rendered by `SurfacePanel`
+from renderer-local `panelKind` metadata.
+The GUI artifact refetch facade has also been removed: GUI routes no longer
+expose `/api/artifacts`, and WebSocket/frontend callback contracts no longer
+carry `artifacts_refresh`.
+The hosted `/artifacts` slash command and TUI artifact browser surface are also
+retired. Tool-result stored paths may remain in transcript/session metadata for
+evidence and cleanup, but frontends no longer get a standalone artifact browse
+API.
+The old GUI workflow-runtime display helper is also removed; renderer workflow
+detail must come from backend-declared session snapshot, capability, or
+activity projections instead of synthesized C/C++ phase rows.
+Frontend protocol adapters preserve backend-declared mode state. They must not
+import the built-in mode default or inject `explore` when a selected
+application/profile leaves `current_mode` empty.
 
-GUI thread lifecycle operations (`rename`, `fork`, and `archive`) are exposed
-through the session lifecycle facade and consumed by the GUI app shell. They
-update session summary/projection metadata used by app thread lists; they do
-not rewrite transcript history, own workflow state, activate tools, decide
-permissions, load extensions, or create source-control checkpoints.
+GUI thread lifecycle operations are exposed through the session lifecycle facade
+and consumed by the GUI app shell through
+`capabilities.thread_lifecycle.actions` descriptor records rather than a
+renderer-owned fixed action list. The default app shell currently declares
+`rename`, `fork`, and `archive`; alternate shells may omit or relabel those
+entries. Action labels, disabled reason labels, prompt, confirmation, success,
+empty-title, and failure copy also live on those descriptors rather than in the
+renderer lifecycle controller. Missing action labels keep actions out of the
+visible rail, and missing notice copy remains absent rather than being
+synthesized from action ids or labels. Lifecycle actions update session
+summary/projection metadata used by app thread lists; they do not rewrite
+transcript history, own workflow state, activate tools, decide permissions,
+load extensions, or create source-control checkpoints.
+Native prompt/confirm access for those renderer-initiated lifecycle prompts is
+isolated in `app-runtime/browser-dialog-service.js`; `App.jsx` injects that
+service into the lifecycle controller rather than calling browser dialog APIs
+directly.
+
+GUI app bootstrap, workspace lifecycle, and workspace-path input state updates
+are owned by `app-runtime/workspace-controller.js`. The controller fetches app
+bootstrap/workspace routes, applies workspace switch payloads, and dispatches
+`workspace_path_changed`; `App.jsx` wires `setWorkspacePath`, `openWorkspace`,
+`activateWorkspace`, and `removeWorkspace` directly instead of inline reducer
+dispatch or workspace lifecycle HTTP calls.
+
+GUI session list loading is owned by the renderer
+`app-runtime/session-list-controller.js`. The controller is the only webapp
+module that fetches `/api/sessions` for the thread list and dispatches
+`sessions_loaded`; `App.jsx` composes the controller handle directly and does
+not own a `loadSessions` forwarding wrapper or the session-list API/action
+pair.
+
+GUI session bootstrap activation is owned by
+`app-runtime/session-activation-controller.js`. The controller owns session
+bootstrap fetch, safe activation derivation, runtime transport reset, plan load,
+and optional terminal-summary refresh; `App.jsx` composes it as the
+`loadSession` handle instead of defining an inline activation wrapper.
+
+GUI JSON request/error handling is owned by
+`app-runtime/http-client.js`. `App.jsx` imports the shared `fetchJson` helper
+and passes it into focused controllers; it does not define its own HTTP client
+or call browser `fetch` directly.
+
+GUI initial app loading is owned by
+`app-runtime/initial-app-load-controller.js`. The controller starts app
+bootstrap and session command capability warmup, swallowing warmup failures so
+alternate base or specialized agents without that projection do not block app
+shell startup. `App.jsx` installs the controller but does not directly call
+`loadAppBootstrap()` or own the warmup catch behavior. Session command
+capability refresh is exposed through
+`session-loaders.js` `createSessionCommandCapabilityLoader(...)`; `App.jsx`
+uses that handle instead of repeating inline
+`loadSessionCommandCapabilities({ fetchJson, dispatch })` lambdas.
+
+GUI active-workspace read-model refresh is owned by
+`app-runtime/active-workspace-data-loader.js`. After workspace activation, that
+loader coordinates session list refresh, session command capability refresh,
+workspace file tree refresh, and local status-surface refresh from injected
+dependencies. `App.jsx` wires the dependencies but does not inline the refresh
+fanout or wrap Source Control status refresh in a root-level forwarding lambda;
+the loader receives the `sourceControlController.loadStatus` handle directly.
+
+GUI panel resize pointer handling is owned by
+`app-runtime/panel-resize-controller.js`. The controller clamps panel widths,
+tracks pointer drag state, and mutates the CSS variables on the document root;
+`App.jsx` only wires the controller's `startSidebarResize` and
+`startRightPanelResize` callbacks, and must not pass CSS variables or resize
+direction constants through the component tree.
+
+GUI Timeline bottom-follow scrolling is owned by
+`app-runtime/timeline-scroll-controller.js`. The controller owns the
+bottom-follow state and direct scroll DOM reads/writes; `App.jsx` only supplies
+the Timeline ref, calls `syncToBottom()` after display-model changes, and wires
+`timelineScrollController.handleScroll` directly without a root forwarding
+wrapper.
+
+GUI workbench keyboard handling is owned by
+`app-runtime/workbench-keyboard-controller.js`. The controller owns the global
+keydown listener, Escape cancellation, composer-focus detection, and app-shell
+keybinding resolution. `App.jsx` installs the controller and supplies state
+readers, but it does not call `window.addEventListener("keydown", ...)`,
+inspect `document.activeElement`, or resolve shortcuts inline.
+
+GUI workbench command actions are owned by
+`app-runtime/workbench-command-controller.js`. Header right-panel/bottom-drawer
+toggles, command-palette open/close/query state, command-palette
+command/session/workspace selection, and command-id resolution through the
+active capability snapshot live in that controller. `App.jsx` wires controller
+methods directly and does not import `commandById` or dispatch palette/toggle
+reducer actions inline.
+
+GUI Composer action wiring is owned by
+`app-runtime/composer-controller.js`. The controller owns draft updates, message
+submit from the current draft, command-palette opening from the composer, and
+composer Branch Toolbar source-control refresh; `App.jsx` wires controller
+methods directly and does not keep a `sendMessage` wrapper or inline composer
+action dispatch handlers.
+
+GUI WebSocket payload handling is split between raw-message orchestration, pure
+effect derivation, and effect execution. `app-runtime/socket-message-controller.js`
+is the renderer boundary that accepts backend messages, passes safe readers into
+`app-runtime/socket-message-effects.js`, and then delegates derived transport
+events, reducer actions, and loader requests to `app-runtime/socket-effect-executor.js`.
+`App.jsx` stays the composition root and does not call socket derivation directly
+or own transport append/recovery loops. React scheduling is injected into the
+controller through a generic `scheduleMessage` callback, so the session
+transport receives `socketMessageController.handleMessage` directly rather than
+a root-level `startTransition` wrapper.
+The React-facing session transport state bridge is
+`app-runtime/session-transport-handle.js`: it owns current transport reads,
+sync, replace, update, and runtime reset construction for session activation
+and socket recovery. `App.jsx` keeps the React state cell but does not maintain
+a parallel `sessionTransportRef` or inline transport mutation helpers.
+
+Dev-only GUI visual fixtures are isolated from the product app shell:
+`app-runtime/visual-debug-controller.js` owns the `?visual_debug=1` installation
+bridge and browser query access, while `app-runtime/visual-debug-fixtures.js`
+expands private `dev_fixture_*` descriptors into normal reducer actions.
+`App.jsx` does not import the fixture installer, read `window.location.search`
+for visual debugging, or define product reducer cases for visual fixture actions.
 
 The GUI terminal bottom drawer is also app-shell hosted. `GUIBackend` owns an
 in-memory terminal service bound to the active workspace and exposes
@@ -62,16 +370,29 @@ offline deployment; it is not a full PTY and does not introduce ConPTY,
 or online-service dependencies. Terminal buffers are GUI-local display state
 only and must not become transcript history, workflow state, telemetry,
 permission policy, runtime reducer truth, source-control checkpoints, or Agent
-Core behavior.
+Core behavior. The Terminal drawer command is an app-shell surface descriptor
+with `dispatch.kind: terminal.ensure_open`; drawer kind alone has no
+terminal-specific execution semantics. The default bottom drawer exposes only
+implemented Run Output and Terminal bodies; stale declarations without a
+renderer body are deleted rather than shown through a fallback.
 
 The GUI Source Control right-panel is another app-shell hosted surface.
 `GUIBackend` owns an active-workspace-bound `SourceControlService` that invokes
 only read-only local Git status/diff commands through bundled or workspace
 MinGit. The React source-control model displays local changes and opens the
-existing Diff surface for selected files. This slice does not stage, commit,
+existing Diff surface for selected files. Diff workbench tab titles come from
+explicit diff payload titles or the app-shell surface descriptor rather than a
+renderer `"diff"` fallback. Source-control group order and file status badge
+labels come from `capabilities.source_control.chrome` instead of renderer
+fixed group arrays, status-initial inference, or raw group/provider id fallback.
+This slice does not stage, commit,
 push, pull, contact remote providers, create checkpoints, or write transcript
 history, workflow state, telemetry, permission policy, runtime reducer truth,
 provider configuration, extension loading state, or Agent Core behavior.
+Frontend source-control, terminal, and preview API helpers do not contain
+helper-local request-failure copy; when backend error payloads omit detail,
+controllers fall through to the app-shell chrome fallback declared for the
+surface.
 
 The GUI Preview right-panel is app-shell hosted as well. `GUIBackend` owns a
 workspace-bound `PreviewService` that accepts local loopback HTTP URLs only,
@@ -150,21 +471,50 @@ Core.
 
 Hosted `AgentApplication` records declare scenario identity, manifest metadata,
 profile, mode policy, extension manager, and workflow refreshers. The hosted
-application registry resolves the selected application id and exposes safe
-`AgentApplicationManifest` records for GUI capability projection. Agent
-profiles declare scenario mode metadata, base tool policy, and GUI mode
-capability projection.
+application registry stores built-in applications as `AgentApplicationRecord`
+data. Profile-only applications build directly from profile records; workflow
+backed specialized applications declare a `builder_path` that resolves to the
+package-owned application factory, so the generic loader does not contain C/C++
+workflow branches. Profile-only records stay in the base registry and can be
+built without importing the bundled C/C++ workflow package. Workflow-backed
+built-ins, including the default C/C++ product application, are added only by the
+hosted product registry in `src/embedagent_host/agent_application_registry.py`.
+The default C/C++ application record and app-shell overlay live in
+`src/embedagent/workflow_packages/c_cpp/application_record.py`; the base
+registry does not import that package. The selected registry exposes safe
+`AgentApplicationManifest` records for GUI capability projection. Agent profiles
+declare scenario mode metadata, base tool policy, and GUI mode capability
+projection.
+Built-in application records also carry `metadata.appShell` GUI allow-lists,
+so the hosted GUI can derive a smaller base shell or a specialized workflow
+shell from the selected application manifest rather than assuming the default
+C/C++ workbench surface set.
+The legacy/global `src/embedagent/modes.py` facade is intentionally backed by
+the generic base agent profile; hosted runtime paths use the selected
+`AgentApplication.profile` for specialized writable globs, prompt copy, mode
+descriptors, and active-tool base policy through
+`src/embedagent/agent_profile_runtime.py`. `InProcessAdapter` composes those
+shared profile runtime policies and must not inline product prompt rendering,
+write-glob evaluation, or mode-switch parsing. The default C/C++ profile is
+loaded only from `src/embedagent/workflow_packages/c_cpp/agent_profile.py` by
+the default C/C++ application, not by the global mode facade or generic
+application loader.
 Workflow packages declare scenario-specific
-workflow tools, packs, prompts, resources, manifests, and package-owned tool
-names. Provider-facing schemas are always projected from explicit active tool
-names computed by the shared extension boundary.
+workflow tools, packs, prompts, resources, manifests, workspace-profile
+detectors, and package-owned tool names. Provider-facing schemas are always
+projected from explicit active tool names computed by the shared extension
+boundary.
 
-The built-in application registry currently exposes `embedagent.default_c_cpp`
-as the default packaged product application plus profile-only
-`embedagent.generic`, `embedagent.python`, and `embedagent.html` applications.
-Those non-C applications share the same Agent Core, hosted runtime, protocol,
-and GUI shell while carrying no C/C++ workflow package manifest or harness
-refresh path.
+The base application registry exposes profile-only `embedagent.generic`,
+`embedagent.python`, and `embedagent.html` applications. The hosted product
+registry composes those base records with `embedagent.default_c_cpp` as the
+packaged default specialized application. The non-C applications share the same
+Agent Core, hosted runtime, protocol, and GUI shell while carrying no C/C++
+workflow package manifest or harness refresh path, and constructing them through
+the base registry does not import `embedagent.workflow_packages.c_cpp`. Base
+configuration and bundled config templates do not pin the default C/C++
+application id; when `agent_application_id` is omitted, hosted product
+selection falls through to the product registry default.
 
 ### Default C/C++ Workflow Package
 
@@ -176,9 +526,9 @@ refresh path.
 - `src/embedagent/workflow_packages/c_cpp/tool_metadata.py`
 
 The first-party C/C++ workflow package owns C/C++ discipline, phase, task graph,
-tool registration, metadata, packs, context reducers, session task snapshots,
-and workflow projection. It is bundled by the hosted product but is not part of
-the generic Agent Core.
+tool registration, metadata, packs, workspace-profile detector, context
+reducers, session task snapshots, and workflow projection. It is bundled by the
+hosted product but is not part of the generic Agent Core.
 
 The default C/C++ harness is now entered through the in-process workflow extension boundary. Harness internals remain bundled and enabled by default, but `QueryEngine` must not import concrete harness task classes directly.
 
@@ -193,7 +543,13 @@ glue while actual turn resume continues through the existing action pipeline.
 `InProcessAdapter` remains the session/runtime bridge and must not grow a
 parallel command or interaction subsystem.
 
-`ExtensionManager` is now the shared in-process capability boundary. The current default C/C++ harness remains the bundled workflow extension, while the same boundary also carries generic prompt/context hooks, tool-call and tool-result interception, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Extension objects are discovered only through `extension_capabilities()` and must return explicit `ExtensionCapability` records for each hook, manifest provider, context reducer registrar, or extension-owned tool handler they expose; method-name hooks are not compatibility contracts. Capability dispatch internals flow through `AgentEventBus`, the source-aware observer/reducer bus introduced and closed out in Phase B. Event-specific reducer semantics cover merge, union, first-result, first-block-wins, sequential argument rewrite, and trusted fail-closed diagnostics. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are official discoverable resources. Visible skills are summarized through one lightweight local skill listing prompt unit, while skill and prompt bodies enter context only through explicit `/skill:<name> [args]` and `/prompt:<name-or-path> [args]` commands. These resources are Markdown/text context, not executable extension code.
+Hosted review, project-memory, and workspace-intelligence services classify
+tool results through the workflow-neutral `tool_evidence` payload schema:
+`recipe_action`, test summaries, coverage summaries, diagnostics, and quality
+gate fields. They must not import default C/C++ workflow tool constants; a
+specialized workflow can produce the same safe fields with its own tool names.
+
+`ExtensionManager` is now the shared in-process capability boundary. The current default C/C++ harness remains the bundled workflow extension, while the same boundary also carries generic prompt/context hooks, tool-call and tool-result interception, resource discovery contracts, dynamic in-process tool registration, workflow-owned workspace recipe projection, extension diagnostics, and manifest-gated project-local Python extensions. Extension objects are discovered only through `extension_capabilities()` and must return explicit `ExtensionCapability` records for each hook, manifest provider, context reducer registrar, recipe projector, or extension-owned tool handler they expose; method-name hooks are not compatibility contracts. Capability dispatch internals flow through `AgentEventBus`, the source-aware observer/reducer bus introduced and closed out in Phase B. Event-specific reducer semantics cover merge, union, first-result, first-block-wins, sequential argument rewrite, and trusted fail-closed diagnostics. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are official discoverable resources. Visible skills are summarized through one lightweight local skill listing prompt unit, while skill and prompt bodies enter context only through explicit `/skill:<name> [args]` and `/prompt:<name-or-path> [args]` commands. These resources are Markdown/text context, not executable extension code.
 
 `AgentExtensionHost` is the session-engine side of that boundary. It builds extension contexts and workflow events, initializes workflow state, applies prompt/context hooks, registers dynamic tools, computes extension-aware active tool names, requests explicit tool schemas, applies tool-call/tool-result hooks, and handles extension-owned tool calls. `QueryEngine` keeps a compatibility `extension_manager` reference, but extension hook dispatch is centralized in `AgentExtensionHost`.
 
@@ -227,7 +583,7 @@ Explicit user mode-switch requests are routed by `QueryEngine` before provider c
 
 `TurnExperienceReducer` is the replayable turn-experience read model. It reduces safe `tool_result` and `loop_transition` transcript events into completed work, unverified changes, validation failures, blockers, last failure, and suggested next steps. It feeds `ManagedSession.turn_experience`, protocol snapshots, session snapshots, `session_finished` payloads, CLI diagnostics, the TUI inspector, and GUI T3 system notices. It remains display/replay state and must not drive loop continuation, validation policy, active-tool selection, permission decisions, restore rules, extension loading, or session-history truth.
 
-Default bundled workflow assembly is outside `QueryEngine` through `AgentApplication`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the selected application extension manager before constructing session engines. The default C/C++ product application lives in `src/embedagent/workflow_packages/c_cpp/application.py`, while `InProcessAdapter` depends only on the application boundary, selected application id, and injected mode/profile policies. Hosted capability payloads expose the selected application as `agentApplication` and available applications from the same selected registry as `agentApplications`; an injected external application must not leak the bundled C/C++ application into its GUI capability list. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Loaded project extensions receive `api.ExtensionCapability` and must explicitly declare every active hook from `extension_capabilities()`. Public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
+Default bundled workflow assembly is outside `QueryEngine` through `AgentApplication`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the selected application extension manager before constructing session engines. The default C/C++ product application lives in `src/embedagent/workflow_packages/c_cpp/application.py` and is reached through the application record's lazy builder path, while `InProcessAdapter` depends only on the application boundary, selected application id, and injected mode/profile policies. Hosted capability payloads expose the selected application as `agentApplication` and available applications from the same selected registry as `agentApplications`; built-in agent applications share the central `agent_application_capability_payload(...)` projection used by both hosted session capabilities and no-workspace GUI app bootstrap. An injected external application must not leak the bundled C/C++ application into its GUI capability list. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Loaded project extensions receive `api.ExtensionCapability` and must explicitly declare every active hook from `extension_capabilities()`. Public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
 
 Optional enterprise/intranet integrations are hosted capabilities, not Agent Core responsibilities. Intranet Git adapters, custom service providers, model gateways, organization-local catalogs, and telemetry sinks must be explicitly configured, trusted, disableable, and failure-tolerant. They attach through provider, extension, workflow-package, or passive sink boundaries with source metadata and normal permission checks; they must not make startup, default C/C++ workflows, restore, resource reload, or session history depend on network availability.
 
@@ -250,11 +606,21 @@ Managed-session workflow refresh in the product adapter path goes through `Agent
   envelopes. Raw `permission_request` / `user_input_request` WebSocket
   messages drive only the current blocking interaction UI and must not become
   renderer-synthesized activity/history streams.
+- GUI pending interaction response busy state is a local renderer bridge:
+  `app-runtime/responding-request-ids-handle.js` owns request-id normalization,
+  sync, reads, and updates, while `App.jsx` keeps only the React state cell used
+  to render the current composer interaction busy indicator.
+- GUI interaction response submission is owned by
+  `app-runtime/interaction-response-controller.js`. The controller posts the
+  response, refreshes or applies the returned snapshot, and emits the
+  `interaction_response` `log_event`; `App.jsx` must not inject a root-level
+  logger callback for that path.
 - GUI/TUI read-model refresh after tool completion is metadata-driven. Tool
   catalog entries may declare `read_model_invalidations`; hosted adapters and
-  frontend shells use those hints to refresh safe projections such as
-  workspace files, tasks, or artifacts instead of maintaining parallel
-  tool-name refresh lists.
+  frontend shells use those hints only for safe projections they own, such as
+  workspace files, tasks, or capabilities, instead of maintaining parallel
+  tool-name refresh lists. GUI artifact invalidations no longer create a
+  sidecar refetch event.
 - `SessionSnapshotProjector` reads the generic workflow projection, not default harness internals
 - `runtime_config` in session snapshots is reducer-backed diagnostic state, not frontend-owned policy
 - `compaction_state` in session snapshots is reducer-backed diagnostic state, not frontend-owned context policy
@@ -269,13 +635,35 @@ Managed-session workflow refresh in the product adapter path goes through `Agent
   and permission/user-input response glue lives in `HostedInteractionService`;
   `InProcessAdapter` stays a host facade over those services instead of
   accumulating command/bootstrap/interaction business rules
+- GUI command-result follow-up behavior is payload-driven: session switching
+  uses `switch_session_id`, Diff opening uses structured diff payloads, and
+  run-output log copy uses optional `log_label` / `log_detail` fields rather
+  than renderer-derived slash-command names; timeline command-result labels
+  likewise come from explicit payload labels or app-shell `commandDefaultName`,
+  not synthesized `/${commandName}` strings
+- GUI composer slash-command default grouping is app-shell declared:
+  `capabilities.chrome.composer.command_menu.default_command_group_id` is the
+  only fallback group id for backend slash commands, and protocol/session
+  command normalization does not synthesize missing groups as `"command"`
+- GUI composer slash-command items come only from command capability
+  projection; renderer-local static `commandHints` fallbacks are removed and
+  must not be used as an alternate command source
+- GUI composer hint-bar entries are app-shell descriptors under
+  `capabilities.chrome.composer.hints`; renderer code filters them by generic
+  visibility state instead of owning a fixed hint id/order list
 - provider request snapshots and workflow prompt append decisions live behind
   `TurnSnapshotService` and `PromptAssemblyService`; compact payload assembly
   lives in `CompactionJournal`, keeping `QueryEngine` focused on session
   mutation and loop orchestration
 - `/review` session evidence extraction, finding synthesis, git-diff evidence
-  shaping, and markdown rendering live in `ReviewCommandService`;
-  `InProcessAdapter` only invokes that service and emits the command result
+  shaping, and markdown rendering live in `ReviewCommandService`; review
+  classification consumes structured evidence payload fields rather than
+  default C/C++ tool-name constants
+- project memory and workspace intelligence consume the same structured
+  evidence payload helpers, so runnable recipe history, diagnostic summaries,
+  and quality-gate summaries are not tied to the bundled C/C++ workflow tool
+  names
+- `InProcessAdapter` only invokes hosted services and emits the command result
 
 ## 3. Official Execution Model
 
@@ -342,7 +730,7 @@ C/C++ workflow pack definitions live only in `src/embedagent/workflow_packages/c
 
 Local self-extension authoring is a workflow-neutral write capability. `SelfExtensionAuthoringService` writes workspace-bound `.embedagent` skills, prompts, recipes, and disabled-by-default project extension skeletons. The `author_local_capability` tool exposes that service in build/debug mode with `workspace_write` permission. Authoring does not refresh resource caches and does not import or enable generated Python extensions; resource reload and project extension loading remain separate operations.
 
-The tool runtime also owns a file-only local resource cache. `ToolRuntime.reload_resources()` refreshes workspace-bound `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` resources. Recipe JSON files feed the existing recipe contract, while skills and prompts are surfaced as resources, not executed as local code. Skill and prompt bodies are expanded only through explicit slash commands.
+The tool runtime also owns a file-only local resource cache. `ToolRuntime.reload_resources()` refreshes workspace-bound `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` resources. Root-level `workspace_recipes` is a workflow-neutral read model over explicit project/local/history recipe resources: it does not detect CMake/Make/Ninja projects and does not assign the default C/C++ `run_recipe` tool name. The bundled C/C++ workflow package owns CMake/Make/Ninja recipe detection, `run_recipe` normalization, and recipe resolution through its explicit `workspace_recipes` extension capability. Skill and prompt bodies are expanded only through explicit slash commands.
 
 Project-local Python extensions are loaded by hosted adapters through `src/embedagent/project_extensions.py`, not by resource reload. The loader validates `extension.json`, keeps entrypoints inside the extension directory, passes a narrow workspace-bound API object, registers loaded objects into the shared `ExtensionManager`, and projects load state under `Session.workflow_state["extensions"]["project_extensions"]`. Hook participation still requires explicit `extension_capabilities()` records; defining a method with a recognized hook name does nothing unless it is declared.
 
@@ -396,6 +784,7 @@ The default C/C++ workflow package extension in `src/embedagent/workflow_package
 - prompt unit construction
 - task graph construction
 - session task snapshot persistence
+- workspace recipe projection and resolution for `list_recipes` / `run_recipe`
 
 This keeps workflow structure out of the frontend, out of ad-hoc prompt text, and out of the workflow-neutral parts of Agent Core.
 
@@ -422,6 +811,10 @@ The frontend should never infer permission policy from mode alone.
 - tool-result replacement
 - summary assembly
 - workspace intelligence evidence
+
+`src/embedagent/tool_evidence.py` is the generic evidence-shape classifier for
+hosted services. It recognizes recipe, test, coverage, diagnostic, and quality
+gate payloads without importing workflow-package tool-name constants.
 
 The default C/C++ workflow extension registers harness-owned context reducers for:
 
@@ -507,7 +900,7 @@ User-facing turn experience is projected from safe transcript events:
 - `tool_result`
 - `loop_transition`
 
-`TurnExperienceReducer` consumes the validated transcript prefix and must not infer experience state from frontend replay, `timeline.jsonl`, prompts, local extension code, or renderer state. Session snapshots may expose `turn_experience` for CLI/TUI/GUI display and resume visibility; that projection does not decide whether the agent continues, whether validation is sufficient, which tools are active, what permissions apply, or what session history means.
+`TurnExperienceReducer` consumes the validated transcript prefix and must not infer experience state from frontend replay, `timeline.jsonl`, prompts, local extension code, renderer state, or command-name heuristics. Validation failures are projected only from explicit tool-result metadata supplied by the owning workflow/tool. Session snapshots may expose `turn_experience` for CLI/TUI/GUI display and resume visibility; that projection does not decide whether the agent continues, whether validation is sufficient, which tools are active, what permissions apply, or what session history means.
 
 ## 9. Frontend Contract
 
@@ -527,7 +920,48 @@ If a frontend change introduces older terms back into the product shell, that is
 GUI no-workspace copy, mode catalogs, command lists, tool presentation,
 workflow package/application identity, and runtime workflow summary rows must
 come from backend capability/snapshot payloads rather than renderer-side C/C++
-defaults.
+defaults. The no-workspace selected-agent display projection comes from the app
+host/launcher and is superseded by active-core capabilities after workspace
+activation. Tool labels, icon keys, renderer keys, permission categories, and
+preview arguments come from the frontend-visible tool catalog, with only a
+generic unknown-tool fallback to the tool id. Runtime workflow rows are declared
+by the selected workflow
+projection under `workflow.metadata.display_rows`; the renderer must not
+synthesize default C/C++ phase, discipline, or activity rows from legacy
+snapshot fields. GUI session creation without an explicit mode leaves mode
+selection to the selected backend application/profile instead of injecting a
+renderer or route-level default.
+
+GUI task display is a session snapshot/bootstrap projection. The renderer must
+not call a split `/api/tasks` endpoint, listen for `tasks_refresh`, or maintain a
+separate `tasks_loaded` action path; `CoreInterface` likewise no longer exposes
+a frontend-facing `list_tasks` facade. Workspace recipes are workflow resources
+and tool capabilities, not a GUI-owned `/api/workspace/recipes` panel feed or
+frontend-facing `list_workspace_recipes` facade; workflow-specific quick actions
+must be declared through backend capability or command metadata rather than a
+renderer-owned recipe list.
+Tool presentation metadata for timeline/tool rows is also part of session
+capability/bootstrap projection. The GUI must not call a split
+`/api/tool-catalog` endpoint, keep a root `toolCatalog` fallback state, or
+depend on a frontend-facing `CoreInterface.get_tool_catalog` facade.
+Right-panel navigation is app-shell surface capability driven end to end.
+Surface panel components render whichever supported surface is active, but they
+must merge backend-declared descriptor metadata with locally supported renderers
+instead of keeping their own hard-coded surface tab registry, `inspectorTab`
+adapter, or `onTabChange` navigation path that bypasses app capabilities.
+Right-panel chrome copy and surface command labels are also backend-declared
+surface capability metadata rather than renderer string concatenation.
+Session/message/view/palette command entries are backend-declared
+`workbench_commands`; the renderer no longer owns a local default command list,
+and the old duplicate `workflow.diff` entrypoint is not part of the default GUI
+shell.
+The renderer must not keep parallel root-level `inspectorTab` / `inspectorOpen`
+navigation fields; the right-panel workbench surface state is the single live
+navigation state for this area.
+The active GUI webapp source also follows this vocabulary directly:
+`surface.*` translation keys, `surface-panel` CSS, `right-panel-toggle` tests,
+and the `--right-panel-w-raw` layout variable. Old Inspector shell selectors,
+i18n keys, and toggle ids are historical only.
 
 ## 10. Bundling Model
 

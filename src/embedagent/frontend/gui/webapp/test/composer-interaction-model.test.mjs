@@ -28,7 +28,37 @@ const FILE_TREE = [
   { id: "README.md", path: "README.md", name: "README.md", kind: "file" },
 ];
 
+const HINTS = [
+  { id: "command", label: "/ actions", visibleWhen: "always" },
+  { id: "file", label: "@ files", visibleWhen: "always" },
+  {
+    id: "status.running",
+    label: "Running",
+    visibleWhen: "running",
+    tone: "warning",
+    status: "running",
+  },
+  {
+    id: "status.interaction",
+    label: "Waiting",
+    visibleWhen: "interaction",
+    tone: "warning",
+    status: "interaction",
+  },
+];
+
 export function runComposerInteractionModelTests() {
+  const commandMenuChrome = {
+    pathGroupLabel: "Project files",
+    commandGroupFallbackLabel: "Action",
+    pathEmptyText: "No project files",
+    commandEmptyText: "No actions",
+  };
+  const commandGroupLabels = {
+    mode: "Agent modes",
+    surface: "Views",
+    session: "Runs",
+  };
   const slashModel = buildComposerInteractionModel({
     value: "/mode d",
     cursor: "/mode d".length,
@@ -39,6 +69,9 @@ export function runComposerInteractionModelTests() {
     hasInteraction: false,
     dismissedTriggerKey: "",
     activeIndex: 0,
+    commandMenuChrome,
+    commandGroupLabels,
+    hintDescriptors: HINTS,
   });
 
   assert.equal(slashModel.disabled, false);
@@ -46,9 +79,14 @@ export function runComposerInteractionModelTests() {
   assert.equal(slashModel.canSend, true);
   assert.equal(slashModel.menu.open, true);
   assert.equal(slashModel.menu.triggerKind, "slash");
+  assert.equal(slashModel.menu.emptyText, "No actions");
+  assert.equal(slashModel.menu.groups[0].label, "Agent modes");
   assert.equal(slashModel.menu.items[0].slash, "/mode debug");
   assert.equal(slashModel.menu.activeItem.id, slashModel.menu.items[0].id);
-  assert.equal(slashModel.hints.some((hint) => hint.id === "command"), true);
+  assert.deepEqual(
+    slashModel.hints.map((hint) => hint.id),
+    ["command", "file"],
+  );
 
   assert.equal(moveComposerMenuIndex(0, "next", slashModel.menu.items.length), 0);
   assert.equal(moveComposerMenuIndex(0, "previous", slashModel.menu.items.length), 0);
@@ -72,10 +110,15 @@ export function runComposerInteractionModelTests() {
     hasInteraction: false,
     dismissedTriggerKey: "",
     activeIndex: 0,
+    commandMenuChrome,
+    commandGroupLabels,
+    hintDescriptors: HINTS,
   });
 
   assert.equal(pathModel.menu.open, true);
   assert.equal(pathModel.menu.triggerKind, "path");
+  assert.equal(pathModel.menu.emptyText, "No project files");
+  assert.equal(pathModel.menu.groups[0].label, "Project files");
   assert.deepEqual(
     pathModel.menu.items.map((item) => item.path),
     ["src/parser.c"],
@@ -89,6 +132,23 @@ export function runComposerInteractionModelTests() {
   assert.equal(selectedPath.text, "inspect @src/parser.c ");
   assert.equal(selectedPath.cursor, "inspect @src/parser.c ".length);
 
+  const noFileHintPathModel = buildComposerInteractionModel({
+    value: "inspect @par",
+    cursor: "inspect @par".length,
+    commands: COMMANDS,
+    fileTree: FILE_TREE,
+    currentMode: "build",
+    isRunning: false,
+    hasInteraction: false,
+    dismissedTriggerKey: "",
+    activeIndex: 0,
+    commandMenuChrome,
+    commandGroupLabels,
+    hintDescriptors: HINTS.filter((hint) => hint.id !== "file"),
+  });
+  assert.equal(noFileHintPathModel.menu.open, false);
+  assert.equal(noFileHintPathModel.menu.items.length, 0);
+
   const runningModel = buildComposerInteractionModel({
     value: "cannot edit while running",
     cursor: 4,
@@ -98,6 +158,7 @@ export function runComposerInteractionModelTests() {
     hasInteraction: false,
     dismissedTriggerKey: "",
     activeIndex: 0,
+    hintDescriptors: HINTS,
   });
   assert.equal(runningModel.disabled, true);
   assert.equal(runningModel.action, "stop");
@@ -115,6 +176,7 @@ export function runComposerInteractionModelTests() {
     hasInteraction: true,
     dismissedTriggerKey: "",
     activeIndex: 0,
+    hintDescriptors: HINTS,
   });
   assert.equal(interactionModel.disabled, true);
   assert.equal(interactionModel.action, "send");
@@ -124,4 +186,7 @@ export function runComposerInteractionModelTests() {
     interactionModel.hints.find((hint) => hint.id === "status.interaction").status,
     "interaction",
   );
+
+  const noHintModel = buildComposerInteractionModel({ value: "", cursor: 0 });
+  assert.deepEqual(noHintModel.hints, []);
 }

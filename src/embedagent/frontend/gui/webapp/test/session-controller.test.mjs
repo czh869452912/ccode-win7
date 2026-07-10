@@ -9,11 +9,11 @@ export async function runSessionControllerTests() {
   const controller = createSessionController({
     fetchJson: async (url, options = {}) => {
       calls.push(["fetchJson", url, options.method || "GET"]);
-      if (url === "/api/sessions?mode=debug") {
+      if (url === "/api/sessions?mode=debug" || url === "/api/sessions") {
         return {
           session_id: "sess-new",
           status: "idle",
-          current_mode: "debug",
+          current_mode: url.endsWith("debug") ? "debug" : "agent-default",
         };
       }
       throw new Error(`unexpected url ${url}`);
@@ -37,7 +37,10 @@ export async function runSessionControllerTests() {
   const sessionId = await controller.createSession("debug");
 
   assert.equal(sessionId, "sess-new");
-  assert.deepEqual(loadedSessions, ["sess-new"]);
+  const defaultSessionId = await controller.createSession();
+  assert.equal(defaultSessionId, "sess-new");
+  assert.equal(calls.some((call) => call[1] === "/api/sessions"), true);
+  assert.deepEqual(loadedSessions, ["sess-new", "sess-new"]);
   assert.equal(actions.some((action) => action.type === "session_activated"), false);
   assert.equal(calls.some((call) => call[0] === "loadSessions"), true);
 

@@ -4,30 +4,42 @@ function basename(path) {
   return parts.length > 0 ? parts[parts.length - 1] : text;
 }
 
-function workspaceLabel(workspace = {}) {
+function firstText(...values) {
+  for (const value of values) {
+    const text = String(value || "").trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+function workspaceLabel(workspace = {}, workspaceCopy = {}) {
   return String(workspace.label || "").trim()
     || basename(workspace.path)
     || String(workspace.path || "").trim()
-    || "Workspace";
+    || firstText(workspaceCopy.inactiveLabel);
 }
 
-export const THREAD_LIFECYCLE_ACTIONS = Object.freeze([
-  Object.freeze({
-    id: "rename",
-    label: "Rename",
-    capability: "rename",
-  }),
-  Object.freeze({
-    id: "fork",
-    label: "Fork",
-    capability: "fork",
-  }),
-  Object.freeze({
-    id: "archive",
-    label: "Archive",
-    capability: "archive",
-  }),
-]);
+function workspaceDisplayPath(workspace = {}, workspaceCopy = {}) {
+  return workspace.exists === false
+    ? firstText(workspaceCopy.missingPathLabel)
+    : String(workspace.path || "");
+}
+
+function homeCopy(app = {}) {
+  const copy = app.capabilities?.home || {};
+  return copy && typeof copy === "object" ? copy : {};
+}
+
+function emptyStateCopy(app = {}) {
+  const copy = app.capabilities?.emptyState || {};
+  return copy && typeof copy === "object" ? copy : {};
+}
+
+function fallbackSessionTitle(sessionId, threadCopy = {}) {
+  const shortId = String(sessionId || "").slice(0, 8);
+  const prefix = firstText(threadCopy.sessionFallbackPrefix);
+  return prefix && shortId ? `${prefix} ${shortId}` : shortId;
+}
 
 export function formatSessionUpdatedLabel(value) {
   const text = String(value || "").trim();
@@ -48,34 +60,46 @@ export function formatSessionUpdatedLabel(value) {
 
 export function buildThreadLifecycleActions(session, capabilities = {}) {
   const sessionId = String(session?.session_id || session?.id || "").trim();
-  return THREAD_LIFECYCLE_ACTIONS.map((action) => {
-    const hasCapability = Boolean(capabilities?.[action.capability]);
-    const enabled = Boolean(sessionId && hasCapability);
+  const actions = Array.isArray(capabilities?.actions) ? capabilities.actions : [];
+  return actions.slice().sort((left, right) => {
+    const leftOrder = Number(left?.order || 0);
+    const rightOrder = Number(right?.order || 0);
+    return leftOrder - rightOrder || String(left?.label || left?.id || "").localeCompare(String(right?.label || right?.id || ""));
+  }).map((action) => {
+    const actionId = String(action?.id || "").trim();
+    const label = String(action?.label || "").trim();
+    if (!label) return null;
+    const capability = String(action?.capability || actionId).trim();
+    const available = action?.enabled !== false;
+    const enabled = Boolean(sessionId && actionId && available);
     const reason = enabled ? "" : sessionId ? "backend_not_available" : "missing_session";
     return {
       ...action,
+      id: actionId,
+      label,
+      capability,
       sessionId,
       enabled,
       reason,
-      reasonLabel:
-        reason === "backend_not_available"
-          ? "Backend lifecycle API is not available yet"
-          : reason === "missing_session"
-            ? "Thread is missing"
-            : "",
+      reasonLabel: String(action?.reasonLabel || action?.reason_label || "").trim(),
     };
-  });
+  }).filter(Boolean);
 }
 
 export function buildAppHomeModel({
   app = {},
   sessions = [],
   currentSessionId = "",
-  defaultMode = "explore",
+  defaultMode = "",
   threadLifecycleCapabilities = {},
 } = {}) {
   const activeWorkspace = app.activeWorkspace || null;
   const activatingWorkspace = Boolean(app.activatingWorkspace);
+  const home = homeCopy(app);
+  const workspaceCopy = home.workspace || {};
+  const threadCopy = home.threads || {};
+  const emptyState = emptyStateCopy(app);
+  const productName = firstText(app.app?.productName, app.app?.product_name);
   const workspaceRows = (Array.isArray(app.workspaces) ? app.workspaces : [])
     .filter((workspace) => workspace && workspace.id)
     .map((workspace) => {
@@ -83,8 +107,9 @@ export function buildAppHomeModel({
       const exists = workspace.exists !== false;
       return {
         id: String(workspace.id || ""),
-        label: workspaceLabel(workspace),
+        label: workspaceLabel(workspace, workspaceCopy),
         path: String(workspace.path || ""),
+        pathLabel: workspaceDisplayPath(workspace, workspaceCopy),
         exists,
         isActive,
         status: isActive ? "active" : exists ? "available" : "missing",
@@ -103,8 +128,8 @@ export function buildAppHomeModel({
           || String(session.title || "").trim()
           || String(session.user_goal || "").trim()
           || String(session.summary_text || "").trim()
-          || `Session ${sessionId.slice(0, 8)}`,
-        mode: String(session.current_mode || defaultMode || "explore"),
+          || fallbackSessionTitle(sessionId, threadCopy),
+        mode: String(session.current_mode || defaultMode || ""),
         updated: formatSessionUpdatedLabel(session.updated_at),
         isActive: sessionId === currentSessionId,
         actions: buildThreadLifecycleActions(session, threadLifecycleCapabilities),
@@ -113,19 +138,42 @@ export function buildAppHomeModel({
 
   const hasActiveWorkspace = Boolean(app.hasActiveWorkspace && activeWorkspace);
   return {
+    productName,
     workspace: {
       hasActiveWorkspace,
       activeId: activeWorkspace ? String(activeWorkspace.id || "") : "",
-      activeLabel: activeWorkspace ? workspaceLabel(activeWorkspace) : "No workspace",
-      activePath: activeWorkspace ? String(activeWorkspace.path || "") : "Open a local project",
+      activeLabel: activeWorkspace
+        ? workspaceLabel(activeWorkspace, workspaceCopy)
+        : firstText(workspaceCopy.inactiveLabel, emptyState.scenarioLabel, emptyState.primary),
+      activePath: activeWorkspace
+        ? String(activeWorkspace.path || "")
+        : firstText(workspaceCopy.inactivePath, emptyState.secondary, emptyState.pathPlaceholder),
       activating: activatingWorkspace,
       count: workspaceRows.length,
+      copy: {
+        sectionTitle: firstText(workspaceCopy.sectionTitle),
+        pathPlaceholder: firstText(workspaceCopy.pathPlaceholder, emptyState.pathPlaceholder),
+        openLabel: firstText(workspaceCopy.openLabel),
+        openAriaLabel: firstText(workspaceCopy.openAriaLabel),
+        recentsLabel: firstText(workspaceCopy.recentsLabel),
+        missingPathLabel: firstText(workspaceCopy.missingPathLabel),
+        removeLabel: firstText(workspaceCopy.removeLabel),
+      },
       rows: workspaceRows,
     },
     threads: {
       count: threadRows.length,
       empty: threadRows.length === 0,
       canCreateThread: hasActiveWorkspace && !activatingWorkspace,
+      copy: {
+        sectionTitle: firstText(threadCopy.sectionTitle),
+        newLabel: firstText(threadCopy.newLabel),
+        emptyTitle: firstText(threadCopy.emptyTitle),
+        emptyBody: firstText(threadCopy.emptyBody),
+        activeLabel: firstText(threadCopy.activeLabel),
+        actionsLabelPrefix: firstText(threadCopy.actionsLabelPrefix),
+        sessionFallbackPrefix: firstText(threadCopy.sessionFallbackPrefix),
+      },
       rows: threadRows,
     },
   };

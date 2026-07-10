@@ -51,6 +51,12 @@ export function runDiffModelTests() {
   assert.equal(focused.focusedFilePath, "README.md");
   assert.equal(focused.focusedDiff.includes("README.md"), true);
 
+  const fallbackSurface = createDiffSurfaceState({
+    diff,
+    chrome: { defaultTitle: "Patch" },
+  });
+  assert.equal(fallbackSurface.title, "Patch");
+
   const summary = diffSummaryFromTimelineItems([
     {
       id: "cmd-diff",

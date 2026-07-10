@@ -46,7 +46,6 @@ class HostedCommandService(object):
         list_workspace_recipes: Callable[[], Dict[str, Any]],
         reload_resources: Callable[..., Dict[str, Any]],
         list_tasks: Callable[..., Dict[str, Any]],
-        list_artifacts: Callable[..., List[Dict[str, Any]]],
         get_permission_context: Callable[[str], Any],
         emit: Callable[[Optional[EventHandler], str, str, Dict[str, Any]], None],
         emit_with_snapshot: Callable[
@@ -74,7 +73,6 @@ class HostedCommandService(object):
         self._list_workspace_recipes = list_workspace_recipes
         self._reload_resources = reload_resources
         self._list_tasks = list_tasks
-        self._list_artifacts = list_artifacts
         self._get_permission_context = get_permission_context
         self._emit = emit
         self._emit_with_snapshot = emit_with_snapshot
@@ -97,7 +95,6 @@ class HostedCommandService(object):
                 "run": self._handle_command_run,
                 "clear": self._handle_command_clear,
                 "tasks": self._handle_command_tasks,
-                "artifacts": self._handle_command_artifacts,
                 "diff": self._handle_command_diff,
                 "permissions": self._handle_command_permissions,
                 "plan": self._handle_command_plan,
@@ -592,38 +589,6 @@ class HostedCommandService(object):
                 success=True,
                 message="\n".join(lines),
                 data=payload,
-            ),
-        )
-        return {"handled": True, "continue_with_text": ""}
-
-    def _handle_command_artifacts(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        items = self._list_artifacts(limit=20)
-        lines = ["## Recent Artifacts", ""]
-        if not items:
-            lines.append("暂无工件。")
-        else:
-            for item in items:
-                lines.append(
-                    "- `%s` (%s)"
-                    % (
-                        str(item.get("path") or ""),
-                        str(item.get("tool_name") or item.get("kind") or ""),
-                    )
-                )
-        self.emit_command_result(
-            event_handler,
-            state,
-            CommandResult(
-                command_name="artifacts",
-                success=True,
-                message="\n".join(lines),
-                data={"items": items},
             ),
         )
         return {"handled": True, "continue_with_text": ""}

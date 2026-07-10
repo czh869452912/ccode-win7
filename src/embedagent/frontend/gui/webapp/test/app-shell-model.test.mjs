@@ -13,10 +13,15 @@ import {
   resetAppShellWorkspaceState,
 } from "../src/app-shell/reducer.js";
 
+function surface(id, title = id, extra = {}) {
+  return { id, title, ...extra };
+}
+
 export function runAppShellModelTests() {
   const initial = createAppShellState();
   assert.equal(initial.bootstrapLoaded, false);
   assert.equal(initial.app.shellVersion, 1);
+  assert.equal(initial.app.productName, "");
   assert.equal(initial.app.protocol, "gui_app_shell_v1");
   assert.deepEqual(initial.workspaces, []);
   assert.equal(initial.activeWorkspace, null);
@@ -24,16 +29,366 @@ export function runAppShellModelTests() {
   assert.equal(initial.settings.confirm_workspace_switch, true);
   assert.equal(initial.settings.show_diagnostics_badge, true);
   assert.deepEqual(initial.diagnostics.host, {});
-  assert.equal(initial.capabilities.appCommands.includes("app.settings"), true);
-  assert.equal(initial.capabilities.surfaces.rightPanel.includes("diagnostics"), true);
+  assert.deepEqual(initial.capabilities.appCommands, []);
+  assert.deepEqual(initial.capabilities.workspaceCommands, []);
+  assert.deepEqual(initial.capabilities.workbenchCommands, []);
+  assert.deepEqual(initial.capabilities.commandPalette.groups, []);
+  assert.deepEqual(initial.capabilities.commandPalette.labels, {
+    rootTitle: "",
+    submenuTitle: "",
+    searchLabel: "",
+    rootPlaceholder: "",
+    submenuPlaceholder: "",
+    rootEmpty: "",
+    submenuEmpty: "",
+    commandsSection: "",
+    sessionsSection: "",
+    workspacesSection: "",
+    currentLabel: "",
+    missingLabel: "",
+    workspaceMeta: "",
+    workspaceFallback: "",
+    sessionFallbackPrefix: "",
+    sessionLeading: "",
+    workspaceLeading: "",
+    shortcutLabels: {},
+    shortcutSeparator: "",
+  });
+  assert.deepEqual(initial.capabilities.chrome, {
+    brandSubtitle: "",
+    sidebarAriaLabel: "",
+    threadPanelAriaLabel: "",
+    header: {
+      commandPaletteLabel: "",
+      commandPaletteShortLabel: "",
+      refreshLabel: "",
+      bottomDrawerLabel: "",
+      bottomDrawerTitle: "",
+      rightPanelLabel: "",
+      rightPanelTitle: "",
+      turnsLabel: "",
+    },
+    composer: {
+      placeholder: "",
+      commandPaletteLabel: "",
+      sendLabel: "",
+      stopLabel: "",
+      hints: [],
+      commandMenu: {
+        pathGroupLabel: "",
+        commandGroupFallbackLabel: "",
+        defaultCommandGroupId: "",
+        pathEmptyText: "",
+        commandEmptyText: "",
+        defaultEmptyText: "",
+        pathAriaLabel: "",
+        commandAriaLabel: "",
+        pathItemKindLabel: "",
+        commandItemKindLabel: "",
+      },
+    },
+    interaction: {
+      pendingApprovalKicker: "",
+      inputRequiredKicker: "",
+      commandApprovalSummary: "",
+      fileReadApprovalSummary: "",
+      fileChangeApprovalSummary: "",
+      expiredTitle: "",
+      expiredBody: "",
+      conflictTitle: "",
+      conflictBody: "",
+      approveOnceLabel: "",
+      declineLabel: "",
+      cancelTurnLabel: "",
+      alwaysAllowSessionLabel: "",
+      inputSummary: "",
+      customAnswerPlaceholder: "",
+      submitLabel: "",
+      modeLabelPrefix: "",
+    },
+    surfacePanel: {
+      ariaLabel: "",
+      settingsTitle: "",
+      confirmWorkspaceSwitchLabel: "",
+      showDiagnosticsBadgeLabel: "",
+      diagnosticsTitle: "",
+      capabilitiesTitle: "",
+      noDiagnostics: "",
+      planTitle: "",
+      noPlan: "",
+      diagnosticGroups: {},
+    },
+    timeline: {
+      ariaLabel: "",
+      emptyState: "",
+      historyPartialLabel: "",
+      historyPartialFallback: "",
+      historyUnavailable: "",
+      explicitLoopLimitReached: "",
+      maxTurnLimitTemplate: "",
+      guardStopped: "",
+      cancelled: "",
+      changedFiles: {
+        summaryTemplate: "",
+        expandLabel: "",
+        collapseLabel: "",
+        viewDiffLabel: "",
+      },
+      workGroup: {
+        singularLabel: "",
+        pluralLabelTemplate: "",
+        showFewerLabel: "",
+        previousSingularTemplate: "",
+        previousPluralTemplate: "",
+      },
+      activityRows: {
+        workingLabel: "",
+        workingActivePrefix: "",
+        turnFoldLabel: "",
+        turnFoldDurationTemplate: "",
+        turnFoldStoppedDurationTemplate: "",
+        turnFoldStoppedLabel: "",
+        turnFoldStepSingularTemplate: "",
+        turnFoldStepPluralTemplate: "",
+        interactionLabel: "",
+        interactionPendingStatus: "",
+        reasoningLabel: "",
+        thinkingLabel: "",
+        streamingStatus: "",
+        wordSingularTemplate: "",
+        wordPluralTemplate: "",
+        contextUpdated: "",
+        contextSummarizedTemplate: "",
+        contextRetainedTemplate: "",
+        contextSizeTemplate: "",
+        metadataSeparator: "",
+        commandDefaultName: "",
+        commandFailedStatus: "",
+        commandCompletedStatus: "",
+        reviewLabel: "",
+        reviewSingularFinding: "",
+        reviewPluralFindingsTemplate: "",
+        timerZeroLabel: "",
+        timerSecondsTemplate: "",
+        timerMinutesSecondsTemplate: "",
+        timerHoursMinutesTemplate: "",
+      },
+      toolDetail: {
+        defaultSectionTitle: "",
+        fallbackMatchLabel: "",
+        fieldLabels: {},
+        sectionTitles: {},
+      },
+      workRow: {
+        defaultHeading: "",
+        defaultIconName: "",
+        statusLabels: {},
+      },
+    },
+  });
+  assert.deepEqual(initial.capabilities.surfaces.rightPanel, []);
+  assert.deepEqual(initial.capabilities.surfaces.bottomDrawer, []);
+  assert.deepEqual(initial.capabilities.surfaces.chrome, {
+    rightPanelAriaLabel: "",
+    addSurfaceLabel: "",
+    emptyTitle: "",
+    emptyBody: "",
+    surfaceActionsLabelPrefix: "",
+    closeLabelPrefix: "",
+    closeActionLabel: "",
+    closeOthersActionLabel: "",
+    closeToRightActionLabel: "",
+    closeAllActionLabel: "",
+    defaultIcon: "",
+    bottomDrawerAriaLabel: "",
+    runOutputEmptyMessage: "",
+    terminationReasonPrefix: "",
+    filePreview: {
+      defaultFileTitle: "",
+      defaultProjectLabel: "",
+      loadingMessage: "",
+      unavailableMessage: "",
+      retryLabel: "",
+      copyPathTitleTemplate: "",
+      breadcrumbAriaLabel: "",
+      showMarkdownSourceLabel: "",
+      showRenderedMarkdownLabel: "",
+      markdownSourceGlyph: "",
+      markdownPreviewGlyph: "",
+      showFileExplorerLabel: "",
+      metadataSeparator: "",
+      lineSingularLabel: "",
+      linePluralLabel: "",
+      plainLanguageLabel: "",
+      languageLabels: {},
+    },
+    diffPanel: {
+      defaultTitle: "",
+      emptyMessage: "",
+      selectionAriaLabel: "",
+      controlsAriaLabel: "",
+      stackedTitle: "",
+      splitTitle: "",
+      enableWordWrapTitle: "",
+      disableWordWrapTitle: "",
+      hideWhitespaceTitle: "",
+      showWhitespaceTitle: "",
+      changedFilesAriaLabel: "",
+      filesLabel: "",
+      expandFileLabelTemplate: "",
+      collapseFileLabelTemplate: "",
+      expandDiffLabel: "",
+      sourceControlTitleTemplate: "",
+    },
+  });
+  assert.deepEqual(initial.capabilities.keybindings, []);
+  assert.equal(initial.capabilities.agentApplication, null);
+  assert.deepEqual(initial.capabilities.agentApplications, []);
+  assert.deepEqual(initial.capabilities.emptyState, {
+    scenarioLabel: "",
+    primary: "",
+    secondary: "",
+    pathPlaceholder: "",
+  });
   assert.equal(initial.capabilities.terminal.enabled, false);
   assert.equal(initial.capabilities.terminal.pty, false);
   assert.equal(initial.capabilities.terminal.resize, false);
+  assert.deepEqual(initial.capabilities.terminal.chrome, {
+    titlePrefix: "",
+    defaultTitle: "",
+    sessionRequiredNotice: "",
+    openFailedNotice: "",
+    writeFailedNotice: "",
+    clearFailedNotice: "",
+    restartFailedNotice: "",
+    closeFailedNotice: "",
+    newLabel: "",
+    newTitle: "",
+    splitLabel: "",
+    splitTitle: "",
+    splitVerticalLabel: "",
+    splitVerticalTitle: "",
+    drawerLabel: "",
+    unavailableMessage: "",
+    commandPlaceholder: "",
+    clearLabel: "",
+    restartLabel: "",
+    closeLabel: "",
+    emptyMessage: "",
+    emptyActionLabel: "",
+  });
+  assert.equal(initial.capabilities.preview.enabled, false);
+  assert.deepEqual(initial.capabilities.preview.localServers, []);
+  assert.equal(initial.capabilities.preview.chrome.refreshLabel, "");
+  assert.equal(initial.capabilities.preview.chrome.emptyTitle, "");
+
+  const dynamicSurfaceCapabilities = normalizeAppCapabilities({
+    surfaces: {
+      right_panel: [
+        {
+          id: "quality",
+          title: "Quality",
+          description: "Local quality gates",
+          command_label: "Show Quality",
+          body_kind: "surface_panel",
+          panel_kind: "descriptor",
+          read_only: true,
+          offline: true,
+        },
+      ],
+    },
+  });
+  assert.deepEqual(dynamicSurfaceCapabilities.surfaces.rightPanel[0], {
+    id: "quality",
+    kind: "quality",
+    title: "Quality",
+    icon: "",
+    description: "Local quality gates",
+    placement: "right",
+    resourceId: "",
+    defaultResourceId: "",
+    closeBehavior: "closable",
+    launcher: true,
+    launcherOrder: 0,
+    command: true,
+    commandLabel: "Show Quality",
+    slash: "",
+    visibleWhen: "always",
+    readOnly: true,
+    offline: true,
+    keywords: [],
+    dispatch: {},
+    bodyKind: "surface_panel",
+    panelKind: "descriptor",
+    openKind: "",
+    activationKind: "",
+  });
   assert.equal(initial.capabilities.sourceControl.enabled, false);
   assert.equal(initial.capabilities.sourceControl.readOnly, true);
-  assert.equal(initial.capabilities.threadLifecycle.rename, false);
-  assert.equal(initial.capabilities.threadLifecycle.fork, false);
-  assert.equal(initial.capabilities.threadLifecycle.archive, false);
+  assert.deepEqual(initial.capabilities.sourceControl.chrome, {
+    title: "",
+    statusUnavailableNotice: "",
+    diffUnavailableNotice: "",
+    loadingMessage: "",
+    gitUnavailableMessage: "",
+    notRepositoryMessage: "",
+    cleanMessage: "",
+    noBranchLabel: "",
+    runtimeGitLabel: "",
+    missingRuntimeLabel: "",
+    refreshLabel: "",
+    countLabels: {},
+    groupOrder: [],
+    groupLabels: {},
+    providerLabels: {},
+    fileStatusLabels: {},
+    branchToolbar: {
+      defaultWorkspaceLabel: "",
+      loadingLabel: "",
+      errorLabel: "",
+      gitUnavailableLabel: "",
+      notRepositoryLabel: "",
+      unknownRefLabel: "",
+      detachedPrefix: "",
+      cleanLabel: "",
+      changeSingular: "",
+      changePlural: "",
+      conflictSingular: "",
+      conflictPlural: "",
+      currentCheckoutLabel: "",
+      currentCheckoutDescription: "",
+      gitUnavailableReason: "",
+      notRepositoryReason: "",
+      errorReasonFallback: "",
+      readOnlyActionTitle: "",
+      worktreeActionLabel: "",
+      branchActionLabel: "",
+      refreshLabel: "",
+      refreshTitle: "",
+      metadataSeparator: "",
+    },
+  });
+  assert.deepEqual(initial.capabilities.threadLifecycle.actions, []);
+  assert.deepEqual(initial.capabilities.home.workspace, {
+    sectionTitle: "",
+    inactiveLabel: "",
+    inactivePath: "",
+    pathPlaceholder: "",
+    openLabel: "",
+    openAriaLabel: "",
+    recentsLabel: "",
+    missingPathLabel: "",
+    removeLabel: "",
+  });
+  assert.deepEqual(initial.capabilities.home.threads, {
+    sectionTitle: "",
+    newLabel: "",
+    emptyTitle: "",
+    emptyBody: "",
+    activeLabel: "",
+    actionsLabelPrefix: "",
+    sessionFallbackPrefix: "",
+  });
 
   const bootstrap = normalizeAppBootstrap({
     app: {
@@ -70,9 +425,341 @@ export function runAppShellModelTests() {
       active_core: { present: true },
     },
     capabilities: {
-      app_commands: ["app.settings", "app.diagnostics", "app.reload"],
-      workspace_commands: ["workspace.open"],
-      surfaces: { right_panel: ["settings", "diagnostics", "source_control"], bottom_drawer: ["terminal"] },
+      app_commands: [
+        { id: "app.settings", label: "Preferences", group: "app", order: 10 },
+        { id: "app.diagnostics", label: "Health", group: "app", order: 20 },
+        { id: "app.reload", label: "Reload Shell", group: "app", order: 30, dispatch: { kind: "app_shell.reload" } },
+      ],
+      workspace_commands: [
+        {
+          id: "workspace.open",
+          label: "Open Project",
+          group: "workspace",
+          order: 10,
+          dispatch: { kind: "workspace.focus_path_input" },
+        },
+      ],
+      workbench_commands: [
+        {
+          id: "message.send",
+          label: "Send",
+          group: "message",
+          visible_when: "composer_ready",
+          order: 10,
+          dispatch: { kind: "message.submit" },
+        },
+        {
+          id: "palette.open",
+          label: "Launch",
+          group: "view",
+          order: 20,
+          dispatch: { kind: "command_palette.open" },
+        },
+      ],
+      command_palette: {
+        groups: [
+          { id: "workspace", title: "Projects", description: "Project commands", order: 20 },
+          { id: "app", title: "Application", description: "Application commands", order: 10 },
+        ],
+        labels: {
+          root_title: "Command launcher",
+          submenu_title: "Launcher group",
+          search_label: "Search launcher",
+          root_placeholder: "Search launcher entries",
+          submenu_placeholder: "Search group entries",
+          root_empty: "No launcher matches",
+          submenu_empty: "No group matches",
+          commands_section: "Actions",
+          sessions_section: "Threads",
+          workspaces_section: "Projects",
+          current_label: "Selected",
+          missing_label: "Unavailable",
+          workspace_meta: "Project",
+          workspace_fallback: "Project",
+          session_fallback_prefix: "Thread",
+          session_leading: "S",
+          workspace_leading: "W",
+          shortcut_labels: {
+            mod: "Cmd",
+            shift: "Shift",
+          },
+          shortcut_separator: "::",
+        },
+      },
+      chrome: {
+        brand_subtitle: "Python agent workbench",
+        sidebar_aria_label: "Project sidebar",
+        thread_panel_aria_label: "Runs",
+        header: {
+          command_palette_label: "Launcher",
+          command_palette_short_label: "Go",
+          refresh_label: "Refresh runs",
+          bottom_drawer_label: "Output",
+          bottom_drawer_title: "Toggle output",
+          right_panel_label: "Views",
+          right_panel_title: "Toggle views",
+          turns_label: "steps",
+        },
+        composer: {
+          placeholder: "Ask the Python agent",
+          command_palette_label: "Open launcher",
+          send_label: "Send prompt",
+          stop_label: "Stop prompt",
+          command_menu: {
+            path_group_label: "Project files",
+            command_group_fallback_label: "Action",
+            default_command_group_id: "action",
+            path_empty_text: "No project files",
+            command_empty_text: "No actions",
+            default_empty_text: "Nothing here",
+            path_aria_label: "Project file suggestions",
+            command_aria_label: "Action suggestions",
+            path_item_kind_label: "path",
+            command_item_kind_label: "action",
+          },
+          hints: [
+            { id: "command", label: "/ actions", visible_when: "always" },
+            {
+              id: "status.running",
+              label: "Running",
+              visible_when: "running",
+              tone: "warning",
+              status: "running",
+            },
+          ],
+        },
+        interaction: {
+          pending_approval_kicker: "APPROVAL",
+          input_required_kicker: "ANSWER",
+          command_approval_summary: "Command summary",
+          file_read_approval_summary: "Read summary",
+          file_change_approval_summary: "Change summary",
+          expired_title: "Request expired",
+          expired_body: "Request body.",
+          conflict_title: "Request handled",
+          conflict_body: "Conflict body.",
+          approve_once_label: "Approve action",
+          decline_label: "Decline action",
+          cancel_turn_label: "Cancel run",
+          always_allow_session_label: "Always allow",
+          input_summary: "Input summary",
+          custom_answer_placeholder: "Custom answer",
+          submit_label: "Send answer",
+          mode_label_prefix: "mode",
+        },
+        surface_panel: {
+          aria_label: "View panel",
+          settings_title: "Preferences",
+          confirm_workspace_switch_label: "Confirm project switch",
+          show_diagnostics_badge_label: "Show health badge",
+          diagnostics_title: "Health",
+          capabilities_title: "Declared capabilities",
+          no_diagnostics: "No health rows.",
+          plan_title: "Run plan",
+          no_plan: "No run plan.",
+          diagnostic_groups: {
+            host: "Host process",
+          },
+        },
+        timeline: {
+          aria_label: "Run log",
+          empty_state: "No turns yet.",
+          history_partial_label: "history restored with gaps",
+          history_partial_fallback: "restore paused",
+          history_unavailable: "run history unavailable",
+          explicit_loop_limit_reached: "Loop safety limit reached.",
+          max_turn_limit_template: "Turn cap reached ({turnsUsed}/{maxTurns}).",
+          guard_stopped: "Guard stopped this run.",
+          cancelled: "Cancelled by user.",
+          changed_files: {
+            summary_template: "{count} paths changed",
+            expand_label: "Open tree",
+            collapse_label: "Close tree",
+            view_diff_label: "Review patch",
+          },
+          work_group: {
+            singular_label: "1 action",
+            plural_label_template: "{count} actions",
+            show_fewer_label: "Hide older actions",
+            previous_singular_template: "+{count} older action",
+            previous_plural_template: "+{count} older actions",
+          },
+          activity_rows: {
+            working_label: "Running...",
+            working_active_prefix: "Running for",
+            turn_fold_label: "Work for this run",
+            turn_fold_duration_template: "Work took {duration}",
+            turn_fold_stopped_duration_template: "Stopped after {duration}",
+            turn_fold_stopped_label: "Stopped by user",
+            turn_fold_step_singular_template: "{count} step",
+            turn_fold_step_plural_template: "{count} steps",
+            interaction_label: "request",
+            interaction_pending_status: "waiting",
+            reasoning_label: "Planning",
+            thinking_label: "Planning",
+            streaming_status: "streaming now",
+            word_singular_template: "{count} term",
+            word_plural_template: "{count} terms",
+            context_updated: "Context refreshed",
+            context_summarized_template: "{count} summarized turns",
+            context_retained_template: "{count} retained turns",
+            context_size_template: "~{count} model units",
+            metadata_separator: " | ",
+            command_default_name: "action",
+            command_failed_status: "errored",
+            command_completed_status: "done",
+            review_label: "/inspect",
+            review_singular_finding: "1 issue",
+            review_plural_findings_template: "{count} issues",
+            timer_zero_label: "0 sec",
+            timer_seconds_template: "{seconds} sec",
+            timer_minutes_seconds_template: "{minutes} min {seconds} sec",
+            timer_hours_minutes_template: "{hours} hr {minutes} min",
+          },
+          tool_detail: {
+            default_section_title: "Details",
+            fallback_match_label: "result",
+            field_labels: {
+              path: "Path",
+              pattern: "Pattern",
+              recipe: "Recipe",
+              exit: "Exit",
+            },
+            section_titles: {
+              error: "Failure",
+              preview: "Excerpt",
+              matches: "Results",
+              diff: "Patch",
+            },
+          },
+          work_row: {
+            default_heading: "Action",
+            default_icon_name: "spark",
+            status_labels: {
+              failure: "errored",
+              success: "done",
+              neutral: "idle",
+              interrupted: "stopped",
+              discarded: "discarded",
+            },
+          },
+        },
+      },
+      surfaces: {
+        chrome: {
+          right_panel_aria_label: "Workspace panel",
+          add_surface_label: "Add workspace view",
+          empty_title: "Open a workspace view",
+          empty_body: "Choose a project surface.",
+          surface_actions_label_prefix: "View actions for",
+          close_label_prefix: "Close view",
+          close_action_label: "Close view",
+          close_others_action_label: "Close other views",
+          close_to_right_action_label: "Close views to the right",
+          close_all_action_label: "Close all views",
+          default_icon: "V",
+          bottom_drawer_aria_label: "Output drawer",
+          run_output_empty_message: "No output yet.",
+          termination_reason_prefix: "finished",
+          file_preview: {
+            default_file_title: "Document",
+            default_project_label: "Project",
+            loading_message: "Opening file",
+            unavailable_message: "Document unavailable",
+            retry_label: "Reload file",
+            copy_path_title_template: "Copy path for {title}",
+            breadcrumb_aria_label: "Document path",
+            show_markdown_source_label: "Show source",
+            show_rendered_markdown_label: "Show preview",
+            markdown_source_glyph: "S",
+            markdown_preview_glyph: "V",
+            show_file_explorer_label: "Open explorer",
+            metadata_separator: " | ",
+            line_singular_label: "row",
+            line_plural_label: "rows",
+            plain_language_label: "Plain text",
+            language_labels: {
+              markdown: "Markdown doc",
+              python: "Python file",
+            },
+          },
+          diff_panel: {
+            default_title: "Patch",
+            empty_message: "No patch selected.",
+            selection_aria_label: "Patch tabs",
+            controls_aria_label: "Patch controls",
+            stacked_title: "Unified view",
+            split_title: "Side by side",
+            enable_word_wrap_title: "Wrap patch lines",
+            disable_word_wrap_title: "Unwrap patch lines",
+            hide_whitespace_title: "Ignore whitespace",
+            show_whitespace_title: "Show whitespace",
+            changed_files_aria_label: "Patch files",
+            files_label: "Paths",
+            expand_file_label_template: "Open {path}",
+            collapse_file_label_template: "Close {path}",
+            expand_diff_label: "Show patch",
+            source_control_title_template: "Patch: {path}",
+          },
+        },
+        right_panel: [
+          surface("settings", "Settings", { launcher_order: 10 }),
+          surface("diagnostics", "Diagnostics", { launcher_order: 20 }),
+          surface("source_control", "Source Control", { launcher_order: 30 }),
+        ],
+        bottom_drawer: [
+          surface("terminal", "Terminal", {
+            launcher_order: 10,
+            dispatch: { kind: "terminal.ensure_open" },
+          }),
+        ],
+      },
+      keybindings: [
+        { key: "MOD+K", command_id: "palette.open", when: "not_palette" },
+        { key: "mod+,", command_id: "app.settings", when: "always" },
+      ],
+      agentApplication: {
+        applicationId: "tests.python",
+        label: "Python Agent",
+        profileId: "tests.python.profile",
+        workflowPackageIds: ["tests.python.workflow"],
+        active: true,
+      },
+      agentApplications: [
+        {
+          applicationId: "tests.python",
+          label: "Python Agent",
+          profileId: "tests.python.profile",
+          workflowPackageIds: ["tests.python.workflow"],
+          active: true,
+        },
+      ],
+      emptyState: {
+        scenario_label: "Python workspace",
+        primary: "Open a Python project",
+      },
+      home: {
+        workspace: {
+          section_title: "Projects",
+          inactive_label: "No project",
+          inactive_path: "Choose a Python project",
+          path_placeholder: "Python project path",
+          open_label: "Open Project",
+          open_aria_label: "Open Python project",
+          recents_label: "Recent Python projects",
+          missing_path_label: "Missing project path",
+          remove_label: "Forget",
+        },
+          threads: {
+            section_title: "Runs",
+            new_label: "Start",
+            empty_title: "No runs",
+            empty_body: "Start a run for this project.",
+            active_label: "current",
+            actions_label_prefix: "Run actions for",
+            session_fallback_prefix: "Run",
+          },
+      },
       source_control: {
         enabled: true,
         vcs: ["git"],
@@ -81,6 +768,67 @@ export function runAppShellModelTests() {
         network: false,
         checkpoints: false,
         requires_active_workspace: true,
+        chrome: {
+          title: "Git Changes",
+          status_unavailable_notice: "Git status failed.",
+          diff_unavailable_notice: "No diff available.",
+          loading_message: "Checking changes...",
+          git_unavailable_message: "Git missing.",
+          not_repository_message: "Not a Git repository.",
+          clean_message: "Working tree clean.",
+          no_branch_label: "No ref",
+          runtime_git_label: "git",
+          missing_runtime_label: "missing",
+          refresh_label: "Reload",
+          count_labels: {
+            files: "paths",
+            staged: "indexed",
+            changed: "modified",
+            untracked: "new",
+          },
+          group_order: ["untracked", "unstaged"],
+          group_labels: {
+            staged: "Indexed",
+            unstaged: "Modified",
+            untracked: "New files",
+            conflicted: "Conflicted",
+            fallback: "Modified",
+          },
+          provider_labels: {
+            github: "GitHub",
+            local: "Local Git",
+            fallback: "Local provider",
+          },
+          file_status_labels: {
+            modified: "~",
+            untracked: "N",
+          },
+          branch_toolbar: {
+            default_workspace_label: "Project",
+            loading_label: "Scanning Git",
+            error_label: "Git check failed",
+            git_unavailable_label: "Git missing",
+            not_repository_label: "Not a repository",
+            unknown_ref_label: "Unknown checkout",
+            detached_prefix: "at",
+            clean_label: "Settled",
+            change_singular: "delta",
+            change_plural: "deltas",
+            conflict_singular: "collision",
+            conflict_plural: "collisions",
+            current_checkout_label: "Checkout",
+            current_checkout_description: "Use the active checkout.",
+            git_unavailable_reason: "No local Git runtime.",
+            not_repository_reason: "Open a repository workspace.",
+            error_reason_fallback: "Git status failed.",
+            read_only_action_title: "Read-only shell action.",
+            worktree_action_label: "Tree",
+            branch_action_label: "Ref",
+            refresh_label: "Poll",
+            refresh_title: "Poll Git status",
+            metadata_separator: " / ",
+          },
+        },
       },
       terminal: {
         enabled: true,
@@ -88,8 +836,99 @@ export function runAppShellModelTests() {
         resize: false,
         history_persistent: false,
         max_buffer_bytes: 131072,
+        chrome: {
+          title_prefix: "Shell",
+          default_title: "Shell",
+          session_required_notice: "Open a run before using shell.",
+          open_failed_notice: "Shell failed to open.",
+          write_failed_notice: "Shell write failed.",
+          clear_failed_notice: "Shell clear failed.",
+          restart_failed_notice: "Shell restart failed.",
+          close_failed_notice: "Shell close failed.",
+          new_label: "New shell",
+          new_title: "Create shell",
+          split_label: "Split shell",
+          split_title: "Split shell horizontally",
+          split_vertical_label: "Split V",
+          split_vertical_title: "Split shell vertically",
+          drawer_label: "Shell drawer",
+          unavailable_message: "Shell session unavailable.",
+          command_placeholder: "Type shell command",
+          clear_label: "Clear shell",
+          restart_label: "Restart shell",
+          close_label: "Close shell",
+          empty_message: "No shell sessions.",
+          empty_action_label: "Start shell",
+        },
       },
-      thread_lifecycle: { rename: true, fork: true, archive: true },
+      preview: {
+        enabled: true,
+        local_servers: [
+          { label: "Django dev server", url: "localhost:8000", port: 8000 },
+        ],
+        chrome: {
+          refresh_label: "Reload preview",
+          loading_label: "Loading preview",
+          refresh_aria_label: "Reload embedded preview",
+          loading_aria_label: "Preview is loading",
+          url_placeholder: "Preview URL",
+          url_aria_label: "Preview address",
+          open_external_label: "Open outside",
+          annotate_label: "Mark up preview",
+          more_actions_label: "More preview options",
+          unavailable_title: "Preview not available",
+          unavailable_body: "Embedded preview cannot render this page.",
+          unreachable_body: "The preview target is not reachable.",
+          reload_label: "Try again",
+          failed_notice: "Preview request failed.",
+          refresh_failed_notice: "Preview reload failed.",
+          open_failed_notice: "Preview external open failed.",
+          session_required_notice: "Open a run before preview.",
+          servers_title: "Detected servers",
+          empty_title: "No active preview",
+          servers_description: "Choose a server.",
+          empty_description: "Start a server or enter a URL.",
+          local_server_fallback_label: "Server",
+          status_loading: "Loading",
+          status_ready: "Ready",
+          status_failed: "Unavailable",
+          status_idle: "Idle",
+        },
+      },
+      thread_lifecycle: {
+        actions: [
+          {
+            id: "rename",
+            label: "Retitle",
+            capability: "rename",
+            order: 20,
+            prompt_title: "Rename prompt",
+            empty_title: "Rename blocked",
+            empty_body: "Title required.",
+            failure_title: "Rename failed",
+          },
+          {
+            id: "archive",
+            label: "Hide",
+            capability: "archive",
+            order: 30,
+            danger: true,
+            confirm_title: "Archive prompt",
+            success_title: "Archive complete",
+            success_body: "Archive body.",
+            failure_title: "Archive failed",
+          },
+          {
+            id: "fork",
+            label: "Clone",
+            capability: "fork",
+            order: 10,
+            prompt_title: "Fork prompt",
+            prompt_initial: "copy",
+            failure_title: "Fork failed",
+          },
+        ],
+      },
     },
     settings: {
       confirm_workspace_switch: false,
@@ -106,11 +945,268 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.lastError, "warning");
   assert.equal(bootstrap.settings.confirm_workspace_switch, false);
   assert.equal(bootstrap.settings.ignored_setting, undefined);
-  assert.equal(bootstrap.capabilities.appCommands.includes("app.reload"), true);
-  assert.equal(bootstrap.capabilities.workspaceCommands.includes("workspace.open"), true);
-  assert.equal(bootstrap.capabilities.surfaces.rightPanel.includes("settings"), true);
-  assert.equal(bootstrap.capabilities.surfaces.rightPanel.includes("source_control"), true);
-  assert.equal(bootstrap.capabilities.surfaces.bottomDrawer.includes("terminal"), true);
+  assert.deepEqual(
+    bootstrap.capabilities.appCommands.map((item) => [item.id, item.label]),
+    [
+      ["app.settings", "Preferences"],
+      ["app.diagnostics", "Health"],
+      ["app.reload", "Reload Shell"],
+    ],
+  );
+  assert.deepEqual(
+    bootstrap.capabilities.appCommands.find((item) => item.id === "app.reload").dispatch,
+    { kind: "app_shell.reload" },
+  );
+  assert.deepEqual(
+    bootstrap.capabilities.workspaceCommands.map((item) => [item.id, item.label]),
+    [["workspace.open", "Open Project"]],
+  );
+  assert.deepEqual(
+    bootstrap.capabilities.workspaceCommands.find((item) => item.id === "workspace.open").dispatch,
+    { kind: "workspace.focus_path_input" },
+  );
+  assert.deepEqual(
+    bootstrap.capabilities.workbenchCommands.map((item) => [item.id, item.label, item.visibleWhen]),
+    [
+      ["message.send", "Send", "composer_ready"],
+      ["palette.open", "Launch", "always"],
+    ],
+  );
+  assert.deepEqual(
+    bootstrap.capabilities.workbenchCommands.find((item) => item.id === "message.send").dispatch,
+    { kind: "message.submit" },
+  );
+  assert.deepEqual(
+    bootstrap.capabilities.workbenchCommands.find((item) => item.id === "palette.open").dispatch,
+    { kind: "command_palette.open" },
+  );
+  assert.deepEqual(
+    bootstrap.capabilities.commandPalette.groups.map((item) => [item.id, item.title, item.description]),
+    [
+      ["app", "Application", "Application commands"],
+      ["workspace", "Projects", "Project commands"],
+    ],
+  );
+  assert.equal(bootstrap.capabilities.commandPalette.labels.rootTitle, "Command launcher");
+  assert.equal(bootstrap.capabilities.commandPalette.labels.rootPlaceholder, "Search launcher entries");
+  assert.equal(bootstrap.capabilities.commandPalette.labels.commandsSection, "Actions");
+  assert.equal(bootstrap.capabilities.commandPalette.labels.currentLabel, "Selected");
+  assert.equal(bootstrap.capabilities.commandPalette.labels.workspaceMeta, "Project");
+  assert.deepEqual(bootstrap.capabilities.commandPalette.labels.shortcutLabels, {
+    mod: "Cmd",
+    shift: "Shift",
+  });
+  assert.equal(bootstrap.capabilities.commandPalette.labels.shortcutSeparator, "::");
+  assert.equal(bootstrap.capabilities.chrome.brandSubtitle, "Python agent workbench");
+  assert.equal(bootstrap.capabilities.chrome.sidebarAriaLabel, "Project sidebar");
+  assert.equal(bootstrap.capabilities.chrome.header.commandPaletteShortLabel, "Go");
+  assert.equal(bootstrap.capabilities.chrome.header.turnsLabel, "steps");
+  assert.equal(bootstrap.capabilities.chrome.composer.placeholder, "Ask the Python agent");
+  assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.pathGroupLabel, "Project files");
+  assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.defaultCommandGroupId, "action");
+  assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.commandGroupFallbackLabel, "Action");
+  assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.commandEmptyText, "No actions");
+  assert.equal(bootstrap.capabilities.chrome.composer.commandMenu.commandItemKindLabel, "action");
+  assert.deepEqual(bootstrap.capabilities.chrome.composer.hints, [
+    {
+      id: "command",
+      label: "/ actions",
+      visibleWhen: "always",
+      tone: "",
+      status: "",
+    },
+    {
+      id: "status.running",
+      label: "Running",
+      visibleWhen: "running",
+      tone: "warning",
+      status: "running",
+    },
+  ]);
+  assert.equal(bootstrap.capabilities.chrome.interaction.pendingApprovalKicker, "APPROVAL");
+  assert.equal(bootstrap.capabilities.chrome.interaction.commandApprovalSummary, "Command summary");
+  assert.equal(bootstrap.capabilities.chrome.interaction.alwaysAllowSessionLabel, "Always allow");
+  assert.equal(bootstrap.capabilities.chrome.interaction.customAnswerPlaceholder, "Custom answer");
+  assert.equal(bootstrap.capabilities.chrome.surfacePanel.ariaLabel, "View panel");
+  assert.equal(bootstrap.capabilities.chrome.surfacePanel.diagnosticGroups.host, "Host process");
+  assert.equal(bootstrap.capabilities.chrome.timeline.ariaLabel, "Run log");
+  assert.equal(bootstrap.capabilities.chrome.timeline.emptyState, "No turns yet.");
+  assert.equal(bootstrap.capabilities.chrome.timeline.historyPartialLabel, "history restored with gaps");
+  assert.equal(bootstrap.capabilities.chrome.timeline.historyPartialFallback, "restore paused");
+  assert.equal(bootstrap.capabilities.chrome.timeline.historyUnavailable, "run history unavailable");
+  assert.equal(bootstrap.capabilities.chrome.timeline.explicitLoopLimitReached, "Loop safety limit reached.");
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.maxTurnLimitTemplate,
+    "Turn cap reached ({turnsUsed}/{maxTurns}).",
+  );
+  assert.equal(bootstrap.capabilities.chrome.timeline.guardStopped, "Guard stopped this run.");
+  assert.equal(bootstrap.capabilities.chrome.timeline.cancelled, "Cancelled by user.");
+  assert.equal(bootstrap.capabilities.chrome.timeline.changedFiles.summaryTemplate, "{count} paths changed");
+  assert.equal(bootstrap.capabilities.chrome.timeline.changedFiles.expandLabel, "Open tree");
+  assert.equal(bootstrap.capabilities.chrome.timeline.changedFiles.collapseLabel, "Close tree");
+  assert.equal(bootstrap.capabilities.chrome.timeline.changedFiles.viewDiffLabel, "Review patch");
+  assert.equal(bootstrap.capabilities.chrome.timeline.workGroup.singularLabel, "1 action");
+  assert.equal(bootstrap.capabilities.chrome.timeline.workGroup.pluralLabelTemplate, "{count} actions");
+  assert.equal(bootstrap.capabilities.chrome.timeline.workGroup.showFewerLabel, "Hide older actions");
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.workGroup.previousSingularTemplate,
+    "+{count} older action",
+  );
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.workGroup.previousPluralTemplate,
+    "+{count} older actions",
+  );
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.workingLabel, "Running...");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.workingActivePrefix, "Running for");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.turnFoldLabel, "Work for this run");
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.turnFoldDurationTemplate,
+    "Work took {duration}",
+  );
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.turnFoldStoppedDurationTemplate,
+    "Stopped after {duration}",
+  );
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.turnFoldStoppedLabel, "Stopped by user");
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.turnFoldStepSingularTemplate,
+    "{count} step",
+  );
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.turnFoldStepPluralTemplate,
+    "{count} steps",
+  );
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.interactionLabel, "request");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.interactionPendingStatus, "waiting");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.reasoningLabel, "Planning");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.thinkingLabel, "Planning");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.streamingStatus, "streaming now");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.wordSingularTemplate, "{count} term");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.wordPluralTemplate, "{count} terms");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.contextUpdated, "Context refreshed");
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.contextSummarizedTemplate,
+    "{count} summarized turns",
+  );
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.contextRetainedTemplate,
+    "{count} retained turns",
+  );
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.contextSizeTemplate,
+    "~{count} model units",
+  );
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.metadataSeparator, " | ");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.commandDefaultName, "action");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.commandFailedStatus, "errored");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.commandCompletedStatus, "done");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.reviewLabel, "/inspect");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.reviewSingularFinding, "1 issue");
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.reviewPluralFindingsTemplate,
+    "{count} issues",
+  );
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.timerZeroLabel, "0 sec");
+  assert.equal(bootstrap.capabilities.chrome.timeline.activityRows.timerSecondsTemplate, "{seconds} sec");
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.timerMinutesSecondsTemplate,
+    "{minutes} min {seconds} sec",
+  );
+  assert.equal(
+    bootstrap.capabilities.chrome.timeline.activityRows.timerHoursMinutesTemplate,
+    "{hours} hr {minutes} min",
+  );
+  assert.equal(bootstrap.capabilities.chrome.timeline.toolDetail.defaultSectionTitle, "Details");
+  assert.equal(bootstrap.capabilities.chrome.timeline.toolDetail.fallbackMatchLabel, "result");
+  assert.equal(bootstrap.capabilities.chrome.timeline.toolDetail.fieldLabels.path, "Path");
+  assert.equal(bootstrap.capabilities.chrome.timeline.toolDetail.fieldLabels.recipe, "Recipe");
+  assert.equal(bootstrap.capabilities.chrome.timeline.toolDetail.sectionTitles.preview, "Excerpt");
+  assert.equal(bootstrap.capabilities.chrome.timeline.toolDetail.sectionTitles.matches, "Results");
+  assert.equal(bootstrap.capabilities.chrome.timeline.workRow.defaultHeading, "Action");
+  assert.equal(bootstrap.capabilities.chrome.timeline.workRow.defaultIconName, "spark");
+  assert.equal(bootstrap.capabilities.chrome.timeline.workRow.statusLabels.failure, "errored");
+  assert.equal(bootstrap.capabilities.chrome.timeline.workRow.statusLabels.success, "done");
+  assert.equal(bootstrap.capabilities.chrome.timeline.workRow.statusLabels.interrupted, "stopped");
+  assert.deepEqual(
+    bootstrap.capabilities.surfaces.rightPanel.map((item) => item.kind),
+    ["settings", "diagnostics", "source_control"],
+  );
+  assert.equal(bootstrap.capabilities.surfaces.rightPanel[0].title, "Settings");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.rightPanelAriaLabel, "Workspace panel");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.addSurfaceLabel, "Add workspace view");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.emptyTitle, "Open a workspace view");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.closeAllActionLabel, "Close all views");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.defaultIcon, "V");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.bottomDrawerAriaLabel, "Output drawer");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.runOutputEmptyMessage, "No output yet.");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.terminationReasonPrefix, "finished");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.filePreview.defaultFileTitle, "Document");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.filePreview.defaultProjectLabel, "Project");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.filePreview.loadingMessage, "Opening file");
+  assert.equal(
+    bootstrap.capabilities.surfaces.chrome.filePreview.copyPathTitleTemplate,
+    "Copy path for {title}",
+  );
+  assert.equal(bootstrap.capabilities.surfaces.chrome.filePreview.breadcrumbAriaLabel, "Document path");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.filePreview.markdownSourceGlyph, "S");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.filePreview.markdownPreviewGlyph, "V");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.filePreview.languageLabels.markdown, "Markdown doc");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.defaultTitle, "Patch");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.emptyMessage, "No patch selected.");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.selectionAriaLabel, "Patch tabs");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.controlsAriaLabel, "Patch controls");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.stackedTitle, "Unified view");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.splitTitle, "Side by side");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.enableWordWrapTitle, "Wrap patch lines");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.disableWordWrapTitle, "Unwrap patch lines");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.hideWhitespaceTitle, "Ignore whitespace");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.showWhitespaceTitle, "Show whitespace");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.changedFilesAriaLabel, "Patch files");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.filesLabel, "Paths");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.expandFileLabelTemplate, "Open {path}");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.collapseFileLabelTemplate, "Close {path}");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.expandDiffLabel, "Show patch");
+  assert.equal(bootstrap.capabilities.surfaces.chrome.diffPanel.sourceControlTitleTemplate, "Patch: {path}");
+  assert.deepEqual(
+    bootstrap.capabilities.surfaces.bottomDrawer.map((item) => item.kind),
+    ["terminal"],
+  );
+  assert.deepEqual(bootstrap.capabilities.surfaces.bottomDrawer[0].dispatch, {
+    kind: "terminal.ensure_open",
+  });
+  assert.equal(bootstrap.capabilities.terminal.chrome.titlePrefix, "Shell");
+  assert.equal(bootstrap.capabilities.terminal.chrome.newLabel, "New shell");
+  assert.equal(bootstrap.capabilities.terminal.chrome.openFailedNotice, "Shell failed to open.");
+  assert.equal(bootstrap.capabilities.terminal.chrome.commandPlaceholder, "Type shell command");
+  assert.equal(bootstrap.capabilities.preview.enabled, true);
+  assert.deepEqual(bootstrap.capabilities.preview.localServers, [
+    {
+      label: "Django dev server",
+      url: "localhost:8000",
+      port: 8000,
+    },
+  ]);
+  assert.equal(bootstrap.capabilities.preview.chrome.refreshLabel, "Reload preview");
+  assert.equal(bootstrap.capabilities.preview.chrome.openExternalLabel, "Open outside");
+  assert.equal(bootstrap.capabilities.preview.chrome.sessionRequiredNotice, "Open a run before preview.");
+  assert.equal(bootstrap.capabilities.preview.chrome.emptyTitle, "No active preview");
+  assert.deepEqual(bootstrap.capabilities.keybindings, [
+    { key: "mod+k", commandId: "palette.open", when: "not_palette" },
+    { key: "mod+,", commandId: "app.settings", when: "always" },
+  ]);
+  assert.equal(bootstrap.capabilities.agentApplication.applicationId, "tests.python");
+  assert.equal(bootstrap.capabilities.agentApplications[0].profileId, "tests.python.profile");
+  assert.equal(bootstrap.capabilities.emptyState.scenarioLabel, "Python workspace");
+  assert.equal(bootstrap.capabilities.emptyState.primary, "Open a Python project");
+  assert.equal(bootstrap.capabilities.home.workspace.sectionTitle, "Projects");
+  assert.equal(bootstrap.capabilities.home.workspace.inactiveLabel, "No project");
+  assert.equal(bootstrap.capabilities.home.workspace.pathPlaceholder, "Python project path");
+  assert.equal(bootstrap.capabilities.home.workspace.openLabel, "Open Project");
+  assert.equal(bootstrap.capabilities.home.workspace.missingPathLabel, "Missing project path");
+  assert.equal(bootstrap.capabilities.home.threads.sectionTitle, "Runs");
+  assert.equal(bootstrap.capabilities.home.threads.newLabel, "Start");
+  assert.equal(bootstrap.capabilities.home.threads.activeLabel, "current");
+  assert.equal(bootstrap.capabilities.home.threads.sessionFallbackPrefix, "Run");
   assert.equal(bootstrap.capabilities.sourceControl.enabled, true);
   assert.deepEqual(bootstrap.capabilities.sourceControl.vcs, ["git"]);
   assert.equal(bootstrap.capabilities.sourceControl.readOnly, true);
@@ -118,14 +1214,69 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.sourceControl.network, false);
   assert.equal(bootstrap.capabilities.sourceControl.checkpoints, false);
   assert.equal(bootstrap.capabilities.sourceControl.requiresActiveWorkspace, true);
+  assert.equal(bootstrap.capabilities.sourceControl.chrome.title, "Git Changes");
+  assert.equal(
+    bootstrap.capabilities.sourceControl.chrome.statusUnavailableNotice,
+    "Git status failed.",
+  );
+  assert.equal(
+    bootstrap.capabilities.sourceControl.chrome.diffUnavailableNotice,
+    "No diff available.",
+  );
+  assert.equal(bootstrap.capabilities.sourceControl.chrome.loadingMessage, "Checking changes...");
+  assert.equal(bootstrap.capabilities.sourceControl.chrome.noBranchLabel, "No ref");
+  assert.equal(bootstrap.capabilities.sourceControl.chrome.countLabels.files, "paths");
+  assert.deepEqual(bootstrap.capabilities.sourceControl.chrome.groupOrder, [
+    "untracked",
+    "unstaged",
+  ]);
+  assert.equal(bootstrap.capabilities.sourceControl.chrome.groupLabels.unstaged, "Modified");
+  assert.equal(bootstrap.capabilities.sourceControl.chrome.fileStatusLabels.modified, "~");
+  assert.equal(
+    bootstrap.capabilities.sourceControl.chrome.providerLabels.fallback,
+    "Local provider",
+  );
+  assert.equal(
+    bootstrap.capabilities.sourceControl.chrome.branchToolbar.defaultWorkspaceLabel,
+    "Project",
+  );
+  assert.equal(bootstrap.capabilities.sourceControl.chrome.branchToolbar.detachedPrefix, "at");
+  assert.equal(
+    bootstrap.capabilities.sourceControl.chrome.branchToolbar.currentCheckoutLabel,
+    "Checkout",
+  );
+  assert.equal(
+    bootstrap.capabilities.sourceControl.chrome.branchToolbar.metadataSeparator,
+    " / ",
+  );
   assert.equal(bootstrap.capabilities.terminal.enabled, true);
   assert.equal(bootstrap.capabilities.terminal.pty, false);
   assert.equal(bootstrap.capabilities.terminal.resize, false);
   assert.equal(bootstrap.capabilities.terminal.historyPersistent, false);
   assert.equal(bootstrap.capabilities.terminal.maxBufferBytes, 131072);
-  assert.equal(bootstrap.capabilities.threadLifecycle.rename, true);
-  assert.equal(bootstrap.capabilities.threadLifecycle.fork, true);
-  assert.equal(bootstrap.capabilities.threadLifecycle.archive, true);
+  assert.deepEqual(
+    bootstrap.capabilities.threadLifecycle.actions.map((item) => ({
+      id: item.id,
+      label: item.label,
+      capability: item.capability,
+      order: item.order,
+      danger: item.danger,
+    })),
+    [
+      { id: "fork", label: "Clone", capability: "fork", order: 10, danger: false },
+      { id: "rename", label: "Retitle", capability: "rename", order: 20, danger: false },
+      { id: "archive", label: "Hide", capability: "archive", order: 30, danger: true },
+    ],
+  );
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[0].promptTitle, "Fork prompt");
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[0].promptInitial, "copy");
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[1].promptTitle, "Rename prompt");
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[1].emptyTitle, "Rename blocked");
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[1].emptyBody, "Title required.");
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[2].confirmTitle, "Archive prompt");
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[2].successTitle, "Archive complete");
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[2].successBody, "Archive body.");
+  assert.equal(bootstrap.capabilities.threadLifecycle.actions[2].failureTitle, "Archive failed");
   assert.equal(bootstrap.diagnostics.host.platform, "win32");
   assert.equal(bootstrap.diagnostics.host.api_key, undefined);
   assert.equal(bootstrap.diagnostics.host.nested.token, undefined);
@@ -152,18 +1303,158 @@ export function runAppShellModelTests() {
   assert.equal(settings.extra, undefined);
 
   const capabilities = normalizeAppCapabilities({
-    app_commands: ["app.settings"],
-    workspace_commands: ["workspace.open"],
-    surfaces: { right_panel: ["settings"], bottom_drawer: ["logs"] },
-    terminal: { enabled: true, pty: false, resize: false },
+    app_commands: [{ id: "app.settings", label: "Preferences", group: "app" }],
+    workspace_commands: [{ id: "workspace.open", label: "Open Project", group: "workspace" }],
+    workbench_commands: [{ id: "palette.open", label: "Launch", group: "view" }],
+    surfaces: {
+      right_panel: [surface("settings", "Settings")],
+      bottom_drawer: [surface("custom_drawer", "Custom Drawer")],
+    },
+    key_bindings: [{ key: "mod+k", command_id: "palette.open" }],
+    agent_application: { application_id: "tests.generic", label: "Generic Agent" },
+    agent_applications: [{ application_id: "tests.generic", label: "Generic Agent" }],
+    empty_state: { scenario_label: "Generic workspace" },
+    command_palette: {
+      labels: {
+        session_leading: "S",
+        workspace_leading: "W",
+      },
+    },
+    chrome: {
+      brand_subtitle: "Generic shell",
+      composer: { placeholder: "Ask" },
+    },
+    terminal: {
+      enabled: true,
+      pty: false,
+      resize: false,
+      chrome: {
+        title_prefix: "Console",
+        default_title: "Console",
+        new_label: "New console",
+      },
+    },
+    preview: {
+      enabled: true,
+      local_servers: [{ label: "Flask", url: "localhost:5000", port: 5000 }],
+      chrome: {
+        refresh_label: "Refresh preview",
+        empty_title: "No preview",
+      },
+    },
   });
-  assert.deepEqual(capabilities.appCommands, ["app.settings"]);
-  assert.deepEqual(capabilities.workspaceCommands, ["workspace.open"]);
-  assert.deepEqual(capabilities.surfaces.rightPanel, ["settings"]);
-  assert.deepEqual(capabilities.surfaces.bottomDrawer, ["logs"]);
+  assert.deepEqual(
+    capabilities.appCommands.map((item) => [item.id, item.label, item.group]),
+    [["app.settings", "Preferences", "app"]],
+  );
+  assert.deepEqual(
+    capabilities.workspaceCommands.map((item) => [item.id, item.label, item.group]),
+    [["workspace.open", "Open Project", "workspace"]],
+  );
+  assert.deepEqual(
+    capabilities.workbenchCommands.map((item) => [item.id, item.label, item.group]),
+    [["palette.open", "Launch", "view"]],
+  );
+  assert.deepEqual(capabilities.surfaces.rightPanel.map((item) => item.kind), ["settings"]);
+  assert.deepEqual(capabilities.surfaces.bottomDrawer.map((item) => item.kind), ["custom_drawer"]);
+  assert.deepEqual(capabilities.keybindings, [
+    { key: "mod+k", commandId: "palette.open", when: "always" },
+  ]);
+  assert.equal(capabilities.agentApplication.applicationId, "tests.generic");
+  assert.equal(capabilities.agentApplications[0].label, "Generic Agent");
+  assert.equal(capabilities.emptyState.scenarioLabel, "Generic workspace");
+  assert.equal(capabilities.commandPalette.labels.sessionLeading, "S");
+  assert.equal(capabilities.commandPalette.labels.workspaceLeading, "W");
+  assert.deepEqual(capabilities.commandPalette.labels.shortcutLabels, {});
+  assert.equal(capabilities.commandPalette.labels.shortcutSeparator, "");
+  assert.equal(capabilities.chrome.brandSubtitle, "Generic shell");
+  assert.equal(capabilities.chrome.composer.placeholder, "Ask");
   assert.equal(capabilities.terminal.enabled, true);
   assert.equal(capabilities.terminal.pty, false);
   assert.equal(capabilities.terminal.resize, false);
+  assert.equal(capabilities.terminal.chrome.titlePrefix, "Console");
+  assert.equal(capabilities.terminal.chrome.defaultTitle, "Console");
+  assert.equal(capabilities.terminal.chrome.newLabel, "New console");
+  assert.equal(capabilities.preview.enabled, true);
+  assert.deepEqual(capabilities.preview.localServers, [
+    { label: "Flask", url: "localhost:5000", port: 5000 },
+  ]);
+  assert.equal(capabilities.preview.chrome.refreshLabel, "Refresh preview");
+  assert.equal(capabilities.preview.chrome.emptyTitle, "No preview");
+
+  const lifecycleCapabilities = normalizeAppCapabilities({
+    thread_lifecycle: {
+      actions: [
+        { id: "rename", capability: "rename", order: 20 },
+        {
+          id: "fork",
+          label: "Clone",
+          capability: "fork",
+          order: 10,
+          reason_label: "Disabled by host",
+        },
+      ],
+    },
+  });
+  assert.deepEqual(
+    lifecycleCapabilities.threadLifecycle.actions.map((item) => [
+      item.id,
+      item.label,
+      item.reasonLabel,
+    ]),
+    [
+      ["fork", "Clone", "Disabled by host"],
+      ["rename", "", ""],
+    ],
+  );
+
+  const commandCapabilities = normalizeAppCapabilities({
+    app_commands: [
+      { id: "app.hidden", group: "app" },
+      { id: "app.visible", label: "Visible command", group: "app" },
+    ],
+  });
+  assert.deepEqual(
+    commandCapabilities.appCommands.map((item) => [item.id, item.label]),
+    [
+      ["app.hidden", ""],
+      ["app.visible", "Visible command"],
+    ],
+  );
+
+  const surfaceCapabilities = normalizeAppCapabilities({
+    surfaces: {
+      right_panel: [
+        { id: "settings", command_label: "Open Preferences" },
+        { id: "diagnostics", title: "Health", command_label: "Open Health" },
+      ],
+    },
+  });
+  assert.deepEqual(
+    surfaceCapabilities.surfaces.rightPanel.map((item) => [item.kind, item.title, item.commandLabel]),
+    [
+      ["settings", "", "Open Preferences"],
+      ["diagnostics", "Health", "Open Health"],
+    ],
+  );
+
+  const emptyCapabilities = normalizeAppCapabilities({});
+  assert.deepEqual(emptyCapabilities.appCommands, []);
+  assert.deepEqual(emptyCapabilities.workspaceCommands, []);
+  assert.deepEqual(emptyCapabilities.workbenchCommands, []);
+  assert.deepEqual(emptyCapabilities.surfaces.rightPanel, []);
+  assert.deepEqual(emptyCapabilities.surfaces.bottomDrawer, []);
+  assert.deepEqual(emptyCapabilities.keybindings, []);
+  assert.equal(emptyCapabilities.agentApplication, null);
+  assert.deepEqual(emptyCapabilities.agentApplications, []);
+  assert.deepEqual(emptyCapabilities.emptyState, {
+    scenarioLabel: "",
+    primary: "",
+    secondary: "",
+    pathPlaceholder: "",
+  });
+  assert.equal(emptyCapabilities.preview.enabled, false);
+  assert.deepEqual(emptyCapabilities.preview.localServers, []);
 
   const reduced = reduceAppShellState(initial, {
     type: "app_shell_bootstrap_loaded",
@@ -199,7 +1490,7 @@ export function runAppShellModelTests() {
   assert.equal(reset.workspaceError, "");
   assert.equal(reset.workspacePathInput, "");
   assert.equal(reset.settings.confirm_workspace_switch, true);
-  assert.equal(reset.capabilities.appCommands.includes("app.settings"), true);
+  assert.equal(reset.capabilities.appCommands.some((item) => item.id === "app.settings"), true);
 
   const rows = formatDiagnosticsRows({
     host: { platform: "win32", headless: false },

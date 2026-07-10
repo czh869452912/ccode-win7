@@ -7,48 +7,55 @@ import { createSourceControlState, reduceSourceControlState } from "./source-con
 import { createTerminalState, reduceTerminalState } from "./terminal/terminal-state.js";
 import { createRunOutputState, reduceRunOutputState } from "./session-runtime/run-output-state.js";
 import { createThreadState, readActiveThreadId, reduceThreadState } from "./session-runtime/thread-state.js";
-import { resolveToolPresentation } from "./session-runtime/tool-presentation.js";
 import { normalizeProtocolCapabilities } from "./session-runtime/protocol-normalizer.js";
 import {
   ACTIVITY_ACTION_TYPES,
   createActivityState,
   reduceActivityState,
 } from "./session-runtime/activity-reducer.js";
-import { createWorkbenchState, reduceWorkbenchState } from "./workbench/surfaces.js";
+import {
+  bottomDrawerSurfaceDefinitionFor,
+  createWorkbenchState,
+  reduceWorkbenchState,
+  surfaceDefinitionFor,
+} from "./workbench/surfaces.js";
+import { sanitizeWorkbenchUiStateForAppCapabilities } from "./workbench/ui-state.js";
 import { resetWorkspaceScopedState } from "./app-workspaces.js";
 
-export const DEFAULT_MODE = "explore";
+export const INITIAL_REQUESTED_MODE = "";
 export const EMPTY_CAPABILITIES = normalizeProtocolCapabilities({});
 
 export const initialState = {
-  sidebarTab: "chats",
-  inspectorTab: "tasks",
-  inspectorOpen: true,
-  lang: "en",
   thread: createThreadState(),
   snapshot: null,
   composer: createComposerState(),
   ...createActivityState(),
   interactionNotice: null,
   tasks: [],
-  artifacts: [],
   plan: null,
-  review: null,
-  recipes: [],
-  permissionContext: null,
-  preview: null,
   filePreviewsByPath: {},
   diffSurface: null,
   fileTree: [],
-  toolCatalog: {},
   sessionCapabilities: EMPTY_CAPABILITIES,
-  requestedMode: DEFAULT_MODE,
+  requestedMode: INITIAL_REQUESTED_MODE,
   runOutput: createRunOutputState(),
   workbench: createWorkbenchState(),
   app: createAppShellState(),
   sourceControl: createSourceControlState(),
   terminal: createTerminalState(),
 };
+
+function workbenchSurfaceAllowedForApp(state, action) {
+  const app = state.app || {};
+  if (!app.bootstrapLoaded) return true;
+  const placement = action.placement === "bottom" ? "bottom" : "right";
+  const kind = String(action.kind || "");
+  if (!kind) return false;
+  if (placement === "bottom") {
+    return Boolean(bottomDrawerSurfaceDefinitionFor(kind, app.capabilities));
+  }
+  return Boolean(surfaceDefinitionFor(kind, app.capabilities));
+}
 
 export function reducer(state, action) {
   if (ACTIVITY_ACTION_TYPES.has(action.type)) {
@@ -65,23 +72,12 @@ export function reducer(state, action) {
       };
     }
     if (action.type === "command_result") {
-      return {
-        ...nextState,
-        review: action.commandName === "review" ? action.data?.review || state.review : state.review,
-      };
+      return nextState;
     }
     return nextState;
   }
 
   switch (action.type) {
-    case "set_sidebar":
-      return { ...state, sidebarTab: action.value };
-    case "set_inspector":
-      return { ...state, inspectorTab: action.value };
-    case "toggle_inspector":
-      return { ...state, inspectorOpen: !state.inspectorOpen };
-    case "set_lang":
-      return { ...state, lang: action.value };
     case "set_composer":
       return {
         ...state,
@@ -90,14 +86,17 @@ export function reducer(state, action) {
           sessionId: action.sessionId || readActiveThreadId(state),
         }),
       };
-    case "app_bootstrap_loaded":
+    case "app_bootstrap_loaded": {
+      const app = reduceAppShellState(state.app, {
+        type: "app_shell_bootstrap_loaded",
+        bootstrap: action.bootstrap || {},
+      });
       return {
         ...state,
-        app: reduceAppShellState(state.app, {
-          type: "app_shell_bootstrap_loaded",
-          bootstrap: action.bootstrap || {},
-        }),
+        app,
+        workbench: sanitizeWorkbenchUiStateForAppCapabilities(state.workbench, app.capabilities),
       };
+    }
     case "workspace_path_changed":
       return {
         ...state,
@@ -123,19 +122,35 @@ export function reducer(state, action) {
       };
     case "workspace_switched": {
       const reset = resetWorkspaceScopedState(state);
+      const app = reduceAppShellState(reset.app, {
+        type: "app_shell_workspace_switched",
+        bootstrap: action.bootstrap || {},
+      });
       return {
         ...reset,
-        app: reduceAppShellState(reset.app, {
-          type: "app_shell_workspace_switched",
-          bootstrap: action.bootstrap || {},
-        }),
+        app,
+        workbench: sanitizeWorkbenchUiStateForAppCapabilities(reset.workbench, app.capabilities),
       };
     }
-    case "app_shell_bootstrap_loaded":
+    case "app_shell_bootstrap_loaded": {
+      const app = reduceAppShellState(state.app, action);
+      return {
+        ...state,
+        app,
+        workbench: sanitizeWorkbenchUiStateForAppCapabilities(state.workbench, app.capabilities),
+      };
+    }
+    case "app_shell_workspace_switched": {
+      const app = reduceAppShellState(state.app, action);
+      return {
+        ...state,
+        app,
+        workbench: sanitizeWorkbenchUiStateForAppCapabilities(state.workbench, app.capabilities),
+      };
+    }
     case "app_shell_workspace_path_changed":
     case "app_shell_workspace_activation_started":
     case "app_shell_workspace_activation_failed":
-    case "app_shell_workspace_switched":
     case "app_shell_settings_changed":
       return {
         ...state,
@@ -179,17 +194,7 @@ export function reducer(state, action) {
         interactionNotice: null,
         runOutput: reduceRunOutputState(state.runOutput, action),
         plan: null,
-        review: null,
-        permissionContext: null,
         tasks: Array.isArray(action.snapshot?.task_items) ? action.snapshot.task_items : [],
-        inspectorTab:
-          action.snapshot?.pending_interaction_valid && action.snapshot?.pending_interaction
-            ? "interaction"
-            : state.inspectorTab,
-        inspectorOpen:
-          action.snapshot?.pending_interaction_valid && action.snapshot?.pending_interaction
-            ? true
-            : state.inspectorOpen,
         workbench: reduceWorkbenchState(state.workbench, {
           type: "workbench_session_activated",
           sessionId: action.sessionId,
@@ -198,12 +203,6 @@ export function reducer(state, action) {
     case "session_snapshot": {
       const snapshot = action.snapshot;
       if (!snapshot) return state;
-      const hadActiveInteraction = Boolean(
-        state.snapshot?.pending_interaction_valid && state.snapshot?.pending_interaction,
-      );
-      const hasActiveInteraction = Boolean(
-        snapshot.pending_interaction_valid && snapshot.pending_interaction,
-      );
       return {
         ...state,
         thread: reduceThreadState(state.thread, action),
@@ -214,28 +213,8 @@ export function reducer(state, action) {
           snapshot.pending_interaction_valid && snapshot.pending_interaction
             ? null
             : state.interactionNotice,
-        inspectorTab:
-          !hadActiveInteraction && hasActiveInteraction
-            ? "interaction"
-            : state.inspectorTab,
-        inspectorOpen:
-          !hadActiveInteraction && hasActiveInteraction
-            ? true
-            : state.inspectorOpen,
       };
     }
-    case "tasks_loaded":
-      return { ...state, tasks: action.tasks };
-    case "artifacts_loaded":
-      return { ...state, artifacts: action.items };
-    case "recipes_loaded":
-      return { ...state, recipes: action.items || [] };
-    case "preview_loaded":
-      return {
-        ...state,
-        preview: action.preview,
-        inspectorTab: action.inspectorTab || state.inspectorTab,
-      };
     case "file_preview_load_started": {
       const path = String(action.path || "");
       if (!path) return state;
@@ -283,21 +262,23 @@ export function reducer(state, action) {
             path,
             title: path,
             content: "",
-            error: String(action.error || "File unavailable"),
+            error: String(action.error || ""),
           },
         },
       };
     }
     case "diff_surface_opened":
+      if (!workbenchSurfaceAllowedForApp(state, { placement: "right", kind: "diff" })) {
+        return state;
+      }
       return {
         ...state,
         diffSurface: action.diffSurface || null,
-        inspectorTab: "diff",
         workbench: reduceWorkbenchState(state.workbench, {
           type: "workbench_surface_opened",
           placement: "right",
           kind: "diff",
-          title: action.diffSurface?.title || "Diff",
+          title: action.diffSurface?.title || "",
           resourceId: "current",
         }),
       };
@@ -310,36 +291,16 @@ export function reducer(state, action) {
       return {
         ...state,
         plan: action.plan,
-        inspectorTab: action.inspectorTab || state.inspectorTab,
-      };
-    case "review_loaded":
-      return {
-        ...state,
-        review: action.review,
-        inspectorTab: action.inspectorTab || state.inspectorTab,
-      };
-    case "permission_context_loaded":
-      return {
-        ...state,
-        permissionContext: action.context,
-        inspectorTab: action.inspectorTab || state.inspectorTab,
       };
     case "interaction_notice_set":
       return {
         ...state,
         interactionNotice: action.notice || null,
-        inspectorTab: "interaction",
-        inspectorOpen: true,
       };
     case "interaction_notice_clear":
       return {
         ...state,
         interactionNotice: null,
-      };
-    case "tool_catalog_loaded":
-      return {
-        ...state,
-        toolCatalog: action.catalog || {},
       };
     case "file_tree_loaded":
       return { ...state, fileTree: action.nodes };
@@ -351,6 +312,16 @@ export function reducer(state, action) {
       return { ...state, runOutput: reduceRunOutputState(state.runOutput, action) };
     }
     case "workbench_surface_opened":
+      if (!workbenchSurfaceAllowedForApp(state, action)) {
+        return state;
+      }
+      return {
+        ...state,
+        workbench: reduceWorkbenchState(state.workbench, {
+          ...action,
+          sessionId: action.sessionId || readActiveThreadId(state) || state.workbench?.activeSessionKey,
+        }),
+      };
     case "workbench_surface_activated":
     case "workbench_surface_closed":
     case "workbench_surface_close_others":
@@ -374,26 +345,6 @@ export function reducer(state, action) {
     default:
       return state;
   }
-}
-
-export const TOOL_LABELS = {
-  read_file: (a) => `Read  ${a.path || ""}`,
-  write_file: (a) => `Write  ${a.path || ""}`,
-  edit_file: (a) => `Edit  ${a.path || ""}`,
-  list_dir: (a) => `List  ${a.path || "."}`,
-  glob_files: (a) => `Glob "${a.pattern || ""}"`,
-  grep_text: (a) => `Grep "${a.pattern || ""}"`,
-  author_local_capability: (a) => `Author capability${a.name ? `: ${a.name}` : ""}`,
-  ask_user: () => "Ask user",
-  bash: (a) => `Bash: ${a.command || ""}`,
-  git_status: () => "Git status",
-  git_diff: (a) => `Git diff${a.path ? `  ${a.path}` : ""}`,
-  git_log: () => "Git log",
-};
-
-export function toolLabel(toolName, args, catalog = {}) {
-  const fn = TOOL_LABELS[toolName];
-  return fn ? fn(args || {}) : resolveToolPresentation(toolName, catalog).label || toolName;
 }
 
 export const STATUS_ICON = { running: "⋯", success: "✓", error: "✗" };

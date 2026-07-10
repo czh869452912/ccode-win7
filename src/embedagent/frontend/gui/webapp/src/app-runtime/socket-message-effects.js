@@ -57,10 +57,6 @@ function pickToolPresentationPayload(payload = {}) {
   };
 }
 
-function currentSession(options) {
-  return options.currentSessionId || "";
-}
-
 function readModelInvalidations(payload = {}) {
   const raw = payload?.read_model_invalidations || payload?.readModelInvalidations || payload?.data?.read_model_invalidations || [];
   return Array.isArray(raw) ? raw.map((item) => String(item || "").trim()).filter(Boolean) : [];
@@ -85,6 +81,22 @@ function normalizeInteractionPayload(payload = {}) {
   };
 }
 
+function commandLogPayload(payload = {}) {
+  const label = text(
+    payload?.log_label || payload?.logLabel || payload?.data?.log_label || payload?.data?.logLabel,
+  );
+  if (!label) return null;
+  return {
+    label,
+    detail: text(
+      payload?.log_detail ||
+        payload?.logDetail ||
+        payload?.data?.log_detail ||
+        payload?.data?.logDetail,
+    ),
+  };
+}
+
 function commandResultEffects(data, options) {
   const effects = emptyEffects();
   const commandName = data?.command_name || "";
@@ -101,59 +113,34 @@ function commandResultEffects(data, options) {
     stepIndex: data?.step_index || 0,
     createdAt: data?.created_at || nowValue(options.nowIso),
   });
-  if (commandName === "resume" && data?.data?.switch_session_id) {
+  const switchSessionId = data?.data?.switch_session_id;
+  if (switchSessionId) {
     effects.loaderRequests.push({
       name: LOADER_REQUESTS.LOAD_SESSION,
-      sessionId: data.data.switch_session_id,
+      sessionId: switchSessionId,
     });
   }
-  if (commandName === "diff" && typeof data?.data?.diff === "string" && data.data.diff) {
+  const commandDiff = data?.data?.diff;
+  if (typeof commandDiff === "string" && commandDiff) {
+    const diffPanelChrome = options.diffPanelChrome || {};
     effects.actions.push({
       type: "diff_surface_opened",
       diffSurface: createDiffSurfaceState({
-        title: "Git Diff",
-        diff: data.data.diff,
+        title: diffPanelChrome.defaultTitle,
+        diff: commandDiff,
         source: "command",
         turnId: data?.turn_id || "",
+        chrome: diffPanelChrome,
       }),
-    });
-  }
-  if (commandName === "workspace") {
-    effects.actions.push({
-      type: "preview_loaded",
-      preview: {
-        kind: "workspace",
-        title: "Workspace",
-        content: JSON.stringify(data?.data || {}, null, 2),
-      },
-      inspectorTab: "preview",
-    });
-  }
-  if (commandName === "recipes") {
-    effects.actions.push({ type: "recipes_loaded", items: data?.data?.items || [] });
-    effects.actions.push({ type: "set_inspector", value: "run" });
-  }
-  if (commandName === "run") {
-    effects.actions.push({ type: "set_inspector", value: "problems" });
-  }
-  if (commandName === "permissions") {
-    effects.actions.push({
-      type: "permission_context_loaded",
-      context: data?.data || {},
-      inspectorTab: "permissions",
-    });
-  }
-  if (commandName === "review" && data?.data?.review) {
-    effects.actions.push({
-      type: "review_loaded",
-      review: data.data.review,
-      inspectorTab: "review",
     });
   }
   if (invalidations.includes(CAPABILITIES_INVALIDATION)) {
     effects.loaderRequests.push({ name: LOADER_REQUESTS.LOAD_SESSION_CAPABILITIES });
   }
-  effects.actions.push(logAction(`command: /${commandName || "?"}`, data?.success ? "ok" : "error"));
+  const commandLog = commandLogPayload(data);
+  if (commandLog) {
+    effects.actions.push(logAction(commandLog.label, commandLog.detail));
+  }
   return effects;
 }
 
@@ -164,8 +151,9 @@ export function deriveSocketMessageEffects({
   sessionTransport = null,
   makeId = makeEventId,
   nowIso = () => new Date().toISOString(),
+  diffPanelChrome = {},
 } = {}) {
-  const options = { currentSessionId, sessionTransport, makeId, nowIso };
+  const options = { currentSessionId, sessionTransport, makeId, nowIso, diffPanelChrome };
   const payload = data || {};
   const effects = emptyEffects();
 
@@ -361,7 +349,7 @@ export function deriveSocketMessageEffects({
   }
 
   if (type === "plan_updated") {
-    effects.actions.push({ type: "plan_loaded", plan: payload?.plan || null, inspectorTab: "plan" });
+    effects.actions.push({ type: "plan_loaded", plan: payload?.plan || null });
     effects.actions.push(logAction("plan_updated", payload?.plan?.title || ""));
     return effects;
   }
@@ -423,28 +411,7 @@ export function deriveSocketMessageEffects({
       });
     }
     effects.loaderRequests.push({ name: LOADER_REQUESTS.LOAD_SESSIONS });
-    if (currentSession(options)) {
-      effects.loaderRequests.push({
-        name: LOADER_REQUESTS.LOAD_TASKS,
-        sessionId: currentSession(options),
-      });
-    }
     effects.actions.push(logAction("session_finished", ""));
-    return effects;
-  }
-
-  if (type === "tasks_refresh") {
-    if (currentSession(options)) {
-      effects.loaderRequests.push({
-        name: LOADER_REQUESTS.LOAD_TASKS,
-        sessionId: currentSession(options),
-      });
-    }
-    return effects;
-  }
-
-  if (type === "artifacts_refresh") {
-    effects.loaderRequests.push({ name: LOADER_REQUESTS.LOAD_ARTIFACTS });
     return effects;
   }
 

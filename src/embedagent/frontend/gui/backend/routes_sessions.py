@@ -15,7 +15,6 @@ from embedagent.frontend.gui.backend.protocol_payloads import (
     serialize_session_snapshot,
     serialize_session_summary,
 )
-from embedagent.modes import DEFAULT_MODE
 
 
 def register_session_routes(app: Any, backend: Any) -> None:
@@ -43,7 +42,7 @@ def register_session_routes(app: Any, backend: Any) -> None:
         return serialize_session_bootstrap(payload)
 
     @app.post("/api/sessions")
-    async def create_session(mode: str = DEFAULT_MODE):
+    async def create_session(mode: str = ""):
         core = backend._require_core()
         snapshot = backend._call_core(core.create_session, mode)
         backend._current_session_id = str(read_value(snapshot, "session_id", "") or "")
@@ -106,7 +105,7 @@ def register_session_routes(app: Any, backend: Any) -> None:
 
     @app.post("/api/sessions/{session_id}/mode")
     async def set_mode(session_id: str, request: Dict[str, Any]):
-        mode = request.get("mode", DEFAULT_MODE)
+        mode = request.get("mode", "")
         core = backend._require_core()
         backend._call_core(core.set_mode, session_id, mode)
         return {"status": "ok"}
@@ -129,20 +128,10 @@ def register_session_routes(app: Any, backend: Any) -> None:
         core = backend._require_core()
         return core.get_workspace_snapshot()
 
-    @app.get("/api/workspace/recipes")
-    async def get_workspace_recipes():
-        core = backend._require_core()
-        return core.list_workspace_recipes()
-
     @app.post("/api/sessions/{session_id}/resources/reload")
     async def reload_session_resources(session_id: str):
         core = backend._require_core()
         return backend._call_core(core.reload_resources, session_id, reason="api")
-
-    @app.get("/api/tool-catalog")
-    async def get_tool_catalog():
-        core = backend._require_core()
-        return {"items": core.get_tool_catalog()}
 
     @app.get("/api/sessions/{session_id}/plan")
     async def get_session_plan(session_id: str):
@@ -194,18 +183,3 @@ def register_session_routes(app: Any, backend: Any) -> None:
             "new_content": diff.new_content,
             "unified_diff": diff.unified_diff,
         }
-
-    @app.get("/api/tasks")
-    async def list_tasks(session_id: str = ""):
-        core = backend._require_core()
-        return {"tasks": core.list_tasks(session_id=session_id)}
-
-    @app.get("/api/artifacts")
-    async def list_artifacts(limit: int = 20):
-        core = backend._require_core()
-        return {"items": core.list_artifacts(limit=limit)}
-
-    @app.get("/api/artifacts/{reference:path}")
-    async def read_artifact(reference: str):
-        core = backend._require_core()
-        return core.read_artifact(reference)

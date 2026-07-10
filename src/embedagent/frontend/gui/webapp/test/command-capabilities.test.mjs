@@ -49,11 +49,15 @@ export function runCommandCapabilitiesTests() {
     ["/resources [reload]", "/skill:code-review [args]"],
   );
   assert.equal(commands[0].id, "backend-command:resources");
-  assert.equal(commands[0].group, "command");
+  assert.equal(commands[0].group, "");
   assert.equal(commands[0].label, "/resources [reload]");
   assert.equal(commands[0].insertion, "/resources ");
   assert.equal(commands[1].insertion, "/skill:code-review ");
   assert.deepEqual(commands[1].keywords, ["skill:code-review", "Review local C changes"]);
+  const appShellGroupedCommands = buildComposerCommandsFromCapabilities(capabilities, {
+    defaultGroupId: "action",
+  });
+  assert.equal(appShellGroupedCommands[0].group, "action");
 
   const protocolCapabilities = normalizeCommandCapabilities({
     modes: [
@@ -67,7 +71,6 @@ export function runCommandCapabilitiesTests() {
       {
         id: "help",
         label: "/help",
-        group: "command",
         dispatch: { kind: "slash", command: "help" },
         active: true,
       },
@@ -76,6 +79,7 @@ export function runCommandCapabilitiesTests() {
   assert.equal(protocolCapabilities.commands[0].usage, "/help");
   assert.equal(protocolCapabilities.commands[0].name, "help");
   assert.equal(buildComposerCommandsFromCapabilities(protocolCapabilities)[0].insertion, "/help ");
+  assert.equal(protocolCapabilities.commands[0].group, "");
   assert.equal(protocolCapabilities.modes[0].id, "python-build");
   assert.equal(protocolCapabilities.commands.some((item) => item.id === "mode.python-build"), true);
   assert.equal(

@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-07-01
+> 更新日期：2026-07-10
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,2754 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-313
+
+- Date: 2026-07-10
+- Change Topic: GUI Workbench parity model reuses capability read models
+- Summary:
+  - `workbench/workbench-parity-model.js` now consumes
+    `buildAppCapabilityModelFromState(...)` and
+    `buildSessionCapabilityModelFromState(...)` when projecting available
+    surface commands.
+  - Source guards reject direct `state.app.capabilities` and
+    `state.sessionCapabilities` reads in the parity model.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/workbench-parity-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-parity-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue checking renderer read models for direct capability-tree reads
+    outside their designated capability model modules.
+
+### DC-312
+
+- Date: 2026-07-10
+- Change Topic: GUI Session capability fanout uses session-runtime read model
+- Summary:
+  - Added `session-runtime/session-capability-model.js` as the pure renderer
+    read model for session capabilities, mode catalog, tool catalog, and
+    session empty-state fallback.
+  - `App.jsx` now consumes `buildSessionCapabilityModelFromState(...)` for
+    timeline tool presentation, mode badges, composer commands, workbench
+    command context, and no-workspace fallback copy.
+  - Frontend and architecture guards reject reintroducing App-level direct
+    reads of `state.sessionCapabilities` mode/tool/empty-state fields.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/session-capability-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/session-capability-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving root App state projection that remains unrelated to
+    capability models into focused runtime models.
+
+### DC-311
+
+- Date: 2026-07-10
+- Change Topic: GUI App capability getters consume the app-runtime read model
+- Summary:
+  - Added `buildAppCapabilityModelFromState(...)` so `App.jsx` can read the
+    current app-shell capability model from live renderer state without
+    scattering `state.app.capabilities` or `stateRef.current.app.capabilities`
+    paths.
+  - Controller getters for terminal, source-control, preview, file-preview,
+    diff, keyboard, active-workspace loading, right-panel, workbench commands,
+    and thread lifecycle now consume fields from the same model.
+  - Right panel, surface body, and bottom drawer receive `appCapabilities` from
+    that model instead of direct root state, and guards reject reintroducing the
+    old App-level capability paths.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/app-capability-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-capability-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue extracting remaining root App state projection that is unrelated
+    to app-shell capabilities into focused runtime read models.
+
+### DC-310
+
+- Date: 2026-07-10
+- Change Topic: GUI App capability fanout uses app-runtime read model
+- Summary:
+  - Added `app-runtime/app-capability-model.js` as the pure renderer read model
+    for app-shell capabilities, command palette descriptors, keybindings,
+    app chrome, surface chrome, preview servers, and empty-state copy.
+  - `App.jsx` now consumes `buildAppCapabilityModel(...)` instead of
+    hand-splitting `state.app.capabilities` into terminal, Source Control,
+    Preview, File Preview, Diff Panel, command-palette, and keybinding fields.
+  - Frontend and architecture guards reject reintroducing those root-level
+    capability/chrome fanout paths in `App.jsx`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/app-capability-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-capability-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/preview-surface-source.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving remaining root App state projection and prop assembly into
+    focused app-runtime/workbench read models while leaving App as composition
+    glue.
+
+### DC-309
+
+- Date: 2026-07-05
+- Change Topic: GUI keyboard command context reuses workbench command model
+- Summary:
+  - `App.jsx` now uses `buildCommandVisibilityContext(...)` inside the
+    `workbench-keyboard-controller.js` `getCommandContext` bridge.
+  - The root component no longer keeps a second keyboard-specific
+    `paletteOpen` / `isRunning` / capability object for shortcut resolution.
+  - Frontend and architecture guards reject reintroducing that inline keyboard
+    command-context object in `App.jsx`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue applying the same model-first pattern to remaining root-level
+    App composition helpers that derive UI state.
+
+### DC-308
+
+- Date: 2026-07-05
+- Change Topic: GUI command visibility context moves into workbench model
+- Summary:
+  - `workbench/commands.js` now owns `isTurnInterruptibleStatus(...)` and
+    `buildCommandVisibilityContext(...)`, the pure read model used by command
+    visibility filtering.
+  - `App.jsx` passes app/workbench state slices into that builder instead of
+    hand-assembling `hasSession`, `hasWorkspace`, `isRunning`, and
+    `paletteOpen` fields in the root component.
+  - `workbench-parity-model.js` reuses the same running-status and command
+    visibility context semantics instead of keeping a second status helper.
+  - Frontend and architecture guards reject reintroducing root-level command
+    visibility context assembly in `App.jsx`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/commands.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/workbench-parity-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue shrinking `App.jsx` by moving remaining root-level read-model
+    assembly into focused app-runtime or workbench model modules.
+
+### DC-307
+
+- Date: 2026-07-05
+- Change Topic: GUI composer command group labels use command-palette model
+- Summary:
+  - `workbench/command-palette-model.js` now exports
+    `buildCommandGroupLabels(...)` for deriving Composer slash-menu group
+    labels from app-shell command-palette descriptors.
+  - `App.jsx` no longer hand-builds `composerCommandGroupLabels` with a
+    root-level `commandPaletteGroups.reduce(...)`.
+  - Frontend and architecture guards reject reintroducing that reducer in
+    `App.jsx`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving remaining App-level descriptor projection into focused
+    read models where the mapping is more than direct dependency wiring.
+
+### DC-306
+
+- Date: 2026-07-05
+- Change Topic: GUI SurfacePanel props are mapped outside root App
+- Summary:
+  - Added `surface-panel-props.js` as a pure app-runtime props builder for
+    generic `SurfacePanel` state, chrome, and action handles.
+  - `App.jsx` now calls `buildSurfacePanelProps(...)` instead of spelling out
+    per-action `surfacePanelController.*` prop mappings in the root component.
+  - Frontend and architecture guards reject reintroducing those action prop
+    mappings in `App.jsx`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/surface-panel-props.js`
+  - `src/embedagent/frontend/gui/webapp/test/surface-panel-props.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue shrinking `App.jsx` to composition-only wiring where remaining
+    prop assemblers still encode component contracts.
+
+### DC-305
+
+- Date: 2026-07-05
+- Change Topic: GUI socket message scheduling moves into controller boundary
+- Summary:
+  - `socket-message-controller.js` now accepts a generic `scheduleMessage`
+    callback and applies raw WebSocket messages inside that scheduler.
+  - `App.jsx` passes React `startTransition` as the scheduler and wires
+    `socketMessageController.handleMessage` directly into
+    `session-transport-controller.js`.
+  - Frontend and architecture guards reject the old root-level
+    `startTransition(() => socketMessageController.handleMessage(...))`
+    wrapper.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/socket-message-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue reducing root-level App callbacks that still encode runtime
+    behavior instead of plain dependency wiring.
+
+### DC-304
+
+- Date: 2026-07-05
+- Change Topic: GUI active-workspace source-control refresh uses controller handle
+- Summary:
+  - `App.jsx` now passes `sourceControlController.loadStatus` directly into
+    `active-workspace-data-loader.js`.
+  - The root-level three-argument Source Control status-refresh forwarding
+    lambda has been removed from the active-workspace refresh path.
+  - Frontend and architecture guards reject the old adapter lambda and require
+    the direct controller handle.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue reducing remaining root-level dependency adapter lambdas where
+    they encode behavior instead of simple composition.
+
+### DC-303
+
+- Date: 2026-07-05
+- Change Topic: GUI session command capability refresh uses a loader handle
+- Summary:
+  - `session-loaders.js` now exposes
+    `createSessionCommandCapabilityLoader(...)` for the GUI command capability
+    refresh path.
+  - `App.jsx` creates one `loadSessionCommandCapabilitiesForApp` handle and
+    passes it into initial app load, active workspace refresh, and loader
+    request execution instead of repeating inline
+    `loadSessionCommandCapabilities({ fetchJson, dispatch })` lambdas.
+  - Frontend and architecture guards reject the removed root-level inline
+    fetch/dispatch loader pattern.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/session-loaders.js`
+  - `src/embedagent/frontend/gui/webapp/test/session-loaders.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workspace-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue reducing remaining root-level dependency adapter lambdas where
+    they encode behavior instead of simple dependency injection.
+
+### DC-302
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel active surface selection is a surface read model
+- Summary:
+  - `workbench/surfaces.js` now exposes `rightPanelSurfacesFrom(...)` and
+    `activeRightPanelSurfaceFrom(...)` as the renderer-owned active surface
+    selectors.
+  - `App.jsx` uses those selectors instead of resolving the active right-panel
+    surface with root-level `surfaces.find(...)` logic.
+  - `terminal-controller.js` reuses the shared selector and no longer keeps a
+    private `activeRightPanelSurface` helper.
+  - Frontend and architecture guards reject root-level active-surface lookup
+    and duplicate terminal-controller selector logic.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue reducing root-level App composition glue around dependency adapter
+    lambdas and surface prop assembly.
+
+### DC-301
+
+- Date: 2026-07-05
+- Change Topic: GUI interaction response event logging is controller-owned
+- Summary:
+  - `interaction-response-controller.js` now emits the
+    `interaction_response` `log_event` through its injected reducer dispatch.
+  - `App.jsx` no longer injects a root-level `logEvent` callback into the
+    interaction response path.
+  - Frontend and architecture guards reject the removed `logEvent` injection
+    seam and require response event logging to stay in the controller.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/interaction-response-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/interaction-response-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving remaining root-level GUI dependency adapter lambdas toward
+    semantic controller methods where they represent behavior rather than
+    composition.
+
+### DC-300
+
+- Date: 2026-07-05
+- Change Topic: GUI panel resize handlers are controller-owned
+- Summary:
+  - `panel-resize-controller.js` now exposes semantic
+    `startSidebarResize` / `startRightPanelResize` handlers for the workbench
+    panel handles.
+  - `App.jsx` wires those handlers directly instead of passing CSS variable
+    names, resize direction constants, or the generic resize helper through
+    inline callbacks.
+  - Frontend and architecture guards reject root-level resize parameterization
+    and the exported resize-direction compatibility path.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/panel-resize-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/panel-resize-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue shrinking remaining root-level App composition glue around
+    interaction event logging and non-semantic dependency adapters.
+
+### DC-299
+
+- Date: 2026-07-05
+- Change Topic: GUI SurfacePanel actions are controller-owned
+- Summary:
+  - Added `surface-panel-controller.js` for generic SurfacePanel actions:
+    diff-file focus, Source Control refresh/file selection, and app-shell
+    settings patching.
+  - `App.jsx` now wires controller methods into `surfacePanelProps` instead of
+    inline reducer dispatch or source-control controller lambdas.
+  - Frontend and architecture guards reject root-level `diff_file_focused`,
+    `app_shell_settings_changed`, and direct Source Control lambdas for this
+    surface-panel path.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/surface-panel-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue shrinking the remaining App composition glue around resize event
+    factories and interaction event logging.
+
+### DC-298
+
+- Date: 2026-07-05
+- Change Topic: GUI workspace path input is controller-owned
+- Summary:
+  - `workspace-controller.js` now exposes `setWorkspacePath(...)` and owns the
+    `workspace_path_changed` reducer action.
+  - `App.jsx` wires `setWorkspacePath` directly into Sidebar and
+    NoWorkspaceState instead of inline-dispatching workspace path input
+    changes.
+  - Frontend and architecture guards now reject root-level
+    `workspace_path_changed` dispatches.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/workspace-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/workspace-controller.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Move surface-panel action wiring out of `App.jsx` once that controller
+    boundary is isolated.
+
+### DC-297
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel terminal pane actions are controller-owned
+- Summary:
+  - `terminal-controller.js` now derives the active right-panel terminal
+    surface from workbench state for pane new/split/select/close actions.
+  - `App.jsx` wires right-panel terminal callbacks directly to controller
+    methods instead of passing `activeRightPanelSurface` through inline
+    lambdas.
+  - Frontend and architecture guards now reject root-level calls to
+    `splitRightPanelSurface(...)`, `activateRightPanelPane(...)`, or
+    `closeRightPanelPane(...)`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving workspace path input and surface-panel action wiring out
+    of `App.jsx` when their controller boundaries are clear.
+
+### DC-296
+
+- Date: 2026-07-05
+- Change Topic: GUI workbench command lifecycle is controller-owned
+- Summary:
+  - `workbench-command-controller.js` now owns header right-panel/bottom-drawer
+    toggles, command-palette open/close/query state, command-palette
+    command/session/workspace selection, and command-id resolution.
+  - `App.jsx` wires controller methods directly and no longer imports
+    `commandById` or dispatches palette/toggle reducer actions inline.
+  - `CommandPalette.jsx` remains a display component for root/submenu
+    navigation, Escape, and backdrop close; selected rows hand intent to
+    controller-owned callbacks.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/workbench-command-controller.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/CommandPalette.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-source.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue shrinking `App.jsx` by moving workspace-path input and
+    surface-panel action wiring into focused controllers.
+
+### DC-295
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel body lookup is app-capability scoped
+- Summary:
+  - `RightPanelSurfaceBody` now receives `appCapabilities` from `App.jsx` and
+    resolves `surfaceDefinitionFor(surface.kind, appCapabilities)`.
+  - The backend app-shell spec now declares the hidden `file` resource surface
+    with `launcher=False` and `command=False`, so file preview bodies remain
+    capability-declared without becoming visible launcher or command entries.
+  - Frontend and architecture guards now reject capability-blind
+    `surfaceDefinitionFor(surface.kind)` body lookup.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Future hidden/resource surfaces must be backend-declared capability records
+    with visibility metadata instead of relying on renderer-only body fallback.
+
+### DC-294
+
+- Date: 2026-07-05
+- Change Topic: GUI resource right-panel surfaces open through controller methods
+- Summary:
+  - Added `openFileSurface(...)`, `openPreviewSurface(...)`, and
+    `openFilesSurface()` to `right-panel-controller.js`.
+  - Moved App-level file, preview, and Files browser surface-kind dispatch out
+    of `App.jsx`; App now delegates resource surface opening by semantic
+    controller method instead of writing `kind: "file"`, `kind: "preview"`, or
+    `openRightPanelSurface("files")`.
+  - Removed the stale `preview.kind = "file"` payload shape from the App file
+    preview load path and test fixture.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/right-panel-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Future App-level resource open flows should add semantic controller methods
+    or metadata-driven handlers; App must not reintroduce concrete right-panel
+    surface-kind dispatch.
+
+### DC-293
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel activation uses controller handler registry
+- Summary:
+  - Added renderer-local `RIGHT_PANEL_ACTIVATION_HANDLERS` to
+    `right-panel-controller.js` and routed supported right-panel activation
+    side effects through `definition.activationKind`.
+  - Moved the terminal right-panel re-open side effect out of `App.jsx`;
+    `App.jsx` now delegates tab activation to the right-panel controller.
+  - Updated frontend and architecture guards so App-level
+    `surfaceDefinitionFor(...)`, `definition.activationKind`, and
+    `terminalController.openSession(...)` paths fail.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/right-panel-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Future right-panel activation side effects must add explicit
+    `activationKind` handler entries in the controller; App must remain a
+    surface activation delegate, not a surface-policy owner.
+
+### DC-292
+
+- Date: 2026-07-05
+- Change Topic: GUI persisted related surfaces are registry-declared
+- Summary:
+  - Added renderer-local `persistedRelatedKinds` metadata to surface registry
+    records and declared the Files surface as the owner of persisted File
+    resource surfaces.
+  - Added `persistedSurfaceDefinitions(...)` so workbench UI-state
+    sanitization consumes registry-declared persisted surface definitions.
+  - Removed the `ui-state.js` hard-coded `files -> file` persisted-kind
+    expansion and updated guards to make the old shortcut fail.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/ui-state.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Any future hidden/resource surface that should survive persistence under a
+    visible launcher must be declared through registry metadata, not UI-state
+    string expansion.
+
+### DC-291
+
+- Date: 2026-07-05
+- Change Topic: GUI terminal controller centralizes terminal surface adaptation
+- Summary:
+  - Added a terminal-controller-local `TERMINAL_SURFACE_KIND` and
+    `terminalSurfaceActionInput(...)` helper for right-panel terminal surface
+    validation and workbench action payload preparation.
+  - `terminal-controller.js` no longer repeats `surface.kind !== "terminal"`
+    checks or calls `surfaceDefinitionFor("terminal", ...)` directly at action
+    sites.
+  - Frontend and architecture guards now prevent reintroducing those scattered
+    terminal surface checks.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Keep future terminal surface work behind the terminal controller adapter
+    helpers rather than adding per-action surface-kind checks.
+
+### DC-290
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel surface pane operations use per-kind handlers
+- Summary:
+  - Moved terminal split/activate/close pane metadata updates behind a
+    renderer-local `SURFACE_PANE_HANDLERS` registry.
+  - Right-panel pane actions now resolve `SURFACE_PANE_HANDLERS[surface.kind]`
+    before mutating surface-local pane state instead of branching on the fixed
+    terminal surface id in reducer code.
+  - Frontend and architecture guards now prevent reintroducing the old
+    `surface.kind === "terminal"` pane-operation branches.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New right-panel surface kinds that own multi-pane metadata must add pane
+    handlers rather than branches in the workbench reducer.
+
+### DC-289
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel surface opening uses per-kind preparers
+- Summary:
+  - Moved `openSurface(...)` file reveal/deduplication and preview placeholder
+    cleanup into a renderer-local `SURFACE_OPEN_PREPARERS` registry.
+  - Right-panel surface opening now resolves `SURFACE_OPEN_PREPARERS[surface.kind]`
+    before upsert/activation instead of branching in the main open flow.
+  - Frontend and architecture guards now prevent reintroducing the old
+    `openSurface(...)` file/preview preparation branches.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New right-panel surface kinds that need custom open-time preparation must
+    add a preparer registry entry rather than branches in `openSurface(...)`.
+
+### DC-288
+
+- Date: 2026-07-05
+- Change Topic: GUI workbench surfaces use per-kind initializers
+- Summary:
+  - Moved `makeSurface(...)` file, terminal, and preview instance-field setup
+    into a renderer-local `SURFACE_INITIALIZERS` registry.
+  - `makeSurface(...)` now handles common surface fields and resolves
+    per-kind instance metadata through `SURFACE_INITIALIZERS[kind]`.
+  - Frontend and architecture guards now prevent reintroducing the old
+    `makeSurface(...)` file/terminal/preview initializer branches.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New renderer-supported surface kinds that need instance-specific fields
+    must add an initializer registry entry rather than branches in
+    `makeSurface(...)`.
+
+### DC-287
+
+- Date: 2026-07-05
+- Change Topic: GUI bottom-drawer body mounting uses a renderer registry
+- Summary:
+  - Replaced `BottomDrawer`'s `bodyKind` switch with a renderer-local
+    `BOTTOM_DRAWER_BODY_RENDERERS` registry.
+  - Bottom drawer descriptors still provide `bodyKind` metadata, but Run
+    Output and Terminal body mounting now route through table lookup.
+  - Frontend and architecture guards now prevent reintroducing
+    `switch (activeBodyKind)` in the bottom drawer body.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/BottomDrawer.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New bottom-drawer body kinds must add explicit renderer registry entries
+    rather than component switch branches.
+
+### DC-286
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel body mounting uses a renderer registry
+- Summary:
+  - Replaced `RightPanelSurfaceBody`'s `bodyKind` switch with a
+    renderer-local `RIGHT_PANEL_BODY_RENDERERS` registry.
+  - Surface descriptors still provide `bodyKind` / `panelKind` metadata, but
+    component mounting now routes through table lookup rather than fixed JSX
+    branches.
+  - Frontend and architecture guards now prevent reintroducing
+    `switch (activeBodyKind)` in the right-panel body.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New right-panel body kinds must add explicit renderer registry entries
+    rather than component switch branches.
+
+### DC-285
+
+- Date: 2026-07-05
+- Change Topic: GUI bottom-drawer activation uses a handler registry
+- Summary:
+  - Replaced the terminal controller's bottom-drawer `activationKind` switch
+    with a renderer-local `BOTTOM_DRAWER_ACTIVATION_HANDLERS` registry.
+  - `selectBottomDrawerKind(...)` still reads bottom surface
+    `definition.activationKind`, but now dispatches through table lookup.
+  - Frontend and architecture guards now prevent reintroducing the old
+    `switch (definition ? definition.activationKind : "")` path.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New bottom-drawer activation effects must add explicit handler registry
+    entries rather than terminal-controller switch branches.
+
+### DC-284
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel open behavior uses a handler registry
+- Summary:
+  - Replaced the right-panel `openKind` switch with a renderer-local
+    `RIGHT_PANEL_OPEN_HANDLERS` registry.
+  - `createRightPanelController().openSurface(...)` still reads
+    `definition.openKind`, but now dispatches through table lookup instead of
+    a controller switch.
+  - Frontend and architecture guards now prevent reintroducing the old
+    `switch (definition ? definition.openKind : "")` path.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New right-panel open behaviors must add explicit `openKind` handler
+    registry entries rather than controller switch branches.
+
+### DC-283
+
+- Date: 2026-07-05
+- Change Topic: GUI command dispatch uses a handler registry
+- Summary:
+  - Replaced the `workbench-command-controller` dispatch-kind switch with a
+    renderer-local `COMMAND_DISPATCH_HANDLERS` registry.
+  - Descriptor-owned `dispatch.kind` values now select built-in shell actions
+    by table lookup, while unknown dispatch kinds continue to fall through to
+    surface/drawer/slash descriptor fields.
+  - Frontend and architecture guards now prevent reintroducing a
+    `switch (dispatchDescriptor.kind)` path.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/workbench-command-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New built-in GUI shell dispatch kinds must be added as explicit handler
+    registry entries rather than controller switch branches.
+
+### DC-282
+
+- Date: 2026-07-05
+- Change Topic: GUI persisted workbench surfaces use registry normalization
+- Summary:
+  - Added `persistedSurfaceFrom(...)` to the renderer-local workbench surface
+    model.
+  - `ui-state.js` now sanitizes persisted surface descriptors through that
+    registry-owned normalizer instead of branching on fixed `file` or
+    `terminal` surface kinds.
+  - The normalizer preserves the existing shallow persistence contract while
+    keeping file/terminal field rules inside `surfaces.js`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/ui-state.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New persisted surface fields must be declared and normalized by the
+    renderer-local surface model, not by localStorage state code.
+
+### DC-281
+
+- Date: 2026-07-05
+- Change Topic: GUI bottom-drawer activation uses renderer metadata
+- Summary:
+  - Added `activationKind` metadata to bottom drawer surface definitions.
+  - Added `bottomDrawerSurfaceDefinitionFor(...)` so terminal drawer selection
+    can use the same descriptor merge path as visible drawer tabs and commands.
+  - `TerminalController.selectBottomDrawerKind(...)` now reads
+    `definition.activationKind` instead of branching on `kind === "terminal"`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/terminal-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New bottom drawer activation side effects must be explicit renderer
+    metadata, not drawer-kind conditionals.
+
+### DC-280
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel activation side effects use renderer metadata
+- Summary:
+  - Added renderer-local `activationKind` metadata to surface registry records.
+  - Right-panel tab activation now uses `definition.activationKind` to trigger
+    terminal session re-opening for terminal surfaces.
+  - `App.jsx` no longer branches on `surface.kind === "terminal"` for
+    activation side effects.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New right-panel activation side effects must be explicit renderer metadata,
+    not inline App surface-id checks.
+
+### DC-279
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel surface open behavior uses renderer metadata
+- Summary:
+  - Added renderer-local `openKind` metadata to right-panel surface registry
+    records.
+  - `createRightPanelController().openSurface(...)` now uses
+    `definition.openKind` to decide between generic workbench surface opening
+    and terminal right-panel session creation.
+  - Frontend and architecture guards now prevent the controller from branching
+    on fixed surface ids such as `surfaceKind === "terminal"` or `"file"`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/right-panel-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New right-panel open behaviors must add explicit renderer metadata instead
+    of adding surface-id conditionals to the controller.
+
+### DC-278
+
+- Date: 2026-07-05
+- Change Topic: GUI generic right-panel subpanels use renderer metadata
+- Summary:
+  - Added renderer-local `panelKind` metadata for generic `SurfacePanel`
+    surfaces such as Plan, Diff, Source Control, Settings, and Diagnostics.
+  - `RightPanelSurfaceBody` now passes `activeDefinition.panelKind` into
+    `SurfacePanel`; the panel no longer branches on fixed surface ids such as
+    `surfaceKind === "diff"`.
+  - Frontend and architecture guards now prevent old generic right-panel
+    surface-id routing from returning.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - New generic right-panel panels must add explicit renderer metadata instead
+    of reintroducing surface-id conditionals.
+
+### DC-277
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel body mounting uses renderer metadata
+- Summary:
+  - Added renderer-local `bodyKind` metadata to right-panel surface registry
+    records for Files, File Preview, Preview, Terminal, and generic
+    `SurfacePanel` bodies.
+  - `RightPanelSurfaceBody` now reads `surfaceDefinitionFor(surface.kind)` and
+    selects the body from `activeDefinition.bodyKind` instead of branching on
+    fixed surface kinds.
+  - Frontend and architecture guards now prevent the old `surface.kind === ...`
+    body routing from returning.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Keep future right-panel surfaces behind explicit renderer metadata and
+    app-shell visibility descriptors.
+
+### DC-276
+
+- Date: 2026-07-05
+- Change Topic: GUI bottom drawer renderer metadata replaces stale logs surface
+- Summary:
+  - Removed the default `logs` bottom-drawer surface because the renderer had
+    no corresponding body implementation and previously fell through to Run
+    Output.
+  - Bottom-drawer surface registry records now carry renderer-local
+    `bodyKind` metadata for the supported `run_output` and `terminal`
+    surfaces.
+  - `BottomDrawer` selects its body from the active surface definition instead
+    of branching on `activeKind === "terminal"`, and initial/persisted fallback
+    bottom drawer state no longer hard-codes `run_output`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/BottomDrawer.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/visual-debug-fixtures.js`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Add future bottom-drawer surfaces only with a matching renderer body or
+    keep them out of the supported registry/default app-shell descriptor set.
+
+### DC-275
+
+- Date: 2026-07-05
+- Change Topic: GUI terminal drawer dispatch is descriptor-owned
+- Summary:
+  - Added `dispatch.kind: terminal.ensure_open` to the default Terminal
+    bottom-drawer surface descriptor.
+  - App-shell and workbench surface normalizers now preserve surface dispatch
+    descriptors, and bottom-drawer command projection passes them through to
+    command rows.
+  - `workbench-command-controller` opens the hosted terminal through the
+    declared dispatch kind; `drawer: "terminal"` alone now uses the generic
+    bottom-surface activation path.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/workbench-command-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-command-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving GUI shell-specific execution behavior into explicit
+    app-shell descriptors while keeping renderer fallback paths generic.
+
+### DC-274
+
+- Date: 2026-07-05
+- Change Topic: GUI workbench command dispatch is descriptor-driven
+- Summary:
+  - Added `dispatch.kind` descriptors to default app/workspace/workbench
+    command records for built-in GUI shell actions.
+  - `workbench-command-controller` now routes command execution by
+    descriptor-owned action kinds such as `command_palette.open`,
+    `app_shell.reload`, and `message.submit` instead of switching on fixed
+    command ids.
+  - Surface, drawer, and slash command execution remains descriptor-field
+    driven, and frontend/Python guards now prevent the old command-id switch
+    from returning.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/workbench-command-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-command-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving remaining GUI shell behavior that is app-specific into
+    explicit app-shell descriptors while keeping renderer mounting local.
+
+### DC-273
+
+- Date: 2026-07-05
+- Change Topic: GUI File Preview mode chrome is app-shell declared
+- Summary:
+  - Added `breadcrumb_aria_label`, `markdown_source_glyph`, and
+    `markdown_preview_glyph` to the default `file_preview` app-shell chrome
+    payload.
+  - The React app-shell normalizer preserves those fields and
+    `FilePreviewSurface` consumes them for breadcrumb accessibility text and
+    markdown mode button glyphs instead of hard-coding `File path`, `C`, or
+    `P`.
+  - Added frontend and Python guards so File Preview chrome cannot regain
+    renderer-local visible copy or mode symbols.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/FilePreviewSurface.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue scanning GUI chrome-only symbols and dev fixtures for app-shell
+    ownership where they affect visible shell behavior.
+
+### DC-272
+
+- Date: 2026-07-05
+- Change Topic: GUI command-palette shortcut labels are app-shell declared
+- Summary:
+  - Added `command_palette.labels.shortcut_labels` and
+    `shortcut_separator` to the default app-shell capability payload.
+  - The React app-shell normalizer preserves shortcut display descriptors, and
+    `command-palette-model` formats keybindings from those descriptors instead
+    of hard-coding `Ctrl`, `Alt`, `Shift`, or `Esc`.
+  - Unknown keybinding parts now remain raw tokens, with only single-character
+    key tokens uppercased for display.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-model.test.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving renderer-owned chrome text and visible formatting tokens
+    into app-shell descriptors.
+
+### DC-271
+
+- Date: 2026-07-05
+- Change Topic: GUI right-panel surface titles are descriptor-first
+- Summary:
+  - `rightPanelSurfaceTitle` now prefers the active app-shell surface
+    descriptor `title` and uses the caller fallback only when no descriptor
+    title exists.
+  - Removed the renderer-local English `Open ...` command-label stripping
+    heuristic from the right-panel controller.
+  - Added frontend and Python guards so surface opening cannot derive panel
+    titles by parsing command copy.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/right-panel-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Required: No
+- Follow-up:
+  - Continue removing renderer-local visible-copy heuristics where app-shell
+    descriptors already carry the display contract.
+
+### DC-270
+
+- Date: 2026-07-05
+- Change Topic: GUI App Home untitled thread fallback is descriptor-owned
+- Summary:
+  - Added `home.threads.session_fallback_prefix` to the default app-shell
+    capability payload.
+  - `app-home-model` now uses the app-shell prefix for untitled thread rows
+    and falls back only to the safe session id fragment when the descriptor is
+    absent.
+  - Added frontend and Python guards so renderer-local ``Session ${id}``
+    fallback copy cannot return.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/app-home-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/app-home-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue auditing app-home/workbench display fallbacks that still derive
+    visible copy from renderer-local English defaults.
+
+### DC-269
+
+- Date: 2026-07-05
+- Change Topic: GUI composer hints are app-shell descriptors
+- Summary:
+  - `/api/app/bootstrap` now declares ordered
+    `capabilities.chrome.composer.hints` records for composer hint-bar items.
+  - The React app-shell model normalizes hint descriptors with labels, tone,
+    status, and visibility state.
+  - `composer-interaction-model` filters hint descriptors by running and
+    pending-interaction state instead of owning a fixed hint id/order list.
+  - Added frontend and Python guards so renderer-local composer hint lists
+    cannot return.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/Composer.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/composer/composer-interaction-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/visual-debug-fixtures.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/composer-interaction-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving renderer-owned fallback UI behavior to backend/app-shell
+    descriptors where the GUI needs to adapt to different agent applications.
+
+### DC-268
+
+- Date: 2026-07-05
+- Change Topic: GUI composer slash commands do not use static hint fallbacks
+- Summary:
+  - Removed the renderer-local `commandHints` slash-command fallback path from
+    `App`, `Composer`, and `composer-interaction-model`.
+  - Composer slash-command menu items now come only from command capability
+    projection.
+  - Added frontend and Python architecture guards so static command hint
+    fallbacks and their `"command"` group synthesis cannot be reintroduced.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/Composer.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/composer/composer-interaction-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/composer-integration-source.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue deleting GUI fallbacks that synthesize agent/workflow behavior
+    instead of consuming backend/app-shell descriptors.
+
+### DC-267
+
+- Date: 2026-07-05
+- Change Topic: GUI slash-command default group is app-shell declared
+- Summary:
+  - `/api/app/bootstrap` `capabilities.chrome.composer.command_menu` now
+    declares `default_command_group_id`.
+  - Session command normalization no longer synthesizes the `"command"` group
+    when protocol command descriptors omit `group`.
+  - Composer and workbench command conversion use the app-shell default group
+    descriptor when they need to place backend slash commands.
+  - Added frontend and Python architecture guards for the no renderer-local
+    command group fallback rule.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/protocol-normalizer.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/command-capabilities.js`
+  - `src/embedagent/frontend/gui/webapp/src/composer/composer-command-search.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/commands.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/command-capabilities.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/composer-command-search.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue removing renderer-local command and status fallbacks so GUI
+    surfaces adapt through app-shell descriptors only.
+
+### DC-266
+
+- Date: 2026-07-04
+- Change Topic: GUI source-control group/provider labels do not fall back to raw kinds
+- Summary:
+  - `groupLabel()` and `providerLabel()` now render only app-shell declared
+    labels or app-shell declared fallback labels.
+  - Missing Source Control group/provider descriptors no longer display raw
+    normalized kind strings as renderer-local UI copy.
+  - Added frontend and Python architecture guards for the no raw-kind label
+    fallback rule.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/source-control/source-control-presentation.js`
+  - `src/embedagent/frontend/gui/webapp/test/source-control-state.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue removing renderer-local fallbacks where raw protocol/workflow ids
+    still leak into visible GUI chrome.
+
+### DC-265
+
+- Date: 2026-07-04
+- Change Topic: GUI source-control group order is app-shell chrome
+- Summary:
+  - `/api/app/bootstrap` `capabilities.source_control.chrome` now declares
+    `group_order` for Source Control file grouping order.
+  - The renderer normalizes that descriptor to `groupOrder` and
+    `SourceControlPanel` maps over it instead of owning a fixed
+    `conflicted/staged/unstaged/untracked` array.
+  - Added frontend and Python architecture guards for descriptor-owned Source
+    Control group ordering.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/source-control/SourceControlPanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue removing renderer-local GUI semantic fallbacks that prevent app
+    shells from adapting cleanly to different base or specialized agents.
+
+### DC-264
+
+- Date: 2026-07-04
+- Change Topic: GUI source-control file status labels are app-shell chrome
+- Summary:
+  - `/api/app/bootstrap` `capabilities.source_control.chrome` now declares
+    `file_status_labels` for Source Control file badges.
+  - The renderer normalizes those descriptors to `fileStatusLabels` and
+    `fileStatusLabel()` no longer synthesizes labels from Git status initials
+    or `?`.
+  - Added frontend and Python architecture guards for the no renderer-local
+    status badge fallback rule.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/source-control/source-control-presentation.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/source-control/SourceControlPanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/source-control-state.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue removing renderer-local GUI copy/semantic fallbacks so app shells
+    can adapt to different base or specialized agents through descriptors.
+
+### DC-263
+
+- Date: 2026-07-04
+- Change Topic: GUI command-palette group leading markers are descriptors
+- Summary:
+  - Default app-shell command-palette group descriptors now explicitly declare
+    leading markers.
+  - Command-palette command/submenu rows use `descriptor.leading` only and no
+    longer fall back to the group title's first character or `>`.
+  - Added frontend and Python architecture guards for the no synthesized group
+    leading marker rule.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-262
+
+- Date: 2026-07-04
+- Change Topic: GUI command-palette session/workspace leading markers are descriptors
+- Summary:
+  - Added app-shell command-palette label descriptors for session and workspace
+    leading markers.
+  - Command-palette session/workspace rows now render those descriptor values
+    and leave the marker empty when absent instead of hard-coding `T` / `W`.
+  - Added frontend and Python architecture guards for the no renderer-local
+    leading marker rule.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-261
+
+- Date: 2026-07-04
+- Change Topic: GUI surface command palette copy is descriptor-owned
+- Summary:
+  - Surface and bottom-drawer command projections now carry surface descriptor
+    descriptions into workbench commands.
+  - Command-palette command row descriptions no longer synthesize
+    `Open <surface>` or `Open <drawer>` copy from surface/drawer ids.
+  - Added frontend and Python architecture guards so surface command secondary
+    copy stays descriptor-owned.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-260
+
+- Date: 2026-07-04
+- Change Topic: GUI command-palette command rows avoid command-id copy
+- Summary:
+  - Removed command-palette command row description and meta fallbacks that
+    displayed command ids when slash/description descriptors were absent.
+  - Commands with explicit labels but no secondary copy now render empty
+    secondary fields instead of leaking implementation ids into the UI.
+  - Added frontend and Python architecture guards for command row
+    description/meta no-fallback behavior.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-259
+
+- Date: 2026-07-04
+- Change Topic: GUI command-palette groups require descriptor titles
+- Summary:
+  - Removed command-palette group title fallbacks that title-cased group ids.
+  - Commands in undeclared or untitled command-palette groups now stay out of
+    root and submenu palette projections instead of becoming renderer-owned
+    groups.
+  - Added frontend and Python architecture guards for the no-fallback group
+    title rule.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-258
+
+- Date: 2026-07-04
+- Change Topic: GUI workbench command labels are descriptor-driven
+- Summary:
+  - App-shell command normalization now preserves missing command labels as
+    empty instead of synthesizing visible labels from command ids.
+  - Workbench command projection omits app/workbench commands without explicit
+    labels, while dynamic slash commands remain visible only when their
+    capability descriptor provides an explicit `usage`, `slash`, or label.
+  - Command palette rows no longer fall back from missing command labels to
+    command ids, including submenu projection.
+  - Added frontend and Python architecture guards to keep command id strings
+    out of visible workbench command labels.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/protocol-normalizer.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/commands.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-257
+
+- Date: 2026-07-04
+- Change Topic: GUI Diff workbench tab title is payload/app-shell driven
+- Summary:
+  - Removed the store fallback that opened Diff workbench surfaces with a
+    renderer-local `"diff"` title when the diff payload title was absent.
+  - Untitled Diff payloads now keep an empty workbench surface title so the
+    right-panel tab can use the app-shell surface descriptor or remain empty.
+  - Added frontend and Python architecture guards to keep Diff tab titles from
+    regressing to renderer string literals.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/test/store-reducer.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-256
+
+- Date: 2026-07-04
+- Change Topic: GUI resource surface titles use instance data only
+- Summary:
+  - Removed renderer-local `"file"`, `"preview"`, and `"terminal"` fallback
+    titles from workbench resource surface helpers.
+  - Preview surface helper calls without an explicit title or preview
+    id/resource no longer create a visible fallback tab.
+  - Added frontend and Python guards so resource surface titles stay limited to
+    instance data such as file basenames, preview ids/URLs, and terminal ids.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/test/right-panel-store-parity.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-255
+
+- Date: 2026-07-04
+- Change Topic: GUI surface launcher titles are descriptor-only
+- Summary:
+  - Removed app-shell normalization fallback that synthesized surface titles
+    from surface kind/id values.
+  - Workbench surface launchers and surface commands now require explicit
+    app-shell descriptor titles before becoming visible entrypoints.
+  - `titleForSurfaceKind` now returns an empty title when no descriptor title is
+    available instead of exposing a renderer-local kind fallback.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-254
+
+- Date: 2026-07-04
+- Change Topic: GUI thread action rail labels are descriptor-only
+- Summary:
+  - Removed app-shell and app-home fallback paths that synthesized thread
+    lifecycle action labels from action ids.
+  - Actions without descriptor labels no longer render in the visible thread
+    action rail.
+  - Removed renderer-local disabled reason text for thread lifecycle actions;
+    disabled reason labels now remain descriptor-declared when present.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/app-home-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/app-home-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-253
+
+- Date: 2026-07-04
+- Change Topic: GUI thread lifecycle notice copy is descriptor-only
+- Summary:
+  - Removed renderer-synthesized thread lifecycle fallback notice titles such
+    as `${action.label} failed`.
+  - Unknown lifecycle actions now keep only minimal id/capability routing data
+    instead of inventing visible labels from action ids.
+  - Added frontend and Python architecture guards so empty-title and failure
+    notices remain app-shell descriptor driven, with missing notice copy left
+    absent instead of locally synthesized.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/thread-lifecycle-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/thread-lifecycle-controller.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-252
+
+- Date: 2026-07-04
+- Change Topic: GUI command-result timeline labels are payload/app-shell declared
+- Summary:
+  - Removed `/${commandName}` synthesis from the T3 timeline command-result
+    projection and visible command-result row fallback.
+  - Command names remain structured data for payload-driven effects, while
+    visible timeline labels now come only from explicit payload `label` values
+    or app-shell `activity_rows.commandDefaultName`.
+  - Added frontend and Python architecture guards to prevent command-name based
+    timeline label fallback from returning.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/t3-timeline.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-251
+
+- Date: 2026-07-04
+- Change Topic: GUI command-result run-output logs are payload-declared
+- Summary:
+  - Removed renderer-synthesized `command: /...` run-output labels from
+    `socket-message-effects.js`.
+  - Command-result WebSocket effects now write bottom-drawer log entries only
+    when the backend/hosted command payload declares `log_label` / `log_detail`.
+  - Added frontend and Python architecture guards so command-result logging
+    remains payload-driven instead of slash-command-name driven.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js`
+  - `src/embedagent/frontend/gui/webapp/test/socket-message-effects.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-250
+
+- Date: 2026-07-04
+- Change Topic: GUI API error fallback copy is app-shell declared
+- Summary:
+  - Removed helper-local request-failure copy from Preview, Terminal, and
+    Source Control frontend API helpers.
+  - API helpers now throw backend `detail`, backend `error`, status text, or an
+    empty message; renderer controllers then fall through to app-shell chrome
+    fallback notices.
+  - Added preview API behavior coverage plus frontend and architecture guards
+    so surface API helpers do not reintroduce local request-failure strings.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/preview/preview-api.js`
+  - `src/embedagent/frontend/gui/webapp/src/terminal/terminal-api.js`
+  - `src/embedagent/frontend/gui/webapp/src/source-control/source-control-api.js`
+  - `src/embedagent/frontend/gui/webapp/test/preview-api.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-249
+
+- Date: 2026-07-04
+- Change Topic: Retired GUI sidebar sidecar state removed
+- Summary:
+  - Removed unused root `sidebarTab` state and the `set_sidebar` reducer action
+    from the GUI store.
+  - Removed `set_sidebar` dispatches from the workspace command path and visual
+    debug fixtures; workspace open still focuses the workspace path input
+    directly.
+  - Removed unused workbench `activeSection` / `projectSection` sidebar state
+    and renamed the remaining thread tab test id away from the old `chats`
+    vocabulary.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/workbench-command-controller.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/visual-debug-fixtures.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/Sidebar.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/visual-debug-fixtures.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+  - `tests/manual/playwright_example.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-248
+
+- Date: 2026-07-04
+- Change Topic: App-shell product-name fallback removed from renderer model
+- Summary:
+  - Removed the renderer app-shell model fallback that filled missing
+    `productName` metadata with the bundled `EmbedAgent` product name.
+  - `createAppShellState()` and `normalizeAppBootstrap()` now preserve missing
+    product names as empty strings so generic or specialized GUI shells must
+    receive their branding from backend app metadata.
+  - Added frontend behavior/source checks and an architecture guard to prevent
+    reintroducing product-name defaults in renderer app-shell normalization.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-247
+
+- Date: 2026-07-04
+- Change Topic: Files surface title is app-shell declared
+- Summary:
+  - Removed the hard-coded `Files` header from the GUI right-panel
+    `FilesSurface`.
+  - `RightPanelSurfaceBody.jsx` now passes the active surface descriptor into
+    `FilesSurface.jsx`, and the panel header renders `surface.title`.
+  - Added frontend and architecture guards so right-panel Files surface titles
+    stay descriptor-driven for generic or specialized agent shells.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/FilesSurface.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-246
+
+- Date: 2026-07-04
+- Change Topic: No-workspace GUI branding is app-shell declared
+- Summary:
+  - Removed the hard-coded `EmbedAgent` no-workspace kicker from the GUI
+    renderer.
+  - `app-home-model.js` now projects backend app metadata `productName`, and
+    `NoWorkspaceState.jsx` renders that descriptor value when present.
+  - Added frontend and architecture guards so no-workspace shell branding stays
+    driven by app-shell metadata instead of renderer defaults.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/app-home-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/NoWorkspaceState.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/app-home-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-245
+
+- Date: 2026-07-04
+- Change Topic: GUI session workflow-state defaults are not invented
+- Summary:
+  - Removed GUI protocol/backend and renderer fallbacks that filled missing
+    session `workflow_state` values with the legacy `chat` state name.
+  - Session bootstrap now preserves the explicit snapshot value and leaves
+    omitted workflow-state names empty, while workflow display uses the
+    separate generic `workflow` payload.
+  - Added Python and frontend regressions plus source/architecture guards to
+    keep GUI session payloads free of invented workflow-state defaults.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/protocol_payloads.py`
+  - `src/embedagent/frontend/gui/webapp/src/state-helpers.js`
+  - `src/embedagent/frontend/gui/webapp/test/state-helpers.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_protocol_projection.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-244
+
+- Date: 2026-07-04
+- Change Topic: GUI session-load command-result effects are payload-driven
+- Summary:
+  - Removed the GUI WebSocket effect branch that loaded a switched session only
+    for `commandName === "resume"`.
+  - Command results now trigger session load from structured
+    `data.switch_session_id`, allowing specialized resume/session-switch
+    commands without GUI command-name coupling.
+  - Added frontend regression coverage and source/architecture guards to keep
+    command-result session-load effects payload-driven.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js`
+  - `src/embedagent/frontend/gui/webapp/test/socket-message-effects.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-243
+
+- Date: 2026-07-04
+- Change Topic: GUI user-input interactions do not default to `ask_user`
+- Summary:
+  - Removed the GUI interaction read-model fallback that filled missing
+    user-input `tool_name` values with the built-in `ask_user` tool name.
+  - Pending user-input display is now driven by `kind` /
+    `sourceActivityKind` and explicit backend payload fields, keeping the GUI
+    adaptable to base or specialized agents that do not expose `ask_user`.
+  - Added frontend regression coverage and source/architecture guards to keep
+    user-input interaction projection free of built-in tool-name defaults.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/interaction-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/interaction-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-242
+
+- Date: 2026-07-04
+- Change Topic: GUI Diff surface command-result activation is payload-driven
+- Summary:
+  - Removed the GUI WebSocket effect branch that opened the Diff surface only
+    for `commandName === "diff"`.
+  - Command results now open the Diff right-panel whenever they carry a
+    structured `data.diff` payload, allowing specialized agents to expose
+    diff-producing commands without GUI command-name coupling.
+  - Added frontend regression coverage and source/architecture guards to keep
+    command-result Diff activation payload-driven.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js`
+  - `src/embedagent/frontend/gui/webapp/test/socket-message-effects.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-241
+
+- Date: 2026-07-04
+- Change Topic: GUI timeline review rows are payload-driven
+- Summary:
+  - Removed the T3 timeline projection branch that treated
+    `commandName === "review"` as review-result semantics.
+  - Review result rows are now selected only from structured `data.review` or
+    `review` payload fields, allowing alternate command names and specialized
+    agents without GUI command-name coupling.
+  - Added frontend regression coverage and source/architecture guards so the
+    renderer cannot reintroduce `/review` command-name row classification.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/test/t3-timeline.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-240
+
+- Date: 2026-07-04
+- Change Topic: GUI timeline changed-file inference is catalog-driven
+- Summary:
+  - Added `changed_path_arg` to the safe tool presentation metadata projected
+    through `ToolCatalogEntry.metadata`.
+  - Declared `changed_path_arg = "path"` for `write_file` and `edit_file`.
+  - Removed the frontend `WRITE_TOOLS`/`commandName === "diff"` changed-file
+    inference table from `t3-timeline.js`; changed-file summaries now use
+    explicit changed-file lists, explicit diffs, or catalog-declared changed
+    path arguments.
+  - Extended frontend projection tests, runtime catalog tests, source checks,
+    and architecture guards to keep changed-file path inference metadata-owned.
+- Impacted Scope:
+  - `src/embedagent/tools/runtime.py`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/tool-presentation.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/test/t3-timeline.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_dynamic_tool_registration.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/tool-contracts.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-239
+
+- Date: 2026-07-04
+- Change Topic: GUI timeline tool previews are catalog-driven
+- Summary:
+  - Added safe tool presentation metadata projection through
+    `ToolCatalogEntry.metadata`, currently including `preview_arg` only.
+  - Declared preview arguments for default built-in tools and the default
+    C/C++ `run_recipe` workflow tool, and exposed tool descriptors through
+    session capabilities for GUI consumption.
+  - Removed renderer-side timeline preview/request-kind branches for
+    `bash`, `read_file`, `grep_text`, and related built-in tool names.
+  - Added runtime, workflow, adapter capability, frontend projection, and
+    architecture guard coverage so specialized agents can drive GUI timeline
+    previews through catalog metadata.
+- Impacted Scope:
+  - `src/embedagent_core/tool_contracts.py`
+  - `src/embedagent_core/capabilities.py`
+  - `src/embedagent/tools/runtime.py`
+  - `src/embedagent/workflow_packages/c_cpp/tool_metadata.py`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/test/t3-timeline.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_dynamic_tool_registration.py`
+  - `tests/test_workflow_extensions.py`
+  - `tests/test_inprocess_adapter_frontend_api.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/tool-contracts.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-238
+
+- Date: 2026-07-04
+- Change Topic: GUI timeline work-row chrome declaration
+- Summary:
+  - Added `/api/app/bootstrap` `capabilities.chrome.timeline.work_row`
+    descriptors for fallback work-row heading, fallback icon name, and status
+    aria labels.
+  - Removed renderer/projection fallback work-row copy from `WorkRow.jsx` and
+    `t3-timeline.js`; projection now leaves missing heading/icon presentation
+    data empty for the app-shell renderer to fill.
+  - Extended frontend projection tests, source checks, backend payload
+    assertions, app-shell descriptor tests, and architecture guards for the
+    work-row chrome/data split.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/WorkRow.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/t3-timeline.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-237
+
+- Date: 2026-07-04
+- Change Topic: GUI timeline tool-detail chrome declaration
+- Summary:
+  - Added `/api/app/bootstrap` `capabilities.chrome.timeline.tool_detail`
+    descriptors for tool-detail field labels, section titles, and match
+    fallback labels.
+  - Changed T3 timeline work-detail projection to emit field keys and section
+    kinds without default renderer chrome labels.
+  - Routed `TimelineRows.jsx` / `WorkRow.jsx` / `ToolDetail.jsx` through the
+    app-shell tool-detail chrome so specialized agent shells can replace tool
+    detail copy without changing the renderer.
+  - Extended frontend T3 timeline tests, source checks, app-shell descriptor
+    tests, backend payload assertions, and architecture guards for the
+    tool-detail chrome/data split.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/WorkRow.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/ToolDetail.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/t3-timeline.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-236
+
+- Date: 2026-07-04
+- Change Topic: GUI T3 timeline projection chrome/data split
+- Summary:
+  - Stopped `t3-timeline.js` from precomputing Timeline renderer chrome labels
+    such as turn-fold elapsed/stopped copy, reasoning fallback copy, compact
+    fallback copy, and review fallback labels.
+  - Added turn-fold `completedAt` and `interrupted` display data so
+    `TimelineRows` can format elapsed/stopped labels from
+    `capabilities.chrome.timeline.activity_rows` templates.
+  - Extended frontend T3 timeline tests, source checks, app-shell descriptor
+    tests, backend payload assertions, and architecture guards for the
+    projection/data split.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/t3-timeline.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-235
+
+- Date: 2026-07-04
+- Change Topic: GUI Timeline activity-row chrome descriptor convergence
+- Summary:
+  - Extended `/api/app/bootstrap` `capabilities.chrome.timeline.activity_rows`
+    descriptors for Timeline working, turn-fold, interaction, reasoning,
+    thinking, context-summary, command-result, review-result, and timer copy.
+  - Routed `TimelineRows` activity-row labels, status text, count templates, and
+    timer templates through normalized app-shell chrome instead of
+    renderer-local English defaults.
+  - Extended frontend source checks, app-shell normalizer assertions, backend
+    payload assertions, and pre-release architecture guards for the
+    activity-row copy boundary.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-234
+
+- Date: 2026-07-04
+- Change Topic: GUI Timeline work-group chrome descriptor convergence
+- Summary:
+  - Extended `/api/app/bootstrap` `capabilities.chrome.timeline.work_group`
+    descriptors for Timeline work-group aria labels and overflow toggle copy.
+  - Routed `TimelineRows` work-group labels through normalized app-shell chrome
+    instead of renderer-local tool-call English strings.
+  - Extended frontend source checks, app-shell normalizer assertions, backend
+    payload assertions, and pre-release architecture guards for the work-group
+    copy boundary.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-233
+
+- Date: 2026-07-04
+- Change Topic: GUI Timeline chrome descriptor convergence
+- Summary:
+  - Added `/api/app/bootstrap` `capabilities.chrome.timeline` descriptors for
+    Timeline log aria labels, empty/history/termination copy, and changed-files
+    card summary/action labels.
+  - Routed `Timeline`, `TimelineRows`, and `ChangedFilesCard` through normalized
+    timeline chrome instead of renderer-local English defaults.
+  - Added frontend source checks, app-shell normalizer assertions, backend
+    payload assertions, and pre-release architecture guards for the new
+    display-only boundary.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/Timeline.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/ChangedFilesCard.jsx`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-232
+
+- Date: 2026-07-04
+- Change Topic: GUI Diff Panel chrome descriptor convergence
+- Summary:
+  - Added `/api/app/bootstrap` `capabilities.surfaces.chrome.diff_panel`
+    descriptors for Diff Panel default title, empty state, controls, file rail,
+    collapse labels, and source-control diff title templates.
+  - Routed `DiffPanel`, `createDiffSurfaceState`, source-control diff opening,
+    and `/diff` socket effects through normalized `diffPanel` chrome instead of
+    renderer-local Diff/Git title defaults.
+  - Added webapp source checks, model/socket tests, backend app-shell payload
+    assertions, and pre-release architecture guards for the new boundary.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/diff/DiffPanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/diff-model.js`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-231
+
+- Date: 2026-07-04
+- Change Topic: GUI File surface tab title fallback convergence
+- Summary:
+  - Routed `fileSurfaceTitle(...)` through normalized
+    `capabilities.surfaces.chrome.file_preview.default_file_title`.
+  - Removed the remaining renderer-local `"File"` fallback from the right-panel
+    controller.
+  - Added frontend source and architecture guard coverage for the App/controller
+    handoff.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-230
+
+- Date: 2026-07-04
+- Change Topic: GUI Command Palette empty-state copy hardening
+- Summary:
+  - Removed the renderer-local English default from `CommandPaletteResults`.
+  - Kept Command Palette empty-state copy owned by `/api/app/bootstrap`
+    `capabilities.command_palette.labels`.
+  - Added frontend source and architecture guard coverage so missing app-shell
+    labels no longer revive a built-in GUI fallback.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/CommandPaletteResults.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-source.test.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-229
+
+- Date: 2026-07-04
+- Change Topic: GUI Composer menu chrome descriptor convergence
+- Summary:
+  - Extended `/api/app/bootstrap` `capabilities.chrome.composer` with a
+    `command_menu` descriptor for slash/path menu aria labels, empty states,
+    path group label, item-kind labels, and fallback command group copy.
+  - Routed `App.jsx`, `Composer.jsx`, `ComposerCommandMenu.jsx`, and the
+    composer search/interaction helpers through normalized app-shell Composer
+    menu chrome.
+  - Reused `capabilities.command_palette.groups` for Composer slash-command
+    group labels so the GUI does not keep a second command group title table.
+  - Added app-shell, frontend model/source, and architecture guard coverage for
+    Composer menu chrome ownership.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/Composer.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/composer/ComposerCommandMenu.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/composer/composer-command-search.js`
+  - `src/embedagent/frontend/gui/webapp/src/composer/composer-interaction-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/composer/composer-path-context.js`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/composer-command-search.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/composer-components-source.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/composer-interaction-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/composer-path-context.test.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-228
+
+- Date: 2026-07-04
+- Change Topic: GUI File Preview chrome descriptor convergence
+- Summary:
+  - Extended `/api/app/bootstrap` `capabilities.surfaces.chrome` with a
+    `file_preview` descriptor for default file/project labels, loading/error
+    fallback copy, retry/copy/explorer actions, metadata separators, line
+    labels, and language labels.
+  - Routed `App.jsx`, `RightPanelSurfaceBody.jsx`, `FilePreviewSurface.jsx`,
+    and `file-preview-model.js` through normalized app-shell file-preview
+    chrome instead of renderer-local English defaults.
+  - Removed the store-level file preview error fallback and added app-shell,
+    frontend model/source, and architecture guard coverage for File Preview
+    chrome ownership.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/FilePreviewSurface.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/file-preview-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/test/file-preview-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-227
+
+- Date: 2026-07-04
+- Change Topic: GUI Branch Toolbar chrome descriptor convergence
+- Summary:
+  - Extended `/api/app/bootstrap` `capabilities.source_control.chrome` with a
+    `branch_toolbar` descriptor for checkout labels, change/conflict summary
+    words, disabled reasons, action labels, refresh title, and metadata
+    separator.
+  - Routed `App.jsx`, `branch-toolbar-model.js`, and `BranchToolbar.jsx`
+    through normalized source-control chrome so the composer toolbar no longer
+    owns renderer-local English defaults.
+  - Added focused app-shell, webapp model/source, and architecture guard
+    coverage for Branch Toolbar chrome ownership.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/BranchToolbar.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/source-control/branch-toolbar-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/branch-toolbar-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-226
+
+- Date: 2026-07-04
+- Change Topic: GUI source-control chrome descriptor convergence
+- Summary:
+  - Extended `/api/app/bootstrap` `capabilities.source_control.chrome` with
+    source-control panel labels, notices, count labels, group labels, provider
+    labels, and runtime labels.
+  - Routed `App.jsx`, `SourceControlPanel.jsx`, and source-control
+    presentation helpers through normalized app-shell source-control chrome
+    instead of renderer-local English defaults.
+  - Added app-shell, frontend source, presentation-helper, and architecture
+    guard coverage for source-control chrome ownership.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/source-control/SourceControlPanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/source-control/source-control-presentation.js`
+  - `src/embedagent/frontend/gui/webapp/src/source-control/source-control-state.js`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-225
+
+- Date: 2026-07-04
+- Change Topic: Self-extension authoring workflow default decoupling
+- Summary:
+  - Removed the default C/C++ workflow `run_recipe` tool-name import from
+    `SelfExtensionAuthoringService`.
+  - Generated local recipe files and generated extension validation recipes no
+    longer write a default workflow `tool_name`; selected workflow packages
+    project runnable recipe tools at their own boundaries.
+  - Added behavior coverage and an architecture guard preventing
+    `self_extension_authoring.py` from importing C/C++ workflow defaults.
+- Impacted Scope:
+  - `src/embedagent/self_extension_authoring.py`
+  - `tests/test_self_extension_authoring.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/tool-contracts.md`
+  - `docs/modules/tools-and-tooling.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-224
+
+- Date: 2026-07-04
+- Change Topic: GUI bottom drawer chrome descriptor convergence
+- Summary:
+  - Extended `/api/app/bootstrap` `capabilities.surfaces.chrome` with bottom
+    drawer aria label, run-output empty text, and termination reason prefix.
+  - Routed `BottomDrawer.jsx` through `surfaceChromeLabels(appCapabilities)`
+    instead of renderer-local run-output copy.
+  - Added app-shell, frontend source, and architecture guard coverage for the
+    bottom drawer chrome fields.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/BottomDrawer.jsx`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-223
+
+- Date: 2026-07-04
+- Change Topic: GUI preview chrome descriptor convergence
+- Summary:
+  - Added `/api/app/bootstrap` `capabilities.preview` descriptors for preview
+    local-server presets, toolbar labels, status labels, empty states, and
+    failure notices.
+  - Routed `App.jsx`, `RightPanelSurfaceBody`, `PreviewSurface`, and
+    `preview-surface-model` through normalized preview chrome instead of
+    renderer-local English defaults.
+  - Added frontend source checks and architecture guards so Preview surface
+    copy cannot return to renderer-owned component/model paths.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/PreviewSurface.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/preview-surface-model.js`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-222
+
+- Date: 2026-07-04
+- Change Topic: Local resource discovery workflow default decoupling
+- Summary:
+  - Removed the default C/C++ workflow `run_recipe` tool-name import from
+    generic `local_resources` discovery.
+  - Local `.embedagent/recipes/*.json` resources now keep an empty `tool_name`
+    unless the resource explicitly declares one; the default C/C++ workflow
+    recipe list still normalizes runnable workspace recipes to its own
+    `run_recipe` tool boundary.
+  - Added local-resource behavior coverage and an architecture guard preventing
+    `local_resources.py` from importing C/C++ workflow defaults.
+- Impacted Scope:
+  - `src/embedagent/local_resources.py`
+  - `src/embedagent/workspace_recipes.py`
+  - `tests/test_local_resources.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/tools-and-tooling.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-221
+
+- Date: 2026-07-04
+- Change Topic: GUI terminal chrome descriptor convergence
+- Summary:
+  - Added `/api/app/bootstrap` `capabilities.terminal.chrome` descriptors for
+    terminal pane labels, toolbar actions, input placeholder, empty/unavailable
+    states, and failure notices.
+  - Routed `TerminalShell`, `terminal-controller`, and terminal label fallback
+    logic through the normalized app-shell terminal chrome instead of
+    renderer-local English defaults.
+  - Added frontend and architecture guards so terminal copy cannot return to
+    `TerminalShell.jsx`, `terminal-controller.js`, or `terminal-labels.js`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/TerminalShell.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/terminal/terminal-labels.js`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-220
+
+- Date: 2026-07-04
+- Change Topic: GUI surface display copy descriptor convergence
+- Summary:
+  - Removed renderer-local right-panel and bottom-drawer surface display copy
+    from `workbench/surfaces.js`; the local registry now keeps only supported
+    renderer mounting, resource, close-behavior, launcher support, and
+    persistence metadata.
+  - Surface titles, icons, descriptions, command labels, slash metadata,
+    launcher ordering, visibility hints, and keywords now come from normalized
+    `/api/app/bootstrap` app-shell surface descriptors when surfaces are
+    listed, opened, or rendered.
+  - Added frontend and architecture guards so missing app-shell surface
+    descriptors do not silently re-enable local GUI defaults.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelTabs.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `tests/test_pre_release_architecture_guards.py`
+  - `docs/modules/frontend-gui.md`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
+### DC-219
+
+- Date: 2026-07-04
+- Change Topic: GUI app-shell chrome copy descriptor convergence
+- Summary:
+  - Added `/api/app/bootstrap` `capabilities.chrome` descriptors for workbench
+    header, sidebar, composer, composer interaction, and legacy
+    Settings/Diagnostics/Plan panel copy.
+  - Removed the renderer-local `strings.js` / `LangContext` i18n table,
+    deleted the unused `InteractionPanel.jsx`, and routed active React
+    components through the normalized app-shell chrome read model.
+  - Added architecture guards so command/app/surface copy and GUI chrome copy
+    cannot return as frontend-owned global string registries.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/`
+  - `tests/test_pre_release_architecture_guards.py`
+  - `docs/modules/frontend-gui.md`
+- Related Docs:
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
 
 ### DC-218
 
@@ -1363,7 +4111,7 @@
 - 变更主题：GUI terminal runtime controller boundary
 - 变更摘要：
   - React webapp 新增 `webapp/src/app-runtime/terminal-controller.js`，集中管理 GUI terminal action orchestration，包括 bottom drawer terminal open/send/clear/restart/close 和 right-panel terminal open/split/activate/close。
-  - `App.jsx` 通过注入 state reader、dispatch、terminal API helpers 和 `nextTerminalId` 来装配 controller，不再承载大段 inline terminal action cluster。
+  - `App.jsx` 通过注入 state reader、dispatch 和 terminal API helpers 来装配 controller；terminal id generation 和 bottom drawer terminal open/select actions 归入 controller，不再承载大段 inline terminal action cluster。
   - Terminal HTTP route helpers 仍位于 `webapp/src/terminal/terminal-api.js`，terminal snapshot/event normalization 仍位于 `webapp/src/terminal/terminal-state.js`。
 - 影响范围：
   - `src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js`

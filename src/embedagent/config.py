@@ -18,13 +18,12 @@
         "max_recent_turns": 4,
         "auto_compact_threshold_ratio": 0.9,
         "default_mode": "explore",
-        "agent_application_id": "embedagent.default_c_cpp",
         "mode_writable_globs": {
             "build": ["**/*.py", "**/*.toml", "**/*.cfg"],
             "spec": ["**/*.md", "**/*.rst"]
         },
         "mode_extra_writable_globs": {
-            "build": ["CMakeLists.txt", "**/*.cmake"]
+            "build": ["scripts/**/*.ps1", "tools/**/*.json"]
         }
     }
 """

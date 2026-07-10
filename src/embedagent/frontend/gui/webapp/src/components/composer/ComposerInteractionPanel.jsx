@@ -6,10 +6,11 @@ import ComposerPendingUserInputPanel from "./ComposerPendingUserInputPanel.jsx";
 export default function ComposerInteractionPanel({
   interaction,
   notice,
+  chrome = {},
   busy = false,
   onRespond,
 }) {
-  const view = normalizeComposerInteraction(interaction, notice);
+  const view = normalizeComposerInteraction(interaction, notice, chrome);
 
   if (!view) return null;
   if (view.kind === "notice") {

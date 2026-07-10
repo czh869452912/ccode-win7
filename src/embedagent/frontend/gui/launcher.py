@@ -283,14 +283,23 @@ def launch_gui(
         # 创建 GUI Backend
         static_dir = os.path.join(os.path.dirname(__file__), "static")
 
+        from embedagent.agent_applications import agent_application_capability_payload
         from embedagent.frontend.gui.backend.app_host import GUIAppHost
         from embedagent.frontend.gui.backend.server import GUIBackend
+        from embedagent_host.agent_application_registry import product_agent_application_registry
 
         def core_factory(path: str):
             _LOGGER.info("Initializing Agent Core for workspace: %s", path)
             return create_core(path, runtime_config)
 
-        app_host = GUIAppHost(core_factory=core_factory)
+        agent_application_registry = product_agent_application_registry()
+        app_host = GUIAppHost(
+            core_factory=core_factory,
+            agent_capabilities=agent_application_capability_payload(
+                agent_application_id or "",
+                registry=agent_application_registry,
+            ),
+        )
         backend = GUIBackend(
             core=None,
             static_dir=static_dir,

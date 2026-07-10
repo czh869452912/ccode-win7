@@ -11,7 +11,6 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from embedagent.di_container import get_default_container
-from embedagent.modes import DEFAULT_MODE
 from embedagent.protocol import (
     CommandResult,
     CoreInterface,
@@ -43,20 +42,6 @@ _SESSION_EVENT_NAMES: frozenset = frozenset(
         "session_error",
     }
 )
-_TASK_INVALIDATION = "tasks"
-_ARTIFACT_INVALIDATION = "artifacts"
-
-
-def _read_model_invalidations(payload: Dict[str, Any]) -> List[str]:
-    values = []
-    raw = payload.get("read_model_invalidations")
-    if not raw and isinstance(payload.get("data"), dict):
-        raw = payload["data"].get("read_model_invalidations")
-    for item in list(raw or []):
-        text = str(item or "").strip()
-        if text and text not in values:
-            values.append(text)
-    return values
 
 
 def get_inprocess_adapter(fresh: bool = False):
@@ -109,7 +94,7 @@ def _session_snapshot_from_dict(snapshot: Dict[str, Any]) -> SessionSnapshot:
     return SessionSnapshot(
         session_id=snapshot.get("session_id", ""),
         status=_status_from_snapshot(snapshot),
-        current_mode=snapshot.get("current_mode") or DEFAULT_MODE,
+        current_mode=str(snapshot.get("current_mode") or ""),
         created_at=snapshot.get("started_at", ""),
         updated_at=snapshot.get("updated_at", ""),
         workflow_state=snapshot.get("workflow_state", "chat"),
@@ -212,7 +197,6 @@ class CallbackBridge:
             self.frontend.on_tool_start(call)
 
         elif event_name == "tool_finished":
-            read_model_invalidations = _read_model_invalidations(payload)
             result = ToolResult(
                 tool_name=payload.get("tool_name", ""),
                 success=payload.get("success", False),
@@ -230,14 +214,6 @@ class CallbackBridge:
                 ),
             )
             self.frontend.on_tool_finish(result)
-            if _TASK_INVALIDATION in read_model_invalidations and hasattr(
-                self.frontend, "on_tasks_refresh"
-            ):
-                self.frontend.on_tasks_refresh()
-            if _ARTIFACT_INVALIDATION in read_model_invalidations and hasattr(
-                self.frontend, "on_artifacts_refresh"
-            ):
-                self.frontend.on_artifacts_refresh()
 
         elif event_name == "session_error":
             snapshot = payload.get("session_snapshot", {})
@@ -477,9 +453,6 @@ class AgentCoreAdapter(CoreInterface):
             dir_count=tree_info.get("dir_count", 0),
         )
 
-    def list_workspace_recipes(self) -> Dict[str, Any]:
-        return self._adapter.list_workspace_recipes()
-
     def reload_resources(self, session_id: str = "", reason: str = "api") -> Dict[str, Any]:
         return self._adapter.reload_resources(session_id=session_id, reason=reason)
 
@@ -496,12 +469,6 @@ class AgentCoreAdapter(CoreInterface):
 
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
         return self._adapter.write_workspace_file(path, content)
-
-    def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
-        return self._adapter.list_artifacts(limit=limit)
-
-    def read_artifact(self, reference: str) -> Dict[str, Any]:
-        return self._adapter.read_artifact(reference)
 
     def get_diff_preview(self, path: str, new_content: str) -> DiffPreview:
         old_content = ""
@@ -525,10 +492,6 @@ class AgentCoreAdapter(CoreInterface):
             path=path, old_content=old_content, new_content=new_content, unified_diff=unified_diff
         )
 
-    def list_tasks(self, session_id: str = "") -> List[Dict[str, Any]]:
-        result = self._adapter.list_tasks(session_id=session_id)
-        return result.get("tasks", [])
-
     def get_session_plan(self, session_id: str) -> Optional[PlanSnapshot]:
         payload = self._adapter.get_session_plan(session_id)
         return payload
@@ -540,9 +503,6 @@ class AgentCoreAdapter(CoreInterface):
         return self._snapshot_to_protocol(
             self._adapter.remember_permission_category(session_id, category)
         )
-
-    def get_tool_catalog(self) -> List[Dict[str, Any]]:
-        return self._adapter.get_tool_catalog()
 
     def shutdown(self) -> None:
         """关闭 Core"""

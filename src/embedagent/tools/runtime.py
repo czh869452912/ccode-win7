@@ -36,7 +36,8 @@ from embedagent.tools._base import ToolContext
 _VALID_TOOL_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _REGISTERABLE_PERMISSION_CATEGORIES = OFFICIAL_PERMISSION_CATEGORIES
 _EXTENSION_REQUIRED_PERMISSION_METADATA = ("permission_category",)
-_READ_MODEL_INVALIDATIONS = frozenset(("workspace_files", "tasks", "artifacts", "capabilities"))
+_READ_MODEL_INVALIDATIONS = frozenset(("workspace_files", "tasks", "capabilities"))
+_PRESENTATION_METADATA_KEYS = ("preview_arg", "changed_path_arg")
 
 
 def _normalize_read_model_invalidations(tool_name: str, value: Any) -> List[str]:
@@ -58,6 +59,15 @@ def _normalize_read_model_invalidations(tool_name: str, value: Any) -> List[str]
     return result
 
 
+def _presentation_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+    payload = {}
+    for key in _PRESENTATION_METADATA_KEYS:
+        value = str(metadata.get(key) or "").strip()
+        if value:
+            payload[key] = value
+    return payload
+
+
 _DEFAULT_TOOL_METADATA = {
     "read_file": {
         "permission_category": "read",
@@ -67,6 +77,7 @@ _DEFAULT_TOOL_METADATA = {
         "progress_renderer_key": "file",
         "result_renderer_key": "file",
         "supports_diff_preview": False,
+        "preview_arg": "path",
         "context_reducer_key": "read_file",
         "read_only": True,
         "concurrency_safe": True,
@@ -83,6 +94,8 @@ _DEFAULT_TOOL_METADATA = {
         "progress_renderer_key": "file_write",
         "result_renderer_key": "file_write",
         "supports_diff_preview": True,
+        "preview_arg": "path",
+        "changed_path_arg": "path",
         "context_reducer_key": "write_file",
         "read_only": False,
         "concurrency_safe": False,
@@ -90,7 +103,7 @@ _DEFAULT_TOOL_METADATA = {
         "result_budget_policy": "compact-preview",
         "activity_kind": "edit",
         "context_priority": 95,
-        "read_model_invalidations": ["workspace_files", "tasks", "artifacts"],
+        "read_model_invalidations": ["workspace_files", "tasks"],
     },
     "edit_file": {
         "permission_category": "workspace_write",
@@ -100,6 +113,8 @@ _DEFAULT_TOOL_METADATA = {
         "progress_renderer_key": "file_edit",
         "result_renderer_key": "file_edit",
         "supports_diff_preview": True,
+        "preview_arg": "path",
+        "changed_path_arg": "path",
         "context_reducer_key": "edit_file",
         "read_only": False,
         "concurrency_safe": False,
@@ -107,7 +122,7 @@ _DEFAULT_TOOL_METADATA = {
         "result_budget_policy": "compact-preview",
         "activity_kind": "edit",
         "context_priority": 95,
-        "read_model_invalidations": ["workspace_files", "tasks", "artifacts"],
+        "read_model_invalidations": ["workspace_files", "tasks"],
     },
     "bash": {
         "permission_category": "shell_exec",
@@ -117,6 +132,7 @@ _DEFAULT_TOOL_METADATA = {
         "progress_renderer_key": "command",
         "result_renderer_key": "command",
         "supports_diff_preview": False,
+        "preview_arg": "command",
         "context_reducer_key": "bash",
         "read_only": False,
         "concurrency_safe": False,
@@ -197,6 +213,7 @@ _DEFAULT_TOOL_METADATA = {
         "progress_renderer_key": "search",
         "result_renderer_key": "search",
         "supports_diff_preview": False,
+        "preview_arg": "pattern",
         "context_reducer_key": "glob_files",
         "read_only": True,
         "concurrency_safe": True,
@@ -213,6 +230,7 @@ _DEFAULT_TOOL_METADATA = {
         "progress_renderer_key": "search",
         "result_renderer_key": "search",
         "supports_diff_preview": False,
+        "preview_arg": "pattern",
         "context_reducer_key": "grep_text",
         "read_only": True,
         "concurrency_safe": True,
@@ -252,7 +270,7 @@ _DEFAULT_TOOL_METADATA = {
         "result_budget_policy": "compact-preview",
         "activity_kind": "edit",
         "context_priority": 82,
-        "read_model_invalidations": ["workspace_files", "tasks", "artifacts"],
+        "read_model_invalidations": ["workspace_files", "tasks"],
     },
 }
 
@@ -273,6 +291,7 @@ class ToolRuntime(ToolRuntimePort):
             if cache is not None
             else ToolResultCache(tool_result_store=self.tool_result_store)
         )
+        self._workspace_recipe_provider = None
         core_tools = (
             file_ops.build_tools(self._ctx)
             + discovery_ops.build_tools(self._ctx)
@@ -400,6 +419,7 @@ class ToolRuntime(ToolRuntimePort):
                 progress_renderer_key=str(metadata.get("progress_renderer_key") or "default"),
                 result_renderer_key=str(metadata.get("result_renderer_key") or "default"),
                 supports_diff_preview=bool(metadata.get("supports_diff_preview")),
+                metadata=_presentation_metadata(metadata),
             ),
             context_policy=ToolContextPolicy(
                 context_reducer_key=str(metadata.get("context_reducer_key") or tool.name),
@@ -478,7 +498,14 @@ class ToolRuntime(ToolRuntimePort):
         return descriptors
 
     def workspace_recipes(self) -> Dict[str, Any]:
+        if callable(self._workspace_recipe_provider):
+            payload = self._workspace_recipe_provider()
+            if isinstance(payload, dict):
+                return payload
         return self._ctx.list_workspace_recipes()
+
+    def set_workspace_recipe_provider(self, provider) -> None:
+        self._workspace_recipe_provider = provider
 
     def execute(self, name: str, arguments: Dict[str, Any]) -> Observation:
         return self.execute_with_interrupt(name, arguments, None)
@@ -564,6 +591,10 @@ class ToolRuntime(ToolRuntimePort):
                 )
                 data.setdefault("progress_renderer_key", entry.presentation.progress_renderer_key)
                 data.setdefault("result_renderer_key", entry.presentation.result_renderer_key)
+                data.setdefault(
+                    "presentation_metadata",
+                    dict(entry.presentation.metadata or {}),
+                )
                 data.setdefault(
                     "read_model_invalidations",
                     list(entry.context_policy.read_model_invalidations),

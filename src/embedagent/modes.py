@@ -8,7 +8,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from embedagent.agent_profiles import default_c_cpp_agent_profile
+from embedagent.agent_profiles import generic_agent_profile
 from embedagent.di_container import get_default_container
 
 _LOG = logging.getLogger(__name__)
@@ -33,10 +33,11 @@ _DEFAULT_PROMPT_FRAME = (
 )
 
 # ---------------------------------------------------------------------------
-# Built-in mode definitions come from the hosted default agent profile.
+# Built-in mode definitions come from the global/base agent profile.
+# Selected AgentApplication profiles provide specialized hosted mode policy.
 # Workflow packages add scenario tools through the extension boundary.
 # ---------------------------------------------------------------------------
-_DEFAULT_AGENT_PROFILE = default_c_cpp_agent_profile()
+_DEFAULT_AGENT_PROFILE = generic_agent_profile()
 _BUILTIN_MODES = _DEFAULT_AGENT_PROFILE.mode_registry()
 
 _MODE_COMMAND_RE = re.compile(r"^/mode\s+(\w+)(?:\s+(.*))?$", re.DOTALL)

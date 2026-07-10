@@ -57,7 +57,7 @@ export function resolveVisiblePermission(explicitPermission, snapshot) {
   return null;
 }
 
-export function normalizeSessionPayload(payload, defaultMode = "explore") {
+export function normalizeSessionPayload(payload, defaultMode = "") {
   const recentTransitions = Array.isArray(payload.recent_transitions)
     ? payload.recent_transitions.map((entry) => ({
         ...entry,
@@ -72,7 +72,7 @@ export function normalizeSessionPayload(payload, defaultMode = "explore") {
     current_mode: payload.current_mode || defaultMode,
     started_at: payload.started_at || payload.created_at || "",
     updated_at: payload.updated_at || "",
-    workflow_state: payload.workflow_state || "chat",
+    workflow_state: payload.workflow_state || "",
     has_active_plan: Boolean(payload.has_active_plan),
     active_plan_ref: payload.active_plan_ref || "",
     current_command_context: payload.current_command_context || "",

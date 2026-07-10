@@ -26,7 +26,7 @@ class TranscriptStorePort(Protocol):
         session_id: str,
         event_type: str,
         payload: Dict[str, Any],
-        schema_version: int = 1,
+        schema_version: int = 2,
     ) -> None:
         raise NotImplementedError
 
@@ -114,12 +114,14 @@ class InMemoryTranscriptStore(object):
         session_id: str,
         event_type: str,
         payload: Dict[str, Any],
-        schema_version: int = 1,
+        schema_version: int = 2,
     ) -> None:
+        if schema_version != 2:
+            raise ValueError("transcript events must use schema_version 2")
         event = {
             "type": event_type,
             "payload": dict(payload or {}),
-            "schema_version": int(schema_version or 1),
+            "schema_version": 2,
         }
         self._events.setdefault(str(session_id or ""), []).append(event)
 

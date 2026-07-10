@@ -1,9 +1,9 @@
 import React from "react";
-import { t } from "../../strings.js";
 import { modeBadgeLabel, modeBadgeStyle } from "../../session-runtime/mode-style.js";
 
 export default function WorkbenchHeader({
-  lang,
+  productName,
+  chrome = {},
   currentMode,
   currentStatus,
   currentSessionId,
@@ -14,14 +14,16 @@ export default function WorkbenchHeader({
   bottomDrawerOpen,
   modeCatalog = {},
   onRefresh,
-  onToggleLang,
   onToggleRightPanel,
   onToggleBottomDrawer,
   onOpenPalette,
 }) {
+  const turnCounter = chrome.turnsLabel
+    ? `${chrome.turnsLabel} ${turnsUsed}/${maxTurns}`
+    : `${turnsUsed}/${maxTurns}`;
   return (
     <header className="app-header workbench-header" data-testid="workbench-header">
-      <span className="app-logo">EmbedAgent</span>
+      <span className="app-logo">{productName}</span>
       <span className="mode-badge" style={modeBadgeStyle(currentMode, modeCatalog)}>
         {modeBadgeLabel(currentMode, modeCatalog)}
       </span>
@@ -44,41 +46,43 @@ export default function WorkbenchHeader({
             <span className="meta-text">{currentSessionId.slice(0, 8)}</span>
           ) : null}
           {turnsUsed > 0 && maxTurns != null ? (
-            <span className="meta-text">turns {turnsUsed}/{maxTurns}</span>
+            <span className="meta-text">{turnCounter}</span>
           ) : null}
         </div>
         <div className="header-action-group">
-          <button className="ghost" onClick={onOpenPalette} data-testid="open-command-palette">
-            Cmd
-          </button>
-          <button className="ghost" onClick={onRefresh} aria-label={t("header.refresh", lang)} data-testid="refresh-sessions">
-            {t("header.refresh", lang)}
+          <button
+            className="ghost"
+            onClick={onOpenPalette}
+            aria-label={chrome.commandPaletteLabel}
+            data-testid="open-command-palette"
+          >
+            {chrome.commandPaletteShortLabel}
           </button>
           <button
-            className="ghost lang-toggle"
-            onClick={onToggleLang}
-            aria-label="Toggle language"
-            data-testid="lang-toggle"
+            className="ghost"
+            onClick={onRefresh}
+            aria-label={chrome.refreshLabel}
+            data-testid="refresh-sessions"
           >
-            {t("lang.toggle", lang)}
+            {chrome.refreshLabel}
           </button>
           <button
             className={`ghost drawer-toggle${bottomDrawerOpen ? " active" : ""}`}
             onClick={onToggleBottomDrawer}
             aria-pressed={bottomDrawerOpen}
-            title="Toggle run output"
+            title={chrome.bottomDrawerTitle}
             data-testid="drawer-toggle"
           >
-            Run
+            {chrome.bottomDrawerLabel}
           </button>
           <button
-            className={`ghost inspector-toggle${rightPanelOpen ? " active" : ""}`}
+            className={`ghost right-panel-toggle${rightPanelOpen ? " active" : ""}`}
             onClick={onToggleRightPanel}
-            title={t("header.toggleInspector", lang)}
+            title={chrome.rightPanelTitle}
             aria-pressed={rightPanelOpen}
-            data-testid="inspector-toggle"
+            data-testid="right-panel-toggle"
           >
-            Panel
+            {chrome.rightPanelLabel}
           </button>
         </div>
       </div>

@@ -19,6 +19,7 @@ function derive(type, data, options = {}) {
     sessionTransport: options.sessionTransport || { lastAppliedSeq: 4 },
     makeId: options.makeId || makeDeterministicIdFactory(),
     nowIso: options.nowIso || (() => "2026-06-18T00:00:00.000Z"),
+    diffPanelChrome: options.diffPanelChrome || {},
   });
 }
 
@@ -229,18 +230,41 @@ export function runSocketMessageEffectsTests() {
     command_name: "diff",
     success: true,
     message: "diff ready",
+    log_label: "Diff command",
+    log_detail: "ready",
     data: { diff: "--- a/src/main.c\n+++ b/src/main.c\n@@ -1 +1 @@\n-int a;\n+int b;\n" },
     turn_id: "turn-1",
   });
   assert.equal(commandDiff.actions[0].type, "command_result");
   assert.equal(commandDiff.actions[0].createdAt, "2026-06-18T00:00:00.000Z");
   assert.equal(commandDiff.actions[1].type, "diff_surface_opened");
-  assert.equal(commandDiff.actions[1].diffSurface.title, "Git Diff");
+  assert.equal(commandDiff.actions[1].diffSurface.title, "");
+  const commandDiffWithChrome = derive(
+    "command_result",
+    {
+      command_name: "diff",
+      success: true,
+      data: { diff: "--- a/src/main.c\n+++ b/src/main.c\n@@ -1 +1 @@\n-int a;\n+int b;\n" },
+      turn_id: "turn-1",
+    },
+    { diffPanelChrome: { defaultTitle: "Patch" } },
+  );
+  assert.equal(commandDiffWithChrome.actions[1].diffSurface.title, "Patch");
   assert.deepEqual(commandDiff.actions[commandDiff.actions.length - 1], {
     type: "log_event",
-    label: "command: /diff",
-    detail: "ok",
+    label: "Diff command",
+    detail: "ready",
   });
+
+  const structuredDiffCommand = derive("command_result", {
+    command_name: "custom_patch",
+    success: true,
+    data: { diff: "--- a/src/custom.c\n+++ b/src/custom.c\n@@ -1 +1 @@\n-old\n+new\n" },
+    turn_id: "turn-custom-diff",
+  });
+  assert.equal(structuredDiffCommand.actions[0].type, "command_result");
+  assert.equal(structuredDiffCommand.actions[1].type, "diff_surface_opened");
+  assert.equal(structuredDiffCommand.actions[1].diffSurface.turnId, "turn-custom-diff");
 
   const commandResume = derive("command_result", {
     command_name: "resume",
@@ -249,6 +273,15 @@ export function runSocketMessageEffectsTests() {
   });
   assert.deepEqual(commandResume.loaderRequests, [
     { name: LOADER_REQUESTS.LOAD_SESSION, sessionId: "sess-next" },
+  ]);
+
+  const commandSessionSwitch = derive("command_result", {
+    command_name: "custom_resume",
+    success: true,
+    data: { switch_session_id: "sess-specialized" },
+  });
+  assert.deepEqual(commandSessionSwitch.loaderRequests, [
+    { name: LOADER_REQUESTS.LOAD_SESSION, sessionId: "sess-specialized" },
   ]);
 
   const commandResourcesReload = derive("command_result", {
@@ -265,16 +298,18 @@ export function runSocketMessageEffectsTests() {
     success: true,
     data: { active: "D:/work/demo" },
   });
-  assert.equal(commandWorkspace.actions[1].type, "preview_loaded");
-  assert.equal(commandWorkspace.actions[1].preview.kind, "workspace");
+  assert.deepEqual(commandWorkspace.actions.map((item) => item.type), [
+    "command_result",
+  ]);
 
   const commandRecipes = derive("command_result", {
     command_name: "recipes",
     success: true,
     data: { items: [{ id: "build" }] },
   });
-  assert.equal(commandRecipes.actions[1].type, "recipes_loaded");
-  assert.deepEqual(commandRecipes.actions[2], { type: "set_inspector", value: "run" });
+  assert.deepEqual(commandRecipes.actions.map((item) => item.type), [
+    "command_result",
+  ]);
 
   const finished = derive("session_finished", {
     session_snapshot: { session_id: "sess-active", status: "completed" },
@@ -283,8 +318,8 @@ export function runSocketMessageEffectsTests() {
   assert.equal(finished.actions[1].type, "session_snapshot");
   assert.deepEqual(finished.loaderRequests, [
     { name: LOADER_REQUESTS.LOAD_SESSIONS },
-    { name: LOADER_REQUESTS.LOAD_TASKS, sessionId: "sess-active" },
   ]);
+  assert.deepEqual(derive("tasks_refresh").loaderRequests, []);
 
   const compacted = derive("message", {
     id: "compact-1",

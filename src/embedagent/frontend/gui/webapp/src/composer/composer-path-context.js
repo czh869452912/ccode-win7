@@ -71,11 +71,11 @@ export function searchComposerPathCandidates(candidates = [], query = "", limit 
   return ranked.slice(0, Math.max(0, limit));
 }
 
-export function groupComposerPathCandidates(items = []) {
+export function groupComposerPathCandidates(items = [], commandMenuChrome = {}) {
   return [
     {
       id: "path-group:files",
-      label: "Files",
+      label: commandMenuChrome.pathGroupLabel || "",
       items: Array.isArray(items) ? items : [],
     },
   ].filter((group) => group.items.length > 0);

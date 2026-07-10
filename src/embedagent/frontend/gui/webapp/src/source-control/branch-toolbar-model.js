@@ -16,14 +16,16 @@ function safeCounts(counts = {}) {
   };
 }
 
-export function summarizeBranchToolbarChanges(counts = {}) {
+export function summarizeBranchToolbarChanges(counts = {}, chrome = {}) {
   const safe = safeCounts(counts);
   if (safe.conflicted > 0) {
-    return `${safe.conflicted} ${safe.conflicted === 1 ? "conflict" : "conflicts"}`;
+    const label = safe.conflicted === 1 ? chrome.conflictSingular : chrome.conflictPlural;
+    return `${safe.conflicted} ${label}`.trim();
   }
   const total = safe.total || safe.staged + safe.unstaged + safe.untracked + safe.conflicted;
-  if (total <= 0) return "Clean";
-  return `${total} ${total === 1 ? "change" : "changes"}`;
+  if (total <= 0) return chrome.cleanLabel || "";
+  const label = total === 1 ? chrome.changeSingular : chrome.changePlural;
+  return `${total} ${label}`.trim();
 }
 
 export function resolveBranchLabel({
@@ -31,38 +33,46 @@ export function resolveBranchLabel({
   head = "",
   isRepo = false,
   gitAvailable = true,
-} = {}) {
-  if (!gitAvailable) return { label: "Git unavailable", tone: "disabled" };
-  if (!isRepo) return { label: "No repository", tone: "disabled" };
+} = {}, chrome = {}) {
+  if (!gitAvailable) return { label: chrome.gitUnavailableLabel || "", tone: "disabled" };
+  if (!isRepo) return { label: chrome.notRepositoryLabel || "", tone: "disabled" };
   const branchText = String(branch || "").trim();
   if (branchText) return { label: branchText, tone: "branch" };
   const headText = String(head || "").trim();
-  if (headText) return { label: `detached ${headText.slice(0, 7)}`, tone: "detached" };
-  return { label: "Unknown ref", tone: "muted" };
+  if (headText) {
+    return { label: `${chrome.detachedPrefix || ""} ${headText.slice(0, 7)}`.trim(), tone: "detached" };
+  }
+  return { label: chrome.unknownRefLabel || "", tone: "muted" };
 }
 
-export function buildBranchToolbarModel({ activeWorkspace = null, sourceControl = null } = {}) {
+export function buildBranchToolbarModel({
+  activeWorkspace = null,
+  sourceControl = null,
+  sourceControlChrome = {},
+} = {}) {
   if (!activeWorkspace) {
     return { visible: false };
   }
+  const chrome = sourceControlChrome?.branchToolbar || {};
   const data = normalizeSourceControlStatus(sourceControl?.data || {});
   const status = String(sourceControl?.status || "idle");
   const workspaceLabel =
     String(activeWorkspace.label || "").trim() ||
     basenameFromPath(activeWorkspace.path || "") ||
-    "Workspace";
+    chrome.defaultWorkspaceLabel ||
+    "";
   const loading = status === "loading";
   const error = status === "error";
   const branch = loading
-    ? { label: "Checking Git...", tone: "muted" }
+    ? { label: chrome.loadingLabel || "", tone: "muted" }
     : error
-      ? { label: "Git status unavailable", tone: "disabled" }
+      ? { label: chrome.errorLabel || "", tone: "disabled" }
       : resolveBranchLabel({
           branch: data.branch,
           head: data.head,
           isRepo: data.isRepo,
           gitAvailable: data.gitAvailable,
-        });
+        }, chrome);
   const repoState = loading
     ? "loading"
     : error
@@ -75,24 +85,33 @@ export function buildBranchToolbarModel({ activeWorkspace = null, sourceControl 
   const disabled = repoState !== "repo";
   const disabledReason =
     repoState === "git_unavailable"
-      ? "Git is unavailable in this offline bundle or workspace."
+      ? chrome.gitUnavailableReason || ""
       : repoState === "not_repo"
-        ? "This workspace is not a Git repository."
+        ? chrome.notRepositoryReason || ""
         : repoState === "error"
-          ? String(sourceControl?.error || "Git status is unavailable.")
+          ? String(sourceControl?.error || chrome.errorReasonFallback || "")
           : "";
+  const providerText = providerLabel(data.provider, sourceControlChrome);
+  const changeText = summarizeBranchToolbarChanges(data.counts, chrome);
+  const separator = chrome.metadataSeparator || "";
   return {
     visible: true,
     workspaceLabel,
-    modeLabel: "Current checkout",
-    modeDescription: "Run in the active workspace checkout.",
+    modeLabel: chrome.currentCheckoutLabel || "",
+    modeDescription: chrome.currentCheckoutDescription || "",
     branchLabel: branch.label,
     branchTone: branch.tone,
-    providerLabel: providerLabel(data.provider),
-    changeCountLabel: summarizeBranchToolbarChanges(data.counts),
+    providerLabel: providerText,
+    changeCountLabel: changeText,
+    branchMetaLabel: [providerText, changeText].filter(Boolean).join(separator),
     repoState,
     disabled,
     disabledReason,
     canRefresh: true,
+    readOnlyActionTitle: chrome.readOnlyActionTitle || "",
+    worktreeLabel: chrome.worktreeActionLabel || "",
+    branchActionLabel: chrome.branchActionLabel || "",
+    refreshLabel: chrome.refreshLabel || "",
+    refreshTitle: chrome.refreshTitle || "",
   };
 }

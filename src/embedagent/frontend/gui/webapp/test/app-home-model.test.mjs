@@ -9,6 +9,9 @@ import {
 export function runAppHomeModelTests() {
   const model = buildAppHomeModel({
     app: {
+      app: {
+        productName: "Python Agent Workbench",
+      },
       hasActiveWorkspace: true,
       activeWorkspace: {
         id: "ws-active",
@@ -31,6 +34,36 @@ export function runAppHomeModelTests() {
         },
       ],
       activatingWorkspace: false,
+      capabilities: {
+        home: {
+          workspace: {
+            sectionTitle: "Projects",
+            inactiveLabel: "No project",
+            inactivePath: "Choose a project",
+            pathPlaceholder: "Project path",
+            openLabel: "Open Project",
+            openAriaLabel: "Open project",
+            recentsLabel: "Recent projects",
+            missingPathLabel: "Missing project path",
+            removeLabel: "Forget",
+          },
+          threads: {
+            sectionTitle: "Runs",
+            newLabel: "Start",
+            emptyTitle: "No runs",
+            emptyBody: "Start a run for this project.",
+            activeLabel: "current",
+            actionsLabelPrefix: "Run actions for",
+            sessionFallbackPrefix: "Run",
+          },
+        },
+        emptyState: {
+          scenarioLabel: "Python workspace",
+          primary: "Open a Python project",
+          secondary: "Choose a Python project folder.",
+          pathPlaceholder: "Python project path",
+        },
+      },
     },
     sessions: [
       {
@@ -53,34 +86,61 @@ export function runAppHomeModelTests() {
         current_mode: "verify",
         updated_at: "",
       },
+      {
+        session_id: "sess-untitled",
+        current_mode: "",
+        updated_at: "",
+      },
     ],
     currentSessionId: "sess-active",
     defaultMode: "explore",
-    threadLifecycleCapabilities: { rename: true, fork: true, archive: true },
+    threadLifecycleCapabilities: {
+      actions: [
+        {
+          id: "rename",
+          label: "Retitle",
+          capability: "rename",
+          order: 10,
+          promptTitle: "Retitle prompt",
+        },
+        { id: "archive", label: "Hide", capability: "archive", order: 20, danger: true },
+      ],
+    },
   });
 
   assert.equal(model.workspace.hasActiveWorkspace, true);
+  assert.equal(model.productName, "Python Agent Workbench");
   assert.equal(model.workspace.activeLabel, "parser");
+  assert.equal(model.workspace.copy.sectionTitle, "Projects");
+  assert.equal(model.workspace.copy.pathPlaceholder, "Project path");
+  assert.equal(model.workspace.copy.openLabel, "Open Project");
+  assert.equal(model.workspace.copy.missingPathLabel, "Missing project path");
   assert.equal(model.workspace.rows.length, 2);
   assert.equal(model.workspace.rows[0].isActive, true);
   assert.equal(model.workspace.rows[0].status, "active");
   assert.equal(model.workspace.rows[1].status, "missing");
+  assert.equal(model.workspace.rows[1].pathLabel, "Missing project path");
   assert.equal(model.workspace.rows[1].disabled, true);
   assert.equal(model.threads.canCreateThread, true);
-  assert.equal(model.threads.count, 3);
+  assert.equal(model.threads.copy.sectionTitle, "Runs");
+  assert.equal(model.threads.copy.activeLabel, "current");
+  assert.equal(model.threads.count, 4);
   assert.equal(model.threads.rows[0].title, "Fix parser recovery");
   assert.equal(model.threads.rows[0].isActive, true);
   assert.equal(model.threads.rows[0].mode, "build");
   assert.equal(model.threads.rows[0].updated, "not-a-date");
   assert.deepEqual(
     model.threads.rows[0].actions.map((action) => action.id),
-    ["rename", "fork", "archive"],
+    ["rename", "archive"],
   );
+  assert.equal(model.threads.rows[0].actions[0].label, "Retitle");
+  assert.equal(model.threads.rows[0].actions[0].promptTitle, "Retitle prompt");
   assert.equal(model.threads.rows[0].actions[0].enabled, true);
   assert.equal(model.threads.rows[0].actions[0].reason, "");
   assert.equal(model.threads.rows[1].mode, "explore");
   assert.equal(model.threads.rows[2].title, "Thread metadata title");
   assert.equal(model.threads.rows[2].mode, "verify");
+  assert.equal(model.threads.rows[3].title, "Run sess-unt");
 
   const emptyHome = buildAppHomeModel({
     app: {
@@ -95,13 +155,36 @@ export function runAppHomeModelTests() {
         },
       ],
       activatingWorkspace: true,
+      capabilities: {
+        home: {
+          workspace: {
+            inactiveLabel: "No project",
+            inactivePath: "Choose a project",
+            pathPlaceholder: "Project path",
+            openLabel: "Open Project",
+            recentsLabel: "Recent projects",
+            missingPathLabel: "Missing project path",
+          },
+          threads: {
+            emptyTitle: "No runs",
+            emptyBody: "Start a run for this project.",
+          },
+        },
+        emptyState: {
+          scenarioLabel: "Python workspace",
+          primary: "Open a Python project",
+          secondary: "Choose a Python project folder.",
+          pathPlaceholder: "Python project path",
+        },
+      },
     },
     sessions: [],
     currentSessionId: "",
   });
 
   assert.equal(emptyHome.workspace.hasActiveWorkspace, false);
-  assert.equal(emptyHome.workspace.activeLabel, "No workspace");
+  assert.equal(emptyHome.workspace.activeLabel, "No project");
+  assert.equal(emptyHome.workspace.activePath, "Choose a project");
   assert.equal(emptyHome.workspace.rows[0].label, "demo");
   assert.equal(emptyHome.workspace.rows[0].disabled, true);
   assert.equal(emptyHome.threads.canCreateThread, false);
@@ -109,25 +192,60 @@ export function runAppHomeModelTests() {
 
   const enabledActions = buildThreadLifecycleActions(
     { session_id: "sess-active" },
-    { rename: true, fork: true, archive: false },
+    {
+      actions: [
+        { id: "fork", label: "Clone", capability: "fork", order: 20 },
+        { id: "rename", label: "Retitle", capability: "rename", order: 10 },
+        { id: "archive", label: "Hide", capability: "archive", order: 30, enabled: false },
+      ],
+    },
   );
   assert.deepEqual(
     enabledActions.map((action) => action.capability),
     ["rename", "fork", "archive"],
   );
-  assert.equal(enabledActions[0].label, "Rename");
+  assert.equal(enabledActions[0].label, "Retitle");
   assert.equal(enabledActions[0].enabled, true);
   assert.equal(enabledActions[1].enabled, true);
   assert.equal(enabledActions[2].enabled, false);
   assert.equal(enabledActions[2].reason, "backend_not_available");
 
+  const descriptorOnlyActions = buildThreadLifecycleActions(
+    { session_id: "sess-active" },
+    {
+      actions: [
+        { id: "rename", capability: "rename", order: 10 },
+        { id: "fork", label: "Clone", capability: "fork", order: 20 },
+        {
+          id: "archive",
+          label: "Hide",
+          capability: "archive",
+          order: 30,
+          enabled: false,
+          reasonLabel: "Host disabled",
+        },
+      ],
+    },
+  );
+  assert.deepEqual(
+    descriptorOnlyActions.map((action) => [
+      action.id,
+      action.label,
+      action.enabled,
+      action.reasonLabel,
+    ]),
+    [
+      ["fork", "Clone", true, ""],
+      ["archive", "Hide", false, "Host disabled"],
+    ],
+  );
+
   const missingSessionActions = buildThreadLifecycleActions(null, {
-    rename: true,
-    fork: true,
-    archive: true,
+    actions: [{ id: "rename", label: "Retitle", capability: "rename" }],
   });
   assert.equal(missingSessionActions[0].enabled, false);
   assert.equal(missingSessionActions[0].reason, "missing_session");
+  assert.equal(missingSessionActions[0].reasonLabel, "");
 
   assert.equal(formatSessionUpdatedLabel(""), "");
   assert.equal(formatSessionUpdatedLabel("not-a-date"), "not-a-date");

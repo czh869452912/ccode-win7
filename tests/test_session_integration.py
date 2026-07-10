@@ -269,28 +269,6 @@ class TestSessionIntegration(unittest.TestCase):
         self.assertEqual([item["status"] for item in tool_activities], ["success", "success"])
         self.assertEqual([item["data"] for item in tool_activities], ["content a", "content b"])
 
-    def test_backward_compatibility_schema_v1_restore(self):
-        """Verify schema v1 transcripts still restore correctly."""
-        session_id = "sess-v1"
-        self.store.append_event(
-            session_id,
-            "session_meta",
-            {"current_mode": "build"},
-            schema_version=1,
-        )
-        self.store.append_event(
-            session_id,
-            "message",
-            {"role": "user", "content": "hello", "message_id": "m-1", "turn_id": "t-1"},
-            schema_version=1,
-        )
-
-        events = self.store.load_events(session_id)
-        result = self.restorer.restore(events, best_effort=True)
-
-        self.assertTrue(len(result.session.turns) >= 1)
-        self.assertEqual(result.skipped_count, 0)
-
 
 if __name__ == "__main__":
     unittest.main()

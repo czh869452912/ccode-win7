@@ -180,10 +180,6 @@ class TerminalLayout(object):
         def _(event):
             self.owner.controller.edit_selected_item()
 
-        @bindings.add("f9")
-        def _(event):
-            self.owner.controller.show_artifacts()
-
         @bindings.add("f10")
         def _(event):
             self.owner.controller.toggle_follow_output()

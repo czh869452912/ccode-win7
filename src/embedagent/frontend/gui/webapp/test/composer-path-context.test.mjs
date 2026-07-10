@@ -53,9 +53,12 @@ export function runComposerPathContextTests() {
 
   assert.equal(buildPathContextInsertion(candidates.find((candidate) => candidate.path === "src/parser.c")), "@src/parser.c ");
 
-  const grouped = groupComposerPathCandidates(searchComposerPathCandidates(candidates, "parser"));
+  const grouped = groupComposerPathCandidates(
+    searchComposerPathCandidates(candidates, "parser"),
+    { pathGroupLabel: "Project files" },
+  );
   assert.equal(grouped.length, 1);
-  assert.equal(grouped[0].label, "Files");
+  assert.equal(grouped[0].label, "Project files");
   assert.deepEqual(
     grouped[0].items.map((candidate) => candidate.path),
     ["src/parser.c", "src/include/parser.h"],

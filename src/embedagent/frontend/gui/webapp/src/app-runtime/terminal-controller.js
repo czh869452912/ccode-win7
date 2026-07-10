@@ -1,7 +1,22 @@
 import { readActiveThreadId } from "../session-runtime/thread-state.js";
+import { terminalCapabilityEnabled } from "../terminal/terminal-capability.js";
+import { nextTerminalId as defaultNextTerminalId } from "../terminal/terminal-labels.js";
+import {
+  activeRightPanelSurfaceFrom,
+  bottomDrawerSurfaceDefinitionFor,
+  surfaceDefinitionFor,
+} from "../workbench/surfaces.js";
 
 const TERMINAL_DIMENSIONS = Object.freeze({ cols: 100, rows: 30 });
-const SESSION_NOTICE = "Open a session before using the terminal.";
+const TERMINAL_SURFACE_KIND = "terminal";
+
+const BOTTOM_DRAWER_ACTIVATION_HANDLERS = Object.freeze(Object.assign(Object.create(null), {
+  "terminal.ensure_open": async ({ ensureOpen }) => ensureOpen(),
+  "workbench.surface": async ({ dispatch, kind }) => {
+    dispatch({ type: "workbench_surface_activated", placement: "bottom", kind });
+    return kind;
+  },
+}));
 
 function noop() {}
 
@@ -28,7 +43,42 @@ function noticeFromError(error, fallback) {
 }
 
 function dispatchNotice(dispatch, notice) {
+  if (!notice) return;
   dispatch({ type: "interaction_notice_set", notice });
+}
+
+function readTerminalChrome(deps) {
+  const value =
+    typeof deps.getTerminalChrome === "function"
+      ? deps.getTerminalChrome()
+      : deps.terminalChrome;
+  return value && typeof value === "object" ? value : {};
+}
+
+function terminalChromeText(deps, key) {
+  return String(readTerminalChrome(deps)[key] || "");
+}
+
+function readAppCapabilities(deps) {
+  const value =
+    typeof deps.getAppCapabilities === "function"
+      ? deps.getAppCapabilities()
+      : deps.appCapabilities;
+  return value && typeof value === "object" ? value : null;
+}
+
+function terminalCapabilityEnabledForDeps(deps) {
+  return terminalCapabilityEnabled(readAppCapabilities(deps));
+}
+
+function terminalSurfaceTitle(deps, fallback = "") {
+  const definition = rightPanelTerminalSurfaceDefinition(deps);
+  return String((definition && definition.title) || fallback || "");
+}
+
+function rightPanelTerminalSurfaceDefinition(deps) {
+  const appCapabilities = readAppCapabilities(deps);
+  return appCapabilities ? surfaceDefinitionFor(TERMINAL_SURFACE_KIND, appCapabilities) : null;
 }
 
 function normalizeTerminalId(terminalId) {
@@ -47,10 +97,22 @@ function uniqueStrings(values) {
   return result;
 }
 
+function isTerminalSurface(surface) {
+  return Boolean(surface && surface.kind === TERMINAL_SURFACE_KIND);
+}
+
 function terminalIdsFromSurface(surface) {
-  if (!surface || surface.kind !== "terminal") return [];
+  if (!isTerminalSurface(surface)) return [];
   if (Array.isArray(surface.terminalIds)) return surface.terminalIds;
   return [surface.terminalId];
+}
+
+function terminalSurfaceActionInput(surface) {
+  if (!isTerminalSurface(surface)) return null;
+  return {
+    placement: "right",
+    surfaceId: surface.id,
+  };
 }
 
 function allKnownTerminalIds(state) {
@@ -61,10 +123,9 @@ function allKnownTerminalIds(state) {
 }
 
 function nextId(deps, ids) {
-  if (typeof deps.nextTerminalId === "function") {
-    return normalizeTerminalId(deps.nextTerminalId(ids));
-  }
-  return `terminal-${ids.length + 1}`;
+  const makeNextId =
+    typeof deps.nextTerminalId === "function" ? deps.nextTerminalId : defaultNextTerminalId;
+  return normalizeTerminalId(makeNextId(ids));
 }
 
 export function createTerminalController(deps = {}) {
@@ -75,13 +136,14 @@ export function createTerminalController(deps = {}) {
     const state = getState();
     const sessionId = readSessionId(state);
     if (!sessionId) {
-      dispatchNotice(dispatch, SESSION_NOTICE);
+      dispatchNotice(dispatch, terminalChromeText(deps, "sessionRequiredNotice"));
       return null;
     }
     return { state, sessionId };
   }
 
   async function ensureOpen(preferredId = "") {
+    if (!terminalCapabilityEnabledForDeps(deps)) return null;
     const context = requireSession();
     if (!context) return null;
     const terminal = readTerminalState(context.state);
@@ -95,15 +157,16 @@ export function createTerminalController(deps = {}) {
       const payload = await openTerminal(context.sessionId, terminalId, TERMINAL_DIMENSIONS);
       dispatch({ type: "terminal_snapshot_loaded", snapshot: payload.terminal });
       dispatch({ type: "terminal_active_set", terminalId });
-      dispatch({ type: "workbench_surface_activated", placement: "bottom", kind: "terminal" });
+      dispatch({ type: "workbench_surface_activated", placement: "bottom", kind: TERMINAL_SURFACE_KIND });
       return terminalId;
     } catch (error) {
-      dispatchNotice(dispatch, noticeFromError(error, "Terminal failed to open."));
+      dispatchNotice(dispatch, noticeFromError(error, terminalChromeText(deps, "openFailedNotice")));
       return null;
     }
   }
 
   async function openSession(terminalId = "") {
+    if (!terminalCapabilityEnabledForDeps(deps)) return null;
     const context = requireSession();
     if (!context) return null;
     const terminal = readTerminalState(context.state);
@@ -116,12 +179,13 @@ export function createTerminalController(deps = {}) {
       dispatch({ type: "terminal_active_set", terminalId: targetTerminalId });
       return targetTerminalId;
     } catch (error) {
-      dispatchNotice(dispatch, noticeFromError(error, "Terminal failed to open."));
+      dispatchNotice(dispatch, noticeFromError(error, terminalChromeText(deps, "openFailedNotice")));
       return null;
     }
   }
 
   async function refresh() {
+    if (!terminalCapabilityEnabledForDeps(deps)) return;
     const state = getState();
     const sessionId = readSessionId(state);
     if (!sessionId) return;
@@ -136,6 +200,7 @@ export function createTerminalController(deps = {}) {
   }
 
   async function sendTo(terminalId, text) {
+    if (!terminalCapabilityEnabledForDeps(deps)) return null;
     const state = getState();
     const sessionId = readSessionId(state);
     const targetTerminalId = normalizeTerminalId(terminalId);
@@ -147,7 +212,7 @@ export function createTerminalController(deps = {}) {
       await writeTerminal(sessionId, targetTerminalId, text);
       return targetTerminalId;
     } catch (error) {
-      dispatchNotice(dispatch, noticeFromError(error, "Terminal write failed."));
+      dispatchNotice(dispatch, noticeFromError(error, terminalChromeText(deps, "writeFailedNotice")));
       return null;
     }
   }
@@ -158,6 +223,7 @@ export function createTerminalController(deps = {}) {
   }
 
   async function clearById(terminalId) {
+    if (!terminalCapabilityEnabledForDeps(deps)) return null;
     const state = getState();
     const sessionId = readSessionId(state);
     const targetTerminalId = normalizeTerminalId(terminalId);
@@ -170,7 +236,7 @@ export function createTerminalController(deps = {}) {
       dispatch({ type: "terminal_snapshot_loaded", snapshot: payload.terminal });
       return targetTerminalId;
     } catch (error) {
-      dispatchNotice(dispatch, noticeFromError(error, "Terminal clear failed."));
+      dispatchNotice(dispatch, noticeFromError(error, terminalChromeText(deps, "clearFailedNotice")));
       return null;
     }
   }
@@ -181,6 +247,7 @@ export function createTerminalController(deps = {}) {
   }
 
   async function restartById(terminalId) {
+    if (!terminalCapabilityEnabledForDeps(deps)) return null;
     const state = getState();
     const sessionId = readSessionId(state);
     const targetTerminalId = normalizeTerminalId(terminalId);
@@ -193,7 +260,7 @@ export function createTerminalController(deps = {}) {
       dispatch({ type: "terminal_snapshot_loaded", snapshot: payload.terminal });
       return targetTerminalId;
     } catch (error) {
-      dispatchNotice(dispatch, noticeFromError(error, "Terminal restart failed."));
+      dispatchNotice(dispatch, noticeFromError(error, terminalChromeText(deps, "restartFailedNotice")));
       return null;
     }
   }
@@ -204,6 +271,7 @@ export function createTerminalController(deps = {}) {
   }
 
   async function closeActive() {
+    if (!terminalCapabilityEnabledForDeps(deps)) return null;
     const state = getState();
     const sessionId = readSessionId(state);
     const terminal = readTerminalState(state);
@@ -219,20 +287,34 @@ export function createTerminalController(deps = {}) {
       });
       return terminalId;
     } catch (error) {
-      dispatchNotice(dispatch, noticeFromError(error, "Terminal close failed."));
+      dispatchNotice(dispatch, noticeFromError(error, terminalChromeText(deps, "closeFailedNotice")));
       return null;
     }
   }
 
   async function selectBottomDrawerKind(kind) {
-    if (kind === "terminal") {
-      return ensureOpen();
-    }
-    dispatch({ type: "workbench_surface_activated", placement: "bottom", kind });
-    return kind;
+    const definition = bottomDrawerSurfaceDefinitionFor(kind, readAppCapabilities(deps));
+    const handler = definition
+      ? BOTTOM_DRAWER_ACTIVATION_HANDLERS[definition.activationKind]
+      : null;
+    return handler ? handler({ dispatch, ensureOpen, kind }) : null;
+  }
+
+  async function openNewBottomDrawerTerminal() {
+    const terminal = readTerminalState(getState());
+    return ensureOpen(nextId(deps, terminal.terminalIds || []));
+  }
+
+  function activateBottomDrawerTerminal(terminalId) {
+    const targetTerminalId = normalizeTerminalId(terminalId);
+    if (!targetTerminalId) return null;
+    dispatch({ type: "terminal_active_set", terminalId: targetTerminalId });
+    return targetTerminalId;
   }
 
   async function openRightPanelSurface(preferredId = "") {
+    const definition = rightPanelTerminalSurfaceDefinition(deps);
+    if (!definition) return null;
     const state = getState();
     const terminalId = normalizeTerminalId(preferredId) || nextId(deps, allKnownTerminalIds(state));
     const openedTerminalId = await openSession(terminalId);
@@ -240,8 +322,8 @@ export function createTerminalController(deps = {}) {
     dispatch({
       type: "workbench_surface_opened",
       placement: "right",
-      kind: "terminal",
-      title: "Terminal",
+      kind: TERMINAL_SURFACE_KIND,
+      title: terminalSurfaceTitle(deps, openedTerminalId),
       resourceId: openedTerminalId,
       terminalId: openedTerminalId,
       terminalIds: [openedTerminalId],
@@ -251,36 +333,51 @@ export function createTerminalController(deps = {}) {
   }
 
   async function splitRightPanelSurface(surface, splitDirection = "horizontal") {
-    if (!surface || surface.kind !== "terminal") return null;
+    const surfaceAction = terminalSurfaceActionInput(surface);
+    if (!surfaceAction) return null;
     const terminalId = nextId(deps, allKnownTerminalIds(getState()));
     const openedTerminalId = await openSession(terminalId);
     if (!openedTerminalId) return null;
     dispatch({
       type: "workbench_terminal_surface_split",
-      placement: "right",
-      surfaceId: surface.id,
+      ...surfaceAction,
       terminalId: openedTerminalId,
       splitDirection,
     });
     return openedTerminalId;
   }
 
+  async function splitActiveRightPanelSurface() {
+    return splitRightPanelSurface(activeRightPanelSurfaceFrom(getState().workbench));
+  }
+
+  async function splitActiveRightPanelSurfaceVertical() {
+    return splitRightPanelSurface(activeRightPanelSurfaceFrom(getState().workbench), "vertical");
+  }
+
   function activateRightPanelPane(surface, terminalId) {
-    if (!surface || surface.kind !== "terminal") return null;
+    if (!terminalCapabilityEnabledForDeps(deps)) return null;
+    const surfaceAction = terminalSurfaceActionInput(surface);
+    if (!surfaceAction) return null;
     const targetTerminalId = normalizeTerminalId(terminalId);
     if (!targetTerminalId) return null;
     dispatch({
       type: "workbench_terminal_surface_terminal_activated",
-      placement: "right",
-      surfaceId: surface.id,
+      ...surfaceAction,
       terminalId: targetTerminalId,
     });
     dispatch({ type: "terminal_active_set", terminalId: targetTerminalId });
     return targetTerminalId;
   }
 
+  function activateActiveRightPanelPane(terminalId) {
+    return activateRightPanelPane(activeRightPanelSurfaceFrom(getState().workbench), terminalId);
+  }
+
   async function closeRightPanelPane(surface, terminalId) {
-    if (!surface || surface.kind !== "terminal") return null;
+    if (!terminalCapabilityEnabledForDeps(deps)) return null;
+    const surfaceAction = terminalSurfaceActionInput(surface);
+    if (!surfaceAction) return null;
     const targetTerminalId = normalizeTerminalId(terminalId);
     if (!targetTerminalId) return null;
     const context = requireSession();
@@ -295,15 +392,18 @@ export function createTerminalController(deps = {}) {
       });
       dispatch({
         type: "workbench_terminal_surface_terminal_closed",
-        placement: "right",
-        surfaceId: surface.id,
+        ...surfaceAction,
         terminalId: targetTerminalId,
       });
       return targetTerminalId;
     } catch (error) {
-      dispatchNotice(dispatch, noticeFromError(error, "Terminal close failed."));
+      dispatchNotice(dispatch, noticeFromError(error, terminalChromeText(deps, "closeFailedNotice")));
       return null;
     }
+  }
+
+  async function closeActiveRightPanelPane(terminalId) {
+    return closeRightPanelPane(activeRightPanelSurfaceFrom(getState().workbench), terminalId);
   }
 
   return {
@@ -318,9 +418,15 @@ export function createTerminalController(deps = {}) {
     restartById,
     closeActive,
     selectBottomDrawerKind,
+    openNewBottomDrawerTerminal,
+    activateBottomDrawerTerminal,
     openRightPanelSurface,
     splitRightPanelSurface,
+    splitActiveRightPanelSurface,
+    splitActiveRightPanelSurfaceVertical,
     activateRightPanelPane,
+    activateActiveRightPanelPane,
     closeRightPanelPane,
+    closeActiveRightPanelPane,
   };
 }

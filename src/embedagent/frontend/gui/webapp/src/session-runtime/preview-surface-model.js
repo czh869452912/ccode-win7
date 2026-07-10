@@ -40,7 +40,7 @@ export function previewSnapshotFromApi(input) {
   };
 }
 
-export function buildPreviewRuntimeState({ snapshot = null } = {}) {
+export function buildPreviewRuntimeState({ snapshot = null, chrome = {} } = {}) {
   const normalized = snapshot ? previewSnapshotFromApi(snapshot) : null;
   const status = normalized ? normalized.status : "idle";
   const loading = status === "loading";
@@ -50,12 +50,12 @@ export function buildPreviewRuntimeState({ snapshot = null } = {}) {
     : "";
   const statusLabel =
     status === "loading"
-      ? "Loading"
+      ? String(chrome.statusLoading || "")
       : status === "success"
-        ? "Ready"
+        ? String(chrome.statusReady || "")
         : status === "failed"
-          ? (normalized.errorDescription || "Preview unavailable")
-          : "Idle";
+          ? (normalized.errorDescription || String(chrome.statusFailed || ""))
+          : String(chrome.statusIdle || "");
   return {
     hasSnapshot: Boolean(normalized),
     loading,
@@ -67,12 +67,14 @@ export function buildPreviewRuntimeState({ snapshot = null } = {}) {
   };
 }
 
-function normalizeServer(input) {
+function normalizeServer(input, chrome) {
   if (!input || typeof input !== "object") return null;
   const url = normalizePreviewUrl(input.url || input.href || "");
   if (!url) return null;
   const displayUrl = formatPreviewUrlDisplay(url);
-  const label = String(input.label || input.name || displayUrl || "Local server").trim();
+  const label = String(
+    input.label || input.name || chrome.localServerFallbackLabel || displayUrl || "",
+  ).trim();
   const port = Number(input.port);
   return {
     id: url,
@@ -83,17 +85,17 @@ function normalizeServer(input) {
   };
 }
 
-export function buildPreviewEmptyStateModel({ servers = [] } = {}) {
+export function buildPreviewEmptyStateModel({ servers = [], chrome = {} } = {}) {
   const normalizedServers = (Array.isArray(servers) ? servers : [])
-    .map(normalizeServer)
+    .map((server) => normalizeServer(server, chrome))
     .filter(Boolean);
   const hasServers = normalizedServers.length > 0;
   return {
     hasServers,
-    title: hasServers ? "Local servers" : "No preview open",
+    title: hasServers ? String(chrome.serversTitle || "") : String(chrome.emptyTitle || ""),
     description: hasServers
-      ? "Choose a local server to open in the preview panel."
-      : "Start a local dev server or enter a localhost URL above.",
+      ? String(chrome.serversDescription || "")
+      : String(chrome.emptyDescription || ""),
     servers: normalizedServers,
   };
 }

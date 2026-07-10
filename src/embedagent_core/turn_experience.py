@@ -105,7 +105,7 @@ class TurnExperienceReducer(object):
                 "error": _text(observation.get("error")),
             }
             state.last_failure = failure
-            if self._looks_like_validation(command):
+            if self._is_validation_result(data):
                 _stable_append(
                     state.unverified,
                     {
@@ -158,7 +158,7 @@ class TurnExperienceReducer(object):
         if message not in state.next_steps:
             state.next_steps.append(message)
 
-    def _looks_like_validation(self, command: str) -> bool:
-        lowered = command.lower()
-        markers = ("test", "pytest", "ctest", "ninja", "cmake", "make", "clang", "gcc")
-        return any(marker in lowered for marker in markers)
+    def _is_validation_result(self, data: Dict[str, Any]) -> bool:
+        if data.get("validation") is True:
+            return True
+        return _text(data.get("result_kind")) == "validation"

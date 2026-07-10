@@ -1,7 +1,7 @@
 async function parseJson(response) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.detail || payload.error || response.statusText || "Source control request failed");
+    throw new Error(payload.detail || payload.error || response.statusText || "");
   }
   return payload;
 }

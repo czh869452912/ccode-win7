@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from "react";
+import { getTerminalLabel } from "../../terminal/terminal-labels.js";
 
 function sessionFor(terminal, terminalId) {
   return (terminal && terminal.sessions && terminal.sessions[terminalId]) || null;
 }
 
-function terminalLabel(session, terminalId) {
-  return (session && session.label) || terminalId || "Terminal";
+function terminalLabel(session, terminalId, chrome) {
+  const explicitLabel = String((session && session.label) || "").trim();
+  return explicitLabel || getTerminalLabel(terminalId, chrome);
 }
 
 function terminalStatus(session) {
@@ -37,6 +39,7 @@ function TerminalPane({
   onClear,
   onRestart,
   onClose,
+  chrome,
 }) {
   const status = terminalStatus(session);
   return (
@@ -52,15 +55,15 @@ function TerminalPane({
           onClick={() => onSelect && onSelect(terminalId)}
           title={(session && session.cwd) || terminalId}
         >
-          <span>{terminalLabel(session, terminalId)}</span>
+          <span>{terminalLabel(session, terminalId, chrome)}</span>
           <span className={`terminal-status-dot ${status}`} />
         </button>
         <span className="terminal-shell-pane-status">{status}</span>
-        <button type="button" onClick={() => onClear(terminalId)} disabled={!session}>Clear</button>
-        <button type="button" onClick={() => onRestart(terminalId)} disabled={!session}>Restart</button>
-        <button type="button" onClick={() => onClose(terminalId)}>Close</button>
+        <button type="button" onClick={() => onClear(terminalId)} disabled={!session}>{chrome.clearLabel}</button>
+        <button type="button" onClick={() => onRestart(terminalId)} disabled={!session}>{chrome.restartLabel}</button>
+        <button type="button" onClick={() => onClose(terminalId)}>{chrome.closeLabel}</button>
       </header>
-      <pre className="terminal-shell-buffer">{session ? session.buffer || "" : "Terminal session is unavailable."}</pre>
+      <pre className="terminal-shell-buffer">{session ? session.buffer || "" : chrome.unavailableMessage}</pre>
       <form
         className="terminal-shell-input-row"
         onSubmit={(event) => {
@@ -77,7 +80,7 @@ function TerminalPane({
           value={draft}
           onFocus={() => onSelect && onSelect(terminalId)}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="Type a command"
+          placeholder={chrome.commandPlaceholder}
           disabled={!session || status === "closed"}
         />
       </form>
@@ -97,6 +100,7 @@ export default function TerminalShell({
   onClear,
   onRestart,
   onClose,
+  terminalChrome = {},
 }) {
   const [draftsById, setDraftsById] = useState({});
   const terminalIds = terminalIdsFor(owner, surface, terminal);
@@ -116,18 +120,18 @@ export default function TerminalShell({
       data-testid={isRightPanel ? "right-panel-terminal-surface" : "terminal-drawer"}
     >
       <header className="terminal-shell-toolbar">
-        <button type="button" onClick={onNew} title="New terminal">New</button>
+        <button type="button" onClick={onNew} title={terminalChrome.newTitle}>{terminalChrome.newLabel}</button>
         {isRightPanel ? (
           <>
-            <button type="button" onClick={onSplit} disabled={!activeTerminalId} title="Split terminal horizontally">
-              Split
+            <button type="button" onClick={onSplit} disabled={!activeTerminalId} title={terminalChrome.splitTitle}>
+              {terminalChrome.splitLabel}
             </button>
-            <button type="button" onClick={onSplitVertical} disabled={!activeTerminalId} title="Split terminal vertically">
-              Split V
+            <button type="button" onClick={onSplitVertical} disabled={!activeTerminalId} title={terminalChrome.splitVerticalTitle}>
+              {terminalChrome.splitVerticalLabel}
             </button>
           </>
         ) : null}
-        {isDrawer ? <span className="terminal-shell-owner-label">Drawer</span> : null}
+        {isDrawer ? <span className="terminal-shell-owner-label">{terminalChrome.drawerLabel}</span> : null}
       </header>
       {panes.length > 0 ? (
         <div
@@ -147,13 +151,14 @@ export default function TerminalShell({
               onClear={onClear}
               onRestart={onRestart}
               onClose={onClose}
+              chrome={terminalChrome}
             />
           ))}
         </div>
       ) : (
         <div className="terminal-shell-empty">
-          <p>No terminal sessions for this thread yet.</p>
-          <button type="button" onClick={onNew}>New terminal</button>
+          <p>{terminalChrome.emptyMessage}</p>
+          <button type="button" onClick={onNew}>{terminalChrome.emptyActionLabel}</button>
         </div>
       )}
     </section>

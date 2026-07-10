@@ -51,7 +51,7 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(runtime.currentInteraction.interactionId, "int-1");
   assert.equal(runtime.timelineView.some((item) => item.kind === "permission"), false);
-  assert.equal(runtime.sessionStatusView.mode, "explore");
+  assert.equal(runtime.sessionStatusView.mode, "");
 
   const reloadRuntime = buildSessionActivityRuntime({
     snapshot: {

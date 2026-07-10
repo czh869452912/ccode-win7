@@ -295,14 +295,6 @@ class FrontendCallbacks(Protocol):
         """计划更新"""
         ...
 
-    def on_tasks_refresh(self) -> None:
-        """Notify frontend to refetch task list."""
-        ...
-
-    def on_artifacts_refresh(self) -> None:
-        """Notify frontend to refetch artifacts list."""
-        ...
-
 
 class CoreInterface(ABC):
     """Core 接口抽象 - Frontend 调用 Core"""
@@ -383,11 +375,6 @@ class CoreInterface(ABC):
         pass
 
     @abstractmethod
-    def list_workspace_recipes(self) -> Dict[str, Any]:
-        """列出工作区 recipe"""
-        pass
-
-    @abstractmethod
     def reload_resources(self, session_id: str = "", reason: str = "api") -> Dict[str, Any]:
         """重新发现本地资源"""
         pass
@@ -413,23 +400,8 @@ class CoreInterface(ABC):
         pass
 
     @abstractmethod
-    def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
-        """列出工件"""
-        pass
-
-    @abstractmethod
-    def read_artifact(self, reference: str) -> Dict[str, Any]:
-        """读取工件"""
-        pass
-
-    @abstractmethod
     def get_diff_preview(self, path: str, new_content: str) -> DiffPreview:
         """获取 diff 预览"""
-        pass
-
-    @abstractmethod
-    def list_tasks(self, session_id: str = "") -> List[Dict[str, Any]]:
-        """列出当前会话任务"""
         pass
 
     @abstractmethod
@@ -440,11 +412,6 @@ class CoreInterface(ABC):
     @abstractmethod
     def get_permission_context(self, session_id: str) -> PermissionContextView:
         """获取当前会话的权限上下文"""
-        pass
-
-    @abstractmethod
-    def get_tool_catalog(self) -> List[Dict[str, Any]]:
-        """获取当前工具目录"""
         pass
 
     @abstractmethod

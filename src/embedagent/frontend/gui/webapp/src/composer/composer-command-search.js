@@ -1,15 +1,3 @@
-const GROUP_LABELS = {
-  app: "App",
-  session: "Session",
-  message: "Message",
-  mode: "Mode",
-  surface: "Surface",
-  workspace: "Workspace",
-  workflow: "Workflow",
-  view: "View",
-  command: "Command",
-};
-
 function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -84,7 +72,23 @@ function scoreItem(item, query) {
   return Number.POSITIVE_INFINITY;
 }
 
-export function buildComposerCommandItems(commands = []) {
+function groupLabelFor(groupId, commandGroupLabels = {}, commandMenuChrome = {}) {
+  return (
+    commandGroupLabels[groupId] ||
+    commandMenuChrome.commandGroupFallbackLabel ||
+    ""
+  );
+}
+
+function commandGroupId(command = {}, commandMenuChrome = {}) {
+  return String(command.group || commandMenuChrome.defaultCommandGroupId || "").trim();
+}
+
+export function buildComposerCommandItems(
+  commands = [],
+  commandGroupLabels = {},
+  commandMenuChrome = {},
+) {
   const seenSlash = new Set();
   const items = [];
   for (const command of Array.isArray(commands) ? commands : []) {
@@ -97,8 +101,12 @@ export function buildComposerCommandItems(commands = []) {
       type: "slash-command",
       id: `slash:${command.id || normalizedSlash}`,
       commandId: command.id || "",
-      group: command.group || "command",
-      groupLabel: GROUP_LABELS[command.group] || "Command",
+      group: commandGroupId(command, commandMenuChrome),
+      groupLabel: groupLabelFor(
+        commandGroupId(command, commandMenuChrome),
+        commandGroupLabels,
+        commandMenuChrome,
+      ),
       label: command.label || slash,
       detail: slash,
       slash,
@@ -123,15 +131,21 @@ export function searchComposerCommandItems(items = [], query = "", limit = 8) {
   return ranked.slice(0, Math.max(0, limit));
 }
 
-export function groupComposerCommandItems(items = []) {
+export function groupComposerCommandItems(
+  items = [],
+  commandGroupLabels = {},
+  commandMenuChrome = {},
+) {
   const groups = [];
   const byGroup = new Map();
   for (const item of Array.isArray(items) ? items : []) {
-    const groupId = item.group || "command";
+    const groupId = String(item.group || commandMenuChrome.defaultCommandGroupId || "").trim();
     if (!byGroup.has(groupId)) {
       const group = {
         id: `command-group:${groupId}`,
-        label: item.groupLabel || GROUP_LABELS[groupId] || "Command",
+        label:
+          item.groupLabel ||
+          groupLabelFor(groupId, commandGroupLabels, commandMenuChrome),
         items: [],
       };
       byGroup.set(groupId, group);
