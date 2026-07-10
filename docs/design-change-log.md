@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-312
+
+- Date: 2026-07-10
+- Change Topic: GUI Session capability fanout uses session-runtime read model
+- Summary:
+  - Added `session-runtime/session-capability-model.js` as the pure renderer
+    read model for session capabilities, mode catalog, tool catalog, and
+    session empty-state fallback.
+  - `App.jsx` now consumes `buildSessionCapabilityModelFromState(...)` for
+    timeline tool presentation, mode badges, composer commands, workbench
+    command context, and no-workspace fallback copy.
+  - Frontend and architecture guards reject reintroducing App-level direct
+    reads of `state.sessionCapabilities` mode/tool/empty-state fields.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/session-capability-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/session-capability-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue moving root App state projection that remains unrelated to
+    capability models into focused runtime models.
+
 ### DC-311
 
 - Date: 2026-07-10

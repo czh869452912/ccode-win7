@@ -77,6 +77,11 @@ chrome, Preview servers, thread lifecycle descriptors, and empty-state copy.
 `App.jsx` consumes that model for controller getters and child props instead of
 hand-splitting `state.app.capabilities` or `stateRef.current.app.capabilities`
 into per-surface variables.
+`webapp/src/session-runtime/session-capability-model.js` owns renderer-side
+session capability fanout for the mode catalog, tool catalog, session
+capability payload, and session empty-state fallback. `App.jsx` consumes that
+model instead of hand-splitting `state.sessionCapabilities` fields into
+timeline, composer, header, sidebar, and empty-state props.
 Selected agent application manifests can narrow the injected app-shell spec
 through `metadata.appShell` allow-lists. `AppShellService` applies those lists
 before the renderer sees capabilities, so the Generic Agent can expose the base

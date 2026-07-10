@@ -59,6 +59,7 @@ import { runWorkspaceControllerTests } from "./workspace-controller.test.mjs";
 import { runActiveWorkspaceDataLoaderTests } from "./active-workspace-data-loader.test.mjs";
 import { runWorkspaceFilesControllerTests } from "./workspace-files-controller.test.mjs";
 import { runAppCapabilityModelTests } from "./app-capability-model.test.mjs";
+import { runSessionCapabilityModelTests } from "./session-capability-model.test.mjs";
 import { runAppHomeModelTests } from "./app-home-model.test.mjs";
 import { runBranchToolbarModelTests } from "./branch-toolbar-model.test.mjs";
 import { runCommandCapabilitiesTests } from "./command-capabilities.test.mjs";
@@ -1308,6 +1309,7 @@ async function main() {
   assert.equal(workbenchCommandControllerSource.includes("import React"), false);
   assert.equal(appSource.includes("buildAppCapabilityModel"), true);
   assert.equal(appSource.includes("buildAppCapabilityModelFromState"), true);
+  assert.equal(appSource.includes("buildSessionCapabilityModelFromState"), true);
   assert.equal(appSource.includes("const EMPTY_KEYBINDINGS"), false);
   assert.equal(appSource.includes("state.app.capabilities"), false);
   assert.equal(appSource.includes("stateRef.current.app.capabilities"), false);
@@ -1320,6 +1322,11 @@ async function main() {
   assert.equal(appSource.includes("threadLifecycleCapabilities: state.app.capabilities"), false);
   assert.equal(appSource.includes("commandPalette={state.app.capabilities?.commandPalette"), false);
   assert.equal((appSource.match(/appCapabilities=\{appCapabilities\}/g) || []).length >= 3, true);
+  assert.equal(appSource.includes("state.sessionCapabilities?.modeCatalog"), false);
+  assert.equal(appSource.includes("state.sessionCapabilities?.toolCatalog"), false);
+  assert.equal(appSource.includes("state.sessionCapabilities?.emptyState"), false);
+  assert.equal(appSource.includes("state.sessionCapabilities || {}"), false);
+  assert.equal(appSource.includes("stateRef.current.sessionCapabilities"), false);
   assert.equal(appSource.includes("commandById"), false);
   assert.equal(appSource.includes("buildCommandVisibilityContext"), true);
   assert.equal(appSource.includes("function isTurnInterruptibleStatus"), false);
@@ -2443,6 +2450,7 @@ async function main() {
   await runActiveWorkspaceDataLoaderTests();
   await runWorkspaceFilesControllerTests();
   runAppCapabilityModelTests();
+  runSessionCapabilityModelTests();
   runAppHomeModelTests();
   runBranchToolbarModelTests();
   runProtocolNormalizerTests();

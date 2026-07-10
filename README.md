@@ -77,6 +77,11 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
   app chrome, surface chrome, Preview servers, thread lifecycle descriptors,
   and empty-state copy instead of reading `state.app.capabilities` or
   `stateRef.current.app.capabilities` directly.
+- Official GUI session capability read model: renderer session capability fanout
+  lives in `webapp/src/session-runtime/session-capability-model.js`.
+  `App.jsx` consumes `buildSessionCapabilityModelFromState(...)` for
+  `modeCatalog`, `toolCatalog`, session capabilities, and session empty-state
+  fallback instead of hand-reading `state.sessionCapabilities` fields.
 - Official GUI no-workspace shell copy: the empty workspace screen consumes
   app-shell metadata such as `app.productName`, `capabilities.home`, and
   `capabilities.emptyState`; renderer components must not hard-code the

@@ -159,6 +159,13 @@ should consume `buildAppCapabilityModelFromState(...)` /
 `buildAppCapabilityModel(...)` rather than reading `state.app.capabilities` or
 `stateRef.current.app.capabilities` directly for each surface, controller
 getter, or command subsystem.
+Renderer session capability fanout is also a local read model:
+`webapp/src/session-runtime/session-capability-model.js` owns normalized access
+to the session capability payload, mode catalog, tool catalog, and session
+empty-state fallback. `App.jsx` should consume
+`buildSessionCapabilityModelFromState(...)` rather than hand-reading
+`state.sessionCapabilities` fields for badges, timeline tool presentation,
+composer commands, command context, or no-workspace fallback copy.
 Header panel toggles, command-palette open/close/query state,
 command-palette command/session/workspace selection, and command-id resolution
 are renderer action-controller concerns in

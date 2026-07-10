@@ -5,6 +5,7 @@ import { createSessionTransportState } from "./session-runtime/session-transport
 import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
 import { buildSessionActivityRuntime } from "./session-runtime/activity-state.js";
 import { buildComposerCommandsFromCapabilities } from "./session-runtime/command-capabilities.js";
+import { buildSessionCapabilityModelFromState } from "./session-runtime/session-capability-model.js";
 import { createSocketMessageController } from "./app-runtime/socket-message-controller.js";
 import { createSurfacePanelController } from "./app-runtime/surface-panel-controller.js";
 import { buildSurfacePanelProps } from "./app-runtime/surface-panel-props.js";
@@ -83,6 +84,10 @@ function readCurrentAppCapabilityModel(stateRef) {
   return buildAppCapabilityModelFromState(stateRef.current);
 }
 
+function readCurrentSessionCapabilityModel(stateRef) {
+  return buildSessionCapabilityModelFromState(stateRef.current);
+}
+
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState, (baseState) => ({
     ...baseState,
@@ -136,20 +141,30 @@ function App() {
     filePreviewChrome,
     diffPanelChrome,
     threadLifecycleCapabilities,
-    emptyState,
+    emptyState: appEmptyState,
   } = appCapabilityModel;
+  const sessionCapabilityModel = useMemo(
+    () => buildSessionCapabilityModelFromState(state),
+    [state],
+  );
+  const {
+    sessionCapabilities,
+    modeCatalog,
+    toolCatalog,
+    emptyState: sessionEmptyState,
+  } = sessionCapabilityModel;
   const commandContext = useMemo(() => buildCommandVisibilityContext({
     currentSessionId,
     currentStatus,
     appState: state.app,
     workbenchState: state.workbench,
-    sessionCapabilities: state.sessionCapabilities || {},
+    sessionCapabilities,
   }), [
     currentStatus,
     currentSessionId,
     state.app,
     state.workbench.commandPalette.open,
-    state.sessionCapabilities,
+    sessionCapabilities,
   ]);
   const paletteCommands = useMemo(() => visibleCommands(commandContext), [commandContext]);
   const composerCommandGroupLabels = useMemo(
@@ -158,10 +173,10 @@ function App() {
   );
   const composerCommands = useMemo(
     () =>
-      buildComposerCommandsFromCapabilities(state.sessionCapabilities || {}, {
+      buildComposerCommandsFromCapabilities(sessionCapabilities, {
         defaultGroupId: appChrome.composer?.commandMenu?.defaultCommandGroupId || "",
       }),
-    [appChrome.composer, state.sessionCapabilities],
+    [appChrome.composer, sessionCapabilities],
   );
   const activeWorkspaceId = state.app.activeWorkspace?.id || "";
   const runtimeState = useMemo(
@@ -173,7 +188,7 @@ function App() {
         defaultMode: INITIAL_REQUESTED_MODE,
         activeTurnId: state.activeTurnId,
         thinkingActive: state.thinkingActive,
-        toolCatalog: state.sessionCapabilities?.toolCatalog || {},
+        toolCatalog,
       }),
     [
       sessionTransport,
@@ -181,7 +196,7 @@ function App() {
       state.snapshot,
       state.thinkingActive,
       state.activities,
-      state.sessionCapabilities,
+      toolCatalog,
     ],
   );
   runtimeStateRef.current = runtimeState;
@@ -467,7 +482,7 @@ function App() {
         setTimeoutFn: window.setTimeout.bind(window),
         getCurrentMode: () => stateRef.current.snapshot?.current_mode || stateRef.current.requestedMode,
         getActiveWorkspaceId: () => stateRef.current.app.activeWorkspace?.id || "",
-        getSessionCapabilities: () => stateRef.current.sessionCapabilities || {},
+        getSessionCapabilities: () => readCurrentSessionCapabilityModel(stateRef).sessionCapabilities,
         getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
         createSession,
         loadSessions,
@@ -499,7 +514,7 @@ function App() {
             currentStatus: current.snapshot?.status || "idle",
             appState: current.app,
             workbenchState: current.workbench,
-            sessionCapabilities: current.sessionCapabilities || {},
+            sessionCapabilities: buildSessionCapabilityModelFromState(current).sessionCapabilities,
           });
         },
         getCurrentStatus: () => stateRef.current.snapshot?.status || "idle",
@@ -605,7 +620,7 @@ function App() {
           currentStatus={currentStatus}
           currentSessionId={currentSessionId}
           activeWorkspace={state.app.activeWorkspace}
-          modeCatalog={state.sessionCapabilities?.modeCatalog || {}}
+          modeCatalog={modeCatalog}
           turnsUsed={state.turnsUsed}
           maxTurns={state.maxTurns}
           rightPanelOpen={state.workbench.rightPanel.open}
@@ -623,7 +638,7 @@ function App() {
           chrome={appChrome}
           currentSessionId={currentSessionId}
           currentMode={currentMode}
-          modeCatalog={state.sessionCapabilities?.modeCatalog || {}}
+          modeCatalog={modeCatalog}
           workspacePathInput={state.app.workspacePathInput}
           onWorkspacePathChange={setWorkspacePath}
           onLoadSession={loadSession}
@@ -641,7 +656,7 @@ function App() {
               ref={timelineRef}
               timeline={runtimeState.timelineView}
               rows={runtimeState.t3TimelineRows}
-              toolCatalog={state.sessionCapabilities?.toolCatalog || {}}
+              toolCatalog={toolCatalog}
               historyIntegrity={historyIntegrity}
               thinkingActive={state.thinkingActive}
               streamingReasoningId={state.streamingReasoningId}
@@ -663,7 +678,7 @@ function App() {
               onStop={cancelSession}
               isRunning={isTurnInterruptibleStatus(currentStatus)}
               currentMode={currentMode}
-              modeCatalog={state.sessionCapabilities?.modeCatalog || {}}
+              modeCatalog={modeCatalog}
               commandGroupLabels={composerCommandGroupLabels}
               commands={composerCommands}
               fileTree={state.fileTree}
@@ -686,7 +701,7 @@ function App() {
             activating={state.app.activatingWorkspace}
             workspaces={state.app.workspaces}
             appHome={appHomeModel}
-            emptyState={emptyState || state.sessionCapabilities?.emptyState}
+            emptyState={appEmptyState || sessionEmptyState}
             onChange={setWorkspacePath}
             onOpen={openWorkspace}
             onActivate={activateWorkspace}

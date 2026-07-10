@@ -1181,7 +1181,12 @@ def test_gui_app_shell_projects_active_agent_application_capabilities():
     assert '"agentApplications"' in app_shell_text
     assert "normalizeAgentApplicationDescriptor" in app_model_text
     assert "buildAppCapabilityModel" in app_text
-    assert "emptyState || state.sessionCapabilities?.emptyState" in app_text
+    assert "buildSessionCapabilityModelFromState" in app_text
+    assert "appEmptyState || sessionEmptyState" in app_text
+    assert "state.sessionCapabilities?.emptyState" not in app_text
+    assert "state.sessionCapabilities?.modeCatalog" not in app_text
+    assert "state.sessionCapabilities?.toolCatalog" not in app_text
+    assert "stateRef.current.sessionCapabilities" not in app_text
     assert "state.app.capabilities?.emptyState" not in app_text
 
 

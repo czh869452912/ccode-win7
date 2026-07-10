@@ -597,6 +597,12 @@
   thread lifecycle descriptors, so App controller getters and right-panel
   child props consume the model instead of direct
   `state.app.capabilities` / `stateRef.current.app.capabilities` paths.
+- React webapp `webapp/src/session-runtime/session-capability-model.js` now
+  owns session capability fanout for mode catalog, tool catalog, the raw
+  session capability payload, and session empty-state fallback; `App.jsx`
+  consumes that read model instead of hand-splitting
+  `state.sessionCapabilities` fields into timeline/composer/header/sidebar
+  props.
 - `App.jsx` wires the controller methods directly; it no longer imports `commandById` or dispatches palette/toggle reducer actions inline.
 - React webapp `webapp/src/workbench/commands.js` now owns
   `buildCommandVisibilityContext(...)` and `isTurnInterruptibleStatus(...)`;
