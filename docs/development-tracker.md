@@ -603,6 +603,9 @@
   consumes that read model instead of hand-splitting
   `state.sessionCapabilities` fields into timeline/composer/header/sidebar
   props.
+- React webapp `webapp/src/workbench/workbench-parity-model.js` now reuses the
+  app/session capability read models for T3-style surface-command parity
+  projection instead of directly reading raw app/session capability state.
 - `App.jsx` wires the controller methods directly; it no longer imports `commandById` or dispatches palette/toggle reducer actions inline.
 - React webapp `webapp/src/workbench/commands.js` now owns
   `buildCommandVisibilityContext(...)` and `isTurnInterruptibleStatus(...)`;

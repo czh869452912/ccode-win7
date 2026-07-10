@@ -3,6 +3,8 @@ import {
   isTurnInterruptibleStatus,
   visibleCommands,
 } from "./commands.js";
+import { buildAppCapabilityModelFromState } from "../app-runtime/app-capability-model.js";
+import { buildSessionCapabilityModelFromState } from "../session-runtime/session-capability-model.js";
 
 const T3_CENTER_MAX_WIDTH = 860;
 const NARROW_BREAKPOINT = 980;
@@ -73,6 +75,8 @@ function timelineDensity(width) {
 }
 
 function surfaceCommands(state, status) {
+  const appCapabilityModel = buildAppCapabilityModelFromState(state);
+  const sessionCapabilityModel = buildSessionCapabilityModelFromState(state);
   const commands = visibleCommands(buildCommandVisibilityContext({
     currentSessionId: currentSessionId(state),
     currentStatus: status,
@@ -80,8 +84,8 @@ function surfaceCommands(state, status) {
     paletteOpen: Boolean(
       state && state.workbench && state.workbench.commandPalette && state.workbench.commandPalette.open,
     ),
-    appCapabilities: state && state.app ? state.app.capabilities : null,
-    sessionCapabilities: state ? state.sessionCapabilities : null,
+    appCapabilities: appCapabilityModel.appCapabilities,
+    sessionCapabilities: sessionCapabilityModel.sessionCapabilities,
   }));
   return commands
     .filter((command) => command && (command.group === "surface" || command.drawer))

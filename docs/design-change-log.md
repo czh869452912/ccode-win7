@@ -44,6 +44,31 @@
 
 ## 3. 当前变更记录
 
+### DC-313
+
+- Date: 2026-07-10
+- Change Topic: GUI Workbench parity model reuses capability read models
+- Summary:
+  - `workbench/workbench-parity-model.js` now consumes
+    `buildAppCapabilityModelFromState(...)` and
+    `buildSessionCapabilityModelFromState(...)` when projecting available
+    surface commands.
+  - Source guards reject direct `state.app.capabilities` and
+    `state.sessionCapabilities` reads in the parity model.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/workbench/workbench-parity-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-parity-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue checking renderer read models for direct capability-tree reads
+    outside their designated capability model modules.
+
 ### DC-312
 
 - Date: 2026-07-10

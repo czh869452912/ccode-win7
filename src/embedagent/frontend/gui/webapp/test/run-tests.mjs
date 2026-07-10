@@ -1006,6 +1006,14 @@ async function main() {
     webappSourcePath("App.jsx"),
     "utf8",
   );
+  const workbenchParityModelSource = fs.readFileSync(
+    webappSourcePath("workbench", "workbench-parity-model.js"),
+    "utf8",
+  );
+  assert.equal(workbenchParityModelSource.includes("buildAppCapabilityModelFromState"), true);
+  assert.equal(workbenchParityModelSource.includes("buildSessionCapabilityModelFromState"), true);
+  assert.equal(workbenchParityModelSource.includes("state.app.capabilities"), false);
+  assert.equal(workbenchParityModelSource.includes("state.sessionCapabilities"), false);
   assert.equal(appSource.includes("createTerminalController"), true);
   assert.equal(appSource.includes("stateRef.current = state"), true);
   assert.equal(appSource.includes("terminalController.ensureOpen"), false);

@@ -82,6 +82,9 @@ session capability fanout for the mode catalog, tool catalog, session
 capability payload, and session empty-state fallback. `App.jsx` consumes that
 model instead of hand-splitting `state.sessionCapabilities` fields into
 timeline, composer, header, sidebar, and empty-state props.
+`webapp/src/workbench/workbench-parity-model.js` also consumes the app/session
+capability models before projecting T3-style available surface commands, so
+parity diagnostics do not become another raw capability-tree reader.
 Selected agent application manifests can narrow the injected app-shell spec
 through `metadata.appShell` allow-lists. `AppShellService` applies those lists
 before the renderer sees capabilities, so the Generic Agent can expose the base

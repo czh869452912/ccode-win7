@@ -111,6 +111,18 @@ export function runWorkbenchParityModelTests() {
   );
   assert.deepEqual(undeclaredModel.commandPalette.availableSurfaceCommands, []);
 
+  const missingSessionCapabilitiesModel = buildWorkbenchParityModel(
+    {
+      ...desktop,
+      sessionCapabilities: null,
+    },
+    { width: 1440, height: 900 },
+  );
+  assert.deepEqual(
+    missingSessionCapabilitiesModel.commandPalette.availableSurfaceCommands,
+    desktopModel.commandPalette.availableSurfaceCommands,
+  );
+
   let narrow = sessionWorkspaceState({ snapshot: { status: "running" } });
   narrow = openRightSurface(narrow, "terminal", {
     terminalId: "term-1",

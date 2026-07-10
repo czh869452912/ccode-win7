@@ -3158,6 +3158,10 @@ def test_gui_workbench_keyboard_handling_is_controller_owned():
     assert "export function buildCommandVisibilityContext" in commands_text
     assert "export function isTurnInterruptibleStatus" in commands_text
     assert "function isRunningStatus" not in parity_text
+    assert "buildAppCapabilityModelFromState" in parity_text
+    assert "buildSessionCapabilityModelFromState" in parity_text
+    assert "state.app.capabilities" not in parity_text
+    assert "state.sessionCapabilities" not in parity_text
 
 
 def test_gui_runtime_state_does_not_reintroduce_removed_root_session_state():

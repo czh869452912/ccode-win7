@@ -166,6 +166,10 @@ empty-state fallback. `App.jsx` should consume
 `buildSessionCapabilityModelFromState(...)` rather than hand-reading
 `state.sessionCapabilities` fields for badges, timeline tool presentation,
 composer commands, command context, or no-workspace fallback copy.
+T3/workbench parity projections follow the same rule:
+`webapp/src/workbench/workbench-parity-model.js` consumes the app and session
+capability read models before projecting available surface commands, so parity
+logic does not become a second raw capability reader.
 Header panel toggles, command-palette open/close/query state,
 command-palette command/session/workspace selection, and command-id resolution
 are renderer action-controller concerns in
