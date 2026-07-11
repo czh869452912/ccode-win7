@@ -36,6 +36,15 @@ Concrete provider clients, workspace tools, stores, context assembly, and
 default workflow composition live outside Core and are injected by
 `embedagent_host`.
 
+The supported standalone Core SDK is `Agent` / `AgentSession`. A caller binds
+`AgentPorts`, creates an `Agent`, opens a session, and submits `UserTurn` or
+`InteractionReply` values. `run_agent` is the lower-level execution primitive;
+`QueryEngine` is an internal implementation detail and is not the public host
+integration contract. `SessionLogPort` is the durable log contract, with
+`transcript.jsonl` provided by the product as one adapter. Missing mode and
+workflow values remain empty in standalone Core, and standalone permissions
+ask or deny unless the caller supplies an explicit policy.
+
 Local offline self-extension is part of the official architecture: workspace file resources and manifest-gated project-local Python extensions can extend the hosted runtime while remote registries, online installs, dependency installation, plugin marketplaces, built-in tool replacement, and general multi-agent orchestration remain outside the product baseline.
 
 Optional enterprise/intranet integrations follow the same minimal-core rule: they may exist as trusted providers, workflow packages, project extensions, or telemetry sinks, but Agent Core must not depend on network availability. Intranet Git, custom service, and telemetry features must be explicit, disableable, manifest/config gated, permission-checked, and failure-tolerant; they must not send prompts, source text, raw tool outputs, or credentials through diagnostics or telemetry.
@@ -60,8 +69,8 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official file discovery: `list_dir`, `glob_files`, `grep_text`
 - Official permission engine: `PermissionPolicy` with structured rule matching and stable explanation text
 - Official enterprise permission categories: `network` and `telemetry` exist for optional intranet/custom-service tools and telemetry flush/sink actions; both require explicit metadata and default to confirmation
-- Official session runtime ownership: one session-scoped `QueryEngine` remains the facade and transcript/session mutation owner, while `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `ProgressGuard`, `AgentToolActionService`, and `AgentExtensionHost` own durable lifecycle writes, turn frames and suspend/resume boundaries, open turn-loop continuation, no-progress/runaway protection, non-LLM tool action execution, and extension hook dispatch
-- Official workflow extension hosting: `InProcessAdapter` owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
+- Official session runtime ownership: `Agent` / `AgentSession` are the public Core facade, `run_agent` is the low-level execution primitive, and internal `QueryEngine`, `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `ProgressGuard`, `AgentToolActionService`, and `AgentExtensionHost` own transcript mutation, lifecycle writes, turn frames and suspend/resume boundaries, open turn-loop continuation, no-progress/runaway protection, non-LLM tool action execution, and extension hook dispatch
+- Official workflow extension hosting: `InProcessAdapter` creates one hosted `Agent` runtime with one shared `ExtensionManager`; every managed session opens an `AgentSession` from that runtime, and frontend tool catalog visibility uses the same manager
 - Official hosted adapter services: `HostedCommandService` owns slash-command dispatch, command result emission, and hosted command tool execution; `HostedInteractionService` owns permission/user-input response glue and pending ticket state. User-input interaction kind comes from pending-interaction/session-event payloads; GUI code must not synthesize missing tool names as `ask_user`. GUI session-switch effects from command results are driven by `switch_session_id` payloads, not slash command names such as `/resume`; GUI run-output log labels for command results are optional payload fields such as `log_label` / `log_detail`, not renderer-synthesized slash-command copy. `InProcessAdapter` remains the host/session bridge and must not grow parallel command or interaction helper paths.
 - Official extension runtime direction: `ExtensionManager` is the shared in-process capability boundary for workflow defaults, prompt/context hooks, tool-call/tool-result hooks, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Extensions expose hooks only through `extension_capabilities()` returning `ExtensionCapability` records; method-name hooks are no longer auto-discovered. Internally, capability records dispatch through the source-aware `AgentEventBus` with event-specific reducer semantics and diagnostics.
 - Official workflow prompt boundary: `PromptAssemblyService` owns workflow prompt append/dedupe and emits generic `workflow_prompt` system messages. The old harness-specific prompt kind is not active and is not used for current prompt injection or deduplication.
@@ -233,8 +242,14 @@ The product no longer treats the old `code` mode or legacy todo-management workf
 
 ## Main Components
 
+- `src/embedagent_core/api.py`
+  Public standalone SDK records and the `Agent` / `AgentSession` object facade.
+- `src/embedagent_core/runner.py`
+  Low-level `run_agent` execution primitive and its bound runtime.
+- `src/embedagent_core/session_log.py`
+  Durable `SessionLogPort`, in-memory adapter, session identity, and lease contracts. The product's `transcript.jsonl` store implements this port outside Core.
 - `src/embedagent_core/query_engine.py`
-  The session-scoped facade that owns session initialization, interaction suspend/resume, transcript integration, and live session mutation.
+  Internal session engine for initialization, interaction suspend/resume, log integration, and live session mutation behind the public SDK.
 - `src/embedagent_core/agent_lifecycle.py`
   Durable lifecycle journal for schema v2 operation events, save points, pending interaction lifecycle, and context operation payload helpers.
 - `src/embedagent_core/agent_kernel.py`

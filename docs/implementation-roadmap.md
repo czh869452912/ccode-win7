@@ -27,6 +27,7 @@ The following core programs are now complete in the current architecture baselin
 4. Permission / task truth cutover
 5. Frontend / protocol officialization
 6. Agent core ownership cutover
+7. Standalone Agent Core public API promotion
 
 This means the repository now has one official execution spine centered on:
 
@@ -38,6 +39,14 @@ This means the repository now has one official execution spine centered on:
 Recent workflow-boundary work has split the generic Agent Core from hosted
 product composition and default C/C++ behavior:
 
+- `Agent` / `AgentSession` are now the supported standalone Core SDK; typed
+  `UserTurn` and `InteractionReply` inputs share the same public submit path
+- `run_agent` is the low-level execution primitive and `QueryEngine` is internal
+  implementation rather than the public Host/session facade
+- `SessionLogPort` is the durable Core contract; the hosted
+  `transcript.jsonl` store is one adapter
+- missing mode and workflow values remain empty in standalone Core, whose
+  default permission behavior asks or denies rather than auto-approving
 - `src/embedagent_core/` now contains the workflow-neutral session engine,
   extension boundary, permission policy, reducers, turn snapshots, and
   capability read models
@@ -63,7 +72,7 @@ product composition and default C/C++ behavior:
 - `CORE_PACK` is the minimal file/search/editing/shell foundation; build/debug/verify packs keep harness-only recipe, quality, evidence, and task-status tools explicit
 - built-in mode `allowed_tools` no longer own default harness workflow tools; recipe, quality, evidence, and task-status tools are activated by the C harness extension
 - `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is now the single runtime schema projection entry point; default-harness paths use extension-active explicit tool names, and omitted `tool_names` project no provider-facing schemas
-- `InProcessAdapter` now owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
+- `InProcessAdapter` now owns one hosted `Agent` runtime and one shared `ExtensionManager`; managed sessions store `AgentSession` handles opened from that runtime, and frontend tool catalog visibility uses the same manager
 - `ExtensionManager` now carries generic diagnostics, resource discovery hooks, context hooks, tool-call/tool-result hooks, and dynamic in-process tool registration through explicit `ExtensionCapability` records returned by `extension_capabilities()`
 - local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` can be refreshed through the runtime, adapter, slash command, and GUI/core API; root workspace recipe listing is workflow-neutral and does not assign default C/C++ tool names, while the bundled C/C++ workflow package owns CMake/Make/Ninja detection plus `list_recipes` / `run_recipe` projection; visible Agent Skills-style Markdown resources are summarized through one lightweight prompt unit, skill bodies expand only through `/skill:<name> [args]`, and prompt bodies expand only through `/prompt:<name-or-path> [args]`
 - manifest-gated project-local Python extensions can be loaded from enabled `.embedagent/extensions/<name>/extension.json` manifests by hosted product paths and are registered into the shared `ExtensionManager`; hooks/tools are active only when declared with `api.ExtensionCapability`
@@ -448,7 +457,7 @@ Recent GUI app-shell work has established the first standalone-app boundary:
 
 Recent stabilization work has also completed the agent-core ownership cutover:
 
-- `QueryEngine` is now session-scoped and owns session mutation for the lifetime of a conversation
+- `Agent` / `AgentSession` now provide the public session lifecycle, while the internal session-scoped `QueryEngine` owns mutation for each execution
 - frontend/live events now reuse engine-issued `step_id` values end-to-end
 - resumed permission/user-input interactions re-enter the same action pipeline instead of bypassing it
 - `AgentToolActionService` owns workflow-patch capture after tool-result hooks, so `QueryEngine` no longer wraps extension result patching
@@ -530,7 +539,7 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - current implementation status: Phase C is complete
    - `AgentLifecycleJournal` owns durable lifecycle operation writes and save points
    - `AgentKernel` owns turn frames and pending interaction create/resolve boundaries
-   - `AgentLoop` owns turn-loop orchestration and `QueryEngine` remains the session facade
+   - `AgentLoop` owns turn-loop orchestration behind public `AgentSession`; `QueryEngine` is internal
    - non-LLM action execution remains behind `AgentToolActionService`
 
 4. **Default C/C++ workflow package**
@@ -642,8 +651,8 @@ Remaining cleanup should focus on:
 
 Near-term decoupling should continue from the new extension boundary:
 
-- default extension configuration has moved behind `AgentApplication`: hosted product paths use the selected scenario application's profile and extension manager, while bare `QueryEngine` callers pass an `ExtensionManager` explicitly when they need bundled workflow behavior
-- `QueryEngine` should remain a facade over `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost`; new extension hook dispatch should not be added directly back to `QueryEngine`
+- default extension configuration has moved behind `AgentApplication`: hosted product paths use the selected scenario application's profile and extension manager, while standalone `Agent` callers supply extension policy explicitly through their bound runtime
+- `QueryEngine` should remain an internal coordinator over `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost`; new extension hook dispatch should not be added directly back to it or exposed as a public integration path
 - keep public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration out of scope; project-local Python extensions stay limited to explicit enabled manifests under `.embedagent/extensions/<name>/`, and future intranet capabilities must use the same explicit hosted boundary discipline
 
 ### 4.4 Documentation Alignment
@@ -683,7 +692,9 @@ After architecture cutover, the highest-value validation is:
 
 Priority remains highest on:
 
-- `QueryEngine`
+- public `Agent` / `AgentSession` contracts
+- low-level `run_agent` and internal `QueryEngine`
+- `SessionLogPort` durability and restore
 - harness
 - runtime
 - permissions

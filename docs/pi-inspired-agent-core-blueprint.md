@@ -4,7 +4,7 @@
 
 This document is a target blueprint for the next architecture program.
 
-It does not replace the current official runtime baseline. The current baseline remains the session-scoped Agent Core with the bundled C/C++ harness installed as the default workflow extension. This blueprint describes the next direction: keep learning from Pi at both levels:
+It does not replace the current official runtime baseline. The current baseline exposes `Agent` / `AgentSession` as the standalone Core SDK, keeps `run_agent` as the low-level execution primitive, and treats `QueryEngine` as internal implementation. Hosted product composition installs the bundled C/C++ harness as the default workflow extension into one shared Agent runtime. This blueprint describes the next direction: keep learning from Pi at both levels:
 
 - functional design: extensions, resources, session durability, compaction, commands, model capability metadata, observability, and self-extension workflows
 - architecture philosophy: a small core, capability registration, event reducers, durable state, and replaceable product shells
@@ -34,14 +34,29 @@ The long-term boundary is:
 ```text
 Frontend Shells
   -> Hosted Adapter
-  -> AgentKernel
-  -> SessionLog + CapabilityRegistry + RuntimeConfigReducer + WorkflowPackageManifest + HookBus + ToolRuntime + PermissionPolicy
+  -> Agent / AgentSession
+  -> run_agent -> QueryEngine -> AgentKernel
+  -> SessionLogPort + CapabilityRegistry + RuntimeConfigReducer + WorkflowPackageManifest + HookBus + ToolRuntime + PermissionPolicy
   -> Default C/C++ Workflow Package and project-local extensions
 ```
 
 ## 4. Minimal Core
 
 Agent Core should keep only the concepts required for any agentic runtime.
+
+### Public Runtime API
+
+`Agent.create(...)`, `Agent.open(...)`, and `AgentSession.submit(...)` are the
+supported standalone SDK. `UserTurn` and `InteractionReply` enter the same
+session path. The object facade provides stable session ownership and rejects
+overlapping submissions; `run_agent` remains available as the lower-level
+execution primitive. `QueryEngine` is internal and may evolve without becoming
+a Host or extension integration contract.
+
+Standalone runtime definitions do not invent mode or workflow state: missing
+values stay empty. Standalone permission and write defaults ask or deny. Hosted
+products may explicitly select a default mode/workflow and policy, but that
+choice does not become a Core default.
 
 ### AgentKernel
 
@@ -57,9 +72,10 @@ Owns the turn lifecycle:
 
 The kernel should not own C/C++ phases, recipes, task graphs, or quality gates.
 
-### SessionLog
+### SessionLogPort
 
-The append-only durable state ledger.
+The implemented append-only durable state contract. `transcript.jsonl` is the
+hosted product adapter, not the public abstraction.
 
 The session log should record not only messages, but also explicit operation lifecycle state:
 
@@ -198,7 +214,12 @@ Reloading resources must not execute Python code.
 
 Pi's strongest durable design idea is that session storage is not only history. It is the durable state model for model choice, active tools, compaction, branch summaries, labels, extension state, and recovery markers.
 
-EmbedAgent should extend transcript truth in that direction. `transcript.jsonl` should become the reducer input for all durable session state that matters after restart. Phase H starts this beyond operation state by reducing safe runtime configuration from transcript events, Phase J extends the same pattern to structured compaction state, and Phase K adds recovery markers for hosted resume attempts.
+EmbedAgent should extend durable log truth in that direction. `SessionLogPort`
+is the Core contract, and the hosted `transcript.jsonl` adapter is the reducer
+input for product session state that matters after restart. Phase H starts this
+beyond operation state by reducing safe runtime configuration from transcript
+events, Phase J extends the same pattern to structured compaction state, and
+Phase K adds recovery markers for hosted resume attempts.
 
 ### Turn Snapshot And Save Point Discipline
 
@@ -324,10 +345,10 @@ Outcomes:
 - turn snapshot creation is explicit
 - save points are explicit
 - suspend, resume, abort, compact retry, and failure cleanup share one lifecycle path
-- the public session facade shrinks
+- the public `AgentSession` facade stays small
 - tool action execution remains behind the action service
 
-Current implementation status: Phase C is complete and the follow-on continuation slice has landed. `src/embedagent_core/agent_lifecycle.py` defines `AgentLifecycleJournal` for durable lifecycle operation events, context operation payload helpers, pending interaction lifecycle events, and transition save points. `src/embedagent_core/agent_kernel.py` defines `AgentKernel` and `AgentTurnFrame` for user, command, and resume turn lifecycle plus pending interaction create/resolve boundaries. `src/embedagent_core/agent_loop.py` now owns Pi-style open turn-loop continuation, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, aborts, and explicit loop safety-limit compatibility transitions. `QueryEngine` remains the session-scoped facade and transcript/session mutation compatibility surface.
+Current implementation status: Phase C is complete and the follow-on continuation slice has landed. `src/embedagent_core/agent_lifecycle.py` defines `AgentLifecycleJournal` for durable lifecycle operation events, context operation payload helpers, pending interaction lifecycle events, and transition save points. `src/embedagent_core/agent_kernel.py` defines `AgentKernel` and `AgentTurnFrame` for user, command, and resume turn lifecycle plus pending interaction create/resolve boundaries. `src/embedagent_core/agent_loop.py` now owns Pi-style open turn-loop continuation, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, aborts, and explicit loop safety-limit compatibility transitions. `Agent` / `AgentSession` are the public facade; `run_agent` and internal `QueryEngine` own low-level execution and transcript/session mutation.
 
 ### Phase D: Default C/C++ Workflow Package
 
@@ -498,8 +519,14 @@ offline deployment and focused C/C++ engineering baseline.
 The blueprint is working when:
 
 - Agent Core can be described without C/C++ workflow vocabulary
+- standalone callers use `Agent` / `AgentSession`, with `run_agent` reserved as
+  the low-level primitive and `QueryEngine` kept internal
+- `SessionLogPort` is the durable Core contract and storage formats remain
+  adapter details
+- missing standalone mode/workflow values remain empty and standalone
+  permissions ask or deny
 - hosted product paths still load the bundled C/C++ workflow by default
-- a bare engine can run with an empty workflow package set
+- a base `Agent` can run with an empty workflow package set
 - tools and resources are registered once and activated through capability policy
 - workflow packages can be inspected through read-only manifests without making manifests the activation policy
 - durable restore can explain where an interrupted run stopped

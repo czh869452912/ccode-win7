@@ -16,7 +16,7 @@ The stable architecture assumptions are:
 
 The product is organized around one main execution spine:
 
-`Frontend -> Agent App Protocol / Core Adapter -> Hosted Runtime -> InProcessAdapter -> Session Runtime -> QueryEngine -> AgentKernel -> AgentLoop / AgentLifecycleJournal -> AgentToolActionService -> AgentExtensionHost / ToolRuntime / PermissionPolicy -> Context/Stores`
+`Frontend -> Agent App Protocol / Core Adapter -> Hosted Runtime -> InProcessAdapter -> Agent / AgentSession -> internal QueryEngine -> AgentKernel -> AgentLoop / AgentLifecycleJournal -> AgentToolActionService -> AgentExtensionHost / ToolRuntime / PermissionPolicy -> Context/Stores`
 
 ### Frontend Layer
 
@@ -416,6 +416,9 @@ packages.
 ### Agent Core Layer
 
 - `src/embedagent_core/`
+- `src/embedagent_core/api.py`
+- `src/embedagent_core/runner.py`
+- `src/embedagent_core/session_log.py`
 - `src/embedagent_core/query_engine.py`
 - `src/embedagent_core/agent_lifecycle.py`
 - `src/embedagent_core/agent_kernel.py`
@@ -448,6 +451,19 @@ dispatch, loop control, and abstract ports. Host/product layers implement the
 ports. C/C++ workflow behavior is a workflow package, not a Core dependency.
 Core must not import the product package, host package, GUI, TUI, or workflow
 packages.
+
+`Agent` / `AgentSession` are the public standalone Core SDK. Callers bind the
+model, tool runtime, durable session log, context assembler, and permission
+policy through `AgentPorts`, then submit typed `UserTurn` or `InteractionReply`
+inputs. `run_agent` is the low-level execution primitive beneath that facade.
+`QueryEngine` is internal implementation, not a supported Host or third-party
+integration boundary. The standalone defaults preserve missing mode and
+workflow values as empty and use ask/deny permission behavior.
+
+`SessionLogPort` is the durable append/load/lease contract used by the public
+runtime. The hosted `transcript.jsonl` store implements that port; the file name
+and JSONL storage layout are product adapter details rather than the Core
+abstraction.
 
 ### Host And Product Composition Layer
 
@@ -532,7 +548,10 @@ hosted product but is not part of the generic Agent Core.
 
 The default C/C++ harness is now entered through the in-process workflow extension boundary. Harness internals remain bundled and enabled by default, but `QueryEngine` must not import concrete harness task classes directly.
 
-`InProcessAdapter` owns the hosted runtime's `ExtensionManager` and passes that same manager to each session-scoped `QueryEngine`. Frontend tool catalog visibility is computed from the same manager, so model-facing tools and shell metadata share one extension chain.
+`InProcessAdapter` binds the hosted runtime's `ExtensionManager` into one
+`Agent` and opens each managed `AgentSession` from that runtime. Frontend tool
+catalog visibility is computed from the same manager, so model-facing tools and
+shell metadata share one extension chain.
 
 Hosted adapter behavior that is not Agent Core lives in focused hosted
 services. `HostedCommandService` owns slash-command dispatch, command-result
@@ -559,7 +578,7 @@ the extension boundary.
 
 Workflow-package prompt units are described by the generic `WorkflowPrompt` descriptor and appended as generic `workflow_prompt` system messages. `PromptAssemblyService` owns workflow-prompt append/dedupe mechanics. The old harness-specific prompt kind is no longer active; new Agent Core prompt injection and deduplication use only the generic workflow naming.
 
-`AgentLifecycleJournal` owns durable lifecycle writes for schema v2 operation events, transition save points, pending interaction lifecycle events, context operation payload helpers, and workflow-patch persistence helpers. `AgentKernel` owns turn frames and pending interaction create/resolve boundaries. `AgentToolActionService` owns non-LLM tool action execution: active-tool checks, extension pre/post hooks, permission evaluation, pending permission/user-input action handling, mode-switch proposals, path write guards, runtime dispatch, extension-owned tool calls, resumed action execution, and workflow-patch capture after tool-result hooks. `AgentLoop` owns Pi-style open turn-loop continuation: agent step lifecycle, context/provider attempts, active schema requests through `AgentExtensionHost`, compact retry, tool batch interruption, guard-stop, abort, and explicit loop safety-limit compatibility transitions. Ordinary command/build/test failures are diagnostic tool results for the next model turn, not automatic hard-stop conditions; guard-stop is reserved for provider/protocol no-progress and true runaway protection. The optional safety fuse remains available only as an explicit runtime/test parameter; persistent JSON configuration must not set a product loop ceiling, and hosted defaults do not stop merely because eight model/tool cycles were used. `QueryEngine` remains the public session facade and keeps ownership of transcript-backed session mutation compatibility; it must not grow private loop or completion forwarding wrappers.
+`AgentLifecycleJournal` owns durable lifecycle writes for schema v2 operation events, transition save points, pending interaction lifecycle events, context operation payload helpers, and workflow-patch persistence helpers. `AgentKernel` owns turn frames and pending interaction create/resolve boundaries. `AgentToolActionService` owns non-LLM tool action execution: active-tool checks, extension pre/post hooks, permission evaluation, pending permission/user-input action handling, mode-switch proposals, path write guards, runtime dispatch, extension-owned tool calls, resumed action execution, and workflow-patch capture after tool-result hooks. `AgentLoop` owns Pi-style open turn-loop continuation: agent step lifecycle, context/provider attempts, active schema requests through `AgentExtensionHost`, compact retry, tool batch interruption, guard-stop, abort, and explicit loop safety-limit compatibility transitions. Ordinary command/build/test failures are diagnostic tool results for the next model turn, not automatic hard-stop conditions; guard-stop is reserved for provider/protocol no-progress and true runaway protection. The optional safety fuse remains available only as an explicit runtime/test parameter; persistent JSON configuration must not set a product loop ceiling, and hosted defaults do not stop merely because eight model/tool cycles were used. `AgentSession` is the public session facade; internal `QueryEngine` keeps transcript-backed session mutation ownership and must not grow private loop or completion forwarding wrappers.
 
 `ProgressGuard` owns the turn-loop no-progress/runaway safety check. It fingerprints action intent together with observation evidence, so distinct files, commands, diagnostic outputs, and successful writes are treated as progress even when they use the same tool name. It replaces repeated-tool-name stopping with evidence-aware stopping and remains a guard only; it does not decide validation success, tool activation, permissions, or workflow state.
 
@@ -583,7 +602,7 @@ Explicit user mode-switch requests are routed by `QueryEngine` before provider c
 
 `TurnExperienceReducer` is the replayable turn-experience read model. It reduces safe `tool_result` and `loop_transition` transcript events into completed work, unverified changes, validation failures, blockers, last failure, and suggested next steps. It feeds `ManagedSession.turn_experience`, protocol snapshots, session snapshots, `session_finished` payloads, CLI diagnostics, the TUI inspector, and GUI T3 system notices. It remains display/replay state and must not drive loop continuation, validation policy, active-tool selection, permission decisions, restore rules, extension loading, or session-history truth.
 
-Default bundled workflow assembly is outside `QueryEngine` through `AgentApplication`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the selected application extension manager before constructing session engines. The default C/C++ product application lives in `src/embedagent/workflow_packages/c_cpp/application.py` and is reached through the application record's lazy builder path, while `InProcessAdapter` depends only on the application boundary, selected application id, and injected mode/profile policies. Hosted capability payloads expose the selected application as `agentApplication` and available applications from the same selected registry as `agentApplications`; built-in agent applications share the central `agent_application_capability_payload(...)` projection used by both hosted session capabilities and no-workspace GUI app bootstrap. An injected external application must not leak the bundled C/C++ application into its GUI capability list. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Loaded project extensions receive `api.ExtensionCapability` and must explicitly declare every active hook from `extension_capabilities()`. Public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
+Default bundled workflow assembly is outside Core's public facade through `AgentApplication`. A standalone `Agent` uses its explicitly supplied ports and definition; missing mode/workflow values remain empty and no C/C++ package is installed implicitly. Hosted product paths select an application, bind its extension manager into one `Agent` runtime, and open all managed `AgentSession` handles from that runtime. The default C/C++ product application lives in `src/embedagent/workflow_packages/c_cpp/application.py` and is reached through the application record's lazy builder path, while `InProcessAdapter` depends only on the application boundary, selected application id, and injected mode/profile policies. Hosted capability payloads expose the selected application as `agentApplication` and available applications from the same selected registry as `agentApplications`; built-in agent applications share the central `agent_application_capability_payload(...)` projection used by both hosted session capabilities and no-workspace GUI app bootstrap. An injected external application must not leak the bundled C/C++ application into its GUI capability list. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Loaded project extensions receive `api.ExtensionCapability` and must explicitly declare every active hook from `extension_capabilities()`. Public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
 
 Optional enterprise/intranet integrations are hosted capabilities, not Agent Core responsibilities. Intranet Git adapters, custom service providers, model gateways, organization-local catalogs, and telemetry sinks must be explicitly configured, trusted, disableable, and failure-tolerant. They attach through provider, extension, workflow-package, or passive sink boundaries with source metadata and normal permission checks; they must not make startup, default C/C++ workflows, restore, resource reload, or session history depend on network availability.
 
@@ -593,8 +612,10 @@ Managed-session workflow refresh in the product adapter path goes through `Agent
 
 ### Session Runtime Ownership
 
-- `ManagedSession` hosts thread/lock/status and durable `Session` references
-- one session-scoped `QueryEngine` is the facade and transcript/session mutation owner; `AgentKernel`, `AgentLifecycleJournal`, `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own lifecycle, journal, loop, action, active schema, and extension dispatch internals
+- `InProcessAdapter` creates one hosted `Agent` runtime and one shared `ExtensionManager`
+- `ManagedSession` hosts thread/lock/status, durable `Session` references, and an `AgentSession` opened from that shared runtime
+- user turns enter through `AgentSession.submit(UserTurn(...))`, while permission and user-input continuations enter through `AgentSession.submit(InteractionReply(...))`
+- `run_agent` and `QueryEngine` remain below the public object facade; `AgentKernel`, `AgentLifecycleJournal`, `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own lifecycle, journal, loop, action, active schema, and extension dispatch internals
 - `InProcessAdapter` is a host/bridge layer and must not mint duplicate workflow identities or own slash-command business rules that can live in hosted services such as `ReviewCommandService`
 - `SessionSnapshotProjector` and `SessionHistoryAssembler` are projections, not workflow truth
 - `SessionHistoryAssembler` emits both nested `turns` and direct T3-style `activities` from the same transcript-backed `Session` state
@@ -849,7 +870,8 @@ Additional ownership rules:
 
 Official session-history ownership is:
 
-- `transcript.jsonl` is the only durable session-history ledger
+- `SessionLogPort` is Core's durable session-log contract
+- the hosted `transcript.jsonl` adapter is the only durable product session-history ledger
 - `Session` / `session.turns` is the only live structured history state
 - there is no durable timeline transport in the current product contract
 - GUI activation reads one bootstrap payload that includes snapshot, structured history, plan, and permission context
