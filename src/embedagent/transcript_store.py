@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
-import stat
 import threading
 import uuid
 from contextlib import contextmanager
@@ -59,14 +59,17 @@ class TranscriptStore(object):
                     "session log lease is already held: %s" % normalized_session_id
                 )
             _PROCESS_LEASE_PATHS.add(lease_key)
-        file_handle = None
+        mutex_handle = None
         try:
-            file_handle = self._acquire_file_lease(transcript_path, normalized_session_id)
+            mutex_handle = self._acquire_windows_mutex(
+                transcript_path,
+                normalized_session_id,
+            )
             yield
         finally:
             try:
-                if file_handle is not None:
-                    self._release_file_lease(file_handle)
+                if mutex_handle is not None:
+                    self._release_windows_mutex(mutex_handle)
             finally:
                 with _PROCESS_LEASE_GUARD:
                     _PROCESS_LEASE_PATHS.discard(lease_key)
@@ -211,125 +214,67 @@ class TranscriptStore(object):
                 self._append_locks[normalized] = lock
             return lock
 
-    def _acquire_file_lease(self, transcript_path: str, session_id: str) -> Any:
-        lease_path = transcript_path + ".lease"
-        preexisting_stat = self._validate_lease_sidecar(lease_path, require_exists=False)
+    def _acquire_windows_mutex(self, transcript_path: str, session_id: str) -> Any:
         if os.name != "nt":
             return None
-        import msvcrt
-
-        directory = os.path.dirname(transcript_path)
-        if not os.path.isdir(directory):
-            os.makedirs(directory, exist_ok=True)
-        handle = self._open_windows_lease_sidecar(
-            lease_path,
-            create_new=preexisting_stat is None,
-        )
-        try:
-            sidecar_stat = self._validate_lease_sidecar(lease_path, require_exists=True)
-            handle_stat = os.fstat(handle.fileno())
-            if sidecar_stat is None or (
-                handle_stat.st_dev,
-                handle_stat.st_ino,
-            ) != (
-                sidecar_stat.st_dev,
-                sidecar_stat.st_ino,
-            ):
-                raise SessionLeaseConflict("session log lease path is unsafe")
-            if handle_stat.st_size == 0:
-                handle.write(b"\0")
-                handle.flush()
-            handle.seek(0)
-            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-        except SessionLeaseConflict:
-            handle.close()
-            raise
-        except OSError:
-            handle.close()
-            raise SessionLeaseConflict("session log lease is already held: %s" % session_id)
-        return handle
-
-    def _open_windows_lease_sidecar(self, path: str, create_new: bool) -> Any:
         import ctypes
-        import msvcrt
         from ctypes import wintypes
 
-        generic_read_write = 0x80000000 | 0x40000000
-        share_read_write = 0x00000001 | 0x00000002
-        create_new_disposition = 1
-        open_existing = 3
-        normal_open_reparse_point = 0x00000080 | 0x00200000
+        wait_object_0 = 0x00000000
+        wait_abandoned = 0x00000080
+        wait_timeout = 0x00000102
+        digest = hashlib.sha256(_canonical_path(transcript_path).encode("utf-8")).hexdigest()
+        mutex_name = "Local\\EmbedAgent.SessionLease." + digest
         kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        create_file = kernel32.CreateFileW
-        create_file.argtypes = (
-            wintypes.LPCWSTR,
-            wintypes.DWORD,
-            wintypes.DWORD,
-            ctypes.c_void_p,
-            wintypes.DWORD,
-            wintypes.DWORD,
-            wintypes.HANDLE,
-        )
-        create_file.restype = wintypes.HANDLE
-        native_handle = create_file(
-            path,
-            generic_read_write,
-            share_read_write,
-            None,
-            create_new_disposition if create_new else open_existing,
-            normal_open_reparse_point,
-            None,
-        )
-        if native_handle == ctypes.c_void_p(-1).value:
-            raise SessionLeaseConflict("session log lease path is unsafe")
-        try:
-            file_descriptor = msvcrt.open_osfhandle(
-                native_handle,
-                os.O_RDWR | getattr(os, "O_BINARY", 0),
-            )
-        except (OSError, OverflowError, TypeError, ValueError):
-            close_handle = kernel32.CloseHandle
-            close_handle.argtypes = (wintypes.HANDLE,)
-            close_handle.restype = wintypes.BOOL
-            close_handle(native_handle)
-            raise
-        try:
-            return os.fdopen(file_descriptor, "r+b", buffering=0)
-        except (OSError, OverflowError, TypeError, ValueError):
-            os.close(file_descriptor)
-            raise
+        create_mutex = kernel32.CreateMutexW
+        create_mutex.argtypes = (ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR)
+        create_mutex.restype = wintypes.HANDLE
+        wait_for_single_object = kernel32.WaitForSingleObject
+        wait_for_single_object.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+        wait_for_single_object.restype = wintypes.DWORD
+        close_handle = kernel32.CloseHandle
+        close_handle.argtypes = (wintypes.HANDLE,)
+        close_handle.restype = wintypes.BOOL
 
-    def _validate_lease_sidecar(self, path: str, require_exists: bool) -> Any:
-        if not _path_is_within(path, self.root):
-            raise SessionLeaseConflict("session log lease path is unsafe")
+        handle = create_mutex(None, False, mutex_name)
+        if not handle:
+            raise SessionLeaseConflict("session mutex acquisition failed")
+        acquired = False
         try:
-            path_stat = os.lstat(path)
-        except FileNotFoundError:
-            if require_exists:
-                raise SessionLeaseConflict("session log lease path is unsafe")
-            return None
-        except OSError:
-            raise SessionLeaseConflict("session log lease path is unsafe")
-        reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
-        file_attributes = int(getattr(path_stat, "st_file_attributes", 0) or 0)
-        if os.path.islink(path) or bool(file_attributes & reparse_flag):
-            raise SessionLeaseConflict("session log lease path is unsafe")
-        if int(getattr(path_stat, "st_nlink", 1) or 1) != 1:
-            raise SessionLeaseConflict("session log lease path is unsafe")
-        if not _path_is_within(os.path.realpath(path), self.root):
-            raise SessionLeaseConflict("session log lease path is unsafe")
-        return path_stat
-
-    def _release_file_lease(self, handle: Any) -> None:
-        import msvcrt
-
-        try:
-            handle.seek(0)
-            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
-        except OSError:
-            pass
+            wait_result = wait_for_single_object(handle, 0)
+            if wait_result in (wait_object_0, wait_abandoned):
+                acquired = True
+                return handle
+            if wait_result == wait_timeout:
+                raise SessionLeaseConflict("session log lease is already held: %s" % session_id)
+            raise SessionLeaseConflict("session mutex acquisition failed")
         finally:
-            handle.close()
+            if not acquired:
+                close_handle(handle)
+
+    def _release_windows_mutex(self, handle: Any) -> None:
+        if os.name != "nt":
+            return
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        release_mutex = kernel32.ReleaseMutex
+        release_mutex.argtypes = (wintypes.HANDLE,)
+        release_mutex.restype = wintypes.BOOL
+        close_handle = kernel32.CloseHandle
+        close_handle.argtypes = (wintypes.HANDLE,)
+        close_handle.restype = wintypes.BOOL
+
+        release_succeeded = False
+        try:
+            release_succeeded = bool(release_mutex(handle))
+        finally:
+            close_succeeded = bool(close_handle(handle))
+        if not release_succeeded:
+            raise SessionLeaseConflict("session mutex release failed")
+        if not close_succeeded:
+            raise SessionLeaseConflict("session mutex close failed")
 
     def _repair_tail(self, path: str) -> None:
         if not os.path.isfile(path):

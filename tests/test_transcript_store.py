@@ -7,7 +7,7 @@ import time
 import unittest
 from copy import deepcopy
 from itertools import count
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -71,124 +71,146 @@ class TestTranscriptStore(unittest.TestCase):
         with store.acquire_lease("session-one"):
             pass
 
-    def test_process_lease_is_released_when_file_unlock_raises(self):
+    def test_process_lease_is_released_when_mutex_release_raises(self):
         store = TranscriptStore(self.workspace)
-        original_release = store._release_file_lease
-
-        def release_then_raise(handle):
-            original_release(handle)
-            raise RuntimeError("unlock reporting failed")
-
-        store._release_file_lease = release_then_raise
-        try:
-            with self.assertRaisesRegex(RuntimeError, "^unlock reporting failed$"):
-                with store.acquire_lease("session-release-error"):
-                    pass
-        finally:
-            store._release_file_lease = original_release
+        with patch.object(store, "_acquire_windows_mutex", return_value=123):
+            with patch.object(
+                store,
+                "_release_windows_mutex",
+                side_effect=RuntimeError("mutex release failed"),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "^mutex release failed$"):
+                    with store.acquire_lease("session-release-error"):
+                        pass
 
         with TranscriptStore(self.workspace).acquire_lease("session-release-error"):
             pass
 
-    def test_lease_rejects_sidecar_symlink_outside_sessions_root(self):
+    def test_lease_creates_no_filesystem_artifact_or_session_directory(self):
         store = TranscriptStore(self.workspace)
-        transcript_path = store.resolve_transcript_path("session-symlink")
+        transcript_path = store.resolve_transcript_path("session-no-artifact")
         session_dir = os.path.dirname(transcript_path)
-        os.makedirs(session_dir)
-        lease_path = transcript_path + ".lease"
-        outside_path = os.path.join(self.workspace, "outside-lease-target")
-        with open(outside_path, "wb"):
-            pass
-        try:
-            os.symlink(outside_path, lease_path)
-        except (NotImplementedError, OSError) as exc:
-            self.skipTest("symlink creation unavailable: %s" % exc)
 
-        try:
-            original_size = os.path.getsize(outside_path)
-            with self.assertRaisesRegex(
-                SessionLeaseConflict,
-                "^session log lease path is unsafe$",
-            ):
-                with store.acquire_lease("session-symlink"):
-                    pass
-            self.assertEqual(os.path.getsize(outside_path), original_size)
-        finally:
-            if os.path.lexists(lease_path):
-                os.remove(lease_path)
+        with store.acquire_lease("session-no-artifact"):
+            self.assertFalse(os.path.lexists(transcript_path + ".lease"))
+            self.assertFalse(os.path.exists(session_dir))
 
-        with store.acquire_lease("session-symlink"):
-            pass
+        self.assertFalse(os.path.lexists(transcript_path + ".lease"))
+        self.assertFalse(os.path.exists(session_dir))
 
-    @unittest.skipUnless(os.name == "nt", "Windows sidecar creation contract")
-    def test_lease_create_race_does_not_follow_symlink_to_missing_outside_target(self):
+    @unittest.skipUnless(os.name == "nt", "Windows directory symlink contract")
+    def test_lease_ignores_parent_replacement_after_canonical_path_resolution(self):
         store = TranscriptStore(self.workspace)
-        transcript_path = store.resolve_transcript_path("session-create-race")
+        transcript_path = store.resolve_transcript_path("session-parent-race")
         session_dir = os.path.dirname(transcript_path)
+        outside_dir = os.path.join(self.workspace, "outside-session-directory")
         os.makedirs(session_dir)
-        lease_path = transcript_path + ".lease"
-        outside_path = os.path.join(self.workspace, "missing-outside-lease-target")
-        probe_path = lease_path + ".probe"
+        os.makedirs(outside_dir)
+
+        probe_path = session_dir + "-symlink-probe"
         try:
-            os.symlink(outside_path, probe_path)
+            os.symlink(outside_dir, probe_path, target_is_directory=True)
         except (NotImplementedError, OSError) as exc:
-            self.skipTest("symlink creation unavailable: %s" % exc)
+            self.skipTest("directory symlink creation unavailable: %s" % exc)
         else:
-            os.remove(probe_path)
+            os.rmdir(probe_path)
 
-        original_validate = store._validate_lease_sidecar
-        race_inserted = [False]
+        original_resolve = store.resolve_transcript_path
+        replaced = [False]
 
-        def validate_then_insert_symlink(path, require_exists):
-            result = original_validate(path, require_exists)
-            if not require_exists and not race_inserted[0]:
-                os.symlink(outside_path, path)
-                race_inserted[0] = True
-            return result
+        def resolve_then_replace(session_id):
+            path = original_resolve(session_id)
+            if not replaced[0]:
+                os.rmdir(session_dir)
+                os.symlink(outside_dir, session_dir, target_is_directory=True)
+                replaced[0] = True
+            return path
 
-        store._validate_lease_sidecar = validate_then_insert_symlink
+        store.resolve_transcript_path = resolve_then_replace
         try:
-            with self.assertRaises(SessionLeaseConflict):
-                with store.acquire_lease("session-create-race"):
-                    pass
+            with store.acquire_lease("session-parent-race"):
+                pass
+            self.assertEqual(os.listdir(outside_dir), [])
         finally:
-            store._validate_lease_sidecar = original_validate
-            if os.path.lexists(lease_path):
-                os.remove(lease_path)
+            store.resolve_transcript_path = original_resolve
+            if os.path.lexists(session_dir):
+                os.rmdir(session_dir)
 
-        with store.acquire_lease("session-create-race"):
+        with store.acquire_lease("session-parent-race"):
             pass
-        self.assertFalse(os.path.exists(outside_path))
 
-    def test_lease_rejects_hardlink_sidecar(self):
+    @unittest.skipUnless(os.name == "nt", "Windows named mutex contract")
+    def test_windows_mutex_timeout_closes_handle_and_reports_conflict(self):
         store = TranscriptStore(self.workspace)
-        transcript_path = store.resolve_transcript_path("session-hardlink")
-        session_dir = os.path.dirname(transcript_path)
-        os.makedirs(session_dir)
-        lease_path = transcript_path + ".lease"
-        outside_path = os.path.join(self.workspace, "outside-hardlink-target")
-        with open(outside_path, "wb") as handle:
-            handle.write(b"do-not-touch")
-        try:
-            os.link(outside_path, lease_path)
-        except (NotImplementedError, OSError) as exc:
-            self.skipTest("hardlink creation unavailable: %s" % exc)
+        kernel32 = MagicMock()
+        kernel32.CreateMutexW.return_value = 123
+        kernel32.WaitForSingleObject.return_value = 0x00000102
+        kernel32.CloseHandle.return_value = 1
 
-        try:
+        with patch("ctypes.WinDLL", return_value=kernel32):
             with self.assertRaisesRegex(
                 SessionLeaseConflict,
-                "^session log lease path is unsafe$",
+                "^session log lease is already held: session-timeout$",
             ):
-                with store.acquire_lease("session-hardlink"):
-                    pass
-            with open(outside_path, "rb") as handle:
-                self.assertEqual(handle.read(), b"do-not-touch")
-        finally:
-            if os.path.lexists(lease_path):
-                os.remove(lease_path)
+                store._acquire_windows_mutex(
+                    "C:\\canonical\\transcript.jsonl",
+                    "session-timeout",
+                )
 
-        with store.acquire_lease("session-hardlink"):
-            pass
+        kernel32.CloseHandle.assert_called_once_with(123)
+
+    @unittest.skipUnless(os.name == "nt", "Windows named mutex contract")
+    def test_windows_mutex_wait_exception_closes_handle(self):
+        store = TranscriptStore(self.workspace)
+        kernel32 = MagicMock()
+        kernel32.CreateMutexW.return_value = 123
+        kernel32.WaitForSingleObject.side_effect = OSError("wait failed")
+        kernel32.CloseHandle.return_value = 1
+
+        with patch("ctypes.WinDLL", return_value=kernel32):
+            with self.assertRaisesRegex(OSError, "^wait failed$"):
+                store._acquire_windows_mutex(
+                    "C:\\canonical\\transcript.jsonl",
+                    "session-wait-error",
+                )
+
+        kernel32.CloseHandle.assert_called_once_with(123)
+
+    @unittest.skipUnless(os.name == "nt", "Windows named mutex contract")
+    def test_windows_mutex_accepts_abandoned_ownership(self):
+        store = TranscriptStore(self.workspace)
+        kernel32 = MagicMock()
+        kernel32.CreateMutexW.return_value = 123
+        kernel32.WaitForSingleObject.return_value = 0x00000080
+        kernel32.ReleaseMutex.return_value = 1
+        kernel32.CloseHandle.return_value = 1
+
+        with patch("ctypes.WinDLL", return_value=kernel32):
+            handle = store._acquire_windows_mutex(
+                "C:\\canonical\\transcript.jsonl",
+                "session-abandoned",
+            )
+            store._release_windows_mutex(handle)
+
+        self.assertEqual(handle, 123)
+        kernel32.ReleaseMutex.assert_called_once_with(123)
+        kernel32.CloseHandle.assert_called_once_with(123)
+
+    @unittest.skipUnless(os.name == "nt", "Windows named mutex contract")
+    def test_windows_mutex_release_failure_still_closes_handle(self):
+        store = TranscriptStore(self.workspace)
+        kernel32 = MagicMock()
+        kernel32.ReleaseMutex.return_value = 0
+        kernel32.CloseHandle.return_value = 1
+
+        with patch("ctypes.WinDLL", return_value=kernel32):
+            with self.assertRaisesRegex(
+                SessionLeaseConflict,
+                "^session mutex release failed$",
+            ):
+                store._release_windows_mutex(123)
+
+        kernel32.CloseHandle.assert_called_once_with(123)
 
     def test_independent_stores_share_session_lease(self):
         first = TranscriptStore(self.workspace)
@@ -205,7 +227,7 @@ class TestTranscriptStore(unittest.TestCase):
         with second.acquire_lease("session-one"):
             pass
 
-    @unittest.skipUnless(os.name == "nt", "Windows file locking contract")
+    @unittest.skipUnless(os.name == "nt", "Windows named mutex contract")
     def test_windows_processes_share_session_lease(self):
         context = multiprocessing.get_context("spawn")
         ready = context.Event()
