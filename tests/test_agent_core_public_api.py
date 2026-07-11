@@ -81,32 +81,26 @@ def test_standalone_agent_core_public_symbols_are_available():
         Agent,
         AgentObserver,
         AgentPorts,
-        AgentRequest,
         AgentResult,
-        AgentRuntime,
         AgentSession,
         AgentSessionView,
         CancelToken,
         InteractionReply,
         RuntimeDefinition,
         UserTurn,
-        run_agent,
     )
 
     public_symbols = (
         Agent,
         AgentObserver,
         AgentPorts,
-        AgentRequest,
         AgentResult,
-        AgentRuntime,
         AgentSession,
         AgentSessionView,
         CancelToken,
         InteractionReply,
         RuntimeDefinition,
         UserTurn,
-        run_agent,
     )
 
     assert all(symbol is not None for symbol in public_symbols)
