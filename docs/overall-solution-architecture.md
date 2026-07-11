@@ -614,7 +614,8 @@ Managed-session workflow refresh in the product adapter path goes through `Agent
 
 - `InProcessAdapter` creates one hosted `Agent` runtime and one shared `ExtensionManager`
 - `ManagedSession` hosts thread/lock/status, durable `Session` references, and an `AgentSession` opened from that shared runtime
-- user turns enter through `AgentSession.submit(UserTurn(...))`, while permission and user-input continuations enter through `AgentSession.submit(InteractionReply(...))`
+- user turns and ordinary turn-owned permission/user-input continuations enter through `AgentSession.submit(...)` with `UserTurn` or `InteractionReply`
+- hosted command-owned permission continuations use the private `AgentSession` host bridge; that bridge reuses the same Agent runtime, session lease, and action pipeline without exposing `QueryEngine` as a Host contract
 - `run_agent` and `QueryEngine` remain below the public object facade; `AgentKernel`, `AgentLifecycleJournal`, `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own lifecycle, journal, loop, action, active schema, and extension dispatch internals
 - `InProcessAdapter` is a host/bridge layer and must not mint duplicate workflow identities or own slash-command business rules that can live in hosted services such as `ReviewCommandService`
 - `SessionSnapshotProjector` and `SessionHistoryAssembler` are projections, not workflow truth
