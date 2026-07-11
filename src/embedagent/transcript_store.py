@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import threading
 import uuid
 from contextlib import contextmanager
@@ -105,8 +106,10 @@ class TranscriptStore(object):
         if len(parts) != 2 or parts[1].lower() != "transcript.jsonl":
             raise ValueError("transcript reference is invalid")
         try:
-            normalize_session_id(parts[0])
+            canonical_session_id = normalize_session_id(parts[0])
         except ValueError:
+            raise ValueError("transcript reference is invalid")
+        if parts[0] != canonical_session_id:
             raise ValueError("transcript reference is invalid")
         return path
 
@@ -209,6 +212,8 @@ class TranscriptStore(object):
             return lock
 
     def _acquire_file_lease(self, transcript_path: str, session_id: str) -> Any:
+        lease_path = transcript_path + ".lease"
+        self._validate_lease_sidecar(lease_path, require_exists=False)
         if os.name != "nt":
             return None
         import msvcrt
@@ -216,17 +221,56 @@ class TranscriptStore(object):
         directory = os.path.dirname(transcript_path)
         if not os.path.isdir(directory):
             os.makedirs(directory, exist_ok=True)
-        handle = open(transcript_path + ".lease", "a+b")
+        file_descriptor = os.open(
+            lease_path,
+            os.O_CREAT | os.O_RDWR | getattr(os, "O_BINARY", 0),
+            0o600,
+        )
+        handle = os.fdopen(file_descriptor, "r+b", buffering=0)
         try:
-            if os.path.getsize(handle.name) == 0:
+            sidecar_stat = self._validate_lease_sidecar(lease_path, require_exists=True)
+            handle_stat = os.fstat(handle.fileno())
+            if sidecar_stat is None or (
+                handle_stat.st_dev,
+                handle_stat.st_ino,
+            ) != (
+                sidecar_stat.st_dev,
+                sidecar_stat.st_ino,
+            ):
+                raise SessionLeaseConflict("session log lease path is unsafe")
+            if handle_stat.st_size == 0:
                 handle.write(b"\0")
                 handle.flush()
             handle.seek(0)
             msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        except SessionLeaseConflict:
+            handle.close()
+            raise
         except OSError:
             handle.close()
             raise SessionLeaseConflict("session log lease is already held: %s" % session_id)
         return handle
+
+    def _validate_lease_sidecar(self, path: str, require_exists: bool) -> Any:
+        if not _path_is_within(path, self.root):
+            raise SessionLeaseConflict("session log lease path is unsafe")
+        try:
+            path_stat = os.lstat(path)
+        except FileNotFoundError:
+            if require_exists:
+                raise SessionLeaseConflict("session log lease path is unsafe")
+            return None
+        except OSError:
+            raise SessionLeaseConflict("session log lease path is unsafe")
+        reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+        file_attributes = int(getattr(path_stat, "st_file_attributes", 0) or 0)
+        if os.path.islink(path) or bool(file_attributes & reparse_flag):
+            raise SessionLeaseConflict("session log lease path is unsafe")
+        if int(getattr(path_stat, "st_nlink", 1) or 1) != 1:
+            raise SessionLeaseConflict("session log lease path is unsafe")
+        if not _path_is_within(os.path.realpath(path), self.root):
+            raise SessionLeaseConflict("session log lease path is unsafe")
+        return path_stat
 
     def _release_file_lease(self, handle: Any) -> None:
         import msvcrt

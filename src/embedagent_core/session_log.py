@@ -69,7 +69,7 @@ def _utc_now() -> str:
 def normalize_session_id(session_id: str) -> str:
     if not isinstance(session_id, str):
         raise ValueError("session_id is invalid")
-    normalized_session_id = session_id.strip()
+    normalized_session_id = session_id.strip().lower()
     if not normalized_session_id:
         raise ValueError("session_id is required")
     if not _SESSION_ID_PATTERN.fullmatch(normalized_session_id):

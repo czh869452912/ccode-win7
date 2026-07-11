@@ -126,6 +126,21 @@ def test_session_log_implementations_normalize_session_ids(session_log_implement
                 pass
 
 
+def test_session_log_implementations_canonicalize_case_aliases(session_log_implementation):
+    first = session_log_implementation.append_event(" Mixed-Case-ID ", "message", {})
+    second = session_log_implementation.append_event("mixed-case-id", "message", {})
+
+    assert first["session_id"] == "mixed-case-id"
+    assert second["session_id"] == "mixed-case-id"
+    assert second["seq"] == 2
+    assert session_log_implementation.transcript_exists("MIXED-CASE-ID") is True
+    assert len(session_log_implementation.load_events("MiXeD-CaSe-Id")) == 2
+    with session_log_implementation.acquire_lease("MIXED-CASE-ID"):
+        with pytest.raises(SessionLeaseConflict):
+            with session_log_implementation.acquire_lease("mixed-case-id"):
+                pass
+
+
 @pytest.mark.parametrize(
     "invalid_session_id",
     (

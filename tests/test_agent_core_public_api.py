@@ -212,7 +212,7 @@ def test_agent_open_trims_explicit_session_id(base_ports):
 
     session = Agent.create(base_ports).open("  Session-One  ")
 
-    assert session.session_id == "Session-One"
+    assert session.session_id == "session-one"
 
 
 def test_agent_open_rejects_non_string_session_id(base_ports):

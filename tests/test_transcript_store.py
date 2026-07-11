@@ -90,6 +90,36 @@ class TestTranscriptStore(unittest.TestCase):
         with TranscriptStore(self.workspace).acquire_lease("session-release-error"):
             pass
 
+    def test_lease_rejects_sidecar_symlink_outside_sessions_root(self):
+        store = TranscriptStore(self.workspace)
+        transcript_path = store.resolve_transcript_path("session-symlink")
+        session_dir = os.path.dirname(transcript_path)
+        os.makedirs(session_dir)
+        lease_path = transcript_path + ".lease"
+        outside_path = os.path.join(self.workspace, "outside-lease-target")
+        with open(outside_path, "wb"):
+            pass
+        try:
+            os.symlink(outside_path, lease_path)
+        except (NotImplementedError, OSError) as exc:
+            self.skipTest("symlink creation unavailable: %s" % exc)
+
+        try:
+            original_size = os.path.getsize(outside_path)
+            with self.assertRaisesRegex(
+                SessionLeaseConflict,
+                "^session log lease path is unsafe$",
+            ):
+                with store.acquire_lease("session-symlink"):
+                    pass
+            self.assertEqual(os.path.getsize(outside_path), original_size)
+        finally:
+            if os.path.lexists(lease_path):
+                os.remove(lease_path)
+
+        with store.acquire_lease("session-symlink"):
+            pass
+
     def test_independent_stores_share_session_lease(self):
         first = TranscriptStore(self.workspace)
         second = TranscriptStore(self.workspace)
@@ -151,11 +181,14 @@ class TestTranscriptStore(unittest.TestCase):
     def test_transcript_reference_must_stay_inside_sessions_root(self):
         store = TranscriptStore(self.workspace)
         outside_path = os.path.join(self.workspace, "outside", "transcript.jsonl")
+        noncanonical_path = os.path.join(store.root, "Case-ID", "transcript.jsonl")
 
         with self.assertRaisesRegex(ValueError, "^transcript reference is invalid$"):
             store.resolve_transcript_reference(outside_path)
         with self.assertRaisesRegex(ValueError, "^transcript reference is invalid$"):
             store.load_events_from_reference(outside_path)
+        with self.assertRaisesRegex(ValueError, "^transcript reference is invalid$"):
+            store.resolve_transcript_reference(noncanonical_path)
 
     def test_malicious_session_id_cannot_truncate_file_outside_sessions_root(self):
         store = TranscriptStore(self.workspace)
