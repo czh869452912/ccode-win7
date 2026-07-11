@@ -40,6 +40,8 @@ class TranscriptStore(object):
         relative_root: str = ".embedagent/memory/sessions",
     ) -> None:
         self.workspace = os.path.realpath(workspace)
+        if os.name == "nt" and not os.path.isdir(self.workspace):
+            raise ValueError("workspace is invalid")
         self.relative_root = relative_root.replace("\\", "/")
         self.root = os.path.realpath(os.path.join(self.workspace, *self.relative_root.split("/")))
         if not _path_is_within(self.root, self.workspace):
@@ -184,7 +186,7 @@ class TranscriptStore(object):
                 handle.flush()
                 os.fsync(handle.fileno())
                 post_write_stat = os.fstat(handle.fileno())
-                cache_version = self._cache_version(post_write_stat, file_identity)
+                cache_version = self._cache_version(handle, post_write_stat, file_identity)
                 updated_events = list(events)
                 updated_events.append(deepcopy(event))
                 updated_size = int(post_write_stat.st_size)
@@ -361,22 +363,43 @@ class TranscriptStore(object):
                 int(information.nFileIndexLow),
             )
 
-        root_handle = None
+        workspace_handle = None
+        root_component_handles = []
         session_handle = None
         transcript_handle = None
         python_handle = None
         file_descriptor = None
         session_dir = os.path.dirname(path)
         try:
-            if create and not os.path.isdir(self.root):
-                os.makedirs(self.root)
-            root_handle = open_native(
-                self.root,
+            workspace_handle = open_native(
+                self.workspace,
                 file_read_attributes,
                 open_existing,
                 file_flag_backup_semantics | file_flag_open_reparse_point,
             )
-            validate_handle(root_handle, self.root, False)
+            validate_handle(workspace_handle, self.workspace, False)
+
+            current_path = self.workspace
+            root_parts = [part for part in self.relative_root.split("/") if part and part != "."]
+            if not root_parts or any(part == ".." for part in root_parts):
+                raise ValueError("session root is invalid")
+            for root_part in root_parts:
+                current_path = os.path.abspath(os.path.join(current_path, root_part))
+                if create:
+                    try:
+                        os.mkdir(current_path)
+                    except FileExistsError:
+                        pass
+                component_handle = open_native(
+                    current_path,
+                    file_read_attributes,
+                    open_existing,
+                    file_flag_backup_semantics | file_flag_open_reparse_point,
+                )
+                root_component_handles.append(component_handle)
+                validate_handle(component_handle, current_path, False)
+            if os.path.normcase(current_path) != os.path.normcase(self.root):
+                raise ValueError("session root is invalid")
 
             if create:
                 try:
@@ -418,8 +441,10 @@ class TranscriptStore(object):
                 close_handle(transcript_handle)
             if session_handle is not None:
                 close_handle(session_handle)
-            if root_handle is not None:
-                close_handle(root_handle)
+            for component_handle in reversed(root_component_handles):
+                close_handle(component_handle)
+            if workspace_handle is not None:
+                close_handle(workspace_handle)
 
     def _lock_for_path(self, path: str) -> threading.RLock:
         normalized = _canonical_path(path)
@@ -537,7 +562,7 @@ class TranscriptStore(object):
         normalized = _canonical_path(path)
         cached = self._scan_cache.get(normalized)
         handle_stat = os.fstat(handle.fileno())
-        cache_version = self._cache_version(handle_stat, file_identity)
+        cache_version = self._cache_version(handle, handle_stat, file_identity)
         if cache_version is not None and cached is not None and cached[2] == cache_version:
             return list(cached[0]), cached[1]
         events = []
@@ -572,7 +597,7 @@ class TranscriptStore(object):
             last_seq = seq
             valid_length = next_offset
         final_stat = os.fstat(handle.fileno())
-        final_version = self._cache_version(final_stat, file_identity)
+        final_version = self._cache_version(handle, final_stat, file_identity)
         self._scan_cache[normalized] = (
             deepcopy(events),
             valid_length,
@@ -580,14 +605,90 @@ class TranscriptStore(object):
         )
         return events, valid_length
 
-    @staticmethod
-    def _cache_version(handle_stat: Any, file_identity: Any) -> Any:
+    def _cache_version(self, handle: Any, handle_stat: Any, file_identity: Any) -> Any:
+        if os.name == "nt":
+            change_token = self._windows_change_token(handle)
+            if change_token is None:
+                return None
+            return (int(handle_stat.st_size), change_token, file_identity)
         modified_ns = getattr(handle_stat, "st_mtime_ns", None)
-        if modified_ns is None:
+        changed_ns = getattr(handle_stat, "st_ctime_ns", None)
+        if modified_ns is None or changed_ns is None:
             return None
         return (
             int(handle_stat.st_size),
             int(modified_ns),
-            getattr(handle_stat, "st_ctime_ns", None),
+            int(changed_ns),
             file_identity,
         )
+
+    @staticmethod
+    def _windows_change_token(handle: Any) -> Any:
+        import ctypes
+        import msvcrt
+        from ctypes import wintypes
+
+        class FileBasicInformation(ctypes.Structure):
+            _fields_ = (
+                ("CreationTime", ctypes.c_longlong),
+                ("LastAccessTime", ctypes.c_longlong),
+                ("LastWriteTime", ctypes.c_longlong),
+                ("ChangeTime", ctypes.c_longlong),
+                ("FileAttributes", wintypes.DWORD),
+            )
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        try:
+            get_volume_information = kernel32.GetVolumeInformationByHandleW
+        except AttributeError:
+            return None
+        get_volume_information.argtypes = (
+            wintypes.HANDLE,
+            wintypes.LPWSTR,
+            wintypes.DWORD,
+            ctypes.POINTER(wintypes.DWORD),
+            ctypes.POINTER(wintypes.DWORD),
+            ctypes.POINTER(wintypes.DWORD),
+            wintypes.LPWSTR,
+            wintypes.DWORD,
+        )
+        get_volume_information.restype = wintypes.BOOL
+        get_file_information = kernel32.GetFileInformationByHandleEx
+        get_file_information.argtypes = (
+            wintypes.HANDLE,
+            ctypes.c_int,
+            ctypes.c_void_p,
+            wintypes.DWORD,
+        )
+        get_file_information.restype = wintypes.BOOL
+        information = FileBasicInformation()
+        try:
+            native_handle = msvcrt.get_osfhandle(handle.fileno())
+            filesystem_name = ctypes.create_unicode_buffer(32)
+            volume_name = ctypes.create_unicode_buffer(261)
+            serial_number = wintypes.DWORD()
+            maximum_component_length = wintypes.DWORD()
+            filesystem_flags = wintypes.DWORD()
+            volume_succeeded = get_volume_information(
+                native_handle,
+                volume_name,
+                len(volume_name),
+                ctypes.byref(serial_number),
+                ctypes.byref(maximum_component_length),
+                ctypes.byref(filesystem_flags),
+                filesystem_name,
+                len(filesystem_name),
+            )
+            if not volume_succeeded or filesystem_name.value.upper() != "NTFS":
+                return None
+            succeeded = get_file_information(
+                native_handle,
+                0,
+                ctypes.byref(information),
+                ctypes.sizeof(information),
+            )
+        except (AttributeError, OSError, OverflowError, TypeError, ValueError):
+            return None
+        if not succeeded or not information.LastWriteTime or not information.ChangeTime:
+            return None
+        return (int(information.LastWriteTime), int(information.ChangeTime))

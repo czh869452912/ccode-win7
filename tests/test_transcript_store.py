@@ -54,6 +54,15 @@ class TestTranscriptStore(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
+    @unittest.skipUnless(os.name == "nt", "Windows workspace handle contract")
+    def test_constructor_rejects_missing_workspace_without_creating_it(self):
+        missing_workspace = os.path.join(self.workspace, "missing-workspace")
+
+        with self.assertRaisesRegex(ValueError, "^workspace is invalid$"):
+            TranscriptStore(missing_workspace)
+
+        self.assertFalse(os.path.exists(missing_workspace))
+
     def test_same_session_cannot_hold_overlapping_leases(self):
         store = TranscriptStore(self.workspace)
 
@@ -485,6 +494,36 @@ class TestTranscriptStore(unittest.TestCase):
                 os.rmdir(session_dir)
 
     @unittest.skipUnless(os.name == "nt", "Windows handle-first I/O contract")
+    def test_append_root_creation_rejects_component_redirect_without_outside_artifacts(self):
+        store = TranscriptStore(self.workspace)
+        outside_dir = os.path.join(self.workspace, "outside-root-race")
+        first_component = os.path.join(self.workspace, ".embedagent")
+        os.makedirs(outside_dir)
+        original_mkdir = os.mkdir
+        redirected = [False]
+
+        def mkdir_then_redirect(path, mode=0o777):
+            result = original_mkdir(path, mode)
+            if os.path.normcase(path) == os.path.normcase(first_component) and not redirected[0]:
+                os.rmdir(first_component)
+                os.symlink(outside_dir, first_component, target_is_directory=True)
+                redirected[0] = True
+            return result
+
+        try:
+            with patch("embedagent.transcript_store.os.mkdir", side_effect=mkdir_then_redirect):
+                with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+                    store.append_event(
+                        "session-root-race",
+                        "message",
+                        {"content": "do not create outside"},
+                    )
+            self.assertEqual(os.listdir(outside_dir), [])
+        finally:
+            if os.path.lexists(first_component):
+                os.rmdir(first_component)
+
+    @unittest.skipUnless(os.name == "nt", "Windows handle-first I/O contract")
     def test_append_rejects_final_symlink_after_resolver_returns(self):
         store = TranscriptStore(self.workspace)
         session_dir = store.resolve_session_dir("session-file-race")
@@ -646,6 +685,49 @@ class TestTranscriptStore(unittest.TestCase):
         events = store.load_events("sess-cache-version")
 
         self.assertEqual(events[0]["payload"]["content"], "other")
+
+    @unittest.skipUnless(os.name == "nt", "Windows file change token contract")
+    def test_scan_cache_rejects_in_place_rewrite_with_restored_mtime(self):
+        store = TranscriptStore(self.workspace)
+        store.append_event("sess-cache-change-time", "message", {"content": "first"})
+        transcript_path = store.resolve_transcript_path("sess-cache-change-time")
+        original_stat = os.stat(transcript_path)
+        with open(transcript_path, "r+b") as handle:
+            original_bytes = handle.read()
+            replacement_bytes = original_bytes.replace(b'"first"', b'"other"', 1)
+            self.assertEqual(len(replacement_bytes), len(original_bytes))
+            handle.seek(0)
+            handle.write(replacement_bytes)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.utime(
+            transcript_path,
+            ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns),
+        )
+
+        events = store.load_events("sess-cache-change-time")
+
+        self.assertEqual(events[0]["payload"]["content"], "other")
+
+    @unittest.skipUnless(os.name == "nt", "Windows file change token contract")
+    def test_scan_cache_rescans_when_windows_change_token_is_unavailable(self):
+        store = TranscriptStore(self.workspace)
+        store.append_event("sess-cache-no-token", "message", {"content": "first"})
+        transcript_path = store.resolve_transcript_path("sess-cache-no-token")
+
+        with patch.object(store, "_windows_change_token", return_value=None):
+            first_load = store.load_events("sess-cache-no-token")
+            self.assertEqual(first_load[0]["payload"]["content"], "first")
+            with open(transcript_path, "r+b") as handle:
+                original_bytes = handle.read()
+                replacement_bytes = original_bytes.replace(b'"first"', b'"other"', 1)
+                handle.seek(0)
+                handle.write(replacement_bytes)
+                handle.flush()
+                os.fsync(handle.fileno())
+            second_load = store.load_events("sess-cache-no-token")
+
+        self.assertEqual(second_load[0]["payload"]["content"], "other")
 
     def test_append_does_not_deepcopy_cached_history(self):
         store = TranscriptStore(self.workspace)

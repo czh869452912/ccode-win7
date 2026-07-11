@@ -15,7 +15,9 @@ def _new_log():
 def session_log_implementation(request, tmp_path):
     if request.param == "memory":
         return session_log.InMemorySessionLog()
-    return TranscriptStore(str(tmp_path / "workspace"))
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    return TranscriptStore(str(workspace))
 
 
 def test_same_session_cannot_hold_overlapping_leases():

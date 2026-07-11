@@ -141,14 +141,16 @@ class TestPublicImports(object):
 class TestInProcessAdapterBoundaries(object):
     """Verify InProcessAdapter construction and removed-alias boundaries."""
 
-    def _make_adapter(self):
+    def _make_adapter(self, tmp_path):
         from embedagent.tools import ToolRuntime
         from embedagent_host.inprocess_adapter import InProcessAdapter
         from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
 
         client = MagicMock(spec=OpenAICompatibleClient)
         tools = MagicMock(spec=ToolRuntime)
-        tools.workspace = "/tmp/test_workspace"
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+        tools.workspace = str(workspace)
         tools.tool_result_store = MagicMock()
         return InProcessAdapter(client=client, tools=tools)
 
@@ -158,18 +160,18 @@ class TestInProcessAdapterBoundaries(object):
         adapter = InProcessAdapter()
         assert adapter is not None
 
-    def test_has_create_session_method(self, fresh_container):
-        adapter = self._make_adapter()
+    def test_has_create_session_method(self, fresh_container, tmp_path):
+        adapter = self._make_adapter(tmp_path)
         assert hasattr(adapter, "create_session")
         assert callable(adapter.create_session)
 
-    def test_has_list_sessions_method(self, fresh_container):
-        adapter = self._make_adapter()
+    def test_has_list_sessions_method(self, fresh_container, tmp_path):
+        adapter = self._make_adapter(tmp_path)
         assert hasattr(adapter, "list_sessions")
         assert callable(adapter.list_sessions)
 
-    def test_has_event_emitter(self, fresh_container):
-        adapter = self._make_adapter()
+    def test_has_event_emitter(self, fresh_container, tmp_path):
+        adapter = self._make_adapter(tmp_path)
         assert hasattr(adapter, "_event_emitter")
         from embedagent.services import EventEmitter
 

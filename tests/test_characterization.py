@@ -47,40 +47,42 @@ class TestInProcessAdapterFacade(object):
 class TestServiceDelegation(object):
     """Characterization tests verifying services are properly wired."""
 
-    def _make_adapter(self, fresh_container):
+    def _make_adapter(self, fresh_container, tmp_path):
         """Helper to create an InProcessAdapter with mocked dependencies."""
         from embedagent_host.inprocess_adapter import InProcessAdapter
 
         client = MagicMock(spec=OpenAICompatibleClient)
         tools = MagicMock(spec=ToolRuntime)
-        tools.workspace = "/tmp/test_workspace"
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+        tools.workspace = str(workspace)
         tools.tool_result_store = MagicMock()
         return InProcessAdapter(client=client, tools=tools)
 
-    def test_inprocess_adapter_has_session_lifecycle(self, fresh_container):
-        adapter = self._make_adapter(fresh_container)
+    def test_inprocess_adapter_has_session_lifecycle(self, fresh_container, tmp_path):
+        adapter = self._make_adapter(fresh_container, tmp_path)
         assert hasattr(adapter, "_session_lifecycle")
         assert isinstance(adapter._session_lifecycle, SessionLifecycleManager)
 
-    def test_inprocess_adapter_exposes_thread_lifecycle_facade(self, fresh_container):
-        adapter = self._make_adapter(fresh_container)
+    def test_inprocess_adapter_exposes_thread_lifecycle_facade(self, fresh_container, tmp_path):
+        adapter = self._make_adapter(fresh_container, tmp_path)
 
         assert callable(adapter.rename_session)
         assert callable(adapter.archive_session)
         assert callable(adapter.fork_session)
 
-    def test_inprocess_adapter_has_event_emitter(self, fresh_container):
-        adapter = self._make_adapter(fresh_container)
+    def test_inprocess_adapter_has_event_emitter(self, fresh_container, tmp_path):
+        adapter = self._make_adapter(fresh_container, tmp_path)
         assert hasattr(adapter, "_event_emitter")
         assert isinstance(adapter._event_emitter, EventEmitter)
 
-    def test_inprocess_adapter_has_workspace_service(self, fresh_container):
-        adapter = self._make_adapter(fresh_container)
+    def test_inprocess_adapter_has_workspace_service(self, fresh_container, tmp_path):
+        adapter = self._make_adapter(fresh_container, tmp_path)
         assert hasattr(adapter, "_workspace_files")
         assert isinstance(adapter._workspace_files, WorkspaceFileService)
 
-    def test_inprocess_adapter_does_not_own_harness_sync(self, fresh_container):
-        adapter = self._make_adapter(fresh_container)
+    def test_inprocess_adapter_does_not_own_harness_sync(self, fresh_container, tmp_path):
+        adapter = self._make_adapter(fresh_container, tmp_path)
         assert not hasattr(adapter, "_harness_sync")
 
     def test_query_engine_has_strategies(self, fresh_container):

@@ -27,12 +27,14 @@ def test_project_memory_load_missing_file():
     assert result == []
 
 
-def test_session_store_read_json_missing_file():
+def test_session_store_read_json_missing_file(tmp_path):
     """Verify session_store handles missing file gracefully."""
     from embedagent.session_store import SessionSummaryStore
 
-    store = SessionSummaryStore("/nonexistent/path")
-    result = store._read_json("/nonexistent/path/file.json")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    store = SessionSummaryStore(str(workspace))
+    result = store._read_json(str(workspace / "missing" / "file.json"))
     assert result is None
 
 
@@ -44,18 +46,20 @@ def test_workspace_recipes_load_json_missing_file():
     assert result == {}
 
 
-def test_core_adapter_read_file_missing():
+def test_core_adapter_read_file_missing(tmp_path):
     """Verify core_adapter handles missing file gracefully."""
     from embedagent.core.adapter import AgentCoreAdapter
     from embedagent.tools import ToolRuntime
     from embedagent_core.permissions import PermissionPolicy
 
-    adapter = AgentCoreAdapter("/nonexistent/path")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    adapter = AgentCoreAdapter(str(workspace))
     adapter.initialize(
         client=object(),
-        tools=ToolRuntime("/nonexistent/path"),
+        tools=ToolRuntime(str(workspace)),
         max_turns=8,
-        permission_policy=PermissionPolicy(auto_approve_all=True, workspace="/nonexistent/path"),
+        permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(workspace)),
     )
     result = adapter.get_diff_preview("missing.txt", "new content")
     assert result.path == "missing.txt"
