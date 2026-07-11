@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 import shutil
 import sys
@@ -28,6 +29,14 @@ def _make_workspace(name):
     shutil.rmtree(root, ignore_errors=True)
     os.makedirs(root)
     return root
+
+
+def _hold_transcript_lease(workspace, ready, release):
+    store = TranscriptStore(workspace)
+    with store.acquire_lease("session-process"):
+        ready.set()
+        if not release.wait(10):
+            raise RuntimeError("lease release signal was not received")
 
 
 class TestTranscriptStore(unittest.TestCase):
@@ -61,6 +70,104 @@ class TestTranscriptStore(unittest.TestCase):
 
         with store.acquire_lease("session-one"):
             pass
+
+    def test_process_lease_is_released_when_file_unlock_raises(self):
+        store = TranscriptStore(self.workspace)
+        original_release = store._release_file_lease
+
+        def release_then_raise(handle):
+            original_release(handle)
+            raise RuntimeError("unlock reporting failed")
+
+        store._release_file_lease = release_then_raise
+        try:
+            with self.assertRaisesRegex(RuntimeError, "^unlock reporting failed$"):
+                with store.acquire_lease("session-release-error"):
+                    pass
+        finally:
+            store._release_file_lease = original_release
+
+        with TranscriptStore(self.workspace).acquire_lease("session-release-error"):
+            pass
+
+    def test_independent_stores_share_session_lease(self):
+        first = TranscriptStore(self.workspace)
+        second = TranscriptStore(self.workspace)
+
+        with first.acquire_lease("session-one"):
+            with self.assertRaisesRegex(
+                SessionLeaseConflict,
+                "^session log lease is already held: session-one$",
+            ):
+                with second.acquire_lease("session-one"):
+                    pass
+
+        with second.acquire_lease("session-one"):
+            pass
+
+    @unittest.skipUnless(os.name == "nt", "Windows file locking contract")
+    def test_windows_processes_share_session_lease(self):
+        context = multiprocessing.get_context("spawn")
+        ready = context.Event()
+        release = context.Event()
+        process = context.Process(
+            target=_hold_transcript_lease,
+            args=(self.workspace, ready, release),
+        )
+        process.start()
+        try:
+            self.assertTrue(ready.wait(10))
+            store = TranscriptStore(self.workspace)
+            with self.assertRaisesRegex(
+                SessionLeaseConflict,
+                "^session log lease is already held: session-process$",
+            ):
+                with store.acquire_lease("session-process"):
+                    pass
+        finally:
+            release.set()
+            process.join(10)
+            if process.is_alive():
+                process.terminate()
+                process.join(5)
+        self.assertEqual(process.exitcode, 0)
+
+    def test_session_methods_reject_transcript_paths_and_reference_loader_is_explicit(self):
+        store = TranscriptStore(self.workspace)
+        store.append_event("session-one", "message", {"content": "one"})
+        transcript_path = store.resolve_transcript_path("session-one")
+
+        with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+            store.load_events(transcript_path)
+        with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+            with store.acquire_lease(transcript_path):
+                pass
+        self.assertFalse(store.transcript_exists(transcript_path))
+        self.assertEqual(
+            store.load_events_from_reference(transcript_path)[0]["payload"]["content"],
+            "one",
+        )
+
+    def test_transcript_reference_must_stay_inside_sessions_root(self):
+        store = TranscriptStore(self.workspace)
+        outside_path = os.path.join(self.workspace, "outside", "transcript.jsonl")
+
+        with self.assertRaisesRegex(ValueError, "^transcript reference is invalid$"):
+            store.resolve_transcript_reference(outside_path)
+        with self.assertRaisesRegex(ValueError, "^transcript reference is invalid$"):
+            store.load_events_from_reference(outside_path)
+
+    def test_malicious_session_id_cannot_truncate_file_outside_sessions_root(self):
+        store = TranscriptStore(self.workspace)
+        outside_path = os.path.join(self.workspace, "outside.jsonl")
+        with open(outside_path, "w", encoding="utf-8") as handle:
+            handle.write("do-not-touch")
+
+        with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+            store.append_event(outside_path, "message", {"content": "unsafe"})
+
+        with open(outside_path, "r", encoding="utf-8") as handle:
+            self.assertEqual(handle.read(), "do-not-touch")
 
     def test_append_and_load_roundtrip(self):
         store = TranscriptStore(self.workspace)

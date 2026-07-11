@@ -57,7 +57,7 @@ class SessionLifecycleManager(object):
         mode: str = "",
     ) -> ManagedSession:
         transcript_path = self.summary_store.resolve_transcript_path(reference)
-        events = self.transcript_store.load_events(transcript_path)
+        events = self.transcript_store.load_events_from_reference(transcript_path)
         restored = self.session_restorer.restore(events)
         current_mode = require_mode(mode or restored.current_mode or DEFAULT_MODE)["slug"]
         session = restored.session

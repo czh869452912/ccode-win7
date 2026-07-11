@@ -18,7 +18,7 @@ from embedagent_core.policies import (
 )
 from embedagent_core.ports import ContextAssemblerPort
 from embedagent_core.session import PendingInteraction
-from embedagent_core.session_log import SessionLogPort
+from embedagent_core.session_log import SessionLogPort, normalize_session_id
 from embedagent_core.tool_contracts import ToolRuntimePort
 
 
@@ -122,6 +122,13 @@ class Agent(object):
     ) -> "Agent":
         from embedagent_core.runner import AgentRuntime
 
+        if not isinstance(ports, AgentPorts):
+            raise TypeError("ports must be AgentPorts")
+        if definition is not None and not isinstance(definition, RuntimeDefinition):
+            raise TypeError("definition must be RuntimeDefinition")
+        for port_name in ("model", "tools", "session_log", "context", "permissions"):
+            if getattr(ports, port_name) is None:
+                raise ValueError("agent port %s is required" % port_name)
         runtime_definition = definition if definition is not None else RuntimeDefinition()
         return cls(AgentRuntime(ports, runtime_definition))
 
@@ -130,15 +137,19 @@ class Agent(object):
             raise TypeError("session id must be a string")
         normalized_session_id = session_id.strip()
         if not normalized_session_id:
-            normalized_session_id = "s-" + uuid.uuid4().hex[:12]
+            normalized_session_id = "s-" + uuid.uuid4().hex
         return AgentSession(self._runtime, normalized_session_id)
 
 
 class AgentSession(object):
     def __init__(self, runtime: Any, session_id: str) -> None:
         self._runtime = runtime
-        self.session_id = session_id
+        self._session_id = normalize_session_id(session_id)
         self._submit_lock = threading.Lock()
+
+    @property
+    def session_id(self) -> str:
+        return self._session_id
 
     def submit(
         self,

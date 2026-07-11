@@ -9,18 +9,27 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
 
-from embedagent_core.session_log import SessionLeaseConflict
+from embedagent_core.session_log import SessionLeaseConflict, normalize_session_id
+
+_PROCESS_LEASE_GUARD = threading.RLock()
+_PROCESS_LEASE_PATHS = set()
 
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _require_session_id(session_id: str) -> str:
-    normalized_session_id = str(session_id or "").strip()
-    if not normalized_session_id:
-        raise ValueError("session_id is required")
-    return normalized_session_id
+def _canonical_path(path: str) -> str:
+    return os.path.normcase(os.path.realpath(path))
+
+
+def _path_is_within(path: str, root: str) -> bool:
+    try:
+        return os.path.commonpath(
+            (_canonical_path(path), _canonical_path(root))
+        ) == _canonical_path(root)
+    except ValueError:
+        return False
 
 
 class TranscriptStore(object):
@@ -31,41 +40,75 @@ class TranscriptStore(object):
     ) -> None:
         self.workspace = os.path.realpath(workspace)
         self.relative_root = relative_root.replace("\\", "/")
-        self.root = os.path.join(self.workspace, *self.relative_root.split("/"))
+        self.root = os.path.realpath(os.path.join(self.workspace, *self.relative_root.split("/")))
+        if not _path_is_within(self.root, self.workspace):
+            raise ValueError("session root is invalid")
         self._append_locks = {}  # type: Dict[str, threading.RLock]
         self._append_locks_guard = threading.RLock()
         self._scan_cache = {}  # type: Dict[str, Tuple[List[Dict[str, Any]], int, int]]
-        self._lease_lock = threading.RLock()
-        self._leased_session_ids = set()
 
     @contextmanager
     def acquire_lease(self, session_id: str) -> Any:
-        normalized_session_id = _require_session_id(session_id)
-        with self._lease_lock:
-            if normalized_session_id in self._leased_session_ids:
+        normalized_session_id = normalize_session_id(session_id)
+        transcript_path = self.resolve_transcript_path(normalized_session_id)
+        lease_key = _canonical_path(transcript_path)
+        with _PROCESS_LEASE_GUARD:
+            if lease_key in _PROCESS_LEASE_PATHS:
                 raise SessionLeaseConflict(
                     "session log lease is already held: %s" % normalized_session_id
                 )
-            self._leased_session_ids.add(normalized_session_id)
+            _PROCESS_LEASE_PATHS.add(lease_key)
+        file_handle = None
         try:
+            file_handle = self._acquire_file_lease(transcript_path, normalized_session_id)
             yield
         finally:
-            with self._lease_lock:
-                self._leased_session_ids.discard(normalized_session_id)
+            try:
+                if file_handle is not None:
+                    self._release_file_lease(file_handle)
+            finally:
+                with _PROCESS_LEASE_GUARD:
+                    _PROCESS_LEASE_PATHS.discard(lease_key)
 
     def resolve_session_dir(self, session_id: str) -> str:
-        if not session_id:
-            raise ValueError("session_id is required")
-        return os.path.join(self.root, session_id)
+        normalized_session_id = normalize_session_id(session_id)
+        candidate = os.path.realpath(os.path.join(self.root, normalized_session_id))
+        if not _path_is_within(candidate, self.root):
+            raise ValueError("session_id is invalid")
+        return candidate
 
-    def resolve_transcript_path(self, reference: str) -> str:
-        raw = str(reference or "").strip()
+    def resolve_transcript_path(self, session_id: str) -> str:
+        normalized_session_id = normalize_session_id(session_id)
+        path = os.path.realpath(
+            os.path.join(self.resolve_session_dir(normalized_session_id), "transcript.jsonl")
+        )
+        if not _path_is_within(path, self.root):
+            raise ValueError("session_id is invalid")
+        return path
+
+    def resolve_transcript_reference(self, reference: str) -> str:
+        if not isinstance(reference, str):
+            raise ValueError("transcript reference is invalid")
+        raw = reference.strip()
         if not raw:
             raise ValueError("transcript reference is required")
-        if raw.endswith(".jsonl"):
-            candidate = raw if os.path.isabs(raw) else os.path.join(self.workspace, raw)
-            return os.path.realpath(candidate)
-        return os.path.join(self.resolve_session_dir(raw), "transcript.jsonl")
+        try:
+            return self.resolve_transcript_path(raw)
+        except ValueError:
+            pass
+        candidate = raw if os.path.isabs(raw) else os.path.join(self.workspace, raw)
+        path = os.path.realpath(candidate)
+        if not _path_is_within(path, self.root):
+            raise ValueError("transcript reference is invalid")
+        relative_path = os.path.relpath(path, self.root)
+        parts = relative_path.split(os.sep)
+        if len(parts) != 2 or parts[1].lower() != "transcript.jsonl":
+            raise ValueError("transcript reference is invalid")
+        try:
+            normalize_session_id(parts[0])
+        except ValueError:
+            raise ValueError("transcript reference is invalid")
+        return path
 
     def append_event(
         self,
@@ -78,7 +121,7 @@ class TranscriptStore(object):
     ) -> Dict[str, Any]:
         if schema_version != 2:
             raise ValueError("transcript events must use schema_version 2")
-        normalized_session_id = _require_session_id(session_id)
+        normalized_session_id = normalize_session_id(session_id)
         stored_payload = deepcopy(payload or {})
         path = self.resolve_transcript_path(normalized_session_id)
         directory = os.path.dirname(path)
@@ -103,7 +146,7 @@ class TranscriptStore(object):
                 handle.write(line + "\n")
                 handle.flush()
                 os.fsync(handle.fileno())
-            normalized = os.path.realpath(path)
+            normalized = _canonical_path(path)
             cached_events, valid_length, file_size = self._scan_cache.get(normalized, ([], 0, 0))
             updated_events = list(cached_events)
             updated_events.append(deepcopy(event))
@@ -115,26 +158,31 @@ class TranscriptStore(object):
             )
             return deepcopy(event)
 
-    def load_events(self, reference: str) -> List[Dict[str, Any]]:
-        normalized_reference = _require_session_id(reference)
-        path = self.resolve_transcript_path(normalized_reference)
+    def load_events(self, session_id: str) -> List[Dict[str, Any]]:
+        normalized_session_id = normalize_session_id(session_id)
+        path = self.resolve_transcript_path(normalized_session_id)
         if not os.path.isfile(path):
-            raise ValueError("transcript not found: %s" % normalized_reference)
+            raise ValueError("transcript not found: %s" % normalized_session_id)
         events, _ = self._scan_events(path)
         return deepcopy(events)
 
-    def transcript_exists(self, reference: str) -> bool:
-        normalized_reference = str(reference or "").strip()
-        if not normalized_reference:
-            return False
+    def load_events_from_reference(self, reference: str) -> List[Dict[str, Any]]:
+        path = self.resolve_transcript_reference(reference)
+        if not os.path.isfile(path):
+            raise ValueError("transcript not found")
+        events, _ = self._scan_events(path)
+        return deepcopy(events)
+
+    def transcript_exists(self, session_id: str) -> bool:
         try:
-            path = self.resolve_transcript_path(normalized_reference)
+            normalized_session_id = normalize_session_id(session_id)
         except ValueError:
             return False
+        path = self.resolve_transcript_path(normalized_session_id)
         return os.path.isfile(path)
 
     def _next_seq(self, path: str) -> int:
-        normalized = os.path.realpath(path)
+        normalized = _canonical_path(path)
         cached = self._scan_cache.get(normalized)
         if cached is not None:
             events, _, _ = cached
@@ -144,7 +192,7 @@ class TranscriptStore(object):
         if not os.path.isfile(path):
             return 1
         try:
-            events = self.load_events(path)
+            events = self.load_events_from_reference(path)
         except ValueError:
             return 1
         if not events:
@@ -152,7 +200,7 @@ class TranscriptStore(object):
         return int(events[-1].get("seq") or 0) + 1
 
     def _lock_for_path(self, path: str) -> threading.RLock:
-        normalized = os.path.realpath(path)
+        normalized = _canonical_path(path)
         with self._append_locks_guard:
             lock = self._append_locks.get(normalized)
             if lock is None:
@@ -160,10 +208,41 @@ class TranscriptStore(object):
                 self._append_locks[normalized] = lock
             return lock
 
+    def _acquire_file_lease(self, transcript_path: str, session_id: str) -> Any:
+        if os.name != "nt":
+            return None
+        import msvcrt
+
+        directory = os.path.dirname(transcript_path)
+        if not os.path.isdir(directory):
+            os.makedirs(directory, exist_ok=True)
+        handle = open(transcript_path + ".lease", "a+b")
+        try:
+            if os.path.getsize(handle.name) == 0:
+                handle.write(b"\0")
+                handle.flush()
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        except OSError:
+            handle.close()
+            raise SessionLeaseConflict("session log lease is already held: %s" % session_id)
+        return handle
+
+    def _release_file_lease(self, handle: Any) -> None:
+        import msvcrt
+
+        try:
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        except OSError:
+            pass
+        finally:
+            handle.close()
+
     def _repair_tail(self, path: str) -> None:
         if not os.path.isfile(path):
             return
-        normalized = os.path.realpath(path)
+        normalized = _canonical_path(path)
         cached = self._scan_cache.get(normalized)
         file_size = os.path.getsize(path)
         if cached is not None and cached[2] == file_size:
@@ -214,7 +293,7 @@ class TranscriptStore(object):
         return {"valid": len(breaks) == 0, "breaks": breaks}
 
     def _scan_events(self, path: str) -> Tuple[List[Dict[str, Any]], int]:
-        normalized = os.path.realpath(path)
+        normalized = _canonical_path(path)
         cached = self._scan_cache.get(normalized)
         try:
             file_size = os.path.getsize(path)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import threading
 import uuid
 from contextlib import contextmanager
@@ -10,6 +11,33 @@ from typing import Any, Dict, List, Protocol
 
 class SessionLeaseConflict(RuntimeError):
     pass
+
+
+_SESSION_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
+_WINDOWS_RESERVED_NAMES = {
+    "AUX",
+    "CON",
+    "NUL",
+    "PRN",
+    "COM1",
+    "COM2",
+    "COM3",
+    "COM4",
+    "COM5",
+    "COM6",
+    "COM7",
+    "COM8",
+    "COM9",
+    "LPT1",
+    "LPT2",
+    "LPT3",
+    "LPT4",
+    "LPT5",
+    "LPT6",
+    "LPT7",
+    "LPT8",
+    "LPT9",
+}
 
 
 class SessionLogPort(Protocol):
@@ -38,10 +66,16 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _require_session_id(session_id: str) -> str:
-    normalized_session_id = str(session_id or "").strip()
+def normalize_session_id(session_id: str) -> str:
+    if not isinstance(session_id, str):
+        raise ValueError("session_id is invalid")
+    normalized_session_id = session_id.strip()
     if not normalized_session_id:
         raise ValueError("session_id is required")
+    if not _SESSION_ID_PATTERN.fullmatch(normalized_session_id):
+        raise ValueError("session_id is invalid")
+    if normalized_session_id.upper() in _WINDOWS_RESERVED_NAMES:
+        raise ValueError("session_id is invalid")
     return normalized_session_id
 
 
@@ -62,7 +96,7 @@ class InMemorySessionLog(object):
     ) -> Dict[str, Any]:
         if schema_version != 2:
             raise ValueError("transcript events must use schema_version 2")
-        normalized_session_id = _require_session_id(session_id)
+        normalized_session_id = normalize_session_id(session_id)
         stored_payload = deepcopy(payload or {})
         with self._lock:
             events = self._events.setdefault(normalized_session_id, [])
@@ -80,20 +114,21 @@ class InMemorySessionLog(object):
             return deepcopy(event)
 
     def transcript_exists(self, session_id: str) -> bool:
-        normalized_session_id = str(session_id or "").strip()
-        if not normalized_session_id:
+        try:
+            normalized_session_id = normalize_session_id(session_id)
+        except ValueError:
             return False
         with self._lock:
             return bool(self._events.get(normalized_session_id))
 
     def load_events(self, session_id: str) -> List[Dict[str, Any]]:
-        normalized_session_id = _require_session_id(session_id)
+        normalized_session_id = normalize_session_id(session_id)
         with self._lock:
             return deepcopy(self._events.get(normalized_session_id, []))
 
     @contextmanager
     def acquire_lease(self, session_id: str) -> Any:
-        normalized_session_id = _require_session_id(session_id)
+        normalized_session_id = normalize_session_id(session_id)
         with self._lock:
             if normalized_session_id in self._leased_session_ids:
                 raise SessionLeaseConflict(

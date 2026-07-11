@@ -822,7 +822,7 @@ class InProcessAdapter(object):
         event_handler: Optional[EventHandler] = None,
     ) -> Dict[str, Any]:
         transcript_path = self.summary_store.resolve_transcript_path(reference)
-        events = self.transcript_store.load_events(transcript_path)
+        events = self.transcript_store.load_events_from_reference(transcript_path)
         restored = self.session_restorer.restore(events)
         current_mode = self._mode_runtime_policy.require_mode(
             mode or restored.current_mode or self._mode_runtime_policy.default_mode()

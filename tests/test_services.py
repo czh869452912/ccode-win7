@@ -169,6 +169,18 @@ class TestSessionLifecycleManager(unittest.TestCase):
         self.assertIsNotNone(state.session)
         self.assertEqual(state.current_mode, "explore")
 
+    def test_restore_uses_explicit_transcript_reference_loader(self):
+        self.summary_store.resolve_transcript_path.return_value = "transcript-reference"
+        self.transcript_store.load_events_from_reference.side_effect = RuntimeError("stop")
+
+        with self.assertRaisesRegex(RuntimeError, "^stop$"):
+            self.manager.restore_session_state("latest")
+
+        self.transcript_store.load_events_from_reference.assert_called_once_with(
+            "transcript-reference"
+        )
+        self.transcript_store.load_events.assert_not_called()
+
     def test_persist_state_saves_summary(self):
         from embedagent.session_runtime import ManagedSession
         from embedagent_core.session import Session

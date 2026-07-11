@@ -197,6 +197,16 @@ def test_agent_open_generates_distinct_session_ids_without_touching_log(base_por
     assert not base_ports.session_log.transcript_exists(second.session_id)
 
 
+def test_agent_open_generates_full_uuid4_session_id(base_ports):
+    from embedagent_core import Agent
+
+    session = Agent.create(base_ports).open()
+
+    assert len(session.session_id) == 34
+    assert session.session_id.startswith("s-")
+    assert all(character in "0123456789abcdef" for character in session.session_id[2:])
+
+
 def test_agent_open_trims_explicit_session_id(base_ports):
     from embedagent_core import Agent
 
@@ -210,6 +220,61 @@ def test_agent_open_rejects_non_string_session_id(base_ports):
 
     with pytest.raises(TypeError, match="^session id must be a string$"):
         Agent.create(base_ports).open(123)
+
+
+@pytest.mark.parametrize(
+    "session_id", ("../escape", "session.jsonl", "CON", "sess\N{LATIN SMALL LETTER E WITH ACUTE}")
+)
+def test_agent_open_rejects_unsafe_session_id(base_ports, session_id):
+    from embedagent_core import Agent
+
+    with pytest.raises(ValueError, match="^session_id is invalid$"):
+        Agent.create(base_ports).open(session_id)
+
+
+def test_agent_session_constructor_validates_and_exposes_read_only_session_id(base_ports):
+    from embedagent_core import Agent, AgentSession
+
+    runtime = Agent.create(base_ports)._runtime
+    with pytest.raises(ValueError, match="^session_id is invalid$"):
+        AgentSession(runtime, "../escape")
+
+    session = AgentSession(runtime, " session-one ")
+    assert session.session_id == "session-one"
+    with pytest.raises(AttributeError):
+        session.session_id = "changed"
+
+
+def test_agent_create_rejects_invalid_binding_types(base_ports):
+    from embedagent_core import Agent
+
+    with pytest.raises(TypeError, match="^ports must be AgentPorts$"):
+        Agent.create(object())
+    with pytest.raises(TypeError, match="^definition must be RuntimeDefinition$"):
+        Agent.create(base_ports, object())
+
+
+@pytest.mark.parametrize(
+    "missing_port", ("model", "tools", "session_log", "context", "permissions")
+)
+def test_agent_create_rejects_missing_required_port(base_ports, missing_port):
+    from embedagent_core import Agent
+
+    values = {
+        "model": base_ports.model,
+        "tools": base_ports.tools,
+        "session_log": base_ports.session_log,
+        "context": base_ports.context,
+        "permissions": base_ports.permissions,
+    }
+    values[missing_port] = None
+    ports = AgentPorts(**values)
+
+    with pytest.raises(
+        ValueError,
+        match="^agent port %s is required$" % missing_port,
+    ):
+        Agent.create(ports)
 
 
 def test_agent_session_rejects_overlapping_local_submit_and_recovers():

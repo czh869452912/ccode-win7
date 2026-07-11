@@ -439,15 +439,15 @@ class SessionSummaryStore(object):
                     summaries[0].get("transcript_ref") or summaries[0].get("session_id") or ""
                 )
                 if candidate:
-                    return self.transcript_store.resolve_transcript_path(candidate)
+                    return self.transcript_store.resolve_transcript_reference(candidate)
             raise ValueError("当前没有可恢复的 transcript。")
         if raw.endswith("summary.json"):
             summary = self.load_summary(raw)
             transcript_ref = str(summary.get("transcript_ref") or summary.get("session_id") or "")
             if not transcript_ref:
                 raise ValueError("摘要文件缺少 transcript 路径。")
-            return self.transcript_store.resolve_transcript_path(transcript_ref)
-        return self.transcript_store.resolve_transcript_path(raw)
+            return self.transcript_store.resolve_transcript_reference(transcript_ref)
+        return self.transcript_store.resolve_transcript_reference(raw)
 
     def transcript_ref_for_session(self, session_id: str) -> str:
         path = self.transcript_store.resolve_transcript_path(session_id)

@@ -124,3 +124,40 @@ def test_session_log_implementations_normalize_session_ids(session_log_implement
         with pytest.raises(SessionLeaseConflict):
             with session_log_implementation.acquire_lease("session-one"):
                 pass
+
+
+@pytest.mark.parametrize(
+    "invalid_session_id",
+    (
+        123,
+        ".",
+        "..",
+        "../escape",
+        "session/child",
+        "session\\child",
+        "C:session",
+        "session.jsonl",
+        "-leading",
+        "_leading",
+        "session.name",
+        "sess\N{LATIN SMALL LETTER E WITH ACUTE}",
+        "CON",
+        "nul",
+        "COM1",
+        "lpt9",
+        "s" * 129,
+    ),
+)
+def test_session_log_implementations_reject_unsafe_session_ids(
+    session_log_implementation,
+    invalid_session_id,
+):
+    with pytest.raises(ValueError, match="^session_id is invalid$"):
+        session_log_implementation.append_event(invalid_session_id, "message", {})
+    with pytest.raises(ValueError, match="^session_id is invalid$"):
+        session_log_implementation.load_events(invalid_session_id)
+    with pytest.raises(ValueError, match="^session_id is invalid$"):
+        with session_log_implementation.acquire_lease(invalid_session_id):
+            pass
+
+    assert session_log_implementation.transcript_exists(invalid_session_id) is False
