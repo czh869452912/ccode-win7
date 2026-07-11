@@ -9,6 +9,7 @@ from itertools import count
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.transcript_store import TranscriptStore
+from embedagent_core.session_log import SessionLeaseConflict
 
 _COUNTER = count(1)
 
@@ -33,6 +34,31 @@ class TestTranscriptStore(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
+
+    def test_same_session_cannot_hold_overlapping_leases(self):
+        store = TranscriptStore(self.workspace)
+
+        with store.acquire_lease("session-one"):
+            with self.assertRaises(SessionLeaseConflict):
+                with store.acquire_lease("session-one"):
+                    pass
+
+    def test_different_sessions_can_hold_nested_leases(self):
+        store = TranscriptStore(self.workspace)
+
+        with store.acquire_lease("session-one"):
+            with store.acquire_lease("session-two"):
+                pass
+
+    def test_lease_is_released_after_exception(self):
+        store = TranscriptStore(self.workspace)
+
+        with self.assertRaises(RuntimeError):
+            with store.acquire_lease("session-one"):
+                raise RuntimeError("stop")
+
+        with store.acquire_lease("session-one"):
+            pass
 
     def test_append_and_load_roundtrip(self):
         store = TranscriptStore(self.workspace)

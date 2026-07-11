@@ -46,7 +46,7 @@ class SessionRestorer(object):
         session_id = str(events[0].get("session_id") or "")
         started_at = str(events[0].get("ts") or "")
         session = Session(session_id=session_id, started_at=started_at or Session().started_at)
-        current_mode = "explore"
+        current_mode = ""
         seen_turn_ids = set()
         seen_message_ids = set()
         seen_tool_call_ids = set()

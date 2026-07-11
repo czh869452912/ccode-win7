@@ -45,14 +45,14 @@ class TestSessionRestoreBehavior:
 
     def test_old_session_is_older_than(self):
         # Import the function under test
-        from embedagent.session_restore import SessionRestorer
+        from embedagent_core.session_restore import SessionRestorer
 
         restore = SessionRestorer()
         old_time = datetime.now(timezone.utc) - timedelta(hours=1)
         assert restore._interaction_is_stale(old_time.isoformat(), 300) is True
 
     def test_recent_session_is_not_older_than(self):
-        from embedagent.session_restore import SessionRestorer
+        from embedagent_core.session_restore import SessionRestorer
 
         restore = SessionRestorer()
         recent_time = datetime.now(timezone.utc) - timedelta(seconds=10)

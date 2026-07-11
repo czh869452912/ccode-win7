@@ -7,7 +7,6 @@ from itertools import count
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.session_history import SessionHistoryAssembler
-from embedagent.session_restore import SessionRestorer
 from embedagent.transcript_store import TranscriptStore
 from embedagent_core.session import (
     Action,
@@ -15,6 +14,7 @@ from embedagent_core.session import (
     Observation,
     Session,
 )
+from embedagent_core.session_restore import SessionRestorer
 
 _COUNTER = count(1)
 

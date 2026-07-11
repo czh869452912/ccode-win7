@@ -4,8 +4,11 @@ import json
 import os
 import threading
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
+
+from embedagent_core.session_log import SessionLeaseConflict
 
 
 def _utc_now() -> str:
@@ -24,6 +27,23 @@ class TranscriptStore(object):
         self._append_locks = {}  # type: Dict[str, threading.RLock]
         self._append_locks_guard = threading.RLock()
         self._scan_cache = {}  # type: Dict[str, Tuple[List[Dict[str, Any]], int, int]]
+        self._lease_lock = threading.RLock()
+        self._leased_session_ids = set()
+
+    @contextmanager
+    def acquire_lease(self, session_id: str) -> Any:
+        normalized_session_id = str(session_id or "")
+        with self._lease_lock:
+            if normalized_session_id in self._leased_session_ids:
+                raise SessionLeaseConflict(
+                    "session log lease is already held: %s" % normalized_session_id
+                )
+            self._leased_session_ids.add(normalized_session_id)
+        try:
+            yield
+        finally:
+            with self._lease_lock:
+                self._leased_session_ids.discard(normalized_session_id)
 
     def resolve_session_dir(self, session_id: str) -> str:
         if not session_id:

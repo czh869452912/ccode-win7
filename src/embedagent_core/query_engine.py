@@ -39,7 +39,6 @@ from embedagent_core.policies import (
 from embedagent_core.ports import (
     ContextAssemblerPort,
     EmptyWorkspaceProfile,
-    InMemoryTranscriptStore,
     MemoryMaintenancePort,
     NoopContextAssembler,
     NoopMemoryMaintenance,
@@ -49,7 +48,6 @@ from embedagent_core.ports import (
     ProjectMemoryStorePort,
     SessionSummaryStorePort,
     ToolCommitCoordinatorPort,
-    TranscriptStorePort,
     WorkspaceProfilePort,
 )
 from embedagent_core.prompt_assembly_service import PromptAssemblyService
@@ -65,6 +63,7 @@ from embedagent_core.session import (
     Session,
     ToolPresentationSnapshot,
 )
+from embedagent_core.session_log import InMemorySessionLog, SessionLogPort
 from embedagent_core.tool_contracts import ToolRuntimePort
 from embedagent_core.turn_snapshot import TurnSnapshot
 from embedagent_core.turn_snapshot_service import TurnSnapshotService
@@ -100,7 +99,7 @@ class QueryEngine(object):
         maintenance_interval: int = 4,
         intelligence_broker: Optional[Any] = None,
         max_parallel_tools: int = 3,
-        transcript_store: Optional[TranscriptStorePort] = None,
+        transcript_store: Optional[SessionLogPort] = None,
         tracer: Optional[ExecutionTracer] = None,
         extension_manager: Optional[ExtensionManager] = None,
         runtime_config_provider: Optional[Callable[[Session], Dict[str, Any]]] = None,
@@ -123,7 +122,7 @@ class QueryEngine(object):
         self.maintenance_interval = maintenance_interval if maintenance_interval > 0 else 1
         self.intelligence_broker = intelligence_broker
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
-        self.transcript_store = transcript_store or InMemoryTranscriptStore()
+        self.transcript_store = transcript_store or InMemorySessionLog()
         self.tracer = tracer
         self._runtime_config_provider = runtime_config_provider
         self._remembered_permission_categories_provider = remembered_permission_categories_provider

@@ -14,7 +14,6 @@ from query_engine_product_helpers import build_product_query_engine as QueryEngi
 
 from embedagent.config import AppConfig
 from embedagent.context import ContextManager
-from embedagent.session_restore import SessionRestorer
 from embedagent.tools import ToolRuntime
 from embedagent.transcript_store import TranscriptStore
 from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
@@ -31,6 +30,7 @@ from embedagent_core.interaction import UserInputResponse
 from embedagent_core.model import ModelClientError
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.session import Action, AssistantReply, Observation, Session
+from embedagent_core.session_restore import SessionRestorer
 from embedagent_core.tool_execution import partition_tool_actions
 from embedagent_host.inprocess_adapter import InProcessAdapter
 

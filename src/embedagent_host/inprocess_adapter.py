@@ -53,7 +53,7 @@ from embedagent.session_bootstrap_service import SessionBootstrapService
 from embedagent.session_history import SessionHistoryAssembler
 from embedagent_core.session_operation_log import OperationLogReducer, operation_diagnostics
 from embedagent.session_projector import SessionSnapshotProjector
-from embedagent.session_restore import SessionRestorer
+from embedagent_core.session_restore import SessionRestorer
 from embedagent.session_runtime import ManagedSession
 from embedagent.session_store import SessionSummaryStore
 from embedagent.services import (

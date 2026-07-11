@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Optional, Protocol
 
 from embedagent_core.session import Action, ContextAssemblyResult, Observation, Session
 
@@ -17,23 +17,6 @@ class ContextAssemblerPort(Protocol):
         intelligence_broker: Any = None,
         force_compact: bool = False,
     ) -> ContextAssemblyResult:
-        raise NotImplementedError
-
-
-class TranscriptStorePort(Protocol):
-    def append_event(
-        self,
-        session_id: str,
-        event_type: str,
-        payload: Dict[str, Any],
-        schema_version: int = 2,
-    ) -> None:
-        raise NotImplementedError
-
-    def transcript_exists(self, session_id: str) -> bool:
-        raise NotImplementedError
-
-    def load_events(self, session_id: str) -> List[Dict[str, Any]]:
         raise NotImplementedError
 
 
@@ -103,33 +86,6 @@ class NoopContextAssembler(object):
             budget=None,
             stats=None,
         )
-
-
-class InMemoryTranscriptStore(object):
-    def __init__(self) -> None:
-        self._events = {}  # type: Dict[str, List[Dict[str, Any]]]
-
-    def append_event(
-        self,
-        session_id: str,
-        event_type: str,
-        payload: Dict[str, Any],
-        schema_version: int = 2,
-    ) -> None:
-        if schema_version != 2:
-            raise ValueError("transcript events must use schema_version 2")
-        event = {
-            "type": event_type,
-            "payload": dict(payload or {}),
-            "schema_version": 2,
-        }
-        self._events.setdefault(str(session_id or ""), []).append(event)
-
-    def transcript_exists(self, session_id: str) -> bool:
-        return bool(self._events.get(str(session_id or "")))
-
-    def load_events(self, session_id: str) -> List[Dict[str, Any]]:
-        return [dict(item) for item in list(self._events.get(str(session_id or ""), []) or [])]
 
 
 class NoopSessionSummaryStore(object):

@@ -68,7 +68,7 @@ class TestNoDeprecatedDatetime:
             "src/embedagent_host/inprocess_adapter.py",
             "src/embedagent/plan_store.py",
             "src/embedagent/transcript_store.py",
-            "src/embedagent/session_restore.py",
+            "src/embedagent_core/session_restore.py",
         ]
 
         base_dir = os.path.join(os.path.dirname(__file__), "..")

@@ -7,8 +7,8 @@ from itertools import count
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.context import ContextManager
-from embedagent.session_restore import SessionRestorer
 from embedagent.transcript_store import TranscriptStore
+from embedagent_core.session_restore import SessionRestorer
 
 _COUNTER = count(1)
 
@@ -72,6 +72,23 @@ class TestSessionRestorer(unittest.TestCase):
                 "payload": {"turn_id": "t-1", "step_id": "s-1", "step_index": 1},
             },
         ]
+
+    def test_restore_does_not_invent_default_mode(self):
+        events = [
+            {
+                "schema_version": 2,
+                "session_id": "sess-no-mode",
+                "event_id": "evt-no-mode",
+                "seq": 1,
+                "ts": "2026-07-11T00:00:00Z",
+                "type": "session_meta",
+                "payload": {},
+            }
+        ]
+
+        result = SessionRestorer().restore(events)
+
+        self.assertEqual(result.current_mode, "")
 
     def test_restore_rebuilds_turn_step_and_tool_topology(self):
         session_id = "sess-restore"
