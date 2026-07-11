@@ -212,24 +212,41 @@ def test_agent_open_rejects_non_string_session_id(base_ports):
         Agent.create(base_ports).open(123)
 
 
-def test_agent_session_rejects_overlapping_local_submit_and_recovers(base_ports):
+def test_agent_session_rejects_overlapping_local_submit_and_recovers():
     from embedagent_core import Agent
     from embedagent_core.session_log import SessionLeaseConflict
 
-    session = Agent.create(base_ports).open("session-local-lock")
-    assert session._submit_lock.acquire(blocking=False)
-    try:
-        with pytest.raises(
-            SessionLeaseConflict,
-            match="^agent session already has an active submit$",
-        ):
-            session.submit(UserTurn("blocked", stream=False))
-    finally:
-        session._submit_lock.release()
+    model = BlockingModel()
+    ports = AgentPorts(
+        model=model,
+        tools=NoopToolRuntime(),
+        session_log=InMemorySessionLog(),
+        context=NoopContextAssembler(),
+        permissions=PermissionPolicy(),
+    )
+    session = Agent.create(ports).open("session-local-lock")
 
-    result = session.submit(UserTurn("available", stream=False))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        first_result = executor.submit(
+            session.submit,
+            UserTurn("first", stream=False),
+        )
+        try:
+            assert model.entered.wait(2)
+            with pytest.raises(
+                SessionLeaseConflict,
+                match="^agent session already has an active submit$",
+            ):
+                session.submit(UserTurn("second", stream=False))
+        finally:
+            model.release.set()
+        first = first_result.result(timeout=5)
 
-    assert result.final_text == "done"
+    third = session.submit(UserTurn("third", stream=False))
+
+    assert first.final_text == "done"
+    assert third.final_text == "done"
+    assert third.session.turn_count > first.session.turn_count
 
 
 def test_agent_sessions_share_one_bound_runtime_and_extension_manager(base_ports):
