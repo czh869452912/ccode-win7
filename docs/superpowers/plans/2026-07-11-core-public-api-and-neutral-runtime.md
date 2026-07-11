@@ -148,6 +148,7 @@ git commit -m "test: define standalone agent core contract"
 
 **Files:**
 - Create: `src/embedagent_core/api.py`
+- Modify: `src/embedagent_core/__init__.py`
 - Modify: `src/embedagent_core/policies.py`
 - Test: `tests/test_agent_core_public_api.py`
 
@@ -336,19 +337,24 @@ class AgentSession(object):
         raise NotImplementedError
 ```
 
+Export these record/protocol names from `src/embedagent_core/__init__.py` in
+this task so the public import and validation tests can turn green. The facade
+classes are importable but their behavior remains intentionally unimplemented
+until Task 5.
+
 - [ ] **Step 5: Run the record tests**
 
 ```bash
 uv run pytest tests/test_agent_core_public_api.py -v
 ```
 
-Expected: validation/default tests pass; public import tests still fail until
-Task 5 exports the facade.
+Expected: public import and validation/default tests pass. No facade execution
+test exists until Task 5.
 
 - [ ] **Step 6: Commit the public records**
 
 ```bash
-git add src/embedagent_core/api.py src/embedagent_core/policies.py tests/test_agent_core_public_api.py
+git add src/embedagent_core/api.py src/embedagent_core/__init__.py src/embedagent_core/policies.py tests/test_agent_core_public_api.py
 git commit -m "feat: define agent core public records"
 ```
 
