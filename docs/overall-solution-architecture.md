@@ -458,7 +458,13 @@ policy through `AgentPorts`, then submit typed `UserTurn` or `InteractionReply`
 inputs. `run_agent` is the low-level execution primitive beneath that facade.
 `QueryEngine` is internal implementation, not a supported Host or third-party
 integration boundary. The standalone defaults preserve missing mode and
-workflow values as empty and use ask/deny permission behavior.
+workflow values as empty. `AgentPorts.permissions` is required, and the public
+facade does not synthesize a policy. Standard `PermissionPolicy()` disables
+automatic approval; absent an overriding rule, it allows `read` and returns ask
+for `workspace_write`, `git_write`, `shell_exec`, `toolchain_exec`, `network`,
+`telemetry`, and `other`. Explicit rules may allow, ask, or deny.
+`RuntimeDefinition` separately defaults to `DenyWritePathPolicy`, so a
+permission decision does not make a path writable.
 
 `SessionLogPort` is the durable append/load/lease contract used by the public
 runtime. The hosted `transcript.jsonl` store implements that port; the file name

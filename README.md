@@ -42,8 +42,14 @@ The supported standalone Core SDK is `Agent` / `AgentSession`. A caller binds
 `QueryEngine` is an internal implementation detail and is not the public host
 integration contract. `SessionLogPort` is the durable log contract, with
 `transcript.jsonl` provided by the product as one adapter. Missing mode and
-workflow values remain empty in standalone Core, and standalone permissions
-ask or deny unless the caller supplies an explicit policy.
+workflow values remain empty in standalone Core. `AgentPorts.permissions` is a
+required caller-supplied policy; the public facade does not create one
+implicitly. Standard `PermissionPolicy()` disables automatic approval, allows
+`read` when no rule overrides it, and returns ask for `workspace_write`,
+`git_write`, `shell_exec`, `toolchain_exec`, `network`, `telemetry`, and `other`.
+Explicit rules may allow, ask, or deny. The independent default
+`DenyWritePathPolicy` keeps write paths non-writable even when a permission
+decision alone would allow or confirm an action.
 
 Local offline self-extension is part of the official architecture: workspace file resources and manifest-gated project-local Python extensions can extend the hosted runtime while remote registries, online installs, dependency installation, plugin marketplaces, built-in tool replacement, and general multi-agent orchestration remain outside the product baseline.
 

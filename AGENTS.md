@@ -120,8 +120,15 @@ and must not be exposed as the Host or third-party integration facade.
 `SessionLogPort` is the durable log contract; the hosted product's
 `transcript.jsonl` store is one adapter rather than the public abstraction.
 Standalone Core preserves missing mode and workflow values as empty and
-defaults permissions to ask or deny, never auto-approve. Hosted product
-composition may explicitly select its own initial mode/workflow policy.
+requires the caller to provide `AgentPorts.permissions`; `Agent.create` must not
+synthesize a permission policy. Standard `PermissionPolicy()` keeps automatic
+approval disabled. Without an overriding rule it allows `read` and asks for
+`workspace_write`, `git_write`, `shell_exec`, `toolchain_exec`, `network`,
+`telemetry`, and `other`; explicit rules may allow, ask, or deny. The default
+`RuntimeDefinition.write_path_policy` is a separate `DenyWritePathPolicy`, so a
+permission decision must never be treated as proof that a write path is
+writable. Hosted product composition may explicitly select its own initial
+mode, workflow, permission, and write-path policies.
 
 Do not treat blueprint target terms such as public `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `AgentLoopContinuationPolicy`, `ProgressGuard`, `TurnSnapshot`, `CapabilityRegistry`, `RuntimeConfigReducer`, `WorkflowPackageManifest`, `CompactionStateReducer`, `RecoveryStateReducer`, and `TurnExperienceReducer` are implemented internal Agent Core boundaries/read models, not public extension APIs. The bundled default C/C++ workflow package now owns its workflow tool registration, metadata, packs, and read-only package manifest behind `CHarnessWorkflowExtension`; the obsolete `embedagent.tooling.packs` compatibility re-export has been removed, so C/C++ workflow pack truth lives only in `embedagent.workflow_packages.c_cpp.packs`. Core singleton-like access must use explicit accessors (`get_mode_registry()`, `get_command_sanitizer()`, `get_inprocess_adapter()`); removed registry, sanitizer, and adapter private aliases must not be reintroduced. Local self-extension authoring is available through `SelfExtensionAuthoringService` and `author_local_capability`; repo-side offline bundle validation and release-gate metadata are contract-backed through `scripts/offline-runtime-contract.json`, including bundle-local C smoke validation through `validate-cpp-smoke.py`; near-term work must keep the default C/C++ workflow runnable while deleting stale internal compatibility layers and recording real Win7/WebView2 bundle smoke evidence before release claims. Future intranet Git, custom service, provider, or telemetry work must follow Pi's adapter style rather than copying Pi's full openness: Core emits safe events/read models and enforces capability/permission boundaries, while networked behavior lives in optional hosted extensions, providers, workflow packages, or passive telemetry sinks.
 

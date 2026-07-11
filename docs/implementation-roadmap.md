@@ -45,8 +45,15 @@ product composition and default C/C++ behavior:
   implementation rather than the public Host/session facade
 - `SessionLogPort` is the durable Core contract; the hosted
   `transcript.jsonl` store is one adapter
-- missing mode and workflow values remain empty in standalone Core, whose
-  default permission behavior asks or denies rather than auto-approving
+- missing mode and workflow values remain empty in standalone Core;
+  `AgentPorts.permissions` is required and the public facade does not create a
+  policy implicitly
+- standard `PermissionPolicy()` disables automatic approval, allows `read` in
+  the absence of an overriding rule, and returns ask for `workspace_write`,
+  `git_write`, `shell_exec`, `toolchain_exec`, `network`, `telemetry`, and
+  `other`; explicit rules may allow, ask, or deny
+- the default `RuntimeDefinition` independently uses `DenyWritePathPolicy`, so
+  permission approval does not make a write path writable
 - `src/embedagent_core/` now contains the workflow-neutral session engine,
   extension boundary, permission policy, reducers, turn snapshots, and
   capability read models

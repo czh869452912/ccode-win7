@@ -54,9 +54,15 @@ execution primitive. `QueryEngine` is internal and may evolve without becoming
 a Host or extension integration contract.
 
 Standalone runtime definitions do not invent mode or workflow state: missing
-values stay empty. Standalone permission and write defaults ask or deny. Hosted
-products may explicitly select a default mode/workflow and policy, but that
-choice does not become a Core default.
+values stay empty. `AgentPorts.permissions` is required and the public facade
+does not create a permission policy implicitly. Standard `PermissionPolicy()`
+disables automatic approval; without an overriding rule it allows `read` and
+returns ask for `workspace_write`, `git_write`, `shell_exec`, `toolchain_exec`,
+`network`, `telemetry`, and `other`. Explicit rules may allow, ask, or deny. The
+independent default `DenyWritePathPolicy` keeps write paths non-writable
+regardless of the permission decision. Hosted products may explicitly select
+mode, workflow, permission, and write-path policies, but those choices do not
+become Core defaults.
 
 ### AgentKernel
 
@@ -523,8 +529,13 @@ The blueprint is working when:
   the low-level primitive and `QueryEngine` kept internal
 - `SessionLogPort` is the durable Core contract and storage formats remain
   adapter details
-- missing standalone mode/workflow values remain empty and standalone
-  permissions ask or deny
+- missing standalone mode/workflow values remain empty; callers must provide
+  `AgentPorts.permissions`, and the public facade never creates one implicitly
+- standard `PermissionPolicy()` disables automatic approval, allows `read`
+  absent an overriding rule, and returns ask for `workspace_write`, `git_write`,
+  `shell_exec`, `toolchain_exec`, `network`, `telemetry`, and `other`; explicit
+  rules may allow, ask, or deny
+- default `DenyWritePathPolicy` independently keeps write paths non-writable
 - hosted product paths still load the bundled C/C++ workflow by default
 - a base `Agent` can run with an empty workflow package set
 - tools and resources are registered once and activated through capability policy
