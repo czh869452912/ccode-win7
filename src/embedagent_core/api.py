@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Protocol, Tuple, Union
 
@@ -36,7 +37,9 @@ class UserTurn:
     stream: bool = True
 
     def __post_init__(self) -> None:
-        if not str(self.text or "").strip():
+        if not isinstance(self.text, str):
+            raise TypeError("user turn text must be a string")
+        if not self.text.strip():
             raise ValueError("user turn text is required")
 
 
@@ -47,9 +50,13 @@ class InteractionReply:
     stream: bool = True
 
     def __post_init__(self) -> None:
-        if not str(self.interaction_id or "").strip():
+        if not isinstance(self.interaction_id, str):
+            raise TypeError("interaction id must be a string")
+        if not self.interaction_id.strip():
             raise ValueError("interaction id is required")
-        object.__setattr__(self, "value", dict(self.value or {}))
+        if self.value is not None and not isinstance(self.value, dict):
+            raise TypeError("interaction reply value must be a dict or None")
+        object.__setattr__(self, "value", deepcopy(self.value or {}))
 
 
 AgentInput = Union[UserTurn, InteractionReply]
@@ -83,6 +90,9 @@ class AgentSessionView:
     message_count: int
     turn_count: int
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "workflow_state", deepcopy(self.workflow_state))
+
 
 @dataclass(frozen=True)
 class AgentResult:
@@ -91,6 +101,10 @@ class AgentResult:
     termination_reason: str
     pending_interaction: Optional[PendingInteraction]
     turn_snapshot: Optional[Any]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "pending_interaction", deepcopy(self.pending_interaction))
+        object.__setattr__(self, "turn_snapshot", deepcopy(self.turn_snapshot))
 
 
 class Agent(object):
