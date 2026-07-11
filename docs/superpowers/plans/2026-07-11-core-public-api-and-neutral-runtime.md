@@ -148,6 +148,7 @@ git commit -m "test: define standalone agent core contract"
 
 **Files:**
 - Create: `src/embedagent_core/api.py`
+- Create: `src/embedagent_core/session_log.py` with the public protocol only
 - Modify: `src/embedagent_core/__init__.py`
 - Modify: `src/embedagent_core/policies.py`
 - Test: `tests/test_agent_core_public_api.py`
@@ -217,6 +218,11 @@ class NeutralModeRuntimePolicy(object):
 ```
 
 - [ ] **Step 4: Implement the public records and protocols**
+
+Create `src/embedagent_core/session_log.py` with `SessionLeaseConflict` and the
+`SessionLogPort` protocol (`append_event`, `transcript_exists`, `load_events`,
+and `acquire_lease`). Task 3 adds the in-memory implementation and migrates the
+existing internal transcript port.
 
 Create `src/embedagent_core/api.py` with these public records. Leave `Agent`
 and `AgentSession` construction methods raising `NotImplementedError` until
@@ -345,7 +351,7 @@ until Task 5.
 - [ ] **Step 5: Run the record tests**
 
 ```bash
-uv run pytest tests/test_agent_core_public_api.py -v
+uv run pytest tests/test_agent_core_public_api.py -k "public_sdk or user_turn or interaction_reply or runtime_definition" -v
 ```
 
 Expected: public import and validation/default tests pass. No facade execution
@@ -354,14 +360,14 @@ test exists until Task 5.
 - [ ] **Step 6: Commit the public records**
 
 ```bash
-git add src/embedagent_core/api.py src/embedagent_core/__init__.py src/embedagent_core/policies.py tests/test_agent_core_public_api.py
+git add src/embedagent_core/api.py src/embedagent_core/session_log.py src/embedagent_core/__init__.py src/embedagent_core/policies.py tests/test_agent_core_public_api.py
 git commit -m "feat: define agent core public records"
 ```
 
 ### Task 3: Promote Session Restore And Lease-Aware Log Contracts
 
 **Files:**
-- Create: `src/embedagent_core/session_log.py`
+- Modify: `src/embedagent_core/session_log.py`
 - Modify: `src/embedagent_core/ports.py`
 - Modify: `src/embedagent_core/query_engine.py`
 - Move: `src/embedagent/session_restore.py` to `src/embedagent_core/session_restore.py`
@@ -434,9 +440,10 @@ Expected: FAIL because `session_log` does not exist and restore defaults to
 
 - [ ] **Step 3: Implement the Core log contract and memory adapter**
 
-Move `TranscriptStorePort` and `InMemoryTranscriptStore` out of
-`src/embedagent_core/ports.py` into `src/embedagent_core/session_log.py`, rename
-them `SessionLogPort` and `InMemorySessionLog`, and add the lease contract.
+Move `InMemoryTranscriptStore` out of `src/embedagent_core/ports.py` into
+`src/embedagent_core/session_log.py` as `InMemorySessionLog`. Delete
+`TranscriptStorePort` from `ports.py`, update its callers to the already-public
+`SessionLogPort`, and complete the lease-aware protocol created in Task 2.
 There must be one log protocol and one Core memory implementation after this
 step. Use this complete memory behavior:
 
@@ -709,7 +716,8 @@ Reject unsupported input types with `TypeError("unsupported agent input")`.
 - [ ] **Step 5: Run runner and existing QueryEngine tests**
 
 ```bash
-uv run pytest tests/test_agent_core_public_api.py tests/test_query_engine_refactor.py -v
+uv run pytest tests/test_agent_core_public_api.py -k "run_agent" -v
+uv run pytest tests/test_query_engine_refactor.py -v
 ```
 
 Expected: PASS.
@@ -819,7 +827,8 @@ __all__ = [
 - [ ] **Step 5: Run the full public contract suite**
 
 ```bash
-uv run pytest tests/test_agent_core_public_api.py tests/test_session_log_port.py -v
+uv run pytest tests/test_agent_core_public_api.py -k "not turn_snapshot and not query_engine_uses_fail_closed_default" -v
+uv run pytest tests/test_session_log_port.py -v
 ```
 
 Expected: PASS.
