@@ -499,6 +499,30 @@ def test_query_engine_does_not_own_extension_dispatch_boundary():
     assert offenders == []
 
 
+def test_public_core_has_no_chat_or_auto_approve_defaults():
+    files = [
+        ROOT / "src/embedagent_core/query_engine.py",
+        ROOT / "src/embedagent_core/turn_snapshot.py",
+        ROOT / "src/embedagent_core/ports.py",
+        ROOT / "src/embedagent_core/extensions.py",
+        ROOT / "src/embedagent_core/agent_extension_host.py",
+    ]
+    offenders = []
+    for path in files:
+        text = _read(path)
+        for token in ('workflow_state: str = "chat"', 'or "chat"'):
+            if token in text:
+                offenders.append("%s contains %s" % (_relative(path), token))
+
+    query_engine = ROOT / "src/embedagent_core/query_engine.py"
+    if "PermissionPolicy(auto_approve_all=True)" in _read(query_engine):
+        offenders.append(
+            "%s contains PermissionPolicy(auto_approve_all=True)" % _relative(query_engine)
+        )
+
+    assert offenders == []
+
+
 def test_c_cpp_workflow_extension_stays_behind_default_package_boundary():
     allowed_files = set()
     allowed_prefixes = ("src/embedagent/workflow_packages/c_cpp/",)
