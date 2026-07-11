@@ -39,6 +39,15 @@ def _hold_transcript_lease(workspace, ready, release):
             raise RuntimeError("lease release signal was not received")
 
 
+def _attempt_transcript_lease(workspace, session_id, result):
+    store = TranscriptStore(workspace)
+    try:
+        with store.acquire_lease(session_id):
+            result.put("acquired")
+    except SessionLeaseConflict:
+        result.put("conflict")
+
+
 class TestTranscriptStore(unittest.TestCase):
     def setUp(self):
         self.workspace = _make_workspace("transcript-store")
@@ -99,10 +108,9 @@ class TestTranscriptStore(unittest.TestCase):
         self.assertFalse(os.path.exists(session_dir))
 
     @unittest.skipUnless(os.name == "nt", "Windows directory symlink contract")
-    def test_lease_ignores_parent_replacement_after_canonical_path_resolution(self):
+    def test_lease_creates_no_artifact_through_redirected_parent(self):
         store = TranscriptStore(self.workspace)
-        transcript_path = store.resolve_transcript_path("session-parent-race")
-        session_dir = os.path.dirname(transcript_path)
+        session_dir = store.resolve_session_dir("session-parent-race")
         outside_dir = os.path.join(self.workspace, "outside-session-directory")
         os.makedirs(session_dir)
         os.makedirs(outside_dir)
@@ -115,24 +123,13 @@ class TestTranscriptStore(unittest.TestCase):
         else:
             os.rmdir(probe_path)
 
-        original_resolve = store.resolve_transcript_path
-        replaced = [False]
-
-        def resolve_then_replace(session_id):
-            path = original_resolve(session_id)
-            if not replaced[0]:
-                os.rmdir(session_dir)
-                os.symlink(outside_dir, session_dir, target_is_directory=True)
-                replaced[0] = True
-            return path
-
-        store.resolve_transcript_path = resolve_then_replace
+        os.rmdir(session_dir)
+        os.symlink(outside_dir, session_dir, target_is_directory=True)
         try:
             with store.acquire_lease("session-parent-race"):
                 pass
             self.assertEqual(os.listdir(outside_dir), [])
         finally:
-            store.resolve_transcript_path = original_resolve
             if os.path.lexists(session_dir):
                 os.rmdir(session_dir)
 
@@ -227,6 +224,31 @@ class TestTranscriptStore(unittest.TestCase):
         with second.acquire_lease("session-one"):
             pass
 
+    def test_session_lease_identity_survives_in_root_directory_redirect(self):
+        first = TranscriptStore(self.workspace)
+        second = TranscriptStore(self.workspace)
+        session_a = first.resolve_session_dir("session-a")
+        session_b = first.resolve_session_dir("session-b")
+        os.makedirs(session_a)
+        os.makedirs(session_b)
+
+        with first.acquire_lease("session-a"):
+            os.rmdir(session_a)
+            try:
+                os.symlink(session_b, session_a, target_is_directory=True)
+            except (NotImplementedError, OSError) as exc:
+                os.makedirs(session_a)
+                self.skipTest("directory symlink creation unavailable: %s" % exc)
+            try:
+                with self.assertRaisesRegex(
+                    SessionLeaseConflict,
+                    "^session log lease is already held: session-a$",
+                ):
+                    with second.acquire_lease("session-a"):
+                        pass
+            finally:
+                os.rmdir(session_a)
+
     @unittest.skipUnless(os.name == "nt", "Windows named mutex contract")
     def test_windows_processes_share_session_lease(self):
         context = multiprocessing.get_context("spawn")
@@ -253,6 +275,45 @@ class TestTranscriptStore(unittest.TestCase):
                 process.terminate()
                 process.join(5)
         self.assertEqual(process.exitcode, 0)
+
+    @unittest.skipUnless(os.name == "nt", "Windows named mutex contract")
+    def test_windows_process_lease_identity_survives_in_root_directory_redirect(self):
+        store = TranscriptStore(self.workspace)
+        session_a = store.resolve_session_dir("session-a")
+        session_b = store.resolve_session_dir("session-b")
+        os.makedirs(session_a)
+        os.makedirs(session_b)
+        context = multiprocessing.get_context("spawn")
+        result = context.Queue()
+        process = None
+
+        with store.acquire_lease("session-a"):
+            os.rmdir(session_a)
+            try:
+                os.symlink(session_b, session_a, target_is_directory=True)
+            except (NotImplementedError, OSError) as exc:
+                os.makedirs(session_a)
+                self.skipTest("directory symlink creation unavailable: %s" % exc)
+            try:
+                process = context.Process(
+                    target=_attempt_transcript_lease,
+                    args=(self.workspace, "session-a", result),
+                )
+                process.start()
+                process.join(10)
+                if process.is_alive():
+                    process.terminate()
+                    process.join(5)
+            finally:
+                if process is not None and process.is_alive():
+                    process.terminate()
+                    process.join(5)
+                if os.path.lexists(session_a):
+                    os.rmdir(session_a)
+
+        self.assertIsNotNone(process)
+        self.assertEqual(process.exitcode, 0)
+        self.assertEqual(result.get(timeout=2), "conflict")
 
     def test_session_methods_reject_transcript_paths_and_reference_loader_is_explicit(self):
         store = TranscriptStore(self.workspace)
@@ -281,6 +342,52 @@ class TestTranscriptStore(unittest.TestCase):
             store.load_events_from_reference(outside_path)
         with self.assertRaisesRegex(ValueError, "^transcript reference is invalid$"):
             store.resolve_transcript_reference(noncanonical_path)
+
+    def test_session_id_operations_reject_in_root_directory_redirect(self):
+        store = TranscriptStore(self.workspace)
+        store.append_event("session-b", "message", {"content": "preserve"})
+        session_a = os.path.join(store.root, "session-a")
+        session_b = store.resolve_session_dir("session-b")
+        transcript_b = store.resolve_transcript_path("session-b")
+        with open(transcript_b, "rb") as handle:
+            original_transcript = handle.read()
+        try:
+            os.symlink(session_b, session_a, target_is_directory=True)
+        except (NotImplementedError, OSError) as exc:
+            self.skipTest("directory symlink creation unavailable: %s" % exc)
+
+        try:
+            with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+                store.resolve_session_dir("session-a")
+            with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+                store.resolve_transcript_path("session-a")
+            with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+                store.append_event("session-a", "message", {"content": "overwrite"})
+            with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+                store.load_events("session-a")
+            with open(transcript_b, "rb") as handle:
+                self.assertEqual(handle.read(), original_transcript)
+        finally:
+            os.rmdir(session_a)
+
+    def test_explicit_reference_follows_in_root_alias_to_canonical_session(self):
+        store = TranscriptStore(self.workspace)
+        store.append_event("session-b", "message", {"content": "canonical"})
+        session_a = os.path.join(store.root, "session-a")
+        session_b = store.resolve_session_dir("session-b")
+        transcript_b = store.resolve_transcript_path("session-b")
+        try:
+            os.symlink(session_b, session_a, target_is_directory=True)
+        except (NotImplementedError, OSError) as exc:
+            self.skipTest("directory symlink creation unavailable: %s" % exc)
+
+        try:
+            alias_reference = os.path.join(session_a, "transcript.jsonl")
+            self.assertEqual(store.resolve_transcript_reference(alias_reference), transcript_b)
+            events = store.load_events_from_reference(alias_reference)
+            self.assertEqual(events[0]["payload"]["content"], "canonical")
+        finally:
+            os.rmdir(session_a)
 
     def test_malicious_session_id_cannot_truncate_file_outside_sessions_root(self):
         store = TranscriptStore(self.workspace)

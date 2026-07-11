@@ -44,6 +44,7 @@ class TranscriptStore(object):
         self.root = os.path.realpath(os.path.join(self.workspace, *self.relative_root.split("/")))
         if not _path_is_within(self.root, self.workspace):
             raise ValueError("session root is invalid")
+        self._lease_root_identity = _canonical_path(self.root)
         self._append_locks = {}  # type: Dict[str, threading.RLock]
         self._append_locks_guard = threading.RLock()
         self._scan_cache = {}  # type: Dict[str, Tuple[List[Dict[str, Any]], int, int]]
@@ -51,18 +52,17 @@ class TranscriptStore(object):
     @contextmanager
     def acquire_lease(self, session_id: str) -> Any:
         normalized_session_id = normalize_session_id(session_id)
-        transcript_path = self.resolve_transcript_path(normalized_session_id)
-        lease_key = _canonical_path(transcript_path)
+        lease_identity = self._lease_identity(normalized_session_id)
         with _PROCESS_LEASE_GUARD:
-            if lease_key in _PROCESS_LEASE_PATHS:
+            if lease_identity in _PROCESS_LEASE_PATHS:
                 raise SessionLeaseConflict(
                     "session log lease is already held: %s" % normalized_session_id
                 )
-            _PROCESS_LEASE_PATHS.add(lease_key)
+            _PROCESS_LEASE_PATHS.add(lease_identity)
         mutex_handle = None
         try:
             mutex_handle = self._acquire_windows_mutex(
-                transcript_path,
+                lease_identity,
                 normalized_session_id,
             )
             yield
@@ -72,12 +72,24 @@ class TranscriptStore(object):
                     self._release_windows_mutex(mutex_handle)
             finally:
                 with _PROCESS_LEASE_GUARD:
-                    _PROCESS_LEASE_PATHS.discard(lease_key)
+                    _PROCESS_LEASE_PATHS.discard(lease_identity)
+
+    def _lease_identity(self, normalized_session_id: str) -> str:
+        material = "%s:%s%s" % (
+            len(self._lease_root_identity),
+            self._lease_root_identity,
+            normalized_session_id,
+        )
+        return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
     def resolve_session_dir(self, session_id: str) -> str:
         normalized_session_id = normalize_session_id(session_id)
-        candidate = os.path.realpath(os.path.join(self.root, normalized_session_id))
-        if not _path_is_within(candidate, self.root):
+        intended = os.path.abspath(os.path.join(self.root, normalized_session_id))
+        candidate = os.path.realpath(intended)
+        if os.path.normcase(intended) != os.path.normcase(candidate) or not _path_is_within(
+            candidate,
+            self.root,
+        ):
             raise ValueError("session_id is invalid")
         return candidate
 
@@ -214,7 +226,7 @@ class TranscriptStore(object):
                 self._append_locks[normalized] = lock
             return lock
 
-    def _acquire_windows_mutex(self, transcript_path: str, session_id: str) -> Any:
+    def _acquire_windows_mutex(self, lease_identity: str, session_id: str) -> Any:
         if os.name != "nt":
             return None
         import ctypes
@@ -223,8 +235,7 @@ class TranscriptStore(object):
         wait_object_0 = 0x00000000
         wait_abandoned = 0x00000080
         wait_timeout = 0x00000102
-        digest = hashlib.sha256(_canonical_path(transcript_path).encode("utf-8")).hexdigest()
-        mutex_name = "Local\\EmbedAgent.SessionLease." + digest
+        mutex_name = "Local\\EmbedAgent.SessionLease." + lease_identity
         kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
         create_mutex = kernel32.CreateMutexW
         create_mutex.argtypes = (ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR)
