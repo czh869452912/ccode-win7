@@ -1675,6 +1675,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             user_text="检查项目",
             stream=False,
             initial_mode="build",
+            workflow_state="chat",
             session=session,
         )
 

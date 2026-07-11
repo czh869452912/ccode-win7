@@ -13,7 +13,7 @@ class ContextAssemblerPort(Protocol):
         session: Session,
         mode_name: str,
         tools: Any = None,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
         intelligence_broker: Any = None,
         force_compact: bool = False,
     ) -> ContextAssemblyResult:
@@ -69,7 +69,7 @@ class NoopContextAssembler(object):
         session: Session,
         mode_name: str,
         tools: Any = None,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
         intelligence_broker: Any = None,
         force_compact: bool = False,
     ) -> ContextAssemblyResult:

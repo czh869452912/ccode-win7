@@ -59,7 +59,7 @@ class TurnSnapshot:
         self.turn_id = str(self.turn_id or "").strip()
         self.step_id = str(self.step_id or "").strip()
         self.mode_name = str(self.mode_name or "").strip()
-        self.workflow_state = str(self.workflow_state or "").strip() or "chat"
+        self.workflow_state = str(self.workflow_state or "").strip()
         self.messages = _copy_list(self.messages)
         self.tool_schemas = _copy_list(self.tool_schemas)
         self.active_tool_names = _stable_names(self.active_tool_names)

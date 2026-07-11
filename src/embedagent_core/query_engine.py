@@ -33,7 +33,7 @@ from embedagent_core.policies import (
     EmptyModeToolPolicy,
     ModeRuntimePolicy,
     ModeToolPolicy,
-    PassThroughModeRuntimePolicy,
+    NeutralModeRuntimePolicy,
     WritePathPolicy,
 )
 from embedagent_core.ports import (
@@ -113,7 +113,7 @@ class QueryEngine(object):
         self.client = client
         self.tools = tools
         self.max_turns = max_turns
-        self.permission_policy = permission_policy or PermissionPolicy(auto_approve_all=True)
+        self.permission_policy = permission_policy or PermissionPolicy()
         self.project_memory_store = project_memory_store or NoopProjectMemoryStore()
         self.context_manager = context_manager or NoopContextAssembler()
         self._compaction_journal = CompactionJournal()
@@ -128,7 +128,7 @@ class QueryEngine(object):
         self._remembered_permission_categories_provider = remembered_permission_categories_provider
         self._mode_tool_policy = mode_tool_policy or EmptyModeToolPolicy()
         self._write_path_policy = write_path_policy or DenyWritePathPolicy()
-        self._mode_runtime_policy = mode_runtime_policy or PassThroughModeRuntimePolicy()
+        self._mode_runtime_policy = mode_runtime_policy or NeutralModeRuntimePolicy()
         self.extension_host = AgentExtensionHost(
             manager=extension_manager or ExtensionManager(),
             tools=self.tools,
@@ -206,7 +206,7 @@ class QueryEngine(object):
         user_text: str = "",
         session: Optional[Any] = None,
         initial_mode: str = "",
-        workflow_state: str = "chat",
+        workflow_state: str = "",
         stream: bool = True,
         **kwargs: Any,
     ) -> QueryTurnResult:
@@ -790,7 +790,7 @@ class QueryEngine(object):
         return str(mode.get("slug") or mode_name or self._mode_runtime_policy.default_mode())
 
     def initialize_session(
-        self, session: Session, initial_mode: str, workflow_state: str = "chat", user_text: str = ""
+        self, session: Session, initial_mode: str, workflow_state: str = "", user_text: str = ""
     ) -> str:
         current_mode = self._require_mode_slug(initial_mode)
         self._ensure_extension_tools_registered(
@@ -812,10 +812,15 @@ class QueryEngine(object):
                 )
             return current_mode
         with self._session_guard():
-            profile_message = session.add_system_message(
-                self.workspace_profile.build_message(self.tools.workspace, session.session_id)
+            initial_messages = []
+            profile_text = self.workspace_profile.build_message(
+                self.tools.workspace, session.session_id
             )
-            system_message = session.add_system_message(self._build_system_prompt(current_mode))
+            if profile_text:
+                initial_messages.append(session.add_system_message(profile_text))
+            system_prompt = self._build_system_prompt(current_mode)
+            if system_prompt:
+                initial_messages.append(session.add_system_message(system_prompt))
             self._append_transcript_event(
                 session,
                 "session_meta",
@@ -825,7 +830,7 @@ class QueryEngine(object):
                     "workspace": self.tools.workspace,
                 },
             )
-            for message in (profile_message, system_message):
+            for message in initial_messages:
                 self._append_message_event(
                     session,
                     {
@@ -851,25 +856,27 @@ class QueryEngine(object):
         return current_mode
 
     def apply_mode(
-        self, session: Session, next_mode: str, workflow_state: str = "chat", user_text: str = ""
+        self, session: Session, next_mode: str, workflow_state: str = "", user_text: str = ""
     ) -> str:
         current_mode = self._require_mode_slug(next_mode)
         with self._session_guard():
-            mode_message = session.add_system_message(self._build_system_prompt(current_mode))
-            self._append_message_event(
-                session,
-                {
-                    "role": mode_message.role,
-                    "content": mode_message.content,
-                    "message_id": mode_message.message_id,
-                    "parent_message_id": mode_message.parent_message_id,
-                    "turn_id": mode_message.turn_id,
-                    "step_id": mode_message.step_id,
-                    "kind": mode_message.kind,
-                    "metadata": dict(mode_message.metadata),
-                    "replaced_by_refs": list(mode_message.replaced_by_refs),
-                },
-            )
+            mode_prompt = self._build_system_prompt(current_mode)
+            if mode_prompt:
+                mode_message = session.add_system_message(mode_prompt)
+                self._append_message_event(
+                    session,
+                    {
+                        "role": mode_message.role,
+                        "content": mode_message.content,
+                        "message_id": mode_message.message_id,
+                        "parent_message_id": mode_message.parent_message_id,
+                        "turn_id": mode_message.turn_id,
+                        "step_id": mode_message.step_id,
+                        "kind": mode_message.kind,
+                        "metadata": dict(mode_message.metadata),
+                        "replaced_by_refs": list(mode_message.replaced_by_refs),
+                    },
+                )
             self._prompt_assembly.append_described_workflow_prompt(
                 self.extension_host,
                 session,
@@ -1180,7 +1187,7 @@ class QueryEngine(object):
         user_text: str,
         stream: bool = True,
         initial_mode: str = "",
-        workflow_state: str = "chat",
+        workflow_state: str = "",
         session: Optional[Session] = None,
         stop_event: Optional[threading.Event] = None,
         on_text_delta: Optional[Callable[[str], None]] = None,
@@ -1484,7 +1491,7 @@ class QueryEngine(object):
         session: Session,
         initial_mode: str,
         interaction_resolution: Optional[Dict[str, Any]] = None,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
         stream: bool = True,
         stop_event: Optional[threading.Event] = None,
         on_text_delta: Optional[Callable[[str], None]] = None,
@@ -1691,7 +1698,7 @@ class QueryEngine(object):
         current_mode: str,
         request: UserInputRequest,
         response: UserInputResponse,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
         tool_name: str = "ask_user",
     ) -> Tuple[Observation, str]:
         request_tool_name = tool_name or request.tool_name or "ask_user"

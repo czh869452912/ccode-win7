@@ -97,7 +97,7 @@ def _session_snapshot_from_dict(snapshot: Dict[str, Any]) -> SessionSnapshot:
         current_mode=str(snapshot.get("current_mode") or ""),
         created_at=snapshot.get("started_at", ""),
         updated_at=snapshot.get("updated_at", ""),
-        workflow_state=snapshot.get("workflow_state", "chat"),
+        workflow_state=snapshot.get("workflow_state", ""),
         has_active_plan=bool(snapshot.get("has_active_plan", False)),
         active_plan_ref=snapshot.get("active_plan_ref", ""),
         current_command_context=snapshot.get("current_command_context", ""),

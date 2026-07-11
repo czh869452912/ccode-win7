@@ -13,7 +13,7 @@ from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.ports import NoopContextAssembler
 from embedagent_core.query_engine import QueryEngine
 from embedagent_core.runner import AgentRequest, AgentRuntime, run_agent
-from embedagent_core.session import Action, AssistantReply, PendingInteraction
+from embedagent_core.session import Action, AssistantReply, PendingInteraction, Session
 from embedagent_core.session_log import InMemorySessionLog
 from embedagent_core.turn_snapshot import TurnSnapshot
 
@@ -554,6 +554,30 @@ def test_query_engine_does_not_auto_approve_by_default():
     engine = QueryEngine(client=object(), tools=object())
 
     assert engine.permission_policy.auto_approve_all is False
+
+
+def test_query_engine_default_runtime_is_mode_neutral():
+    engine = QueryEngine(client=object(), tools=NoopToolRuntime())
+
+    assert engine.initialize_session(Session(), "", workflow_state="") == ""
+
+
+def test_initialize_session_skips_empty_profile_and_mode_messages():
+    engine = QueryEngine(client=object(), tools=NoopToolRuntime())
+    session = Session()
+
+    engine.initialize_session(session, "", workflow_state="")
+
+    assert session.messages == []
+
+
+def test_apply_mode_skips_empty_mode_message():
+    engine = QueryEngine(client=object(), tools=NoopToolRuntime())
+    session = Session()
+
+    engine.apply_mode(session, "", workflow_state="")
+
+    assert session.messages == []
 
 
 def test_run_agent_executes_user_turn_with_neutral_runtime(base_runtime):

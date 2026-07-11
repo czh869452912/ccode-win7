@@ -65,7 +65,7 @@ class AgentExtensionHost(object):
     def describe_prompt(
         self,
         current_mode: str,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
         session: Any = None,
     ) -> Any:
         return self.manager.describe_prompt(
@@ -79,7 +79,7 @@ class AgentExtensionHost(object):
         session: Session,
         user_text: str,
         current_mode: str,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
     ) -> None:
         self.manager.initialize_workflow_state(
             session,
@@ -88,7 +88,7 @@ class AgentExtensionHost(object):
             workflow_state=workflow_state,
         )
 
-    def allowed_tool_names(self, mode_name: str, workflow_state: str = "chat") -> Set[str]:
+    def allowed_tool_names(self, mode_name: str, workflow_state: str = "") -> Set[str]:
         return set(
             self.manager.allowed_tool_names(
                 mode_name,

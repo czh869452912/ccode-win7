@@ -580,7 +580,12 @@ def test_query_engine_executes_active_extension_tool(tmp_path):
         max_turns=1,
     )
 
-    result = engine.submit_user_turn("use dynamic", stream=False, initial_mode="build")
+    result = engine.submit_user_turn(
+        "use dynamic",
+        stream=False,
+        initial_mode="build",
+        workflow_state="chat",
+    )
     observation = result.session.turns[-1].observations[-1]
 
     assert "dynamic_echo" in client.seen_tool_names
@@ -704,7 +709,12 @@ def test_query_engine_dynamic_shell_tool_waits_for_permission(tmp_path):
         max_turns=1,
     )
 
-    result = engine.submit_user_turn("use dynamic shell", stream=False, initial_mode="build")
+    result = engine.submit_user_turn(
+        "use dynamic shell",
+        stream=False,
+        initial_mode="build",
+        workflow_state="chat",
+    )
 
     assert result.transition.reason == "permission_wait"
     assert result.pending_interaction is not None

@@ -18,7 +18,7 @@ class ManagedSession(object):
     current_mode: str
     engine: Any = None
     status: str = "idle"
-    workflow_state: str = "chat"
+    workflow_state: str = ""
     active_plan_ref: str = ""
     current_command_context: str = ""
     current_command_text: str = ""

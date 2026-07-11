@@ -170,7 +170,7 @@ class ResourcesDiscoverResult:
 @dataclass
 class ToolRegistrationEvent:
     current_mode: str = ""
-    workflow_state_name: str = "chat"
+    workflow_state_name: str = ""
     reason: str = "startup"
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -776,7 +776,7 @@ class ExtensionManager(object):
     def describe_prompt(
         self,
         current_mode: str,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
         session: Any = None,
     ) -> Optional[WorkflowPrompt]:
         dispatch = self._dispatch_event(
@@ -802,7 +802,7 @@ class ExtensionManager(object):
         session: Any,
         user_text: str,
         current_mode: str,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
     ) -> None:
         self._dispatch_event(
             "extension.initialize_workflow_state",
@@ -820,7 +820,7 @@ class ExtensionManager(object):
     def allowed_tool_names(
         self,
         mode_name: str,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
         base_tool_names: Optional[Set[str]] = None,
     ) -> Set[str]:
         names = set(base_tool_names or set())
@@ -855,7 +855,7 @@ class ExtensionManager(object):
         session: Any,
         tool_name: str,
         current_mode: str,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
     ) -> Optional[Any]:
         dispatch = self._dispatch_event(
             "extension.handle_tool_call",
