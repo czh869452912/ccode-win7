@@ -105,7 +105,7 @@ class TranscriptStore(object):
                 os.fsync(handle.fileno())
             normalized = os.path.realpath(path)
             cached_events, valid_length, file_size = self._scan_cache.get(normalized, ([], 0, 0))
-            updated_events = deepcopy(cached_events)
+            updated_events = list(cached_events)
             updated_events.append(deepcopy(event))
             written_size = len((line + "\n").encode("utf-8"))
             self._scan_cache[normalized] = (

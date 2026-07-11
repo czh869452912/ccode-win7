@@ -4,7 +4,9 @@ import sys
 import threading
 import time
 import unittest
+from copy import deepcopy
 from itertools import count
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -107,6 +109,28 @@ class TestTranscriptStore(unittest.TestCase):
         durable_events = reopened.load_events("sess-cache-isolation")
         self.assertEqual([event["seq"] for event in durable_events], [1, 2])
         self.assertEqual(durable_events[0]["payload"]["nested"]["values"], ["original"])
+
+    def test_append_does_not_deepcopy_cached_history(self):
+        store = TranscriptStore(self.workspace)
+        store.append_event("sess-linear-append", "message", {"content": "first"})
+
+        def copy_without_history_list(value):
+            if isinstance(value, list):
+                self.fail("append must not deepcopy the cached event history")
+            return deepcopy(value)
+
+        with patch("embedagent.transcript_store.deepcopy", side_effect=copy_without_history_list):
+            second = store.append_event(
+                "sess-linear-append",
+                "message",
+                {"content": "second"},
+            )
+
+        self.assertEqual(second["seq"], 2)
+        self.assertEqual(
+            [event["seq"] for event in store.load_events("sess-linear-append")],
+            [1, 2],
+        )
 
     def test_load_events_ignores_damaged_tail(self):
         store = TranscriptStore(self.workspace)
