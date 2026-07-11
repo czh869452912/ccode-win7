@@ -213,7 +213,7 @@ class TranscriptStore(object):
 
     def _acquire_file_lease(self, transcript_path: str, session_id: str) -> Any:
         lease_path = transcript_path + ".lease"
-        self._validate_lease_sidecar(lease_path, require_exists=False)
+        preexisting_stat = self._validate_lease_sidecar(lease_path, require_exists=False)
         if os.name != "nt":
             return None
         import msvcrt
@@ -221,12 +221,10 @@ class TranscriptStore(object):
         directory = os.path.dirname(transcript_path)
         if not os.path.isdir(directory):
             os.makedirs(directory, exist_ok=True)
-        file_descriptor = os.open(
+        handle = self._open_windows_lease_sidecar(
             lease_path,
-            os.O_CREAT | os.O_RDWR | getattr(os, "O_BINARY", 0),
-            0o600,
+            create_new=preexisting_stat is None,
         )
-        handle = os.fdopen(file_descriptor, "r+b", buffering=0)
         try:
             sidecar_stat = self._validate_lease_sidecar(lease_path, require_exists=True)
             handle_stat = os.fstat(handle.fileno())
@@ -250,6 +248,56 @@ class TranscriptStore(object):
             handle.close()
             raise SessionLeaseConflict("session log lease is already held: %s" % session_id)
         return handle
+
+    def _open_windows_lease_sidecar(self, path: str, create_new: bool) -> Any:
+        import ctypes
+        import msvcrt
+        from ctypes import wintypes
+
+        generic_read_write = 0x80000000 | 0x40000000
+        share_read_write = 0x00000001 | 0x00000002
+        create_new_disposition = 1
+        open_existing = 3
+        normal_open_reparse_point = 0x00000080 | 0x00200000
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        create_file = kernel32.CreateFileW
+        create_file.argtypes = (
+            wintypes.LPCWSTR,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            ctypes.c_void_p,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.HANDLE,
+        )
+        create_file.restype = wintypes.HANDLE
+        native_handle = create_file(
+            path,
+            generic_read_write,
+            share_read_write,
+            None,
+            create_new_disposition if create_new else open_existing,
+            normal_open_reparse_point,
+            None,
+        )
+        if native_handle == ctypes.c_void_p(-1).value:
+            raise SessionLeaseConflict("session log lease path is unsafe")
+        try:
+            file_descriptor = msvcrt.open_osfhandle(
+                native_handle,
+                os.O_RDWR | getattr(os, "O_BINARY", 0),
+            )
+        except (OSError, OverflowError, TypeError, ValueError):
+            close_handle = kernel32.CloseHandle
+            close_handle.argtypes = (wintypes.HANDLE,)
+            close_handle.restype = wintypes.BOOL
+            close_handle(native_handle)
+            raise
+        try:
+            return os.fdopen(file_descriptor, "r+b", buffering=0)
+        except (OSError, OverflowError, TypeError, ValueError):
+            os.close(file_descriptor)
+            raise
 
     def _validate_lease_sidecar(self, path: str, require_exists: bool) -> Any:
         if not _path_is_within(path, self.root):

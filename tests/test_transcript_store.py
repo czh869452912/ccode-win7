@@ -120,6 +120,76 @@ class TestTranscriptStore(unittest.TestCase):
         with store.acquire_lease("session-symlink"):
             pass
 
+    @unittest.skipUnless(os.name == "nt", "Windows sidecar creation contract")
+    def test_lease_create_race_does_not_follow_symlink_to_missing_outside_target(self):
+        store = TranscriptStore(self.workspace)
+        transcript_path = store.resolve_transcript_path("session-create-race")
+        session_dir = os.path.dirname(transcript_path)
+        os.makedirs(session_dir)
+        lease_path = transcript_path + ".lease"
+        outside_path = os.path.join(self.workspace, "missing-outside-lease-target")
+        probe_path = lease_path + ".probe"
+        try:
+            os.symlink(outside_path, probe_path)
+        except (NotImplementedError, OSError) as exc:
+            self.skipTest("symlink creation unavailable: %s" % exc)
+        else:
+            os.remove(probe_path)
+
+        original_validate = store._validate_lease_sidecar
+        race_inserted = [False]
+
+        def validate_then_insert_symlink(path, require_exists):
+            result = original_validate(path, require_exists)
+            if not require_exists and not race_inserted[0]:
+                os.symlink(outside_path, path)
+                race_inserted[0] = True
+            return result
+
+        store._validate_lease_sidecar = validate_then_insert_symlink
+        try:
+            with self.assertRaises(SessionLeaseConflict):
+                with store.acquire_lease("session-create-race"):
+                    pass
+        finally:
+            store._validate_lease_sidecar = original_validate
+            if os.path.lexists(lease_path):
+                os.remove(lease_path)
+
+        with store.acquire_lease("session-create-race"):
+            pass
+        self.assertFalse(os.path.exists(outside_path))
+
+    def test_lease_rejects_hardlink_sidecar(self):
+        store = TranscriptStore(self.workspace)
+        transcript_path = store.resolve_transcript_path("session-hardlink")
+        session_dir = os.path.dirname(transcript_path)
+        os.makedirs(session_dir)
+        lease_path = transcript_path + ".lease"
+        outside_path = os.path.join(self.workspace, "outside-hardlink-target")
+        with open(outside_path, "wb") as handle:
+            handle.write(b"do-not-touch")
+        try:
+            os.link(outside_path, lease_path)
+        except (NotImplementedError, OSError) as exc:
+            self.skipTest("hardlink creation unavailable: %s" % exc)
+
+        try:
+            with self.assertRaisesRegex(
+                SessionLeaseConflict,
+                "^session log lease path is unsafe$",
+            ):
+                with store.acquire_lease("session-hardlink"):
+                    pass
+            with open(outside_path, "rb") as handle:
+                self.assertEqual(handle.read(), b"do-not-touch")
+        finally:
+            if os.path.lexists(lease_path):
+                os.remove(lease_path)
+
+        with store.acquire_lease("session-hardlink"):
+            pass
+
     def test_independent_stores_share_session_lease(self):
         first = TranscriptStore(self.workspace)
         second = TranscriptStore(self.workspace)
