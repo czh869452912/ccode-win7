@@ -191,6 +191,13 @@ Owns build-time product composition:
 
 It is not a dependency of the base Core runtime.
 
+### `embedagent-protocol`
+
+Owns JSON-safe Agent App Protocol and IDE service contract records shared by
+Host and GUI. It has no dependency on Core, Host, product, GUI, or workflow
+packages. Permission, interaction, workflow, and capability values are protocol
+DTOs rather than imports of runtime policy classes.
+
 ### `embedagent-gui`
 
 Owns the replaceable GUI shell and GUI-local services. It consumes the Agent App
@@ -215,20 +222,33 @@ def run_agent(
     ...
 ```
 
-`AgentRuntime` is frozen before the first request and contains only runtime
-ports and runtime policy:
+`AgentRuntime` is the frozen internal result of binding live `AgentPorts` to a
+declarative `RuntimeDefinition`. The two public input types have distinct
+ownership:
 
 ```python
 @dataclass(frozen=True)
-class AgentRuntime:
+class AgentPorts:
     model: ModelClient
     tools: ToolRuntimePort
     session_log: SessionLogPort
     context: ContextAssemblerPort
     permissions: PermissionPolicy
+
+
+@dataclass(frozen=True)
+class RuntimeDefinition:
+    agent_id: str = "embedagent.base"
+    default_mode: str = ""
+    workflow_state: str = ""
     extensions: Tuple[AgentExtension, ...] = field(default_factory=tuple)
-    policy: RuntimePolicy = field(default_factory=RuntimePolicy)
+    mode_tool_policy: ModeToolPolicy = field(default_factory=EmptyModeToolPolicy)
+    write_path_policy: WritePathPolicy = field(default_factory=DenyWritePathPolicy)
+    mode_runtime_policy: ModeRuntimePolicy = field(default_factory=NeutralModeRuntimePolicy)
 ```
+
+Core creates the effective `AgentRuntime` once from those inputs. Callers do
+not mutate or reconstruct that internal value after the first session opens.
 
 `AgentRequest.input` is a tagged `UserTurn` or `InteractionReply`. Permission,
 user-input, and mode-switch continuation do not get separate runtime paths.
@@ -240,7 +260,7 @@ class Agent(object):
     @classmethod
     def create(
         cls,
-        runtime: AgentRuntime,
+        ports: AgentPorts,
         definition: Optional[RuntimeDefinition] = None,
     ) -> "Agent":
         ...
@@ -342,7 +362,7 @@ Distribution components and workspace extensions are separate trust classes:
 
 ```text
 CompiledAgentSpec
-  -> Host binds model, tools, log, context, permissions, secrets
+  -> Host binds AgentPorts and RuntimeDefinition
   -> frozen AgentRuntime
   -> Agent.open(session_id)
   -> acquire session lease
@@ -482,9 +502,9 @@ Exit criteria:
 
 ### Phase 2: Split Physical Distributions
 
-Create separately buildable Core, Host, C/C++ workflow, Composition, and product
-distribution units. Keep one development workspace and exact offline lock
-inputs while producing separate wheels.
+Create separately buildable Core, Host, Protocol, C/C++ workflow, Composition,
+and product distribution units. Keep one development workspace and exact
+offline lock inputs while producing separate wheels.
 
 Exit criteria:
 
