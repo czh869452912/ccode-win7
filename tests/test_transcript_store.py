@@ -389,6 +389,69 @@ class TestTranscriptStore(unittest.TestCase):
         finally:
             os.rmdir(session_a)
 
+    def test_session_id_operations_reject_in_root_transcript_redirect(self):
+        store = TranscriptStore(self.workspace)
+        store.append_event("session-b", "message", {"content": "preserve"})
+        session_a = store.resolve_session_dir("session-a")
+        transcript_a = os.path.join(session_a, "transcript.jsonl")
+        transcript_b = store.resolve_transcript_path("session-b")
+        os.makedirs(session_a)
+        with open(transcript_b, "rb") as handle:
+            original_transcript = handle.read()
+        try:
+            os.symlink(transcript_b, transcript_a)
+        except (NotImplementedError, OSError) as exc:
+            self.skipTest("file symlink creation unavailable: %s" % exc)
+
+        try:
+            with store.acquire_lease("session-a"):
+                with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+                    store.resolve_transcript_path("session-a")
+                with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+                    store.append_event("session-a", "message", {"content": "overwrite"})
+                with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+                    store.load_events("session-a")
+                self.assertFalse(store.transcript_exists("session-a"))
+
+            with open(transcript_b, "rb") as handle:
+                self.assertEqual(handle.read(), original_transcript)
+            self.assertEqual(store.resolve_transcript_reference(transcript_a), transcript_b)
+            events = store.load_events_from_reference(transcript_a)
+            self.assertEqual(events[0]["payload"]["content"], "preserve")
+        finally:
+            os.remove(transcript_a)
+
+    def test_session_id_operations_reject_in_root_transcript_hardlink(self):
+        store = TranscriptStore(self.workspace)
+        store.append_event("session-b", "message", {"content": "preserve"})
+        session_a = store.resolve_session_dir("session-a")
+        transcript_a = os.path.join(session_a, "transcript.jsonl")
+        transcript_b = store.resolve_transcript_path("session-b")
+        os.makedirs(session_a)
+        with open(transcript_b, "rb") as handle:
+            original_transcript = handle.read()
+        try:
+            os.link(transcript_b, transcript_a)
+        except (NotImplementedError, OSError) as exc:
+            self.skipTest("hardlink creation unavailable: %s" % exc)
+
+        try:
+            with store.acquire_lease("session-a"):
+                with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+                    store.resolve_transcript_path("session-a")
+                with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+                    store.append_event("session-a", "message", {"content": "overwrite"})
+                with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+                    store.load_events("session-a")
+                self.assertFalse(store.transcript_exists("session-a"))
+
+            with open(transcript_b, "rb") as handle:
+                self.assertEqual(handle.read(), original_transcript)
+            events = store.load_events_from_reference(transcript_a)
+            self.assertEqual(events[0]["payload"]["content"], "preserve")
+        finally:
+            os.remove(transcript_a)
+
     def test_malicious_session_id_cannot_truncate_file_outside_sessions_root(self):
         store = TranscriptStore(self.workspace)
         outside_path = os.path.join(self.workspace, "outside.jsonl")

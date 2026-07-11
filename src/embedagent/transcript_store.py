@@ -95,10 +95,22 @@ class TranscriptStore(object):
 
     def resolve_transcript_path(self, session_id: str) -> str:
         normalized_session_id = normalize_session_id(session_id)
-        path = os.path.realpath(
+        intended = os.path.abspath(
             os.path.join(self.resolve_session_dir(normalized_session_id), "transcript.jsonl")
         )
-        if not _path_is_within(path, self.root):
+        path = os.path.realpath(intended)
+        if os.path.normcase(intended) != os.path.normcase(path) or not _path_is_within(
+            path,
+            self.root,
+        ):
+            raise ValueError("session_id is invalid")
+        try:
+            path_stat = os.lstat(path)
+        except FileNotFoundError:
+            path_stat = None
+        except OSError:
+            raise ValueError("session_id is invalid")
+        if path_stat is not None and int(getattr(path_stat, "st_nlink", 1) or 1) != 1:
             raise ValueError("session_id is invalid")
         return path
 
@@ -194,9 +206,9 @@ class TranscriptStore(object):
     def transcript_exists(self, session_id: str) -> bool:
         try:
             normalized_session_id = normalize_session_id(session_id)
+            path = self.resolve_transcript_path(normalized_session_id)
         except ValueError:
             return False
-        path = self.resolve_transcript_path(normalized_session_id)
         return os.path.isfile(path)
 
     def _next_seq(self, path: str) -> int:
