@@ -8,6 +8,7 @@ import time
 import pytest
 
 from embedagent_core.api import AgentPorts, InteractionReply, RuntimeDefinition, UserTurn
+from embedagent_core.interaction import UserInputRequest, UserInputResponse
 from embedagent_core.model import ModelClient
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.ports import NoopContextAssembler
@@ -577,6 +578,26 @@ def test_apply_mode_skips_empty_mode_message():
 
     engine.apply_mode(session, "", workflow_state="")
 
+    assert session.messages == []
+
+
+def test_user_input_mode_selection_skips_empty_mode_message():
+    engine = QueryEngine(client=object(), tools=NoopToolRuntime())
+    session = Session()
+    request = UserInputRequest("ask_user", "switch mode?", [], {})
+    response = UserInputResponse("yes", selected_mode="debug")
+
+    observation, next_mode = engine._build_user_input_observation(
+        session,
+        "",
+        request,
+        response,
+        workflow_state="",
+    )
+
+    assert next_mode == "debug"
+    assert observation.data["selected_mode"] == "debug"
+    assert observation.data["mode_changed"] is True
     assert session.messages == []
 
 

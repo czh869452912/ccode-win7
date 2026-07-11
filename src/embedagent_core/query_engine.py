@@ -1713,23 +1713,23 @@ class QueryEngine(object):
                 next_mode = selected_mode
                 mode_changed = True
                 with self._session_guard():
-                    mode_message = session.add_system_message(
-                        self._build_system_prompt(selected_mode)
-                    )
-                    self._append_message_event(
-                        session,
-                        {
-                            "role": mode_message.role,
-                            "content": mode_message.content,
-                            "message_id": mode_message.message_id,
-                            "parent_message_id": mode_message.parent_message_id,
-                            "turn_id": mode_message.turn_id,
-                            "step_id": mode_message.step_id,
-                            "kind": mode_message.kind,
-                            "metadata": dict(mode_message.metadata),
-                            "replaced_by_refs": list(mode_message.replaced_by_refs),
-                        },
-                    )
+                    mode_prompt = self._build_system_prompt(selected_mode)
+                    if mode_prompt:
+                        mode_message = session.add_system_message(mode_prompt)
+                        self._append_message_event(
+                            session,
+                            {
+                                "role": mode_message.role,
+                                "content": mode_message.content,
+                                "message_id": mode_message.message_id,
+                                "parent_message_id": mode_message.parent_message_id,
+                                "turn_id": mode_message.turn_id,
+                                "step_id": mode_message.step_id,
+                                "kind": mode_message.kind,
+                                "metadata": dict(mode_message.metadata),
+                                "replaced_by_refs": list(mode_message.replaced_by_refs),
+                            },
+                        )
                     self._prompt_assembly.append_described_workflow_prompt(
                         self.extension_host,
                         session,
