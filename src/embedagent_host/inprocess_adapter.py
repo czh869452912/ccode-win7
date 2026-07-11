@@ -3,7 +3,6 @@ from __future__ import annotations  # noqa: I001
 import os
 import threading
 import uuid
-from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
@@ -291,7 +290,6 @@ class InProcessAdapter(object):
             category_setter(self._tool_permission_category)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
-        self._resource_projection_state = {}  # type: Dict[str, Any]
         self.agent = self._build_agent()
         self._event_emitter = EventEmitter()
         self._workspace_files = WorkspaceFileService(
@@ -403,19 +401,14 @@ class InProcessAdapter(object):
     def _rebuild_host_session_projection(self, state: ManagedSession) -> None:
         extensions = state.session.workflow_state.setdefault("extensions", {})
         extensions["project_extensions"] = self._project_extension_snapshot_state()
-        resource_state = deepcopy(self._resource_projection_state)
-        if resource_state:
+        resource_payload = self.tools.local_resources()
+        if isinstance(resource_payload, dict):
+            resource_state = {
+                "counts": dict(resource_payload.get("counts") or {}),
+                "resource_paths": dict(resource_payload.get("resource_paths") or {}),
+                "diagnostics": list(resource_payload.get("diagnostics") or []),
+            }
             extensions["local_resources"] = {"state": resource_state}
-
-    def _restore_resource_projection(self, runtime_config: Dict[str, Any]) -> None:
-        revision = runtime_config.get("resource_revision")
-        if not isinstance(revision, dict) or not revision:
-            return
-        self._resource_projection_state = {
-            "counts": dict(revision.get("counts") or {}),
-            "resource_paths": dict(revision.get("resource_paths") or {}),
-            "diagnostics": list(revision.get("diagnostics") or []),
-        }
 
     def _build_agent(self) -> Agent:
         runtime_services = AgentRuntimeServices(
@@ -429,7 +422,7 @@ class InProcessAdapter(object):
             workspace_profile=self.workspace_profile,
             remembered_permission_categories_provider=self._remembered_categories_for_session,
             workflow_state_provider=self._workflow_state_for_session,
-            restore_best_effort_provider=self._restore_best_effort_for_session,
+            best_effort_history_count_provider=self._best_effort_history_count_for_session,
         )
         ports = AgentPorts(
             model=self.client,
@@ -458,13 +451,13 @@ class InProcessAdapter(object):
         with state.lock:
             return str(state.workflow_state or "chat")
 
-    def _restore_best_effort_for_session(self, session_id: str) -> bool:
+    def _best_effort_history_count_for_session(self, session_id: str) -> int:
         with self._lock:
             state = self._sessions.get(session_id)
         if state is None:
-            return False
+            return 0
         with state.lock:
-            return bool(state.allow_best_effort_restore)
+            return int(state.best_effort_restore_event_count or 0)
 
     def _remembered_categories_for_session(self, session: Session) -> List[str]:
         with self._lock:
@@ -792,12 +785,6 @@ class InProcessAdapter(object):
                 reason=normalized_reason,
             )
         session_ref = str(session_id or "").strip()
-        resource_state = {
-            "counts": dict(payload.get("counts") or {}),
-            "resource_paths": dict(payload.get("resource_paths") or {}),
-            "diagnostics": list(payload.get("diagnostics") or []),
-        }
-        self._resource_projection_state = resource_state
         if session_ref:
             state = self._ensure_session_active(session_ref)
             event_payload = self._resource_event_payload(payload)
@@ -944,7 +931,9 @@ class InProcessAdapter(object):
             restore_stop_reason=str(restored.stop_reason or ""),
             restore_consumed_event_count=int(restored.consumed_event_count or 0),
             restore_transcript_event_count=int(restored.transcript_event_count or 0),
-            allow_best_effort_restore=bool(restored.stop_reason),
+            best_effort_restore_event_count=(
+                int(restored.transcript_event_count or 0) if restored.stop_reason else 0
+            ),
             operation_diagnostics=operation_diagnostics(restored.operation_state),
             compaction_state=restored.compaction_state.to_dict(),
             recovery_state=restored.recovery_state.to_dict(),
@@ -973,7 +962,6 @@ class InProcessAdapter(object):
             state.active_plan_ref = plan.path
             state.workflow_state = "plan"
         self._refresh_application_state(state)
-        self._restore_resource_projection(state.runtime_config)
         with self._lock:
             self._sessions[session.session_id] = state
         with state.lock:
@@ -1594,10 +1582,10 @@ class InProcessAdapter(object):
                 step_id=current_step["step_id"],
                 step_index=current_step["step_index"],
             )
-            self._emit_with_snapshot(
+            self._emit(
                 event_handler,
                 "permission_required",
-                state,
+                session_id,
                 {
                     "permission": ticket.to_dict(),
                     "turn_id": ticket.turn_id,
@@ -1605,7 +1593,6 @@ class InProcessAdapter(object):
                     "step_index": ticket.step_index,
                 },
             )
-            self._notify_status(event_handler, state)
             if permission_resolver is not None:
                 approved = bool(permission_resolver(ticket.to_dict()))
                 self.interaction_service.clear_pending_interaction(state)
@@ -1620,10 +1607,10 @@ class InProcessAdapter(object):
                 step_id=current_step["step_id"],
                 step_index=current_step["step_index"],
             )
-            self._emit_with_snapshot(
+            self._emit(
                 event_handler,
                 "user_input_required",
-                state,
+                session_id,
                 {
                     "user_input": ticket.to_dict(),
                     "turn_id": ticket.turn_id,
@@ -1631,7 +1618,6 @@ class InProcessAdapter(object):
                     "step_index": ticket.step_index,
                 },
             )
-            self._notify_status(event_handler, state)
             if user_input_resolver is not None:
                 payload = user_input_resolver(ticket.to_dict()) or {}
                 self.interaction_service.clear_pending_interaction(state)
@@ -1683,7 +1669,8 @@ class InProcessAdapter(object):
             events = self.transcript_store.load_events(session_id)
             restored = self.session_restorer.restore(
                 events,
-                best_effort=state.allow_best_effort_restore,
+                best_effort=state.best_effort_restore_event_count > 0,
+                best_effort_event_count=state.best_effort_restore_event_count,
             )
             if restored.stop_reason or restored.consumed_event_count != len(events):
                 raise RuntimeError(
@@ -1691,7 +1678,6 @@ class InProcessAdapter(object):
                     % str(restored.stop_reason or "incomplete_transcript")
                 )
             state.session = restored.session
-            state.allow_best_effort_restore = False
             self._rebuild_host_session_projection(state)
         except (OSError, RuntimeError, ValueError, TypeError) as exc:
             set_thinking(False, "session_error")
@@ -1727,6 +1713,7 @@ class InProcessAdapter(object):
                 )
                 state.updated_at = _utc_now()
                 state.active_thread = None
+            self._notify_status(event_handler, state)
             return
         with state.lock:
             state.last_assistant_message = public_result.final_text

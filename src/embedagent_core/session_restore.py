@@ -39,7 +39,10 @@ class SessionRestoreResult:
 
 class SessionRestorer(object):
     def restore(
-        self, events: List[Dict[str, Any]], best_effort: bool = False
+        self,
+        events: List[Dict[str, Any]],
+        best_effort: bool = False,
+        best_effort_event_count: int = 0,
     ) -> SessionRestoreResult:
         if not events:
             raise ValueError("cannot restore an empty transcript")
@@ -61,7 +64,10 @@ class SessionRestorer(object):
 
         def _maybe_skip(error_reason: str) -> bool:
             nonlocal skipped_count, skip_reasons, consumed_event_count, stop_reason
-            if best_effort and self._should_skip_error(error_reason):
+            within_best_effort_history = (
+                best_effort_event_count <= 0 or index < best_effort_event_count
+            )
+            if best_effort and within_best_effort_history and self._should_skip_error(error_reason):
                 skipped_count += 1
                 skip_reasons.append(
                     {
@@ -189,7 +195,6 @@ class SessionRestorer(object):
                         if _maybe_skip("duplicate_message_id"):
                             continue
                         break
-                    seen_message_ids.add(message_id)
                 if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
                     if _maybe_skip("tool_result_turn_mismatch"):
                         continue
@@ -224,6 +229,8 @@ class SessionRestorer(object):
                     finished_at=str(payload.get("finished_at") or ""),
                     replaced_by_refs=list(payload.get("replaced_by_refs") or []),
                 )
+                if message_id:
+                    seen_message_ids.add(message_id)
                 continue
             if event_type == "pending_interaction":
                 if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
@@ -418,7 +425,6 @@ class SessionRestorer(object):
         if message_id:
             if message_id in seen_message_ids:
                 return "duplicate_message_id"
-            seen_message_ids.add(message_id)
         if role == "system":
             session.add_system_message(
                 str(payload.get("content") or ""),
@@ -430,19 +436,24 @@ class SessionRestorer(object):
                 metadata=dict(payload.get("metadata") or {}),
                 replaced_by_refs=list(payload.get("replaced_by_refs") or []),
             )
+            if message_id:
+                seen_message_ids.add(message_id)
             return ""
         if role == "user":
             turn_id = str(payload.get("turn_id") or "").strip()
             if turn_id:
                 if turn_id in seen_turn_ids:
                     return "duplicate_turn_id"
-                seen_turn_ids.add(turn_id)
             session.add_user_message(
                 str(payload.get("content") or ""),
                 turn_id=turn_id,
                 message_id=message_id,
                 parent_message_id=parent_message_id,
             )
+            if turn_id:
+                seen_turn_ids.add(turn_id)
+            if message_id:
+                seen_message_ids.add(message_id)
             return ""
         if role == "assistant":
             if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
@@ -470,6 +481,8 @@ class SessionRestorer(object):
                 turn_id=str(payload.get("turn_id") or ""),
                 step_id=str(payload.get("step_id") or ""),
             )
+            if message_id:
+                seen_message_ids.add(message_id)
             return ""
         if role == "tool":
             if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
@@ -492,6 +505,8 @@ class SessionRestorer(object):
             session.messages.append(message)
             if session.turns:
                 session.turns[-1].message_end_index = len(session.messages) - 1
+            if message_id:
+                seen_message_ids.add(message_id)
             return ""
         return "unknown_message_role"
 

@@ -85,7 +85,7 @@ class AgentRuntimeServices:
     workspace_profile: Any = None
     remembered_permission_categories_provider: Optional[Callable[[Any], list]] = None
     workflow_state_provider: Optional[Callable[[str], str]] = None
-    restore_best_effort_provider: Optional[Callable[[str], bool]] = None
+    best_effort_history_count_provider: Optional[Callable[[str], int]] = None
 
 
 @dataclass(frozen=True)

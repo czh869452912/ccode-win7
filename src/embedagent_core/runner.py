@@ -93,9 +93,9 @@ class AgentRuntime(object):
             return str(provider(session_id) or self.definition.workflow_state or "")
         return str(self.definition.workflow_state or "")
 
-    def restore_best_effort(self, session_id: str) -> bool:
-        provider = self._services().restore_best_effort_provider
-        return bool(provider(session_id)) if callable(provider) else False
+    def best_effort_history_count(self, session_id: str) -> int:
+        provider = self._services().best_effort_history_count_provider
+        return max(0, int(provider(session_id) or 0)) if callable(provider) else 0
 
     @contextmanager
     def _host_lease(self, session_id: str) -> Iterator[None]:
@@ -324,9 +324,11 @@ def run_agent(
     with session_log.acquire_lease(session_id):
         if session_log.transcript_exists(session_id):
             events = session_log.load_events(session_id)
+            best_effort_history_count = runtime.best_effort_history_count(session_id)
             restored = SessionRestorer().restore(
                 events,
-                best_effort=runtime.restore_best_effort(session_id),
+                best_effort=best_effort_history_count > 0,
+                best_effort_event_count=best_effort_history_count,
             )
             if restored.stop_reason or restored.consumed_event_count != len(events):
                 raise SessionRecoveryRequired(session_id, restored.stop_reason)

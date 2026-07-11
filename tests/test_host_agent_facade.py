@@ -7,6 +7,7 @@ from embedagent.tools import ToolRuntime
 from embedagent_core import AgentResult, AgentSession, InteractionReply, UserTurn
 from embedagent_core.model import ModelClient
 from embedagent_core.permissions import PermissionPolicy
+from embedagent_core.runner import SessionRecoveryRequired
 from embedagent_core.session import Action, AssistantReply
 from embedagent_host.inprocess_adapter import InProcessAdapter
 
@@ -50,6 +51,32 @@ class PermissionClient(DoneClient):
         del messages, tools, on_reasoning_delta
         if on_text_delta is not None:
             on_text_delta("done")
+        return AssistantReply(content="done", actions=[], finish_reason="stop")
+
+
+class AskUserClient(DoneClient):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        del messages, tools
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        "ask_user",
+                        {
+                            "question": "Choose",
+                            "option_1": "Continue",
+                            "option_2": "Stop",
+                        },
+                        "ask-host-facade",
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
         return AssistantReply(content="done", actions=[], finish_reason="stop")
 
 
@@ -303,3 +330,146 @@ def test_interaction_resume_rebuilds_host_extension_projection(tmp_path):
 
     assert after["project_extensions"] == before["project_extensions"]
     assert after["local_resources"] == before["local_resources"]
+
+
+def test_host_recovery_skips_only_previously_confirmed_bad_history(tmp_path):
+    adapter = _adapter(tmp_path)
+    session_id = "session-bounded-recovery"
+    adapter.transcript_store.append_event(
+        session_id,
+        "session_meta",
+        {"current_mode": "build"},
+    )
+    adapter.transcript_store.append_event(
+        session_id,
+        "message",
+        {
+            "role": "system",
+            "content": "bad historical record",
+            "message_id": "m-old-bad",
+            "parent_message_id": "m-never-existed",
+        },
+    )
+    adapter.resume_session(session_id, "build")
+
+    adapter.submit_user_message(session_id, "first", stream=False, wait=True)
+    adapter.submit_user_message(session_id, "second", stream=False, wait=True)
+    state = adapter._require_session(session_id)
+    trusted_history_count = state.best_effort_restore_event_count
+    adapter.transcript_store.append_event(
+        session_id,
+        "message",
+        {
+            "role": "system",
+            "content": "new corruption",
+            "message_id": "m-new-bad",
+            "parent_message_id": "m-still-missing",
+        },
+    )
+
+    try:
+        adapter.submit_user_message(session_id, "third", stream=False, wait=True)
+    except SessionRecoveryRequired:
+        pass
+    else:
+        raise AssertionError("new corruption after the trusted history must fail closed")
+
+    assert trusted_history_count > 0
+    assert state.best_effort_restore_event_count == trusted_history_count
+    assert state.status == "error"
+
+
+def test_resource_projection_uses_current_shared_catalog_without_cross_session_rollback(
+    tmp_path,
+):
+    adapter = _adapter(tmp_path)
+    first = adapter.create_session("build")["session_id"]
+    skill_dir = tmp_path / ".embedagent" / "skills"
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    skill = skill_dir / "one.md"
+    skill.write_text("---\nname: one\ndescription: one\n---\nbody\n", encoding="utf-8")
+    adapter.reload_resources(first, reason="first-catalog")
+    second = adapter.create_session("build")["session_id"]
+    skill.unlink()
+    adapter.reload_resources(second, reason="second-catalog")
+    adapter.resume_session(first, "build")
+
+    adapter.submit_user_message(first, "first", stream=False, wait=True)
+    adapter.submit_user_message(second, "second", stream=False, wait=True)
+    first_state = adapter._require_session(first)
+    second_state = adapter._require_session(second)
+    first_resources = first_state.session.workflow_state["extensions"]["local_resources"]["state"]
+    second_resources = second_state.session.workflow_state["extensions"]["local_resources"]["state"]
+    actual = adapter.tools.local_resources()
+
+    assert actual["counts"]["skills"] == 0
+    assert first_resources["counts"] == actual["counts"]
+    assert second_resources["counts"] == actual["counts"]
+
+
+def test_permission_wait_emits_final_waiting_status(tmp_path):
+    events = []
+    adapter = InProcessAdapter(
+        client=PermissionClient(),
+        tools=ToolRuntime(str(tmp_path)),
+        permission_policy=PermissionPolicy(auto_approve_all=False, workspace=str(tmp_path)),
+    )
+    session_id = adapter.create_session("build")["session_id"]
+    adapter.submit_user_message(
+        session_id,
+        "write",
+        stream=False,
+        wait=False,
+        event_handler=lambda name, current_session_id, payload: events.append((name, payload)),
+    )
+    deadline = time.time() + 3.0
+    while time.time() < deadline and not any(
+        name == "session_status"
+        and (payload.get("session_snapshot") or {}).get("status") == "waiting_permission"
+        for name, payload in events
+    ):
+        time.sleep(0.02)
+
+    statuses = [
+        (payload.get("session_snapshot") or {}).get("status")
+        for name, payload in events
+        if name == "session_status"
+    ]
+    assert "waiting_permission" in statuses
+    permission_events = [payload for name, payload in events if name == "permission_required"]
+    assert len(permission_events) == 1
+    assert "session_snapshot" not in permission_events[0]
+
+
+def test_user_input_wait_emits_final_waiting_status(tmp_path):
+    events = []
+    adapter = InProcessAdapter(
+        client=AskUserClient(),
+        tools=ToolRuntime(str(tmp_path)),
+        permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
+    )
+    session_id = adapter.create_session("spec")["session_id"]
+    adapter.submit_user_message(
+        session_id,
+        "ask",
+        stream=False,
+        wait=False,
+        event_handler=lambda name, current_session_id, payload: events.append((name, payload)),
+    )
+    deadline = time.time() + 3.0
+    while time.time() < deadline and not any(
+        name == "session_status"
+        and (payload.get("session_snapshot") or {}).get("status") == "waiting_user_input"
+        for name, payload in events
+    ):
+        time.sleep(0.02)
+
+    statuses = [
+        (payload.get("session_snapshot") or {}).get("status")
+        for name, payload in events
+        if name == "session_status"
+    ]
+    input_events = [payload for name, payload in events if name == "user_input_required"]
+    assert "waiting_user_input" in statuses
+    assert len(input_events) == 1
+    assert "session_snapshot" not in input_events[0]

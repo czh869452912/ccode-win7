@@ -428,6 +428,41 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(error, "")
         self.assertEqual(session.messages[-1].parent_message_id, "m-compacted")
 
+    def test_best_effort_does_not_trust_message_id_from_skipped_record(self):
+        session_id = "sess-skipped-message-id"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
+        self.store.append_event(
+            session_id,
+            "assistant",
+            {
+                "role": "assistant",
+                "content": "invalid without a turn",
+                "message_id": "m-skipped",
+                "turn_id": "missing-turn",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "system",
+            {
+                "role": "system",
+                "content": "must not keep a dangling parent",
+                "message_id": "m-child",
+                "parent_message_id": "m-skipped",
+            },
+        )
+
+        result = SessionRestorer().restore(
+            self.store.load_events(session_id),
+            best_effort=True,
+        )
+
+        self.assertEqual(result.session.messages, [])
+        self.assertEqual(
+            [item["reason"] for item in result.skip_reasons],
+            ["assistant_message_turn_mismatch", "message_parent_missing"],
+        )
+
     def test_restore_preserves_pending_interaction(self):
         session_id = "sess-pending"
         self.store.append_event(session_id, "session_meta", {"current_mode": "spec"})
