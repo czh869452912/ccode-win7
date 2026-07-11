@@ -59,6 +59,31 @@ class DenyWritePathPolicy(object):
         return False
 
 
+class NeutralModeRuntimePolicy(object):
+    def default_mode(self) -> str:
+        return ""
+
+    def require_mode(self, mode_name: str) -> Dict[str, Any]:
+        return {"slug": str(mode_name or "")}
+
+    def build_system_prompt(
+        self,
+        mode_name: str,
+        app_config: Any = None,
+        workspace: str = "",
+        local_resources: Any = None,
+    ) -> str:
+        del mode_name, app_config, workspace, local_resources
+        return ""
+
+    def parse_mode_switch_request(
+        self,
+        user_text: str,
+        fallback_mode: str,
+    ) -> Tuple[str, str, bool]:
+        return str(fallback_mode or ""), str(user_text or ""), False
+
+
 class PassThroughModeRuntimePolicy(object):
     def __init__(self, default_mode_name: str = "explore") -> None:
         self._default_mode_name = str(default_mode_name or "explore")

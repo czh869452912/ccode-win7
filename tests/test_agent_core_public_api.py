@@ -1,5 +1,7 @@
 from __future__ import unicode_literals
 
+import pytest
+
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.query_engine import QueryEngine
 from embedagent_core.session import Action
@@ -32,6 +34,31 @@ def test_standalone_agent_core_public_symbols_are_available():
     )
 
     assert all(symbol is not None for symbol in public_symbols)
+
+
+def test_user_turn_rejects_empty_text():
+    from embedagent_core import UserTurn
+
+    with pytest.raises(ValueError, match="^user turn text is required$"):
+        UserTurn("")
+
+
+def test_interaction_reply_rejects_empty_interaction_id():
+    from embedagent_core import InteractionReply
+
+    with pytest.raises(ValueError, match="^interaction id is required$"):
+        InteractionReply("", {})
+
+
+def test_runtime_definition_uses_neutral_defaults():
+    from embedagent_core import RuntimeDefinition
+
+    definition = RuntimeDefinition()
+
+    assert definition.agent_id == "embedagent.base"
+    assert definition.default_mode == ""
+    assert definition.workflow_state == ""
+    assert definition.extensions == ()
 
 
 def test_turn_snapshot_preserves_empty_workflow_state():
