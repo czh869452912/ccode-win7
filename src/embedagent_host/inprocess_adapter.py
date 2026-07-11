@@ -3,6 +3,7 @@ from __future__ import annotations  # noqa: I001
 import os
 import threading
 import uuid
+from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
@@ -148,13 +149,55 @@ class _HostedTurnObserver(object):
         self._callbacks = dict(callbacks)
 
     def on_event(self, event_type: str, payload: Dict[str, Any]) -> None:
-        del event_type, payload
+        handlers = {
+            "text.delta": lambda: self._callbacks["on_text_delta"](str(payload.get("text") or "")),
+            "reasoning.delta": lambda: self._callbacks["on_reasoning_delta"](
+                str(payload.get("text") or "")
+            ),
+            "tool.started": lambda: self._callbacks["on_tool_start"](
+                Action(
+                    str(payload.get("name") or ""),
+                    dict(payload.get("arguments") or {}),
+                    str(payload.get("callId") or ""),
+                )
+            ),
+            "tool.finished": lambda: self._callbacks["on_tool_finish"](
+                Action(
+                    str(payload.get("name") or ""),
+                    dict(payload.get("arguments") or {}),
+                    str(payload.get("callId") or ""),
+                ),
+                Observation(
+                    str(payload.get("toolName") or payload.get("name") or ""),
+                    bool(payload.get("success")),
+                    payload.get("error"),
+                    payload.get("data"),
+                ),
+            ),
+            "context.assembled": lambda: self._callbacks["on_context_event"](payload),
+            "step.started": lambda: self._callbacks["on_step_start"](
+                str(payload.get("id") or ""),
+                int(payload.get("index") or 0),
+            ),
+            "step.finished": lambda: self._callbacks["on_step_finish"](
+                int(payload.get("index") or 0),
+                AssistantReply(
+                    content=str(payload.get("content") or ""),
+                    actions=[],
+                    finish_reason=str(payload.get("finishReason") or ""),
+                ),
+                str(payload.get("terminationReason") or ""),
+            ),
+        }
+        handler = handlers.get(event_type)
+        if handler is not None:
+            handler()
 
-    def __getattr__(self, name: str) -> Any:
-        callback = self._callbacks.get(name)
-        if callback is None:
-            raise AttributeError(name)
-        return callback
+    def on_permission_request(self, request: PermissionRequest) -> Optional[bool]:
+        return self._callbacks["on_permission_request"](request)
+
+    def on_user_input_request(self, request: UserInputRequest) -> Optional[UserInputResponse]:
+        return self._callbacks["on_user_input_request"](request)
 
 
 def _utc_now() -> str:
@@ -248,6 +291,7 @@ class InProcessAdapter(object):
             category_setter(self._tool_permission_category)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
+        self._resource_projection_state = {}  # type: Dict[str, Any]
         self.agent = self._build_agent()
         self._event_emitter = EventEmitter()
         self._workspace_files = WorkspaceFileService(
@@ -356,9 +400,22 @@ class InProcessAdapter(object):
             }
         }
 
-    def _apply_project_extension_state(self, state: ManagedSession) -> None:
+    def _rebuild_host_session_projection(self, state: ManagedSession) -> None:
         extensions = state.session.workflow_state.setdefault("extensions", {})
         extensions["project_extensions"] = self._project_extension_snapshot_state()
+        resource_state = deepcopy(self._resource_projection_state)
+        if resource_state:
+            extensions["local_resources"] = {"state": resource_state}
+
+    def _restore_resource_projection(self, runtime_config: Dict[str, Any]) -> None:
+        revision = runtime_config.get("resource_revision")
+        if not isinstance(revision, dict) or not revision:
+            return
+        self._resource_projection_state = {
+            "counts": dict(revision.get("counts") or {}),
+            "resource_paths": dict(revision.get("resource_paths") or {}),
+            "diagnostics": list(revision.get("diagnostics") or []),
+        }
 
     def _build_agent(self) -> Agent:
         runtime_services = AgentRuntimeServices(
@@ -735,6 +792,12 @@ class InProcessAdapter(object):
                 reason=normalized_reason,
             )
         session_ref = str(session_id or "").strip()
+        resource_state = {
+            "counts": dict(payload.get("counts") or {}),
+            "resource_paths": dict(payload.get("resource_paths") or {}),
+            "diagnostics": list(payload.get("diagnostics") or []),
+        }
+        self._resource_projection_state = resource_state
         if session_ref:
             state = self._ensure_session_active(session_ref)
             event_payload = self._resource_event_payload(payload)
@@ -754,14 +817,7 @@ class InProcessAdapter(object):
                 resource_payload=payload,
             )
             with state.lock:
-                extensions = state.session.workflow_state.setdefault("extensions", {})
-                extensions["local_resources"] = {
-                    "state": {
-                        "counts": dict(payload.get("counts") or {}),
-                        "resource_paths": dict(payload.get("resource_paths") or {}),
-                        "diagnostics": list(payload.get("diagnostics") or []),
-                    }
-                }
+                self._rebuild_host_session_projection(state)
                 self._refresh_local_skills_prompt_locked(
                     state,
                     payload,
@@ -845,7 +901,7 @@ class InProcessAdapter(object):
         with self._lock:
             self._sessions[session.session_id] = state
         with state.lock:
-            self._apply_project_extension_state(state)
+            self._rebuild_host_session_projection(state)
             state.updated_at = _utc_now()
         self.reload_resources(session_id=session.session_id, reason="session_start")
         with state.lock:
@@ -917,10 +973,11 @@ class InProcessAdapter(object):
             state.active_plan_ref = plan.path
             state.workflow_state = "plan"
         self._refresh_application_state(state)
+        self._restore_resource_projection(state.runtime_config)
         with self._lock:
             self._sessions[session.session_id] = state
         with state.lock:
-            self._apply_project_extension_state(state)
+            self._rebuild_host_session_projection(state)
             self._append_recovery_marker(state, restored, current_mode, state.runtime_config)
             self._refresh_reducer_state(state)
             state.updated_at = _utc_now()
@@ -1492,8 +1549,8 @@ class InProcessAdapter(object):
             payload.update(self._tool_event_metadata(action.name))
             self._emit_with_snapshot(event_handler, "tool_finished", state, payload)
 
-        def on_context_result(result: object) -> None:
-            pipeline_steps = list(getattr(result, "pipeline_steps", []) or [])
+        def on_context_event(payload: Dict[str, Any]) -> None:
+            pipeline_steps = list(payload.get("pipelineSteps") or [])
             if "reactive_compact_retry" in pipeline_steps:
                 self._emit_with_snapshot(
                     event_handler,
@@ -1503,19 +1560,16 @@ class InProcessAdapter(object):
                         "turn_id": turn_id,
                         "step_id": current_step["step_id"],
                         "step_index": current_step["step_index"],
-                        "recent_turns": getattr(
-                            getattr(result, "stats", None), "recent_turns", None
-                        ),
-                        "summarized_turns": getattr(
-                            getattr(result, "stats", None), "summarized_turns", None
-                        ),
-                        "approx_tokens_after": getattr(
-                            getattr(result, "budget", None), "input_tokens", None
-                        ),
+                        "recent_turns": payload.get("recentTurns"),
+                        "summarized_turns": payload.get("summarizedTurns"),
+                        "approx_tokens_after": payload.get("approxTokens"),
                         "pipeline_steps": pipeline_steps,
                     },
                 )
-            if not _should_emit_context_compacted(result):
+            if not bool(payload.get("compacted")) or not bool(
+                "auto_compact_threshold" in pipeline_steps
+                or "reactive_compact_retry" in pipeline_steps
+            ):
                 return
             self._emit_with_snapshot(
                 event_handler,
@@ -1525,14 +1579,10 @@ class InProcessAdapter(object):
                     "turn_id": turn_id,
                     "step_id": current_step["step_id"],
                     "step_index": current_step["step_index"],
-                    "recent_turns": getattr(getattr(result, "stats", None), "recent_turns", None),
-                    "summarized_turns": getattr(
-                        getattr(result, "stats", None), "summarized_turns", None
-                    ),
-                    "approx_tokens_after": getattr(
-                        getattr(result, "budget", None), "input_tokens", None
-                    ),
-                    "analysis": getattr(result, "analysis", {}),
+                    "recent_turns": payload.get("recentTurns"),
+                    "summarized_turns": payload.get("summarizedTurns"),
+                    "approx_tokens_after": payload.get("approxTokens"),
+                    "analysis": dict(payload.get("analysis") or {}),
                 },
             )
 
@@ -1605,7 +1655,7 @@ class InProcessAdapter(object):
                     "on_reasoning_delta": on_reasoning_delta,
                     "on_tool_start": on_tool_start,
                     "on_tool_finish": on_tool_finish,
-                    "on_context_result": on_context_result,
+                    "on_context_event": on_context_event,
                     "on_step_start": on_step_start,
                     "on_step_finish": on_step_finish,
                     "on_permission_request": permission_handler,
@@ -1630,11 +1680,20 @@ class InProcessAdapter(object):
                     observer=observer,
                     cancel=stop_event or state.stop_event,
                 )
-            host_result = state.agent_session._host_last_result()
-            if host_result is None:
-                raise RuntimeError("agent session did not retain hosted turn state")
-            result = host_result.query_result
-        except (RuntimeError, ValueError, TypeError) as exc:
+            events = self.transcript_store.load_events(session_id)
+            restored = self.session_restorer.restore(
+                events,
+                best_effort=state.allow_best_effort_restore,
+            )
+            if restored.stop_reason or restored.consumed_event_count != len(events):
+                raise RuntimeError(
+                    "host could not restore completed agent turn: %s"
+                    % str(restored.stop_reason or "incomplete_transcript")
+                )
+            state.session = restored.session
+            state.allow_best_effort_restore = False
+            self._rebuild_host_session_projection(state)
+        except (OSError, RuntimeError, ValueError, TypeError) as exc:
             set_thinking(False, "session_error")
             with state.lock:
                 is_worker_thread = threading.current_thread() is state.active_thread
@@ -1658,24 +1717,12 @@ class InProcessAdapter(object):
             if is_worker_thread:
                 return
             raise
-        events = self.transcript_store.load_events(session_id)
-        restored = self.session_restorer.restore(
-            events,
-            best_effort=state.allow_best_effort_restore,
-        )
-        if restored.stop_reason or restored.consumed_event_count != len(events):
-            raise RuntimeError(
-                "host could not restore completed agent turn: %s"
-                % str(restored.stop_reason or "incomplete_transcript")
-            )
-        state.session = restored.session
-        state.allow_best_effort_restore = False
-        if result.transition.reason in ("permission_wait", "user_input_wait"):
-            set_thinking(False, result.transition.reason)
+        if public_result.termination_reason in ("permission_wait", "user_input_wait"):
+            set_thinking(False, public_result.termination_reason)
             with state.lock:
                 state.status = (
                     "waiting_permission"
-                    if result.transition.reason == "permission_wait"
+                    if public_result.termination_reason == "permission_wait"
                     else "waiting_user_input"
                 )
                 state.updated_at = _utc_now()
@@ -1683,7 +1730,7 @@ class InProcessAdapter(object):
             return
         with state.lock:
             state.last_assistant_message = public_result.final_text
-            state.current_mode = host_result.current_mode
+            state.current_mode = public_result.session.current_mode
             self._refresh_application_state(state)
             state.status = "idle"
             state.active_thread = None
@@ -1695,11 +1742,11 @@ class InProcessAdapter(object):
             {
                 "turn_id": turn_id,
                 "final_text": public_result.final_text,
-                "outcome": result.outcome.to_dict(),
-                "termination_reason": result.transition.reason,
-                "turns_used": result.turns_used,
+                "outcome": dict(public_result.outcome),
+                "termination_reason": public_result.termination_reason,
+                "turns_used": public_result.turns_used,
                 "max_turns": self.max_turns,
-                "error": result.transition.message or "",
+                "error": public_result.termination_message,
             },
         )
         self._persist_state(state)
@@ -1713,11 +1760,11 @@ class InProcessAdapter(object):
                 "final_text": public_result.final_text,
                 "session_snapshot": snapshot,
                 "turn_experience": dict(snapshot.get("turn_experience") or {}),
-                "outcome": result.outcome.to_dict(),
-                "termination_reason": result.transition.reason,
-                "turns_used": result.turns_used,
+                "outcome": dict(public_result.outcome),
+                "termination_reason": public_result.termination_reason,
+                "turns_used": public_result.turns_used,
                 "max_turns": self.max_turns,
-                "error": result.transition.message or "",
+                "error": public_result.termination_message,
             },
         )
         self._notify_status(event_handler, state)

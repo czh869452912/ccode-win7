@@ -36,14 +36,6 @@ class AgentRequest:
     input: AgentInput
 
 
-@dataclass(frozen=True)
-class AgentRunState:
-    public_result: AgentResult
-    query_result: QueryTurnResult
-    current_mode: str
-    turn_snapshot: Any
-
-
 class SessionRecoveryRequired(RuntimeError):
     def __init__(self, session_id: str, stop_reason: str) -> None:
         self.session_id = str(session_id or "")
@@ -252,6 +244,8 @@ def _observer_callbacks(observer: Optional[AgentObserver]) -> Dict[str, Any]:
                 "summarizedTurns": int(result.summarized_turns or 0),
                 "recentTurns": int(result.recent_turns or 0),
                 "hasSummary": bool(result.summary_message),
+                "pipelineSteps": list(getattr(result, "pipeline_steps", []) or []),
+                "analysis": dict(getattr(result, "analysis", {}) or {}),
             },
         )
 
@@ -278,8 +272,7 @@ def _observer_callbacks(observer: Optional[AgentObserver]) -> Dict[str, Any]:
             },
         )
 
-    callbacks = {}
-    fallback_callbacks = {
+    callbacks = {
         "on_text_delta": on_text_delta,
         "on_reasoning_delta": on_reasoning_delta,
         "on_tool_start": on_tool_start,
@@ -288,9 +281,6 @@ def _observer_callbacks(observer: Optional[AgentObserver]) -> Dict[str, Any]:
         "on_step_start": on_step_start,
         "on_step_finish": on_step_finish,
     }
-    for callback_name, fallback in fallback_callbacks.items():
-        direct_callback = getattr(observer, callback_name, None)
-        callbacks[callback_name] = direct_callback if callable(direct_callback) else fallback
     permission_handler = getattr(observer, "on_permission_request", None)
     if callable(permission_handler):
         callbacks["permission_handler"] = permission_handler
@@ -322,12 +312,12 @@ def _result_pending_interaction(result: QueryTurnResult) -> Any:
     )
 
 
-def run_agent_with_state(
+def run_agent(
     runtime: AgentRuntime,
     request: AgentRequest,
     observer: Optional[AgentObserver] = None,
     cancel: Optional[CancelToken] = None,
-) -> AgentRunState:
+) -> AgentResult:
     session_id = str(request.session_id or "").strip()
     callbacks = _observer_callbacks(observer)
     session_log = runtime.ports.session_log
@@ -378,30 +368,13 @@ def run_agent_with_state(
             raise TypeError("unsupported agent input")
 
         result_mode = _result_mode(result, initial_mode)
-        public_result = AgentResult(
+        return AgentResult(
             final_text=result.final_text,
             session=_session_view(result.session, result_mode),
             termination_reason=result.transition.reason,
             pending_interaction=_result_pending_interaction(result),
             turn_snapshot=engine.last_turn_snapshot(),
+            outcome=_json_safe(result.outcome.to_dict()),
+            turns_used=int(result.turns_used or 0),
+            termination_message=str(result.transition.message or ""),
         )
-        return AgentRunState(
-            public_result=public_result,
-            query_result=result,
-            current_mode=result_mode,
-            turn_snapshot=engine.last_turn_snapshot(),
-        )
-
-
-def run_agent(
-    runtime: AgentRuntime,
-    request: AgentRequest,
-    observer: Optional[AgentObserver] = None,
-    cancel: Optional[CancelToken] = None,
-) -> AgentResult:
-    return run_agent_with_state(
-        runtime,
-        request,
-        observer=observer,
-        cancel=cancel,
-    ).public_result

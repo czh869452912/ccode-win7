@@ -28,6 +28,14 @@ class AgentObserver(Protocol):
         raise NotImplementedError
 
 
+class AgentInteractionObserver(AgentObserver, Protocol):
+    def on_permission_request(self, request: Any) -> Optional[bool]:
+        raise NotImplementedError
+
+    def on_user_input_request(self, request: Any) -> Any:
+        raise NotImplementedError
+
+
 class CancelToken(Protocol):
     def is_set(self) -> bool:
         raise NotImplementedError
@@ -121,11 +129,15 @@ class AgentResult:
     termination_reason: str
     pending_interaction: Optional[PendingInteraction]
     turn_snapshot: Optional[Any]
+    outcome: Dict[str, Any] = field(default_factory=dict)
+    turns_used: int = 0
+    termination_message: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "session", deepcopy(self.session))
         object.__setattr__(self, "pending_interaction", deepcopy(self.pending_interaction))
         object.__setattr__(self, "turn_snapshot", deepcopy(self.turn_snapshot))
+        object.__setattr__(self, "outcome", deepcopy(self.outcome))
 
 
 class Agent(object):
@@ -174,7 +186,6 @@ class AgentSession(object):
         self._runtime = runtime
         self._session_id = normalize_session_id(session_id)
         self._submit_lock = threading.Lock()
-        self._host_result_state = threading.local()
 
     @property
     def session_id(self) -> str:
@@ -186,25 +197,20 @@ class AgentSession(object):
         observer: Optional[AgentObserver] = None,
         cancel: Optional[CancelToken] = None,
     ) -> AgentResult:
-        from embedagent_core.runner import AgentRequest, run_agent_with_state
+        from embedagent_core.runner import AgentRequest, run_agent
         from embedagent_core.session_log import SessionLeaseConflict
 
         if not self._submit_lock.acquire(blocking=False):
             raise SessionLeaseConflict("agent session already has an active submit")
         try:
-            host_result = run_agent_with_state(
+            return run_agent(
                 self._runtime,
                 AgentRequest(self.session_id, input_value),
                 observer=observer,
                 cancel=cancel,
             )
-            self._host_result_state.value = host_result
-            return host_result.public_result
         finally:
             self._submit_lock.release()
-
-    def _host_last_result(self) -> Any:
-        return getattr(self._host_result_state, "value", None)
 
     def _host_initialize_session(
         self,
