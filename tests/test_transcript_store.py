@@ -3,7 +3,6 @@ import os
 import shutil
 import sys
 import threading
-import time
 import unittest
 from copy import deepcopy
 from itertools import count
@@ -447,10 +446,112 @@ class TestTranscriptStore(unittest.TestCase):
 
             with open(transcript_b, "rb") as handle:
                 self.assertEqual(handle.read(), original_transcript)
-            events = store.load_events_from_reference(transcript_a)
-            self.assertEqual(events[0]["payload"]["content"], "preserve")
+            with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+                store.load_events_from_reference(transcript_a)
         finally:
             os.remove(transcript_a)
+
+    @unittest.skipUnless(os.name == "nt", "Windows handle-first I/O contract")
+    def test_append_rejects_parent_redirect_after_resolver_returns(self):
+        store = TranscriptStore(self.workspace)
+        session_dir = store.resolve_session_dir("session-parent-race")
+        outside_dir = os.path.join(self.workspace, "outside-parent-race")
+        outside_transcript = os.path.join(outside_dir, "transcript.jsonl")
+        os.makedirs(session_dir)
+        os.makedirs(outside_dir)
+        original_resolve = store.resolve_transcript_path
+        replaced = [False]
+
+        def resolve_then_redirect(session_id):
+            path = original_resolve(session_id)
+            if not replaced[0]:
+                os.rmdir(session_dir)
+                os.symlink(outside_dir, session_dir, target_is_directory=True)
+                replaced[0] = True
+            return path
+
+        store.resolve_transcript_path = resolve_then_redirect
+        try:
+            with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+                store.append_event(
+                    "session-parent-race",
+                    "message",
+                    {"content": "do not write outside"},
+                )
+            self.assertFalse(os.path.exists(outside_transcript))
+        finally:
+            store.resolve_transcript_path = original_resolve
+            if os.path.lexists(session_dir):
+                os.rmdir(session_dir)
+
+    @unittest.skipUnless(os.name == "nt", "Windows handle-first I/O contract")
+    def test_append_rejects_final_symlink_after_resolver_returns(self):
+        store = TranscriptStore(self.workspace)
+        session_dir = store.resolve_session_dir("session-file-race")
+        transcript_path = os.path.join(session_dir, "transcript.jsonl")
+        outside_path = os.path.join(self.workspace, "outside-symlink-target.jsonl")
+        os.makedirs(session_dir)
+        with open(outside_path, "wb") as handle:
+            handle.write(b"DO-NOT-TOUCH")
+        original_resolve = store.resolve_transcript_path
+        replaced = [False]
+
+        def resolve_then_redirect(session_id):
+            path = original_resolve(session_id)
+            if not replaced[0]:
+                os.symlink(outside_path, path)
+                replaced[0] = True
+            return path
+
+        store.resolve_transcript_path = resolve_then_redirect
+        try:
+            with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+                store.append_event(
+                    "session-file-race",
+                    "message",
+                    {"content": "do not truncate outside"},
+                )
+            with open(outside_path, "rb") as handle:
+                self.assertEqual(handle.read(), b"DO-NOT-TOUCH")
+        finally:
+            store.resolve_transcript_path = original_resolve
+            if os.path.lexists(transcript_path):
+                os.remove(transcript_path)
+
+    @unittest.skipUnless(os.name == "nt", "Windows handle-first I/O contract")
+    def test_append_rejects_final_hardlink_after_resolver_returns(self):
+        store = TranscriptStore(self.workspace)
+        session_dir = store.resolve_session_dir("session-hardlink-race")
+        transcript_path = os.path.join(session_dir, "transcript.jsonl")
+        outside_path = os.path.join(self.workspace, "outside-hardlink-target.jsonl")
+        os.makedirs(session_dir)
+        with open(outside_path, "wb") as handle:
+            handle.write(b"DO-NOT-TOUCH")
+        original_resolve = store.resolve_transcript_path
+        linked_count = [0]
+
+        def resolve_then_link(session_id):
+            path = original_resolve(session_id)
+            if not linked_count[0]:
+                os.link(outside_path, path)
+                linked_count[0] = os.stat(outside_path).st_nlink
+            return path
+
+        store.resolve_transcript_path = resolve_then_link
+        try:
+            with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
+                store.append_event(
+                    "session-hardlink-race",
+                    "message",
+                    {"content": "do not truncate outside"},
+                )
+            with open(outside_path, "rb") as handle:
+                self.assertEqual(handle.read(), b"DO-NOT-TOUCH")
+            self.assertEqual(os.stat(outside_path).st_nlink, linked_count[0])
+        finally:
+            store.resolve_transcript_path = original_resolve
+            if os.path.lexists(transcript_path):
+                os.remove(transcript_path)
 
     def test_malicious_session_id_cannot_truncate_file_outside_sessions_root(self):
         store = TranscriptStore(self.workspace)
@@ -511,6 +612,23 @@ class TestTranscriptStore(unittest.TestCase):
         durable_events = reopened.load_events("sess-cache-isolation")
         self.assertEqual([event["seq"] for event in durable_events], [1, 2])
         self.assertEqual(durable_events[0]["payload"]["nested"]["values"], ["original"])
+
+    def test_scan_cache_rejects_same_size_file_replacement(self):
+        store = TranscriptStore(self.workspace)
+        store.append_event("sess-cache-identity", "message", {"content": "first"})
+        transcript_path = store.resolve_transcript_path("sess-cache-identity")
+        replacement_path = transcript_path + ".replacement"
+        with open(transcript_path, "rb") as handle:
+            original_bytes = handle.read()
+        replacement_bytes = original_bytes.replace(b'"first"', b'"other"', 1)
+        self.assertEqual(len(replacement_bytes), len(original_bytes))
+        with open(replacement_path, "wb") as handle:
+            handle.write(replacement_bytes)
+        os.replace(replacement_path, transcript_path)
+
+        events = store.load_events("sess-cache-identity")
+
+        self.assertEqual(events[0]["payload"]["content"], "other")
 
     def test_append_does_not_deepcopy_cached_history(self):
         store = TranscriptStore(self.workspace)
@@ -596,52 +714,16 @@ class TestTranscriptStore(unittest.TestCase):
         self.assertEqual(first["seq"], 1)
         self.assertEqual(second["seq"], 2)
 
-    def test_append_event_uses_cached_seq_after_first_write(self):
-        store = TranscriptStore(self.workspace)
-        store.append_event("sess-cache", "session_meta", {"current_mode": "build"})
-        original_scan = store._scan_events
-
-        def fail_scan(path):
-            raise AssertionError("unexpected transcript rescan for cached append: %s" % path)
-
-        store._scan_events = fail_scan
-        try:
-            second = store.append_event(
-                "sess-cache",
-                "message",
-                {
-                    "role": "user",
-                    "message_id": "m-cache",
-                    "turn_id": "t-1",
-                    "step_id": "",
-                    "content": "cached",
-                },
-            )
-        finally:
-            store._scan_events = original_scan
-        self.assertEqual(second["seq"], 2)
-
     def test_append_event_serializes_concurrent_writers(self):
         store = TranscriptStore(self.workspace)
         store.append_event("sess-race", "session_meta", {"current_mode": "build"})
-
-        original_next_seq = store._next_seq
-        first_seq_started = threading.Event()
-        first_call_seen = [False]
-
-        def delayed_next_seq(path):
-            seq = original_next_seq(path)
-            if not first_call_seen[0]:
-                first_call_seen[0] = True
-                first_seq_started.set()
-                time.sleep(0.2)
-            return seq
-
-        store._next_seq = delayed_next_seq
+        writer_count = 8
+        start = threading.Barrier(writer_count + 1)
         errors = []
 
         def writer(index):
             try:
+                start.wait()
                 store.append_event(
                     "sess-race",
                     "message",
@@ -656,19 +738,20 @@ class TestTranscriptStore(unittest.TestCase):
             except Exception as exc:  # pragma: no cover - surfaced by assertion below
                 errors.append(exc)
 
-        thread_a = threading.Thread(target=writer, args=(1,))
-        thread_b = threading.Thread(target=writer, args=(2,))
-        thread_a.start()
-        self.assertTrue(first_seq_started.wait(1.0))
-        thread_b.start()
-        thread_a.join()
-        thread_b.join()
+        threads = [threading.Thread(target=writer, args=(index,)) for index in range(writer_count)]
+        for thread in threads:
+            thread.start()
+        start.wait()
+        for thread in threads:
+            thread.join()
 
         self.assertEqual(errors, [])
         events = store.load_events("sess-race")
-        self.assertEqual([item["seq"] for item in events], [1, 2, 3])
-        self.assertEqual(events[-2]["payload"]["content"], "message-1")
-        self.assertEqual(events[-1]["payload"]["content"], "message-2")
+        self.assertEqual([item["seq"] for item in events], list(range(1, writer_count + 2)))
+        self.assertEqual(
+            {item["payload"]["content"] for item in events[1:]},
+            {"message-%s" % index for index in range(writer_count)},
+        )
 
     def test_append_event_schema_v2_format(self):
         store = TranscriptStore(self.workspace)

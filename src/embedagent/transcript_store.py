@@ -47,7 +47,7 @@ class TranscriptStore(object):
         self._lease_root_identity = _canonical_path(self.root)
         self._append_locks = {}  # type: Dict[str, threading.RLock]
         self._append_locks_guard = threading.RLock()
-        self._scan_cache = {}  # type: Dict[str, Tuple[List[Dict[str, Any]], int, int]]
+        self._scan_cache = {}  # type: Dict[str, Tuple[List[Dict[str, Any]], int, int, Any]]
 
     @contextmanager
     def acquire_lease(self, session_id: str) -> Any:
@@ -154,80 +154,272 @@ class TranscriptStore(object):
         normalized_session_id = normalize_session_id(session_id)
         stored_payload = deepcopy(payload or {})
         path = self.resolve_transcript_path(normalized_session_id)
-        directory = os.path.dirname(path)
         append_lock = self._lock_for_path(path)
         with append_lock:
-            if not os.path.isdir(directory):
-                os.makedirs(directory)
-            self._repair_tail(path)
-            seq = self._next_seq(path)
-            event = {
-                "schema_version": 2,
-                "session_id": normalized_session_id,
-                "event_id": event_id or ("evt-" + uuid.uuid4().hex[:12]),
-                "seq": seq,
-                "ts": ts or _utc_now(),
-                "type": event_type,
-                "parent_message_id": stored_payload.get("parent_message_id", ""),
-                "payload": stored_payload,
-            }
-            line = json.dumps(event, ensure_ascii=False, sort_keys=True)
-            with open(path, "a", encoding="utf-8", newline="\n") as handle:
-                handle.write(line + "\n")
+            with self._open_transcript(path, create=True) as opened:
+                handle, file_identity = opened
+                events, valid_length = self._scan_events_handle(
+                    path,
+                    handle,
+                    file_identity,
+                )
+                file_size = os.fstat(handle.fileno()).st_size
+                if valid_length < file_size:
+                    handle.truncate(valid_length)
+                    file_size = valid_length
+                seq = int(events[-1].get("seq") or 0) + 1 if events else 1
+                event = {
+                    "schema_version": 2,
+                    "session_id": normalized_session_id,
+                    "event_id": event_id or ("evt-" + uuid.uuid4().hex[:12]),
+                    "seq": seq,
+                    "ts": ts or _utc_now(),
+                    "type": event_type,
+                    "parent_message_id": stored_payload.get("parent_message_id", ""),
+                    "payload": stored_payload,
+                }
+                line = json.dumps(event, ensure_ascii=False, sort_keys=True)
+                encoded_line = (line + "\n").encode("utf-8")
+                handle.seek(0, os.SEEK_END)
+                handle.write(encoded_line)
                 handle.flush()
                 os.fsync(handle.fileno())
-            normalized = _canonical_path(path)
-            cached_events, valid_length, file_size = self._scan_cache.get(normalized, ([], 0, 0))
-            updated_events = list(cached_events)
-            updated_events.append(deepcopy(event))
-            written_size = len((line + "\n").encode("utf-8"))
-            self._scan_cache[normalized] = (
-                updated_events,
-                valid_length + written_size,
-                file_size + written_size,
-            )
-            return deepcopy(event)
+                updated_events = list(events)
+                updated_events.append(deepcopy(event))
+                updated_size = file_size + len(encoded_line)
+                self._scan_cache[_canonical_path(path)] = (
+                    updated_events,
+                    updated_size,
+                    updated_size,
+                    file_identity,
+                )
+                return deepcopy(event)
 
     def load_events(self, session_id: str) -> List[Dict[str, Any]]:
         normalized_session_id = normalize_session_id(session_id)
         path = self.resolve_transcript_path(normalized_session_id)
-        if not os.path.isfile(path):
+        try:
+            with self._open_transcript(path, create=False) as opened:
+                handle, file_identity = opened
+                events, _ = self._scan_events_handle(path, handle, file_identity)
+        except FileNotFoundError:
             raise ValueError("transcript not found: %s" % normalized_session_id)
-        events, _ = self._scan_events(path)
         return deepcopy(events)
 
     def load_events_from_reference(self, reference: str) -> List[Dict[str, Any]]:
         path = self.resolve_transcript_reference(reference)
-        if not os.path.isfile(path):
+        try:
+            with self._open_transcript(path, create=False) as opened:
+                handle, file_identity = opened
+                events, _ = self._scan_events_handle(path, handle, file_identity)
+        except FileNotFoundError:
             raise ValueError("transcript not found")
-        events, _ = self._scan_events(path)
         return deepcopy(events)
 
     def transcript_exists(self, session_id: str) -> bool:
         try:
             normalized_session_id = normalize_session_id(session_id)
             path = self.resolve_transcript_path(normalized_session_id)
-        except ValueError:
+            with self._open_transcript(path, create=False):
+                return True
+        except (FileNotFoundError, ValueError):
             return False
-        return os.path.isfile(path)
 
-    def _next_seq(self, path: str) -> int:
-        normalized = _canonical_path(path)
-        cached = self._scan_cache.get(normalized)
-        if cached is not None:
-            events, _, _ = cached
-            if not events:
-                return 1
-            return int(events[-1].get("seq") or 0) + 1
-        if not os.path.isfile(path):
-            return 1
+    @contextmanager
+    def _open_transcript(self, path: str, create: bool) -> Any:
+        if os.name == "nt":
+            with self._open_windows_transcript(path, create) as opened:
+                yield opened
+            return
+
+        directory = os.path.dirname(path)
+        if create and not os.path.isdir(directory):
+            os.makedirs(directory)
+        mode = "r+b" if create else "rb"
         try:
-            events = self.load_events_from_reference(path)
-        except ValueError:
-            return 1
-        if not events:
-            return 1
-        return int(events[-1].get("seq") or 0) + 1
+            handle = open(path, mode)
+        except FileNotFoundError:
+            if not create:
+                raise
+            handle = open(path, "w+b")
+        try:
+            handle_stat = os.fstat(handle.fileno())
+            if int(getattr(handle_stat, "st_nlink", 1) or 1) != 1:
+                raise ValueError("session_id is invalid")
+            yield handle, (int(handle_stat.st_dev), int(handle_stat.st_ino))
+        finally:
+            handle.close()
+
+    @contextmanager
+    def _open_windows_transcript(self, path: str, create: bool) -> Any:
+        import ctypes
+        import msvcrt
+        from ctypes import wintypes
+
+        class ByHandleFileInformation(ctypes.Structure):
+            _fields_ = (
+                ("dwFileAttributes", wintypes.DWORD),
+                ("ftCreationTime", wintypes.FILETIME),
+                ("ftLastAccessTime", wintypes.FILETIME),
+                ("ftLastWriteTime", wintypes.FILETIME),
+                ("dwVolumeSerialNumber", wintypes.DWORD),
+                ("nFileSizeHigh", wintypes.DWORD),
+                ("nFileSizeLow", wintypes.DWORD),
+                ("nNumberOfLinks", wintypes.DWORD),
+                ("nFileIndexHigh", wintypes.DWORD),
+                ("nFileIndexLow", wintypes.DWORD),
+            )
+
+        generic_read = 0x80000000
+        generic_write = 0x40000000
+        file_read_attributes = 0x00000080
+        file_share_read_write = 0x00000001 | 0x00000002
+        open_existing = 3
+        open_always = 4
+        file_attribute_reparse_point = 0x00000400
+        file_flag_backup_semantics = 0x02000000
+        file_flag_open_reparse_point = 0x00200000
+        invalid_handle_value = ctypes.c_void_p(-1).value
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        create_file = kernel32.CreateFileW
+        create_file.argtypes = (
+            wintypes.LPCWSTR,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            ctypes.c_void_p,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.HANDLE,
+        )
+        create_file.restype = wintypes.HANDLE
+        get_file_information = kernel32.GetFileInformationByHandle
+        get_file_information.argtypes = (
+            wintypes.HANDLE,
+            ctypes.POINTER(ByHandleFileInformation),
+        )
+        get_file_information.restype = wintypes.BOOL
+        get_final_path = kernel32.GetFinalPathNameByHandleW
+        get_final_path.argtypes = (
+            wintypes.HANDLE,
+            wintypes.LPWSTR,
+            wintypes.DWORD,
+            wintypes.DWORD,
+        )
+        get_final_path.restype = wintypes.DWORD
+        close_handle = kernel32.CloseHandle
+        close_handle.argtypes = (wintypes.HANDLE,)
+        close_handle.restype = wintypes.BOOL
+
+        def open_native(target: str, access: int, disposition: int, flags: int) -> Any:
+            native_handle = create_file(
+                target,
+                access,
+                file_share_read_write,
+                None,
+                disposition,
+                flags,
+                None,
+            )
+            if native_handle == invalid_handle_value:
+                error_code = ctypes.get_last_error()
+                if error_code in (2, 3):
+                    raise FileNotFoundError(target)
+                raise ValueError("session_id is invalid")
+            return native_handle
+
+        def final_handle_path(native_handle: Any) -> str:
+            buffer = ctypes.create_unicode_buffer(32768)
+            length = get_final_path(native_handle, buffer, len(buffer), 0)
+            if not length or length >= len(buffer):
+                raise ValueError("session_id is invalid")
+            final_path = buffer.value
+            if final_path.startswith("\\\\?\\UNC\\"):
+                final_path = "\\\\" + final_path[8:]
+            elif final_path.startswith("\\\\?\\"):
+                final_path = final_path[4:]
+            return os.path.normcase(os.path.abspath(final_path))
+
+        def validate_handle(
+            native_handle: Any,
+            intended_path: str,
+            require_single_link: bool,
+        ) -> Any:
+            information = ByHandleFileInformation()
+            if not get_file_information(native_handle, ctypes.byref(information)):
+                raise ValueError("session_id is invalid")
+            if int(information.dwFileAttributes) & file_attribute_reparse_point:
+                raise ValueError("session_id is invalid")
+            if require_single_link and int(information.nNumberOfLinks) != 1:
+                raise ValueError("session_id is invalid")
+            intended_identity = os.path.normcase(os.path.abspath(intended_path))
+            if final_handle_path(native_handle) != intended_identity:
+                raise ValueError("session_id is invalid")
+            return (
+                int(information.dwVolumeSerialNumber),
+                int(information.nFileIndexHigh),
+                int(information.nFileIndexLow),
+            )
+
+        root_handle = None
+        session_handle = None
+        transcript_handle = None
+        python_handle = None
+        file_descriptor = None
+        session_dir = os.path.dirname(path)
+        try:
+            if create and not os.path.isdir(self.root):
+                os.makedirs(self.root)
+            root_handle = open_native(
+                self.root,
+                file_read_attributes,
+                open_existing,
+                file_flag_backup_semantics | file_flag_open_reparse_point,
+            )
+            validate_handle(root_handle, self.root, False)
+
+            if create:
+                try:
+                    os.mkdir(session_dir)
+                except FileExistsError:
+                    pass
+            session_handle = open_native(
+                session_dir,
+                file_read_attributes,
+                open_existing,
+                file_flag_backup_semantics | file_flag_open_reparse_point,
+            )
+            validate_handle(session_handle, session_dir, False)
+
+            transcript_handle = open_native(
+                path,
+                generic_read | (generic_write if create else 0),
+                open_always if create else open_existing,
+                file_flag_open_reparse_point,
+            )
+            file_identity = validate_handle(transcript_handle, path, True)
+            descriptor_flags = os.O_RDWR if create else os.O_RDONLY
+            descriptor_flags |= getattr(os, "O_BINARY", 0)
+            file_descriptor = msvcrt.open_osfhandle(transcript_handle, descriptor_flags)
+            transcript_handle = None
+            python_handle = os.fdopen(
+                file_descriptor,
+                "r+b" if create else "rb",
+                buffering=0,
+            )
+            file_descriptor = None
+            yield python_handle, file_identity
+        finally:
+            if python_handle is not None:
+                python_handle.close()
+            elif file_descriptor is not None:
+                os.close(file_descriptor)
+            elif transcript_handle is not None:
+                close_handle(transcript_handle)
+            if session_handle is not None:
+                close_handle(session_handle)
+            if root_handle is not None:
+                close_handle(root_handle)
 
     def _lock_for_path(self, path: str) -> threading.RLock:
         normalized = _canonical_path(path)
@@ -299,22 +491,6 @@ class TranscriptStore(object):
         if not close_succeeded:
             raise SessionLeaseConflict("session mutex close failed")
 
-    def _repair_tail(self, path: str) -> None:
-        if not os.path.isfile(path):
-            return
-        normalized = _canonical_path(path)
-        cached = self._scan_cache.get(normalized)
-        file_size = os.path.getsize(path)
-        if cached is not None and cached[2] == file_size:
-            events, valid_length = list(cached[0]), cached[1]
-        else:
-            events, valid_length = self._scan_events(path)
-        if valid_length >= file_size:
-            return
-        with open(path, "rb+") as handle:
-            handle.truncate(valid_length)
-        self._scan_cache[normalized] = (deepcopy(events), valid_length, valid_length)
-
     def validate_transcript_chain(self, reference: str) -> Dict[str, Any]:
         """Validate parent chain integrity of a transcript.
 
@@ -352,45 +528,52 @@ class TranscriptStore(object):
 
         return {"valid": len(breaks) == 0, "breaks": breaks}
 
-    def _scan_events(self, path: str) -> Tuple[List[Dict[str, Any]], int]:
+    def _scan_events_handle(
+        self,
+        path: str,
+        handle: Any,
+        file_identity: Any,
+    ) -> Tuple[List[Dict[str, Any]], int]:
         normalized = _canonical_path(path)
         cached = self._scan_cache.get(normalized)
-        try:
-            file_size = os.path.getsize(path)
-        except OSError:
-            file_size = 0
-        if cached is not None and cached[2] == file_size:
+        file_size = os.fstat(handle.fileno()).st_size
+        if cached is not None and cached[2] == file_size and cached[3] == file_identity:
             return list(cached[0]), cached[1]
         events = []
         last_seq = 0
         valid_length = 0
-        with open(path, "rb") as handle:
-            while True:
-                raw_line = handle.readline()
-                if not raw_line:
-                    break
-                next_offset = handle.tell()
-                line = raw_line.strip()
-                if not line:
-                    valid_length = next_offset
-                    continue
-                try:
-                    text = line.decode("utf-8")
-                    event = json.loads(text)
-                except (UnicodeDecodeError, ValueError):
-                    break
-                if not isinstance(event, dict):
-                    break
-                if event.get("schema_version") != 2:
-                    break
-                try:
-                    seq = int(event.get("seq") or 0)
-                except (TypeError, ValueError):
-                    break
-                if seq != last_seq + 1:
-                    break
-                events.append(event)
-                last_seq = seq
+        handle.seek(0)
+        while True:
+            raw_line = handle.readline()
+            if not raw_line:
+                break
+            next_offset = handle.tell()
+            line = raw_line.strip()
+            if not line:
                 valid_length = next_offset
-        self._scan_cache[normalized] = (deepcopy(events), valid_length, file_size)
+                continue
+            try:
+                text = line.decode("utf-8")
+                event = json.loads(text)
+            except (UnicodeDecodeError, ValueError):
+                break
+            if not isinstance(event, dict):
+                break
+            if event.get("schema_version") != 2:
+                break
+            try:
+                seq = int(event.get("seq") or 0)
+            except (TypeError, ValueError):
+                break
+            if seq != last_seq + 1:
+                break
+            events.append(event)
+            last_seq = seq
+            valid_length = next_offset
+        self._scan_cache[normalized] = (
+            deepcopy(events),
+            valid_length,
+            file_size,
+            file_identity,
+        )
         return events, valid_length
