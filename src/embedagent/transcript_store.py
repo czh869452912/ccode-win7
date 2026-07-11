@@ -5,6 +5,7 @@ import os
 import threading
 import uuid
 from contextlib import contextmanager
+from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
 
@@ -13,6 +14,13 @@ from embedagent_core.session_log import SessionLeaseConflict
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _require_session_id(session_id: str) -> str:
+    normalized_session_id = str(session_id or "").strip()
+    if not normalized_session_id:
+        raise ValueError("session_id is required")
+    return normalized_session_id
 
 
 class TranscriptStore(object):
@@ -32,7 +40,7 @@ class TranscriptStore(object):
 
     @contextmanager
     def acquire_lease(self, session_id: str) -> Any:
-        normalized_session_id = str(session_id or "")
+        normalized_session_id = _require_session_id(session_id)
         with self._lease_lock:
             if normalized_session_id in self._leased_session_ids:
                 raise SessionLeaseConflict(
@@ -70,7 +78,9 @@ class TranscriptStore(object):
     ) -> Dict[str, Any]:
         if schema_version != 2:
             raise ValueError("transcript events must use schema_version 2")
-        path = self.resolve_transcript_path(session_id)
+        normalized_session_id = _require_session_id(session_id)
+        stored_payload = deepcopy(payload or {})
+        path = self.resolve_transcript_path(normalized_session_id)
         directory = os.path.dirname(path)
         append_lock = self._lock_for_path(path)
         with append_lock:
@@ -80,13 +90,13 @@ class TranscriptStore(object):
             seq = self._next_seq(path)
             event = {
                 "schema_version": 2,
-                "session_id": session_id,
+                "session_id": normalized_session_id,
                 "event_id": event_id or ("evt-" + uuid.uuid4().hex[:12]),
                 "seq": seq,
                 "ts": ts or _utc_now(),
                 "type": event_type,
-                "parent_message_id": payload.get("parent_message_id", ""),
-                "payload": dict(payload or {}),
+                "parent_message_id": stored_payload.get("parent_message_id", ""),
+                "payload": stored_payload,
             }
             line = json.dumps(event, ensure_ascii=False, sort_keys=True)
             with open(path, "a", encoding="utf-8", newline="\n") as handle:
@@ -95,26 +105,30 @@ class TranscriptStore(object):
                 os.fsync(handle.fileno())
             normalized = os.path.realpath(path)
             cached_events, valid_length, file_size = self._scan_cache.get(normalized, ([], 0, 0))
-            updated_events = list(cached_events)
-            updated_events.append(event)
+            updated_events = deepcopy(cached_events)
+            updated_events.append(deepcopy(event))
             written_size = len((line + "\n").encode("utf-8"))
             self._scan_cache[normalized] = (
                 updated_events,
                 valid_length + written_size,
                 file_size + written_size,
             )
-            return event
+            return deepcopy(event)
 
     def load_events(self, reference: str) -> List[Dict[str, Any]]:
-        path = self.resolve_transcript_path(reference)
+        normalized_reference = _require_session_id(reference)
+        path = self.resolve_transcript_path(normalized_reference)
         if not os.path.isfile(path):
-            raise ValueError("transcript not found: %s" % reference)
+            raise ValueError("transcript not found: %s" % normalized_reference)
         events, _ = self._scan_events(path)
-        return list(events)
+        return deepcopy(events)
 
     def transcript_exists(self, reference: str) -> bool:
+        normalized_reference = str(reference or "").strip()
+        if not normalized_reference:
+            return False
         try:
-            path = self.resolve_transcript_path(reference)
+            path = self.resolve_transcript_path(normalized_reference)
         except ValueError:
             return False
         return os.path.isfile(path)
@@ -160,7 +174,7 @@ class TranscriptStore(object):
             return
         with open(path, "rb+") as handle:
             handle.truncate(valid_length)
-        self._scan_cache[normalized] = (events, valid_length, valid_length)
+        self._scan_cache[normalized] = (deepcopy(events), valid_length, valid_length)
 
     def validate_transcript_chain(self, reference: str) -> Dict[str, Any]:
         """Validate parent chain integrity of a transcript.
@@ -239,5 +253,5 @@ class TranscriptStore(object):
                 events.append(event)
                 last_seq = seq
                 valid_length = next_offset
-        self._scan_cache[normalized] = (list(events), valid_length, file_size)
+        self._scan_cache[normalized] = (deepcopy(events), valid_length, file_size)
         return events, valid_length

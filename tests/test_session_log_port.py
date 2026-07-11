@@ -2,12 +2,20 @@ from datetime import datetime
 
 import pytest
 
+from embedagent.transcript_store import TranscriptStore
 from embedagent_core import session_log
 from embedagent_core.session_log import SessionLeaseConflict
 
 
 def _new_log():
     return session_log.InMemorySessionLog()
+
+
+@pytest.fixture(params=("memory", "transcript"))
+def session_log_implementation(request, tmp_path):
+    if request.param == "memory":
+        return session_log.InMemorySessionLog()
+    return TranscriptStore(str(tmp_path / "workspace"))
 
 
 def test_same_session_cannot_hold_overlapping_leases():
@@ -81,3 +89,38 @@ def test_append_rejects_non_schema_v2_events():
 
     with pytest.raises(ValueError, match="schema_version 2"):
         log.append_event("session-one", "message", {}, schema_version=1)
+
+
+def test_session_log_implementations_isolate_input_payload(session_log_implementation):
+    payload = {"nested": {"values": ["original"]}}
+
+    appended = session_log_implementation.append_event("session-one", "message", payload)
+    payload["nested"]["values"].append("mutated")
+
+    assert appended["payload"]["nested"]["values"] == ["original"]
+    loaded = session_log_implementation.load_events("session-one")
+    assert loaded[0]["payload"]["nested"]["values"] == ["original"]
+
+
+def test_session_log_implementations_reject_blank_session_ids(session_log_implementation):
+    with pytest.raises(ValueError, match="^session_id is required$"):
+        session_log_implementation.append_event(" \t ", "message", {})
+    with pytest.raises(ValueError, match="^session_id is required$"):
+        session_log_implementation.load_events(" \t ")
+    with pytest.raises(ValueError, match="^session_id is required$"):
+        with session_log_implementation.acquire_lease(" \t "):
+            pass
+
+    assert session_log_implementation.transcript_exists(" \t ") is False
+
+
+def test_session_log_implementations_normalize_session_ids(session_log_implementation):
+    appended = session_log_implementation.append_event(" session-one ", "message", {})
+
+    assert appended["session_id"] == "session-one"
+    assert session_log_implementation.transcript_exists(" session-one ") is True
+    assert session_log_implementation.load_events(" session-one ")[0]["seq"] == 1
+    with session_log_implementation.acquire_lease(" session-one "):
+        with pytest.raises(SessionLeaseConflict):
+            with session_log_implementation.acquire_lease("session-one"):
+                pass

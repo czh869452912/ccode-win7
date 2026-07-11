@@ -83,6 +83,31 @@ class TestTranscriptStore(unittest.TestCase):
         self.assertEqual(events[0]["type"], "session_meta")
         self.assertEqual(events[1]["payload"]["content"], "continue")
 
+    def test_returned_events_cannot_corrupt_cache_or_durable_sequence(self):
+        store = TranscriptStore(self.workspace)
+        appended = store.append_event(
+            "sess-cache-isolation",
+            "message",
+            {"nested": {"values": ["original"]}},
+        )
+        appended["seq"] = 100
+        appended["payload"]["nested"]["values"].append("append-return-mutated")
+
+        loaded = store.load_events("sess-cache-isolation")
+        loaded[0]["seq"] = 200
+        loaded[0]["payload"]["nested"]["values"].append("load-return-mutated")
+
+        second = store.append_event("sess-cache-isolation", "message", {"content": "second"})
+        self.assertEqual(second["seq"], 2)
+        cached_events = store.load_events("sess-cache-isolation")
+        self.assertEqual([event["seq"] for event in cached_events], [1, 2])
+        self.assertEqual(cached_events[0]["payload"]["nested"]["values"], ["original"])
+
+        reopened = TranscriptStore(self.workspace)
+        durable_events = reopened.load_events("sess-cache-isolation")
+        self.assertEqual([event["seq"] for event in durable_events], [1, 2])
+        self.assertEqual(durable_events[0]["payload"]["nested"]["values"], ["original"])
+
     def test_load_events_ignores_damaged_tail(self):
         store = TranscriptStore(self.workspace)
         store.append_event("sess-tail", "session_meta", {"current_mode": "debug"})

@@ -38,6 +38,13 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+def _require_session_id(session_id: str) -> str:
+    normalized_session_id = str(session_id or "").strip()
+    if not normalized_session_id:
+        raise ValueError("session_id is required")
+    return normalized_session_id
+
+
 class InMemorySessionLog(object):
     def __init__(self) -> None:
         self._lock = threading.RLock()
@@ -55,7 +62,7 @@ class InMemorySessionLog(object):
     ) -> Dict[str, Any]:
         if schema_version != 2:
             raise ValueError("transcript events must use schema_version 2")
-        normalized_session_id = str(session_id or "")
+        normalized_session_id = _require_session_id(session_id)
         stored_payload = deepcopy(payload or {})
         with self._lock:
             events = self._events.setdefault(normalized_session_id, [])
@@ -73,16 +80,20 @@ class InMemorySessionLog(object):
             return deepcopy(event)
 
     def transcript_exists(self, session_id: str) -> bool:
+        normalized_session_id = str(session_id or "").strip()
+        if not normalized_session_id:
+            return False
         with self._lock:
-            return bool(self._events.get(str(session_id or "")))
+            return bool(self._events.get(normalized_session_id))
 
     def load_events(self, session_id: str) -> List[Dict[str, Any]]:
+        normalized_session_id = _require_session_id(session_id)
         with self._lock:
-            return deepcopy(self._events.get(str(session_id or ""), []))
+            return deepcopy(self._events.get(normalized_session_id, []))
 
     @contextmanager
     def acquire_lease(self, session_id: str) -> Any:
-        normalized_session_id = str(session_id or "")
+        normalized_session_id = _require_session_id(session_id)
         with self._lock:
             if normalized_session_id in self._leased_session_ids:
                 raise SessionLeaseConflict(
