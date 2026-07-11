@@ -42,6 +42,21 @@ class FakeModel(ModelClient):
         return reply
 
 
+class BlockingModel(FakeModel):
+    def __init__(self):
+        super(BlockingModel, self).__init__()
+        self.entered = threading.Event()
+        self.release = threading.Event()
+
+    def generate(self, messages, tools=None):
+        del messages, tools
+        self.calls += 1
+        self.entered.set()
+        if not self.release.wait(5):
+            raise RuntimeError("blocking model was not released")
+        return AssistantReply(content="done", actions=[], finish_reason="stop")
+
+
 class NoopToolRuntime(object):
     workspace = ""
 
@@ -107,16 +122,20 @@ class RecordingObserver(object):
 
 
 @pytest.fixture
-def base_runtime():
+def base_ports():
     session_log = InMemorySessionLog()
-    ports = AgentPorts(
+    return AgentPorts(
         model=FakeModel(),
         tools=NoopToolRuntime(),
         session_log=session_log,
         context=NoopContextAssembler(),
         permissions=PermissionPolicy(),
     )
-    return AgentRuntime(ports, RuntimeDefinition()), session_log
+
+
+@pytest.fixture
+def base_runtime(base_ports):
+    return AgentRuntime(base_ports, RuntimeDefinition()), base_ports.session_log
 
 
 def test_standalone_agent_core_public_symbols_are_available():
@@ -147,6 +166,139 @@ def test_standalone_agent_core_public_symbols_are_available():
     )
 
     assert all(symbol is not None for symbol in public_symbols)
+
+
+def test_agent_facade_submits_and_restores_multiple_turns(base_ports):
+    from embedagent_core import Agent
+
+    session = Agent.create(base_ports).open("session-1")
+
+    first = session.submit(UserTurn("hello", stream=False))
+    second = session.submit(UserTurn("continue", stream=False))
+
+    assert first.final_text == "done"
+    assert first.termination_reason == "completed"
+    assert second.session.message_count > first.session.message_count
+    assert second.session.turn_count > first.session.turn_count
+
+
+def test_agent_open_generates_distinct_session_ids_without_touching_log(base_ports):
+    from embedagent_core import Agent
+
+    agent = Agent.create(base_ports)
+
+    first = agent.open()
+    second = agent.open(" \t ")
+
+    assert first.session_id.startswith("s-")
+    assert second.session_id.startswith("s-")
+    assert first.session_id != second.session_id
+    assert not base_ports.session_log.transcript_exists(first.session_id)
+    assert not base_ports.session_log.transcript_exists(second.session_id)
+
+
+def test_agent_open_trims_explicit_session_id(base_ports):
+    from embedagent_core import Agent
+
+    session = Agent.create(base_ports).open("  Session-One  ")
+
+    assert session.session_id == "Session-One"
+
+
+def test_agent_open_rejects_non_string_session_id(base_ports):
+    from embedagent_core import Agent
+
+    with pytest.raises(TypeError, match="^session id must be a string$"):
+        Agent.create(base_ports).open(123)
+
+
+def test_agent_session_rejects_overlapping_local_submit_and_recovers(base_ports):
+    from embedagent_core import Agent
+    from embedagent_core.session_log import SessionLeaseConflict
+
+    session = Agent.create(base_ports).open("session-local-lock")
+    assert session._submit_lock.acquire(blocking=False)
+    try:
+        with pytest.raises(
+            SessionLeaseConflict,
+            match="^agent session already has an active submit$",
+        ):
+            session.submit(UserTurn("blocked", stream=False))
+    finally:
+        session._submit_lock.release()
+
+    result = session.submit(UserTurn("available", stream=False))
+
+    assert result.final_text == "done"
+
+
+def test_agent_sessions_share_one_bound_runtime_and_extension_manager(base_ports):
+    from embedagent_core import Agent
+
+    agent = Agent.create(base_ports)
+    first = agent.open("session-a")
+    second = agent.open("session-b")
+
+    assert first._runtime is agent._runtime
+    assert second._runtime is agent._runtime
+    assert first._runtime.extension_manager is second._runtime.extension_manager
+    assert first.submit(UserTurn("first", stream=False)).final_text == "done"
+    assert second.submit(UserTurn("second", stream=False)).final_text == "done"
+
+
+def test_agent_session_log_lease_rejects_same_session_across_handles():
+    from embedagent_core import Agent
+    from embedagent_core.session_log import SessionLeaseConflict
+
+    model = BlockingModel()
+    session_log = InMemorySessionLog()
+    ports = AgentPorts(
+        model=model,
+        tools=NoopToolRuntime(),
+        session_log=session_log,
+        context=NoopContextAssembler(),
+        permissions=PermissionPolicy(),
+    )
+    agent = Agent.create(ports)
+    first = agent.open("shared-session")
+    second = agent.open(" shared-session ")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        first_result = executor.submit(
+            first.submit,
+            UserTurn("first", stream=False),
+        )
+        assert model.entered.wait(2)
+        try:
+            with pytest.raises(SessionLeaseConflict):
+                second.submit(UserTurn("second", stream=False))
+        finally:
+            model.release.set()
+        result = first_result.result(timeout=5)
+
+    events = session_log.load_events("shared-session")
+    message_contents = [
+        event["payload"].get("content") for event in events if "content" in event["payload"]
+    ]
+    assert result.final_text == "done"
+    assert "first" in message_contents
+    assert "second" not in message_contents
+    assert [event["seq"] for event in events] == list(range(1, len(events) + 1))
+
+
+def test_agent_session_facade_preserves_runner_input_validation(base_ports):
+    from embedagent_core import Agent
+
+    with pytest.raises(TypeError, match="^unsupported agent input$"):
+        Agent.create(base_ports).open("session-1").submit(object())
+
+
+def test_agent_facade_keeps_runner_internals_out_of_package_root():
+    import embedagent_core
+
+    assert not hasattr(embedagent_core, "AgentRuntime")
+    assert not hasattr(embedagent_core, "AgentRequest")
+    assert not hasattr(embedagent_core, "run_agent")
 
 
 def test_user_turn_rejects_empty_text():

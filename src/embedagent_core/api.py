@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+import uuid
 from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Protocol, Tuple, Union
@@ -109,23 +111,52 @@ class AgentResult:
 
 
 class Agent(object):
+    def __init__(self, runtime: Any) -> None:
+        self._runtime = runtime
+
     @classmethod
     def create(
         cls,
         ports: AgentPorts,
         definition: Optional[RuntimeDefinition] = None,
     ) -> "Agent":
-        raise NotImplementedError
+        from embedagent_core.runner import AgentRuntime
+
+        runtime_definition = definition if definition is not None else RuntimeDefinition()
+        return cls(AgentRuntime(ports, runtime_definition))
 
     def open(self, session_id: str = "") -> "AgentSession":
-        raise NotImplementedError
+        if not isinstance(session_id, str):
+            raise TypeError("session id must be a string")
+        normalized_session_id = session_id.strip()
+        if not normalized_session_id:
+            normalized_session_id = "s-" + uuid.uuid4().hex[:12]
+        return AgentSession(self._runtime, normalized_session_id)
 
 
 class AgentSession(object):
+    def __init__(self, runtime: Any, session_id: str) -> None:
+        self._runtime = runtime
+        self.session_id = session_id
+        self._submit_lock = threading.Lock()
+
     def submit(
         self,
         input_value: AgentInput,
         observer: Optional[AgentObserver] = None,
         cancel: Optional[CancelToken] = None,
     ) -> AgentResult:
-        raise NotImplementedError
+        from embedagent_core.runner import AgentRequest, run_agent
+        from embedagent_core.session_log import SessionLeaseConflict
+
+        if not self._submit_lock.acquire(blocking=False):
+            raise SessionLeaseConflict("agent session already has an active submit")
+        try:
+            return run_agent(
+                self._runtime,
+                AgentRequest(self.session_id, input_value),
+                observer=observer,
+                cancel=cancel,
+            )
+        finally:
+            self._submit_lock.release()
