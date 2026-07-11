@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
 
@@ -189,6 +190,8 @@ class ExtensionManager(object):
         self._event_bus = AgentEventBus()
         self._package_manifest_capabilities = []  # type: List[Dict[str, Any]]
         self._context_reducer_capabilities = []  # type: List[Dict[str, Any]]
+        self._context_reducer_registration_lock = threading.RLock()
+        self._context_reducer_registrations = []  # type: List[Any]
         self._workspace_recipe_capabilities = []  # type: List[Dict[str, Any]]
         for extension in list(extensions or []):
             self.register(extension)
@@ -652,22 +655,30 @@ class ExtensionManager(object):
                         raise
 
     def register_context_reducers(self, reducer_registry: Any) -> None:
-        for entry in list(self._context_reducer_capabilities):
-            handler = entry["handler"]
-            extension_id = str(entry["source_id"] or "")
-            source = str(entry["source_type"] or "project")
-            try:
-                handler(reducer_registry)
-            except (RuntimeError, ValueError, TypeError, OSError) as exc:
-                self.record_diagnostic(
-                    extension_id,
-                    "register_context_reducers",
-                    str(exc),
-                    severity="error",
-                    source=source,
-                )
-                if bool(entry.get("fail_closed")):
-                    raise
+        with self._context_reducer_registration_lock:
+            for entry in list(self._context_reducer_capabilities):
+                if any(
+                    registered_registry is reducer_registry and registered_entry is entry
+                    for registered_registry, registered_entry in self._context_reducer_registrations
+                ):
+                    continue
+                handler = entry["handler"]
+                extension_id = str(entry["source_id"] or "")
+                source = str(entry["source_type"] or "project")
+                try:
+                    handler(reducer_registry)
+                except (RuntimeError, ValueError, TypeError, OSError) as exc:
+                    self.record_diagnostic(
+                        extension_id,
+                        "register_context_reducers",
+                        str(exc),
+                        severity="error",
+                        source=source,
+                    )
+                    if bool(entry.get("fail_closed")):
+                        raise
+                    continue
+                self._context_reducer_registrations.append((reducer_registry, entry))
 
     def before_tool_call(
         self,

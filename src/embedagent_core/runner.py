@@ -33,6 +33,15 @@ class AgentRequest:
     input: AgentInput
 
 
+class SessionRecoveryRequired(RuntimeError):
+    def __init__(self, session_id: str, stop_reason: str) -> None:
+        self.session_id = str(session_id or "")
+        self.stop_reason = str(stop_reason or "incomplete_transcript")
+        super(SessionRecoveryRequired, self).__init__(
+            "session recovery required for %s: %s" % (self.session_id, self.stop_reason)
+        )
+
+
 class AgentRuntime(object):
     def __init__(self, ports: AgentPorts, definition: RuntimeDefinition) -> None:
         self.ports = ports
@@ -185,7 +194,10 @@ def run_agent(
     session_log = runtime.ports.session_log
     with session_log.acquire_lease(session_id):
         if session_log.transcript_exists(session_id):
-            restored = SessionRestorer().restore(session_log.load_events(session_id))
+            events = session_log.load_events(session_id)
+            restored = SessionRestorer().restore(events)
+            if restored.stop_reason or restored.consumed_event_count != len(events):
+                raise SessionRecoveryRequired(session_id, restored.stop_reason)
             session = restored.session
             current_mode = restored.current_mode
         else:

@@ -75,6 +75,31 @@ class ManifestExtension(object):
         }
 
 
+class ContextReducerRegistrar(object):
+    builtin_extension = False
+
+    def __init__(self, extension_id, failures=0):
+        self.extension_id = extension_id
+        self.failures = failures
+        self.calls = 0
+
+    def extension_capabilities(self):
+        from embedagent_core.extensions import ExtensionCapability
+
+        return [
+            ExtensionCapability(
+                "register_context_reducers",
+                self.register_context_reducers,
+            )
+        ]
+
+    def register_context_reducers(self, registry):
+        del registry
+        self.calls += 1
+        if self.calls <= self.failures:
+            raise RuntimeError("context reducer registration failed")
+
+
 class ToolRuntimeBoundaryProbe(object):
     workspace = "."
     tool_result_store = None
@@ -657,6 +682,37 @@ def test_default_c_workflow_extension_registers_context_reducers(tmp_path):
     assert "task_status" in reducers._reducers
     assert "run_recipe" in reducers.high_priority_tool_names()
     assert "report_quality_v2" in reducers.high_priority_tool_names()
+
+
+def test_extension_manager_registers_new_context_reducer_capability_once():
+    from embedagent_core.extensions import ExtensionManager
+
+    first = ContextReducerRegistrar("first")
+    second = ContextReducerRegistrar("second")
+    registry = {}
+    manager = ExtensionManager([first])
+
+    manager.register_context_reducers(registry)
+    manager.register(second)
+    manager.register_context_reducers(registry)
+    manager.register_context_reducers(registry)
+
+    assert first.calls == 1
+    assert second.calls == 1
+
+
+def test_extension_manager_retries_failed_context_reducer_registration():
+    from embedagent_core.extensions import ExtensionManager
+
+    registrar = ContextReducerRegistrar("retry", failures=1)
+    registry = {}
+    manager = ExtensionManager([registrar])
+
+    manager.register_context_reducers(registry)
+    manager.register_context_reducers(registry)
+    manager.register_context_reducers(registry)
+
+    assert registrar.calls == 2
 
 
 def test_tool_runtime_no_longer_imports_harness_runtime_metadata():

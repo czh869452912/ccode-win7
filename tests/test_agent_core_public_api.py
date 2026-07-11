@@ -1,6 +1,9 @@
 from __future__ import unicode_literals
 
+import concurrent.futures
 import json
+import threading
+import time
 
 import pytest
 
@@ -16,8 +19,12 @@ from embedagent_core.turn_snapshot import TurnSnapshot
 
 
 class FakeModel(ModelClient):
+    def __init__(self):
+        self.calls = 0
+
     def generate(self, messages, tools=None):
         del messages, tools
+        self.calls += 1
         return AssistantReply(content="done", actions=[], finish_reason="stop")
 
     def stream(
@@ -28,6 +35,7 @@ class FakeModel(ModelClient):
         on_reasoning_delta=None,
     ):
         del messages, tools, on_reasoning_delta
+        self.calls += 1
         reply = AssistantReply(content="done", actions=[], finish_reason="stop")
         if on_text_delta is not None:
             on_text_delta(reply.content)
@@ -49,6 +57,41 @@ class CountingExtension(object):
     def extension_capabilities(self):
         self.assembly_count += 1
         return []
+
+
+class ContextReducerRegistrarExtension(object):
+    def __init__(self):
+        self.calls = 0
+        self._lock = threading.Lock()
+
+    def extension_capabilities(self):
+        from embedagent_core.extensions import ExtensionCapability
+
+        return [
+            ExtensionCapability(
+                "register_context_reducers",
+                self.register_context_reducers,
+            )
+        ]
+
+    def register_context_reducers(self, registry):
+        del registry
+        with self._lock:
+            self.calls += 1
+            call_number = self.calls
+        time.sleep(0.02)
+        if call_number > 1:
+            raise RuntimeError("context reducers registered more than once")
+
+
+class BuildCountingAgentRuntime(AgentRuntime):
+    def __init__(self, ports, definition):
+        super(BuildCountingAgentRuntime, self).__init__(ports, definition)
+        self.build_count = 0
+
+    def build_engine(self):
+        self.build_count += 1
+        return super(BuildCountingAgentRuntime, self).build_engine()
 
 
 class RecordingObserver(object):
@@ -312,6 +355,52 @@ def test_run_agent_restores_and_appends_multiple_turns(base_runtime):
     assert len(session_log.load_events("session-1")) > first_event_count
 
 
+def test_run_agent_rejects_incomplete_trusted_prefix_before_engine_build(base_runtime):
+    from embedagent_core.runner import SessionRecoveryRequired
+
+    runtime, session_log = base_runtime
+    guarded_runtime = BuildCountingAgentRuntime(runtime.ports, runtime.definition)
+    session_id = "session-invalid"
+    session_log.append_event(session_id, "session_meta", {"current_mode": ""})
+    session_log.append_event(
+        session_id,
+        "message",
+        {
+            "role": "user",
+            "content": "first",
+            "message_id": "message-1",
+            "turn_id": "turn-duplicate",
+            "step_id": "",
+        },
+    )
+    session_log.append_event(
+        session_id,
+        "message",
+        {
+            "role": "user",
+            "content": "duplicate",
+            "message_id": "message-2",
+            "turn_id": "turn-duplicate",
+            "step_id": "",
+        },
+    )
+    event_count = len(session_log.load_events(session_id))
+
+    with pytest.raises(SessionRecoveryRequired) as captured:
+        run_agent(
+            guarded_runtime,
+            AgentRequest(session_id, UserTurn("continue", stream=False)),
+        )
+
+    assert captured.value.session_id == session_id
+    assert captured.value.stop_reason == "duplicate_turn_id"
+    assert session_id in str(captured.value)
+    assert "duplicate_turn_id" in str(captured.value)
+    assert len(session_log.load_events(session_id)) == event_count
+    assert runtime.ports.model.calls == 0
+    assert guarded_runtime.build_count == 0
+
+
 def test_run_agent_rejects_mismatched_interaction_without_appending(base_runtime):
     runtime, session_log = base_runtime
     session_id = "session-pending"
@@ -395,6 +484,27 @@ def test_agent_runtime_reuses_extension_manager_and_assembles_extensions_once():
     assert first is not second
     assert first.extension_manager is second.extension_manager
     assert extension.assembly_count == 1
+
+
+def test_agent_runtime_registers_context_reducers_once_across_concurrent_builds():
+    extension = ContextReducerRegistrarExtension()
+    ports = AgentPorts(
+        model=FakeModel(),
+        tools=NoopToolRuntime(),
+        session_log=InMemorySessionLog(),
+        context=NoopContextAssembler(),
+        permissions=PermissionPolicy(),
+    )
+    runtime = AgentRuntime(
+        ports,
+        RuntimeDefinition(extensions=(extension,)),
+    )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        engines = list(executor.map(lambda _index: runtime.build_engine(), range(2)))
+
+    assert len(engines) == 2
+    assert extension.calls == 1
 
 
 def test_run_agent_observer_receives_detached_json_safe_events(base_runtime):
