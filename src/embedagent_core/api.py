@@ -4,8 +4,9 @@ import threading
 import uuid
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Protocol, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Protocol, Tuple, Union
 
+from embedagent_core.extensions import ExtensionManager
 from embedagent_core.model import ModelClient
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.policies import (
@@ -65,12 +66,29 @@ AgentInput = Union[UserTurn, InteractionReply]
 
 
 @dataclass(frozen=True)
+class AgentRuntimeServices:
+    max_turns: Optional[int] = None
+    summary_store: Any = None
+    project_memory_store: Any = None
+    memory_maintenance: Any = None
+    maintenance_interval: int = 4
+    intelligence_broker: Any = None
+    tool_commit: Any = None
+    workspace_profile: Any = None
+    remembered_permission_categories_provider: Optional[Callable[[Any], list]] = None
+    workflow_state_provider: Optional[Callable[[str], str]] = None
+    restore_best_effort_provider: Optional[Callable[[str], bool]] = None
+
+
+@dataclass(frozen=True)
 class AgentPorts:
     model: ModelClient
     tools: ToolRuntimePort
     session_log: SessionLogPort
     context: ContextAssemblerPort
     permissions: PermissionPolicy
+    runtime_services: Optional[AgentRuntimeServices] = None
+    extension_manager: Optional[ExtensionManager] = None
 
 
 @dataclass(frozen=True)
@@ -129,7 +147,17 @@ class Agent(object):
         for port_name in ("model", "tools", "session_log", "context", "permissions"):
             if getattr(ports, port_name) is None:
                 raise ValueError("agent port %s is required" % port_name)
+        if ports.runtime_services is not None and not isinstance(
+            ports.runtime_services,
+            AgentRuntimeServices,
+        ):
+            raise TypeError("runtime services must be AgentRuntimeServices")
         runtime_definition = definition if definition is not None else RuntimeDefinition()
+        if ports.extension_manager is not None and not isinstance(
+            ports.extension_manager,
+            ExtensionManager,
+        ):
+            raise TypeError("extension manager must be ExtensionManager")
         return cls(AgentRuntime(ports, runtime_definition))
 
     def open(self, session_id: str = "") -> "AgentSession":
@@ -146,6 +174,7 @@ class AgentSession(object):
         self._runtime = runtime
         self._session_id = normalize_session_id(session_id)
         self._submit_lock = threading.Lock()
+        self._host_result_state = threading.local()
 
     @property
     def session_id(self) -> str:
@@ -157,17 +186,69 @@ class AgentSession(object):
         observer: Optional[AgentObserver] = None,
         cancel: Optional[CancelToken] = None,
     ) -> AgentResult:
-        from embedagent_core.runner import AgentRequest, run_agent
+        from embedagent_core.runner import AgentRequest, run_agent_with_state
         from embedagent_core.session_log import SessionLeaseConflict
 
         if not self._submit_lock.acquire(blocking=False):
             raise SessionLeaseConflict("agent session already has an active submit")
         try:
-            return run_agent(
+            host_result = run_agent_with_state(
                 self._runtime,
                 AgentRequest(self.session_id, input_value),
                 observer=observer,
                 cancel=cancel,
             )
+            self._host_result_state.value = host_result
+            return host_result.public_result
         finally:
             self._submit_lock.release()
+
+    def _host_last_result(self) -> Any:
+        return getattr(self._host_result_state, "value", None)
+
+    def _host_initialize_session(
+        self,
+        session: Any,
+        current_mode: str,
+        workflow_state: str,
+    ) -> str:
+        return self._runtime.host_initialize_session(
+            self.session_id,
+            session,
+            current_mode,
+            workflow_state,
+        )
+
+    def _host_apply_mode(self, session: Any, mode: str, workflow_state: str) -> str:
+        return self._runtime.host_apply_mode(
+            self.session_id,
+            session,
+            mode,
+            workflow_state,
+        )
+
+    def _host_record_command_result(self, session: Any, **kwargs: Any) -> None:
+        self._runtime.host_record_command_result(self.session_id, session, **kwargs)
+
+    def _host_record_pending_permission(
+        self,
+        session: Any,
+        action: Any,
+        permission_payload: Dict[str, Any],
+        current_mode: str,
+        interaction_id: str = "",
+    ) -> None:
+        self._runtime.host_record_pending_permission(
+            self.session_id,
+            session,
+            action,
+            permission_payload,
+            current_mode,
+            interaction_id=interaction_id,
+        )
+
+    def _host_submit_command_turn(self, **kwargs: Any) -> Any:
+        return self._runtime.host_submit_command_turn(self.session_id, **kwargs)
+
+    def _host_resume_command_interaction(self, **kwargs: Any) -> Any:
+        return self._runtime.host_resume_command_interaction(self.session_id, **kwargs)

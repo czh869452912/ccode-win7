@@ -3039,6 +3039,39 @@ class TestQueryEngineRefactor(unittest.TestCase):
             tool_result["payload"].get("message_id"),
         )
 
+    def test_tool_commit_failure_falls_back_to_replayable_tool_result(self):
+        class FailingToolCommit(object):
+            persists_transcript = True
+
+            def commit(self, *args, **kwargs):
+                del args, kwargs
+                raise OSError("commit unavailable")
+
+        session = Session()
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+            tool_commit=FailingToolCommit(),
+        )
+
+        result = engine.submit_user_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+        events = transcript_store.load_events(session.session_id)
+        tool_results = [item for item in events if item["type"] == "tool_result"]
+        restored = SessionRestorer().restore(events)
+
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertEqual(len(tool_results), 1)
+        self.assertEqual(restored.stop_reason, "")
+        self.assertEqual(restored.consumed_event_count, len(events))
+
     def test_query_engine_on_step_start_receives_engine_step_id(self):
         transcript_store = TranscriptStore(self.workspace)
         engine = QueryEngine(

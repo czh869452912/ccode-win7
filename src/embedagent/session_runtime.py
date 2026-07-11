@@ -16,7 +16,7 @@ def _utc_now() -> str:
 class ManagedSession(object):
     session: Session
     current_mode: str
-    engine: Any = None
+    agent_session: Any = None
     status: str = "idle"
     workflow_state: str = ""
     active_plan_ref: str = ""
@@ -37,6 +37,7 @@ class ManagedSession(object):
     restore_stop_reason: str = ""
     restore_consumed_event_count: int = 0
     restore_transcript_event_count: int = 0
+    allow_best_effort_restore: bool = False
     operation_diagnostics: Dict[str, Any] = field(default_factory=dict)
     runtime_config: Dict[str, Any] = field(default_factory=dict)
     compaction_state: Dict[str, Any] = field(default_factory=dict)

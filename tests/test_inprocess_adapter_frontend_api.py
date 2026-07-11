@@ -674,14 +674,14 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("task_items", projected)
         self.assertIn("current_phase", projected)
 
-    def test_adapter_reuses_one_engine_per_session(self):
+    def test_adapter_reuses_one_agent_session_handle_per_session(self):
         state = self.adapter._sessions[self.snapshot["session_id"]]
-        first_engine = state.engine
+        first_handle = state.agent_session
 
         self.adapter.submit_user_message(self.snapshot["session_id"], "first turn", wait=True)
         self.adapter.submit_user_message(self.snapshot["session_id"], "second turn", wait=True)
 
-        self.assertIs(state.engine, first_engine)
+        self.assertIs(state.agent_session, first_handle)
 
     def test_session_bootstrap_uses_history_without_timeline_api(self):
         self.adapter.submit_user_message(
@@ -878,32 +878,89 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         )
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
-        state = adapter._require_session(session_id)
-        with state.lock:
-            session = state.session
-            for index in range(5):
-                session.add_user_message("old user %s %s" % (index, "u" * 400))
-                session.add_assistant_reply(
-                    AssistantReply(
-                        content="old assistant %s %s" % (index, "a" * 300),
-                        actions=[],
-                        finish_reason="stop",
-                    )
-                )
-                session.add_observation(
-                    Action("read_file", {"path": "src/pkg/demo.c"}, "read-old-%s" % index),
-                    Observation(
-                        "read_file",
-                        True,
-                        None,
+        for index in range(5):
+            turn_id = "old-turn-%s" % index
+            step_id = "old-step-%s" % index
+            call_id = "read-old-%s" % index
+            adapter.transcript_store.append_event(
+                session_id,
+                "message",
+                {
+                    "role": "user",
+                    "content": "old user %s %s" % (index, "u" * 400),
+                    "message_id": "old-user-%s" % index,
+                    "turn_id": turn_id,
+                    "step_id": "",
+                },
+            )
+            adapter.transcript_store.append_event(
+                session_id,
+                "step_started",
+                {"turn_id": turn_id, "step_id": step_id, "step_index": 1},
+            )
+            adapter.transcript_store.append_event(
+                session_id,
+                "message",
+                {
+                    "role": "assistant",
+                    "content": "old assistant %s %s" % (index, "a" * 300),
+                    "message_id": "old-assistant-%s" % index,
+                    "turn_id": turn_id,
+                    "step_id": step_id,
+                    "actions": [
                         {
+                            "name": "read_file",
+                            "arguments": {"path": "src/pkg/demo.c"},
+                            "call_id": call_id,
+                        }
+                    ],
+                    "finish_reason": "tool_calls",
+                },
+            )
+            adapter.transcript_store.append_event(
+                session_id,
+                "tool_call",
+                {
+                    "turn_id": turn_id,
+                    "step_id": step_id,
+                    "call_id": call_id,
+                    "tool_name": "read_file",
+                    "arguments": {"path": "src/pkg/demo.c"},
+                    "status": "started",
+                },
+            )
+            adapter.transcript_store.append_event(
+                session_id,
+                "tool_result",
+                {
+                    "turn_id": turn_id,
+                    "step_id": step_id,
+                    "call_id": call_id,
+                    "tool_name": "read_file",
+                    "observation": {
+                        "success": True,
+                        "error": None,
+                        "data": {
                             "path": "src/pkg/demo.c",
                             "content": "int demo(void) {\n%s\n}\n" % ("x" * 1200),
                             "content_stored_path": ".embedagent/memory/sessions/%s/tool-results/demo-%s/content.txt"
                             % (session_id, index),
                         },
-                    ),
-                )
+                    },
+                },
+            )
+            adapter.transcript_store.append_event(
+                session_id,
+                "loop_transition",
+                {
+                    "turn_id": turn_id,
+                    "step_id": step_id,
+                    "reason": "completed",
+                    "message": "",
+                    "next_mode": "build",
+                    "turns_used": 1,
+                },
+            )
         adapter.submit_user_message(
             session_id=session_id,
             text="继续分析",

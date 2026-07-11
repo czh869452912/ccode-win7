@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.context import ContextManager
 from embedagent.transcript_store import TranscriptStore
+from embedagent_core.session import Session
 from embedagent_core.session_restore import SessionRestorer
 
 _COUNTER = count(1)
@@ -407,6 +408,25 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(result.stop_reason, "message_parent_missing")
         self.assertEqual(result.consumed_event_count, 1)
         self.assertEqual(result.session.messages, [])
+
+    def test_seen_compacted_parent_remains_a_valid_ledger_anchor(self):
+        session = Session(session_id="sess-compacted-parent")
+        seen_message_ids = {"m-compacted"}
+
+        error = SessionRestorer()._apply_message(
+            session,
+            {
+                "role": "system",
+                "content": "continued after compacted history",
+                "message_id": "m-next",
+                "parent_message_id": "m-compacted",
+            },
+            set(),
+            seen_message_ids,
+        )
+
+        self.assertEqual(error, "")
+        self.assertEqual(session.messages[-1].parent_message_id, "m-compacted")
 
     def test_restore_preserves_pending_interaction(self):
         session_id = "sess-pending"

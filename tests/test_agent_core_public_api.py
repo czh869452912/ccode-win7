@@ -16,6 +16,7 @@ from embedagent_core.query_engine import QueryEngine
 from embedagent_core.runner import AgentRequest, AgentRuntime, run_agent
 from embedagent_core.session import Action, AssistantReply, PendingInteraction, Session
 from embedagent_core.session_log import InMemorySessionLog
+from embedagent_core.session_restore import SessionRestorer
 from embedagent_core.turn_snapshot import TurnSnapshot
 
 
@@ -280,6 +281,89 @@ def test_agent_create_rejects_invalid_binding_types(base_ports):
         Agent.create(object())
     with pytest.raises(TypeError, match="^definition must be RuntimeDefinition$"):
         Agent.create(base_ports, object())
+
+    invalid_services = AgentPorts(
+        model=base_ports.model,
+        tools=base_ports.tools,
+        session_log=base_ports.session_log,
+        context=base_ports.context,
+        permissions=base_ports.permissions,
+        runtime_services=object(),
+    )
+    with pytest.raises(TypeError, match="^runtime services must be AgentRuntimeServices$"):
+        Agent.create(invalid_services)
+
+    invalid_manager = AgentPorts(
+        model=base_ports.model,
+        tools=base_ports.tools,
+        session_log=base_ports.session_log,
+        context=base_ports.context,
+        permissions=base_ports.permissions,
+        extension_manager=object(),
+    )
+    with pytest.raises(TypeError, match="^extension manager must be ExtensionManager$"):
+        Agent.create(invalid_manager)
+
+
+def test_message_ledger_reanchors_ephemeral_parent_to_durable_ancestor(base_ports):
+    session_log = base_ports.session_log
+    session_log.append_event("session-parent", "session_meta", {"current_mode": ""})
+    session_log.append_event(
+        "session-parent",
+        "system",
+        {
+            "role": "system",
+            "content": "durable",
+            "message_id": "m-durable",
+            "parent_message_id": "",
+        },
+    )
+    session = SessionRestorer().restore(session_log.load_events("session-parent")).session
+    ephemeral = session.add_system_message("ephemeral")
+    session.add_user_message("hello", turn_id="t-parent")
+    user_message = session.messages[-1]
+    engine = QueryEngine(
+        client=base_ports.model,
+        tools=base_ports.tools,
+        transcript_store=session_log,
+    )
+
+    engine._append_message_event(session, engine._message_event_payload(user_message))
+    recorded = session_log.load_events("session-parent")[-1]["payload"]
+
+    assert ephemeral.parent_message_id == "m-durable"
+    assert user_message.parent_message_id == ephemeral.message_id
+    assert recorded["parent_message_id"] == "m-durable"
+
+
+def test_message_ledger_preserves_known_cross_turn_parent(base_ports):
+    session_log = base_ports.session_log
+    session_log.append_event("session-cross-turn", "session_meta", {"current_mode": ""})
+    session_log.append_event(
+        "session-cross-turn",
+        "user",
+        {
+            "role": "user",
+            "content": "first",
+            "message_id": "m-first",
+            "parent_message_id": "",
+            "turn_id": "t-first",
+        },
+    )
+    session = SessionRestorer().restore(session_log.load_events("session-cross-turn")).session
+    message = session.add_system_message("next", parent_message_id="m-first")
+    engine = QueryEngine(
+        client=base_ports.model,
+        tools=base_ports.tools,
+        transcript_store=session_log,
+    )
+
+    engine._append_message_event(session, engine._message_event_payload(message))
+
+    assert (
+        session_log.load_events("session-cross-turn")[-1]["payload"]["parent_message_id"]
+        == "m-first"
+    )
 
 
 @pytest.mark.parametrize(

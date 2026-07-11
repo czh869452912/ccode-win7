@@ -12,6 +12,8 @@ _LOG = logging.getLogger(__name__)
 
 
 class ToolCommitCoordinator(object):
+    persists_transcript = True
+
     def __init__(self, tool_result_store, projection_db, transcript_store) -> None:
         self._tool_result_store = tool_result_store
         self._projection_db = projection_db

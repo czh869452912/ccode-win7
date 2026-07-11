@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import threading
+from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterator, Optional
 
 from embedagent_core.api import (
     AgentInput,
     AgentObserver,
     AgentPorts,
     AgentResult,
+    AgentRuntimeServices,
     AgentSessionView,
     CancelToken,
     InteractionReply,
@@ -33,6 +36,14 @@ class AgentRequest:
     input: AgentInput
 
 
+@dataclass(frozen=True)
+class AgentRunState:
+    public_result: AgentResult
+    query_result: QueryTurnResult
+    current_mode: str
+    turn_snapshot: Any
+
+
 class SessionRecoveryRequired(RuntimeError):
     def __init__(self, session_id: str, stop_reason: str) -> None:
         self.session_id = str(session_id or "")
@@ -46,20 +57,137 @@ class AgentRuntime(object):
     def __init__(self, ports: AgentPorts, definition: RuntimeDefinition) -> None:
         self.ports = ports
         self.definition = definition
-        self.extension_manager = ExtensionManager(list(definition.extensions))
+        self.extension_manager = ports.extension_manager or ExtensionManager(
+            list(definition.extensions)
+        )
+        self._host_lease_state = threading.local()
+
+    def _services(self) -> AgentRuntimeServices:
+        services = self.ports.runtime_services
+        if services is None:
+            return AgentRuntimeServices()
+        if not isinstance(services, AgentRuntimeServices):
+            raise TypeError("runtime services must be AgentRuntimeServices")
+        return services
 
     def build_engine(self) -> QueryEngine:
+        services = self._services()
         return QueryEngine(
             client=self.ports.model,
             tools=self.ports.tools,
+            max_turns=services.max_turns,
             permission_policy=self.ports.permissions,
             context_manager=self.ports.context,
+            summary_store=services.summary_store,
+            project_memory_store=services.project_memory_store,
+            memory_maintenance=services.memory_maintenance,
+            maintenance_interval=services.maintenance_interval,
+            intelligence_broker=services.intelligence_broker,
             transcript_store=self.ports.session_log,
             extension_manager=self.extension_manager,
+            remembered_permission_categories_provider=(
+                services.remembered_permission_categories_provider
+            ),
             mode_tool_policy=self.definition.mode_tool_policy,
             write_path_policy=self.definition.write_path_policy,
             mode_runtime_policy=self.definition.mode_runtime_policy,
+            tool_commit=services.tool_commit,
+            workspace_profile=services.workspace_profile,
         )
+
+    def workflow_state(self, session_id: str) -> str:
+        provider = self._services().workflow_state_provider
+        if callable(provider):
+            return str(provider(session_id) or self.definition.workflow_state or "")
+        return str(self.definition.workflow_state or "")
+
+    def restore_best_effort(self, session_id: str) -> bool:
+        provider = self._services().restore_best_effort_provider
+        return bool(provider(session_id)) if callable(provider) else False
+
+    @contextmanager
+    def _host_lease(self, session_id: str) -> Iterator[None]:
+        depths = getattr(self._host_lease_state, "depths", None)
+        if depths is None:
+            depths = {}
+            self._host_lease_state.depths = depths
+        depth = int(depths.get(session_id, 0) or 0)
+        if depth:
+            depths[session_id] = depth + 1
+            try:
+                yield
+            finally:
+                depths[session_id] -= 1
+            return
+        with self.ports.session_log.acquire_lease(session_id):
+            depths[session_id] = 1
+            try:
+                yield
+            finally:
+                depths.pop(session_id, None)
+
+    def host_initialize_session(
+        self,
+        session_id: str,
+        session: Session,
+        current_mode: str,
+        workflow_state: str,
+    ) -> str:
+        with self._host_lease(session_id):
+            return self.build_engine().initialize_session(
+                session,
+                current_mode,
+                workflow_state=workflow_state,
+            )
+
+    def host_apply_mode(
+        self,
+        session_id: str,
+        session: Session,
+        mode: str,
+        workflow_state: str,
+    ) -> str:
+        with self._host_lease(session_id):
+            return self.build_engine().apply_mode(
+                session,
+                mode,
+                workflow_state=workflow_state,
+            )
+
+    def host_record_command_result(
+        self,
+        session_id: str,
+        session: Session,
+        **kwargs: Any,
+    ) -> None:
+        with self._host_lease(session_id):
+            self.build_engine().record_command_result(session, **kwargs)
+
+    def host_record_pending_permission(
+        self,
+        session_id: str,
+        session: Session,
+        action: Action,
+        permission_payload: Dict[str, Any],
+        current_mode: str,
+        interaction_id: str = "",
+    ) -> None:
+        with self._host_lease(session_id):
+            self.build_engine().kernel.record_pending_permission(
+                session,
+                action,
+                permission_payload,
+                current_mode,
+                interaction_id=interaction_id,
+            )
+
+    def host_submit_command_turn(self, session_id: str, **kwargs: Any) -> Any:
+        with self._host_lease(session_id):
+            return self.build_engine().submit_command_turn(**kwargs)
+
+    def host_resume_command_interaction(self, session_id: str, **kwargs: Any) -> Any:
+        with self._host_lease(session_id):
+            return self.build_engine().resume_interaction(**kwargs)
 
 
 def _json_safe(value: Any) -> Any:
@@ -150,7 +278,8 @@ def _observer_callbacks(observer: Optional[AgentObserver]) -> Dict[str, Any]:
             },
         )
 
-    return {
+    callbacks = {}
+    fallback_callbacks = {
         "on_text_delta": on_text_delta,
         "on_reasoning_delta": on_reasoning_delta,
         "on_tool_start": on_tool_start,
@@ -159,6 +288,16 @@ def _observer_callbacks(observer: Optional[AgentObserver]) -> Dict[str, Any]:
         "on_step_start": on_step_start,
         "on_step_finish": on_step_finish,
     }
+    for callback_name, fallback in fallback_callbacks.items():
+        direct_callback = getattr(observer, callback_name, None)
+        callbacks[callback_name] = direct_callback if callable(direct_callback) else fallback
+    permission_handler = getattr(observer, "on_permission_request", None)
+    if callable(permission_handler):
+        callbacks["permission_handler"] = permission_handler
+    user_input_handler = getattr(observer, "on_user_input_request", None)
+    if callable(user_input_handler):
+        callbacks["user_input_handler"] = user_input_handler
+    return callbacks
 
 
 def _session_view(session: Session, current_mode: str) -> AgentSessionView:
@@ -183,19 +322,22 @@ def _result_pending_interaction(result: QueryTurnResult) -> Any:
     )
 
 
-def run_agent(
+def run_agent_with_state(
     runtime: AgentRuntime,
     request: AgentRequest,
     observer: Optional[AgentObserver] = None,
     cancel: Optional[CancelToken] = None,
-) -> AgentResult:
+) -> AgentRunState:
     session_id = str(request.session_id or "").strip()
     callbacks = _observer_callbacks(observer)
     session_log = runtime.ports.session_log
     with session_log.acquire_lease(session_id):
         if session_log.transcript_exists(session_id):
             events = session_log.load_events(session_id)
-            restored = SessionRestorer().restore(events)
+            restored = SessionRestorer().restore(
+                events,
+                best_effort=runtime.restore_best_effort(session_id),
+            )
             if restored.stop_reason or restored.consumed_event_count != len(events):
                 raise SessionRecoveryRequired(session_id, restored.stop_reason)
             session = restored.session
@@ -205,6 +347,7 @@ def run_agent(
             current_mode = runtime.definition.default_mode
 
         engine = runtime.build_engine()
+        workflow_state = runtime.workflow_state(session_id)
         input_value = request.input
         if isinstance(input_value, UserTurn):
             initial_mode = input_value.mode or current_mode
@@ -212,7 +355,7 @@ def run_agent(
                 user_text=input_value.text,
                 stream=input_value.stream,
                 initial_mode=initial_mode,
-                workflow_state=runtime.definition.workflow_state,
+                workflow_state=workflow_state,
                 session=session,
                 stop_event=cancel,
                 **callbacks,
@@ -226,7 +369,7 @@ def run_agent(
                 session=session,
                 initial_mode=initial_mode,
                 interaction_resolution=input_value.value,
-                workflow_state=runtime.definition.workflow_state,
+                workflow_state=workflow_state,
                 stream=input_value.stream,
                 stop_event=cancel,
                 **callbacks,
@@ -235,10 +378,30 @@ def run_agent(
             raise TypeError("unsupported agent input")
 
         result_mode = _result_mode(result, initial_mode)
-        return AgentResult(
+        public_result = AgentResult(
             final_text=result.final_text,
             session=_session_view(result.session, result_mode),
             termination_reason=result.transition.reason,
             pending_interaction=_result_pending_interaction(result),
             turn_snapshot=engine.last_turn_snapshot(),
         )
+        return AgentRunState(
+            public_result=public_result,
+            query_result=result,
+            current_mode=result_mode,
+            turn_snapshot=engine.last_turn_snapshot(),
+        )
+
+
+def run_agent(
+    runtime: AgentRuntime,
+    request: AgentRequest,
+    observer: Optional[AgentObserver] = None,
+    cancel: Optional[CancelToken] = None,
+) -> AgentResult:
+    return run_agent_with_state(
+        runtime,
+        request,
+        observer=observer,
+        cancel=cancel,
+    ).public_result

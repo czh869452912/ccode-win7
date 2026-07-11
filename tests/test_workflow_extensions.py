@@ -864,17 +864,16 @@ def test_inprocess_adapter_tool_catalog_uses_shared_extension_manager(tmp_path):
     assert "git_diff" in names
 
 
-def test_inprocess_adapter_passes_extension_manager_to_query_engine(tmp_path):
+def test_inprocess_adapter_passes_extension_manager_to_agent_runtime(tmp_path):
     from embedagent.tools import ToolRuntime
     from embedagent_host.inprocess_adapter import InProcessAdapter
 
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
-    engine = adapter._build_engine()
 
-    assert engine.extension_manager is adapter.extension_manager
+    assert adapter.agent._runtime.extension_manager is adapter.extension_manager
 
 
-def test_inprocess_adapter_session_engine_uses_shared_extension_manager(tmp_path):
+def test_inprocess_adapter_session_handle_uses_shared_extension_manager(tmp_path):
     from embedagent.tools import ToolRuntime
     from embedagent_host.inprocess_adapter import InProcessAdapter
 
@@ -883,7 +882,7 @@ def test_inprocess_adapter_session_engine_uses_shared_extension_manager(tmp_path
     session_id = str(snapshot.get("session_id") or "")
     state = adapter._require_session(session_id)
 
-    assert state.engine.extension_manager is adapter.extension_manager
+    assert state.agent_session._runtime.extension_manager is adapter.extension_manager
 
 
 def test_bare_query_engine_uses_empty_extension_host_without_c_harness(tmp_path):

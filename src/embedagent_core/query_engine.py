@@ -167,6 +167,7 @@ class QueryEngine(object):
         self._turn_snapshots = TurnSnapshotService()
         self._prompt_assembly = PromptAssemblyService()
         self._last_turn_snapshot = None  # type: Optional[TurnSnapshot]
+        self._durable_message_ids = {}  # type: Dict[str, set]
         self.kernel = AgentKernel(lifecycle=self.lifecycle)
         self.tool_commit = tool_commit or NoopToolCommitCoordinator()
         self.workspace_profile = workspace_profile or EmptyWorkspaceProfile()
@@ -243,9 +244,27 @@ class QueryEngine(object):
     ) -> None:
         if self.transcript_store is None:
             return
+        event_payload = dict(payload or {})
+        message_event_types = ("message", "user", "assistant", "system", "tool", "tool_result")
+        if event_type in message_event_types:
+            durable_ids = self._durable_message_ids_for(session)
+            parent_message_id = str(event_payload.get("parent_message_id") or "")
+            if parent_message_id and parent_message_id not in durable_ids:
+                event_payload["parent_message_id"] = self._durable_parent_message_id(
+                    session,
+                    parent_message_id,
+                    durable_ids,
+                )
         self.transcript_store.append_event(
-            session.session_id, event_type, payload, schema_version=schema_version
+            session.session_id,
+            event_type,
+            event_payload,
+            schema_version=schema_version,
         )
+        if event_type in message_event_types:
+            message_id = str(event_payload.get("message_id") or "")
+            if message_id:
+                durable_ids.add(message_id)
 
     def _emit_lifecycle_event(
         self, session: Session, event_type: str, payload: Dict[str, Any]
@@ -609,6 +628,55 @@ class QueryEngine(object):
     def _append_message_event(self, session: Session, payload: Dict[str, Any]) -> None:
         event_type = str(payload.get("role") or "message")
         self._append_transcript_event(session, event_type, payload)
+
+    def _durable_message_ids_for(self, session: Session) -> set:
+        session_id = str(session.session_id or "")
+        cached = self._durable_message_ids.get(session_id)
+        if cached is not None:
+            return cached
+        message_ids = set()
+        if self.transcript_store.transcript_exists(session_id):
+            for event in self.transcript_store.load_events(session_id):
+                event_type = str(event.get("type") or "")
+                if event_type not in (
+                    "message",
+                    "user",
+                    "assistant",
+                    "system",
+                    "tool",
+                    "tool_result",
+                ):
+                    continue
+                message_id = str(dict(event.get("payload") or {}).get("message_id") or "")
+                if message_id:
+                    message_ids.add(message_id)
+        self._durable_message_ids[session_id] = message_ids
+        return message_ids
+
+    def _durable_parent_message_id(
+        self,
+        session: Session,
+        parent_message_id: str,
+        durable_ids: set,
+    ) -> str:
+        candidate = str(parent_message_id or "")
+        visited = set()
+        while candidate and candidate not in visited:
+            if candidate in durable_ids:
+                return candidate
+            visited.add(candidate)
+            message = next(
+                (
+                    item
+                    for item in session.messages
+                    if str(getattr(item, "message_id", "") or "") == candidate
+                ),
+                None,
+            )
+            if message is None:
+                return ""
+            candidate = str(getattr(message, "parent_message_id", "") or "")
+        return ""
 
     def _tool_presentation_snapshot(self, tool_name: str) -> ToolPresentationSnapshot:
         lookup = getattr(self.tools, "tool_catalog_entry", None)
@@ -1094,8 +1162,17 @@ class QueryEngine(object):
         with self._session_guard():
             tool_message_id = "m-" + uuid.uuid4().hex[:12]
             parent_message_id = session.last_message_id()
+            durable_ids = self._durable_message_ids_for(session)
+            ledger_parent_message_id = parent_message_id
+            if parent_message_id and parent_message_id not in durable_ids:
+                ledger_parent_message_id = self._durable_parent_message_id(
+                    session,
+                    parent_message_id,
+                    durable_ids,
+                )
             finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             turn_id = session.turns[-1].turn_id if session.turns else ""
+            commit_succeeded = False
             try:
                 committed = self.tool_commit.commit(
                     session,
@@ -1105,9 +1182,10 @@ class QueryEngine(object):
                     turn_id=turn_id,
                     step_id=step_id,
                     message_id=tool_message_id,
-                    parent_message_id=parent_message_id,
+                    parent_message_id=ledger_parent_message_id,
                     finished_at=finished_at,
                 )
+                commit_succeeded = True
             except (OSError, ValueError, TypeError) as exc:
                 _LOG.warning(
                     "tool commit failed for %s/%s; falling back to in-memory pairing: %s",
@@ -1116,6 +1194,23 @@ class QueryEngine(object):
                     exc,
                 )
                 committed = self._fallback_committed_observation(observation, exc)
+            if bool(getattr(self.tool_commit, "persists_transcript", False)) and commit_succeeded:
+                self._durable_message_ids_for(session).add(tool_message_id)
+            else:
+                self._append_transcript_event(
+                    session,
+                    "tool_result",
+                    {
+                        "turn_id": turn_id,
+                        "step_id": step_id,
+                        "call_id": action.call_id,
+                        "tool_name": action.name,
+                        "message_id": tool_message_id,
+                        "parent_message_id": ledger_parent_message_id,
+                        "finished_at": finished_at,
+                        "observation": committed.to_dict(),
+                    },
+                )
             session.add_observation(
                 action,
                 committed,

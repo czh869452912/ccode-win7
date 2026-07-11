@@ -6,6 +6,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+from embedagent_core import Agent, AgentPorts, InteractionReply, RuntimeDefinition, UserTurn
+from embedagent_core.api import AgentRuntimeServices
 from embedagent_core.capabilities import (
     app_capability_payload,
     command_capability_descriptors,
@@ -61,7 +63,6 @@ from embedagent.services import (
     SessionLifecycleManager,
     WorkspaceFileService,
 )
-from embedagent_core.query_engine import QueryEngine
 from embedagent.skill_index import build_skill_index
 from embedagent.slash_commands import (
     SlashCommandRegistry,
@@ -140,6 +141,20 @@ def _should_emit_context_compacted(result: object) -> bool:
 
 PermissionResolver = Callable[[Dict[str, Any]], bool]
 UserInputResolver = Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]
+
+
+class _HostedTurnObserver(object):
+    def __init__(self, callbacks: Dict[str, Any]) -> None:
+        self._callbacks = dict(callbacks)
+
+    def on_event(self, event_type: str, payload: Dict[str, Any]) -> None:
+        del event_type, payload
+
+    def __getattr__(self, name: str) -> Any:
+        callback = self._callbacks.get(name)
+        if callback is None:
+            raise AttributeError(name)
+        return callback
 
 
 def _utc_now() -> str:
@@ -233,6 +248,7 @@ class InProcessAdapter(object):
             category_setter(self._tool_permission_category)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
+        self.agent = self._build_agent()
         self._event_emitter = EventEmitter()
         self._workspace_files = WorkspaceFileService(
             self.tools.workspace,
@@ -344,27 +360,54 @@ class InProcessAdapter(object):
         extensions = state.session.workflow_state.setdefault("extensions", {})
         extensions["project_extensions"] = self._project_extension_snapshot_state()
 
-    def _build_engine(self) -> QueryEngine:
-        return QueryEngine(
-            client=self.client,
-            tools=self.tools,
+    def _build_agent(self) -> Agent:
+        runtime_services = AgentRuntimeServices(
             max_turns=self.max_turns,
-            permission_policy=self.permission_policy,
-            context_manager=self.context_manager,
             summary_store=self.summary_store,
             project_memory_store=self.project_memory_store,
             memory_maintenance=self.memory_maintenance,
             maintenance_interval=self.maintenance_interval,
             intelligence_broker=self.intelligence_broker,
-            transcript_store=self.transcript_store,
             tool_commit=self.tool_commit,
             workspace_profile=self.workspace_profile,
-            extension_manager=self.extension_manager,
             remembered_permission_categories_provider=self._remembered_categories_for_session,
+            workflow_state_provider=self._workflow_state_for_session,
+            restore_best_effort_provider=self._restore_best_effort_for_session,
+        )
+        ports = AgentPorts(
+            model=self.client,
+            tools=self.tools,
+            session_log=self.transcript_store,
+            context=self.context_manager,
+            permissions=self.permission_policy,
+            runtime_services=runtime_services,
+            extension_manager=self.extension_manager,
+        )
+        definition = RuntimeDefinition(
+            agent_id=str(getattr(self.agent_application, "application_id", "") or "hosted"),
+            default_mode=self._mode_runtime_policy.default_mode(),
+            workflow_state="chat",
             mode_tool_policy=self._mode_tool_policy,
             write_path_policy=self._write_path_policy,
             mode_runtime_policy=self._mode_runtime_policy,
         )
+        return Agent.create(ports, definition)
+
+    def _workflow_state_for_session(self, session_id: str) -> str:
+        with self._lock:
+            state = self._sessions.get(session_id)
+        if state is None:
+            return "chat"
+        with state.lock:
+            return str(state.workflow_state or "chat")
+
+    def _restore_best_effort_for_session(self, session_id: str) -> bool:
+        with self._lock:
+            state = self._sessions.get(session_id)
+        if state is None:
+            return False
+        with state.lock:
+            return bool(state.allow_best_effort_restore)
 
     def _remembered_categories_for_session(self, session: Session) -> List[str]:
         with self._lock:
@@ -390,7 +433,7 @@ class InProcessAdapter(object):
             "reason": request.reason,
             "details": details,
         }
-        state.engine.kernel.record_pending_permission(
+        state.agent_session._host_record_pending_permission(
             state.session,
             action,
             permission_payload,
@@ -792,12 +835,12 @@ class InProcessAdapter(object):
             current_mode=current_mode,
             active_plan_ref=plan.path if plan is not None else "",
             workflow_state="plan" if plan is not None else "chat",
+            agent_session=self.agent.open(session.session_id),
         )
-        state.engine = self._build_engine()
-        state.current_mode = state.engine.initialize_session(
+        state.current_mode = state.agent_session._host_initialize_session(
             session,
             current_mode,
-            workflow_state=state.workflow_state,
+            state.workflow_state,
         )
         with self._lock:
             self._sessions[session.session_id] = state
@@ -837,6 +880,7 @@ class InProcessAdapter(object):
             session=session,
             current_mode=current_mode,
             workflow_state="chat",
+            agent_session=self.agent.open(session.session_id),
             summary_ref=summary_ref,
             updated_at=_utc_now(),
             resume_summary=None,
@@ -844,6 +888,7 @@ class InProcessAdapter(object):
             restore_stop_reason=str(restored.stop_reason or ""),
             restore_consumed_event_count=int(restored.consumed_event_count or 0),
             restore_transcript_event_count=int(restored.transcript_event_count or 0),
+            allow_best_effort_restore=bool(restored.stop_reason),
             operation_diagnostics=operation_diagnostics(restored.operation_state),
             compaction_state=restored.compaction_state.to_dict(),
             recovery_state=restored.recovery_state.to_dict(),
@@ -851,11 +896,10 @@ class InProcessAdapter(object):
             .reduce(events[: int(restored.consumed_event_count or 0)])
             .to_dict(),
         )
-        state.engine = self._build_engine()
-        state.current_mode = state.engine.initialize_session(
+        state.current_mode = state.agent_session._host_initialize_session(
             session,
             current_mode,
-            workflow_state=state.workflow_state,
+            state.workflow_state,
         )
         if session.pending_interaction is not None:
             rebuilt = self.interaction_service.rebuild_pending_ticket_from_core(
@@ -1260,10 +1304,10 @@ class InProcessAdapter(object):
         state = self._require_session(session_id)
         current_mode = self._mode_runtime_policy.require_mode(mode)["slug"]
         with state.lock:
-            state.current_mode = state.engine.apply_mode(
+            state.current_mode = state.agent_session._host_apply_mode(
                 state.session,
                 current_mode,
-                workflow_state=state.workflow_state,
+                state.workflow_state,
             )
             self._refresh_application_state(state)
         self._persist_state(state)
@@ -1340,6 +1384,12 @@ class InProcessAdapter(object):
     ) -> None:
         session_id = state.session.session_id
         turn_id = turn_id or ("t-" + uuid.uuid4().hex[:12])
+        core_pending = state.session.pending_interaction
+        pending_interaction_id = str(getattr(core_pending, "interaction_id", "") or "")
+        if not pending_interaction_id:
+            pending_interaction_id = str(
+                getattr(state.pending_interaction, "interaction_id", "") or ""
+            )
         with state.lock:
             state.status = "running"
             state.last_error = None
@@ -1350,7 +1400,6 @@ class InProcessAdapter(object):
             state.restore_stop_reason = ""
             state.restore_consumed_event_count = 0
             state.restore_transcript_event_count = 0
-        engine = state.engine
         current_step = {"step_id": "", "step_index": 0}
         thinking_state = {"active": False}
 
@@ -1511,8 +1560,6 @@ class InProcessAdapter(object):
                 approved = bool(permission_resolver(ticket.to_dict()))
                 self.interaction_service.clear_pending_interaction(state)
                 return approved
-            with state.lock:
-                state.status = "waiting_permission"
             return None
 
         def user_input_handler(request: UserInputRequest) -> Optional[UserInputResponse]:
@@ -1544,8 +1591,6 @@ class InProcessAdapter(object):
                     selected_mode=str(payload.get("selected_mode") or ""),
                     selected_option_text=str(payload.get("selected_option_text") or ""),
                 )
-            with state.lock:
-                state.status = "waiting_user_input"
             return None
 
         try:
@@ -1554,42 +1599,41 @@ class InProcessAdapter(object):
                     event_handler, "turn_start", session_id, {"turn_id": turn_id, "user_text": text}
                 )
             set_thinking(True, "turn_started")
+            observer = _HostedTurnObserver(
+                {
+                    "on_text_delta": on_text_delta,
+                    "on_reasoning_delta": on_reasoning_delta,
+                    "on_tool_start": on_tool_start,
+                    "on_tool_finish": on_tool_finish,
+                    "on_context_result": on_context_result,
+                    "on_step_start": on_step_start,
+                    "on_step_finish": on_step_finish,
+                    "on_permission_request": permission_handler,
+                    "on_user_input_request": user_input_handler,
+                }
+            )
             if resume_pending:
-                result = engine.resume_interaction(
-                    session=state.session,
-                    initial_mode=state.current_mode,
-                    interaction_resolution=interaction_resolution,
-                    workflow_state=state.workflow_state,
-                    stream=stream,
-                    stop_event=stop_event or state.stop_event,
-                    on_text_delta=on_text_delta,
-                    on_reasoning_delta=on_reasoning_delta,
-                    on_tool_start=on_tool_start,
-                    on_tool_finish=on_tool_finish,
-                    on_context_result=on_context_result,
-                    on_step_start=on_step_start,
-                    on_step_finish=on_step_finish,
-                    permission_handler=permission_handler,
-                    user_input_handler=user_input_handler,
+                if not pending_interaction_id:
+                    raise ValueError("pending interaction id is required")
+                public_result = state.agent_session.submit(
+                    InteractionReply(
+                        pending_interaction_id,
+                        dict(interaction_resolution or {}),
+                        stream=stream,
+                    ),
+                    observer=observer,
+                    cancel=stop_event or state.stop_event,
                 )
             else:
-                result = engine.submit_user_turn(
-                    user_text=text,
-                    stream=stream,
-                    initial_mode=state.current_mode,
-                    workflow_state=state.workflow_state,
-                    session=state.session,
-                    stop_event=stop_event or state.stop_event,
-                    on_text_delta=on_text_delta,
-                    on_reasoning_delta=on_reasoning_delta,
-                    on_tool_start=on_tool_start,
-                    on_tool_finish=on_tool_finish,
-                    on_context_result=on_context_result,
-                    on_step_start=on_step_start,
-                    on_step_finish=on_step_finish,
-                    permission_handler=permission_handler,
-                    user_input_handler=user_input_handler,
+                public_result = state.agent_session.submit(
+                    UserTurn(text, mode=state.current_mode, stream=stream),
+                    observer=observer,
+                    cancel=stop_event or state.stop_event,
                 )
+            host_result = state.agent_session._host_last_result()
+            if host_result is None:
+                raise RuntimeError("agent session did not retain hosted turn state")
+            result = host_result.query_result
         except (RuntimeError, ValueError, TypeError) as exc:
             set_thinking(False, "session_error")
             with state.lock:
@@ -1614,17 +1658,32 @@ class InProcessAdapter(object):
             if is_worker_thread:
                 return
             raise
-        state.session = result.session
+        events = self.transcript_store.load_events(session_id)
+        restored = self.session_restorer.restore(
+            events,
+            best_effort=state.allow_best_effort_restore,
+        )
+        if restored.stop_reason or restored.consumed_event_count != len(events):
+            raise RuntimeError(
+                "host could not restore completed agent turn: %s"
+                % str(restored.stop_reason or "incomplete_transcript")
+            )
+        state.session = restored.session
+        state.allow_best_effort_restore = False
         if result.transition.reason in ("permission_wait", "user_input_wait"):
             set_thinking(False, result.transition.reason)
             with state.lock:
+                state.status = (
+                    "waiting_permission"
+                    if result.transition.reason == "permission_wait"
+                    else "waiting_user_input"
+                )
                 state.updated_at = _utc_now()
                 state.active_thread = None
             return
         with state.lock:
-            state.last_assistant_message = result.final_text
-            if result.transition.next_mode:
-                state.current_mode = result.transition.next_mode
+            state.last_assistant_message = public_result.final_text
+            state.current_mode = host_result.current_mode
             self._refresh_application_state(state)
             state.status = "idle"
             state.active_thread = None
@@ -1635,7 +1694,7 @@ class InProcessAdapter(object):
             session_id,
             {
                 "turn_id": turn_id,
-                "final_text": result.final_text,
+                "final_text": public_result.final_text,
                 "outcome": result.outcome.to_dict(),
                 "termination_reason": result.transition.reason,
                 "turns_used": result.turns_used,
@@ -1651,7 +1710,7 @@ class InProcessAdapter(object):
             "session_finished",
             session_id,
             {
-                "final_text": result.final_text,
+                "final_text": public_result.final_text,
                 "session_snapshot": snapshot,
                 "turn_experience": dict(snapshot.get("turn_experience") or {}),
                 "outcome": result.outcome.to_dict(),

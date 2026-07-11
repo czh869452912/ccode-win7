@@ -41,6 +41,8 @@ class MemoryMaintenancePort(Protocol):
 
 
 class ToolCommitCoordinatorPort(Protocol):
+    persists_transcript: bool
+
     def commit(
         self,
         session: Session,
@@ -110,6 +112,8 @@ class NoopMemoryMaintenance(object):
 
 
 class NoopToolCommitCoordinator(object):
+    persists_transcript = False
+
     def commit(
         self,
         session: Session,

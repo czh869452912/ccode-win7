@@ -175,7 +175,11 @@ class SessionRestorer(object):
                         continue
                     break
                 parent_message_id = str(payload.get("parent_message_id") or "").strip()
-                if parent_message_id and self._message_index(session, parent_message_id) < 0:
+                if (
+                    parent_message_id
+                    and parent_message_id not in seen_message_ids
+                    and self._message_index(session, parent_message_id) < 0
+                ):
                     if _maybe_skip("message_parent_missing"):
                         continue
                     break
@@ -405,7 +409,11 @@ class SessionRestorer(object):
         role = str(payload.get("role") or "")
         message_id = str(payload.get("message_id") or "").strip()
         parent_message_id = str(payload.get("parent_message_id") or "").strip()
-        if parent_message_id and self._message_index(session, parent_message_id) < 0:
+        if (
+            parent_message_id
+            and parent_message_id not in seen_message_ids
+            and self._message_index(session, parent_message_id) < 0
+        ):
             return "message_parent_missing"
         if message_id:
             if message_id in seen_message_ids:

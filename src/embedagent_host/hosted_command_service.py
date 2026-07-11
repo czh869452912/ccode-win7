@@ -157,7 +157,7 @@ class HostedCommandService(object):
         state: ManagedSession,
         result: CommandResult,
     ) -> None:
-        state.engine.record_command_result(
+        state.agent_session._host_record_command_result(
             state.session,
             user_text=state.current_command_text,
             command_name=result.command_name,
@@ -851,7 +851,7 @@ class HostedCommandService(object):
                 state.pending_event = threading.Event()
             return None
 
-        result, observation = state.engine.submit_command_turn(
+        result, observation = state.agent_session._host_submit_command_turn(
             user_text=command_text,
             action=action,
             initial_mode=state.current_mode,
@@ -884,7 +884,7 @@ class HostedCommandService(object):
                 state.pending_event = None
                 state.pending_response = None
                 state.status = "running"
-            resumed = state.engine.resume_interaction(
+            resumed = state.agent_session._host_resume_command_interaction(
                 session=state.session,
                 initial_mode=state.current_mode,
                 interaction_resolution={"approved": approved},
