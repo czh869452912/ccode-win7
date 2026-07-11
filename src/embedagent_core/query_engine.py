@@ -816,10 +816,10 @@ class QueryEngine(object):
             profile_text = self.workspace_profile.build_message(
                 self.tools.workspace, session.session_id
             )
-            if profile_text:
+            if str(profile_text or "").strip():
                 initial_messages.append(session.add_system_message(profile_text))
             system_prompt = self._build_system_prompt(current_mode)
-            if system_prompt:
+            if str(system_prompt or "").strip():
                 initial_messages.append(session.add_system_message(system_prompt))
             self._append_transcript_event(
                 session,
@@ -861,7 +861,7 @@ class QueryEngine(object):
         current_mode = self._require_mode_slug(next_mode)
         with self._session_guard():
             mode_prompt = self._build_system_prompt(current_mode)
-            if mode_prompt:
+            if str(mode_prompt or "").strip():
                 mode_message = session.add_system_message(mode_prompt)
                 self._append_message_event(
                     session,
@@ -1714,7 +1714,7 @@ class QueryEngine(object):
                 mode_changed = True
                 with self._session_guard():
                     mode_prompt = self._build_system_prompt(selected_mode)
-                    if mode_prompt:
+                    if str(mode_prompt or "").strip():
                         mode_message = session.add_system_message(mode_prompt)
                         self._append_message_event(
                             session,

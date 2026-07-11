@@ -836,6 +836,7 @@ class InProcessAdapter(object):
         state = ManagedSession(
             session=session,
             current_mode=current_mode,
+            workflow_state="chat",
             summary_ref=summary_ref,
             updated_at=_utc_now(),
             resume_summary=None,

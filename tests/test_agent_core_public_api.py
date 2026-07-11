@@ -66,6 +66,33 @@ class NoopToolRuntime(object):
         return []
 
 
+class WhitespaceModeRuntimePolicy(object):
+    def default_mode(self):
+        return ""
+
+    def require_mode(self, mode_name):
+        return {"slug": str(mode_name or "")}
+
+    def build_system_prompt(
+        self,
+        mode_name,
+        app_config=None,
+        workspace="",
+        local_resources=None,
+    ):
+        del mode_name, app_config, workspace, local_resources
+        return " \n"
+
+    def parse_mode_switch_request(self, user_text, fallback_mode):
+        return str(fallback_mode or ""), str(user_text or ""), False
+
+
+class WhitespaceWorkspaceProfile(object):
+    def build_message(self, workspace, session_id):
+        del workspace, session_id
+        return " \n"
+
+
 class CountingExtension(object):
     def __init__(self):
         self.assembly_count = 0
@@ -599,6 +626,67 @@ def test_user_input_mode_selection_skips_empty_mode_message():
     assert observation.data["selected_mode"] == "debug"
     assert observation.data["mode_changed"] is True
     assert session.messages == []
+
+
+def test_initialize_session_skips_whitespace_profile_and_mode_messages():
+    session_log = InMemorySessionLog()
+    engine = QueryEngine(
+        client=object(),
+        tools=NoopToolRuntime(),
+        transcript_store=session_log,
+        mode_runtime_policy=WhitespaceModeRuntimePolicy(),
+        workspace_profile=WhitespaceWorkspaceProfile(),
+    )
+    session = Session()
+
+    engine.initialize_session(session, "", workflow_state="")
+
+    assert session.messages == []
+    assert [
+        event for event in session_log.load_events(session.session_id) if event["type"] == "message"
+    ] == []
+
+
+def test_apply_mode_skips_whitespace_mode_message():
+    session_log = InMemorySessionLog()
+    engine = QueryEngine(
+        client=object(),
+        tools=NoopToolRuntime(),
+        transcript_store=session_log,
+        mode_runtime_policy=WhitespaceModeRuntimePolicy(),
+    )
+    session = Session()
+
+    engine.apply_mode(session, "debug", workflow_state="")
+
+    assert session.messages == []
+    assert session_log.load_events(session.session_id) == []
+
+
+def test_user_input_mode_selection_skips_whitespace_mode_message():
+    session_log = InMemorySessionLog()
+    engine = QueryEngine(
+        client=object(),
+        tools=NoopToolRuntime(),
+        transcript_store=session_log,
+        mode_runtime_policy=WhitespaceModeRuntimePolicy(),
+    )
+    session = Session()
+    request = UserInputRequest("ask_user", "switch mode?", [], {})
+    response = UserInputResponse("yes", selected_mode="debug")
+
+    observation, next_mode = engine._build_user_input_observation(
+        session,
+        "",
+        request,
+        response,
+        workflow_state="",
+    )
+
+    assert next_mode == "debug"
+    assert observation.data["mode_changed"] is True
+    assert session.messages == []
+    assert session_log.load_events(session.session_id) == []
 
 
 def test_run_agent_executes_user_turn_with_neutral_runtime(base_runtime):

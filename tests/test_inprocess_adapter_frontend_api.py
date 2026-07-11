@@ -595,6 +595,39 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(active_entry.get("source_type"), "extension")
         self.assertEqual(active_entry.get("permission_category"), "network")
 
+    def test_resume_preserves_host_chat_workflow_and_chat_only_tool_activation(self):
+        extension = FrontendCatalogDynamicToolExtension()
+        extension.active = True
+        self.adapter.extension_manager.register(extension)
+        created = self.adapter.create_session("build")
+        session_id = str(created.get("session_id") or "")
+        created_state = self.adapter._sessions[session_id]
+
+        resumed_adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=ToolRuntime(self.workspace),
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+        )
+        resumed_extension = FrontendCatalogDynamicToolExtension()
+        resumed_extension.active = True
+        resumed_adapter.extension_manager.register(resumed_extension)
+        resumed = resumed_adapter.resume_session(session_id, "build")
+        resumed_state = resumed_adapter._sessions[session_id]
+
+        self.assertEqual(created.get("workflow_state"), "chat")
+        self.assertIn(
+            "frontend_intranet_fetch",
+            self.adapter._active_tool_names_for_state(created_state),
+        )
+        self.assertEqual(resumed.get("workflow_state"), "chat")
+        self.assertIn(
+            "frontend_intranet_fetch",
+            resumed_adapter._active_tool_names_for_state(resumed_state),
+        )
+
     def test_capability_snapshot_keeps_registered_tool_names_and_counts(self):
         snapshot = self.adapter.capability_snapshot()
         names = [item.get("name") for item in snapshot.get("descriptors") or []]
