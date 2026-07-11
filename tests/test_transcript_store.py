@@ -630,6 +630,23 @@ class TestTranscriptStore(unittest.TestCase):
 
         self.assertEqual(events[0]["payload"]["content"], "other")
 
+    def test_scan_cache_rejects_same_size_in_place_rewrite(self):
+        store = TranscriptStore(self.workspace)
+        store.append_event("sess-cache-version", "message", {"content": "first"})
+        transcript_path = store.resolve_transcript_path("sess-cache-version")
+        with open(transcript_path, "r+b") as handle:
+            original_bytes = handle.read()
+            replacement_bytes = original_bytes.replace(b'"first"', b'"other"', 1)
+            self.assertEqual(len(replacement_bytes), len(original_bytes))
+            handle.seek(0)
+            handle.write(replacement_bytes)
+            handle.flush()
+            os.fsync(handle.fileno())
+
+        events = store.load_events("sess-cache-version")
+
+        self.assertEqual(events[0]["payload"]["content"], "other")
+
     def test_append_does_not_deepcopy_cached_history(self):
         store = TranscriptStore(self.workspace)
         store.append_event("sess-linear-append", "message", {"content": "first"})

@@ -47,7 +47,7 @@ class TranscriptStore(object):
         self._lease_root_identity = _canonical_path(self.root)
         self._append_locks = {}  # type: Dict[str, threading.RLock]
         self._append_locks_guard = threading.RLock()
-        self._scan_cache = {}  # type: Dict[str, Tuple[List[Dict[str, Any]], int, int, Any]]
+        self._scan_cache = {}  # type: Dict[str, Tuple[List[Dict[str, Any]], int, Any]]
 
     @contextmanager
     def acquire_lease(self, session_id: str) -> Any:
@@ -166,7 +166,6 @@ class TranscriptStore(object):
                 file_size = os.fstat(handle.fileno()).st_size
                 if valid_length < file_size:
                     handle.truncate(valid_length)
-                    file_size = valid_length
                 seq = int(events[-1].get("seq") or 0) + 1 if events else 1
                 event = {
                     "schema_version": 2,
@@ -184,14 +183,15 @@ class TranscriptStore(object):
                 handle.write(encoded_line)
                 handle.flush()
                 os.fsync(handle.fileno())
+                post_write_stat = os.fstat(handle.fileno())
+                cache_version = self._cache_version(post_write_stat, file_identity)
                 updated_events = list(events)
                 updated_events.append(deepcopy(event))
-                updated_size = file_size + len(encoded_line)
+                updated_size = int(post_write_stat.st_size)
                 self._scan_cache[_canonical_path(path)] = (
                     updated_events,
                     updated_size,
-                    updated_size,
-                    file_identity,
+                    cache_version,
                 )
                 return deepcopy(event)
 
@@ -536,8 +536,9 @@ class TranscriptStore(object):
     ) -> Tuple[List[Dict[str, Any]], int]:
         normalized = _canonical_path(path)
         cached = self._scan_cache.get(normalized)
-        file_size = os.fstat(handle.fileno()).st_size
-        if cached is not None and cached[2] == file_size and cached[3] == file_identity:
+        handle_stat = os.fstat(handle.fileno())
+        cache_version = self._cache_version(handle_stat, file_identity)
+        if cache_version is not None and cached is not None and cached[2] == cache_version:
             return list(cached[0]), cached[1]
         events = []
         last_seq = 0
@@ -570,10 +571,23 @@ class TranscriptStore(object):
             events.append(event)
             last_seq = seq
             valid_length = next_offset
+        final_stat = os.fstat(handle.fileno())
+        final_version = self._cache_version(final_stat, file_identity)
         self._scan_cache[normalized] = (
             deepcopy(events),
             valid_length,
-            file_size,
-            file_identity,
+            final_version,
         )
         return events, valid_length
+
+    @staticmethod
+    def _cache_version(handle_stat: Any, file_identity: Any) -> Any:
+        modified_ns = getattr(handle_stat, "st_mtime_ns", None)
+        if modified_ns is None:
+            return None
+        return (
+            int(handle_stat.st_size),
+            int(modified_ns),
+            getattr(handle_stat, "st_ctime_ns", None),
+            file_identity,
+        )
