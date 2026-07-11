@@ -164,6 +164,23 @@ def test_agent_result_copies_pending_interaction_and_turn_snapshot():
     assert result.turn_snapshot.messages[0]["content"]["text"] == "original"
 
 
+def test_agent_result_copies_session_view():
+    from embedagent_core import AgentResult, AgentSessionView
+
+    session = AgentSessionView(
+        "session-1",
+        "build",
+        {"workflow": {"phase": "implement"}},
+        2,
+        1,
+    )
+    result = AgentResult("done", session, "completed", None, None)
+
+    session.workflow_state["workflow"]["phase"] = "changed"
+
+    assert result.session.workflow_state["workflow"]["phase"] == "implement"
+
+
 def test_turn_snapshot_preserves_empty_workflow_state():
     snapshot = TurnSnapshot(
         snapshot_id="snapshot-1",

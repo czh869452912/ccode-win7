@@ -103,6 +103,7 @@ class AgentResult:
     turn_snapshot: Optional[Any]
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "session", deepcopy(self.session))
         object.__setattr__(self, "pending_interaction", deepcopy(self.pending_interaction))
         object.__setattr__(self, "turn_snapshot", deepcopy(self.turn_snapshot))
 
