@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 
+import ast
 import re
 from pathlib import Path
 
@@ -25,6 +26,55 @@ def _read(path):
 
 def _relative(path):
     return path.relative_to(ROOT).as_posix()
+
+
+def _is_chat_literal(node):
+    return isinstance(node, ast.Constant) and node.value == "chat"
+
+
+def _is_true_literal(node):
+    return isinstance(node, ast.Constant) and node.value is True
+
+
+def _target_name(node):
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return ""
+
+
+def _call_name(node):
+    return _target_name(node)
+
+
+def _function_argument_defaults(node):
+    positional = list(getattr(node.args, "posonlyargs", [])) + list(node.args.args)
+    positional_with_defaults = positional[len(positional) - len(node.args.defaults) :]
+    for argument, default in zip(positional_with_defaults, node.args.defaults):
+        yield argument, default
+    for argument, default in zip(node.args.kwonlyargs, node.args.kw_defaults):
+        if default is not None:
+            yield argument, default
+
+
+def _permission_policy_enables_auto_approve(node):
+    if not isinstance(node, ast.Call) or _call_name(node.func) != "PermissionPolicy":
+        return False
+    if node.args and _is_true_literal(node.args[0]):
+        return True
+    for keyword in node.keywords:
+        if keyword.arg == "auto_approve_all" and _is_true_literal(keyword.value):
+            return True
+        if keyword.arg is None and isinstance(keyword.value, ast.Dict):
+            for key, value in zip(keyword.value.keys, keyword.value.values):
+                if (
+                    isinstance(key, ast.Constant)
+                    and key.value == "auto_approve_all"
+                    and _is_true_literal(value)
+                ):
+                    return True
+    return False
 
 
 def _source_files_under(*relative_roots, **kwargs):
@@ -507,18 +557,38 @@ def test_public_core_has_no_chat_or_auto_approve_defaults():
         ROOT / "src/embedagent_core/extensions.py",
         ROOT / "src/embedagent_core/agent_extension_host.py",
     ]
+    workflow_names = {"workflow_state", "workflow_state_name"}
     offenders = []
     for path in files:
-        text = _read(path)
-        for token in ('workflow_state: str = "chat"', 'or "chat"'):
-            if token in text:
-                offenders.append("%s contains %s" % (_relative(path), token))
+        tree = ast.parse(_read(path), filename=_relative(path))
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for argument, default in _function_argument_defaults(node):
+                    if argument.arg in workflow_names and _is_chat_literal(default):
+                        offenders.append(
+                            "%s:%s defaults %s to chat"
+                            % (_relative(path), default.lineno, argument.arg)
+                        )
+            if isinstance(node, ast.AnnAssign):
+                name = _target_name(node.target)
+                if name in workflow_names and _is_chat_literal(node.value):
+                    offenders.append(
+                        "%s:%s defaults %s to chat" % (_relative(path), node.value.lineno, name)
+                    )
+            if isinstance(node, ast.BoolOp) and isinstance(node.op, ast.Or):
+                if any(_is_chat_literal(value) for value in node.values[1:]):
+                    offenders.append(
+                        "%s:%s uses an or-chat fallback" % (_relative(path), node.lineno)
+                    )
 
     query_engine = ROOT / "src/embedagent_core/query_engine.py"
-    if "PermissionPolicy(auto_approve_all=True)" in _read(query_engine):
-        offenders.append(
-            "%s contains PermissionPolicy(auto_approve_all=True)" % _relative(query_engine)
-        )
+    query_tree = ast.parse(_read(query_engine), filename=_relative(query_engine))
+    for node in ast.walk(query_tree):
+        if _permission_policy_enables_auto_approve(node):
+            offenders.append(
+                "%s:%s enables PermissionPolicy auto approval"
+                % (_relative(query_engine), node.lineno)
+            )
 
     assert offenders == []
 

@@ -1,6 +1,8 @@
 from __future__ import unicode_literals
 
 from embedagent_core.permissions import PermissionPolicy
+from embedagent_core.query_engine import QueryEngine
+from embedagent_core.session import Action
 from embedagent_core.turn_snapshot import TurnSnapshot
 
 
@@ -47,3 +49,16 @@ def test_turn_snapshot_preserves_empty_workflow_state():
 
 def test_permission_policy_does_not_auto_approve_by_default():
     assert PermissionPolicy().auto_approve_all is False
+
+
+def test_permission_policy_requires_confirmation_for_unknown_tools():
+    decision = PermissionPolicy().evaluate(Action("unknown_tool", {}, "call-1"))
+
+    assert decision.outcome == "ask"
+    assert decision.outcome != "allow"
+
+
+def test_query_engine_does_not_auto_approve_by_default():
+    engine = QueryEngine(client=object(), tools=object())
+
+    assert engine.permission_policy.auto_approve_all is False
