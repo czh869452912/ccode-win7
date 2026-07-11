@@ -1,11 +1,79 @@
 from __future__ import unicode_literals
 
+import json
+
 import pytest
 
+from embedagent_core.api import AgentPorts, InteractionReply, RuntimeDefinition, UserTurn
+from embedagent_core.model import ModelClient
 from embedagent_core.permissions import PermissionPolicy
+from embedagent_core.ports import NoopContextAssembler
 from embedagent_core.query_engine import QueryEngine
-from embedagent_core.session import Action, PendingInteraction
+from embedagent_core.runner import AgentRequest, AgentRuntime, run_agent
+from embedagent_core.session import Action, AssistantReply, PendingInteraction
+from embedagent_core.session_log import InMemorySessionLog
 from embedagent_core.turn_snapshot import TurnSnapshot
+
+
+class FakeModel(ModelClient):
+    def generate(self, messages, tools=None):
+        del messages, tools
+        return AssistantReply(content="done", actions=[], finish_reason="stop")
+
+    def stream(
+        self,
+        messages,
+        tools=None,
+        on_text_delta=None,
+        on_reasoning_delta=None,
+    ):
+        del messages, tools, on_reasoning_delta
+        reply = AssistantReply(content="done", actions=[], finish_reason="stop")
+        if on_text_delta is not None:
+            on_text_delta(reply.content)
+        return reply
+
+
+class NoopToolRuntime(object):
+    workspace = ""
+
+    def schemas_for(self, mode, workflow_state=None, tool_names=None):
+        del mode, workflow_state, tool_names
+        return []
+
+
+class CountingExtension(object):
+    def __init__(self):
+        self.assembly_count = 0
+
+    def extension_capabilities(self):
+        self.assembly_count += 1
+        return []
+
+
+class RecordingObserver(object):
+    def __init__(self):
+        self.events = []
+
+    def on_event(self, event_type, payload):
+        json.dumps(payload)
+        self.events.append((event_type, dict(payload)))
+        payload["observer_mutation"] = {"values": ["changed"]}
+        if event_type == "step.finished":
+            payload["content"] = "changed"
+
+
+@pytest.fixture
+def base_runtime():
+    session_log = InMemorySessionLog()
+    ports = AgentPorts(
+        model=FakeModel(),
+        tools=NoopToolRuntime(),
+        session_log=session_log,
+        context=NoopContextAssembler(),
+        permissions=PermissionPolicy(),
+    )
+    return AgentRuntime(ports, RuntimeDefinition()), session_log
 
 
 def test_standalone_agent_core_public_symbols_are_available():
@@ -13,26 +81,32 @@ def test_standalone_agent_core_public_symbols_are_available():
         Agent,
         AgentObserver,
         AgentPorts,
+        AgentRequest,
         AgentResult,
+        AgentRuntime,
         AgentSession,
         AgentSessionView,
         CancelToken,
         InteractionReply,
         RuntimeDefinition,
         UserTurn,
+        run_agent,
     )
 
     public_symbols = (
         Agent,
         AgentObserver,
         AgentPorts,
+        AgentRequest,
         AgentResult,
+        AgentRuntime,
         AgentSession,
         AgentSessionView,
         CancelToken,
         InteractionReply,
         RuntimeDefinition,
         UserTurn,
+        run_agent,
     )
 
     assert all(symbol is not None for symbol in public_symbols)
@@ -209,3 +283,139 @@ def test_query_engine_does_not_auto_approve_by_default():
     engine = QueryEngine(client=object(), tools=object())
 
     assert engine.permission_policy.auto_approve_all is False
+
+
+def test_run_agent_executes_user_turn_with_neutral_runtime(base_runtime):
+    runtime, session_log = base_runtime
+
+    result = run_agent(
+        runtime,
+        AgentRequest("session-1", UserTurn("hello", stream=False)),
+    )
+
+    assert result.session.session_id == "session-1"
+    assert result.session.current_mode == ""
+    assert result.final_text == "done"
+    assert result.termination_reason == "completed"
+    assert session_log.transcript_exists("session-1")
+
+
+def test_run_agent_restores_and_appends_multiple_turns(base_runtime):
+    runtime, session_log = base_runtime
+    first = run_agent(
+        runtime,
+        AgentRequest("session-1", UserTurn("first", stream=False)),
+    )
+    first_event_count = len(session_log.load_events("session-1"))
+
+    second = run_agent(
+        runtime,
+        AgentRequest("session-1", UserTurn("second", stream=False)),
+    )
+
+    assert second.session.message_count > first.session.message_count
+    assert second.session.turn_count > first.session.turn_count
+    assert len(session_log.load_events("session-1")) > first_event_count
+
+
+def test_run_agent_rejects_mismatched_interaction_without_appending(base_runtime):
+    runtime, session_log = base_runtime
+    session_id = "session-pending"
+    session_log.append_event(session_id, "session_meta", {"current_mode": ""})
+    session_log.append_event(
+        session_id,
+        "message",
+        {
+            "role": "user",
+            "content": "continue",
+            "message_id": "message-1",
+            "turn_id": "turn-1",
+            "step_id": "",
+        },
+    )
+    session_log.append_event(
+        session_id,
+        "step_started",
+        {"turn_id": "turn-1", "step_id": "step-1", "step_index": 1},
+    )
+    session_log.append_event(
+        session_id,
+        "pending_interaction",
+        {
+            "turn_id": "turn-1",
+            "step_id": "step-1",
+            "kind": "user_input",
+            "tool_name": "ask_user",
+            "interaction_id": "interaction-1",
+            "request_payload": {"question": "continue?"},
+        },
+    )
+    session_log.append_event(
+        session_id,
+        "loop_transition",
+        {
+            "turn_id": "turn-1",
+            "step_id": "step-1",
+            "reason": "user_input_wait",
+            "message": "continue?",
+            "next_mode": "",
+            "turns_used": 1,
+            "metadata": {},
+        },
+    )
+    event_count = len(session_log.load_events(session_id))
+
+    with pytest.raises(ValueError, match="^interaction id does not match$"):
+        run_agent(
+            runtime,
+            AgentRequest(session_id, InteractionReply("wrong", {})),
+        )
+
+    assert len(session_log.load_events(session_id)) == event_count
+
+
+def test_run_agent_rejects_unsupported_input(base_runtime):
+    runtime, _session_log = base_runtime
+
+    with pytest.raises(TypeError, match="^unsupported agent input$"):
+        run_agent(runtime, AgentRequest("session-1", object()))
+
+
+def test_agent_runtime_reuses_extension_manager_and_assembles_extensions_once():
+    extension = CountingExtension()
+    ports = AgentPorts(
+        model=FakeModel(),
+        tools=NoopToolRuntime(),
+        session_log=InMemorySessionLog(),
+        context=NoopContextAssembler(),
+        permissions=PermissionPolicy(),
+    )
+    runtime = AgentRuntime(
+        ports,
+        RuntimeDefinition(extensions=(extension,)),
+    )
+
+    first = runtime.build_engine()
+    second = runtime.build_engine()
+
+    assert first is not second
+    assert first.extension_manager is second.extension_manager
+    assert extension.assembly_count == 1
+
+
+def test_run_agent_observer_receives_detached_json_safe_events(base_runtime):
+    runtime, _session_log = base_runtime
+    observer = RecordingObserver()
+
+    result = run_agent(
+        runtime,
+        AgentRequest("session-observer", UserTurn("hello", stream=True)),
+        observer=observer,
+    )
+
+    event_types = [event_type for event_type, _payload in observer.events]
+    assert "text.delta" in event_types
+    assert "step.started" in event_types
+    assert "step.finished" in event_types
+    assert result.final_text == "done"
+    assert result.session.message_count > 0
