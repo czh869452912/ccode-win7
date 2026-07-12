@@ -342,6 +342,28 @@ def test_wheel_checker_rejects_win32_reserved_device_names(tmp_path, filename):
     assert _error_codes(report, "embedagent-core") == ["member_path_invalid"]
 
 
+@pytest.mark.parametrize(
+    "filename",
+    (
+        "embedagent_core/COM\u00b9.bin",
+        "embedagent_core/com\u00b2.TxT",
+        "embedagent_core/CoM\u00b3",
+        "embedagent_core/LPT\u00b9.log",
+        "embedagent_core/lpt\u00b2.BIN",
+        "embedagent_core/LpT\u00b3",
+    ),
+)
+def test_wheel_checker_rejects_superscript_win32_device_names(tmp_path, filename):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent-core").unlink()
+    _write_wheel(tmp_path, "embedagent-core", files=[filename])
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert _error_codes(report, "embedagent-core") == ["member_path_invalid"]
+
+
 def test_wheel_checker_accepts_names_near_win32_reserved_devices(tmp_path):
     _write_valid_wheels(tmp_path)
     _wheel_path(tmp_path, "embedagent-core").unlink()
@@ -394,6 +416,36 @@ def test_wheel_checker_collides_non_ascii_single_codepoint_case_pair(tmp_path):
 
     assert result.returncode != 0
     assert _error_codes(report, "embedagent-core") == ["member_path_collision"]
+
+
+def test_wheel_checker_collides_micro_sign_and_greek_capital_mu(tmp_path):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent-core").unlink()
+    _write_wheel(
+        tmp_path,
+        "embedagent-core",
+        files=["embedagent_core/\u00b5.txt", "embedagent_core/\u039c.txt"],
+    )
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert _error_codes(report, "embedagent-core") == ["member_path_collision"]
+
+
+def test_wheel_checker_keeps_sharp_s_and_capital_sharp_s_distinct(tmp_path):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent-core").unlink()
+    _write_wheel(
+        tmp_path,
+        "embedagent-core",
+        files=["embedagent_core/\u00df.txt", "embedagent_core/\u1e9e.txt"],
+    )
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode == 0
+    assert _error_codes(report, "embedagent-core") == []
 
 
 def test_wheel_checker_rejects_invalid_filename_version(tmp_path):

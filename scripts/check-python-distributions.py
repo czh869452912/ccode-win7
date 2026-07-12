@@ -65,6 +65,7 @@ WINDOWS_RESERVED_DEVICE_NAMES = frozenset(
     ("CON", "NUL", "PRN", "AUX", "CLOCK$")
     + tuple("COM%d" % number for number in range(1, 10))
     + tuple("LPT%d" % number for number in range(1, 10))
+    + ("COM\u00b9", "COM\u00b2", "COM\u00b3", "LPT\u00b9", "LPT\u00b2", "LPT\u00b3")
 )
 MAX_ARTIFACT_SIZE = 256 * 1024 * 1024
 MAX_ARCHIVE_ENTRIES = 10000
@@ -123,14 +124,11 @@ def metadata_path(name):
 def portable_case_key(value):
     key = []
     for character in value:
-        candidates = [character]
-        lower = character.lower()
         upper = character.upper()
-        if len(lower) == 1:
-            candidates.append(lower)
         if len(upper) == 1:
-            candidates.append(upper)
-        key.append(min(candidates, key=ord))
+            key.append(upper)
+        else:
+            key.append(character)
     return "".join(key)
 
 
