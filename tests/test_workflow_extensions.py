@@ -4,11 +4,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+from embedagent_core.session import AssistantReply, Session
 from query_engine_product_helpers import build_product_query_engine
 
-from embedagent_core.session import AssistantReply, Session
-
 _REPO_ROOT = Path(__file__).resolve().parent.parent
+CORE_SOURCE = _REPO_ROOT / "packages" / "embedagent-core" / "src" / "embedagent_core"
+PROTOCOL_SOURCE = _REPO_ROOT / "packages" / "embedagent-protocol" / "src" / "embedagent_protocol"
 
 
 class DoneClient(object):
@@ -222,9 +223,10 @@ def test_session_import_does_not_eagerly_load_harness_task_graph():
 
 
 def test_c_harness_extension_preserves_build_prompt_behavior(tmp_path):
+    from embedagent_core.permissions import PermissionPolicy
+
     from embedagent.tools import ToolRuntime
     from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
-    from embedagent_core.permissions import PermissionPolicy
 
     tools = ToolRuntime(str(tmp_path))
     default_extensions = build_c_cpp_agent_application(tools)
@@ -251,9 +253,10 @@ def test_c_harness_extension_preserves_build_prompt_behavior(tmp_path):
 
 
 def test_c_harness_extension_uses_generic_workflow_prompt_kind(tmp_path):
+    from embedagent_core.permissions import PermissionPolicy
+
     from embedagent.tools import ToolRuntime
     from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
-    from embedagent_core.permissions import PermissionPolicy
 
     tools = ToolRuntime(str(tmp_path))
     default_extensions = build_c_cpp_agent_application(tools)
@@ -281,9 +284,7 @@ def test_c_harness_extension_uses_generic_workflow_prompt_kind(tmp_path):
 
 
 def test_workflow_prompt_descriptor_uses_generic_name():
-    extensions_source = (_REPO_ROOT / "src" / "embedagent_core" / "extensions.py").read_text(
-        encoding="utf-8"
-    )
+    extensions_source = (CORE_SOURCE / "extensions.py").read_text(encoding="utf-8")
     harness_source = (
         _REPO_ROOT / "src" / "embedagent" / "workflow_packages" / "c_cpp" / "extension.py"
     ).read_text(encoding="utf-8")
@@ -354,9 +355,7 @@ def test_c_harness_extension_delegates_workflow_projection_to_builder():
 
 
 def test_query_engine_no_longer_imports_task_graph_directly():
-    source = (_REPO_ROOT / "src" / "embedagent_core" / "query_engine.py").read_text(
-        encoding="utf-8"
-    )
+    source = (CORE_SOURCE / "query_engine.py").read_text(encoding="utf-8")
 
     assert "from embedagent.workflow_packages.c_cpp.task_graph import TaskGraph" not in source
     assert "TaskGraph.from_user_request" not in source
@@ -372,9 +371,7 @@ def test_c_harness_extension_no_longer_reads_session_task_graph_directly():
 
 
 def test_query_engine_no_longer_imports_default_harness_extension_directly():
-    source = (_REPO_ROOT / "src" / "embedagent_core" / "query_engine.py").read_text(
-        encoding="utf-8"
-    )
+    source = (CORE_SOURCE / "query_engine.py").read_text(encoding="utf-8")
 
     assert (
         "from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension"
@@ -458,7 +455,7 @@ def test_frontend_task_apis_do_not_import_harness_task_internals():
     frontend_roots = [
         _REPO_ROOT / "src" / "embedagent" / "frontend",
         _REPO_ROOT / "src" / "embedagent" / "core",
-        _REPO_ROOT / "src" / "embedagent" / "protocol",
+        PROTOCOL_SOURCE,
         _REPO_ROOT / "src" / "embedagent" / "session_projector.py",
         _REPO_ROOT / "src" / "embedagent_host" / "inprocess_adapter.py",
     ]
@@ -506,8 +503,9 @@ def test_inprocess_adapter_gets_default_workflow_from_agent_application():
 
 
 def test_query_engine_tool_activation_does_not_use_runtime_harness_pack_fallback():
-    from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
     from embedagent_core.permissions import PermissionPolicy
+
+    from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
 
     tools = ToolRuntimeBoundaryProbe()
     default_extensions = build_c_cpp_agent_application(tools)
@@ -591,9 +589,10 @@ def test_tool_runtime_default_schemas_require_explicit_active_tool_names(tmp_pat
 
 
 def test_tool_runtime_default_schemas_remain_empty_after_c_tools_register(tmp_path):
+    from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
+
     from embedagent.tools import ToolRuntime
     from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
-    from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
 
     runtime = ToolRuntime(str(tmp_path))
     default_set = build_c_cpp_agent_application(runtime)
@@ -632,9 +631,10 @@ def test_bare_tool_runtime_does_not_register_default_c_workflow_tools(tmp_path):
 
 
 def test_default_c_workflow_extension_registers_workflow_tools(tmp_path):
+    from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
+
     from embedagent.tools import ToolRuntime
     from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
-    from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
 
     runtime = ToolRuntime(str(tmp_path))
     default_set = build_c_cpp_agent_application(runtime)
@@ -725,9 +725,10 @@ def test_tool_runtime_no_longer_imports_harness_runtime_metadata():
 
 
 def test_default_c_workflow_tool_metadata_survives_package_registration(tmp_path):
+    from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
+
     from embedagent.tools import ToolRuntime
     from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
-    from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
 
     runtime = ToolRuntime(str(tmp_path))
     default_set = build_c_cpp_agent_application(runtime)
@@ -886,8 +887,9 @@ def test_inprocess_adapter_session_handle_uses_shared_extension_manager(tmp_path
 
 
 def test_bare_query_engine_uses_empty_extension_host_without_c_harness(tmp_path):
-    from embedagent.tools import ToolRuntime
     from embedagent_core.query_engine import QueryEngine
+
+    from embedagent.tools import ToolRuntime
 
     engine = QueryEngine(
         client=DoneClient(),
@@ -906,9 +908,7 @@ def test_bare_query_engine_uses_empty_extension_host_without_c_harness(tmp_path)
 
 
 def test_query_engine_no_longer_dispatches_extension_manager_hooks_directly():
-    source = (_REPO_ROOT / "src" / "embedagent_core" / "query_engine.py").read_text(
-        encoding="utf-8"
-    )
+    source = (CORE_SOURCE / "query_engine.py").read_text(encoding="utf-8")
     forbidden = [
         ".should_inject_workflow(",
         ".allowed_tool_names(",

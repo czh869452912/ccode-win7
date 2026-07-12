@@ -7,7 +7,13 @@ import subprocess
 import sys
 from typing import List, Sequence
 
-DEFAULT_TARGETS = ("src/", "tests/", "scripts/lint.py")
+DEFAULT_TARGETS = (
+    "src/",
+    "packages/embedagent-core/src/",
+    "packages/embedagent-protocol/src/",
+    "tests/",
+    "scripts/lint.py",
+)
 
 
 def _run(command: Sequence[str]) -> int:
@@ -34,7 +40,7 @@ def main(argv: Sequence[str] = ()) -> int:
         "targets",
         nargs="*",
         default=list(DEFAULT_TARGETS),
-        help="Files or directories to lint. Defaults to src/, tests/, and this script.",
+        help="Files or directories to lint. Defaults to product/workspace sources and tests.",
     )
     args = parser.parse_args(list(argv))
 

@@ -5,8 +5,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+from embedagent_core.permissions import PermissionRequest
+from embedagent_core.session import Action, AssistantReply, LoopTransition, Observation, TurnOutcome
+from embedagent_protocol import CommandResult, PlanSnapshot
+
 from embedagent.prompts import expand_prompt_invocation
-from embedagent.protocol import CommandResult, PlanSnapshot
 from embedagent.review_command import ReviewCommandService
 from embedagent.session_runtime import ManagedSession
 from embedagent.skills import expand_skill_invocation
@@ -17,8 +20,6 @@ from embedagent.slash_commands import (
     parse_slash_command,
     resource_command_specs,
 )
-from embedagent_core.permissions import PermissionRequest
-from embedagent_core.session import Action, AssistantReply, LoopTransition, Observation, TurnOutcome
 
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
 PermissionResolver = Callable[[Dict[str, Any]], bool]

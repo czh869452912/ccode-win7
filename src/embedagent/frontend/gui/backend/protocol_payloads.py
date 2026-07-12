@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from embedagent.protocol import (
+from embedagent_protocol import (
     AgentApplicationDescriptor,
     AppBootstrap,
     CapabilitySnapshot,

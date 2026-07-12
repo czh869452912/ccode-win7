@@ -38,7 +38,7 @@ embedagent-gui = "embedagent.frontend.gui.launcher:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["embedagent*", "embedagent_core*", "embedagent_host*"]
+include = ["embedagent", "embedagent.*", "embedagent_host", "embedagent_host.*"]
 
 [tool.setuptools.package-data]
 embedagent = [
@@ -91,7 +91,12 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
-source = ["src/embedagent", "src/embedagent_core", "src/embedagent_host"]
+source = [
+    "src/embedagent",
+    "src/embedagent_host",
+    "packages/embedagent-core/src/embedagent_core",
+    "packages/embedagent-protocol/src/embedagent_protocol",
+]
 omit = ["*/tests/*", "*/fixtures/*", "*/manual/*"]
 
 [tool.coverage.report]

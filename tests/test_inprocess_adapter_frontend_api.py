@@ -9,10 +9,12 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.tools import ToolDefinition, ToolRuntime
 from embedagent_core.model import ModelClientError
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 from embedagent_core.session import Action, AssistantReply, Observation
+from embedagent_protocol import PermissionContext
+
+from embedagent.tools import ToolDefinition, ToolRuntime
 from embedagent_host.hosted_command_service import HostedCommandService
 from embedagent_host.hosted_interaction_service import HostedInteractionService
 from embedagent_host.inprocess_adapter import InProcessAdapter, _should_emit_context_compacted
@@ -2877,6 +2879,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         session_id = str(self.snapshot.get("session_id") or "")
         self.adapter.remember_permission_category(session_id, "workspace_write")
         context = self.adapter.get_permission_context(session_id)
+        self.assertIsInstance(context, PermissionContext)
         self.assertIn("workspace_write", context.remembered_categories)
 
     def test_tool_catalog_exposes_renderer_metadata(self):

@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 ROOT = Path(__file__).resolve().parents[1]
+CORE_SOURCE = ROOT / "packages/embedagent-core/src/embedagent_core"
 
 
 def _relative(path):
@@ -199,8 +200,9 @@ class TestQueryEngineBoundaries(object):
     """Verify QueryEngine construction boundaries."""
 
     def test_can_instantiate_with_minimal_args(self, fresh_container):
-        from embedagent.tools import ToolRuntime
         from embedagent_core.query_engine import QueryEngine
+
+        from embedagent.tools import ToolRuntime
         from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
 
         client = MagicMock(spec=OpenAICompatibleClient)
@@ -355,9 +357,9 @@ def test_no_compatibility_reexports_for_core_extraction():
 def test_transcript_store_has_no_schema_v1_compatibility_path():
     checked_files = (
         ROOT / "src/embedagent/transcript_store.py",
-        ROOT / "src/embedagent_core/agent_lifecycle.py",
-        ROOT / "src/embedagent_core/query_engine.py",
-        ROOT / "src/embedagent_core/ports.py",
+        CORE_SOURCE / "agent_lifecycle.py",
+        CORE_SOURCE / "query_engine.py",
+        CORE_SOURCE / "ports.py",
         ROOT / "tests/test_transcript_store.py",
         ROOT / "tests/test_session_integration.py",
         ROOT / "tests/test_diff_engine.py",

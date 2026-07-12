@@ -10,15 +10,14 @@ import threading
 import uuid
 from typing import Any, Dict, List, Optional
 
-from embedagent.di_container import get_default_container
-from embedagent.protocol import (
+from embedagent_protocol import (
     CommandResult,
     CoreInterface,
     DiffPreview,
     FrontendCallbacks,
     Message,
     MessageType,
-    PermissionContextView,
+    PermissionContext,
     PlanSnapshot,
     RuntimeEnvironmentSnapshot,
     SessionSnapshot,
@@ -27,6 +26,8 @@ from embedagent.protocol import (
     ToolResult,
     WorkspaceInfo,
 )
+
+from embedagent.di_container import get_default_container
 
 _SESSION_EVENT_NAMES: frozenset = frozenset(
     {
@@ -496,7 +497,7 @@ class AgentCoreAdapter(CoreInterface):
         payload = self._adapter.get_session_plan(session_id)
         return payload
 
-    def get_permission_context(self, session_id: str) -> PermissionContextView:
+    def get_permission_context(self, session_id: str) -> PermissionContext:
         return self._adapter.get_permission_context(session_id)
 
     def remember_permission_category(self, session_id: str, category: str) -> SessionSnapshot:

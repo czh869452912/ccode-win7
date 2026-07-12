@@ -9,12 +9,18 @@ class TestNoBareExceptBlocks:
 
     def _find_python_files(self):
         """Find all Python files in src/ directory."""
-        src_dir = os.path.join(os.path.dirname(__file__), "..", "src")
+        project_root = os.path.join(os.path.dirname(__file__), "..")
+        source_roots = [
+            os.path.join(project_root, "src"),
+            os.path.join(project_root, "packages", "embedagent-core", "src"),
+            os.path.join(project_root, "packages", "embedagent-protocol", "src"),
+        ]
         python_files = []
-        for root, _, files in os.walk(src_dir):
-            for filename in files:
-                if filename.endswith(".py"):
-                    python_files.append(os.path.join(root, filename))
+        for src_dir in source_roots:
+            for root, _, files in os.walk(src_dir):
+                for filename in files:
+                    if filename.endswith(".py"):
+                        python_files.append(os.path.join(root, filename))
         return python_files
 
     def _check_file_for_bare_except(self, filepath):
@@ -59,7 +65,7 @@ class TestNoBareExceptBlocks:
     def test_files_use_specific_exceptions(self):
         """Verify modified files use specific exception types."""
         files_expected_patterns = {
-            "src/embedagent_core/permissions.py": [
+            "packages/embedagent-core/src/embedagent_core/permissions.py": [
                 "OSError",
                 "JSONDecodeError",
                 "ValueError",

@@ -13,6 +13,16 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Set
 
+from embedagent_protocol import (
+    CommandResult,
+    CoreInterface,
+    FrontendCallbacks,
+    Message,
+    PlanSnapshot,
+    SessionSnapshot,
+    ToolCall,
+    ToolResult,
+)
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -30,16 +40,6 @@ from embedagent.frontend.gui.backend.protocol_payloads import serialize_session_
 from embedagent.frontend.gui.backend.session_events import build_session_event
 from embedagent.frontend.gui.backend.source_control_service import SourceControlService
 from embedagent.frontend.gui.backend.terminal_service import TerminalService
-from embedagent.protocol import (
-    CommandResult,
-    CoreInterface,
-    FrontendCallbacks,
-    Message,
-    PlanSnapshot,
-    SessionSnapshot,
-    ToolCall,
-    ToolResult,
-)
 
 _LOGGER = logging.getLogger(__name__)
 

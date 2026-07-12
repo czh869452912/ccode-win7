@@ -1,5 +1,6 @@
 from __future__ import annotations  # noqa: I001
 
+import copy
 import os
 import threading
 import uuid
@@ -34,7 +35,7 @@ from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 from embedagent.plan_store import PlanStore
 from embedagent.project_extensions import load_project_extensions
 from embedagent.project_memory import ProjectMemoryStore
-from embedagent.protocol import PermissionContextView, PlanSnapshot
+from embedagent_protocol import PermissionContext, PlanSnapshot
 from embedagent_core.recovery_state import RecoveryStateReducer
 from embedagent_host.agent_application_registry import product_agent_application_registry
 from embedagent_host.hosted_command_service import HostedCommandService
@@ -1152,12 +1153,22 @@ class InProcessAdapter(object):
         state = self._ensure_session_active(session_id)
         return self.plan_store.load(state.session.session_id)
 
-    def get_permission_context(self, session_id: str) -> PermissionContextView:
+    def get_permission_context(self, session_id: str) -> PermissionContext:
         state = self._ensure_session_active(session_id)
         remembered = sorted(state.remembered_permission_categories)
-        return self.permission_policy.build_context_view(
+        context = self.permission_policy.build_context_view(
             session_id=state.session.session_id,
             remembered_categories=remembered,
+        )
+        return PermissionContext(
+            session_id=context.session_id,
+            rules_path=context.rules_path,
+            categories=list(context.categories),
+            rules=copy.deepcopy(context.rules),
+            remembered_categories=list(context.remembered_categories),
+            auto_approve_all=context.auto_approve_all,
+            auto_approve_writes=context.auto_approve_writes,
+            auto_approve_commands=context.auto_approve_commands,
         )
 
     def remember_permission_category(self, session_id: str, category: str) -> Dict[str, Any]:

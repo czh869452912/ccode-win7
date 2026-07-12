@@ -11,37 +11,50 @@ from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Any, Dict, List, Optional, Protocol
 
-from embedagent.protocol.app_protocol import (
+from embedagent_protocol.app_protocol import (
     AgentApplicationDescriptor as AgentApplicationDescriptor,
 )
-from embedagent.protocol.app_protocol import (
+from embedagent_protocol.app_protocol import (
     AppBootstrap as AppBootstrap,
 )
-from embedagent.protocol.app_protocol import (
+from embedagent_protocol.app_protocol import (
     CapabilitySnapshot as CapabilitySnapshot,
 )
-from embedagent.protocol.app_protocol import (
+from embedagent_protocol.app_protocol import (
     CommandDescriptor as CommandDescriptor,
 )
-from embedagent.protocol.app_protocol import (
+from embedagent_protocol.app_protocol import (
     InteractionActivity as InteractionActivity,
 )
-from embedagent.protocol.app_protocol import (
+from embedagent_protocol.app_protocol import (
     ModeDescriptor as ModeDescriptor,
 )
-from embedagent.protocol.app_protocol import (
+from embedagent_protocol.app_protocol import (
     ThreadDetailSnapshot as ThreadDetailSnapshot,
 )
-from embedagent.protocol.app_protocol import (
+from embedagent_protocol.app_protocol import (
     ThreadShell as ThreadShell,
 )
-from embedagent.protocol.app_protocol import (
+from embedagent_protocol.app_protocol import (
     ToolPresentation as ToolPresentation,
 )
-from embedagent.protocol.app_protocol import (
+from embedagent_protocol.app_protocol import (
     WorkflowPackageDescriptor as WorkflowPackageDescriptor,
 )
-from embedagent_core.permissions import PermissionContextView
+
+
+@dataclass
+class PermissionContext:
+    """JSON-safe permission context exposed across the host protocol boundary."""
+
+    session_id: str
+    rules_path: str
+    categories: List[str] = field(default_factory=list)
+    rules: List[Dict[str, Any]] = field(default_factory=list)
+    remembered_categories: List[str] = field(default_factory=list)
+    auto_approve_all: bool = False
+    auto_approve_writes: bool = False
+    auto_approve_commands: bool = False
 
 
 def _utc_now() -> datetime:
@@ -410,7 +423,7 @@ class CoreInterface(ABC):
         pass
 
     @abstractmethod
-    def get_permission_context(self, session_id: str) -> PermissionContextView:
+    def get_permission_context(self, session_id: str) -> PermissionContext:
         """获取当前会话的权限上下文"""
         pass
 

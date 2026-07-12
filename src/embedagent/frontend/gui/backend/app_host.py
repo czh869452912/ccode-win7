@@ -4,7 +4,7 @@ import os
 import threading
 from typing import Any, Callable, Dict, Optional
 
-from embedagent.protocol import CoreInterface
+from embedagent_protocol import CoreInterface
 
 from .workspace_registry import WorkspaceRegistry, canonical_workspace_path
 

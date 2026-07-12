@@ -5,7 +5,7 @@ import os
 from datetime import datetime, timezone
 from typing import Optional
 
-from embedagent.protocol import PlanSnapshot
+from embedagent_protocol import PlanSnapshot
 
 
 def _utc_now() -> str:

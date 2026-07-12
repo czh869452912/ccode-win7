@@ -4,14 +4,15 @@ import logging
 import os
 from typing import Any, Dict, List
 
+from embedagent_core.session import Observation
+from embedagent_core.tool_contracts import ToolDefinition, ToolError, diagnostic_tool_error
+
 from embedagent.services.shadow_git import ShadowGitSnapshot
 from embedagent.strategies.diff_engine import DiffBlock, MultiSearchReplaceDiffEngine
 from embedagent.tools._base import (
     MAX_READ_CHARS,
     ToolContext,
 )
-from embedagent_core.session import Observation
-from embedagent_core.tool_contracts import ToolDefinition, ToolError, diagnostic_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -209,7 +210,7 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "要修改的文件路径，相对于项目根目录。示例：src/embedagent_core/query_engine.py",
+                        "description": "要修改的文件路径，相对于项目根目录。示例：packages/embedagent-core/src/embedagent_core/query_engine.py",
                     },
                     "old_text": {
                         "type": "string",

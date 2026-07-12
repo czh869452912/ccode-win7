@@ -8,10 +8,13 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
+CORE_SOURCE = os.path.join(ROOT, "packages", "embedagent-core", "src", "embedagent_core")
+
 
 class CorePackageImportTests(unittest.TestCase):
     def _core_python_files(self):
-        root = os.path.join(os.path.dirname(__file__), "..", "src", "embedagent_core")
+        root = CORE_SOURCE
         self.assertTrue(os.path.isdir(root))
         for dirpath, _dirnames, filenames in os.walk(root):
             for filename in filenames:
@@ -46,7 +49,7 @@ class CorePackageImportTests(unittest.TestCase):
         self.assertEqual(offenders, [])
 
     def test_embedagent_core_imports_from_an_isolated_package_root(self):
-        source = os.path.join(os.path.dirname(__file__), "..", "src", "embedagent_core")
+        source = CORE_SOURCE
         with tempfile.TemporaryDirectory() as temp_dir:
             shutil.copytree(source, os.path.join(temp_dir, "embedagent_core"))
             script = """
@@ -56,9 +59,10 @@ import sys
 root = pathlib.Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(root))
 import embedagent_core
-import embedagent_core.api
+from embedagent_core import Agent
 
 package_file = pathlib.Path(embedagent_core.__file__).resolve()
+assert Agent is not None
 assert root in package_file.parents, package_file
 for module_name in sys.modules:
     assert module_name != "embedagent"
@@ -78,6 +82,10 @@ for module_name in sys.modules:
             )
 
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_core_source_is_owned_only_by_workspace_distribution(self):
+        self.assertTrue(os.path.isdir(CORE_SOURCE))
+        self.assertFalse(os.path.exists(os.path.join(ROOT, "src", "embedagent_core")))
 
     def test_deleted_core_type_paths_do_not_exist_in_product_package(self):
         root = os.path.join(os.path.dirname(__file__), "..", "src", "embedagent")

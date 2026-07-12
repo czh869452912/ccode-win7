@@ -101,6 +101,15 @@ def test_root_distribution_composes_exact_product_dependencies():
     assert root_project["dependencies"] == ROOT_DEPENDENCIES
 
 
+def test_root_distribution_does_not_own_core_or_protocol_packages():
+    root = _read_pyproject(Path("pyproject.toml"))
+
+    assert root["tool"]["setuptools"]["packages"]["find"] == {
+        "where": ["src"],
+        "include": ["embedagent", "embedagent.*", "embedagent_host", "embedagent_host.*"],
+    }
+
+
 def test_uv_workspace_members_and_sources_are_exact():
     root = _read_pyproject(Path("pyproject.toml"))
 

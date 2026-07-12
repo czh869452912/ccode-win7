@@ -9,12 +9,18 @@ class TestNoDeprecatedDatetime:
 
     def _find_python_files(self):
         """Find all Python files in src/ directory."""
-        src_dir = os.path.join(os.path.dirname(__file__), "..", "src")
+        project_root = os.path.join(os.path.dirname(__file__), "..")
+        source_roots = [
+            os.path.join(project_root, "src"),
+            os.path.join(project_root, "packages", "embedagent-core", "src"),
+            os.path.join(project_root, "packages", "embedagent-protocol", "src"),
+        ]
         python_files = []
-        for root, _, files in os.walk(src_dir):
-            for filename in files:
-                if filename.endswith(".py"):
-                    python_files.append(os.path.join(root, filename))
+        for src_dir in source_roots:
+            for root, _, files in os.walk(src_dir):
+                for filename in files:
+                    if filename.endswith(".py"):
+                        python_files.append(os.path.join(root, filename))
         return python_files
 
     def _check_file_for_utcnnow(self, filepath):
@@ -61,14 +67,14 @@ class TestNoDeprecatedDatetime:
     def test_timezone_imported_in_modified_files(self):
         """Verify all files using datetime.now(timezone.utc) import timezone."""
         files_to_check = [
-            "src/embedagent_core/session.py",
+            "packages/embedagent-core/src/embedagent_core/session.py",
             "src/embedagent/session_store.py",
             "src/embedagent/session_runtime.py",
             "src/embedagent/project_memory.py",
             "src/embedagent_host/inprocess_adapter.py",
             "src/embedagent/plan_store.py",
             "src/embedagent/transcript_store.py",
-            "src/embedagent_core/session_restore.py",
+            "packages/embedagent-core/src/embedagent_core/session_restore.py",
         ]
 
         base_dir = os.path.join(os.path.dirname(__file__), "..")

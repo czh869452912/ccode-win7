@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict
 
-from embedagent.protocol import (
+from embedagent_protocol import (
     CommandResult,
     FrontendCallbacks,
     Message,

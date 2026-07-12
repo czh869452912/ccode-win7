@@ -8,8 +8,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.core.adapter import _session_snapshot_from_dict
-from embedagent.protocol import (
+from embedagent_protocol import (
     CommandResult,
     FrontendCallbacks,
     Message,
@@ -22,6 +21,8 @@ from embedagent.protocol import (
     TurnRecord,
     WorkspaceInfo,
 )
+
+from embedagent.core.adapter import _session_snapshot_from_dict
 
 
 class MockFrontend(FrontendCallbacks):

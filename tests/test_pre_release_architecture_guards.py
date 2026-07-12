@@ -5,10 +5,12 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+CORE_SOURCE = ROOT / "packages/embedagent-core/src/embedagent_core"
+PROTOCOL_SOURCE = ROOT / "packages/embedagent-protocol/src/embedagent_protocol"
 SOURCE_SUFFIXES = (".py", ".js", ".jsx")
 
 ACTIVE_SOURCE_FILES = [
-    ROOT / "src/embedagent/protocol/__init__.py",
+    PROTOCOL_SOURCE / "__init__.py",
     ROOT / "src/embedagent/session_projector.py",
     ROOT / "src/embedagent/core/adapter.py",
     ROOT / "src/embedagent_host/inprocess_adapter.py",
@@ -117,7 +119,7 @@ def test_no_timeline_replay_snapshot_contract_in_active_source():
 
 def test_no_session_timeline_api_in_active_source():
     files = [
-        ROOT / "src/embedagent/protocol/__init__.py",
+        PROTOCOL_SOURCE / "__init__.py",
         ROOT / "src/embedagent/core/adapter.py",
         ROOT / "src/embedagent_host/inprocess_adapter.py",
         ROOT / "src/embedagent/frontend/tui/services/timeline.py",
@@ -177,7 +179,7 @@ def test_no_flat_timeline_view_or_builder_paths():
     offenders = []
     for path in _source_files_under(
         "src/embedagent",
-        "src/embedagent_core",
+        "packages/embedagent-core/src/embedagent_core",
         "src/embedagent_host",
     ):
         text = _read(path)
@@ -359,7 +361,7 @@ def test_gui_backend_route_modules_do_not_import_server_helpers():
 def test_session_snapshot_contract_uses_single_pending_interaction_payload():
     checked_files = {
         ROOT
-        / "src/embedagent/protocol/__init__.py": (
+        / "packages/embedagent-protocol/src/embedagent_protocol/__init__.py": (
             "has_pending_permission:",
             "has_pending_input:",
             "pending_permission: Optional",
@@ -470,7 +472,7 @@ def test_hosted_runtime_uses_single_pending_interaction_state():
 def test_product_interfaces_expose_only_unified_interaction_response():
     files = [
         ROOT / "src/embedagent/core/adapter.py",
-        ROOT / "src/embedagent/protocol/__init__.py",
+        PROTOCOL_SOURCE / "__init__.py",
         ROOT / "src/embedagent_host/inprocess_adapter.py",
         ROOT / "src/embedagent_host/hosted_interaction_service.py",
         ROOT / "src/embedagent/frontend/tui/services/sessions.py",
@@ -532,7 +534,7 @@ def test_shell_interaction_payloads_use_decision_and_answers_contract():
 
 
 def test_query_engine_does_not_own_extension_dispatch_boundary():
-    text = _read(ROOT / "src/embedagent_core/query_engine.py")
+    text = _read(CORE_SOURCE / "query_engine.py")
     assert "AgentExtensionHost(" in text
     forbidden_dispatches = (
         "self.extension_manager.allowed_tool_names(",
@@ -551,11 +553,11 @@ def test_query_engine_does_not_own_extension_dispatch_boundary():
 
 def test_public_core_has_no_chat_or_auto_approve_defaults():
     files = [
-        ROOT / "src/embedagent_core/query_engine.py",
-        ROOT / "src/embedagent_core/turn_snapshot.py",
-        ROOT / "src/embedagent_core/ports.py",
-        ROOT / "src/embedagent_core/extensions.py",
-        ROOT / "src/embedagent_core/agent_extension_host.py",
+        CORE_SOURCE / "query_engine.py",
+        CORE_SOURCE / "turn_snapshot.py",
+        CORE_SOURCE / "ports.py",
+        CORE_SOURCE / "extensions.py",
+        CORE_SOURCE / "agent_extension_host.py",
     ]
     workflow_names = {"workflow_state", "workflow_state_name"}
     offenders = []
@@ -581,7 +583,7 @@ def test_public_core_has_no_chat_or_auto_approve_defaults():
                         "%s:%s uses an or-chat fallback" % (_relative(path), node.lineno)
                     )
 
-    query_engine = ROOT / "src/embedagent_core/query_engine.py"
+    query_engine = CORE_SOURCE / "query_engine.py"
     query_tree = ast.parse(_read(query_engine), filename=_relative(query_engine))
     for node in ast.walk(query_tree):
         if _permission_policy_enables_auto_approve(node):
@@ -1094,7 +1096,7 @@ def test_agent_application_capabilities_are_declared_by_backend_not_gui_defaults
     adapter_text = _read(ROOT / "src/embedagent_host/inprocess_adapter.py")
     application_registry_text = _read(ROOT / "src/embedagent/agent_applications.py")
     product_registry_text = _read(ROOT / "src/embedagent_host/agent_application_registry.py")
-    protocol_text = _read(ROOT / "src/embedagent/protocol/app_protocol.py")
+    protocol_text = _read(PROTOCOL_SOURCE / "app_protocol.py")
     normalizer_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/protocol-normalizer.js"
     )
@@ -2270,8 +2272,8 @@ def test_gui_thread_lifecycle_actions_are_backend_descriptors():
 
 
 def test_agent_core_has_no_harness_prompt_or_command_name_validation_coupling():
-    extensions_text = _read(ROOT / "src/embedagent_core/extensions.py")
-    turn_experience_text = _read(ROOT / "src/embedagent_core/turn_experience.py")
+    extensions_text = _read(CORE_SOURCE / "extensions.py")
+    turn_experience_text = _read(CORE_SOURCE / "turn_experience.py")
 
     assert "HarnessPrompt" not in extensions_text
     assert "_looks_like_validation" not in turn_experience_text
@@ -2332,7 +2334,7 @@ def test_gui_has_no_split_task_or_recipe_refetch_contracts():
     )
     gui_routes_text = _read(ROOT / "src/embedagent/frontend/gui/backend/routes_sessions.py")
     gui_server_text = _read(ROOT / "src/embedagent/frontend/gui/backend/server.py")
-    protocol_text = _read(ROOT / "src/embedagent/protocol/__init__.py")
+    protocol_text = _read(PROTOCOL_SOURCE / "__init__.py")
     inspector_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx"
     )
@@ -2365,7 +2367,7 @@ def test_gui_has_no_split_task_or_recipe_refetch_contracts():
 
 
 def test_gui_core_interface_has_no_split_task_or_recipe_facade():
-    protocol_text = _read(ROOT / "src/embedagent/protocol/__init__.py")
+    protocol_text = _read(PROTOCOL_SOURCE / "__init__.py")
     core_adapter_text = _read(ROOT / "src/embedagent/core/adapter.py")
 
     for token in (
@@ -2381,7 +2383,7 @@ def test_gui_has_no_split_tool_catalog_facade():
     store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
     app_workspaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-workspaces.js")
     routes_text = _read(ROOT / "src/embedagent/frontend/gui/backend/routes_sessions.py")
-    protocol_text = _read(ROOT / "src/embedagent/protocol/__init__.py")
+    protocol_text = _read(PROTOCOL_SOURCE / "__init__.py")
     core_adapter_text = _read(ROOT / "src/embedagent/core/adapter.py")
 
     for token in (
@@ -2853,7 +2855,7 @@ def test_gui_has_no_retired_workflow_runtime_panel_display_helper():
 
 
 def test_gui_has_no_split_artifact_refetch_facade():
-    protocol_text = _read(ROOT / "src/embedagent/protocol/__init__.py")
+    protocol_text = _read(PROTOCOL_SOURCE / "__init__.py")
     core_adapter_text = _read(ROOT / "src/embedagent/core/adapter.py")
     gui_server_text = _read(ROOT / "src/embedagent/frontend/gui/backend/server.py")
     gui_routes_text = _read(ROOT / "src/embedagent/frontend/gui/backend/routes_sessions.py")
@@ -2957,7 +2959,7 @@ def test_hosted_interactions_do_not_keep_legacy_blocking_frontend_paths():
         "_user_input_waiters",
     )
     checked_roots = (
-        ROOT / "src/embedagent/protocol",
+        PROTOCOL_SOURCE,
         ROOT / "src/embedagent/core",
         ROOT / "src/embedagent/frontend/gui/backend",
         ROOT / "src/embedagent/frontend/tui",
