@@ -173,6 +173,17 @@ def test_wheel_checker_accepts_isolated_distribution_wheels(tmp_path):
     assert all(item["errors"] == [] for item in first_report["distributions"])
 
 
+def test_wheel_checker_accepts_pep427_build_tag_remainder(tmp_path):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent-core").unlink()
+    _write_wheel(tmp_path, "embedagent-core", suffix="-1.foo")
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode == 0
+    assert _error_codes(report, "embedagent-core") == []
+
+
 def test_wheel_checker_reports_a_missing_distribution_wheel(tmp_path):
     _write_valid_wheels(tmp_path)
     _wheel_path(tmp_path, "embedagent-protocol").unlink()

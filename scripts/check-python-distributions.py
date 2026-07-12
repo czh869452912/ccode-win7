@@ -59,7 +59,7 @@ EXPECTED = (
 
 DEPENDENCY_NAME = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)")
 WHEEL_COMPONENT = re.compile(r"^[A-Za-z0-9_.]+$")
-WHEEL_BUILD_TAG = re.compile(r"^[0-9][A-Za-z0-9_]*$")
+WHEEL_BUILD_TAG = re.compile(r"^(\d+)(.*)$")
 WINDOWS_FORBIDDEN_CHARS = frozenset('<>:"\\|?*')
 MAX_ARTIFACT_SIZE = 256 * 1024 * 1024
 MAX_ARCHIVE_ENTRIES = 10000
