@@ -1,6 +1,9 @@
 import ast
 import os
+import shutil
+import subprocess
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -38,6 +41,38 @@ class CorePackageImportTests(unittest.TestCase):
                     offenders.append((os.path.relpath(path, root), module))
                     continue
         self.assertEqual(offenders, [])
+
+    def test_embedagent_core_imports_from_an_isolated_package_root(self):
+        source = os.path.join(os.path.dirname(__file__), "..", "src", "embedagent_core")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            shutil.copytree(source, os.path.join(temp_dir, "embedagent_core"))
+            script = """
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1]).resolve()
+sys.path.insert(0, str(root))
+import embedagent_core
+import embedagent_core.api
+
+package_file = pathlib.Path(embedagent_core.__file__).resolve()
+assert root in package_file.parents, package_file
+for module_name in sys.modules:
+    assert module_name != "embedagent"
+    assert not module_name.startswith("embedagent.")
+    assert module_name != "embedagent_host"
+    assert not module_name.startswith("embedagent_host.")
+"""
+            result = subprocess.run(
+                [sys.executable, "-I", "-S", "-c", script, temp_dir],
+                cwd=temp_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_deleted_core_type_paths_do_not_exist_in_product_package(self):
         root = os.path.join(os.path.dirname(__file__), "..", "src", "embedagent")
