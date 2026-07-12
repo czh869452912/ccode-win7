@@ -37,7 +37,17 @@ uv run --locked python scripts/lint.py --fix
 
 # Full local CI equivalent
 make ci
+
+# Build, inspect, and isolate-smoke all five Python distributions
+uv run python scripts/build-python-distributions.py --dist-dir dist
+uv run python scripts/check-python-distributions.py --dist-dir dist
+uv run python scripts/smoke-python-distributions.py --dist-dir dist --python .venv/Scripts/python.exe
 ```
+
+The distribution builder is the required entry point. Do not replace it with a
+raw `uv build --all-packages` release command: it cleans known build caches and
+protects external wheelhouses from reparse points or unrelated files before
+building. The checker must pass before any wheel is installed or archived.
 
 ## Pre-Merge Architecture Gate
 
@@ -64,6 +74,36 @@ with the source change.
 Win7/offline delivery claims require real bundle smoke evidence on the
 target-style bundle. Local development tests do not replace clean
 Win7/WebView2 bundle smoke results.
+
+## Python Distribution Ownership
+
+The uv workspace produces exactly five Python distributions:
+
+- `embedagent-core`: `embedagent_core`; no runtime dependencies and no imports
+  from Protocol, Host, product, GUI, or workflow packages.
+- `embedagent-protocol`: `embedagent_protocol`; stdlib-only wire DTOs and no
+  imports from Core, Host, or product.
+- `embedagent-host`: `embedagent_host`; generic providers, local runtime
+  services, tools, stores, and session hosting. It depends only on exact-matched
+  Core and Protocol distributions and must not import `embedagent`.
+- `embedagent-composition`: `embedagent_composition`; dependency-free neutral
+  composition marker.
+- `embedagent`: product aggregator; owns CLI/TUI/GUI, product bootstrap, and the
+  bundled C/C++ workflow, and depends on all four workspace distributions.
+
+When adding a module, place workflow-neutral turn/session policy and public SDK
+contracts in Core; JSON-safe UI/Host DTOs in Protocol; generic concrete runtime
+implementations in Host; neutral composition markers in Composition; and all
+GUI, product configuration/bootstrap, and first-party C/C++ workflow behavior
+in the product. Product bootstrap must inject product registries, policy
+factories, and runtime discovery into Host. Never solve a Host need by importing
+the product back into Host.
+
+Offline dependency export must build and validate the five wheels, install
+them wheel-only with network resolution disabled, and stage the installed
+product under `app/embedagent` while the other installed distributions remain
+under `runtime/site-packages`. Editable links and duplicate product packages in
+`runtime/site-packages` are release defects.
 
 **Constraints (always enforce)**:
 - Python **3.8.x strictly** — never use 3.9+ syntax (no walrus operator `:=`, no `match`, no `dict | dict`)
@@ -192,7 +232,12 @@ Workflow-package prompt units appended by `QueryEngine` must use the generic `wo
 
 `TurnExperienceReducer` is the transcript-backed read model for user-facing turn experience. It reduces safe `tool_result` and `loop_transition` events into completed work, unverified changes, validation failures, blockers, and next steps. Session snapshots and `session_finished` events may expose `turn_experience` for CLI/TUI/GUI display; the projection must not drive loop continuation, validation policy, active tools, permissions, restore behavior, extension loading, or session-history truth.
 
-Default extension assembly lives in `src/embedagent_host/default_extensions.py`. `QueryEngine` must not import or construct `CHarnessWorkflowExtension`; direct internal `QueryEngine` tests that need default C/C++ behavior must pass an explicit `ExtensionManager`, while hosts must bind the selected manager through `AgentPorts` and use `Agent` / `AgentSession`.
+Default extension assembly is selected by product composition and injected into
+the Host runtime. `QueryEngine` must not import or construct
+`CHarnessWorkflowExtension`; direct internal `QueryEngine` tests that need
+default C/C++ behavior must pass an explicit `ExtensionManager`, while hosts
+must bind the selected manager through `AgentPorts` and use `Agent` /
+`AgentSession`.
 
 `HarnessStateSynchronizer` has been removed. Product adapter paths must refresh harness state through `CHarnessWorkflowExtension.refresh_managed_session()` behind the default harness workflow extension.
 
@@ -354,7 +399,7 @@ Mode definitions live in `src/embedagent/modes.py`.
 
 One official permission engine only:
 
-- `src/embedagent_core/permissions.py`
+- `packages/embedagent-core/src/embedagent_core/permissions.py`
 
 Permission rules are structured data, not free-form prompt behavior.
 When changing permission behavior, keep rule matching, decision categories, and explanation text aligned.
@@ -370,7 +415,7 @@ One official frontend vocabulary only:
 
 Frontend-facing contract changes must be reflected together in:
 
-- `src/embedagent/protocol/`
+- `packages/embedagent-protocol/src/embedagent_protocol/`
 - `src/embedagent/core/`
 - `src/embedagent/frontend/`
 

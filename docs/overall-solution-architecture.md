@@ -18,6 +18,35 @@ The product is organized around one main execution spine:
 
 `Frontend -> Agent App Protocol / Core Adapter -> Hosted Runtime -> InProcessAdapter -> Agent / AgentSession -> internal QueryEngine -> AgentKernel -> AgentLoop / AgentLifecycleJournal -> AgentToolActionService -> AgentExtensionHost / ToolRuntime / PermissionPolicy -> Context/Stores`
 
+### Distribution Boundaries
+
+The repository is a uv workspace with five independently built Python
+distributions:
+
+| Distribution | Import package | Owns | Runtime dependencies |
+|---|---|---|---|
+| `embedagent-core` | `embedagent_core` | Public Agent SDK and workflow-neutral kernel | none |
+| `embedagent-protocol` | `embedagent_protocol` | JSON-safe Host/UI DTOs | none |
+| `embedagent-host` | `embedagent_host` | Generic hosted runtime, providers, local services, tools, and stores | exact Core and Protocol |
+| `embedagent-composition` | `embedagent_composition` | Neutral composition marker | none |
+| `embedagent` | `embedagent` | Product CLI/TUI/GUI, bootstrap, and bundled C/C++ workflow | all workspace distributions plus product/UI dependencies |
+
+The allowed dependency graph is acyclic. Host may use Core and Protocol; the
+product may use every lower distribution. Core, Protocol, and Composition are
+independent leaves. Core and Host must not import `embedagent`, and Host must
+not import the bundled C/C++ workflow. Product bootstrap provides the selected
+application registry, config loader, prompt builder, command sanitizer, and
+bundle discovery functions to generic Host factories.
+
+Source ownership follows the distribution boundary: reusable SDK policy belongs
+to Core, cross-shell wire DTOs to Protocol, concrete workflow-neutral runtime
+implementations to Host, and product/GUI/C++ workflow behavior to the product.
+The stable source roots are `packages/embedagent-core/src/embedagent_core/`,
+`packages/embedagent-protocol/src/embedagent_protocol/`,
+`packages/embedagent-host/src/embedagent_host/`,
+`packages/embedagent-composition/src/embedagent_composition/`, and
+`src/embedagent/`.
+
 ### Frontend Layer
 
 - `src/embedagent/frontend/tui/`
@@ -405,7 +434,7 @@ behavior.
 
 ### Protocol / Core Layer
 
-- `src/embedagent/protocol/`
+- `packages/embedagent-protocol/src/embedagent_protocol/`
 - `src/embedagent/core/`
 
 This is the stable contract boundary between UI shells and Agent Core. The GUI
@@ -415,35 +444,35 @@ packages.
 
 ### Agent Core Layer
 
-- `src/embedagent_core/`
-- `src/embedagent_core/api.py`
-- `src/embedagent_core/runner.py`
-- `src/embedagent_core/session_log.py`
-- `src/embedagent_core/query_engine.py`
-- `src/embedagent_core/agent_lifecycle.py`
-- `src/embedagent_core/agent_kernel.py`
-- `src/embedagent_core/agent_loop.py`
-- `src/embedagent_core/agent_tool_action_service.py`
-- `src/embedagent_core/agent_extension_host.py`
-- `src/embedagent_core/agent_event_bus.py`
-- `src/embedagent_core/session.py`
-- `src/embedagent_core/interaction.py`
-- `src/embedagent_core/model.py`
-- `src/embedagent_core/tool_contracts.py`
-- `src/embedagent_core/ports.py`
-- `src/embedagent_core/policies.py`
-- `src/embedagent_core/guard.py`
-- `src/embedagent_core/prompt_assembly_service.py`
-- `src/embedagent_core/compactor.py`
-- `src/embedagent_core/context_window.py`
-- `src/embedagent_core/turn_snapshot.py`
-- `src/embedagent_core/capabilities.py`
-- `src/embedagent_core/runtime_config.py`
-- `src/embedagent_core/compaction_state.py`
-- `src/embedagent_core/recovery_state.py`
-- `src/embedagent_core/workflow_package_manifest.py`
-- `src/embedagent_core/extensions.py`
-- `src/embedagent_core/permissions.py`
+- `packages/embedagent-core/src/embedagent_core/`
+- `packages/embedagent-core/src/embedagent_core/api.py`
+- `packages/embedagent-core/src/embedagent_core/runner.py`
+- `packages/embedagent-core/src/embedagent_core/session_log.py`
+- `packages/embedagent-core/src/embedagent_core/query_engine.py`
+- `packages/embedagent-core/src/embedagent_core/agent_lifecycle.py`
+- `packages/embedagent-core/src/embedagent_core/agent_kernel.py`
+- `packages/embedagent-core/src/embedagent_core/agent_loop.py`
+- `packages/embedagent-core/src/embedagent_core/agent_tool_action_service.py`
+- `packages/embedagent-core/src/embedagent_core/agent_extension_host.py`
+- `packages/embedagent-core/src/embedagent_core/agent_event_bus.py`
+- `packages/embedagent-core/src/embedagent_core/session.py`
+- `packages/embedagent-core/src/embedagent_core/interaction.py`
+- `packages/embedagent-core/src/embedagent_core/model.py`
+- `packages/embedagent-core/src/embedagent_core/tool_contracts.py`
+- `packages/embedagent-core/src/embedagent_core/ports.py`
+- `packages/embedagent-core/src/embedagent_core/policies.py`
+- `packages/embedagent-core/src/embedagent_core/guard.py`
+- `packages/embedagent-core/src/embedagent_core/prompt_assembly_service.py`
+- `packages/embedagent-core/src/embedagent_core/compactor.py`
+- `packages/embedagent-core/src/embedagent_core/context_window.py`
+- `packages/embedagent-core/src/embedagent_core/turn_snapshot.py`
+- `packages/embedagent-core/src/embedagent_core/capabilities.py`
+- `packages/embedagent-core/src/embedagent_core/runtime_config.py`
+- `packages/embedagent-core/src/embedagent_core/compaction_state.py`
+- `packages/embedagent-core/src/embedagent_core/recovery_state.py`
+- `packages/embedagent-core/src/embedagent_core/workflow_package_manifest.py`
+- `packages/embedagent-core/src/embedagent_core/extensions.py`
+- `packages/embedagent-core/src/embedagent_core/permissions.py`
 
 This is the generic Agent Core package. Agent Core is dependency-inverted: it
 owns turn state, transcript records, reducers, permission contracts, extension
@@ -473,23 +502,29 @@ abstraction.
 
 ### Host And Product Composition Layer
 
-- `src/embedagent_host/inprocess_adapter.py`
-- `src/embedagent_host/hosted_command_service.py`
-- `src/embedagent_host/hosted_interaction_service.py`
-- `src/embedagent_host/hosted/`
-- `src/embedagent/agent_applications.py`
-- `src/embedagent/session_runtime.py`
-- `src/embedagent/session_projector.py`
-- `src/embedagent/session_history.py`
-- `src/embedagent/tools/`
-- `src/embedagent/context.py`
-- `src/embedagent/project_extensions.py`
-- `src/embedagent/slash_commands.py`
+- `packages/embedagent-host/src/embedagent_host/inprocess_adapter.py`
+- `packages/embedagent-host/src/embedagent_host/hosted_command_service.py`
+- `packages/embedagent-host/src/embedagent_host/hosted_interaction_service.py`
+- `packages/embedagent-host/src/embedagent_host/hosted/`
+- `packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py`
+- `packages/embedagent-host/src/embedagent_host/runtime/session_runtime.py`
+- `packages/embedagent-host/src/embedagent_host/runtime/session_projector.py`
+- `packages/embedagent-host/src/embedagent_host/runtime/session_history.py`
+- `packages/embedagent-host/src/embedagent_host/runtime/tools/`
+- `packages/embedagent-host/src/embedagent_host/runtime/context.py`
+- `packages/embedagent-host/src/embedagent_host/runtime/project_extensions.py`
+- `packages/embedagent-host/src/embedagent_host/runtime/slash_commands.py`
+- `src/embedagent/hosted.py`
+- `src/embedagent/agent_application_registry.py`
+- `src/embedagent/workflow_packages/`
 
-This layer assembles Agent Core, selected agent applications, workflow packages, local resources,
-project-local extensions, product session hosting, CLI/TUI/GUI bridges, and
-offline bundle integration. It is replaceable product composition, not generic
-Core.
+The Host distribution provides generic concrete services over Agent Core:
+selected application loading, local resources, project-local extensions,
+session hosting, commands/interactions, tools, context, providers, and stores.
+It does not select or import product workflow packages. The root product owns
+the CLI/TUI/GUI bridge, bundled C/C++ workflow, and final composition. Its
+bootstrap injects product configuration and application policy into generic
+Host factories. Both layers remain outside generic Core.
 
 Hosted `AgentApplication` records declare scenario identity, manifest metadata,
 profile, mode policy, extension manager, and workflow refreshers. The hosted
@@ -500,7 +535,7 @@ package-owned application factory, so the generic loader does not contain C/C++
 workflow branches. Profile-only records stay in the base registry and can be
 built without importing the bundled C/C++ workflow package. Workflow-backed
 built-ins, including the default C/C++ product application, are added only by the
-hosted product registry in `src/embedagent_host/agent_application_registry.py`.
+product registry in `src/embedagent/agent_application_registry.py`.
 The default C/C++ application record and app-shell overlay live in
 `src/embedagent/workflow_packages/c_cpp/application_record.py`; the base
 registry does not import that package. The selected registry exposes safe
@@ -515,7 +550,7 @@ The legacy/global `src/embedagent/modes.py` facade is intentionally backed by
 the generic base agent profile; hosted runtime paths use the selected
 `AgentApplication.profile` for specialized writable globs, prompt copy, mode
 descriptors, and active-tool base policy through
-`src/embedagent/agent_profile_runtime.py`. `InProcessAdapter` composes those
+`embedagent_host.runtime.agent_profile_runtime`. `InProcessAdapter` composes those
 shared profile runtime policies and must not inline product prompt rendering,
 write-glob evaluation, or mode-switch parsing. The default C/C++ profile is
 loaded only from `src/embedagent/workflow_packages/c_cpp/agent_profile.py` by
@@ -744,7 +779,7 @@ Session snapshots carry:
 
 The tool runtime has one official facade:
 
-- `src/embedagent/tools/runtime.py`
+- `packages/embedagent-host/src/embedagent_host/runtime/tools/runtime.py`
 
 Harness selects focused tool packs by mode/phase, but execution still flows through one runtime object.
 
@@ -760,7 +795,7 @@ Local self-extension authoring is a workflow-neutral write capability. `SelfExte
 
 The tool runtime also owns a file-only local resource cache. `ToolRuntime.reload_resources()` refreshes workspace-bound `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` resources. Root-level `workspace_recipes` is a workflow-neutral read model over explicit project/local/history recipe resources: it does not detect CMake/Make/Ninja projects and does not assign the default C/C++ `run_recipe` tool name. The bundled C/C++ workflow package owns CMake/Make/Ninja recipe detection, `run_recipe` normalization, and recipe resolution through its explicit `workspace_recipes` extension capability. Skill and prompt bodies are expanded only through explicit slash commands.
 
-Project-local Python extensions are loaded by hosted adapters through `src/embedagent/project_extensions.py`, not by resource reload. The loader validates `extension.json`, keeps entrypoints inside the extension directory, passes a narrow workspace-bound API object, registers loaded objects into the shared `ExtensionManager`, and projects load state under `Session.workflow_state["extensions"]["project_extensions"]`. Hook participation still requires explicit `extension_capabilities()` records; defining a method with a recognized hook name does nothing unless it is declared.
+Project-local Python extensions are loaded by hosted adapters through `embedagent_host.runtime.project_extensions`, not by resource reload. The loader validates `extension.json`, keeps entrypoints inside the extension directory, passes a narrow workspace-bound API object, registers loaded objects into the shared `ExtensionManager`, and projects load state under `Session.workflow_state["extensions"]["project_extensions"]`. Hook participation still requires explicit `extension_capabilities()` records; defining a method with a recognized hook name does nothing unless it is declared.
 
 Runtime-invoked external binaries are part of the tool architecture even when they are not model-visible tools. `scripts/offline-runtime-contract.json` is the repo-side contract for bundled Python, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables. Packaging validators consume this contract so the runtime, bundle gate, and dependency checker share one external-tool truth.
 
@@ -802,7 +837,7 @@ Runtime configuration projections are also read-only. `runtime_configured`, `res
 
 ## 5. Workflow Extension And Harness Layer
 
-`src/embedagent_core/extensions.py` owns the local in-process capability extension contract.
+`packages/embedagent-core/src/embedagent_core/extensions.py` owns the local in-process capability extension contract.
 
 The default C/C++ workflow package extension in `src/embedagent/workflow_packages/c_cpp/extension.py` owns:
 
@@ -818,7 +853,7 @@ This keeps workflow structure out of the frontend, out of ad-hoc prompt text, an
 
 ## 6. Permission Layer
 
-`src/embedagent_core/permissions.py` is the only official permission engine.
+`packages/embedagent-core/src/embedagent_core/permissions.py` is the only official permission engine.
 
 It owns:
 
@@ -832,7 +867,8 @@ The frontend should never infer permission policy from mode alone.
 
 ## 7. Context Layer
 
-`src/embedagent/context.py` and `src/embedagent/workspace_intelligence.py` own:
+`embedagent_host.runtime.context` and
+`embedagent_host.runtime.workspace_intelligence` own:
 
 - context budgets
 - workflow-neutral reducer registry
@@ -840,7 +876,7 @@ The frontend should never infer permission policy from mode alone.
 - summary assembly
 - workspace intelligence evidence
 
-`src/embedagent/tool_evidence.py` is the generic evidence-shape classifier for
+`embedagent_host.runtime.tool_evidence` is the generic evidence-shape classifier for
 hosted services. It recognizes recipe, test, coverage, diagnostic, and quality
 gate payloads without importing workflow-package tool-name constants.
 

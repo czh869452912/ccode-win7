@@ -1,18 +1,19 @@
 # ADR-0001: Phase 7 离线交付采用 one-folder portable bundle 基线
 
 - 状态：`accepted`
-- 日期：2026-03-29
+- 日期：2026-03-29（2026-07-12 同步 Python distribution staging 基线）
 - 相关文档：
   - `README.md`
   - `docs/overall-solution-architecture.md`
   - `docs/implementation-roadmap.md`
-  - `docs/offline-packaging.md`
-  - `docs/win7-preflight-checklist.md`
+  - `docs/modules/packaging-and-deployment.md`
+  - `docs/guides/win7-preflight-checklist.md`
 
 ## 背景
 
-项目的硬约束要求最终交付物在 Windows 7 离线环境中零外部依赖运行，
-但当前仓库尚未进入真正的 Phase 7 组包实现阶段。
+项目的硬约束要求最终交付物在 Windows 7 离线环境中零外部依赖运行。
+当前仓库已经实现 portable bundle 组包和仓库侧验证门禁，但真实 Win7 /
+WebView2 目标机证据仍是独立的发布条件。
 
 如果不先固定交付物主形态，后续很容易在以下问题上反复变更：
 
@@ -30,6 +31,10 @@ Phase 7 的首个正式交付基线采用：
 3. manifest 驱动的 staging 组包流程
 4. launcher 负责设置 PATH 与 Python 运行环境，不依赖系统预装软件
 5. bundle 级验证和 Win7 preflight 作为正式验收门
+6. 项目 Python 代码以五个独立、已检查的 wheel 进入离线 staging：Core、
+   Protocol、Host、Composition 和产品聚合包
+7. dependency export 只从 clean wheelhouse 安装项目 distribution，禁止把
+   editable 开发树或未经检查的源码目录作为 bundle 输入
 
 Installer、one-file 单 exe 和 x86 包均不作为首个交付增量的前提条件。
 
@@ -40,11 +45,13 @@ Installer、one-file 单 exe 和 x86 包均不作为首个交付增量的前提�
 - 与“解压即用、零外部依赖”的目标一致
 - 更容易做缺件排查、checksum 校验和 license 追踪
 - 更适合携带 clang/git/rg/ctags 等外部工具
+- wheel 内容归属、依赖方向和离线安装可以在组包前独立验证
 
 代价：
 
 - 产物目录较大
 - 需要维护 manifest、checksums 和第三方来源记录
+- 需要同步维护五个 distribution 的 metadata、wheel 边界和隔离导入门禁
 - 首个版本的“安装体验”不如 installer 方案简洁
 
 受影响模块：
@@ -53,6 +60,7 @@ Installer、one-file 单 exe 和 x86 包均不作为首个交付增量的前提�
 - launcher 设计
 - toolchain/bundle manifest
 - Win7 验收流程
+- Python workspace metadata、wheel build/check/smoke 和 dependency export
 
 ## 备选方案
 
@@ -79,10 +87,13 @@ Installer、one-file 单 exe 和 x86 包均不作为首个交付增量的前提�
 - 直接违反项目硬约束
 - 目标机环境不可控，无法形成正式交付
 
-## 后续动作
+## 当前验收边界
 
-1. 建立 `docs/offline-packaging.md` 作为 Phase 7 设计基线
-2. 建立 `docs/win7-preflight-checklist.md` 作为目标机验收清单
-3. 规划 `prepare/build/validate` 三类打包脚本
-4. 固化第三方二进制来源、版本、校验和与 License 清单
-5. 在 Win7 虚拟机上按 preflight 口径完成首轮 bundle 验收
+仓库侧必须通过 clean wheel build、wheel ownership/dependency 检查、精确
+Python 3.8 的 no-index/no-deps 隔离安装、bundle 静态/动态检查，以及
+bundle-local C smoke。外部 wheelhouse 只能包含普通 wheel 文件，不能经过
+reparse point；任何未知文件都应使构建失败而不是被删除。
+
+这些结果不替代目标机证据。正式 Win7 GUI 声明仍要求在 clean target-style
+bundle 上完成 windowed smoke，并证明 renderer 使用 bundle 内 Fixed Version
+WebView2 109。该证据和更广泛真实 C/C++ 项目验证仍是发布前剩余项。

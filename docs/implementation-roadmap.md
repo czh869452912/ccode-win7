@@ -28,6 +28,8 @@ The following core programs are now complete in the current architecture baselin
 5. Frontend / protocol officialization
 6. Agent core ownership cutover
 7. Standalone Agent Core public API promotion
+8. Independent Python distribution split for Core, Protocol, Host,
+   Composition, and product
 
 This means the repository now has one official execution spine centered on:
 
@@ -38,6 +40,22 @@ This means the repository now has one official execution spine centered on:
 
 Recent workflow-boundary work has split the generic Agent Core from hosted
 product composition and default C/C++ behavior:
+
+- the repository is a uv workspace that builds exactly five version-locked
+  distributions: dependency-free Core, Protocol, and Composition leaves; Host
+  depending only on Core and Protocol; and the product aggregator depending on
+  all four workspace members
+- Core, Protocol, and Host have distribution-owned source roots; the root
+  product wheel contains only product code and GUI static assets
+- product-specific application selection, configuration, prompt construction,
+  command sanitization, and bundle discovery are injected into generic Host
+  factories; Host does not import product or C/C++ workflow modules
+- clean wheel construction, archive ownership inspection, Python 3.8 isolated
+  no-index import smoke, and wheel-only offline dependency staging are now local
+  CI and packaging gates
+- local gates prove distribution integrity, not target compatibility; clean
+  Win7 windowed GUI smoke with bundled WebView2 109 remains required release
+  evidence
 
 - `Agent` / `AgentSession` are now the supported standalone Core SDK; typed
   `UserTurn` and `InteractionReply` inputs share the same public submit path
@@ -54,21 +72,22 @@ product composition and default C/C++ behavior:
   `other`; explicit rules may allow, ask, or deny
 - the default `RuntimeDefinition` independently uses `DenyWritePathPolicy`, so
   permission approval does not make a write path writable
-- `src/embedagent_core/` now contains the workflow-neutral session engine,
+- `packages/embedagent-core/src/embedagent_core/` now contains the workflow-neutral session engine,
   extension boundary, permission policy, reducers, turn snapshots, and
   capability read models
 - `embedagent_core` no longer imports `embedagent`, `embedagent_host`, GUI/TUI,
   or workflow package modules
 - product-owned concrete services are injected through Core ports
 - deleted product-level compatibility paths are intentionally absent
-- `src/embedagent_host/` now contains hosted product composition, default
-  extension assembly, hosted command/interaction services, and adapter glue
+- `packages/embedagent-host/src/embedagent_host/` now contains generic hosted
+  runtime services, providers, tools, hosted command/interaction services, and
+  adapter glue; product composition remains in the root product
 - `src/embedagent/workflow_packages/c_cpp/` now contains the first-party C/C++
   workflow package
-- `src/embedagent_core/extensions.py` now provides the in-process workflow extension boundary
+- `packages/embedagent-core/src/embedagent_core/extensions.py` now provides the in-process workflow extension boundary
 - the C/C++ harness is wrapped as the default built-in workflow extension
 - `QueryEngine` no longer imports or instantiates `TaskGraph` directly
-- `QueryEngine` no longer imports or constructs the default C harness extension; hosted paths install selected scenario applications through `src/embedagent/agent_applications.py`, with the default C/C++ application factory in `src/embedagent/workflow_packages/c_cpp/application.py`
+- `QueryEngine` no longer imports or constructs the default C harness extension; hosted paths install selected scenario applications through `embedagent_host.runtime.agent_applications`, with the default C/C++ application factory in `src/embedagent/workflow_packages/c_cpp/application.py`
 - `Session.workflow_state` is the generic workflow-state carrier; `Session.task_graph` has been removed and default C harness graph state is owned behind `CHarnessWorkflowExtension`
 - `SessionSnapshotProjector` and live frontend task APIs now project harness task fields from `Session.workflow_state["workflow"]`
 - the obsolete extracted turn-orchestrator strategy has been removed; `AgentLoop` is the only turn-loop owner and `AgentToolActionService` is the only non-LLM action execution owner
@@ -103,8 +122,8 @@ product composition and default C/C++ behavior:
 - `RuntimeConfigReducer` now projects safe runtime configuration from transcript events, including model profile metadata, registered tool names, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records
 - `WorkflowPackageManifest` now describes the bundled C/C++ workflow package identity, declared tools, packs, supported modes/workflow states, and resource scopes as read-only non-executing control-plane data exposed through the shared extension manager
 - `TurnExperienceReducer` now treats validation state as explicit tool-result metadata, not a command-name heuristic; build/test/compiler command strings remain diagnostic evidence for the next model turn unless the owning workflow/tool marks the result as validation
-- Hosted `/review`, project memory, and workspace intelligence now classify recipe, test, coverage, diagnostic, and quality-gate evidence through workflow-neutral payload fields in `src/embedagent/tool_evidence.py`; they no longer import default C/C++ workflow tool constants
-- `CHarnessWorkflowExtension` now owns default C/C++ workspace recipe projection through an explicit `workspace_recipes` capability; `src/embedagent/workspace_recipes.py` remains a generic local resource read model without CMake/Make/Ninja detection
+- Hosted `/review`, project memory, and workspace intelligence now classify recipe, test, coverage, diagnostic, and quality-gate evidence through workflow-neutral payload fields in `embedagent_host.runtime.tool_evidence`; they no longer import default C/C++ workflow tool constants
+- `CHarnessWorkflowExtension` now owns default C/C++ workspace recipe projection through an explicit `workspace_recipes` capability; `embedagent_host.runtime.workspace_recipes` remains a generic local resource read model without CMake/Make/Ninja detection
 - `SelfExtensionAuthoringService` and `author_local_capability` can generate local skills, prompts, recipes, and disabled-by-default project extension skeletons without reloading resources or loading Python code
 - `scripts/offline-runtime-contract.json` is now the single repo-side contract for runtime-invoked bundled external tools; `validate-offline-bundle.ps1` and `check-bundle-dependencies.py` consume it for Python, Bash from MinGit, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executable validation
 - Slice 6 completed the documentation cutover for self-extensible Agent Core: active source-of-truth docs and module docs now treat local offline self-extension as official architecture while keeping marketplaces, online installs, dependency installation, built-in tool replacement, and multi-agent orchestration out of scope
@@ -632,11 +651,11 @@ The current self-extensible Agent Core baseline remains valid. The next program 
 - `AgentApplicationManifest` records describe application id, label, profile id, workflow package ids, source metadata, and default status
 - `build_agent_application(application_id, tools, registry=...)` is the selected-application loader; the default C/C++ application is one hosted product registry record, not a `QueryEngine` fallback
 - built-in applications are declared as `AgentApplicationRecord` data; profile-only applications build directly from their profile record, while workflow-backed specialized applications declare a `builder_path` so the generic loader does not hard-code C/C++ workflow branches; the default C/C++ application record/app-shell overlay lives in `src/embedagent/workflow_packages/c_cpp/application_record.py`, and its mode profile lives in `src/embedagent/workflow_packages/c_cpp/agent_profile.py`
-- base registry ids are `embedagent.generic`, `embedagent.python`, and `embedagent.html`; the hosted product registry in `src/embedagent_host/agent_application_registry.py` composes those base records with packaged `embedagent.default_c_cpp`
+- base registry ids are `embedagent.generic`, `embedagent.python`, and `embedagent.html`; the product registry in `src/embedagent/agent_application_registry.py` composes those base records with packaged `embedagent.default_c_cpp`
    - profile-only records remain in the base application registry; workflow-backed built-in records are added by the hosted product registry, so building `embedagent.generic`, `embedagent.python`, or `embedagent.html` through the base registry no longer imports `embedagent.workflow_packages.c_cpp`
-   - profile runtime policy is now shared through `src/embedagent/agent_profile_runtime.py`; hosted adapters compose `AgentProfileRuntimePolicy`, `AgentProfileToolPolicy`, and `AgentProfileWritePathPolicy` instead of carrying product prompt, write-glob, or mode-switch parsing copies
+   - profile runtime policy is shared through `embedagent_host.runtime.agent_profile_runtime`; hosted adapters compose `AgentProfileRuntimePolicy`, `AgentProfileToolPolicy`, and `AgentProfileWritePathPolicy` instead of carrying product prompt, write-glob, or mode-switch parsing copies
    - base config examples and `config/config.json.template` no longer pin `embedagent.default_c_cpp`; omitted `agent_application_id` is resolved by the hosted application registry
-   - C/C++ workspace-profile file signals now live in `src/embedagent/workflow_packages/c_cpp/workspace_profile.py`; generic `src/embedagent/workspace_profile.py` consumes optional application detectors and no longer hard-codes CMake/Make/C++ source roots
+   - C/C++ workspace-profile file signals now live in `src/embedagent/workflow_packages/c_cpp/workspace_profile.py`; generic `embedagent_host.runtime.workspace_profile` consumes optional application detectors and no longer hard-codes CMake/Make/C++ source roots
    - GUI/session capability payloads expose `agentApplication` and `agentApplications` from the backend, and injected external applications do not leak the bundled C/C++ application into their available-application list
    - renderer no-workspace copy, capability normalizers, mode order, `workflowPackages`, and runtime workflow summary rows now come from backend-declared capability/snapshot payloads instead of C/C++ defaults
    - hosted review, project-memory, and workspace-intelligence helpers consume structured evidence payloads rather than default C/C++ workflow tool constants, so specialized applications can emit their own recipe/quality/diagnostic tools

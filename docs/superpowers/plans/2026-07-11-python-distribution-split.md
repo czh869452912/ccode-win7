@@ -8,6 +8,11 @@
 
 **Tech Stack:** Python 3.8, uv workspace sources, setuptools PEP 621 metadata, wheel ZIP inspection, isolated venv smoke tests, existing offline packaging scripts.
 
+**Status:** Complete. The five distributions build independently, pass archive
+boundary checks and Python 3.8 isolated import smoke, and feed wheel-only offline
+staging. Clean Win7/WebView2 target-bundle smoke remains a product release gate,
+not a completion condition for this distribution split.
+
 ---
 
 ## Target Workspace
@@ -40,7 +45,7 @@ default composition path.
 - Create: `tests/test_python_distribution_contract.py`
 - Modify: `tests/test_core_package_imports.py`
 
-- [ ] **Step 1: Write the target metadata tests**
+- [x] **Step 1: Write the target metadata tests**
 
 Create `tests/test_python_distribution_contract.py`:
 
@@ -111,7 +116,7 @@ except ImportError:
 
 Do not add `tomli` to any runtime distribution.
 
-- [ ] **Step 2: Add the wheel inspection script**
+- [x] **Step 2: Add the wheel inspection script**
 
 Create `scripts/check-python-distributions.py`. It must open wheel files with
 `zipfile`, parse `*.dist-info/METADATA`, and enforce this table:
@@ -149,7 +154,7 @@ EXPECTED = {
 The script accepts `--dist-dir`, reports JSON to stdout, and exits non-zero for
 missing wheels, missing prefixes, forbidden files, or forbidden dependencies.
 
-- [ ] **Step 3: Run the tests and verify the target is red**
+- [x] **Step 3: Run the tests and verify the target is red**
 
 ```bash
 uv run pytest tests/test_python_distribution_contract.py -v
@@ -157,7 +162,7 @@ uv run pytest tests/test_python_distribution_contract.py -v
 
 Expected: FAIL because package pyprojects do not exist.
 
-- [ ] **Step 4: Commit the red packaging contracts**
+- [x] **Step 4: Commit the red packaging contracts**
 
 ```bash
 git add scripts/check-python-distributions.py tests/test_python_distribution_contract.py tests/test_core_package_imports.py
@@ -175,7 +180,7 @@ git commit -m "test: define python distribution boundaries"
 - Create: `packages/embedagent-composition/pyproject.toml`
 - Create: `packages/embedagent-composition/src/embedagent_composition/__init__.py`
 
-- [ ] **Step 1: Add workspace members and local sources**
+- [x] **Step 1: Add workspace members and local sources**
 
 Keep the root project named `embedagent`. Add:
 
@@ -198,7 +203,7 @@ embedagent-composition = { workspace = true }
 Add exact local package dependencies to the root project. Keep GUI dependencies
 only in the root product.
 
-- [ ] **Step 2: Create package pyprojects**
+- [x] **Step 2: Create package pyprojects**
 
 Each package uses `setuptools.build_meta`, Python `>=3.8,<3.9`, its local `src`
 directory, and explicit include patterns. Example Core metadata:
@@ -227,7 +232,7 @@ exact matching `embedagent-core==0.1.0` and
 `embedagent-protocol==0.1.0`. The root product imports Composition and registers
 trusted Core/Host factories; the generic compiler never imports those packages.
 
-- [ ] **Step 3: Regenerate the lock through uv**
+- [x] **Step 3: Regenerate the lock through uv**
 
 ```bash
 uv lock
@@ -236,7 +241,7 @@ uv sync
 
 Expected: both commands exit zero. Do not edit `uv.lock` manually.
 
-- [ ] **Step 4: Run metadata tests**
+- [x] **Step 4: Run metadata tests**
 
 ```bash
 uv run pytest tests/test_python_distribution_contract.py -v
@@ -245,7 +250,7 @@ uv run pytest tests/test_python_distribution_contract.py -v
 Expected: metadata tests pass; wheel-content checks are deferred until sources
 move.
 
-- [ ] **Step 5: Commit workspace metadata**
+- [x] **Step 5: Commit workspace metadata**
 
 ```bash
 git add pyproject.toml uv.lock packages tests/test_python_distribution_contract.py
@@ -262,7 +267,7 @@ git commit -m "build: create agent package workspace"
 - Test: `tests/test_core_package_imports.py`
 - Test: `tests/test_agent_app_protocol.py`
 
-- [ ] **Step 1: Move Core with history**
+- [x] **Step 1: Move Core with history**
 
 ```bash
 New-Item -ItemType Directory -Force packages/embedagent-core/src | Out-Null
@@ -271,7 +276,7 @@ git mv src/embedagent_core packages/embedagent-core/src/embedagent_core
 
 Do not create a compatibility package at `src/embedagent_core`.
 
-- [ ] **Step 2: Move and rename Protocol**
+- [x] **Step 2: Move and rename Protocol**
 
 ```bash
 New-Item -ItemType Directory -Force packages/embedagent-protocol/src | Out-Null
@@ -283,7 +288,7 @@ Protocol dependency on `embedagent_core.permissions.PermissionContextView` by
 defining a JSON-safe `PermissionContext` DTO in `embedagent_protocol` and
 mapping the runtime view in Host.
 
-- [ ] **Step 3: Update tests and architecture scanners to workspace roots**
+- [x] **Step 3: Update tests and architecture scanners to workspace roots**
 
 Change hard-coded roots from `src/embedagent_core` to
 `packages/embedagent-core/src/embedagent_core`, and from
@@ -305,13 +310,13 @@ def test_importing_public_core_does_not_load_other_distributions(self):
     assert result.returncode == 0
 ```
 
-- [ ] **Step 4: Remove Core and Host from the root package finder**
+- [x] **Step 4: Remove Core and Host from the root package finder**
 
 Root package discovery must include only `embedagent*`; the workspace package
 pyprojects own `embedagent_core*`, `embedagent_protocol*`, and later
 `embedagent_host*`.
 
-- [ ] **Step 5: Run Core and Protocol tests**
+- [x] **Step 5: Run Core and Protocol tests**
 
 ```bash
 uv sync
@@ -320,7 +325,7 @@ uv run pytest tests/test_core_package_imports.py tests/test_agent_core_public_ap
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Core and Protocol moves**
+- [x] **Step 6: Commit Core and Protocol moves**
 
 ```bash
 git add packages/embedagent-core packages/embedagent-protocol src tests pyproject.toml uv.lock
@@ -364,7 +369,7 @@ git commit -m "refactor: move core and protocol into workspace packages"
   - `src/embedagent/tools/`
 - Modify all imports and tests that reference moved modules.
 
-- [ ] **Step 1: Move the existing Host package**
+- [x] **Step 1: Move the existing Host package**
 
 ```bash
 New-Item -ItemType Directory -Force packages/embedagent-host/src | Out-Null
@@ -372,7 +377,7 @@ git mv src/embedagent_host packages/embedagent-host/src/embedagent_host
 New-Item -ItemType Directory -Force packages/embedagent-host/src/embedagent_host/runtime | Out-Null
 ```
 
-- [ ] **Step 2: Move the listed concrete runtime modules**
+- [x] **Step 2: Move the listed concrete runtime modules**
 
 Use `git mv` for every file and directory listed above. Preserve file history.
 Rename imports to `embedagent_host.runtime.<module>` and
@@ -394,7 +399,7 @@ src/embedagent/command_sanitizer.py
 Product composition may inject config and runtime-discovery adapters into Host;
 Host must not import the product package to obtain them.
 
-- [ ] **Step 3: Add a Host import-boundary test**
+- [x] **Step 3: Add a Host import-boundary test**
 
 Create `tests/test_host_distribution_imports.py`:
 
@@ -422,7 +427,7 @@ def test_host_does_not_import_product_or_workflow_packages():
     assert offenders == []
 ```
 
-- [ ] **Step 4: Run Host and product integration tests**
+- [x] **Step 4: Run Host and product integration tests**
 
 ```bash
 uv sync
@@ -431,7 +436,7 @@ uv run pytest tests/test_host_distribution_imports.py tests/test_host_package_co
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Host ownership moves**
+- [x] **Step 5: Commit Host ownership moves**
 
 ```bash
 git add packages/embedagent-host src tests pyproject.toml uv.lock
@@ -447,7 +452,7 @@ git commit -m "refactor: move hosted runtime into host distribution"
 - Modify: packaging scripts that copy project Python sources
 - Test: `tests/test_python_distribution_contract.py`
 
-- [ ] **Step 1: Build all workspace wheels**
+- [x] **Step 1: Build all workspace wheels**
 
 ```bash
 uv build --all-packages
@@ -455,7 +460,7 @@ uv build --all-packages
 
 Expected: creates wheels for Core, Protocol, Host, Composition, and product.
 
-- [ ] **Step 2: Run wheel content inspection**
+- [x] **Step 2: Run wheel content inspection**
 
 ```bash
 uv run python scripts/check-python-distributions.py --dist-dir dist
@@ -463,7 +468,7 @@ uv run python scripts/check-python-distributions.py --dist-dir dist
 
 Expected: JSON reports `ok: true` for every expected wheel.
 
-- [ ] **Step 3: Add isolated import smoke**
+- [x] **Step 3: Add isolated import smoke**
 
 Create `scripts/smoke-python-distributions.py` to:
 
@@ -477,7 +482,7 @@ Create `scripts/smoke-python-distributions.py` to:
 The script must accept `--python` so CI and Win7 preflight can pass the exact
 Python 3.8 executable.
 
-- [ ] **Step 4: Run isolated smoke**
+- [x] **Step 4: Run isolated smoke**
 
 ```bash
 uv run python scripts/smoke-python-distributions.py --dist-dir dist --python .venv/Scripts/python.exe
@@ -486,19 +491,19 @@ uv run python scripts/smoke-python-distributions.py --dist-dir dist --python .ve
 Expected: report contains `core_only: ok`, `protocol_only: ok`, and
 `host_stack: ok`.
 
-- [ ] **Step 5: Update bundle source staging**
+- [x] **Step 5: Update bundle source staging**
 
 Update `scripts/prepare-offline.ps1`, `scripts/build-offline-bundle.ps1`, and
 shared package helpers to copy installed workspace wheels/site-packages rather
 than assuming all Python packages live below root `src/`. Keep GUI static asset
 paths unchanged in this plan.
 
-- [ ] **Step 6: Add the distribution gate to local CI**
+- [x] **Step 6: Add the distribution gate to local CI**
 
 Add wheel build, inspection, and isolated import smoke to `make ci` after unit
 tests and before offline bundle validation.
 
-- [ ] **Step 7: Commit packaging verification**
+- [x] **Step 7: Commit packaging verification**
 
 ```bash
 git add scripts Makefile tests/test_python_distribution_contract.py
@@ -515,14 +520,14 @@ git commit -m "build: verify isolated agent distributions"
 - Modify: `docs/modules/packaging-and-deployment.md`
 - Modify: `docs/adrs/0001-offline-portable-bundle-baseline.md`
 
-- [ ] **Step 1: Update package ownership documentation**
+- [x] **Step 1: Update package ownership documentation**
 
 Record the new workspace paths, distribution dependencies, exact build
 commands, and the rule that product code must not be imported by Core or Host.
 Update AGENTS quick commands only if the commands actually changed; preserve
 `uv sync`, pytest, lint, and GUI gates.
 
-- [ ] **Step 2: Run complete Plan 2 verification**
+- [x] **Step 2: Run complete Plan 2 verification**
 
 ```bash
 uv sync
@@ -537,7 +542,7 @@ uv run python scripts/smoke-python-distributions.py --dist-dir dist --python .ve
 
 Expected: all commands exit zero.
 
-- [ ] **Step 3: Run GUI regression gate**
+- [x] **Step 3: Run GUI regression gate**
 
 ```bash
 cd src/embedagent/frontend/gui/webapp
@@ -548,7 +553,7 @@ cd ../../../../../
 
 Expected: PASS and generated static assets are committed if changed.
 
-- [ ] **Step 4: Commit Plan 2 closeout**
+- [x] **Step 4: Commit Plan 2 closeout**
 
 ```bash
 git add README.md AGENTS.md docs src/embedagent/frontend/gui/static
