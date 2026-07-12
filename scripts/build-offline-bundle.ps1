@@ -326,10 +326,12 @@ if (-not $checkerReport.ok -or @($checkerReport.verified_wheels).Count -ne 5) {
     throw "Python distribution checker did not return exactly five verified_wheels: $pythonWheelsSourceRoot"
 }
 Write-Host "[build] Archiving checked Python wheels..."
-$null = Copy-VerifiedPythonWheels `
+$null = Publish-VerifiedPythonWheels `
     -SourceRoot $pythonWheelsSourceRoot `
     -DestinationRoot $pythonWheelsArchiveRoot `
-    -WheelNames @($checkerReport.verified_wheels)
+    -WheelNames @($checkerReport.verified_wheels) `
+    -PythonPath $packagePython `
+    -CheckerPath $pythonDistributionChecker
 
 $assetManifest = Load-AssetManifest -ManifestPath $assetManifestResolved
 $distManifest = Get-Content -LiteralPath $distManifestPath -Raw | ConvertFrom-Json

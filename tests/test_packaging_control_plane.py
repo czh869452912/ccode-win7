@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +51,28 @@ def _write_project_distribution_layout(bundle):
             encoding="ascii",
         )
     return site_packages
+
+
+def _write_checker_wheelhouse(root):
+    layouts = (
+        ("embedagent-core", "embedagent_core"),
+        ("embedagent-protocol", "embedagent_protocol"),
+        ("embedagent-host", "embedagent_host"),
+        ("embedagent-composition", "embedagent_composition"),
+        ("embedagent", "embedagent"),
+    )
+    names = []
+    for distribution, package_name in layouts:
+        wheel_name = "%s-0.1.0-py3-none-any.whl" % distribution.replace("-", "_")
+        if distribution == "embedagent":
+            wheel_name = "embedagent-0.1.0-py3-none-any.whl"
+        dist_info = "%s-0.1.0.dist-info" % distribution.replace("-", "_")
+        metadata = "Metadata-Version: 2.1\nName: {0}\nVersion: 0.1.0\n".format(distribution)
+        with zipfile.ZipFile(str(root / wheel_name), "w") as wheel:
+            wheel.writestr(package_name + "/__init__.py", b"")
+            wheel.writestr(dist_info + "/METADATA", metadata.encode("ascii"))
+        names.append(wheel_name)
+    return names
 
 
 def _powershell_exe():
@@ -391,6 +414,25 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
             )
         )
 
+    def _publish_verified_wheels(self, source, destination):
+        quoted_names = ",".join("'{0}'".format(name) for name in self.VERIFIED_WHEEL_NAMES)
+        return run_pwsh(
+            ". '{lib}'; "
+            "$published = @(Publish-VerifiedPythonWheels -SourceRoot '{source}' "
+            "-DestinationRoot '{destination}' -WheelNames @({names}) "
+            "-PythonPath '{python}' -CheckerPath '{checker}'); "
+            "$published | ConvertTo-Json -Compress".format(
+                lib=str(LIB).replace("\\", "\\\\"),
+                source=str(source).replace("\\", "\\\\"),
+                destination=str(destination).replace("\\", "\\\\"),
+                names=quoted_names,
+                python=str(Path(sys.executable)).replace("\\", "\\\\"),
+                checker=str(ROOT / "scripts" / "check-python-distributions.py").replace(
+                    "\\", "\\\\"
+                ),
+            )
+        )
+
     def test_dependency_export_builds_and_installs_workspace_wheels_offline(self):
         script = EXPORT_SCRIPT.read_text(encoding="utf-8")
 
@@ -422,7 +464,7 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
         self.assertIn("python-wheels", script)
         self.assertIn("check-python-distributions.py", script)
         self.assertIn("verified_wheels", script)
-        self.assertIn("Copy-VerifiedPythonWheels", script)
+        self.assertIn("Publish-VerifiedPythonWheels", script)
         self.assertNotIn(
             "Copy-BundleTree -Source $pythonWheelsSourceRoot -Destination $pythonWheelsArchiveRoot",
             script,
@@ -454,6 +496,82 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(result.stdout), verified)
             self.assertEqual(sorted(path.name for path in destination.iterdir()), sorted(verified))
+
+    def test_atomic_wheel_publish_rechecks_copied_bytes_before_replacing_destination(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source"
+            destination = root / "python-wheels"
+            source.mkdir()
+            destination.mkdir()
+            marker = destination / "keep.txt"
+            marker.write_text("keep", encoding="ascii")
+            names = _write_checker_wheelhouse(source)
+            initial = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "check-python-distributions.py"),
+                    "--dist-dir",
+                    str(source),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(initial.returncode, 0, initial.stdout + initial.stderr)
+            self.assertEqual(names, self.VERIFIED_WHEEL_NAMES)
+            (source / names[0]).write_bytes(b"replaced after initial check")
+
+            result = self._publish_verified_wheels(source, destination)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("copied Python wheelhouse failed validation", result.stderr)
+            self.assertEqual(marker.read_text(encoding="ascii"), "keep")
+            self.assertEqual([path.name for path in destination.iterdir()], ["keep.txt"])
+            self.assertEqual(list(root.glob(".python-wheels.tmp.*")), [])
+
+    def test_atomic_wheel_publish_publishes_only_rechecked_temp_bytes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source"
+            destination = root / "python-wheels"
+            source.mkdir()
+            names = _write_checker_wheelhouse(source)
+
+            result = self._publish_verified_wheels(source, destination)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout), names)
+            self.assertEqual(sorted(path.name for path in destination.iterdir()), sorted(names))
+            self.assertEqual(list(root.glob(".python-wheels.tmp.*")), [])
+
+    @unittest.skipIf(sys.platform != "win32", "Windows-only reparse-point contract")
+    def test_atomic_wheel_publish_rejects_final_destination_junction(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source"
+            destination_target = root / "destination-target"
+            destination = root / "python-wheels"
+            source.mkdir()
+            destination_target.mkdir()
+            _write_checker_wheelhouse(source)
+            marker = destination_target / "keep.txt"
+            marker.write_text("keep", encoding="ascii")
+            create_result = run_pwsh(
+                "New-Item -ItemType Junction -Path '{junction}' -Target '{target}' | Out-Null".format(
+                    junction=str(destination).replace("\\", "\\\\"),
+                    target=str(destination_target).replace("\\", "\\\\"),
+                )
+            )
+            if create_result.returncode != 0:
+                self.skipTest("Windows directory junction creation is unavailable")
+            try:
+                result = self._publish_verified_wheels(source, destination)
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("destination must not be a reparse point", result.stderr)
+                self.assertEqual(marker.read_text(encoding="ascii"), "keep")
+            finally:
+                os.rmdir(str(destination))
 
     @unittest.skipIf(sys.platform != "win32", "Windows-only reparse-point contract")
     def test_verified_wheel_archive_rejects_file_symlink_before_touching_destination(self):

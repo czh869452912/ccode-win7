@@ -43,6 +43,12 @@ function Copy-VerifiedPythonWheels {
     if ($resolvedSourceRoot -eq $destinationFullPath) {
         throw 'Python wheel source and destination directories must differ.'
     }
+    if (Test-Path -LiteralPath $DestinationRoot) {
+        $destinationItem = Get-Item -LiteralPath $DestinationRoot -Force
+        if (($destinationItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Python wheel destination must not be a reparse point: $DestinationRoot"
+        }
+    }
 
     $seen = @{}
     $validatedNames = @()
@@ -74,6 +80,16 @@ function Copy-VerifiedPythonWheels {
         $validatedSourcePaths += $resolvedSourcePath
     }
 
+    foreach ($validatedSourcePath in $validatedSourcePaths) {
+        $sourceItem = Get-Item -LiteralPath $validatedSourcePath -Force
+        if (($sourceItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Verified Python wheel became a reparse point before copy: $validatedSourcePath"
+        }
+        if ((Split-Path -Parent (Resolve-Path -LiteralPath $validatedSourcePath).Path) -ne $resolvedSourceRoot) {
+            throw "Verified Python wheel resolves outside source directory before copy: $validatedSourcePath"
+        }
+    }
+
     if (Test-Path -LiteralPath $DestinationRoot) {
         Remove-Item -LiteralPath $DestinationRoot -Recurse -Force
     }
@@ -83,6 +99,116 @@ function Copy-VerifiedPythonWheels {
         Copy-Item -LiteralPath $validatedSourcePaths[$index] -Destination (Join-Path $DestinationRoot $name) -Force
     }
     return $validatedNames
+}
+
+function Publish-VerifiedPythonWheels {
+    param(
+        [string]$SourceRoot,
+        [string]$DestinationRoot,
+        [string[]]$WheelNames,
+        [string]$PythonPath,
+        [string]$CheckerPath
+    )
+
+    if (-not (Test-Path -LiteralPath $PythonPath -PathType Leaf)) {
+        throw "Python executable not found for wheel publication: $PythonPath"
+    }
+    if (-not (Test-Path -LiteralPath $CheckerPath -PathType Leaf)) {
+        throw "Python distribution checker not found: $CheckerPath"
+    }
+
+    $destinationFullPath = [System.IO.Path]::GetFullPath($DestinationRoot)
+    $destinationParent = Split-Path -Parent $destinationFullPath
+    if (-not (Test-Path -LiteralPath $destinationParent -PathType Container)) {
+        New-Item -ItemType Directory -Path $destinationParent -Force | Out-Null
+    }
+    $destinationParentItem = Get-Item -LiteralPath $destinationParent -Force
+    if (($destinationParentItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Python wheel destination parent must not be a reparse point: $destinationParent"
+    }
+    if (Test-Path -LiteralPath $destinationFullPath) {
+        $destinationItem = Get-Item -LiteralPath $destinationFullPath -Force
+        if (($destinationItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Python wheel destination must not be a reparse point: $destinationFullPath"
+        }
+        foreach ($child in @(Get-ChildItem -LiteralPath $destinationFullPath -Force)) {
+            if ($child.PSIsContainer -or (($child.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)) {
+                throw "Existing Python wheel destination contains an unsafe entry: $($child.Name)"
+            }
+        }
+    }
+
+    $destinationLeaf = Split-Path -Leaf $destinationFullPath
+    $uniqueId = [System.Guid]::NewGuid().ToString('N')
+    $tempRoot = Join-Path $destinationParent ('.' + $destinationLeaf + '.tmp.' + $uniqueId)
+    $backupRoot = Join-Path $destinationParent ('.' + $destinationLeaf + '.backup.' + $uniqueId)
+    $published = $false
+    $backupCreated = $false
+    try {
+        $null = Copy-VerifiedPythonWheels `
+            -SourceRoot $SourceRoot `
+            -DestinationRoot $tempRoot `
+            -WheelNames $WheelNames
+
+        $tempItem = Get-Item -LiteralPath $tempRoot -Force
+        if (($tempItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Temporary Python wheel directory must not be a reparse point: $tempRoot"
+        }
+        $checkerOutput = @(& $PythonPath $CheckerPath --dist-dir $tempRoot)
+        if ($LASTEXITCODE -ne 0) {
+            throw 'copied Python wheelhouse failed validation'
+        }
+        $checkerReport = ($checkerOutput -join "`n") | ConvertFrom-Json
+        $verifiedNames = @($checkerReport.verified_wheels)
+        if (-not $checkerReport.ok -or $verifiedNames.Count -ne 5) {
+            throw 'copied Python wheelhouse failed validation'
+        }
+        for ($index = 0; $index -lt $verifiedNames.Count; $index++) {
+            if (-not [string]::Equals([string]$verifiedNames[$index], [string]$WheelNames[$index], [System.StringComparison]::OrdinalIgnoreCase)) {
+                throw 'copied Python wheelhouse verified a different wheel set'
+            }
+        }
+
+        $tempItem = Get-Item -LiteralPath $tempRoot -Force
+        if (($tempItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Temporary Python wheel directory must not be a reparse point: $tempRoot"
+        }
+        if (Test-Path -LiteralPath $destinationFullPath) {
+            $destinationItem = Get-Item -LiteralPath $destinationFullPath -Force
+            if (($destinationItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "Python wheel destination must not be a reparse point: $destinationFullPath"
+            }
+            Move-Item -LiteralPath $destinationFullPath -Destination $backupRoot
+            $backupCreated = $true
+        }
+        try {
+            Move-Item -LiteralPath $tempRoot -Destination $destinationFullPath
+            $published = $true
+        }
+        catch {
+            if ($backupCreated -and -not (Test-Path -LiteralPath $destinationFullPath)) {
+                Move-Item -LiteralPath $backupRoot -Destination $destinationFullPath
+                $backupCreated = $false
+            }
+            throw
+        }
+        if ($backupCreated) {
+            Remove-Item -LiteralPath $backupRoot -Recurse -Force
+            $backupCreated = $false
+        }
+        return $verifiedNames
+    }
+    finally {
+        if (-not $published -and (Test-Path -LiteralPath $tempRoot)) {
+            $tempItem = Get-Item -LiteralPath $tempRoot -Force
+            if (($tempItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force
+            }
+        }
+        if ($backupCreated -and -not (Test-Path -LiteralPath $destinationFullPath)) {
+            Move-Item -LiteralPath $backupRoot -Destination $destinationFullPath
+        }
+    }
 }
 
 function Read-PackageConfig {

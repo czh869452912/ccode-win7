@@ -1,7 +1,10 @@
 import importlib.util
 import json
+import os
 import subprocess
 import sys
+import unittest
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +19,23 @@ def _load_script(path, module_name):
     return module
 
 
+def _create_junction(link, target):
+    result = subprocess.run(
+        [
+            "powershell.exe",
+            "-NoProfile",
+            "-Command",
+            "New-Item -ItemType Junction -Path '{0}' -Target '{1}' | Out-Null".format(
+                str(link).replace("'", "''"), str(target).replace("'", "''")
+            ),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError("junction creation failed: %s" % result.stderr)
+
+
 def test_smoke_scenarios_cover_independent_and_composed_stacks():
     smoke = _load_script(SMOKE_SCRIPT, "distribution_smoke_scenarios")
 
@@ -27,20 +47,62 @@ def test_smoke_scenarios_cover_independent_and_composed_stacks():
     ]
     assert smoke.SCENARIOS[0]["distribution"] == "embedagent-core"
     assert smoke.SCENARIOS[2]["distribution"] == "embedagent-host"
+    assert smoke.SCENARIOS[2]["distributions"] == (
+        "embedagent-core",
+        "embedagent-protocol",
+        "embedagent-host",
+    )
 
 
 def test_smoke_install_command_is_strictly_offline(tmp_path):
     smoke = _load_script(SMOKE_SCRIPT, "distribution_smoke_command")
     python_path = tmp_path / "venv" / "Scripts" / "python.exe"
-    wheel = tmp_path / "wheels" / "embedagent_host-0.1.0-py3-none-any.whl"
+    wheels = [
+        (tmp_path / "wheels" / name).resolve()
+        for name in (
+            "embedagent_core-0.1.0-py3-none-any.whl",
+            "embedagent_protocol-0.1.0-py3-none-any.whl",
+            "embedagent_host-0.1.0-py3-none-any.whl",
+        )
+    ]
 
-    command = smoke.install_command(python_path, wheel.parent, wheel)
+    command = smoke.install_command(python_path, wheels)
 
     assert command[:4] == [str(python_path), "-I", "-m", "pip"]
     assert "--no-index" in command
+    assert "--no-deps" in command
     assert "--no-cache-dir" in command
-    assert command[command.index("--find-links") + 1] == str(wheel.parent)
-    assert command[-1] == str(wheel)
+    assert "--find-links" not in command
+    assert command[-3:] == [str(path) for path in wheels]
+
+
+def test_smoke_minimal_environment_removes_controls_and_credentials():
+    smoke = _load_script(SMOKE_SCRIPT, "distribution_smoke_environment")
+    inherited = {
+        "SystemRoot": r"C:\Windows",
+        "PATH": r"C:\Windows\System32",
+        "TEMP": r"C:\Temp",
+        "PIP_FIND_LINKS": r"C:\foreign-wheels",
+        "PIP_INDEX_URL": "https://user:secret@example.invalid/simple",
+        "PYTHONPATH": r"C:\credential-module",
+        "PYTHONSTARTUP": r"C:\steal.py",
+        "OPENAI_API_KEY": "top-secret",
+        "GITHUB_TOKEN": "top-secret",
+    }
+
+    environment = smoke.minimal_environment(inherited)
+
+    assert environment["SystemRoot"] == r"C:\Windows"
+    assert environment["PATH"] == r"C:\Windows\System32"
+    assert environment["PIP_NO_INDEX"] == "1"
+    assert environment["PIP_DISABLE_PIP_VERSION_CHECK"] == "1"
+    assert environment["PYTHONNOUSERSITE"] == "1"
+    assert "PIP_FIND_LINKS" not in environment
+    assert "PIP_INDEX_URL" not in environment
+    assert "PYTHONPATH" not in environment
+    assert "PYTHONSTARTUP" not in environment
+    assert "OPENAI_API_KEY" not in environment
+    assert "GITHUB_TOKEN" not in environment
 
 
 def test_smoke_command_failures_do_not_echo_subprocess_output():
@@ -109,3 +171,154 @@ def test_clean_build_rejects_project_root_as_dist_directory(tmp_path):
         assert "project root" in str(exc)
     else:
         raise AssertionError("project root must never be accepted as the distribution directory")
+
+
+@unittest.skipIf(sys.platform != "win32", "Windows-only reparse-point contract")
+def test_clean_build_rejects_dist_junction_without_touching_target(tmp_path):
+    builder = _load_script(BUILD_SCRIPT, "distribution_clean_dist_junction")
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    sentinel = outside / "keep.txt"
+    sentinel.write_text("keep", encoding="ascii")
+    dist_junction = project_root / "dist"
+    _create_junction(dist_junction, outside)
+    try:
+        try:
+            builder.clean_generated_artifacts(project_root, dist_junction, ())
+        except ValueError as exc:
+            assert "reparse point" in str(exc)
+        else:
+            raise AssertionError("distribution junction must be rejected")
+        assert sentinel.read_text(encoding="ascii") == "keep"
+    finally:
+        if dist_junction.exists():
+            os.rmdir(str(dist_junction))
+
+
+@unittest.skipIf(sys.platform != "win32", "Windows-only reparse-point contract")
+def test_clean_build_rejects_package_build_junction_without_touching_target(tmp_path):
+    builder = _load_script(BUILD_SCRIPT, "distribution_clean_package_junction")
+    project_root = tmp_path / "project"
+    package_root = project_root / "packages" / "one"
+    package_root.mkdir(parents=True)
+    outside = tmp_path / "outside-package-build"
+    outside.mkdir()
+    sentinel = outside / "keep.txt"
+    sentinel.write_text("keep", encoding="ascii")
+    build_junction = package_root / "build"
+    _create_junction(build_junction, outside)
+    try:
+        try:
+            builder.clean_generated_artifacts(project_root, project_root / "dist", (package_root,))
+        except ValueError as exc:
+            assert "reparse point" in str(exc)
+        else:
+            raise AssertionError("package build junction must be rejected")
+        assert sentinel.read_text(encoding="ascii") == "keep"
+    finally:
+        if build_junction.exists():
+            os.rmdir(str(build_junction))
+
+
+def _write_installable_wheel(
+    dist_dir, distribution, package_name, package_body="", dependencies=(), build_tag=""
+):
+    filename_distribution = distribution.replace("-", "_")
+    build_part = ("-" + build_tag) if build_tag else ""
+    wheel_path = dist_dir / ("%s-0.1.0%s-py3-none-any.whl" % (filename_distribution, build_part))
+    dist_info = "%s-0.1.0.dist-info" % filename_distribution
+    metadata_lines = [
+        "Metadata-Version: 2.1",
+        "Name: %s" % distribution,
+        "Version: 0.1.0",
+    ]
+    metadata_lines.extend("Requires-Dist: %s" % item for item in dependencies)
+    files = {
+        package_name + "/__init__.py": package_body.encode("utf-8"),
+        dist_info + "/METADATA": ("\n".join(metadata_lines) + "\n").encode("utf-8"),
+        dist_info
+        + "/WHEEL": (
+            "Wheel-Version: 1.0\nGenerator: test\nRoot-Is-Purelib: true\nTag: py3-none-any\n"
+        ).encode("ascii"),
+    }
+    record_path = dist_info + "/RECORD"
+    record = "".join("%s,,\n" % name for name in list(files) + [record_path])
+    files[record_path] = record.encode("ascii")
+    with zipfile.ZipFile(str(wheel_path), "w") as wheel:
+        for name, payload in files.items():
+            wheel.writestr(name, payload)
+    return wheel_path
+
+
+def _write_installable_distribution_set(dist_dir):
+    _write_installable_wheel(
+        dist_dir,
+        "embedagent-core",
+        "embedagent_core",
+        "class Agent:\n    pass\n",
+    )
+    _write_installable_wheel(dist_dir, "embedagent-protocol", "embedagent_protocol")
+    _write_installable_wheel(
+        dist_dir,
+        "embedagent-host",
+        "embedagent_host",
+        dependencies=("embedagent-core ==0.1.0", "embedagent-protocol ==0.1.0"),
+    )
+    _write_installable_wheel(dist_dir, "embedagent-composition", "embedagent_composition")
+    _write_installable_wheel(dist_dir, "embedagent", "embedagent")
+
+
+def test_smoke_ignores_foreign_pip_links_python_controls_and_credentials(tmp_path):
+    dist_dir = tmp_path / "dist"
+    foreign_dir = tmp_path / "foreign"
+    credential_dir = tmp_path / "credential-module"
+    dist_dir.mkdir()
+    foreign_dir.mkdir()
+    credential_dir.mkdir()
+    _write_installable_distribution_set(dist_dir)
+    foreign_sentinel = tmp_path / "foreign-imported.txt"
+    credential_sentinel = tmp_path / "credential-imported.txt"
+    _write_installable_wheel(
+        foreign_dir,
+        "embedagent-core",
+        "embedagent_core",
+        "open({0}, 'w').write('foreign')\nraise RuntimeError('foreign wheel selected')\n".format(
+            repr(str(foreign_sentinel))
+        ),
+        build_tag="99",
+    )
+    credential_package = credential_dir / "embedagent_protocol"
+    credential_package.mkdir()
+    (credential_package / "__init__.py").write_text(
+        "open({0}, 'w').write('credential')\n".format(repr(str(credential_sentinel))),
+        encoding="utf-8",
+    )
+    environment = dict(os.environ)
+    environment["PIP_FIND_LINKS"] = str(foreign_dir)
+    environment["PIP_INDEX_URL"] = "https://user:do-not-leak@example.invalid/simple"
+    environment["PYTHONPATH"] = str(credential_dir)
+    environment["OPENAI_API_KEY"] = "credential-do-not-leak"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SMOKE_SCRIPT),
+            "--dist-dir",
+            str(dist_dir),
+            "--python",
+            sys.executable,
+        ],
+        cwd=str(ROOT),
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout)["ok"] is True
+    assert not foreign_sentinel.exists()
+    assert not credential_sentinel.exists()
+    assert "do-not-leak" not in result.stdout
+    assert "do-not-leak" not in result.stderr
