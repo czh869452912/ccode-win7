@@ -369,6 +369,28 @@ class TestPrepareOfflineContract(unittest.TestCase):
 
 
 class TestPythonDistributionPackagingContract(unittest.TestCase):
+    VERIFIED_WHEEL_NAMES = [
+        "embedagent_core-0.1.0-py3-none-any.whl",
+        "embedagent_protocol-0.1.0-py3-none-any.whl",
+        "embedagent_host-0.1.0-py3-none-any.whl",
+        "embedagent_composition-0.1.0-py3-none-any.whl",
+        "embedagent-0.1.0-py3-none-any.whl",
+    ]
+
+    def _copy_verified_wheels(self, source, destination):
+        quoted_names = ",".join("'{0}'".format(name) for name in self.VERIFIED_WHEEL_NAMES)
+        return run_pwsh(
+            ". '{lib}'; "
+            "$copied = @(Copy-VerifiedPythonWheels -SourceRoot '{source}' "
+            "-DestinationRoot '{destination}' -WheelNames @({names})); "
+            "$copied | ConvertTo-Json -Compress".format(
+                lib=str(LIB).replace("\\", "\\\\"),
+                source=str(source).replace("\\", "\\\\"),
+                destination=str(destination).replace("\\", "\\\\"),
+                names=quoted_names,
+            )
+        )
+
     def test_dependency_export_builds_and_installs_workspace_wheels_offline(self):
         script = EXPORT_SCRIPT.read_text(encoding="utf-8")
 
@@ -424,31 +446,74 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
             source = root / "source"
             destination = root / "destination"
             source.mkdir()
-            verified = [
-                "embedagent_core-0.1.0-py3-none-any.whl",
-                "embedagent_protocol-0.1.0-py3-none-any.whl",
-                "embedagent_host-0.1.0-py3-none-any.whl",
-                "embedagent_composition-0.1.0-py3-none-any.whl",
-                "embedagent-0.1.0-py3-none-any.whl",
-            ]
+            verified = self.VERIFIED_WHEEL_NAMES
             for name in verified + ["extra_pkg-1.0.0-py3-none-any.whl"]:
                 (source / name).write_text(name, encoding="ascii")
-            quoted_names = ",".join("'{0}'".format(name) for name in verified)
-            result = run_pwsh(
-                ". '{lib}'; "
-                "$copied = @(Copy-VerifiedPythonWheels -SourceRoot '{source}' "
-                "-DestinationRoot '{destination}' -WheelNames @({names})); "
-                "$copied | ConvertTo-Json -Compress".format(
-                    lib=str(LIB).replace("\\", "\\\\"),
-                    source=str(source).replace("\\", "\\\\"),
-                    destination=str(destination).replace("\\", "\\\\"),
-                    names=quoted_names,
-                )
-            )
+            result = self._copy_verified_wheels(source, destination)
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(result.stdout), verified)
             self.assertEqual(sorted(path.name for path in destination.iterdir()), sorted(verified))
+
+    @unittest.skipIf(sys.platform != "win32", "Windows-only reparse-point contract")
+    def test_verified_wheel_archive_rejects_file_symlink_before_touching_destination(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source"
+            destination = root / "destination"
+            outside = root / "outside.whl"
+            source.mkdir()
+            destination.mkdir()
+            marker = destination / "keep.txt"
+            marker.write_text("keep", encoding="ascii")
+            outside.write_text("outside", encoding="ascii")
+            for name in self.VERIFIED_WHEEL_NAMES[:-1]:
+                (source / name).write_text(name, encoding="ascii")
+            link = source / self.VERIFIED_WHEEL_NAMES[-1]
+            try:
+                os.symlink(str(outside), str(link))
+            except OSError as exc:
+                if getattr(exc, "winerror", None) in (5, 1314):
+                    self.skipTest("Windows file symlink privilege is unavailable")
+                raise
+
+            result = self._copy_verified_wheels(source, destination)
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("reparse point", result.stderr.lower())
+            self.assertEqual(marker.read_text(encoding="ascii"), "keep")
+            self.assertEqual([path.name for path in destination.iterdir()], ["keep.txt"])
+
+    @unittest.skipIf(sys.platform != "win32", "Windows-only reparse-point contract")
+    def test_verified_wheel_archive_rejects_source_junction_before_touching_destination(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            real_source = root / "real-source"
+            junction = root / "source-junction"
+            destination = root / "destination"
+            real_source.mkdir()
+            destination.mkdir()
+            marker = destination / "keep.txt"
+            marker.write_text("keep", encoding="ascii")
+            for name in self.VERIFIED_WHEEL_NAMES:
+                (real_source / name).write_text(name, encoding="ascii")
+            create_result = run_pwsh(
+                "New-Item -ItemType Junction -Path '{junction}' -Target '{target}' | Out-Null".format(
+                    junction=str(junction).replace("\\", "\\\\"),
+                    target=str(real_source).replace("\\", "\\\\"),
+                )
+            )
+            if create_result.returncode != 0:
+                self.skipTest("Windows directory junction creation is unavailable")
+            try:
+                result = self._copy_verified_wheels(junction, destination)
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("reparse point", result.stderr.lower())
+                self.assertEqual(marker.read_text(encoding="ascii"), "keep")
+                self.assertEqual([path.name for path in destination.iterdir()], ["keep.txt"])
+            finally:
+                os.rmdir(str(junction))
 
     def test_split_project_packages_require_import_tree_and_dist_info(self):
         for import_name, dist_info_name in PROJECT_PACKAGE_LAYOUTS:

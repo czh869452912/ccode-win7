@@ -34,18 +34,19 @@ function Copy-VerifiedPythonWheels {
         throw 'Exactly five verified Python wheel names are required.'
     }
 
+    $sourceRootItem = Get-Item -LiteralPath $SourceRoot -Force
+    if (($sourceRootItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Python wheel source directory must not be a reparse point: $SourceRoot"
+    }
     $resolvedSourceRoot = (Resolve-Path -LiteralPath $SourceRoot).Path
     $destinationFullPath = [System.IO.Path]::GetFullPath($DestinationRoot)
     if ($resolvedSourceRoot -eq $destinationFullPath) {
         throw 'Python wheel source and destination directories must differ.'
     }
-    if (Test-Path -LiteralPath $DestinationRoot) {
-        Remove-Item -LiteralPath $DestinationRoot -Recurse -Force
-    }
-    New-Item -ItemType Directory -Path $DestinationRoot -Force | Out-Null
 
     $seen = @{}
-    $copied = @()
+    $validatedNames = @()
+    $validatedSourcePaths = @()
     foreach ($wheelName in @($WheelNames)) {
         $name = [string]$wheelName
         if (-not $name -or [System.IO.Path]::GetFileName($name) -ne $name -or -not $name.EndsWith('.whl', [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -61,14 +62,27 @@ function Copy-VerifiedPythonWheels {
         if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
             throw "Verified Python wheel not found: $name"
         }
+        $sourceItem = Get-Item -LiteralPath $sourcePath -Force
+        if (($sourceItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Verified Python wheel must not be a reparse point: $name"
+        }
         $resolvedSourcePath = (Resolve-Path -LiteralPath $sourcePath).Path
         if ((Split-Path -Parent $resolvedSourcePath) -ne $resolvedSourceRoot) {
             throw "Verified Python wheel resolves outside source directory: $name"
         }
-        Copy-Item -LiteralPath $resolvedSourcePath -Destination (Join-Path $DestinationRoot $name) -Force
-        $copied += $name
+        $validatedNames += $name
+        $validatedSourcePaths += $resolvedSourcePath
     }
-    return $copied
+
+    if (Test-Path -LiteralPath $DestinationRoot) {
+        Remove-Item -LiteralPath $DestinationRoot -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $DestinationRoot -Force | Out-Null
+    for ($index = 0; $index -lt $validatedNames.Count; $index++) {
+        $name = $validatedNames[$index]
+        Copy-Item -LiteralPath $validatedSourcePaths[$index] -Destination (Join-Path $DestinationRoot $name) -Force
+    }
+    return $validatedNames
 }
 
 function Read-PackageConfig {
