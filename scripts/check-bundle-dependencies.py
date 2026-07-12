@@ -101,14 +101,32 @@ def check_site_packages(bundle_root: Path) -> Tuple[bool, List[str]]:
         errors.append("Missing: runtime/site-packages directory")
         return False, errors
 
-    # Critical packages that must be present
+    product_import_root = bundle_root / "app" / "embedagent"
+    if not product_import_root.is_dir():
+        errors.append("Missing product import package: app/embedagent")
+    project_packages = (
+        ("embedagent", "", "embedagent-0.1.0.dist-info"),
+        ("embedagent_core", "embedagent_core", "embedagent_core-0.1.0.dist-info"),
+        (
+            "embedagent_protocol",
+            "embedagent_protocol",
+            "embedagent_protocol-0.1.0.dist-info",
+        ),
+        ("embedagent_host", "embedagent_host", "embedagent_host-0.1.0.dist-info"),
+        (
+            "embedagent_composition",
+            "embedagent_composition",
+            "embedagent_composition-0.1.0.dist-info",
+        ),
+    )
+    for display_name, import_name, dist_info_name in project_packages:
+        if import_name and not (sp / import_name).is_dir():
+            errors.append("Missing project import package: %s" % display_name)
+        if not (sp / dist_info_name / "METADATA").is_file():
+            errors.append("Missing project distribution metadata: %s" % dist_info_name)
+
+    # Third-party packages that must be present
     critical = {
-        # Product and split agent distributions
-        "embedagent": ["embedagent"],
-        "embedagent_core": ["embedagent_core"],
-        "embedagent_protocol": ["embedagent_protocol"],
-        "embedagent_host": ["embedagent_host"],
-        "embedagent_composition": ["embedagent_composition"],
         # TUI
         "prompt_toolkit": ["prompt_toolkit", "prompt-toolkit"],
         "rich": ["rich"],

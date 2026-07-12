@@ -317,12 +317,19 @@ if (-not (Test-Path -LiteralPath $pythonWheelsSourceRoot)) {
 }
 $pythonDistributionChecker = Join-Path $projectRoot 'scripts\check-python-distributions.py'
 $packagePython = Resolve-PackagePythonPath -ProjectRoot $projectRoot
-& $packagePython $pythonDistributionChecker --dist-dir $pythonWheelsSourceRoot
+$checkerOutput = @(& $packagePython $pythonDistributionChecker --dist-dir $pythonWheelsSourceRoot)
 if ($LASTEXITCODE -ne 0) {
     throw "Python distribution wheelhouse failed validation: $pythonWheelsSourceRoot"
 }
+$checkerReport = ($checkerOutput -join "`n") | ConvertFrom-Json
+if (-not $checkerReport.ok -or @($checkerReport.verified_wheels).Count -ne 5) {
+    throw "Python distribution checker did not return exactly five verified_wheels: $pythonWheelsSourceRoot"
+}
 Write-Host "[build] Archiving checked Python wheels..."
-Copy-BundleTree -Source $pythonWheelsSourceRoot -Destination $pythonWheelsArchiveRoot
+$null = Copy-VerifiedPythonWheels `
+    -SourceRoot $pythonWheelsSourceRoot `
+    -DestinationRoot $pythonWheelsArchiveRoot `
+    -WheelNames @($checkerReport.verified_wheels)
 
 $assetManifest = Load-AssetManifest -ManifestPath $assetManifestResolved
 $distManifest = Get-Content -LiteralPath $distManifestPath -Raw | ConvertFrom-Json

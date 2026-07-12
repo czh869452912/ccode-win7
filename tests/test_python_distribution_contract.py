@@ -386,6 +386,69 @@ def test_wheel_checker_reports_ambiguous_wheel_candidates(tmp_path):
     assert _error_codes(report, "embedagent-core") == ["wheel_ambiguous"]
 
 
+def test_wheel_checker_rejects_extra_build_tag_variant(tmp_path):
+    _write_valid_wheels(tmp_path)
+    _write_wheel(tmp_path, "embedagent-core", suffix="-1.local")
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert report["errors"] == []
+    assert report["verified_wheels"] == []
+    assert _error_codes(report, "embedagent-core") == ["wheel_ambiguous"]
+
+
+def test_wheel_checker_rejects_unknown_valid_wheel(tmp_path):
+    _write_valid_wheels(tmp_path)
+    extra_wheel = _wheel_path(tmp_path, "extra-pkg")
+    with zipfile.ZipFile(str(extra_wheel), "w") as wheel:
+        wheel.writestr("extra_pkg/__init__.py", b"")
+        wheel.writestr("extra_pkg-0.1.0.dist-info/METADATA", _metadata("extra-pkg"))
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert report["errors"] == [
+        {
+            "code": "unexpected_wheel",
+            "detail": "unexpected wheel: extra_pkg-0.1.0-py3-none-any.whl",
+        }
+    ]
+    assert report["verified_wheels"] == []
+
+
+def test_wheel_checker_rejects_unparseable_extra_wheel(tmp_path):
+    _write_valid_wheels(tmp_path)
+    (tmp_path / "not-a-wheel.whl").write_bytes(b"not a zip")
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert report["errors"] == [
+        {
+            "code": "wheel_filename_unrecognized",
+            "detail": "unrecognized wheel filename: not-a-wheel.whl",
+        }
+    ]
+    assert report["verified_wheels"] == []
+
+
+def test_wheel_checker_reports_only_the_exact_verified_wheel_set(tmp_path):
+    _write_valid_wheels(tmp_path)
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode == 0
+    assert report["errors"] == []
+    assert report["verified_wheels"] == [
+        "embedagent_core-0.1.0-py3-none-any.whl",
+        "embedagent_protocol-0.1.0-py3-none-any.whl",
+        "embedagent_host-0.1.0-py3-none-any.whl",
+        "embedagent_composition-0.1.0-py3-none-any.whl",
+        "embedagent-0.1.0-py3-none-any.whl",
+    ]
+
+
 @pytest.mark.parametrize(
     ("files", "raw_name_replacements"),
     (

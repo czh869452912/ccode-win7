@@ -433,13 +433,37 @@ def build_report(dist_dir):
     wheels = []
     if dist_dir.is_dir():
         wheels = sorted(dist_dir.glob("*.whl"), key=lambda path: path.name)
+    expected_names = {
+        normalize_distribution_name(spec["name"]): spec["name"] for spec in EXPECTED
+    }
+    wheel_set_errors = []
+    for wheel in wheels:
+        identity = wheel_filename_identity(wheel)
+        if identity is None:
+            wheel_set_errors.append(
+                error(
+                    "wheel_filename_unrecognized",
+                    "unrecognized wheel filename: %s" % wheel.name,
+                )
+            )
+            continue
+        normalized_name = normalize_distribution_name(identity["distribution"])
+        if normalized_name not in expected_names:
+            wheel_set_errors.append(
+                error("unexpected_wheel", "unexpected wheel: %s" % wheel.name)
+            )
     distributions = [inspect_distribution(spec, wheels) for spec in EXPECTED]
-    return {
+    report = {
         "schema_version": 1,
         "dist_dir": str(dist_dir),
-        "ok": all(not item["errors"] for item in distributions),
+        "ok": not wheel_set_errors and all(not item["errors"] for item in distributions),
+        "errors": wheel_set_errors,
+        "verified_wheels": [],
         "distributions": distributions,
     }
+    if report["ok"]:
+        report["verified_wheels"] = [item["wheel"] for item in distributions]
+    return report
 
 
 def main(argv=None):

@@ -1,4 +1,5 @@
 import hashlib
+import importlib.util
 import json
 import os
 import shutil
@@ -17,6 +18,38 @@ VALIDATE_SCRIPT = ROOT / "scripts" / "validate-offline-bundle.ps1"
 PACKAGE_SCRIPT = ROOT / "scripts" / "package.ps1"
 RUNTIME_CONTRACT = ROOT / "scripts" / "offline-runtime-contract.json"
 MOCK_CONFIG = ROOT / "tests" / "fixtures" / "package" / "mock-config.json"
+
+
+def _load_python_module(path, module_name):
+    spec = importlib.util.spec_from_file_location(module_name, str(path))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+PROJECT_PACKAGE_LAYOUTS = (
+    ("embedagent_core", "embedagent_core-0.1.0.dist-info"),
+    ("embedagent_protocol", "embedagent_protocol-0.1.0.dist-info"),
+    ("embedagent_host", "embedagent_host-0.1.0.dist-info"),
+    ("embedagent_composition", "embedagent_composition-0.1.0.dist-info"),
+)
+
+
+def _write_project_distribution_layout(bundle):
+    site_packages = bundle / "runtime" / "site-packages"
+    (bundle / "app" / "embedagent").mkdir(parents=True)
+    product_metadata = site_packages / "embedagent-0.1.0.dist-info" / "METADATA"
+    product_metadata.parent.mkdir(parents=True)
+    product_metadata.write_text("Name: embedagent\nVersion: 0.1.0\n", encoding="ascii")
+    for import_name, dist_info_name in PROJECT_PACKAGE_LAYOUTS:
+        (site_packages / import_name).mkdir(parents=True)
+        metadata = site_packages / dist_info_name / "METADATA"
+        metadata.parent.mkdir(parents=True)
+        metadata.write_text(
+            "Name: {0}\nVersion: 0.1.0\n".format(import_name.replace("_", "-")),
+            encoding="ascii",
+        )
+    return site_packages
 
 
 def _powershell_exe():
@@ -366,6 +399,12 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
         self.assertIn("site-packages-export\\wheels", script)
         self.assertIn("python-wheels", script)
         self.assertIn("check-python-distributions.py", script)
+        self.assertIn("verified_wheels", script)
+        self.assertIn("Copy-VerifiedPythonWheels", script)
+        self.assertNotIn(
+            "Copy-BundleTree -Source $pythonWheelsSourceRoot -Destination $pythonWheelsArchiveRoot",
+            script,
+        )
 
     def test_bundle_dependency_gate_requires_all_split_project_packages(self):
         script = CHECK_SCRIPT.read_text(encoding="utf-8")
@@ -376,7 +415,82 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
             "embedagent_host",
             "embedagent_composition",
         ):
-            self.assertIn('"{0}": ["{0}"]'.format(package), script)
+            self.assertIn('"{0}"'.format(package), script)
+            self.assertIn('"{0}-0.1.0.dist-info"'.format(package), script)
+
+    def test_verified_wheel_archive_ignores_unverified_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source"
+            destination = root / "destination"
+            source.mkdir()
+            verified = [
+                "embedagent_core-0.1.0-py3-none-any.whl",
+                "embedagent_protocol-0.1.0-py3-none-any.whl",
+                "embedagent_host-0.1.0-py3-none-any.whl",
+                "embedagent_composition-0.1.0-py3-none-any.whl",
+                "embedagent-0.1.0-py3-none-any.whl",
+            ]
+            for name in verified + ["extra_pkg-1.0.0-py3-none-any.whl"]:
+                (source / name).write_text(name, encoding="ascii")
+            quoted_names = ",".join("'{0}'".format(name) for name in verified)
+            result = run_pwsh(
+                ". '{lib}'; "
+                "$copied = @(Copy-VerifiedPythonWheels -SourceRoot '{source}' "
+                "-DestinationRoot '{destination}' -WheelNames @({names})); "
+                "$copied | ConvertTo-Json -Compress".format(
+                    lib=str(LIB).replace("\\", "\\\\"),
+                    source=str(source).replace("\\", "\\\\"),
+                    destination=str(destination).replace("\\", "\\\\"),
+                    names=quoted_names,
+                )
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout), verified)
+            self.assertEqual(sorted(path.name for path in destination.iterdir()), sorted(verified))
+
+    def test_split_project_packages_require_import_tree_and_dist_info(self):
+        for import_name, dist_info_name in PROJECT_PACKAGE_LAYOUTS:
+            with self.subTest(import_name=import_name, missing="import_tree"):
+                with tempfile.TemporaryDirectory() as tmp:
+                    bundle = Path(tmp)
+                    site_packages = _write_project_distribution_layout(bundle)
+                    shutil.rmtree(site_packages / import_name)
+                    checker = _load_python_module(CHECK_SCRIPT, "bundle_checker_import_tree")
+                    _ok, errors = checker.check_site_packages(bundle)
+                    self.assertIn("Missing project import package: {0}".format(import_name), errors)
+
+            with self.subTest(import_name=import_name, missing="dist_info"):
+                with tempfile.TemporaryDirectory() as tmp:
+                    bundle = Path(tmp)
+                    site_packages = _write_project_distribution_layout(bundle)
+                    shutil.rmtree(site_packages / dist_info_name)
+                    checker = _load_python_module(CHECK_SCRIPT, "bundle_checker_dist_info")
+                    _ok, errors = checker.check_site_packages(bundle)
+                    self.assertIn(
+                        "Missing project distribution metadata: {0}".format(dist_info_name),
+                        errors,
+                    )
+
+    def test_product_requires_app_import_tree_and_runtime_dist_info(self):
+        checker = _load_python_module(CHECK_SCRIPT, "bundle_checker_product")
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = Path(tmp)
+            _write_project_distribution_layout(bundle)
+            shutil.rmtree(bundle / "app" / "embedagent")
+            _ok, errors = checker.check_site_packages(bundle)
+            self.assertIn("Missing product import package: app/embedagent", errors)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = Path(tmp)
+            site_packages = _write_project_distribution_layout(bundle)
+            shutil.rmtree(site_packages / "embedagent-0.1.0.dist-info")
+            _ok, errors = checker.check_site_packages(bundle)
+            self.assertIn(
+                "Missing project distribution metadata: embedagent-0.1.0.dist-info",
+                errors,
+            )
 
 
 @unittest.skipIf(sys.platform != "win32", "Windows-only: requires PowerShell")
@@ -509,9 +623,13 @@ class TestStageJsonReports(unittest.TestCase):
                 "runtime/python/python.exe",
                 "runtime/site-packages/embedagent-0.1.0.dist-info/METADATA",
                 "runtime/site-packages/embedagent_core/__init__.py",
+                "runtime/site-packages/embedagent_core-0.1.0.dist-info/METADATA",
                 "runtime/site-packages/embedagent_protocol/__init__.py",
+                "runtime/site-packages/embedagent_protocol-0.1.0.dist-info/METADATA",
                 "runtime/site-packages/embedagent_host/__init__.py",
+                "runtime/site-packages/embedagent_host-0.1.0.dist-info/METADATA",
                 "runtime/site-packages/embedagent_composition/__init__.py",
+                "runtime/site-packages/embedagent_composition-0.1.0.dist-info/METADATA",
                 "runtime/site-packages/prompt_toolkit/__init__.py",
                 "runtime/site-packages/rich/__init__.py",
                 "runtime/site-packages/webview/__init__.py",

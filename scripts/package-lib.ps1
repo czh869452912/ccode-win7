@@ -20,6 +20,57 @@ function Resolve-ConfigPath {
     return Join-Path $ProjectRoot $Path
 }
 
+function Copy-VerifiedPythonWheels {
+    param(
+        [string]$SourceRoot,
+        [string]$DestinationRoot,
+        [string[]]$WheelNames
+    )
+
+    if (-not (Test-Path -LiteralPath $SourceRoot -PathType Container)) {
+        throw "Python wheel source directory not found: $SourceRoot"
+    }
+    if (@($WheelNames).Count -ne 5) {
+        throw 'Exactly five verified Python wheel names are required.'
+    }
+
+    $resolvedSourceRoot = (Resolve-Path -LiteralPath $SourceRoot).Path
+    $destinationFullPath = [System.IO.Path]::GetFullPath($DestinationRoot)
+    if ($resolvedSourceRoot -eq $destinationFullPath) {
+        throw 'Python wheel source and destination directories must differ.'
+    }
+    if (Test-Path -LiteralPath $DestinationRoot) {
+        Remove-Item -LiteralPath $DestinationRoot -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $DestinationRoot -Force | Out-Null
+
+    $seen = @{}
+    $copied = @()
+    foreach ($wheelName in @($WheelNames)) {
+        $name = [string]$wheelName
+        if (-not $name -or [System.IO.Path]::GetFileName($name) -ne $name -or -not $name.EndsWith('.whl', [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "Invalid verified Python wheel name: $name"
+        }
+        $caseKey = $name.ToUpperInvariant()
+        if ($seen.ContainsKey($caseKey)) {
+            throw "Duplicate verified Python wheel name: $name"
+        }
+        $seen[$caseKey] = $true
+
+        $sourcePath = Join-Path $resolvedSourceRoot $name
+        if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+            throw "Verified Python wheel not found: $name"
+        }
+        $resolvedSourcePath = (Resolve-Path -LiteralPath $sourcePath).Path
+        if ((Split-Path -Parent $resolvedSourcePath) -ne $resolvedSourceRoot) {
+            throw "Verified Python wheel resolves outside source directory: $name"
+        }
+        Copy-Item -LiteralPath $resolvedSourcePath -Destination (Join-Path $DestinationRoot $name) -Force
+        $copied += $name
+    }
+    return $copied
+}
+
 function Read-PackageConfig {
     param(
         [string]$Path
