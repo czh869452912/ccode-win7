@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import subprocess
 import sys
@@ -91,11 +92,15 @@ def _write_wheel(
     metadata_bytes=None,
     version="0.1.0",
     suffix="",
+    metadata_entry=None,
+    raw_name_replacements=(),
 ):
     required_prefix = WHEEL_PACKAGES[distribution]
     package_files = files if files is not None else [required_prefix + "__init__.py"]
     wheel_path = _wheel_path(dist_dir, distribution, version=version, suffix=suffix)
     dist_info = "%s-0.1.0.dist-info" % distribution.replace("-", "_")
+    if metadata_entry is None:
+        metadata_entry = dist_info + "/METADATA"
     payload = metadata_bytes
     if payload is None:
         payload = _metadata(distribution, dependencies=dependencies)
@@ -103,9 +108,16 @@ def _write_wheel(
     with zipfile.ZipFile(str(wheel_path), "w") as wheel:
         for filename in package_files:
             wheel.writestr(filename, b"")
-        wheel.writestr(dist_info + "/METADATA", payload)
+        wheel.writestr(metadata_entry, payload)
         for filename, content in extra_metadata_entries:
             wheel.writestr(filename, content)
+    if raw_name_replacements:
+        archive = wheel_path.read_bytes()
+        for original, replacement in raw_name_replacements:
+            assert len(original) == len(replacement)
+            assert archive.count(original) == 2
+            archive = archive.replace(original, replacement)
+        wheel_path.write_bytes(archive)
     return wheel_path
 
 
@@ -125,6 +137,15 @@ def _run_checker(dist_dir):
     )
     assert result.stdout, result.stderr
     return result, json.loads(result.stdout)
+
+
+def _load_checker_module():
+    spec = importlib.util.spec_from_file_location("python_distribution_checker", str(CHECKER))
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _distribution_report(report, distribution):
@@ -227,3 +248,154 @@ def test_wheel_checker_reports_ambiguous_wheel_candidates(tmp_path):
 
     assert result.returncode != 0
     assert _error_codes(report, "embedagent-core") == ["wheel_ambiguous"]
+
+
+@pytest.mark.parametrize(
+    ("files", "raw_name_replacements"),
+    (
+        (
+            ["embedagent_core/backslash.py"],
+            (
+                (
+                    b"embedagent_core/backslash.py",
+                    b"embedagent_core\\backslash.py",
+                ),
+            ),
+        ),
+        (
+            ["embedagent_core/__init__.py", "xembedagent_core/absolute.py"],
+            ((b"xembedagent_core/absolute.py", b"/embedagent_core/absolute.py"),),
+        ),
+        (["embedagent_core/__init__.py", "C:/escape.py"], ()),
+        (["embedagent_core/../embedagent_host/leak.py"], ()),
+        (["embedagent_core/.. /embedagent_host/leak.py"], ()),
+        (["embedagent_core/./module.py"], ()),
+        (
+            ["embedagent_core/nullx.py"],
+            ((b"embedagent_core/nullx.py", b"embedagent_core/null\x00.py"),),
+        ),
+    ),
+)
+def test_wheel_checker_rejects_unsafe_raw_member_paths(tmp_path, files, raw_name_replacements):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent-core").unlink()
+    _write_wheel(
+        tmp_path,
+        "embedagent-core",
+        files=files,
+        raw_name_replacements=raw_name_replacements,
+    )
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert _error_codes(report, "embedagent-core") == ["member_path_invalid"]
+
+
+@pytest.mark.parametrize(
+    "files",
+    (
+        ["embedagent_core/module.py", "EMBEDAGENT_CORE/MODULE.PY"],
+        ["embedagent_core/name.py", "embedagent_core/name.py. "],
+        ["embedagent_core/path.py", "embedagent_core//path.py"],
+    ),
+)
+def test_wheel_checker_rejects_windows_member_path_collisions(tmp_path, files):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent-core").unlink()
+    _write_wheel(tmp_path, "embedagent-core", files=files)
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert _error_codes(report, "embedagent-core") == ["member_path_collision"]
+
+
+def test_wheel_checker_rejects_invalid_filename_version(tmp_path):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent-core").unlink()
+    _write_wheel(tmp_path, "embedagent-core", version="not_a_version")
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert _error_codes(report, "embedagent-core") == ["wheel_filename_invalid"]
+
+
+def test_wheel_checker_rejects_unrelated_dist_info_identity(tmp_path):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent-core").unlink()
+    _write_wheel(
+        tmp_path,
+        "embedagent-core",
+        metadata_entry="unrelated-9.9.9.dist-info/METADATA",
+    )
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert _error_codes(report, "embedagent-core") == ["dist_info_identity_mismatch"]
+
+
+def test_wheel_checker_rejects_a_second_dist_info_stem(tmp_path):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent-core").unlink()
+    _write_wheel(
+        tmp_path,
+        "embedagent-core",
+        extra_metadata_entries=(("unrelated-9.9.9.dist-info/WHEEL", b"Wheel-Version: 1.0\n"),),
+    )
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert _error_codes(report, "embedagent-core") == ["dist_info_identity_mismatch"]
+
+
+def test_wheel_checker_rejects_metadata_version_mismatch(tmp_path):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent-core").unlink()
+    metadata = _metadata("embedagent-core").replace(b"Version: 0.1.0", b"Version: 9.9.9")
+    _write_wheel(tmp_path, "embedagent-core", metadata_bytes=metadata)
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert _error_codes(report, "embedagent-core") == ["metadata_version_mismatch"]
+
+
+def test_wheel_checker_limits_artifact_size_before_opening_zip(tmp_path, monkeypatch):
+    _write_valid_wheels(tmp_path)
+    checker = _load_checker_module()
+    core_wheel = _wheel_path(tmp_path, "embedagent-core")
+    monkeypatch.setattr(checker, "MAX_ARTIFACT_SIZE", core_wheel.stat().st_size - 1, raising=False)
+
+    report = checker.build_report(tmp_path)
+
+    assert _error_codes(report, "embedagent-core") == ["artifact_too_large"]
+
+
+def test_wheel_checker_limits_archive_entry_count(tmp_path, monkeypatch):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent-core").unlink()
+    _write_wheel(
+        tmp_path,
+        "embedagent-core",
+        files=["embedagent_core/__init__.py", "embedagent_core/extra.py"],
+    )
+    checker = _load_checker_module()
+    monkeypatch.setattr(checker, "MAX_ARCHIVE_ENTRIES", 2, raising=False)
+
+    report = checker.build_report(tmp_path)
+
+    assert _error_codes(report, "embedagent-core") == ["archive_entry_limit"]
+
+
+def test_wheel_checker_limits_total_filename_bytes(tmp_path, monkeypatch):
+    _write_valid_wheels(tmp_path)
+    checker = _load_checker_module()
+    monkeypatch.setattr(checker, "MAX_FILENAME_BYTES", 8, raising=False)
+
+    report = checker.build_report(tmp_path)
+
+    assert _error_codes(report, "embedagent-core") == ["archive_filename_limit"]

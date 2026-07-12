@@ -37,6 +37,9 @@ class CorePackageImportTests(unittest.TestCase):
                 if module == "embedagent_host" or module.startswith("embedagent_host."):
                     offenders.append((os.path.relpath(path, root), module))
                     continue
+                if module == "embedagent_protocol" or module.startswith("embedagent_protocol."):
+                    offenders.append((os.path.relpath(path, root), module))
+                    continue
                 if module == "embedagent" or module.startswith("embedagent."):
                     offenders.append((os.path.relpath(path, root), module))
                     continue
@@ -62,6 +65,8 @@ for module_name in sys.modules:
     assert not module_name.startswith("embedagent.")
     assert module_name != "embedagent_host"
     assert not module_name.startswith("embedagent_host.")
+    assert module_name != "embedagent_protocol"
+    assert not module_name.startswith("embedagent_protocol.")
 """
             result = subprocess.run(
                 [sys.executable, "-I", "-S", "-c", script, temp_dir],
