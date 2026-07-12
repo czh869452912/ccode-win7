@@ -61,6 +61,11 @@ DEPENDENCY_NAME = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)")
 WHEEL_COMPONENT = re.compile(r"^[A-Za-z0-9_.]+$")
 WHEEL_BUILD_TAG = re.compile(r"^(\d+)(.*)$")
 WINDOWS_FORBIDDEN_CHARS = frozenset('<>:"\\|?*')
+WINDOWS_RESERVED_DEVICE_NAMES = frozenset(
+    ("CON", "NUL", "PRN", "AUX", "CLOCK$")
+    + tuple("COM%d" % number for number in range(1, 10))
+    + tuple("LPT%d" % number for number in range(1, 10))
+)
 MAX_ARTIFACT_SIZE = 256 * 1024 * 1024
 MAX_ARCHIVE_ENTRIES = 10000
 MAX_FILENAME_BYTES = 4 * 1024 * 1024
@@ -115,6 +120,25 @@ def metadata_path(name):
     return name.count("/") == 1 and name.endswith(".dist-info/METADATA")
 
 
+def portable_case_key(value):
+    key = []
+    for character in value:
+        candidates = [character]
+        lower = character.lower()
+        upper = character.upper()
+        if len(lower) == 1:
+            candidates.append(lower)
+        if len(upper) == 1:
+            candidates.append(upper)
+        key.append(min(candidates, key=ord))
+    return "".join(key)
+
+
+def is_windows_reserved_device_name(segment):
+    base = segment.split(".", 1)[0].rstrip(" ")
+    return portable_case_key(base) in WINDOWS_RESERVED_DEVICE_NAMES
+
+
 def canonical_member_path(raw_name):
     if not raw_name or raw_name.startswith("/") or "\x00" in raw_name or "\\" in raw_name:
         return None
@@ -129,9 +153,10 @@ def canonical_member_path(raw_name):
     for part in raw_parts:
         if not part:
             continue
-        canonical_part = part.rstrip(" .").casefold()
-        if not canonical_part:
+        trimmed_part = part.rstrip(" .")
+        if not trimmed_part or is_windows_reserved_device_name(trimmed_part):
             return None
+        canonical_part = portable_case_key(trimmed_part)
         canonical_parts.append(canonical_part)
     if not canonical_parts:
         return None

@@ -322,6 +322,80 @@ def test_wheel_checker_rejects_windows_member_path_collisions(tmp_path, files):
     assert _error_codes(report, "embedagent-core") == ["member_path_collision"]
 
 
+@pytest.mark.parametrize(
+    "filename",
+    (
+        "embedagent_core/CON.py",
+        "embedagent_core/nul.txt",
+        "embedagent_core/COM1.bin",
+        "embedagent_core/LPT9",
+    ),
+)
+def test_wheel_checker_rejects_win32_reserved_device_names(tmp_path, filename):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent-core").unlink()
+    _write_wheel(tmp_path, "embedagent-core", files=[filename])
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert _error_codes(report, "embedagent-core") == ["member_path_invalid"]
+
+
+def test_wheel_checker_accepts_names_near_win32_reserved_devices(tmp_path):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent-core").unlink()
+    _write_wheel(
+        tmp_path,
+        "embedagent-core",
+        files=[
+            "embedagent_core/COM0.bin",
+            "embedagent_core/COM10.bin",
+            "embedagent_core/CONSOLE.py",
+            "embedagent_core/NULLED.txt",
+            "embedagent_core/CLOCK.txt",
+        ],
+    )
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode == 0
+    assert _error_codes(report, "embedagent-core") == []
+
+
+def test_wheel_checker_does_not_expand_unicode_case_keys(tmp_path):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent-core").unlink()
+    _write_wheel(
+        tmp_path,
+        "embedagent-core",
+        files=[
+            "embedagent_core/stra\u00dfe.txt",
+            "embedagent_core/strasse.txt",
+        ],
+    )
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode == 0
+    assert _error_codes(report, "embedagent-core") == []
+
+
+def test_wheel_checker_collides_non_ascii_single_codepoint_case_pair(tmp_path):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent-core").unlink()
+    _write_wheel(
+        tmp_path,
+        "embedagent-core",
+        files=["embedagent_core/\u00c4.txt", "embedagent_core/\u00e4.txt"],
+    )
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert _error_codes(report, "embedagent-core") == ["member_path_collision"]
+
+
 def test_wheel_checker_rejects_invalid_filename_version(tmp_path):
     _write_valid_wheels(tmp_path)
     _wheel_path(tmp_path, "embedagent-core").unlink()
