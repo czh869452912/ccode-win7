@@ -12,14 +12,20 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from embedagent_core.model import ModelClientError
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 from embedagent_core.session import Action, AssistantReply, Observation
-from embedagent_protocol import PermissionContext
-
-from embedagent.tools import ToolDefinition, ToolRuntime
 from embedagent_host.hosted_command_service import HostedCommandService
 from embedagent_host.hosted_interaction_service import HostedInteractionService
 from embedagent_host.inprocess_adapter import InProcessAdapter, _should_emit_context_compacted
+from embedagent_host.runtime.tools import ToolDefinition, ToolRuntime
+from embedagent_protocol import PermissionContext
+
+from embedagent.agent_application_registry import product_agent_application_registry
 
 _COUNTER = count(1)
+
+
+def _product_adapter(*args, **kwargs):
+    kwargs.setdefault("agent_application_registry", product_agent_application_registry())
+    return InProcessAdapter(*args, **kwargs)
 
 
 def _make_workspace():
@@ -403,7 +409,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
     def setUp(self):
         self.workspace = _make_workspace()
         self.tools = ToolRuntime(self.workspace)
-        self.adapter = InProcessAdapter(
+        self.adapter = _product_adapter(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -469,7 +475,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
     def test_natural_language_mode_switch_updates_session_without_provider_call(self):
         client = FakeClient()
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -605,7 +611,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         session_id = str(created.get("session_id") or "")
         created_state = self.adapter._sessions[session_id]
 
-        resumed_adapter = InProcessAdapter(
+        resumed_adapter = _product_adapter(
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(
@@ -661,7 +667,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(run_recipe.get("permission_category"), "toolchain_exec")
 
     def test_session_snapshot_projector_is_side_effect_free(self):
-        from embedagent.session_projector import SessionSnapshotProjector
+        from embedagent_host.runtime.session_projector import SessionSnapshotProjector
 
         state = self.adapter._sessions[self.snapshot["session_id"]]
         before_messages = list(state.session.messages)
@@ -714,7 +720,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertNotIn("replay", payload)
 
     def test_build_session_history_uses_active_session_state(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -735,7 +741,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(history["turns"][0]["user_text"], "读取文件")
 
     def test_build_session_history_marks_partial_restore_without_raw_fallback(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -786,7 +792,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(history["history_source"], "transcript_restore")
 
     def test_session_history_splits_single_turn_into_multiple_agent_steps(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=MultiStepClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -816,7 +822,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(payload["integrity"]["status"], "healthy")
 
     def test_session_history_never_returns_raw_event_projection(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -850,7 +856,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIsInstance(snapshot["fallback_warnings"], list)
 
     def test_session_snapshot_includes_context_analysis_fields(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -873,7 +879,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIsInstance(refreshed["context_usage"], dict)
 
     def test_session_snapshot_includes_compaction_state(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=CompactRetryClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -995,7 +1001,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertTrue(_should_emit_context_compacted(Result()))
 
     def test_resume_appends_recovery_marker_and_snapshot_projects_recovery_state(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1003,7 +1009,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
 
-        resumed_adapter = InProcessAdapter(
+        resumed_adapter = _product_adapter(
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1023,7 +1029,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         with open(os.path.join(self.workspace, "tags"), "w", encoding="utf-8") as handle:
             handle.write("!_TAG_FILE_FORMAT\t2\t/extended format/\n")
             handle.write('demo\tsrc/pkg/demo.c\t/^int main(void) {$/;"\tf\n')
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1066,7 +1072,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                 ensure_ascii=False,
                 indent=2,
             )
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1091,7 +1097,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertTrue(any("demo_symbol" in item for item in rendered_sections))
 
     def test_session_snapshot_and_history_include_compact_retry_projection(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=CompactRetryClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1124,7 +1130,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("compact_retry", [item[0] for item in events])
 
     def test_session_snapshot_includes_last_transition_message(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             max_turns=1,
@@ -1151,7 +1157,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertTrue(str(refreshed["recent_transitions"][-1].get("message") or "").strip())
 
     def test_snapshot_enriches_legacy_recent_transitions_with_display_reason(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             max_turns=1,
@@ -1183,7 +1189,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(legacy["recent_transitions"][-1].get("display_reason"), "max_turns")
 
     def test_session_history_includes_compact_retry_transition(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=CompactRetryClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1209,7 +1215,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("compact_retry", [item.get("kind") for item in step["transitions"]])
 
     def test_session_history_preserves_user_input_wait_transition(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=AskUserClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1244,7 +1250,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         )
 
     def test_snapshot_and_session_history_preserve_permission_wait_transition(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=WriteThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -1289,7 +1295,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(refreshed["pending_interaction"]["tool_name"], "write_file")
 
     def test_session_history_preserves_max_turns_transition(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             max_turns=1,
@@ -1320,7 +1326,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertTrue(str(terminal.get("message") or "").strip())
 
     def test_snapshot_and_session_history_preserve_guard_stop_transition(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=GuardStopClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1356,7 +1362,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         )
 
     def test_session_finished_event_includes_blocked_outcome(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=GuardStopClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1386,7 +1392,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             self.assertFalse(payload["outcome"]["is_success"])
 
     def test_snapshot_exposes_turn_experience_after_progressive_writes(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ThreeFileWriteThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1420,7 +1426,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
     def test_snapshot_and_session_history_preserve_cancelled_transition(self):
         client = CancellableToolClient()
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1462,7 +1468,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
     def test_cancel_session_does_not_mark_idle_before_worker_exits(self):
         client = CancellableToolClient()
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1495,7 +1501,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(final_snapshot.get("last_transition_reason"), "aborted")
 
     def test_cancel_session_clears_waiting_user_input_interaction(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=AskUserClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1529,7 +1535,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIsNone(final_snapshot.get("pending_interaction"))
 
     def test_cancel_session_clears_waiting_permission_interaction(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=WriteThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -1561,7 +1567,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(self.workspace, "src", "generated_write.c")))
 
     def test_new_turn_after_waiting_permission_cancel_does_not_keep_stop_signal(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=WriteThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -1606,7 +1612,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("cmake.test.default", recipe_ids)
 
     def test_resume_session_rebuilds_from_transcript_when_summary_is_missing(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1630,7 +1636,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(restored["last_assistant_message"], "done")
 
     def test_resume_session_restores_waiting_permission_from_transcript(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=WriteThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -1654,7 +1660,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertNotIn("pending_permission", restored)
 
     def test_resume_session_exposes_restore_diagnostics_for_clean_replay(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1680,7 +1686,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertGreater(restored["restore_transcript_event_count"], 0)
 
     def test_resume_session_projects_operation_diagnostics(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1707,7 +1713,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("save_point", kinds)
 
     def test_live_session_snapshot_projects_operation_diagnostics(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1731,7 +1737,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("provider_request", diagnostics.get("kinds") or {})
 
     def test_live_session_snapshot_keeps_unfinished_operation_active(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1761,7 +1767,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(active[0].get("status"), "started")
 
     def test_permission_ticket_does_not_write_session_history_directly(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1796,7 +1802,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(turn["transitions"], [])
 
     def test_resume_session_exposes_restore_diagnostics_for_truncated_replay(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1851,7 +1857,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(restored["restore_transcript_event_count"], 5)
 
     def test_new_turn_clears_restore_stop_reason_before_fresh_ask_user(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=AskUserClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1911,7 +1917,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertFalse(hasattr(self.adapter, "load_session_events_after"))
 
     def test_resume_session_requires_transcript(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1933,7 +1939,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             adapter.resume_session(session_id, "build")
 
     def test_cancel_session_emits_interrupted_tool_result_when_tool_started(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -2089,7 +2095,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             handle.write(
                 '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
             )
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -2150,7 +2156,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             handle.write(
                 '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
             )
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -2191,7 +2197,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             worker.join(3.0)
 
     def test_wait_for_command_resolution_does_not_return_running_snapshot(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -2284,7 +2290,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("idle", statuses)
 
     def test_tool_call_id_is_stable_across_start_and_finish(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -2314,7 +2320,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(tool_finish.get("read_model_invalidations"), [])
 
     def test_adapter_step_events_use_engine_step_id(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -2342,7 +2348,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(step_end.get("step_id"), engine_step_id)
 
     def test_user_input_flow_can_change_mode(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=AskUserClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -2368,7 +2374,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("user_input_required", events)
 
     def test_respond_to_interaction_emits_ask_user_tool_finish_and_completes_pending(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=AskUserClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -2417,7 +2423,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(final_snapshot["current_mode"], "debug")
 
     def test_live_user_input_pending_id_matches_session_pending_interaction(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=AskUserClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -2456,7 +2462,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(snapshot_interaction["questions"][0]["multi_select"], False)
 
     def test_managed_session_has_one_hosted_pending_interaction_field(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=AskUserClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -2482,7 +2488,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             self.assertFalse(hasattr(state, "pending_user_response"))
 
     def test_adapter_interaction_response_delegates_to_hosted_service(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -2515,7 +2521,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             handle.write(
                 '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
             )
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -2567,7 +2573,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             handle.write(
                 '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
             )
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -2605,7 +2611,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("toolchain_exec", context.remembered_categories)
 
     def test_respond_to_interaction_rejects_legacy_payload_shape(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=AskUserClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -2631,7 +2637,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("invalid_interaction_response", str(raised.exception))
 
     def test_respond_to_interaction_conflicts_when_another_pending_is_active(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=AskUserClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -2664,7 +2670,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             handle.write(
                 '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
             )
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -2713,7 +2719,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             handle.write(
                 '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
             )
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -2756,7 +2762,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             worker.join(3.0)
 
     def test_interaction_response_remember_allows_next_matching_permission_in_session(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=TwoWriteThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -2792,7 +2798,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("workspace_write", context.remembered_categories)
 
     def test_unknown_mode_create_session_raises(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=SwitchModeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -2840,7 +2846,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             event_handler=lambda event_name, session_id, payload: None,
         )
 
-        reloaded = InProcessAdapter(
+        reloaded = _product_adapter(
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),

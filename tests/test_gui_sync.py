@@ -14,9 +14,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent_core.permissions import PermissionPolicy
+from embedagent_host.runtime.tools import ToolRuntime
 from embedagent_protocol import MessageType
-
-from embedagent.tools import ToolRuntime
 
 
 @pytest.mark.gui

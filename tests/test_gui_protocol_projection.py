@@ -4,13 +4,14 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent_core.session import Session
+from embedagent_host.runtime.session_runtime import ManagedSession
+
 from embedagent.core.adapter import _session_snapshot_from_dict
 from embedagent.frontend.gui.backend.protocol_payloads import (
     serialize_app_bootstrap,
     serialize_session_bootstrap,
 )
-from embedagent.session_runtime import ManagedSession
-from embedagent_core.session import Session
 
 
 class GuiProtocolProjectionTests(unittest.TestCase):

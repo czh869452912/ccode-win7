@@ -6,12 +6,11 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from query_engine_product_helpers import build_product_query_engine
-
-from embedagent.tools import ToolRuntime
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.session import AssistantReply
 from embedagent_host.inprocess_adapter import InProcessAdapter
+from embedagent_host.runtime.tools import ToolRuntime
+from query_engine_product_helpers import build_product_query_engine
 
 _COUNTER = count(1)
 

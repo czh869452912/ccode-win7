@@ -68,12 +68,12 @@ class TestNoDeprecatedDatetime:
         """Verify all files using datetime.now(timezone.utc) import timezone."""
         files_to_check = [
             "packages/embedagent-core/src/embedagent_core/session.py",
-            "src/embedagent/session_store.py",
-            "src/embedagent/session_runtime.py",
-            "src/embedagent/project_memory.py",
-            "src/embedagent_host/inprocess_adapter.py",
-            "src/embedagent/plan_store.py",
-            "src/embedagent/transcript_store.py",
+            "packages/embedagent-host/src/embedagent_host/runtime/session_store.py",
+            "packages/embedagent-host/src/embedagent_host/runtime/session_runtime.py",
+            "packages/embedagent-host/src/embedagent_host/runtime/project_memory.py",
+            "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py",
+            "packages/embedagent-host/src/embedagent_host/runtime/plan_store.py",
+            "packages/embedagent-host/src/embedagent_host/runtime/transcript_store.py",
             "packages/embedagent-core/src/embedagent_core/session_restore.py",
         ]
 

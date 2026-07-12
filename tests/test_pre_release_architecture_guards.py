@@ -11,9 +11,9 @@ SOURCE_SUFFIXES = (".py", ".js", ".jsx")
 
 ACTIVE_SOURCE_FILES = [
     PROTOCOL_SOURCE / "__init__.py",
-    ROOT / "src/embedagent/session_projector.py",
+    ROOT / "packages/embedagent-host/src/embedagent_host/runtime/session_projector.py",
     ROOT / "src/embedagent/core/adapter.py",
-    ROOT / "src/embedagent_host/inprocess_adapter.py",
+    ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py",
     ROOT / "src/embedagent/frontend/gui/backend/server.py",
     ROOT / "src/embedagent/frontend/gui/webapp/src/state-helpers.js",
     ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx",
@@ -121,7 +121,7 @@ def test_no_session_timeline_api_in_active_source():
     files = [
         PROTOCOL_SOURCE / "__init__.py",
         ROOT / "src/embedagent/core/adapter.py",
-        ROOT / "src/embedagent_host/inprocess_adapter.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py",
         ROOT / "src/embedagent/frontend/tui/services/timeline.py",
     ]
     offenders = []
@@ -133,13 +133,13 @@ def test_no_session_timeline_api_in_active_source():
 
 
 def test_no_core_flat_timeline_builder_name():
-    text = _read(ROOT / "src/embedagent/session_history.py")
+    text = _read(ROOT / "packages/embedagent-host/src/embedagent_host/runtime/session_history.py")
     assert "build_flat" + "_timeline" not in text
 
 
 def test_no_tui_flat_or_event_history_projection_contract():
     files = [
-        ROOT / "src/embedagent/session_history.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/session_history.py",
         ROOT / "src/embedagent/frontend/tui/controller.py",
         ROOT / "src/embedagent/frontend/tui/frontend_adapter.py",
         ROOT / "src/embedagent/frontend/tui/services/timeline.py",
@@ -180,7 +180,7 @@ def test_no_flat_timeline_view_or_builder_paths():
     for path in _source_files_under(
         "src/embedagent",
         "packages/embedagent-core/src/embedagent_core",
-        "src/embedagent_host",
+        "packages/embedagent-host/src/embedagent_host",
     ):
         text = _read(path)
         rel = _relative(path)
@@ -195,7 +195,7 @@ def test_no_flat_timeline_view_or_builder_paths():
 
 def test_no_session_view_clear_uses_timeline_payload():
     files = [
-        ROOT / "src/embedagent_host/inprocess_adapter.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py",
         ROOT / "src/embedagent/frontend/gui/webapp/src/store.js",
     ]
     offenders = []
@@ -222,7 +222,7 @@ def test_cli_shell_does_not_construct_hosted_runtime_dependencies():
 def test_active_prompt_sources_do_not_present_code_as_mode():
     files = [
         ROOT / "src/embedagent/modes.py",
-        ROOT / "src/embedagent/workspace_profile.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/workspace_profile.py",
     ]
     forbidden = (
         "code/debug",
@@ -285,7 +285,7 @@ def test_no_timeline_reload_route_or_metadata_in_active_gui_backend():
     files = [
         ROOT / "src/embedagent/frontend/gui/backend/server.py",
         ROOT / "src/embedagent/frontend/gui/backend/session_events.py",
-        ROOT / "src/embedagent_host/inprocess_adapter.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py",
         ROOT / "src/embedagent/core/adapter.py",
     ]
     offenders = []
@@ -368,7 +368,7 @@ def test_session_snapshot_contract_uses_single_pending_interaction_payload():
             "pending_input: Optional",
         ),
         ROOT
-        / "src/embedagent/session_projector.py": (
+        / "packages/embedagent-host/src/embedagent_host/runtime/session_projector.py": (
             '"has_pending_permission"',
             '"pending_permission"',
             '"has_pending_user_input"',
@@ -433,14 +433,14 @@ def test_session_snapshot_contract_uses_single_pending_interaction_payload():
 
 def test_hosted_runtime_uses_single_pending_interaction_state():
     files = [
-        ROOT / "src/embedagent/session_runtime.py",
-        ROOT / "src/embedagent_host/hosted_interaction_service.py",
-        ROOT / "src/embedagent_host/inprocess_adapter.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/session_runtime.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/hosted_interaction_service.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py",
         ROOT / "src/embedagent/core/adapter.py",
-        ROOT / "src/embedagent/session_projector.py",
-        ROOT / "src/embedagent_host/hosted_command_service.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/session_projector.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/hosted_command_service.py",
         ROOT / "src/embedagent/frontend/gui/backend/server.py",
-        ROOT / "src/embedagent/services/session_lifecycle.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/services/session_lifecycle.py",
     ]
     forbidden = (
         "state.pending_permission",
@@ -473,8 +473,8 @@ def test_product_interfaces_expose_only_unified_interaction_response():
     files = [
         ROOT / "src/embedagent/core/adapter.py",
         PROTOCOL_SOURCE / "__init__.py",
-        ROOT / "src/embedagent_host/inprocess_adapter.py",
-        ROOT / "src/embedagent_host/hosted_interaction_service.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/hosted_interaction_service.py",
         ROOT / "src/embedagent/frontend/tui/services/sessions.py",
     ]
     forbidden = (
@@ -634,7 +634,7 @@ def test_active_source_does_not_reintroduce_tooling_pack_aliases():
 
 
 def test_local_resources_do_not_import_c_cpp_workflow_defaults():
-    text = _read(ROOT / "src/embedagent/local_resources.py")
+    text = _read(ROOT / "packages/embedagent-host/src/embedagent_host/runtime/local_resources.py")
     forbidden = (
         "embedagent.workflow_packages.c_cpp",
         "C_WORKFLOW_TOOL_RUN_RECIPE",
@@ -644,7 +644,9 @@ def test_local_resources_do_not_import_c_cpp_workflow_defaults():
 
 
 def test_self_extension_authoring_does_not_import_c_cpp_workflow_defaults():
-    text = _read(ROOT / "src/embedagent/self_extension_authoring.py")
+    text = _read(
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/self_extension_authoring.py"
+    )
     forbidden = (
         "embedagent.workflow_packages.c_cpp",
         "C_WORKFLOW_TOOL_RUN_RECIPE",
@@ -769,10 +771,10 @@ def test_development_tracker_uses_current_c_cpp_workflow_package_paths():
 def test_runtime_tool_execute_calls_stay_behind_action_or_hosted_services():
     allowed_files = {
         "src/embedagent/agent_tool_action_service.py",
-        "src/embedagent_host/hosted_command_service.py",
-        "src/embedagent/review_command.py",
+        "packages/embedagent-host/src/embedagent_host/hosted_command_service.py",
+        "packages/embedagent-host/src/embedagent_host/runtime/review_command.py",
     }
-    allowed_prefixes = ("src/embedagent/tools/",)
+    allowed_prefixes = ("packages/embedagent-host/src/embedagent_host/runtime/tools/",)
     pattern = re.compile(r"\b(?:self\.)?tools\.execute\(")
     offenders = []
     for path in _source_files_under("src/embedagent", suffixes=(".py",)):
@@ -796,7 +798,7 @@ def test_tool_refresh_paths_use_read_model_invalidations_not_tool_name_lists():
     refresh_words = ("refresh", "invalidate", "invalidations", "tool_finished", "tool_result")
     allowed_prefixes = (
         "src/embedagent/workflow_packages/c_cpp/",
-        "src/embedagent/tools/",
+        "packages/embedagent-host/src/embedagent_host/runtime/tools/",
     )
     offenders = []
     for path in _source_files_under("src/embedagent"):
@@ -1093,9 +1095,12 @@ def test_gui_pending_interaction_display_prefers_session_snapshot_not_raw_reques
 
 
 def test_agent_application_capabilities_are_declared_by_backend_not_gui_defaults():
-    adapter_text = _read(ROOT / "src/embedagent_host/inprocess_adapter.py")
-    application_registry_text = _read(ROOT / "src/embedagent/agent_applications.py")
-    product_registry_text = _read(ROOT / "src/embedagent_host/agent_application_registry.py")
+    adapter_text = _read(ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py")
+    application_registry_text = _read(
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py"
+    )
+    product_registry_text = _read(ROOT / "src/embedagent/agent_application_registry.py")
+    product_hosted_text = _read(ROOT / "src/embedagent/hosted.py")
     protocol_text = _read(PROTOCOL_SOURCE / "app_protocol.py")
     normalizer_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/protocol-normalizer.js"
@@ -1105,7 +1110,9 @@ def test_agent_application_capabilities_are_declared_by_backend_not_gui_defaults
     )
 
     assert "build_agent_application" in adapter_text
-    assert "product_agent_application_registry" in adapter_text
+    assert "product_agent_application_registry" not in adapter_text
+    assert "base_agent_application_registry" in adapter_text
+    assert "product_agent_application_registry" in product_hosted_text
     assert "agentApplication" in adapter_text
     assert "agentApplications" in adapter_text
     assert "AgentApplicationRecord" in application_registry_text
@@ -1290,8 +1297,10 @@ def test_gui_app_shell_projects_selected_agent_application_before_workspace():
     app_host_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_host.py")
     app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
     launcher_text = _read(ROOT / "src/embedagent/frontend/gui/launcher.py")
-    adapter_text = _read(ROOT / "src/embedagent_host/inprocess_adapter.py")
-    registry_text = _read(ROOT / "src/embedagent/agent_applications.py")
+    adapter_text = _read(ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py")
+    registry_text = _read(
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py"
+    )
 
     assert "def agent_application_capability_payload" in registry_text
     assert "def agent_capabilities" in app_host_text
@@ -1304,7 +1313,9 @@ def test_gui_app_shell_projects_selected_agent_application_before_workspace():
 
 def test_gui_app_shell_filters_by_selected_agent_application_profile():
     app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
-    registry_text = _read(ROOT / "src/embedagent/agent_applications.py")
+    registry_text = _read(
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py"
+    )
 
     assert '"appShell"' in registry_text
     assert '"rightPanelSurfaceIds"' in registry_text
@@ -2875,9 +2886,15 @@ def test_gui_has_no_split_artifact_refetch_facade():
 
 
 def test_no_hosted_or_tui_artifact_browser_facade():
-    inprocess_text = _read(ROOT / "src/embedagent_host/inprocess_adapter.py")
-    command_service_text = _read(ROOT / "src/embedagent_host/hosted_command_service.py")
-    slash_commands_text = _read(ROOT / "src/embedagent/slash_commands.py")
+    inprocess_text = _read(
+        ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py"
+    )
+    command_service_text = _read(
+        ROOT / "packages/embedagent-host/src/embedagent_host/hosted_command_service.py"
+    )
+    slash_commands_text = _read(
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/slash_commands.py"
+    )
     tui_app_text = _read(ROOT / "src/embedagent/frontend/tui/app.py")
     tui_controller_text = _read(ROOT / "src/embedagent/frontend/tui/controller.py")
     tui_workbench_text = _read(ROOT / "src/embedagent/frontend/tui/workbench.py")
@@ -2926,7 +2943,7 @@ def test_gui_manual_and_styles_do_not_keep_artifact_browser_shell():
 
 def test_artifact_read_model_invalidation_is_retired():
     checked_paths = (
-        ROOT / "src/embedagent/tools/runtime.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/tools/runtime.py",
         ROOT / "tests/test_dynamic_tool_registration.py",
     )
     offenders = []

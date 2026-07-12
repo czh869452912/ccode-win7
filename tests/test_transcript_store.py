@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.transcript_store import TranscriptStore
 from embedagent_core.session_log import SessionLeaseConflict
+from embedagent_host.runtime.transcript_store import TranscriptStore
 
 _COUNTER = count(1)
 
@@ -511,7 +511,9 @@ class TestTranscriptStore(unittest.TestCase):
             return result
 
         try:
-            with patch("embedagent.transcript_store.os.mkdir", side_effect=mkdir_then_redirect):
+            with patch(
+                "embedagent_host.runtime.transcript_store.os.mkdir", side_effect=mkdir_then_redirect
+            ):
                 with self.assertRaisesRegex(ValueError, "^session_id is invalid$"):
                     store.append_event(
                         "session-root-race",
@@ -738,7 +740,10 @@ class TestTranscriptStore(unittest.TestCase):
                 self.fail("append must not deepcopy the cached event history")
             return deepcopy(value)
 
-        with patch("embedagent.transcript_store.deepcopy", side_effect=copy_without_history_list):
+        with patch(
+            "embedagent_host.runtime.transcript_store.deepcopy",
+            side_effect=copy_without_history_list,
+        ):
             second = store.append_event(
                 "sess-linear-append",
                 "message",

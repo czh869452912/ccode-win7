@@ -13,7 +13,7 @@ def test_disabled_manifest_is_discovered_but_not_imported(tmp_path):
         encoding="utf-8",
     )
 
-    from embedagent.project_extensions import load_project_extensions
+    from embedagent_host.runtime.project_extensions import load_project_extensions
 
     payload = load_project_extensions(str(tmp_path))
 
@@ -33,7 +33,7 @@ def test_enabled_manifest_requires_permissions(tmp_path):
         encoding="utf-8",
     )
 
-    from embedagent.project_extensions import load_project_extensions
+    from embedagent_host.runtime.project_extensions import load_project_extensions
 
     payload = load_project_extensions(str(tmp_path))
 
@@ -62,7 +62,7 @@ def test_enabled_manifest_accepts_network_and_telemetry_permissions(tmp_path):
         encoding="utf-8",
     )
 
-    from embedagent.project_extensions import load_project_extensions
+    from embedagent_host.runtime.project_extensions import load_project_extensions
 
     payload = load_project_extensions(str(tmp_path))
 
@@ -97,8 +97,8 @@ def test_enabled_extension_create_extension_receives_narrow_api(tmp_path):
         encoding="utf-8",
     )
 
-    from embedagent.project_extensions import load_project_extensions
     from embedagent_core.extensions import ExtensionManager
+    from embedagent_host.runtime.project_extensions import load_project_extensions
 
     payload = load_project_extensions(str(tmp_path))
     manager = ExtensionManager(payload["loaded_extensions"])
@@ -133,7 +133,7 @@ def test_project_extension_api_blocks_path_escape(tmp_path):
         encoding="utf-8",
     )
 
-    from embedagent.project_extensions import load_project_extensions
+    from embedagent_host.runtime.project_extensions import load_project_extensions
 
     payload = load_project_extensions(str(tmp_path))
 
@@ -165,8 +165,8 @@ def test_inprocess_adapter_loads_enabled_project_extension_into_shared_manager(t
         encoding="utf-8",
     )
 
-    from embedagent.tools import ToolRuntime
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.tools import ToolRuntime
 
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
     snapshot = adapter.create_session(mode="build")
@@ -189,8 +189,8 @@ def test_project_extension_import_failure_appears_in_adapter_diagnostics(tmp_pat
         encoding="utf-8",
     )
 
-    from embedagent.tools import ToolRuntime
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.tools import ToolRuntime
 
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
     snapshot = adapter.create_session(mode="build")
@@ -256,8 +256,8 @@ def test_project_extension_dynamic_tool_uses_existing_catalog_and_permission_flo
         encoding="utf-8",
     )
 
-    from embedagent.tools import ToolRuntime
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.tools import ToolRuntime
 
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
     catalog = adapter.get_tool_catalog()
@@ -315,13 +315,13 @@ def test_project_extension_network_tool_is_visible_only_after_allowed_activation
         encoding="utf-8",
     )
 
-    from embedagent.project_extensions import load_project_extensions
-    from embedagent.tools import ToolRuntime
     from embedagent_core.extensions import (
         ExtensionContext,
         ExtensionManager,
         ToolRegistrationEvent,
     )
+    from embedagent_host.runtime.project_extensions import load_project_extensions
+    from embedagent_host.runtime.tools import ToolRuntime
 
     payload = load_project_extensions(str(tmp_path))
     loaded_extension = payload["loaded_extensions"][0]
@@ -374,7 +374,7 @@ def test_project_extension_loading_does_not_invoke_dependency_installers(tmp_pat
     monkeypatch.setattr(subprocess, "run", blocked)
     monkeypatch.setattr(subprocess, "Popen", blocked)
 
-    from embedagent.project_extensions import load_project_extensions
+    from embedagent_host.runtime.project_extensions import load_project_extensions
 
     payload = load_project_extensions(str(tmp_path))
 

@@ -38,8 +38,7 @@ EXPECTED = (
         "version": "0.1.0",
         "required_prefixes": ("embedagent_host/",),
         "forbidden_prefixes": (
-            "embedagent/frontend/",
-            "embedagent/workflow_packages/",
+            "embedagent/",
         ),
         "forbidden_dependencies": ("pywebview",),
     },
@@ -62,6 +61,7 @@ EXPECTED = (
         "forbidden_prefixes": (
             "embedagent_core/",
             "embedagent_protocol/",
+            "embedagent_host/",
             "embedagent/protocol/",
         ),
         "forbidden_dependencies": (),

@@ -14,9 +14,8 @@ import threading
 import time
 from typing import Any, Dict, Optional
 
+from embedagent.hosted import LaunchOverrides, create_hosted_runtime, resolve_launch_config
 from embedagent.runtime_discovery import discover_bundle_root, running_from_bundle
-from embedagent_host.hosted.launch_config import LaunchOverrides, resolve_launch_config
-from embedagent_host.hosted.runtime import create_hosted_runtime
 
 # 配置日志
 logging.basicConfig(
@@ -283,10 +282,11 @@ def launch_gui(
         # 创建 GUI Backend
         static_dir = os.path.join(os.path.dirname(__file__), "static")
 
-        from embedagent.agent_applications import agent_application_capability_payload
+        from embedagent_host.runtime.agent_applications import agent_application_capability_payload
+
+        from embedagent.agent_application_registry import product_agent_application_registry
         from embedagent.frontend.gui.backend.app_host import GUIAppHost
         from embedagent.frontend.gui.backend.server import GUIBackend
-        from embedagent_host.agent_application_registry import product_agent_application_registry
 
         def core_factory(path: str):
             _LOGGER.info("Initializing Agent Core for workspace: %s", path)

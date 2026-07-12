@@ -10,21 +10,6 @@ from itertools import count
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from conftest import register_default_c_workflow_tools
-from query_engine_product_helpers import build_product_query_engine as QueryEngine
-
-from embedagent.config import AppConfig
-from embedagent.context import ContextManager
-from embedagent.tools import ToolRuntime
-from embedagent.transcript_store import TranscriptStore
-from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
-from embedagent.workspace_intelligence import (
-    CtagsProvider,
-    DiagnosticsProvider,
-    GitStateProvider,
-    LlspProvider,
-    RecipeProvider,
-    WorkspaceIntelligenceBroker,
-)
 from embedagent_core.extensions import ExtensionManager, ToolResultPatch, WorkflowPatch
 from embedagent_core.interaction import UserInputResponse
 from embedagent_core.model import ModelClientError
@@ -33,6 +18,21 @@ from embedagent_core.session import Action, AssistantReply, Observation, Session
 from embedagent_core.session_restore import SessionRestorer
 from embedagent_core.tool_execution import partition_tool_actions
 from embedagent_host.inprocess_adapter import InProcessAdapter
+from embedagent_host.runtime.context import ContextManager
+from embedagent_host.runtime.tools import ToolRuntime
+from embedagent_host.runtime.transcript_store import TranscriptStore
+from embedagent_host.runtime.workspace_intelligence import (
+    CtagsProvider,
+    DiagnosticsProvider,
+    GitStateProvider,
+    LlspProvider,
+    RecipeProvider,
+    WorkspaceIntelligenceBroker,
+)
+from query_engine_product_helpers import build_product_query_engine as QueryEngine
+
+from embedagent.config import AppConfig
+from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
 
 _COUNTER = count(1)
 

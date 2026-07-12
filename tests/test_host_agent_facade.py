@@ -3,13 +3,13 @@ from __future__ import unicode_literals
 import time
 from pathlib import Path
 
-from embedagent.tools import ToolRuntime
 from embedagent_core import AgentResult, AgentSession, InteractionReply, UserTurn
 from embedagent_core.model import ModelClient
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.runner import SessionRecoveryRequired
 from embedagent_core.session import Action, AssistantReply
 from embedagent_host.inprocess_adapter import InProcessAdapter
+from embedagent_host.runtime.tools import ToolRuntime
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -88,7 +88,9 @@ def _adapter(tmp_path):
 
 
 def test_host_constructs_agent_facade_not_query_engine():
-    text = (ROOT / "src/embedagent_host/inprocess_adapter.py").read_text(encoding="utf-8")
+    text = (ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py").read_text(
+        encoding="utf-8"
+    )
     assert "Agent.create(" in text
     assert "QueryEngine" not in text
     assert "self.agent._runtime" not in text
@@ -97,7 +99,9 @@ def test_host_constructs_agent_facade_not_query_engine():
 
 
 def test_managed_session_uses_agent_session_handle():
-    text = (ROOT / "src/embedagent/session_runtime.py").read_text(encoding="utf-8")
+    text = (
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/session_runtime.py"
+    ).read_text(encoding="utf-8")
     assert "agent_session" in text
     assert "engine: Any" not in text
 

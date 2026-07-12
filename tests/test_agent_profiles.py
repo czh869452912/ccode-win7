@@ -49,11 +49,12 @@ class AgentProfileTests(unittest.TestCase):
         self.assertEqual(build["source_id"], profile.profile_id)
 
     def test_builtin_profile_color_tokens_are_generic_not_mode_names(self):
-        from embedagent.agent_profiles import (
+        from embedagent_host.runtime.agent_profiles import (
             generic_agent_profile,
             html_agent_profile,
             python_agent_profile,
         )
+
         from embedagent.workflow_packages.c_cpp.agent_profile import (
             default_c_cpp_agent_profile,
         )
@@ -78,8 +79,8 @@ class AgentProfileTests(unittest.TestCase):
             profile.require_mode("python-build")
 
     def test_agent_profile_runtime_policy_renders_and_routes_profile_modes(self):
-        from embedagent.agent_profile_runtime import AgentProfileRuntimePolicy
-        from embedagent.agent_profiles import python_agent_profile
+        from embedagent_host.runtime.agent_profile_runtime import AgentProfileRuntimePolicy
+        from embedagent_host.runtime.agent_profiles import python_agent_profile
 
         policy = AgentProfileRuntimePolicy(python_agent_profile())
 
@@ -96,15 +97,18 @@ class AgentProfileTests(unittest.TestCase):
         )
 
     def test_base_agent_profiles_do_not_export_c_cpp_specialization(self):
-        import embedagent.agent_profiles as profiles
+        import embedagent_host.runtime.agent_profiles as profiles
 
         self.assertFalse(hasattr(profiles, "default_c_cpp_agent_profile"))
 
         module_path = os.path.join(
             os.path.dirname(__file__),
             "..",
+            "packages",
+            "embedagent-host",
             "src",
-            "embedagent",
+            "embedagent_host",
+            "runtime",
             "agent_profiles.py",
         )
         with open(module_path, "r", encoding="utf-8") as handle:
@@ -119,7 +123,7 @@ class AgentProfileTests(unittest.TestCase):
             self.assertNotIn(token, source)
 
     def test_builtin_non_c_profiles_are_domain_scoped(self):
-        from embedagent.agent_profiles import (
+        from embedagent_host.runtime.agent_profiles import (
             generic_agent_profile,
             html_agent_profile,
             python_agent_profile,

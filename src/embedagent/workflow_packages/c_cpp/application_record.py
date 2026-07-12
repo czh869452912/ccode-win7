@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from embedagent.agent_applications import AgentApplicationRecord
+from embedagent_host.runtime.agent_applications import AgentApplicationRecord
+
 from embedagent.workflow_packages.c_cpp.package_manifest import C_WORKFLOW_PACKAGE_ID
 
 DEFAULT_C_CPP_AGENT_APPLICATION_ID = "embedagent.default_c_cpp"

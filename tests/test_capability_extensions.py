@@ -1,5 +1,3 @@
-from query_engine_product_helpers import build_product_query_engine
-
 from embedagent_core.extensions import (
     ContextPatch,
     ExtensionCapability,
@@ -12,6 +10,7 @@ from embedagent_core.extensions import (
     WorkflowEvent,
 )
 from embedagent_core.session import Action, AssistantReply, Observation
+from query_engine_product_helpers import build_product_query_engine
 
 
 def _capabilities_for(extension, *hook_names):
@@ -332,8 +331,8 @@ class ContextInjectingExtension(object):
 
 
 def test_query_engine_applies_extension_context_patch(tmp_path):
-    from embedagent.tools import ToolRuntime
     from embedagent_core.permissions import PermissionPolicy
+    from embedagent_host.runtime.tools import ToolRuntime
 
     client = CapturingClient()
     tools = ToolRuntime(str(tmp_path))
@@ -576,7 +575,7 @@ class BrokenRegisterToolsExtension(object):
 
 
 def test_register_tools_hook_error_records_bus_metadata(tmp_path):
-    from embedagent.tools import ToolRuntime
+    from embedagent_host.runtime.tools import ToolRuntime
 
     manager = ExtensionManager([BrokenRegisterToolsExtension()])
 
@@ -658,8 +657,8 @@ class PatchingToolResultExtension(object):
 
 
 def test_query_engine_tool_call_hook_can_block_tool_execution(tmp_path):
-    from embedagent.tools import ToolRuntime
     from embedagent_core.permissions import PermissionPolicy
+    from embedagent_host.runtime.tools import ToolRuntime
 
     target = tmp_path / "blocked.txt"
     target.write_text("blocked", encoding="utf-8")
@@ -685,8 +684,8 @@ def test_query_engine_tool_call_hook_can_block_tool_execution(tmp_path):
 
 
 def test_query_engine_tool_result_hook_can_replace_observation(tmp_path):
-    from embedagent.tools import ToolRuntime
     from embedagent_core.permissions import PermissionPolicy
+    from embedagent_host.runtime.tools import ToolRuntime
 
     target = tmp_path / "readme.txt"
     target.write_text("hello", encoding="utf-8")
@@ -711,11 +710,11 @@ def test_query_engine_tool_result_hook_can_replace_observation(tmp_path):
 
 
 def test_agent_extension_host_applies_context_and_tool_result_workflow_patch(tmp_path):
-    from embedagent.tools import ToolRuntime
     from embedagent_core.agent_extension_host import AgentExtensionHost
     from embedagent_core.extensions import ContextPatch, WorkflowPatch
     from embedagent_core.permissions import PermissionPolicy
     from embedagent_core.session import ContextAssemblyResult, Session
+    from embedagent_host.runtime.tools import ToolRuntime
 
     class ContextAndPatchExtension(object):
         extension_id = "context_and_patch"
@@ -790,8 +789,8 @@ class DynamicServiceBoundaryExtension(object):
         )
 
     def register_tools(self, event, context):
-        from embedagent.tools import ToolDefinition
         from embedagent_core.extensions import ToolRegistrationResult
+        from embedagent_host.runtime.tools import ToolDefinition
 
         del event
 
@@ -856,11 +855,11 @@ class DynamicServiceBoundaryExtension(object):
 
 
 def test_agent_tool_action_service_runs_dynamic_tools_through_extension_hooks(tmp_path):
-    from embedagent.tools import ToolRuntime
     from embedagent_core.agent_extension_host import AgentExtensionHost
     from embedagent_core.agent_tool_action_service import AgentToolActionService
     from embedagent_core.permissions import PermissionPolicy
     from embedagent_core.session import Session
+    from embedagent_host.runtime.tools import ToolRuntime
 
     runtime = ToolRuntime(str(tmp_path))
     policy = PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path))
@@ -941,9 +940,9 @@ def test_workflow_patch_exposes_only_current_read_model_fields():
 
 
 def test_session_snapshot_projects_extension_state_and_diagnostics():
-    from embedagent.session_projector import SessionSnapshotProjector
-    from embedagent.session_runtime import ManagedSession
     from embedagent_core.session import Session
+    from embedagent_host.runtime.session_projector import SessionSnapshotProjector
+    from embedagent_host.runtime.session_runtime import ManagedSession
 
     session = Session()
     session.workflow_state["extensions"] = {
@@ -985,8 +984,8 @@ class SnapshotBrokenExtension(object):
 
 
 def test_inprocess_snapshot_includes_extension_diagnostics(tmp_path):
-    from embedagent.tools import ToolRuntime
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.tools import ToolRuntime
 
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
     adapter.extension_manager = ExtensionManager([SnapshotBrokenExtension()])

@@ -11,6 +11,7 @@ DEFAULT_TARGETS = (
     "src/",
     "packages/embedagent-core/src/",
     "packages/embedagent-protocol/src/",
+    "packages/embedagent-host/src/",
     "tests/",
     "scripts/lint.py",
 )

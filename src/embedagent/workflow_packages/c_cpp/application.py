@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from embedagent.agent_applications import (
+from embedagent_core.extensions import ExtensionManager
+from embedagent_host.runtime.agent_applications import (
     AgentApplication,
     AgentApplicationManifest,
 )
+
 from embedagent.workflow_packages.c_cpp.agent_profile import default_c_cpp_agent_profile
 from embedagent.workflow_packages.c_cpp.application_record import (
     DEFAULT_C_CPP_AGENT_APPLICATION_ID,
@@ -15,7 +17,6 @@ from embedagent.workflow_packages.c_cpp.package_manifest import C_WORKFLOW_PACKA
 from embedagent.workflow_packages.c_cpp.workspace_profile import (
     c_cpp_workspace_profile_detectors,
 )
-from embedagent_core.extensions import ExtensionManager
 
 
 def c_cpp_agent_application_manifest() -> AgentApplicationManifest:

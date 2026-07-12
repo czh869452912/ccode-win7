@@ -87,7 +87,7 @@ class TestPublicImports(object):
         assert callable(allowed_tools_for)
 
     def test_import_services(self):
-        from embedagent.services import (
+        from embedagent_host.runtime.services import (
             EventEmitter,
             SessionLifecycleManager,
             WorkspaceFileService,
@@ -98,17 +98,17 @@ class TestPublicImports(object):
         assert WorkspaceFileService is not None
 
     def test_import_strategies(self):
-        from embedagent.strategies import ToolResultCache
+        from embedagent_host.runtime.strategies import ToolResultCache
 
         assert ToolResultCache is not None
 
     def test_legacy_context_compaction_strategy_removed(self):
-        import embedagent.strategies as strategies
+        import embedagent_host.runtime.strategies as strategies
 
         assert not hasattr(strategies, "ContextCompactionEngine")
 
     def test_turn_orchestrator_legacy_strategy_removed(self):
-        import embedagent.strategies as strategies
+        import embedagent_host.runtime.strategies as strategies
 
         assert not hasattr(strategies, "TurnOrchestrator")
 
@@ -143,9 +143,9 @@ class TestInProcessAdapterBoundaries(object):
     """Verify InProcessAdapter construction and removed-alias boundaries."""
 
     def _make_adapter(self, tmp_path):
-        from embedagent.tools import ToolRuntime
         from embedagent_host.inprocess_adapter import InProcessAdapter
         from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
+        from embedagent_host.runtime.tools import ToolRuntime
 
         client = MagicMock(spec=OpenAICompatibleClient)
         tools = MagicMock(spec=ToolRuntime)
@@ -174,7 +174,7 @@ class TestInProcessAdapterBoundaries(object):
     def test_has_event_emitter(self, fresh_container, tmp_path):
         adapter = self._make_adapter(tmp_path)
         assert hasattr(adapter, "_event_emitter")
-        from embedagent.services import EventEmitter
+        from embedagent_host.runtime.services import EventEmitter
 
         assert isinstance(adapter._event_emitter, EventEmitter)
 
@@ -201,9 +201,8 @@ class TestQueryEngineBoundaries(object):
 
     def test_can_instantiate_with_minimal_args(self, fresh_container):
         from embedagent_core.query_engine import QueryEngine
-
-        from embedagent.tools import ToolRuntime
         from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
+        from embedagent_host.runtime.tools import ToolRuntime
 
         client = MagicMock(spec=OpenAICompatibleClient)
         tools = MagicMock(spec=ToolRuntime)
@@ -347,8 +346,9 @@ def test_no_compatibility_reexports_for_core_extraction():
         assert command_sanitizer.get_command_sanitizer() is not None
 
     def test_get_inprocess_adapter_returns_class(self):
-        from embedagent.core.adapter import get_inprocess_adapter
         from embedagent_host.inprocess_adapter import InProcessAdapter
+
+        from embedagent.core.adapter import get_inprocess_adapter
 
         result = get_inprocess_adapter()
         assert result is InProcessAdapter
@@ -356,7 +356,7 @@ def test_no_compatibility_reexports_for_core_extraction():
 
 def test_transcript_store_has_no_schema_v1_compatibility_path():
     checked_files = (
-        ROOT / "src/embedagent/transcript_store.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/transcript_store.py",
         CORE_SOURCE / "agent_lifecycle.py",
         CORE_SOURCE / "query_engine.py",
         CORE_SOURCE / "ports.py",
@@ -388,7 +388,9 @@ def test_transcript_store_has_no_schema_v1_compatibility_path():
 
 
 def test_tool_runtime_does_not_import_mode_registry_for_schema_projection():
-    runtime_source = _read(ROOT / "src/embedagent/tools/runtime.py")
+    runtime_source = _read(
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/tools/runtime.py"
+    )
     assert "from embedagent.modes import allowed_tools_for" not in runtime_source
     assert "allowed_tools_for(mode_name)" not in runtime_source
 
@@ -402,7 +404,9 @@ def test_c_workflow_tools_are_declared_only_by_c_workflow_package_or_tests():
         "task_status",
     )
     allowed_prefixes = ("src/embedagent/workflow_packages/c_cpp/",)
-    assert not (ROOT / "src/embedagent/tools/recipe_ops.py").exists()
+    assert not (
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/tools/recipe_ops.py"
+    ).exists()
     offenders = []
     for path in _source_files_under("src", suffixes=(".py", ".js", ".jsx")):
         rel = _relative(path)
@@ -416,10 +420,10 @@ def test_c_workflow_tools_are_declared_only_by_c_workflow_package_or_tests():
 
 
 def test_c_cpp_agent_profile_lives_in_c_workflow_package():
-    base_profile = ROOT / "src/embedagent/agent_profiles.py"
+    base_profile = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_profiles.py"
     c_profile = ROOT / "src/embedagent/workflow_packages/c_cpp/agent_profile.py"
     application = ROOT / "src/embedagent/workflow_packages/c_cpp/application.py"
-    loader = ROOT / "src/embedagent/agent_applications.py"
+    loader = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py"
 
     assert c_profile.is_file()
 
@@ -434,7 +438,10 @@ def test_c_cpp_agent_profile_lives_in_c_workflow_package():
     offenders = []
     for token in forbidden_base_tokens:
         if token in base_text:
-            offenders.append("src/embedagent/agent_profiles.py contains %s" % token)
+            offenders.append(
+                "packages/embedagent-host/src/embedagent_host/runtime/agent_profiles.py contains %s"
+                % token
+            )
     assert offenders == []
 
     assert "default_c_cpp_agent_profile" not in _read(loader)
@@ -442,9 +449,9 @@ def test_c_cpp_agent_profile_lives_in_c_workflow_package():
 
 
 def test_default_c_cpp_application_record_lives_in_c_workflow_package():
-    registry = ROOT / "src/embedagent/agent_applications.py"
+    registry = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py"
     record = ROOT / "src/embedagent/workflow_packages/c_cpp/application_record.py"
-    product_registry = ROOT / "src/embedagent_host/agent_application_registry.py"
+    product_registry = ROOT / "src/embedagent/agent_application_registry.py"
 
     assert record.is_file()
     assert product_registry.is_file()
@@ -471,8 +478,8 @@ def test_default_c_cpp_application_record_lives_in_c_workflow_package():
 
 
 def test_hosted_adapter_uses_shared_agent_profile_runtime_policies():
-    adapter = ROOT / "src/embedagent_host/inprocess_adapter.py"
-    runtime = ROOT / "src/embedagent/agent_profile_runtime.py"
+    adapter = ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py"
+    runtime = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_profile_runtime.py"
 
     assert runtime.is_file()
     adapter_text = _read(adapter)
@@ -515,7 +522,7 @@ def test_base_config_does_not_pin_default_c_cpp_application():
 
 
 def test_generic_workspace_profile_uses_workflow_owned_c_cpp_detectors():
-    generic = ROOT / "src/embedagent/workspace_profile.py"
+    generic = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/workspace_profile.py"
     c_detector = ROOT / "src/embedagent/workflow_packages/c_cpp/workspace_profile.py"
 
     generic_text = _read(generic)
@@ -535,9 +542,9 @@ def test_generic_workspace_profile_uses_workflow_owned_c_cpp_detectors():
 
 def test_product_evidence_helpers_do_not_import_c_cpp_workflow_constants():
     files = (
-        ROOT / "src/embedagent/review_command.py",
-        ROOT / "src/embedagent/project_memory.py",
-        ROOT / "src/embedagent/workspace_intelligence.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/review_command.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/project_memory.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/workspace_intelligence.py",
     )
     forbidden = (
         "embedagent.workflow_packages.c_cpp",
@@ -556,10 +563,10 @@ def test_product_evidence_helpers_do_not_import_c_cpp_workflow_constants():
 
 def test_generic_workspace_recipe_facade_does_not_import_c_cpp_workflow_constants():
     files = (
-        ROOT / "src/embedagent/workspace_recipes.py",
-        ROOT / "src/embedagent/workspace_profile.py",
-        ROOT / "src/embedagent/tools/_base.py",
-        ROOT / "src/embedagent/tools/runtime.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/workspace_profile.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/tools/_base.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/tools/runtime.py",
     )
     forbidden = (
         "embedagent.workflow_packages.c_cpp",
@@ -580,8 +587,11 @@ def test_generic_workspace_recipe_facade_does_not_import_c_cpp_workflow_constant
 def test_tools_module_docs_keep_workspace_recipes_workflow_neutral():
     text = _read(ROOT / "docs/modules/tools-and-tooling.md")
 
-    assert "聚合与 `run_recipe` 归一化位于 `src/embedagent/workspace_recipes.py`" not in text
-    assert "`src/embedagent/workspace_recipes.py`" in text
+    assert (
+        "聚合与 `run_recipe` 归一化位于 `packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py`"
+        not in text
+    )
+    assert "`packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py`" in text
     assert "workflow-neutral file-resource/read-model facade" in text
     assert "不做 CMake/Make/Ninja 检测" in text
     assert "src/embedagent/workflow_packages/c_cpp/workspace_recipes.py" in text

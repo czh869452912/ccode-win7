@@ -8,7 +8,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from embedagent.agent_profiles import generic_agent_profile
+from embedagent_host.runtime.agent_profiles import generic_agent_profile
+
 from embedagent.di_container import get_default_container
 
 _LOG = logging.getLogger(__name__)

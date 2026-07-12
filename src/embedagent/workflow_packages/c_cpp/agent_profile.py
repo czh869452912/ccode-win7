@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from embedagent.agent_profiles import (
+from embedagent_host.runtime.agent_profiles import (
     BASE_DISCUSSION_TOOLS,
     BASE_READ_TOOLS,
     BASE_VERIFY_TOOLS,

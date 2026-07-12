@@ -6,8 +6,8 @@ import time
 import unittest
 from datetime import datetime, timezone
 
-from embedagent.services.shadow_git import ShadowGitSnapshot
 from embedagent_core.tool_contracts import ToolError
+from embedagent_host.runtime.services.shadow_git import ShadowGitSnapshot
 
 
 class TestShadowGitSnapshot(unittest.TestCase):

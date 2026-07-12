@@ -2,11 +2,11 @@ import shutil
 import tempfile
 import unittest
 
-from embedagent.projection_db import ProjectionDb
-from embedagent.tool_commit import ToolCommitCoordinator
-from embedagent.tool_result_store import ToolResultStore
-from embedagent.transcript_store import TranscriptStore
 from embedagent_core.session import Action, Observation, Session
+from embedagent_host.runtime.projection_db import ProjectionDb
+from embedagent_host.runtime.tool_commit import ToolCommitCoordinator
+from embedagent_host.runtime.tool_result_store import ToolResultStore
+from embedagent_host.runtime.transcript_store import TranscriptStore
 
 
 class TestToolCommitCoordinator(unittest.TestCase):

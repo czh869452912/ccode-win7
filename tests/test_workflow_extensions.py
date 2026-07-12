@@ -224,8 +224,8 @@ def test_session_import_does_not_eagerly_load_harness_task_graph():
 
 def test_c_harness_extension_preserves_build_prompt_behavior(tmp_path):
     from embedagent_core.permissions import PermissionPolicy
+    from embedagent_host.runtime.tools import ToolRuntime
 
-    from embedagent.tools import ToolRuntime
     from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
 
     tools = ToolRuntime(str(tmp_path))
@@ -254,8 +254,8 @@ def test_c_harness_extension_preserves_build_prompt_behavior(tmp_path):
 
 def test_c_harness_extension_uses_generic_workflow_prompt_kind(tmp_path):
     from embedagent_core.permissions import PermissionPolicy
+    from embedagent_host.runtime.tools import ToolRuntime
 
-    from embedagent.tools import ToolRuntime
     from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
 
     tools = ToolRuntime(str(tmp_path))
@@ -381,8 +381,8 @@ def test_query_engine_no_longer_imports_default_harness_extension_directly():
 
 
 def test_snapshot_projector_prefers_generic_workflow_state():
-    from embedagent.session_projector import SessionSnapshotProjector
-    from embedagent.session_runtime import ManagedSession
+    from embedagent_host.runtime.session_projector import SessionSnapshotProjector
+    from embedagent_host.runtime.session_runtime import ManagedSession
 
     session = Session()
     session.workflow_state["workflow"] = {
@@ -412,17 +412,28 @@ def test_snapshot_projector_prefers_generic_workflow_state():
 
 
 def test_session_snapshot_projector_no_longer_reads_task_graph_directly():
-    source = (_REPO_ROOT / "src" / "embedagent" / "session_projector.py").read_text(
-        encoding="utf-8"
-    )
+    source = (
+        _REPO_ROOT
+        / "packages"
+        / "embedagent-host"
+        / "src"
+        / "embedagent_host"
+        / "runtime"
+        / "session_projector.py"
+    ).read_text(encoding="utf-8")
 
     assert "task_graph" not in source
 
 
 def test_inprocess_frontend_task_api_uses_workflow_state_projection():
-    source = (_REPO_ROOT / "src" / "embedagent_host" / "inprocess_adapter.py").read_text(
-        encoding="utf-8"
-    )
+    source = (
+        _REPO_ROOT
+        / "packages"
+        / "embedagent-host"
+        / "src"
+        / "embedagent_host"
+        / "inprocess_adapter.py"
+    ).read_text(encoding="utf-8")
     module = ast.parse(source)
     list_tasks_node = None
     for node in ast.walk(module):
@@ -443,9 +454,14 @@ def test_inprocess_frontend_task_api_uses_workflow_state_projection():
 
 
 def test_inprocess_frontend_task_api_does_not_import_harness_task_store_directly():
-    source = (_REPO_ROOT / "src" / "embedagent_host" / "inprocess_adapter.py").read_text(
-        encoding="utf-8"
-    )
+    source = (
+        _REPO_ROOT
+        / "packages"
+        / "embedagent-host"
+        / "src"
+        / "embedagent_host"
+        / "inprocess_adapter.py"
+    ).read_text(encoding="utf-8")
 
     assert "from embedagent.workflow_packages.c_cpp import task_store" not in source
     assert "embedagent.workflow_packages.c_cpp.task_store" not in source
@@ -456,8 +472,19 @@ def test_frontend_task_apis_do_not_import_harness_task_internals():
         _REPO_ROOT / "src" / "embedagent" / "frontend",
         _REPO_ROOT / "src" / "embedagent" / "core",
         PROTOCOL_SOURCE,
-        _REPO_ROOT / "src" / "embedagent" / "session_projector.py",
-        _REPO_ROOT / "src" / "embedagent_host" / "inprocess_adapter.py",
+        _REPO_ROOT
+        / "packages"
+        / "embedagent-host"
+        / "src"
+        / "embedagent_host"
+        / "runtime"
+        / "session_projector.py",
+        _REPO_ROOT
+        / "packages"
+        / "embedagent-host"
+        / "src"
+        / "embedagent_host"
+        / "inprocess_adapter.py",
     ]
     forbidden = (
         "embedagent.workflow_packages.c_cpp.task_graph",
@@ -479,18 +506,28 @@ def test_frontend_task_apis_do_not_import_harness_task_internals():
 
 
 def test_inprocess_adapter_no_longer_constructs_harness_runner_directly():
-    source = (_REPO_ROOT / "src" / "embedagent_host" / "inprocess_adapter.py").read_text(
-        encoding="utf-8"
-    )
+    source = (
+        _REPO_ROOT
+        / "packages"
+        / "embedagent-host"
+        / "src"
+        / "embedagent_host"
+        / "inprocess_adapter.py"
+    ).read_text(encoding="utf-8")
 
     assert "from embedagent.workflow_packages.c_cpp.runner import HarnessRunner" not in source
     assert "HarnessRunner()" not in source
 
 
 def test_inprocess_adapter_gets_default_workflow_from_agent_application():
-    source = (_REPO_ROOT / "src" / "embedagent_host" / "inprocess_adapter.py").read_text(
-        encoding="utf-8"
-    )
+    source = (
+        _REPO_ROOT
+        / "packages"
+        / "embedagent-host"
+        / "src"
+        / "embedagent_host"
+        / "inprocess_adapter.py"
+    ).read_text(encoding="utf-8")
 
     assert (
         "from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension"
@@ -577,7 +614,7 @@ def test_mode_allowed_tools_no_longer_own_harness_workflow_tools():
 
 
 def test_tool_runtime_default_schemas_require_explicit_active_tool_names(tmp_path):
-    from embedagent.tools import ToolRuntime
+    from embedagent_host.runtime.tools import ToolRuntime
 
     runtime = ToolRuntime(str(tmp_path))
 
@@ -590,8 +627,8 @@ def test_tool_runtime_default_schemas_require_explicit_active_tool_names(tmp_pat
 
 def test_tool_runtime_default_schemas_remain_empty_after_c_tools_register(tmp_path):
     from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
+    from embedagent_host.runtime.tools import ToolRuntime
 
-    from embedagent.tools import ToolRuntime
     from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
 
     runtime = ToolRuntime(str(tmp_path))
@@ -618,7 +655,7 @@ def test_tool_runtime_default_schemas_remain_empty_after_c_tools_register(tmp_pa
 
 
 def test_bare_tool_runtime_does_not_register_default_c_workflow_tools(tmp_path):
-    from embedagent.tools import ToolRuntime
+    from embedagent_host.runtime.tools import ToolRuntime
 
     runtime = ToolRuntime(str(tmp_path))
     names = set(item["name"] for item in runtime.catalog_entries())
@@ -632,8 +669,8 @@ def test_bare_tool_runtime_does_not_register_default_c_workflow_tools(tmp_path):
 
 def test_default_c_workflow_extension_registers_workflow_tools(tmp_path):
     from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
+    from embedagent_host.runtime.tools import ToolRuntime
 
-    from embedagent.tools import ToolRuntime
     from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
 
     runtime = ToolRuntime(str(tmp_path))
@@ -667,8 +704,9 @@ def test_default_c_workflow_extension_owns_c_workflow_tool_activation():
 
 
 def test_default_c_workflow_extension_registers_context_reducers(tmp_path):
-    from embedagent.context import ContextManager
-    from embedagent.tools import ToolRuntime
+    from embedagent_host.runtime.context import ContextManager
+    from embedagent_host.runtime.tools import ToolRuntime
+
     from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
 
     runtime = ToolRuntime(str(tmp_path))
@@ -716,18 +754,25 @@ def test_extension_manager_retries_failed_context_reducer_registration():
 
 
 def test_tool_runtime_no_longer_imports_harness_runtime_metadata():
-    source = (_REPO_ROOT / "src" / "embedagent" / "tools" / "runtime.py").read_text(
-        encoding="utf-8"
-    )
+    source = (
+        _REPO_ROOT
+        / "packages"
+        / "embedagent-host"
+        / "src"
+        / "embedagent_host"
+        / "runtime"
+        / "tools"
+        / "runtime.py"
+    ).read_text(encoding="utf-8")
 
     assert "OFFICIAL_HARNESS_TOOL_METADATA" not in source
-    assert "embedagent.tools.harness_runtime" not in source
+    assert "embedagent_host.runtime.tools.harness_runtime" not in source
 
 
 def test_default_c_workflow_tool_metadata_survives_package_registration(tmp_path):
     from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
+    from embedagent_host.runtime.tools import ToolRuntime
 
-    from embedagent.tools import ToolRuntime
     from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
 
     runtime = ToolRuntime(str(tmp_path))
@@ -747,9 +792,16 @@ def test_default_c_workflow_tool_metadata_survives_package_registration(tmp_path
 
 
 def test_tool_runtime_no_longer_imports_harness_mode_describer():
-    source = (_REPO_ROOT / "src" / "embedagent" / "tools" / "runtime.py").read_text(
-        encoding="utf-8"
-    )
+    source = (
+        _REPO_ROOT
+        / "packages"
+        / "embedagent-host"
+        / "src"
+        / "embedagent_host"
+        / "runtime"
+        / "tools"
+        / "runtime.py"
+    ).read_text(encoding="utf-8")
 
     assert "OfficialRuntimeModes" not in source
     assert "pack_tool_names" not in source
@@ -766,8 +818,8 @@ def test_c_cpp_workflow_package_owns_c_workflow_packs():
 def test_importing_tool_runtime_does_not_import_harness_runtime_modules():
     script = (
         "import sys\n"
-        "import embedagent.tools.runtime\n"
-        "for name in ('embedagent.tools.harness_runtime', 'embedagent.workflow_packages.c_cpp.runner'):\n"
+        "import embedagent_host.runtime.tools.runtime\n"
+        "for name in ('embedagent_host.runtime.tools.harness_runtime', 'embedagent.workflow_packages.c_cpp.runner'):\n"
         "    print(name, name in sys.modules)\n"
     )
     result = subprocess.run(
@@ -779,33 +831,52 @@ def test_importing_tool_runtime_does_not_import_harness_runtime_modules():
         check=True,
     )
 
-    assert "embedagent.tools.harness_runtime False" in result.stdout
+    assert "embedagent_host.runtime.tools.harness_runtime False" in result.stdout
     assert "embedagent.workflow_packages.c_cpp.runner False" in result.stdout
 
 
 def test_tool_runtime_no_longer_exposes_legacy_schema_alias():
-    source = (_REPO_ROOT / "src" / "embedagent" / "tools" / "runtime.py").read_text(
-        encoding="utf-8"
-    )
+    source = (
+        _REPO_ROOT
+        / "packages"
+        / "embedagent-host"
+        / "src"
+        / "embedagent_host"
+        / "runtime"
+        / "tools"
+        / "runtime.py"
+    ).read_text(encoding="utf-8")
     legacy_alias = "def " + "schemas_for_" + "mode"
 
     assert legacy_alias not in source
 
 
 def test_tool_runtime_no_longer_exposes_allowed_tool_names_alias():
-    source = (_REPO_ROOT / "src" / "embedagent" / "tools" / "runtime.py").read_text(
-        encoding="utf-8"
-    )
+    source = (
+        _REPO_ROOT
+        / "packages"
+        / "embedagent-host"
+        / "src"
+        / "embedagent_host"
+        / "runtime"
+        / "tools"
+        / "runtime.py"
+    ).read_text(encoding="utf-8")
     legacy_alias = "def " + "allowed_tool_" + "names"
 
     assert legacy_alias not in source
 
 
 def test_frontend_tool_catalog_gets_harness_tools_from_workflow_extension(tmp_path):
-    from embedagent.tools import ToolRuntime
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.tools import ToolRuntime
 
-    adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
+    from embedagent.agent_application_registry import product_agent_application_registry
+
+    adapter = InProcessAdapter(
+        tools=ToolRuntime(str(tmp_path)),
+        agent_application_registry=product_agent_application_registry(),
+    )
 
     names = set(item.get("name") for item in adapter.get_tool_catalog())
 
@@ -854,8 +925,8 @@ def test_c_harness_package_manifest_does_not_drive_active_tools():
 
 
 def test_inprocess_adapter_tool_catalog_uses_shared_extension_manager(tmp_path):
-    from embedagent.tools import ToolRuntime
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.tools import ToolRuntime
 
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
     adapter.extension_manager.register(CatalogExtension())
@@ -866,8 +937,8 @@ def test_inprocess_adapter_tool_catalog_uses_shared_extension_manager(tmp_path):
 
 
 def test_inprocess_adapter_passes_extension_manager_to_agent_runtime(tmp_path):
-    from embedagent.tools import ToolRuntime
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.tools import ToolRuntime
 
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
 
@@ -875,8 +946,8 @@ def test_inprocess_adapter_passes_extension_manager_to_agent_runtime(tmp_path):
 
 
 def test_inprocess_adapter_session_handle_uses_shared_extension_manager(tmp_path):
-    from embedagent.tools import ToolRuntime
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.tools import ToolRuntime
 
     adapter = InProcessAdapter(client=DoneClient(), tools=ToolRuntime(str(tmp_path)))
     snapshot = adapter.create_session(mode="build")
@@ -888,8 +959,7 @@ def test_inprocess_adapter_session_handle_uses_shared_extension_manager(tmp_path
 
 def test_bare_query_engine_uses_empty_extension_host_without_c_harness(tmp_path):
     from embedagent_core.query_engine import QueryEngine
-
-    from embedagent.tools import ToolRuntime
+    from embedagent_host.runtime.tools import ToolRuntime
 
     engine = QueryEngine(
         client=DoneClient(),
@@ -925,13 +995,18 @@ def test_query_engine_no_longer_dispatches_extension_manager_hooks_directly():
 
 
 def test_inprocess_adapter_no_longer_depends_on_removed_sync_facade(tmp_path):
-    from embedagent.tools import ToolRuntime
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.tools import ToolRuntime
 
     symbol = "Harness" + "State" + "Synchronizer"
-    source = (_REPO_ROOT / "src" / "embedagent_host" / "inprocess_adapter.py").read_text(
-        encoding="utf-8"
-    )
+    source = (
+        _REPO_ROOT
+        / "packages"
+        / "embedagent-host"
+        / "src"
+        / "embedagent_host"
+        / "inprocess_adapter.py"
+    ).read_text(encoding="utf-8")
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
 
     assert symbol not in source
@@ -943,7 +1018,7 @@ def test_inprocess_adapter_import_does_not_load_removed_sync_module():
     script = (
         "import sys\n"
         "import embedagent_host.inprocess_adapter\n"
-        "module_name = 'embedagent.services.' + 'harness_' + 'state_' + 'synchronizer'\n"
+        "module_name = 'embedagent_host.runtime.services.' + 'harness_' + 'state_' + 'synchronizer'\n"
         "print(module_name in sys.modules)\n"
     )
 
@@ -960,7 +1035,7 @@ def test_inprocess_adapter_import_does_not_load_removed_sync_module():
 
 
 def test_services_no_longer_export_removed_sync_facade():
-    import embedagent.services as services
+    import embedagent_host.runtime.services as services
 
     symbol = "Harness" + "State" + "Synchronizer"
 

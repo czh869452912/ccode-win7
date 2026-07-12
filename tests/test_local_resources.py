@@ -7,14 +7,21 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.tools import ToolRuntime
 from embedagent_core.extensions import ResourcesDiscoverResult
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.query_engine import QueryEngine
 from embedagent_core.session import AssistantReply
 from embedagent_host.inprocess_adapter import InProcessAdapter
+from embedagent_host.runtime.tools import ToolRuntime
+
+from embedagent.agent_application_registry import product_agent_application_registry
 
 _COUNTER = count(1)
+
+
+def _product_adapter(*args, **kwargs):
+    kwargs.setdefault("agent_application_registry", product_agent_application_registry())
+    return InProcessAdapter(*args, **kwargs)
 
 
 def _make_workspace(prefix):
@@ -96,7 +103,7 @@ class TestLocalResources(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_discovers_default_skill_prompt_and_recipe_files(self):
-        from embedagent.local_resources import discover_local_resources
+        from embedagent_host.runtime.local_resources import discover_local_resources
 
         _write_text(
             os.path.join(self.workspace, ".embedagent", "skills", "review.md"),
@@ -132,7 +139,7 @@ class TestLocalResources(unittest.TestCase):
         self.assertEqual(payload["diagnostics"], [])
 
     def test_local_recipe_discovery_does_not_inject_workflow_tool_defaults(self):
-        from embedagent.local_resources import discover_local_resources
+        from embedagent_host.runtime.local_resources import discover_local_resources
 
         _write_text(
             os.path.join(self.workspace, ".embedagent", "recipes", "custom.json"),
@@ -152,8 +159,8 @@ class TestLocalResources(unittest.TestCase):
         self.assertEqual(payload["recipes"][0]["tool_name"], "")
 
     def test_discovers_pi_style_skill_frontmatter(self):
-        from embedagent.local_resources import discover_local_resources
-        from embedagent.skills import format_skills_for_prompt
+        from embedagent_host.runtime.local_resources import discover_local_resources
+        from embedagent_host.runtime.skills import format_skills_for_prompt
 
         _write_text(
             os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
@@ -200,8 +207,8 @@ class TestLocalResources(unittest.TestCase):
         self.assertNotIn("private-audit", prompt_text)
 
     def test_expand_skill_invocation_includes_body_and_arguments(self):
-        from embedagent.local_resources import discover_local_resources
-        from embedagent.skills import expand_skill_invocation
+        from embedagent_host.runtime.local_resources import discover_local_resources
+        from embedagent_host.runtime.skills import expand_skill_invocation
 
         _write_text(
             os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
@@ -230,8 +237,8 @@ class TestLocalResources(unittest.TestCase):
         self.assertNotIn("description: Review local C changes.", expanded)
 
     def test_expand_prompt_invocation_includes_body_and_arguments(self):
-        from embedagent.local_resources import discover_local_resources
-        from embedagent.prompts import expand_prompt_invocation
+        from embedagent_host.runtime.local_resources import discover_local_resources
+        from embedagent_host.runtime.prompts import expand_prompt_invocation
 
         _write_text(
             os.path.join(self.workspace, ".embedagent", "prompts", "triage.md"),
@@ -263,7 +270,7 @@ class TestLocalResources(unittest.TestCase):
             "Use compiler evidence and cite files.\n",
         )
         client = CapturingClient()
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=client,
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -302,7 +309,7 @@ class TestLocalResources(unittest.TestCase):
             "# Triage Prompt\n\nCollect logs and summarize the failure.\n",
         )
         client = CapturingClient()
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=client,
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -376,7 +383,7 @@ class TestLocalResources(unittest.TestCase):
         self.assertNotIn("<name>code-review</name>", system_text)
 
     def test_skill_discovery_honors_ignore_files(self):
-        from embedagent.local_resources import discover_local_resources
+        from embedagent_host.runtime.local_resources import discover_local_resources
 
         _write_text(
             os.path.join(self.workspace, ".embedagent", "skills", ".gitignore"),
@@ -401,7 +408,7 @@ class TestLocalResources(unittest.TestCase):
         self.assertEqual(names, ["visible-skill"])
 
     def test_skill_discovery_ignore_negation_can_reinclude_file(self):
-        from embedagent.local_resources import discover_local_resources
+        from embedagent_host.runtime.local_resources import discover_local_resources
 
         _write_text(
             os.path.join(self.workspace, ".embedagent", "skills", ".ignore"),
@@ -421,8 +428,8 @@ class TestLocalResources(unittest.TestCase):
         self.assertEqual([item["name"] for item in payload["skills"]], ["keep-skill"])
 
     def test_skill_index_projects_prompt_commands_and_lookup(self):
-        from embedagent.local_resources import discover_local_resources
-        from embedagent.skill_index import build_skill_index
+        from embedagent_host.runtime.local_resources import discover_local_resources
+        from embedagent_host.runtime.skill_index import build_skill_index
 
         _write_text(
             os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
@@ -449,7 +456,7 @@ class TestLocalResources(unittest.TestCase):
         self.assertEqual([spec.name for spec in index.command_specs()], ["skill:code-review"])
 
     def test_recipe_file_diagnostics_do_not_block_other_resources(self):
-        from embedagent.local_resources import discover_local_resources
+        from embedagent_host.runtime.local_resources import discover_local_resources
 
         _write_text(
             os.path.join(self.workspace, ".embedagent", "recipes", "bad.json"),
@@ -490,7 +497,7 @@ class TestLocalResources(unittest.TestCase):
             ),
         )
 
-        from embedagent.workspace_recipes import list_workspace_recipes
+        from embedagent_host.runtime.workspace_recipes import list_workspace_recipes
 
         payload = list_workspace_recipes(self.workspace)
         recipe_ids = [item["id"] for item in payload["items"]]
@@ -537,7 +544,7 @@ class TestLocalResources(unittest.TestCase):
                 }
             ),
         )
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -563,7 +570,7 @@ class TestLocalResources(unittest.TestCase):
         self.assertEqual(resource_revision["counts"]["recipes"], 1)
 
     def test_session_runtime_config_records_registered_and_active_tool_names(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -579,7 +586,7 @@ class TestLocalResources(unittest.TestCase):
         self.assertIn("run_recipe", active_tool_names)
 
     def test_resumed_session_projects_runtime_config_from_transcript(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -592,7 +599,7 @@ class TestLocalResources(unittest.TestCase):
         )
         adapter.reload_resources(session_id=session_id, reason="test")
 
-        reloaded = InProcessAdapter(
+        reloaded = _product_adapter(
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -606,7 +613,7 @@ class TestLocalResources(unittest.TestCase):
         self.assertEqual(resource_revision["counts"]["skills"], 1)
 
     def test_slash_resources_reload_emits_command_result(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -647,7 +654,7 @@ class TestLocalResources(unittest.TestCase):
             "---\n"
             "# Code Review\n",
         )
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -677,7 +684,7 @@ class TestLocalResources(unittest.TestCase):
         )
 
     def test_reload_resources_refreshes_current_session_skill_prompt(self):
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -756,7 +763,7 @@ class TestLocalResources(unittest.TestCase):
             "---\n"
             "# Private Audit\n",
         )
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -803,7 +810,7 @@ class TestLocalResources(unittest.TestCase):
             os.path.join(self.workspace, ".embedagent", "prompts", "triage.md"),
             "# Triage Prompt\n\nCollect logs and summarize the failure.\n",
         )
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -849,7 +856,7 @@ class TestLocalResources(unittest.TestCase):
             os.path.join(self.workspace, ".embedagent", "prompts", "triage.md"),
             "# Triage\n",
         )
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -875,7 +882,7 @@ class TestLocalResources(unittest.TestCase):
         client.model = "local-test-model"
         client.base_url = "http://localhost:11434/v1"
         client.api_key = "secret-value"
-        adapter = InProcessAdapter(
+        adapter = _product_adapter(
             client=client,
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(

@@ -37,14 +37,14 @@ class ToolsV2RuntimeTests(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_schema_projection_requires_explicit_tool_names(self):
-        from embedagent.tools import ToolRuntime
+        from embedagent_host.runtime.tools import ToolRuntime
 
         runtime = ToolRuntime(self.workspace)
         names = [item["function"]["name"] for item in runtime.schemas_for("build")]
         self.assertEqual(names, [])
 
     def test_explicit_build_tool_names_project_schemas(self):
-        from embedagent.tools import ToolRuntime
+        from embedagent_host.runtime.tools import ToolRuntime
 
         runtime = ToolRuntime(self.workspace)
         names = [
@@ -57,7 +57,7 @@ class ToolsV2RuntimeTests(unittest.TestCase):
         self.assertEqual(names, ["read_file", "list_dir", "write_file", "edit_file"])
 
     def test_explicit_verify_tool_names_preserve_workflow_visibility_filter(self):
-        from embedagent.tools import ToolRuntime
+        from embedagent_host.runtime.tools import ToolRuntime
 
         runtime = ToolRuntime(self.workspace)
         names = [
@@ -73,8 +73,9 @@ class ToolsV2RuntimeTests(unittest.TestCase):
     def test_bash_preserves_shell_fallback_when_managed_primary_tool_is_missing(self):
         from unittest.mock import patch
 
+        from embedagent_host.runtime.tools import ToolRuntime
+
         from embedagent.config import AppConfig
-        from embedagent.tools import ToolRuntime
 
         command = (
             'clang-analyzer --version || "%s" -c "print(\'fallback-ok\')"'

@@ -9,9 +9,9 @@ from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent import project_memory
-from embedagent.project_memory import ProjectMemoryStore, _atomic_write_json
 from embedagent_core.session import Action, AssistantReply, Observation, Session
+from embedagent_host.runtime import project_memory
+from embedagent_host.runtime.project_memory import ProjectMemoryStore, _atomic_write_json
 
 
 class ProjectMemoryStoreConcurrencyTests(unittest.TestCase):
@@ -66,7 +66,9 @@ class ProjectMemoryStoreConcurrencyTests(unittest.TestCase):
                 raise PermissionError("locked")
             return real_replace(src, dst)
 
-        with mock.patch("embedagent.project_memory.os.replace", side_effect=flaky_replace):
+        with mock.patch(
+            "embedagent_host.runtime.project_memory.os.replace", side_effect=flaky_replace
+        ):
             _atomic_write_json(path, {"ok": True})
 
         self.assertEqual(len(attempts), 3)

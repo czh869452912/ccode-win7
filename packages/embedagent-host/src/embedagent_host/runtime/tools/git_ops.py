@@ -1,0 +1,260 @@
+from __future__ import annotations
+
+from typing import Any, Dict, List
+
+from embedagent_core.session import Observation
+from embedagent_core.tool_contracts import ToolDefinition, ToolError
+
+from embedagent_host.runtime.services.shadow_git import ShadowGitSnapshot
+from embedagent_host.runtime.tools._base import ToolContext
+
+
+def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
+
+    def _git_status(arguments: Dict[str, Any]) -> Observation:
+        path_argument = str(arguments["path"])
+        relative_arg = ctx.git_relative_arg(path_argument)
+        command = ["git", "-C", ctx.workspace, "status", "--short", "--branch"]
+        if relative_arg:
+            command.extend(["--", relative_arg])
+        result = ctx.run_git_command(command)
+        observation = ctx.build_command_observation(
+            "git_status", " ".join(command), ctx.workspace, result
+        )
+        if not observation.success:
+            return observation
+        lines = [line for line in result["stdout"].splitlines() if line]
+        branch = ""
+        entries = []
+        for line in lines:
+            if line.startswith("## "):
+                branch = line[3:].strip()
+                continue
+            status_code = line[:2]
+            file_path = line[3:].strip() if len(line) > 3 else ""
+            entries.append({"status": status_code, "path": file_path})
+        observation.data.update({"path": path_argument, "branch": branch, "entries": entries})
+        return observation
+
+    def _git_diff(arguments: Dict[str, Any]) -> Observation:
+        path_argument = str(arguments["path"])
+        scope = str(arguments.get("scope") or "working")
+        if scope not in ("working", "staged"):
+            raise ToolError("scope 只能是 working 或 staged。")
+        relative_arg = ctx.git_relative_arg(path_argument)
+        command = ["git", "-C", ctx.workspace, "diff"]
+        if scope == "staged":
+            command.append("--cached")
+        if relative_arg:
+            command.extend(["--", relative_arg])
+        result = ctx.run_git_command(command)
+        observation = ctx.build_command_observation(
+            "git_diff", " ".join(command), ctx.workspace, result
+        )
+        if not observation.success:
+            return observation
+        diff_text = result["stdout"]
+        observation.data.update(
+            {
+                "path": path_argument,
+                "scope": scope,
+                "file_count": diff_text.count("diff --git "),
+                "line_count": diff_text.count("\n") + (1 if diff_text else 0),
+                "diff": diff_text,
+            }
+        )
+        return observation
+
+    def _git_log(arguments: Dict[str, Any]) -> Observation:
+        path_argument = str(arguments["path"])
+        limit = int(arguments.get("limit") or 10)
+        if limit <= 0:
+            raise ToolError("limit 必须大于 0。")
+        relative_arg = ctx.git_relative_arg(path_argument)
+        command = [
+            "git",
+            "-C",
+            ctx.workspace,
+            "log",
+            "--date=iso-strict",
+            "--pretty=format:%H%x1f%an%x1f%ad%x1f%s%x1e",
+            "-n",
+            str(limit),
+        ]
+        if relative_arg:
+            command.extend(["--", relative_arg])
+        result = ctx.run_git_command(command)
+        observation = ctx.build_command_observation(
+            "git_log", " ".join(command), ctx.workspace, result
+        )
+        if not observation.success:
+            return observation
+        entries = []
+        for record in result["stdout"].split("\x1e"):
+            record = record.strip()
+            if not record:
+                continue
+            parts = record.split("\x1f")
+            if len(parts) != 4:
+                continue
+            entries.append(
+                {"commit": parts[0], "author": parts[1], "date": parts[2], "subject": parts[3]}
+            )
+        observation.data.update({"path": path_argument, "limit": limit, "entries": entries})
+        return observation
+
+    def _git_snapshot(arguments: Dict[str, Any]) -> Observation:
+        action = str(arguments.get("action") or "list")
+        snapshot_id = str(arguments.get("snapshot_id") or "")
+        reason = str(arguments.get("reason") or "")
+
+        try:
+            snapshot = ShadowGitSnapshot(ctx.workspace)
+        except ToolError as exc:
+            return Observation(
+                tool_name="git_snapshot",
+                success=False,
+                error=str(exc),
+                data={},
+            )
+
+        if action == "create":
+            sid = snapshot.create_snapshot(reason=reason)
+            return Observation(
+                tool_name="git_snapshot",
+                success=True,
+                error=None,
+                data={"snapshot_id": sid, "action": action},
+            )
+        elif action == "list":
+            snapshots = snapshot.list_snapshots()
+            return Observation(
+                tool_name="git_snapshot",
+                success=True,
+                error=None,
+                data={"snapshots": snapshots, "count": len(snapshots), "action": action},
+            )
+        elif action == "restore":
+            if not snapshot_id:
+                raise ToolError("restore 操作需要提供 snapshot_id。")
+            success = snapshot.restore_snapshot(snapshot_id)
+            return Observation(
+                tool_name="git_snapshot",
+                success=success,
+                error=None if success else "恢复快照失败。",
+                data={"snapshot_id": snapshot_id, "action": action},
+            )
+        elif action == "delete":
+            if not snapshot_id:
+                raise ToolError("delete 操作需要提供 snapshot_id。")
+            success = snapshot.delete_snapshot(snapshot_id)
+            return Observation(
+                tool_name="git_snapshot",
+                success=success,
+                error=None if success else "删除快照失败。",
+                data={"snapshot_id": snapshot_id, "action": action},
+            )
+        elif action == "cleanup":
+            max_age = int(arguments.get("max_age_hours", 24))
+            result = snapshot.cleanup_old_snapshots(max_age_hours=max_age)
+            return Observation(
+                tool_name="git_snapshot",
+                success=True,
+                error=None,
+                data={"result": result, "action": action},
+            )
+        else:
+            raise ToolError(
+                "无效的 action：{}。可选值：create, list, restore, delete, cleanup".format(action)
+            )
+
+    return [
+        ToolDefinition(
+            name="git_status",
+            description="查看当前 Git 工作区状态。用于确认分支、未提交修改和未跟踪文件。路径必须位于当前仓库内。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "要查看的仓库路径或子路径，相对于项目根目录。示例：.",
+                    }
+                },
+                "required": ["path"],
+                "additionalProperties": False,
+            },
+            handler=_git_status,
+        ),
+        ToolDefinition(
+            name="git_diff",
+            description="查看 Git 差异内容。用于检查未提交修改或已暂存修改的具体文本差异。路径必须位于当前仓库内。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "要查看的仓库路径或子路径，相对于项目根目录。示例：.",
+                    },
+                    "scope": {
+                        "type": "string",
+                        "enum": ["working", "staged"],
+                        "description": "差异范围，working 表示工作区，staged 表示已暂存。示例：working",
+                    },
+                },
+                "required": ["path"],
+                "additionalProperties": False,
+            },
+            handler=_git_diff,
+        ),
+        ToolDefinition(
+            name="git_log",
+            description="查看最近的 Git 提交历史。用于了解最近改动、作者和提交主题。路径必须位于当前仓库内。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "要查看的仓库路径或子路径，相对于项目根目录。示例：.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "要返回的提交条数，默认 10。示例：5",
+                    },
+                },
+                "required": ["path"],
+                "additionalProperties": False,
+            },
+            handler=_git_log,
+        ),
+        ToolDefinition(
+            name="git_snapshot",
+            description="管理工作区快照。用于创建、查看、恢复和删除基于 git stash 的轻量级快照。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["create", "list", "restore", "delete", "cleanup"],
+                        "description": "操作类型。create 创建快照，list 列出快照，restore 恢复快照，delete 删除快照，cleanup 清理旧快照。",
+                    },
+                    "snapshot_id": {
+                        "type": "string",
+                        "description": "快照 ID，restore/delete 操作必需。",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "创建快照的原因说明，create 操作可选。",
+                    },
+                    "max_age_hours": {
+                        "type": "integer",
+                        "description": "清理超过多少小时的快照，cleanup 操作可选，默认 24。",
+                    },
+                },
+                "required": ["action"],
+                "additionalProperties": False,
+            },
+            handler=_git_snapshot,
+            read_only=False,
+            concurrency_safe=False,
+        ),
+    ]

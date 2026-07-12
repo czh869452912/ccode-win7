@@ -12,8 +12,7 @@ import sys
 from typing import Optional
 
 from embedagent.frontend.tui.bootstrap import TUIUnavailableError, run_tui
-from embedagent_host.hosted.launch_config import LaunchOverrides, resolve_launch_config
-from embedagent_host.hosted.runtime import create_hosted_runtime
+from embedagent.hosted import LaunchOverrides, create_hosted_runtime, resolve_launch_config
 
 _LOGGER = logging.getLogger(__name__)
 

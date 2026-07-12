@@ -10,14 +10,13 @@ import inspect
 from unittest.mock import MagicMock
 
 import pytest
-
-from embedagent.services.event_emitter import EventEmitter
-from embedagent.services.session_lifecycle import SessionLifecycleManager
-from embedagent.services.workspace_file_service import WorkspaceFileService
-from embedagent.tools import ToolRuntime
 from embedagent_core.query_engine import QueryEngine
 from embedagent_core.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
+from embedagent_host.runtime.services.event_emitter import EventEmitter
+from embedagent_host.runtime.services.session_lifecycle import SessionLifecycleManager
+from embedagent_host.runtime.services.workspace_file_service import WorkspaceFileService
+from embedagent_host.runtime.tools import ToolRuntime
 
 
 class TestInProcessAdapterFacade(object):

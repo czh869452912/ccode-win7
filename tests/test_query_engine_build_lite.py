@@ -6,7 +6,15 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.context import ContextManager
+from embedagent_core.permissions import PermissionPolicy
+from embedagent_core.query_engine import QueryEngine
+from embedagent_core.session import AssistantReply, Session
+from embedagent_host.inprocess_adapter import InProcessAdapter
+from embedagent_host.runtime.context import ContextManager
+from embedagent_host.runtime.project_memory import ProjectMemoryStore
+from embedagent_host.runtime.tools import ToolRuntime
+from embedagent_host.runtime.workspace_intelligence import WorkspaceIntelligenceBroker
+
 from embedagent.modes import (
     allowed_tools_for,
     build_system_prompt,
@@ -15,14 +23,7 @@ from embedagent.modes import (
     parse_natural_language_mode_switch,
     require_mode,
 )
-from embedagent.project_memory import ProjectMemoryStore
-from embedagent.tools import ToolRuntime
 from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
-from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
-from embedagent_core.permissions import PermissionPolicy
-from embedagent_core.query_engine import QueryEngine
-from embedagent_core.session import AssistantReply, Session
-from embedagent_host.inprocess_adapter import InProcessAdapter
 
 _COUNTER = count(1)
 

@@ -6,9 +6,10 @@ from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.services.event_emitter import EventEmitter
-from embedagent.services.session_lifecycle import SessionLifecycleManager
-from embedagent.services.workspace_file_service import WorkspaceFileService
+from embedagent_host.runtime.services.event_emitter import EventEmitter
+from embedagent_host.runtime.services.session_lifecycle import SessionLifecycleManager
+from embedagent_host.runtime.services.workspace_file_service import WorkspaceFileService
+
 from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
 
 
@@ -182,8 +183,8 @@ class TestSessionLifecycleManager(unittest.TestCase):
         self.transcript_store.load_events.assert_not_called()
 
     def test_persist_state_saves_summary(self):
-        from embedagent.session_runtime import ManagedSession
         from embedagent_core.session import Session
+        from embedagent_host.runtime.session_runtime import ManagedSession
 
         session = Session()
         state = ManagedSession(session=session, current_mode="explore")
@@ -199,8 +200,8 @@ class TestHarnessWorkflowExtensionRefresh(unittest.TestCase):
         self.extension = CHarnessWorkflowExtension(harness_runner=self.harness_runner)
 
     def test_refresh_task_graph_updates_snapshot(self):
-        from embedagent.session_runtime import ManagedSession
         from embedagent_core.session import Session
+        from embedagent_host.runtime.session_runtime import ManagedSession
 
         session = Session()
         state = ManagedSession(session=session, current_mode="explore")

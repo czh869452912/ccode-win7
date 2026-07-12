@@ -6,8 +6,12 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent_host.runtime.workspace_profile import (
+    build_workspace_profile_message,
+    profile_workspace,
+)
+
 from embedagent.workflow_packages.c_cpp import task_store
-from embedagent.workspace_profile import build_workspace_profile_message, profile_workspace
 
 _COUNTER = count(1)
 
@@ -65,11 +69,13 @@ class WorkspaceProfileTests(unittest.TestCase):
         self.assertEqual(profile["code_roots"], [])
 
     def test_c_cpp_application_contributes_workspace_profile_detector(self):
-        from embedagent.tools import ToolRuntime
+        from embedagent_host.inprocess_adapter import InProcessAdapter
+        from embedagent_host.runtime.tools import ToolRuntime
+
+        from embedagent.agent_application_registry import product_agent_application_registry
         from embedagent.workflow_packages.c_cpp.application_record import (
             DEFAULT_C_CPP_AGENT_APPLICATION_ID,
         )
-        from embedagent_host.inprocess_adapter import InProcessAdapter
 
         native_dir = os.path.join(self.workspace, "native")
         os.makedirs(native_dir)
@@ -79,6 +85,7 @@ class WorkspaceProfileTests(unittest.TestCase):
         adapter = InProcessAdapter(
             tools=ToolRuntime(self.workspace),
             agent_application_id=DEFAULT_C_CPP_AGENT_APPLICATION_ID,
+            agent_application_registry=product_agent_application_registry(),
         )
 
         message = adapter.workspace_profile.build_message(self.workspace, session_id="session")
@@ -86,8 +93,8 @@ class WorkspaceProfileTests(unittest.TestCase):
         self.assertIn("已探测代码/工程目录：native", message)
 
     def test_profile_only_application_does_not_inherit_c_cpp_workspace_detector(self):
-        from embedagent.tools import ToolRuntime
         from embedagent_host.inprocess_adapter import InProcessAdapter
+        from embedagent_host.runtime.tools import ToolRuntime
 
         native_dir = os.path.join(self.workspace, "native")
         os.makedirs(native_dir)

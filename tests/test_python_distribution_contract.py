@@ -102,12 +102,12 @@ def test_root_distribution_composes_exact_product_dependencies():
     assert root_project["dependencies"] == ROOT_DEPENDENCIES
 
 
-def test_root_distribution_does_not_own_core_or_protocol_packages():
+def test_root_distribution_owns_only_product_package():
     root = _read_pyproject(Path("pyproject.toml"))
 
     assert root["tool"]["setuptools"]["packages"]["find"] == {
         "where": ["src"],
-        "include": ["embedagent", "embedagent.*", "embedagent_host", "embedagent_host.*"],
+        "include": ["embedagent", "embedagent.*"],
     }
 
 
@@ -304,6 +304,7 @@ def test_wheel_checker_reports_forbidden_file_and_normalized_dependency(tmp_path
         "embedagent_core/leak.py",
         "embedagent_protocol/leak.py",
         "embedagent/protocol/legacy.py",
+        "embedagent_host/leak.py",
     ),
 )
 def test_wheel_checker_rejects_product_wheel_package_ownership_leaks(tmp_path, forbidden_file):
@@ -319,6 +320,21 @@ def test_wheel_checker_rejects_product_wheel_package_ownership_leaks(tmp_path, f
 
     assert result.returncode != 0
     assert _error_codes(report, "embedagent") == ["forbidden_prefix"]
+
+
+def test_wheel_checker_rejects_product_package_in_host_wheel(tmp_path):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent-host").unlink()
+    _write_wheel(
+        tmp_path,
+        "embedagent-host",
+        files=["embedagent_host/__init__.py", "embedagent/leak.py"],
+    )
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert _error_codes(report, "embedagent-host") == ["forbidden_prefix"]
 
 
 def test_wheel_checker_reports_a_missing_required_prefix(tmp_path):

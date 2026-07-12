@@ -6,7 +6,7 @@
 > 类型：`module`
 > 负责人：`project maintainers`
 > 最后同步日期：`2026-07-05`
-> 对应代码范围：`src/embedagent/tools/`, `src/embedagent/tooling/`, `src/embedagent/local_resources.py`, `src/embedagent/self_extension_authoring.py`, `src/embedagent/workspace_recipes.py`, `src/embedagent/workflow_packages/c_cpp/recipe_ops.py`, `src/embedagent/workflow_packages/c_cpp/session_ops.py`, `src/embedagent/workflow_packages/c_cpp/workspace_recipes.py`
+> 对应代码范围：`packages/embedagent-host/src/embedagent_host/runtime/tools/`, `src/embedagent/tooling/`, `packages/embedagent-host/src/embedagent_host/runtime/local_resources.py`, `packages/embedagent-host/src/embedagent_host/runtime/self_extension_authoring.py`, `packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py`, `src/embedagent/workflow_packages/c_cpp/recipe_ops.py`, `src/embedagent/workflow_packages/c_cpp/session_ops.py`, `src/embedagent/workflow_packages/c_cpp/workspace_recipes.py`
 
 ## 1. Purpose And Scope
 
@@ -58,7 +58,7 @@
 
 `src/embedagent/local_resources.py` 是 workflow-neutral file-resource
 discovery：skills、prompts 和 `.embedagent/recipes/*.json` 只按资源声明投影，
-不会注入默认 C/C++ workflow tool names。`src/embedagent/workspace_recipes.py`
+不会注入默认 C/C++ workflow tool names。`packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py`
 是 workflow-neutral file-resource/read-model facade：它只合并显式项目、本地
 资源与历史 recipe 记录，不做 CMake/Make/Ninja 检测，也不写入默认
 `run_recipe` tool name。默认 C/C++ 工作流的 runnable recipe 聚合、CMake/Make/Ninja

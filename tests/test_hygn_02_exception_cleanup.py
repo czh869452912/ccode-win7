@@ -75,12 +75,27 @@ class TestNoBareExceptBlocks:
                 "JSONDecodeError",
                 "ValueError",
             ],
-            "src/embedagent/session_store.py": ["OSError", "JSONDecodeError", "ValueError"],
-            "src/embedagent/project_memory.py": ["OSError", "ValueError"],
-            "src/embedagent/workspace_recipes.py": ["OSError", "JSONDecodeError", "ValueError"],
-            "src/embedagent/tool_commit.py": ["OSError", "ValueError", "TypeError"],
+            "packages/embedagent-host/src/embedagent_host/runtime/session_store.py": [
+                "OSError",
+                "JSONDecodeError",
+                "ValueError",
+            ],
+            "packages/embedagent-host/src/embedagent_host/runtime/project_memory.py": [
+                "OSError",
+                "ValueError",
+            ],
+            "packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py": [
+                "OSError",
+                "JSONDecodeError",
+                "ValueError",
+            ],
+            "packages/embedagent-host/src/embedagent_host/runtime/tool_commit.py": [
+                "OSError",
+                "ValueError",
+                "TypeError",
+            ],
             "src/embedagent/core/adapter.py": ["OSError", "ValueError"],
-            "src/embedagent/tools/discovery_ops.py": [
+            "packages/embedagent-host/src/embedagent_host/runtime/tools/discovery_ops.py": [
                 "OSError",
                 "UnicodeDecodeError",
                 "ValueError",
@@ -108,7 +123,11 @@ class TestNoBareExceptBlocks:
                 "TypeError",
             ],
             "src/embedagent/frontend/tui/layout.py": ["ValueError", "TypeError"],
-            "src/embedagent_host/inprocess_adapter.py": ["OSError", "ValueError", "TypeError"],
+            "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py": [
+                "OSError",
+                "ValueError",
+                "TypeError",
+            ],
         }
 
         base_dir = os.path.join(os.path.dirname(__file__), "..")

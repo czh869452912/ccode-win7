@@ -27,6 +27,7 @@ def test_lint_script_builds_default_check_commands(monkeypatch):
             "src/",
             "packages/embedagent-core/src/",
             "packages/embedagent-protocol/src/",
+            "packages/embedagent-host/src/",
             "tests/",
             "scripts/lint.py",
         ],
@@ -38,6 +39,7 @@ def test_lint_script_builds_default_check_commands(monkeypatch):
             "src/",
             "packages/embedagent-core/src/",
             "packages/embedagent-protocol/src/",
+            "packages/embedagent-host/src/",
             "tests/",
             "scripts/lint.py",
         ],
@@ -48,11 +50,25 @@ def test_lint_script_builds_fix_commands_for_explicit_targets(monkeypatch):
     calls = []
     monkeypatch.setattr(lint.subprocess, "call", lambda command: calls.append(command) or 0)
 
-    assert lint.main(("--fix", "src/embedagent/skills.py")) == 0
+    assert (
+        lint.main(("--fix", "packages/embedagent-host/src/embedagent_host/runtime/skills.py")) == 0
+    )
 
     assert calls == [
-        [sys.executable, "-m", "ruff", "check", "--fix", "src/embedagent/skills.py"],
-        [sys.executable, "-m", "black", "src/embedagent/skills.py"],
+        [
+            sys.executable,
+            "-m",
+            "ruff",
+            "check",
+            "--fix",
+            "packages/embedagent-host/src/embedagent_host/runtime/skills.py",
+        ],
+        [
+            sys.executable,
+            "-m",
+            "black",
+            "packages/embedagent-host/src/embedagent_host/runtime/skills.py",
+        ],
     ]
 
 

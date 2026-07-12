@@ -2,7 +2,7 @@
 
 import unittest
 
-from embedagent.strategies.diff_engine import DiffBlock, MultiSearchReplaceDiffEngine
+from embedagent_host.runtime.strategies.diff_engine import DiffBlock, MultiSearchReplaceDiffEngine
 
 
 class TestMultiSearchReplaceDiffEngine(unittest.TestCase):

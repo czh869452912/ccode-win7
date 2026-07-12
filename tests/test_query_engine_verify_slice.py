@@ -6,12 +6,11 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from query_engine_product_helpers import build_product_query_engine
-
-from embedagent.tools import ToolRuntime
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.session import AssistantReply, Session
 from embedagent_host.inprocess_adapter import InProcessAdapter
+from embedagent_host.runtime.tools import ToolRuntime
+from query_engine_product_helpers import build_product_query_engine
 
 _COUNTER = count(1)
 
@@ -113,10 +112,13 @@ class QueryEngineVerifySliceTests(unittest.TestCase):
         self.assertTrue(any("verify" in content for content in system_messages))
 
     def test_set_session_mode_refreshes_harness_snapshot(self):
+        from embedagent.agent_application_registry import product_agent_application_registry
+
         adapter = InProcessAdapter(
             client=DoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            agent_application_registry=product_agent_application_registry(),
         )
         snapshot = adapter.create_session("build")
         # No harness state pre-generated on session creation

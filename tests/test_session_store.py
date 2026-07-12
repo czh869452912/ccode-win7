@@ -8,10 +8,10 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.project_memory import ProjectMemoryStore
-from embedagent.session_store import SessionSummaryStore
-from embedagent.transcript_store import TranscriptStore
 from embedagent_core.session import Action, AssistantReply, Observation, Session
+from embedagent_host.runtime.project_memory import ProjectMemoryStore
+from embedagent_host.runtime.session_store import SessionSummaryStore
+from embedagent_host.runtime.transcript_store import TranscriptStore
 
 
 class TestSessionSummaryStore(unittest.TestCase):

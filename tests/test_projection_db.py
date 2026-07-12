@@ -3,7 +3,7 @@ import shutil
 import tempfile
 import unittest
 
-from embedagent.projection_db import ProjectionDb
+from embedagent_host.runtime.projection_db import ProjectionDb
 
 
 class TestProjectionDb(unittest.TestCase):

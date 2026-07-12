@@ -33,8 +33,7 @@ class VerifyQualityV2Tests(unittest.TestCase):
 
     def test_report_quality_v2_returns_structured_summary(self):
         from conftest import register_default_c_workflow_tools
-
-        from embedagent.tools import ToolRuntime
+        from embedagent_host.runtime.tools import ToolRuntime
 
         runtime = ToolRuntime(self.workspace)
         register_default_c_workflow_tools(runtime, self.workspace)

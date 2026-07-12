@@ -1,13 +1,14 @@
 from unittest.mock import MagicMock
 
-from embedagent.config import AppConfig
 from embedagent_host.hosted.launch_config import (
     LaunchConfig,
     LaunchOverrides,
-    resolve_launch_config,
 )
 from embedagent_host.hosted.runtime import create_hosted_runtime
 from embedagent_host.hosted.session_host import HostedSessionHost
+
+from embedagent.config import AppConfig
+from embedagent.hosted import resolve_launch_config as resolve_product_launch_config
 
 
 def _config(tmp_path):
@@ -69,7 +70,7 @@ def test_resolve_launch_config_projects_agent_application_id(tmp_path, monkeypat
     )
     monkeypatch.setenv("EMBEDAGENT_AGENT_APPLICATION_ID", "env.python")
 
-    launch_config = resolve_launch_config(
+    launch_config = resolve_product_launch_config(
         str(tmp_path),
         LaunchOverrides(agent_application_id="override.python"),
     )

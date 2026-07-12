@@ -10,8 +10,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 class HostPackageCompositionTests(unittest.TestCase):
     def test_host_package_uses_agent_application_loader_for_default_composition(self):
         import embedagent_host
-        from embedagent.agent_applications import build_agent_application
         from embedagent_host.inprocess_adapter import InProcessAdapter
+        from embedagent_host.runtime.agent_applications import build_agent_application
 
         self.assertIsNotNone(embedagent_host)
         self.assertIsNotNone(InProcessAdapter)
@@ -20,6 +20,8 @@ class HostPackageCompositionTests(unittest.TestCase):
         adapter_path = os.path.join(
             os.path.dirname(__file__),
             "..",
+            "packages",
+            "embedagent-host",
             "src",
             "embedagent_host",
             "inprocess_adapter.py",
@@ -27,7 +29,8 @@ class HostPackageCompositionTests(unittest.TestCase):
         with open(adapter_path, "r", encoding="utf-8") as handle:
             source = handle.read()
         self.assertIn("build_agent_application", source)
-        self.assertIn("product_agent_application_registry", source)
+        self.assertIn("base_agent_application_registry", source)
+        self.assertNotIn("product_agent_application_registry", source)
         self.assertNotIn("build_default_extension_set", source)
         self.assertNotIn("default_c_cpp_agent_profile", source)
         self.assertNotIn("_refresh_harness_state", source)
@@ -36,6 +39,8 @@ class HostPackageCompositionTests(unittest.TestCase):
         command_service_path = os.path.join(
             os.path.dirname(__file__),
             "..",
+            "packages",
+            "embedagent-host",
             "src",
             "embedagent_host",
             "hosted_command_service.py",
@@ -46,12 +51,12 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertNotIn("_refresh_harness_state", command_service_source)
 
     def test_base_agent_application_registry_is_profile_only(self):
-        from embedagent.agent_applications import (
+        from embedagent_host.runtime.agent_applications import (
             GENERIC_AGENT_APPLICATION_ID,
             available_agent_application_manifests,
             build_agent_application,
         )
-        from embedagent.tools import ToolRuntime
+        from embedagent_host.runtime.tools import ToolRuntime
 
         manifests = available_agent_application_manifests()
         manifest_by_id = dict((item.application_id, item) for item in manifests)
@@ -66,16 +71,17 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertEqual(application.manifest.workflow_package_ids, ())
 
     def test_product_agent_application_registry_exposes_default_c_cpp_manifest(self):
-        from embedagent.agent_applications import (
+        from embedagent_host.runtime.agent_applications import (
             available_agent_application_manifests,
             build_agent_application,
         )
-        from embedagent.tools import ToolRuntime
+        from embedagent_host.runtime.tools import ToolRuntime
+
+        from embedagent.agent_application_registry import (
+            product_agent_application_registry,
+        )
         from embedagent.workflow_packages.c_cpp.application_record import (
             DEFAULT_C_CPP_AGENT_APPLICATION_ID,
-        )
-        from embedagent_host.agent_application_registry import (
-            product_agent_application_registry,
         )
 
         registry = product_agent_application_registry()
@@ -106,12 +112,12 @@ class HostPackageCompositionTests(unittest.TestCase):
         )
 
     def test_agent_application_registry_exposes_builtin_non_c_applications(self):
-        from embedagent.agent_applications import (
+        from embedagent_host.runtime.agent_applications import (
             agent_application_capability_payload,
             available_agent_application_manifests,
             build_agent_application,
         )
-        from embedagent.tools import ToolRuntime
+        from embedagent_host.runtime.tools import ToolRuntime
 
         manifests = available_agent_application_manifests()
         manifest_by_id = dict((item.application_id, item) for item in manifests)
@@ -167,8 +173,11 @@ class HostPackageCompositionTests(unittest.TestCase):
         module_path = os.path.join(
             os.path.dirname(__file__),
             "..",
+            "packages",
+            "embedagent-host",
             "src",
-            "embedagent",
+            "embedagent_host",
+            "runtime",
             "agent_applications.py",
         )
         with open(module_path, "r", encoding="utf-8") as handle:
@@ -194,8 +203,8 @@ class HostPackageCompositionTests(unittest.TestCase):
         script = (
             "import sys, tempfile\n"
             "sys.path.insert(0, %r)\n"
-            "from embedagent.agent_applications import build_agent_application\n"
-            "from embedagent.tools import ToolRuntime\n"
+            "from embedagent_host.runtime.agent_applications import build_agent_application\n"
+            "from embedagent_host.runtime.tools import ToolRuntime\n"
             "with tempfile.TemporaryDirectory() as workspace:\n"
             "    build_agent_application('embedagent.generic', ToolRuntime(workspace))\n"
             "loaded = any(name.startswith('embedagent.workflow_packages.c_cpp') for name in sys.modules)\n"
@@ -213,7 +222,15 @@ class HostPackageCompositionTests(unittest.TestCase):
 
     def test_default_c_cpp_application_record_is_package_owned(self):
         root = os.path.join(os.path.dirname(__file__), "..")
-        registry_path = os.path.join(root, "src", "embedagent", "agent_applications.py")
+        registry_path = os.path.join(
+            root,
+            "packages",
+            "embedagent-host",
+            "src",
+            "embedagent_host",
+            "runtime",
+            "agent_applications.py",
+        )
         record_path = os.path.join(
             root,
             "src",
@@ -241,13 +258,16 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertIn('profile_kind="workflow_package"', record_source)
 
     def test_default_application_compatibility_wrapper_is_removed(self):
-        import embedagent.agent_applications as agent_applications
+        import embedagent_host.runtime.agent_applications as agent_applications
 
         module_path = os.path.join(
             os.path.dirname(__file__),
             "..",
+            "packages",
+            "embedagent-host",
             "src",
-            "embedagent",
+            "embedagent_host",
+            "runtime",
             "agent_applications.py",
         )
         with open(module_path, "r", encoding="utf-8") as handle:
@@ -257,8 +277,8 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertNotIn("build_default_agent_application", source)
 
     def test_agent_application_registry_rejects_unknown_application_id(self):
-        from embedagent.agent_applications import build_agent_application
-        from embedagent.tools import ToolRuntime
+        from embedagent_host.runtime.agent_applications import build_agent_application
+        from embedagent_host.runtime.tools import ToolRuntime
 
         with tempfile.TemporaryDirectory() as workspace:
             with self.assertRaises(ValueError):
@@ -268,6 +288,8 @@ class HostPackageCompositionTests(unittest.TestCase):
         module_path = os.path.join(
             os.path.dirname(__file__),
             "..",
+            "packages",
+            "embedagent-host",
             "src",
             "embedagent_host",
             "default_extensions.py",
@@ -275,11 +297,11 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertFalse(os.path.exists(module_path))
 
     def test_inprocess_adapter_accepts_non_c_agent_application(self):
-        from embedagent.agent_applications import AgentApplication
-        from embedagent.agent_profiles import AgentModeDescriptor, AgentProfile
-        from embedagent.tools import ToolRuntime
         from embedagent_core.extensions import ExtensionManager
         from embedagent_host.inprocess_adapter import InProcessAdapter
+        from embedagent_host.runtime.agent_applications import AgentApplication
+        from embedagent_host.runtime.agent_profiles import AgentModeDescriptor, AgentProfile
+        from embedagent_host.runtime.tools import ToolRuntime
 
         profile = AgentProfile(
             profile_id="tests.python",
@@ -329,6 +351,8 @@ class HostPackageCompositionTests(unittest.TestCase):
         module_path = os.path.join(
             os.path.dirname(__file__),
             "..",
+            "packages",
+            "embedagent-host",
             "src",
             "embedagent_host",
             "inprocess_adapter.py",
@@ -349,16 +373,19 @@ class HostPackageCompositionTests(unittest.TestCase):
             self.assertNotIn(token, source)
 
     def test_inprocess_adapter_loads_application_by_id(self):
-        from embedagent.tools import ToolRuntime
+        from embedagent_host.inprocess_adapter import InProcessAdapter
+        from embedagent_host.runtime.tools import ToolRuntime
+
+        from embedagent.agent_application_registry import product_agent_application_registry
         from embedagent.workflow_packages.c_cpp.application_record import (
             DEFAULT_C_CPP_AGENT_APPLICATION_ID,
         )
-        from embedagent_host.inprocess_adapter import InProcessAdapter
 
         with tempfile.TemporaryDirectory() as workspace:
             adapter = InProcessAdapter(
                 tools=ToolRuntime(workspace),
                 agent_application_id=DEFAULT_C_CPP_AGENT_APPLICATION_ID,
+                agent_application_registry=product_agent_application_registry(),
             )
             capabilities = adapter.get_session_capabilities()
 
@@ -380,8 +407,8 @@ class HostPackageCompositionTests(unittest.TestCase):
         )
 
     def test_inprocess_adapter_loads_builtin_non_c_application_by_id(self):
-        from embedagent.tools import ToolRuntime
         from embedagent_host.inprocess_adapter import InProcessAdapter
+        from embedagent_host.runtime.tools import ToolRuntime
 
         with tempfile.TemporaryDirectory() as workspace:
             adapter = InProcessAdapter(
@@ -399,7 +426,7 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertEqual(active["applicationId"], "embedagent.python")
         self.assertEqual(active["workflowPackageIds"], [])
         self.assertTrue(available["embedagent.python"]["active"])
-        self.assertFalse(available["embedagent.default_c_cpp"]["active"])
+        self.assertNotIn("embedagent.default_c_cpp", available)
         self.assertIn("embedagent.html", available)
         self.assertEqual(
             [mode["id"] for mode in capabilities["modes"]],

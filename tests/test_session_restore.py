@@ -6,10 +6,10 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.context import ContextManager
-from embedagent.transcript_store import TranscriptStore
 from embedagent_core.session import Session
 from embedagent_core.session_restore import SessionRestorer
+from embedagent_host.runtime.context import ContextManager
+from embedagent_host.runtime.transcript_store import TranscriptStore
 
 _COUNTER = count(1)
 

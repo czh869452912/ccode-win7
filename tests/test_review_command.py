@@ -1,5 +1,5 @@
-from embedagent.review_command import ReviewCommandService
 from embedagent_core.session import Action, Observation, Session
+from embedagent_host.runtime.review_command import ReviewCommandService
 
 
 class FakeTools(object):

@@ -20,7 +20,7 @@ def test_task_store_load_missing_file():
 
 def test_project_memory_load_missing_file():
     """Verify project_memory handles missing file gracefully."""
-    from embedagent.project_memory import ProjectMemoryStore
+    from embedagent_host.runtime.project_memory import ProjectMemoryStore
 
     memory = ProjectMemoryStore("/nonexistent/path")
     result = memory._load_json("/nonexistent/path/file.json", default=[])
@@ -29,7 +29,7 @@ def test_project_memory_load_missing_file():
 
 def test_session_store_read_json_missing_file(tmp_path):
     """Verify session_store handles missing file gracefully."""
-    from embedagent.session_store import SessionSummaryStore
+    from embedagent_host.runtime.session_store import SessionSummaryStore
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -40,7 +40,7 @@ def test_session_store_read_json_missing_file(tmp_path):
 
 def test_workspace_recipes_load_json_missing_file():
     """Verify workspace_recipes handles missing file gracefully."""
-    from embedagent.workspace_recipes import _load_json
+    from embedagent_host.runtime.workspace_recipes import _load_json
 
     result = _load_json("/nonexistent/path/file.json", default={})
     assert result == {}
@@ -48,9 +48,10 @@ def test_workspace_recipes_load_json_missing_file():
 
 def test_core_adapter_read_file_missing(tmp_path):
     """Verify core_adapter handles missing file gracefully."""
-    from embedagent.core.adapter import AgentCoreAdapter
-    from embedagent.tools import ToolRuntime
     from embedagent_core.permissions import PermissionPolicy
+    from embedagent_host.runtime.tools import ToolRuntime
+
+    from embedagent.core.adapter import AgentCoreAdapter
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()

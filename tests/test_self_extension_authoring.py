@@ -4,8 +4,8 @@ import json
 
 
 def test_authors_skill_prompt_recipe_and_disabled_extension(tmp_path):
-    from embedagent.local_resources import discover_local_resources
-    from embedagent.self_extension_authoring import (
+    from embedagent_host.runtime.local_resources import discover_local_resources
+    from embedagent_host.runtime.self_extension_authoring import (
         AuthoringRequest,
         SelfExtensionAuthoringService,
     )
@@ -60,7 +60,7 @@ def test_authors_skill_prompt_recipe_and_disabled_extension(tmp_path):
 
 
 def test_authoring_rejects_empty_names_invalid_permissions_and_no_overwrite(tmp_path):
-    from embedagent.self_extension_authoring import (
+    from embedagent_host.runtime.self_extension_authoring import (
         AuthoringRequest,
         SelfExtensionAuthoringService,
     )
@@ -87,7 +87,7 @@ def test_authoring_rejects_empty_names_invalid_permissions_and_no_overwrite(tmp_
 
 
 def test_authoring_accepts_network_and_telemetry_extension_permissions(tmp_path):
-    from embedagent.self_extension_authoring import (
+    from embedagent_host.runtime.self_extension_authoring import (
         AuthoringRequest,
         SelfExtensionAuthoringService,
     )
@@ -108,11 +108,11 @@ def test_authoring_accepts_network_and_telemetry_extension_permissions(tmp_path)
 
 
 def test_generated_recipe_updates_resource_snapshot_after_runtime_reload(tmp_path):
-    from embedagent.self_extension_authoring import (
+    from embedagent_host.runtime.self_extension_authoring import (
         AuthoringRequest,
         SelfExtensionAuthoringService,
     )
-    from embedagent.tools import ToolRuntime
+    from embedagent_host.runtime.tools import ToolRuntime
 
     runtime = ToolRuntime(str(tmp_path))
     before_resources = runtime.local_resources()
@@ -141,8 +141,8 @@ def test_generated_recipe_updates_resource_snapshot_after_runtime_reload(tmp_pat
 
 
 def test_generated_extension_is_disabled_and_not_imported(tmp_path):
-    from embedagent.project_extensions import load_project_extensions
-    from embedagent.self_extension_authoring import (
+    from embedagent_host.runtime.project_extensions import load_project_extensions
+    from embedagent_host.runtime.self_extension_authoring import (
         AuthoringRequest,
         SelfExtensionAuthoringService,
     )
@@ -165,7 +165,7 @@ def test_generated_extension_is_disabled_and_not_imported(tmp_path):
 
 
 def test_generated_extension_validation_recipe_uses_managed_python_command(tmp_path):
-    from embedagent.self_extension_authoring import (
+    from embedagent_host.runtime.self_extension_authoring import (
         AuthoringRequest,
         SelfExtensionAuthoringService,
     )

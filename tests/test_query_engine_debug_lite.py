@@ -6,12 +6,11 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from query_engine_product_helpers import build_product_query_engine
-
-from embedagent.tools import ToolRuntime
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.session import Action, AssistantReply, Session
 from embedagent_host.inprocess_adapter import InProcessAdapter
+from embedagent_host.runtime.tools import ToolRuntime
+from query_engine_product_helpers import build_product_query_engine
 
 _COUNTER = count(1)
 
@@ -134,10 +133,13 @@ class QueryEngineDebugLiteTests(unittest.TestCase):
         self.assertEqual(snapshot["current_activity"], "")
 
     def test_adapter_submit_user_message_refreshes_debug_phase(self):
+        from embedagent.agent_application_registry import product_agent_application_registry
+
         adapter = InProcessAdapter(
             client=RecordEvidenceClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            agent_application_registry=product_agent_application_registry(),
         )
         snapshot = adapter.create_session("debug")
         self.assertEqual(snapshot["current_phase"], "")

@@ -7,16 +7,17 @@ from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.config import AppConfig
-from embedagent.context import (
+from embedagent_core.compacted_history import CompactedHistoryCheckpoint
+from embedagent_core.session import AssistantReply, Observation, Session
+from embedagent_host.runtime.context import (
     ContextConfig,
     ContextManager,
     ReducerRegistry,
     make_context_config,
 )
+
+from embedagent.config import AppConfig
 from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
-from embedagent_core.compacted_history import CompactedHistoryCheckpoint
-from embedagent_core.session import AssistantReply, Observation, Session
 
 
 class TestMakeContextConfig(unittest.TestCase):
@@ -68,7 +69,7 @@ class TestReducerRegistryTasks(unittest.TestCase):
         self.policy = ContextConfig().mode_overrides.get("build", {})
 
     def _make_policy(self):
-        from embedagent.context import ContextConfig, ContextPolicy
+        from embedagent_host.runtime.context import ContextConfig, ContextPolicy
 
         cfg = ContextConfig()
         overrides = cfg.mode_overrides.get("build", {})

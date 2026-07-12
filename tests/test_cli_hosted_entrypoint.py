@@ -30,7 +30,7 @@ def _use_user_config(tmp_path, monkeypatch):
 
 def test_cli_uses_hosted_config_model_for_non_tui_turn(tmp_path, monkeypatch):
     monkeypatch.setattr(
-        "embedagent_host.hosted.launch_config.load_config",
+        "embedagent.hosted.load_config",
         lambda workspace: AppConfig(
             base_url="http://configured/v1",
             api_key="sk-configured",

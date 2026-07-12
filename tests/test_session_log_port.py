@@ -1,10 +1,9 @@
 from datetime import datetime
 
 import pytest
-
-from embedagent.transcript_store import TranscriptStore
 from embedagent_core import session_log
 from embedagent_core.session_log import SessionLeaseConflict
+from embedagent_host.runtime.transcript_store import TranscriptStore
 
 
 def _new_log():

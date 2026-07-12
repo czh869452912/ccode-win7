@@ -3,7 +3,7 @@ import shutil
 import tempfile
 import unittest
 
-from embedagent.tool_result_store import ToolResultStore
+from embedagent_host.runtime.tool_result_store import ToolResultStore
 
 
 class TestToolResultStore(unittest.TestCase):

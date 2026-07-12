@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
-from embedagent.tools import ToolDefinition, ToolRuntime
 from embedagent_core.extensions import (
     ExtensionContext,
     ExtensionManager,
@@ -10,6 +8,7 @@ from embedagent_core.extensions import (
     ToolRegistrationResult,
 )
 from embedagent_core.session import Action, AssistantReply, Observation, Session
+from embedagent_host.runtime.tools import ToolDefinition, ToolRuntime
 
 
 def dynamic_tool_metadata(permission_category="read", read_only=True):
@@ -254,7 +253,7 @@ def test_register_tool_rejects_unknown_read_model_invalidation(tmp_path):
 def test_tool_runtime_execution_reads_presentation_facets_internally():
     import inspect
 
-    from embedagent.tools.runtime import ToolRuntime
+    from embedagent_host.runtime.tools.runtime import ToolRuntime
 
     execute_source = inspect.getsource(ToolRuntime.execute_with_interrupt)
     enrichment_source = inspect.getsource(ToolRuntime._enrich_observation)
@@ -448,9 +447,10 @@ def test_extension_tool_registration_failure_records_diagnostic(tmp_path):
 
 
 def test_agent_extension_host_registers_dynamic_tools_and_projects_active_schemas(tmp_path):
-    from embedagent.modes import allowed_tools_for
     from embedagent_core.agent_extension_host import AgentExtensionHost
     from embedagent_core.permissions import PermissionPolicy
+
+    from embedagent.modes import allowed_tools_for
 
     class ProductModeToolPolicy(object):
         def allowed_tools_for(self, mode_name, workflow_state=None):
@@ -475,9 +475,10 @@ def test_agent_extension_host_registers_dynamic_tools_and_projects_active_schema
 
 
 def test_agent_extension_host_uses_mode_contract_as_active_tool_fallback(tmp_path):
-    from embedagent.modes import allowed_tools_for
     from embedagent_core.agent_extension_host import AgentExtensionHost
     from embedagent_core.permissions import PermissionPolicy
+
+    from embedagent.modes import allowed_tools_for
 
     class ProductModeToolPolicy(object):
         def allowed_tools_for(self, mode_name, workflow_state=None):

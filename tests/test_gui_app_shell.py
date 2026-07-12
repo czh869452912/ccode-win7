@@ -6,7 +6,8 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.agent_applications import agent_application_capability_payload
+from embedagent_host.runtime.agent_applications import agent_application_capability_payload
+
 from embedagent.frontend.gui.backend.app_host import GUIAppHost
 from embedagent.frontend.gui.backend.app_shell import AppShellService
 from embedagent.frontend.gui.backend.app_shell_spec import AppShellSpec

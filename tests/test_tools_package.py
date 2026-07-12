@@ -11,10 +11,9 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from conftest import register_default_c_workflow_tools
-
-from embedagent.tools import ToolDefinition, ToolRuntime
-from embedagent.tools._base import MAX_COMMAND_OUTPUT_CHARS, ToolContext
-from embedagent.tools.discovery_ops import build_tools as build_discovery_tools
+from embedagent_host.runtime.tools import ToolDefinition, ToolRuntime
+from embedagent_host.runtime.tools._base import MAX_COMMAND_OUTPUT_CHARS, ToolContext
+from embedagent_host.runtime.tools.discovery_ops import build_tools as build_discovery_tools
 
 _COUNTER = count(1)
 
@@ -51,12 +50,12 @@ WRITE_BASE_TOOLS = [
 class TestToolRuntimeImport(unittest.TestCase):
     def test_import_from_package(self):
         # The original import path must still work
-        from embedagent.tools import ToolRuntime as RT
+        from embedagent_host.runtime.tools import ToolRuntime as RT
 
         self.assertIs(RT, ToolRuntime)
 
     def test_tool_definition_importable(self):
-        from embedagent.tools import ToolDefinition as TD
+        from embedagent_host.runtime.tools import ToolDefinition as TD
 
         self.assertIs(TD, ToolDefinition)
 
@@ -855,12 +854,12 @@ class TestModuleIsolation(unittest.TestCase):
     """Verify each ops module can be imported independently."""
 
     def test_discovery_ops_importable(self):
-        from embedagent.tools import discovery_ops
+        from embedagent_host.runtime.tools import discovery_ops
 
         self.assertTrue(callable(discovery_ops.build_tools))
 
     def test_session_ops_importable(self):
-        from embedagent.tools import session_ops
+        from embedagent_host.runtime.tools import session_ops
 
         self.assertTrue(callable(session_ops.build_interaction_tools))
 
@@ -875,22 +874,22 @@ class TestModuleIsolation(unittest.TestCase):
         self.assertTrue(callable(session_ops.build_workflow_tools))
 
     def test_file_ops_importable(self):
-        from embedagent.tools import file_ops
+        from embedagent_host.runtime.tools import file_ops
 
         self.assertTrue(callable(file_ops.build_tools))
 
     def test_shell_ops_importable(self):
-        from embedagent.tools import shell_ops
+        from embedagent_host.runtime.tools import shell_ops
 
         self.assertTrue(callable(shell_ops.build_tools))
 
     def test_git_ops_importable(self):
-        from embedagent.tools import git_ops
+        from embedagent_host.runtime.tools import git_ops
 
         self.assertTrue(callable(git_ops.build_tools))
 
     def test_compile_ops_importable(self):
-        from embedagent.tools import compile_ops
+        from embedagent_host.runtime.tools import compile_ops
 
         self.assertTrue(callable(compile_ops.build_tools))
 
@@ -952,7 +951,7 @@ class TestManagedRuntimeEnvironment(unittest.TestCase):
         self.assertGreaterEqual(len(snapshot["fallback_warnings"]), 1)
 
     def test_runtime_snapshot_detects_bundle_without_env_from_installed_location(self):
-        import embedagent.tools._base as tools_base
+        import embedagent_host.runtime.tools._base as tools_base
 
         bundle_root = os.path.join(self.workspace, "portable-bundle")
         workspace_root = os.path.join(bundle_root, "data", "workspace-template")
@@ -1004,7 +1003,7 @@ class TestRuntimeContractAlignment(unittest.TestCase):
 
     def test_runtime_contract_matches_managed_tool_keys(self):
         payload = self._load_contract()
-        from embedagent.tools._base import MANAGED_RUNTIME_TOOL_KEYS
+        from embedagent_host.runtime.tools._base import MANAGED_RUNTIME_TOOL_KEYS
 
         self.assertEqual(
             [item["id"] for item in payload["required_tools"]],
@@ -1096,7 +1095,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
             handle.write(
                 '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","command":"echo ok","cwd":"."}]'
             )
-        from embedagent.workspace_recipes import list_workspace_recipes
+        from embedagent_host.runtime.workspace_recipes import list_workspace_recipes
 
         payload = list_workspace_recipes(self.workspace)
         recipe = [item for item in payload["items"] if item["id"] == "custom.build"][0]
@@ -1116,7 +1115,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
                 '{"id":"local.custom","recipe_action":"build","command":"echo ok","cwd":"."}'
             )
 
-        from embedagent.workspace_recipes import list_workspace_recipes
+        from embedagent_host.runtime.workspace_recipes import list_workspace_recipes
 
         payload = list_workspace_recipes(self.workspace)
         recipe_ids = [item["id"] for item in payload["items"]]
