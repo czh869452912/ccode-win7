@@ -7,6 +7,7 @@ from embedagent_host.hosted.launch_config import (
 )
 from embedagent_host.hosted.runtime import create_hosted_runtime
 from embedagent_host.hosted.session_host import HostedSessionHost
+from embedagent_host.runtime.command_sanitizer import CommandSanitizer
 
 from embedagent.config import AppConfig
 from embedagent.hosted import resolve_launch_config as resolve_product_launch_config
@@ -79,13 +80,21 @@ def test_generic_hosted_runtime_preserves_permanent_command_denials(tmp_path):
     )
     runtime = create_hosted_runtime(config)
 
-    for command in ("init 0", "su - root", "rm -rf build"):
+    for command in ("init 0", "init 6", "su -l", "su - root", "rm -rf build"):
         observation = runtime.session_host.adapter.tools.execute(
             "bash",
             {"command": command},
         )
         assert observation.success is False
         assert "禁止" in str(observation.error or "")
+
+
+def test_command_sanitizer_does_not_treat_unrelated_names_as_su_invocations():
+    sanitizer = CommandSanitizer()
+
+    for command in ("resume -l", "issue -l", "suited -l", "su local-user"):
+        blocked, _reason = sanitizer.is_blocked(command)
+        assert blocked is False
 
 
 def test_resolve_launch_config_projects_agent_application_id(tmp_path, monkeypatch):

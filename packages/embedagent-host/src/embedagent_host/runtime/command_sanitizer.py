@@ -19,7 +19,7 @@ _RAW_DENY_PATTERNS = (
     r"\bpasswd\b",
     r"\bchmod\s+777\b",
     r"\bsudo\b",
-    r"\bsu\s+-(?:\s|$)",
+    r"\bsu\s+-\S*",
     r"\btaskkill\s+(/[a-z]+\s+)*/(im|f)\b",
     r"\bkill\s+-9\b",
     r"\bkillall\b",
