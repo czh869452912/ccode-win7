@@ -38,6 +38,14 @@ not import the bundled C/C++ workflow. Product bootstrap provides the selected
 application registry, config loader, prompt builder, command sanitizer, and
 bundle discovery functions to generic Host factories.
 
+Wheel inspection enforces this inter-distribution DAG from METADATA: the three
+leaf distributions have no runtime requirements, Host has exactly two
+unconditional `0.1.0` workspace pins, and the product has exactly four. Product
+third-party requirements are allowed but are not fully version-audited by this
+checker. Isolated smoke installs exact checker-approved wheel paths and covers
+all five distributions across independent and composed imports; it is not a
+full GUI, provider, or hosted runtime test.
+
 Source ownership follows the distribution boundary: reusable SDK policy belongs
 to Core, cross-shell wire DTOs to Protocol, concrete workflow-neutral runtime
 implementations to Host, and product/GUI/C++ workflow behavior to the product.
@@ -46,6 +54,14 @@ The stable source roots are `packages/embedagent-core/src/embedagent_core/`,
 `packages/embedagent-host/src/embedagent_host/`,
 `packages/embedagent-composition/src/embedagent_composition/`, and
 `src/embedagent/`.
+
+Project distributions enter release composition only as checked wheels. Locked
+third-party dependencies are prepared in a separate controlled build-time step,
+which may build sdists such as `proxy-tools==0.1.0`; the staged runtime remains
+offline. Binary-only third-party supply with source, license, and hash curation
+is release hardening. The primary release orchestrator runs `deps`, `assemble`,
+and `verify` sequentially after a separate `doctor` preflight; direct scripts
+remain supported diagnostic and CI gates.
 
 ### Frontend Layer
 

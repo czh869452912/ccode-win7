@@ -47,6 +47,30 @@ SCENARIOS = (
         "distributions": ("embedagent-composition",),
         "probe": "import embedagent_composition\n",
     },
+    {
+        "name": "product_stack",
+        "distribution": "embedagent",
+        "distributions": (
+            "embedagent-core",
+            "embedagent-protocol",
+            "embedagent-host",
+            "embedagent-composition",
+            "embedagent",
+        ),
+        "probe": (
+            "import os\n"
+            "import sys\n"
+            "import embedagent\n"
+            "import embedagent_composition\n"
+            "import embedagent_core\n"
+            "import embedagent_host\n"
+            "import embedagent_protocol\n"
+            "product_file = os.path.realpath(embedagent.__file__)\n"
+            "venv_root = os.path.realpath(sys.prefix)\n"
+            "inside_venv = os.path.commonpath((venv_root, product_file)) == venv_root\n"
+            "raise SystemExit(0 if inside_venv else 1)\n"
+        ),
+    },
 )
 
 CHECKER_PATH = Path(__file__).resolve().parent / "check-python-distributions.py"

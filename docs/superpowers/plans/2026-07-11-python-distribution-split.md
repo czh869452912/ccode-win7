@@ -9,9 +9,12 @@
 **Tech Stack:** Python 3.8, uv workspace sources, setuptools PEP 621 metadata, wheel ZIP inspection, isolated venv smoke tests, existing offline packaging scripts.
 
 **Status:** Complete. The five distributions build independently, pass archive
-boundary checks and Python 3.8 isolated import smoke, and feed wheel-only offline
-staging. Clean Win7/WebView2 target-bundle smoke remains a product release gate,
-not a completion condition for this distribution split.
+and inter-distribution dependency checks, pass Python 3.8 isolated import smoke
+across all five distributions, and install those project distributions
+wheel-only. Locked third-party dependencies remain a separate controlled
+build-time step and may build sdists. The smoke is not a full GUI/provider
+runtime test. Clean Win7/WebView2 target-bundle smoke remains a product release
+gate, not a completion condition for this split.
 
 ---
 
@@ -477,7 +480,9 @@ Create `scripts/smoke-python-distributions.py` to:
 3. run `from embedagent_core import Agent` in the Core-only environment;
 4. run `import embedagent_protocol` in the Protocol-only environment;
 5. install Core + Protocol + Host and run `import embedagent_host`;
-6. print one JSON report and return non-zero on any failure.
+6. install all five exact checked wheels, import the product and split packages,
+   and prove the product module resolves from the temporary venv;
+7. print one stable JSON report and return non-zero on any failure.
 
 The script must accept `--python` so CI and Win7 preflight can pass the exact
 Python 3.8 executable.

@@ -21,6 +21,8 @@ EXPECTED = (
             "embedagent/",
         ),
         "forbidden_dependencies": ("fastapi", "pywebview", "uvicorn", "websockets"),
+        "workspace_dependencies": (),
+        "allow_other_dependencies": False,
     },
     {
         "name": "embedagent-protocol",
@@ -32,6 +34,8 @@ EXPECTED = (
             "embedagent/",
         ),
         "forbidden_dependencies": (),
+        "workspace_dependencies": (),
+        "allow_other_dependencies": False,
     },
     {
         "name": "embedagent-host",
@@ -41,6 +45,8 @@ EXPECTED = (
             "embedagent/",
         ),
         "forbidden_dependencies": ("pywebview",),
+        "workspace_dependencies": ("embedagent-core", "embedagent-protocol"),
+        "allow_other_dependencies": False,
     },
     {
         "name": "embedagent-composition",
@@ -53,6 +59,8 @@ EXPECTED = (
             "embedagent/",
         ),
         "forbidden_dependencies": (),
+        "workspace_dependencies": (),
+        "allow_other_dependencies": False,
     },
     {
         "name": "embedagent",
@@ -66,6 +74,13 @@ EXPECTED = (
             "embedagent/frontend/gui/webapp/",
         ),
         "forbidden_dependencies": (),
+        "workspace_dependencies": (
+            "embedagent-core",
+            "embedagent-protocol",
+            "embedagent-host",
+            "embedagent-composition",
+        ),
+        "allow_other_dependencies": True,
     },
 )
 
@@ -210,6 +225,73 @@ def dependency_name(requirement):
     return normalize_distribution_name(match.group(1))
 
 
+def is_unconditional_exact_workspace_pin(requirement, expected_name, version):
+    text = str(requirement or "").strip()
+    match = DEPENDENCY_NAME.match(text)
+    if match is None or normalize_distribution_name(match.group(1)) != expected_name:
+        return False
+    remainder = text[match.end() :].strip()
+    if ";" in remainder:
+        return False
+    if remainder.startswith("(") and remainder.endswith(")"):
+        remainder = remainder[1:-1].strip()
+    return re.fullmatch(r"==\s*%s" % re.escape(version), remainder) is not None
+
+
+def validate_dependency_contract(requirements, spec, report):
+    expected = tuple(spec["workspace_dependencies"])
+    expected_set = set(expected)
+    forbidden = set(spec["forbidden_dependencies"])
+    grouped = {}
+    unexpected_names = []
+    forbidden_names = []
+    for requirement in requirements:
+        name = dependency_name(requirement)
+        grouped.setdefault(name, []).append(requirement)
+        if name in expected_set or spec["allow_other_dependencies"]:
+            continue
+        destination = forbidden_names if name in forbidden else unexpected_names
+        if name not in destination:
+            destination.append(name)
+
+    for name in sorted(forbidden_names):
+        report["errors"].append(
+            error("forbidden_dependency", "forbidden dependency: %s" % name)
+        )
+    for name in sorted(unexpected_names):
+        report["errors"].append(
+            error(
+                "unexpected_runtime_dependency",
+                "unexpected runtime dependency: %s" % (name or "invalid"),
+            )
+        )
+
+    for name in expected:
+        matches = grouped.get(name, [])
+        if not matches:
+            report["errors"].append(
+                error(
+                    "workspace_dependency_missing",
+                    "workspace dependency missing: %s==%s" % (name, spec["version"]),
+                )
+            )
+        elif len(matches) > 1:
+            report["errors"].append(
+                error(
+                    "workspace_dependency_duplicate",
+                    "workspace dependency appears more than once: %s" % name,
+                )
+            )
+        elif not is_unconditional_exact_workspace_pin(matches[0], name, spec["version"]):
+            report["errors"].append(
+                error(
+                    "workspace_dependency_invalid",
+                    "workspace dependency must be an unconditional exact pin: %s==%s"
+                    % (name, spec["version"]),
+                )
+            )
+
+
 def empty_distribution_report(spec):
     return {
         "name": spec["name"],
@@ -275,16 +357,7 @@ def parse_metadata(wheel, info, report, spec):
 
     requirements = [str(value).strip() for value in message.get_all("Requires-Dist", [])]
     report["requires_dist"] = requirements
-    forbidden_dependencies = set(spec["forbidden_dependencies"])
-    seen_forbidden = []
-    for requirement in requirements:
-        normalized_name = dependency_name(requirement)
-        if normalized_name in forbidden_dependencies and normalized_name not in seen_forbidden:
-            seen_forbidden.append(normalized_name)
-    for normalized_name in sorted(seen_forbidden):
-        report["errors"].append(
-            error("forbidden_dependency", "forbidden dependency: %s" % normalized_name)
-        )
+    validate_dependency_contract(requirements, spec, report)
 
 
 def inspect_wheel(path, spec, report):

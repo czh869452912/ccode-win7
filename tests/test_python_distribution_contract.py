@@ -76,6 +76,23 @@ WHEEL_PACKAGES = {
     "embedagent": "embedagent/",
 }
 
+VALID_WHEEL_DEPENDENCIES = {
+    "embedagent-core": (),
+    "embedagent-protocol": (),
+    "embedagent-host": (
+        "embedagent-core ==0.1.0",
+        "embedagent-protocol ==0.1.0",
+    ),
+    "embedagent-composition": (),
+    "embedagent": (
+        "prompt-toolkit ==3.0.52",
+        "embedagent-core ==0.1.0",
+        "embedagent-protocol ==0.1.0",
+        "embedagent-host ==0.1.0",
+        "embedagent-composition ==0.1.0",
+    ),
+}
+
 
 def _read_pyproject(relative_path):
     path = ROOT / relative_path
@@ -173,7 +190,7 @@ def _write_wheel(
     dist_dir,
     distribution,
     files=None,
-    dependencies=(),
+    dependencies=None,
     extra_metadata_entries=(),
     metadata_bytes=None,
     version="0.1.0",
@@ -189,6 +206,8 @@ def _write_wheel(
         metadata_entry = dist_info + "/METADATA"
     payload = metadata_bytes
     if payload is None:
+        if dependencies is None:
+            dependencies = VALID_WHEEL_DEPENDENCIES[distribution]
         payload = _metadata(distribution, dependencies=dependencies)
 
     with zipfile.ZipFile(str(wheel_path), "w") as wheel:
@@ -257,6 +276,89 @@ def test_wheel_checker_accepts_isolated_distribution_wheels(tmp_path):
     assert first_report["ok"] is True
     assert [item["name"] for item in first_report["distributions"]] == list(WHEEL_PACKAGES)
     assert all(item["errors"] == [] for item in first_report["distributions"])
+
+
+@pytest.mark.parametrize(
+    ("distribution", "dependencies", "expected_code"),
+    (
+        ("embedagent-core", ("requests ==2.0",), "unexpected_runtime_dependency"),
+        ("embedagent-protocol", ("embedagent-core ==0.1.0",), "unexpected_runtime_dependency"),
+        ("embedagent-composition", ("tomli ==2.4.1",), "unexpected_runtime_dependency"),
+        ("embedagent-host", ("embedagent-core ==0.1.0",), "workspace_dependency_missing"),
+        (
+            "embedagent-host",
+            ("embedagent-core >=0.1.0", "embedagent-protocol ==0.1.0"),
+            "workspace_dependency_invalid",
+        ),
+        (
+            "embedagent-host",
+            (
+                "embedagent-core ==0.1.0 ; python_version >= '3.8'",
+                "embedagent-protocol ==0.1.0",
+            ),
+            "workspace_dependency_invalid",
+        ),
+        (
+            "embedagent-host",
+            (
+                "embedagent-core ==0.1.0",
+                "EmbedAgent_Core ==0.1.0",
+                "embedagent-protocol ==0.1.0",
+            ),
+            "workspace_dependency_duplicate",
+        ),
+        (
+            "embedagent-host",
+            (
+                "embedagent-core ==0.1.0",
+                "embedagent-protocol ==0.1.0",
+                "requests ==2.0",
+            ),
+            "unexpected_runtime_dependency",
+        ),
+        (
+            "embedagent",
+            (
+                "prompt-toolkit ==3.0.52",
+                "embedagent-core ==0.1.0",
+                "embedagent-protocol ==0.1.0",
+                "embedagent-host ==0.1.0",
+            ),
+            "workspace_dependency_missing",
+        ),
+        (
+            "embedagent",
+            (
+                "prompt-toolkit ==3.0.52",
+                "embedagent-core ==0.1.0",
+                "embedagent-protocol ==0.1.0",
+                "embedagent-host ==0.1.0",
+                "embedagent-composition ==0.1.0 ; extra == 'bundle'",
+            ),
+            "workspace_dependency_invalid",
+        ),
+    ),
+)
+def test_wheel_checker_enforces_workspace_dependency_dag(
+    tmp_path, distribution, dependencies, expected_code
+):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, distribution).unlink()
+    _write_wheel(tmp_path, distribution, dependencies=dependencies)
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert expected_code in _error_codes(report, distribution)
+
+
+def test_product_wheel_allows_documented_third_party_dependencies(tmp_path):
+    _write_valid_wheels(tmp_path)
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode == 0
+    assert _error_codes(report, "embedagent") == []
 
 
 def test_wheel_checker_accepts_pep427_build_tag_remainder(tmp_path):

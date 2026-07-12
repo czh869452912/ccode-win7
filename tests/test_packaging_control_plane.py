@@ -61,6 +61,18 @@ def _write_checker_wheelhouse(root):
         ("embedagent-composition", "embedagent_composition"),
         ("embedagent", "embedagent"),
     )
+    dependencies = {
+        "embedagent-host": (
+            "embedagent-core ==0.1.0",
+            "embedagent-protocol ==0.1.0",
+        ),
+        "embedagent": (
+            "embedagent-core ==0.1.0",
+            "embedagent-protocol ==0.1.0",
+            "embedagent-host ==0.1.0",
+            "embedagent-composition ==0.1.0",
+        ),
+    }
     names = []
     for distribution, package_name in layouts:
         wheel_name = "%s-0.1.0-py3-none-any.whl" % distribution.replace("-", "_")
@@ -68,6 +80,9 @@ def _write_checker_wheelhouse(root):
             wheel_name = "embedagent-0.1.0-py3-none-any.whl"
         dist_info = "%s-0.1.0.dist-info" % distribution.replace("-", "_")
         metadata = "Metadata-Version: 2.1\nName: {0}\nVersion: 0.1.0\n".format(distribution)
+        metadata += "".join(
+            "Requires-Dist: {0}\n".format(item) for item in dependencies.get(distribution, ())
+        )
         with zipfile.ZipFile(str(root / wheel_name), "w") as wheel:
             wheel.writestr(package_name + "/__init__.py", b"")
             wheel.writestr(dist_info + "/METADATA", metadata.encode("ascii"))

@@ -17,7 +17,8 @@
 - 第三方资产解析与下载（`prepare-offline.ps1`）
 - 五个 Python distribution 的清洁 wheel 构建、边界检查和 Python 3.8
   隔离安装冒烟
-- wheel-only Python dependency export 与离线 `site-packages` 暂存
+- 项目 distribution wheel-only 安装、受控第三方依赖构建与离线
+  `site-packages` 暂存
 - 分级 bundle assembly 与清单生成（`prepare-offline.ps1`）
 - 分发制品、zip 与 sources seed 生成（`build-offline-bundle.ps1`）
 - 包完整性静态与动态校验（`validate-offline-bundle.ps1`）
@@ -33,9 +34,9 @@
 - 核心对象/脚本：
   - `package.ps1` — 统一编排入口（`doctor` / `deps` / `assemble` / `verify` / `release`）
   - `build-python-distributions.py` — 清理已知构建缓存并构建五个 wheel
-  - `check-python-distributions.py` — 校验 wheel 集合、归属、依赖和 Win7 路径安全
-  - `smoke-python-distributions.py` — 在临时 Python 3.8 venv 中执行 no-index/no-deps 导入冒烟
-  - `export-dependencies.py` — 构建并检查项目 wheel，导出第三方依赖，再以 wheel-only 方式安装五个项目 distribution
+  - `check-python-distributions.py` — 校验 wheel 集合、归属、项目 distribution DAG 和 Win7 路径安全
+  - `smoke-python-distributions.py` — 在临时 Python 3.8 venv 中对五个项目 distribution 执行 no-index/no-deps 导入冒烟
+  - `export-dependencies.py` — 构建并检查项目 wheel，准备锁定第三方依赖，再以 wheel-only 方式安装五个项目 distribution
   - `build-gui-launcher.ps1` — 构建 Win32 GUI native launcher
   - `launcher/embedagent_gui_launcher.cpp` — 薄原生 GUI 启动器源码
   - `prepare-offline.ps1` — 分级 bundle assembly
@@ -108,7 +109,11 @@
 Python distribution 依赖图固定为：Host 只依赖 Core 和 Protocol；Core、
 Protocol、Composition 无运行时依赖；产品聚合包依赖全部四个 workspace
 distribution。GUI 依赖只属于产品聚合包。bundle staging 不直接复制开发
-源码树，也不接受 editable link 作为发行输入。
+源码树，也不接受 editable link 作为发行输入。METADATA 检查只验证项目
+distribution DAG，不声称完整审计第三方版本。第三方导出对 uv 和 pip 都
+是独立、受控的构建时步骤，可构建锁定 sdist；当前
+`proxy-tools==0.1.0` 使用该路径。目标 runtime 仍完全离线。binary-only
+第三方供应需要补齐来源、license 与 hash 固化，属于 release hardening。
 
 下游消费者：
 
@@ -118,12 +123,13 @@ distribution。GUI 依赖只属于产品聚合包。bundle staging 不直接复�
 
 ## 5. Data / Control Flow
 
-`package.ps1` 按 `doctor` → `deps` → `assemble` → `verify` → `release` 的顺序驱动整个流水线。`deps` 先构建清洁 wheelhouse，要求检查器确认恰好五个合法 wheel，再导出第三方依赖并用 no-index/no-deps 安装项目 wheel。`assemble` 阶段先构建 GUI native launcher，再运行 `prepare-offline.ps1` 从已安装 distribution 生成分级目录，并由 `build-offline-bundle.ps1` 晋升为分发制品；`verify` 阶段运行 `validate-offline-bundle.ps1` 做静态与动态门禁，release profile 会执行 contract-backed C/C++ smoke gate；最终通过验收的制品可部署到目标机并运行 `validate-gui-smoke.py` / `validate-cpp-smoke.py` 做端到端确认。
+`package.ps1 doctor` 是独立预检。正常发布运行一次 `package.ps1 release`；release 内部依次执行 `deps` → `assemble` → `verify`，遇到 blocking issue 即停止。`deps` 先构建清洁 wheelhouse，要求检查器确认恰好五个合法 wheel 及其项目依赖 DAG，再准备锁定第三方依赖，并用 no-index/no-deps 安装项目 wheel。`assemble` 阶段先构建 GUI native launcher，再运行 `prepare-offline.ps1` 从已安装 distribution 生成分级目录，并由 `build-offline-bundle.ps1` 晋升为分发制品；`verify` 阶段运行 `validate-offline-bundle.ps1` 做静态与动态门禁，release profile 会执行 contract-backed C/C++ smoke gate；最终通过验收的制品可部署到目标机并运行 `validate-gui-smoke.py` / `validate-cpp-smoke.py` 做端到端确认。
 
 ```mermaid
 flowchart LR
-    A["package.ps1<br/>doctor / deps / assemble / verify / release"] --> W["five checked wheels<br/>wheel-only site-packages"]
-    W --> L["build-gui-launcher.ps1<br/>native GUI launcher"]
+    P["package.ps1 doctor<br/>standalone preflight"] --> A["package.ps1 release"]
+    A --> W["deps<br/>five checked wheels + locked third parties"]
+    W --> L["assemble<br/>native launcher + staging"]
     L --> B["prepare-offline.ps1<br/>staging assembly"]
     B --> C["build-offline-bundle.ps1<br/>dist artifact + zip + sources"]
     C --> D["validate-offline-bundle.ps1<br/>static + dynamic checks"]
@@ -137,10 +143,10 @@ flowchart LR
 
 关键边界：
 
-- `package.ps1` 是人类/CI 唯一-facing 的入口。
+- `package.ps1` 是主要 release orchestration 入口；直接 Python/PowerShell 脚本和 Make targets 仍是支持的诊断与 CI gate。
 - `build-python-distributions.py` 是 wheel 构建入口。仓库内输出目录只清理已知生成物；外部 wheelhouse 必须是普通目录，不能经过 reparse point，且只能预存普通 `.whl` 文件，出现其他文件时构建直接失败。
-- `check-python-distributions.py` 必须在安装、归档或 bundle staging 之前通过；它拒绝缺失/多余 wheel、跨 distribution 文件、错误依赖、非法 archive path 和 Win7 文件名碰撞。
-- `smoke-python-distributions.py` 必须使用精确 Python 3.8，临时 venv 安装使用 `--isolated --no-index --no-deps`，不读取开发树或用户 site-packages。
+- `check-python-distributions.py` 必须在安装、归档或 bundle staging 之前通过；它拒绝缺失/多余 wheel、跨 distribution 文件、错误的项目依赖 DAG、非法 archive path 和 Win7 文件名碰撞，但不审计全部第三方版本。
+- `smoke-python-distributions.py` 必须使用精确 Python 3.8，临时 venv 安装使用 `--isolated --no-index --no-deps`，不读取开发树或用户 site-packages。独立/组合场景覆盖五个项目 distribution，包括产品包来自 venv 的证明；它不启动完整 GUI、provider 或 hosted runtime。
 - `build-gui-launcher.ps1` 只在构建机生成薄 Win32 launcher；运行时仍使用 bundle 内 Python/WebView2。
 - `prepare-offline.ps1` 生成中间分级树，不直接产出最终 zip。
 - `validate-offline-bundle.ps1` 是 release-ready 的强制门禁，并消费 `offline-runtime-contract.json` 验证所有 runtime-invoked bundled external tools。
@@ -156,10 +162,13 @@ uv sync
 uv run python scripts/build-python-distributions.py --dist-dir dist
 uv run python scripts/check-python-distributions.py --dist-dir dist
 uv run python scripts/smoke-python-distributions.py --dist-dir dist --python .venv/Scripts/python.exe
-uv run python scripts/export-dependencies.py --project-root . --output-dir build/offline-cache/site-packages-export --python-version 3.8
-powershell -ExecutionPolicy Bypass -File scripts/package.ps1 assemble
-powershell -ExecutionPolicy Bypass -File scripts/package.ps1 verify
+powershell -ExecutionPolicy Bypass -File scripts/package.ps1 doctor
+powershell -ExecutionPolicy Bypass -File scripts/package.ps1 release
 ```
+
+需要定位 distribution 问题时，使用上面的直接 build/check/smoke 命令；正式
+组包以 doctor + release 为准。release 的 deps 阶段负责 dependency export，
+不需要在正常发布流程前手工重复运行 `export-dependencies.py`。
 
 - `scripts/validate-offline-bundle.ps1` — 文件完整性、manifest 可解析性、checksum、launcher 合约、Python `.pth` 补丁、editable link 清除、runtime contract 静态/动态检查
 - `scripts/check-bundle-dependencies.py` — Python 依赖、manifest、runtime contract、release gate 资产与外部工具存在性检查

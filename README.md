@@ -75,19 +75,29 @@ The builder removes only known generated artifacts. For an external
 `--dist-dir`, it refuses reparse points and unexpected entries, then removes
 only existing wheel files. The checker requires exactly one valid wheel for
 each distribution and rejects cross-owned packages, unsafe Windows paths, and
-forbidden dependencies. The smoke command uses Python 3.8 temporary virtual
-environments, `--no-index`, `--no-deps`, and isolated imports.
+an invalid inter-distribution dependency DAG. It does not audit every
+third-party version. The smoke command uses Python 3.8 temporary virtual
+environments, `--no-index`, `--no-deps`, and isolated imports. Its independent
+and composed scenarios cover all five project distributions, including the
+product wheel, but do not start a full GUI, provider, or hosted product runtime.
 
-Offline bundle staging is wheel-only. Run the packaging dependency export to
-build and validate the five local wheels, install them without network
-resolution into the exported `site-packages`, and then run the normal bundle
-assembly:
+Project distribution staging is wheel-only. The dependency export separately
+builds the five checked project wheels, prepares locked third-party packages at
+build time, installs the project wheels without network resolution, and stages
+the resulting `site-packages` for offline runtime:
 
 ```powershell
-uv run python scripts/export-dependencies.py --project-root . --output-dir build/offline-cache/site-packages-export --python-version 3.8
-powershell -ExecutionPolicy Bypass -File scripts/package.ps1 assemble
-powershell -ExecutionPolicy Bypass -File scripts/package.ps1 verify
+powershell -ExecutionPolicy Bypass -File scripts/package.ps1 doctor
+powershell -ExecutionPolicy Bypass -File scripts/package.ps1 release
 ```
+
+`package.ps1` is the primary release orchestrator. `doctor` is a standalone
+preflight; `release` then runs `deps`, `assemble`, and `verify` in order and
+stops on blocking issues. Dependency export accepts third-party binary wheels
+or controlled locked sdists at build time; `proxy-tools==0.1.0` currently uses
+that sdist path. Curating a prebuilt wheel with source, license, and hash records
+is release hardening, not a completed Phase 2 guarantee. The direct
+build/check/smoke and export scripts remain supported diagnostic and CI gates.
 
 `make ci` runs lint, the fast suite, product import smoke, distribution build,
 wheel inspection, isolated import smoke, and the offline bundle contract tests.

@@ -45,6 +45,7 @@ def test_smoke_scenarios_cover_independent_and_composed_stacks():
         "protocol_only",
         "host_stack",
         "composition_only",
+        "product_stack",
     ]
     assert smoke.SCENARIOS[0]["distribution"] == "embedagent-core"
     assert smoke.SCENARIOS[2]["distribution"] == "embedagent-host"
@@ -53,6 +54,16 @@ def test_smoke_scenarios_cover_independent_and_composed_stacks():
         "embedagent-protocol",
         "embedagent-host",
     )
+    assert smoke.SCENARIOS[4]["distribution"] == "embedagent"
+    assert smoke.SCENARIOS[4]["distributions"] == (
+        "embedagent-core",
+        "embedagent-protocol",
+        "embedagent-host",
+        "embedagent-composition",
+        "embedagent",
+    )
+    assert "embedagent.__file__" in smoke.SCENARIOS[4]["probe"]
+    assert "sys.prefix" in smoke.SCENARIOS[4]["probe"]
 
 
 def test_smoke_install_command_is_strictly_offline(tmp_path):
@@ -422,7 +433,17 @@ def _write_installable_distribution_set(dist_dir):
         dependencies=("embedagent-core ==0.1.0", "embedagent-protocol ==0.1.0"),
     )
     _write_installable_wheel(dist_dir, "embedagent-composition", "embedagent_composition")
-    _write_installable_wheel(dist_dir, "embedagent", "embedagent")
+    _write_installable_wheel(
+        dist_dir,
+        "embedagent",
+        "embedagent",
+        dependencies=(
+            "embedagent-core ==0.1.0",
+            "embedagent-protocol ==0.1.0",
+            "embedagent-host ==0.1.0",
+            "embedagent-composition ==0.1.0",
+        ),
+    )
 
 
 def test_smoke_ignores_foreign_pip_links_python_controls_and_credentials(tmp_path):

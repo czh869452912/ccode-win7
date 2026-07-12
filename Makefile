@@ -24,6 +24,8 @@ python-distributions-build:
 python-distributions-check: python-distributions-build
 	uv run python scripts/check-python-distributions.py --dist-dir dist
 
+# Covers all five project distributions across isolated and composed import scenarios;
+# it is not a full GUI, provider, or hosted product runtime smoke.
 python-distributions-smoke: python-distributions-check
 	uv run python scripts/smoke-python-distributions.py --dist-dir dist --python .venv/Scripts/python.exe
 

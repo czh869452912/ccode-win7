@@ -35,6 +35,8 @@ Phase 7 的首个正式交付基线采用：
    Protocol、Host、Composition 和产品聚合包
 7. dependency export 只从 clean wheelhouse 安装项目 distribution，禁止把
    editable 开发树或未经检查的源码目录作为 bundle 输入
+8. 第三方 Python 依赖是独立、受控的构建时步骤，可构建 lock 固定的
+   sdist；五个项目 distribution 自身必须只从已检查 wheel 安装
 
 Installer、one-file 单 exe 和 x86 包均不作为首个交付增量的前提条件。
 
@@ -93,6 +95,14 @@ Installer、one-file 单 exe 和 x86 包均不作为首个交付增量的前提�
 Python 3.8 的 no-index/no-deps 隔离安装、bundle 静态/动态检查，以及
 bundle-local C smoke。外部 wheelhouse 只能包含普通 wheel 文件，不能经过
 reparse point；任何未知文件都应使构建失败而不是被删除。
+
+wheel dependency 检查证明五个项目 distribution 之间的 exact DAG，不代表
+对所有第三方依赖版本的完整审计。隔离安装场景覆盖五个项目 distribution
+的导入边界，但不启动完整 GUI、provider 或 hosted runtime。正式组包由独立
+`doctor` 预检后运行一次 `release`，后者内部执行 deps、assemble、verify。
+当前 `proxy-tools==0.1.0` 需要锁定 sdist 构建；为全部第三方依赖策划可审计
+的 binary wheel 来源、license 与 hash 是 release hardening，不是 Phase 2
+已完成声明。构建结果进入 bundle 后，目标 runtime 仍不得访问网络或编译依赖。
 
 这些结果不替代目标机证据。正式 Win7 GUI 声明仍要求在 clean target-style
 bundle 上完成 windowed smoke，并证明 renderer 使用 bundle 内 Fixed Version

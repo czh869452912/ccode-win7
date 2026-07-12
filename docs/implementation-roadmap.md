@@ -51,8 +51,16 @@ product composition and default C/C++ behavior:
   command sanitization, and bundle discovery are injected into generic Host
   factories; Host does not import product or C/C++ workflow modules
 - clean wheel construction, archive ownership inspection, Python 3.8 isolated
-  no-index import smoke, and wheel-only offline dependency staging are now local
-  CI and packaging gates
+  no-index import smoke across all five project distributions, and wheel-only
+  offline dependency staging are now local CI and packaging gates; the smoke is
+  an import boundary test rather than a full GUI/provider runtime test
+- wheel METADATA inspection now enforces exact workspace pins and dependency
+  direction while deliberately leaving documented third-party dependency
+  version policy outside that checker
+- the five project distributions are installed wheel-only; locked third-party
+  dependency preparation remains a separate controlled build-time step and may
+  build sdists, currently `proxy-tools==0.1.0`; binary-only third-party supply
+  with source/license/hash curation remains release hardening
 - local gates prove distribution integrity, not target compatibility; clean
   Win7 windowed GUI smoke with bundled WebView2 109 remains required release
   evidence

@@ -48,6 +48,10 @@ The distribution builder is the required entry point. Do not replace it with a
 raw `uv build --all-packages` release command: it cleans known build caches and
 protects external wheelhouses from reparse points or unrelated files before
 building. The checker must pass before any wheel is installed or archived.
+It enforces the exact inter-distribution DAG from wheel METADATA; it is not a
+general third-party dependency version auditor. Isolated smoke covers all five
+project distributions across independent and composed import scenarios, but it
+does not start the GUI, provider, or complete hosted runtime.
 
 ## Pre-Merge Architecture Gate
 
@@ -99,11 +103,19 @@ in the product. Product bootstrap must inject product registries, policy
 factories, and runtime discovery into Host. Never solve a Host need by importing
 the product back into Host.
 
-Offline dependency export must build and validate the five wheels, install
-them wheel-only with network resolution disabled, and stage the installed
-product under `app/embedagent` while the other installed distributions remain
-under `runtime/site-packages`. Editable links and duplicate product packages in
-`runtime/site-packages` are release defects.
+Offline dependency export must build and validate the five project wheels,
+install those project distributions wheel-only with network resolution
+disabled, and stage the installed product under `app/embedagent` while the
+other installed distributions remain under `runtime/site-packages`. Editable
+links and duplicate product packages in `runtime/site-packages` are release
+defects. Third-party dependency preparation is a separate controlled build-time
+step and may build locked sdists, currently including `proxy-tools==0.1.0`;
+runtime remains offline. Curating binary-only third-party supply requires
+explicit source, license, and hash records and remains release hardening.
+Use `scripts/package.ps1 doctor` as a standalone preflight and
+`scripts/package.ps1 release` as the primary release command. `release`
+internally runs `deps`, `assemble`, and `verify`; direct scripts and Make targets
+remain supported diagnostic/CI entry points.
 
 **Constraints (always enforce)**:
 - Python **3.8.x strictly** — never use 3.9+ syntax (no walrus operator `:=`, no `match`, no `dict | dict`)
