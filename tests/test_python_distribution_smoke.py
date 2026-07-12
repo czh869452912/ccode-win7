@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SMOKE_SCRIPT = ROOT / "scripts" / "smoke-python-distributions.py"
 BUILD_SCRIPT = ROOT / "scripts" / "build-python-distributions.py"
+EXPORT_SCRIPT = ROOT / "scripts" / "export-dependencies.py"
 
 
 def _load_script(path, module_name):
@@ -220,6 +221,160 @@ def test_clean_build_rejects_package_build_junction_without_touching_target(tmp_
     finally:
         if build_junction.exists():
             os.rmdir(str(build_junction))
+
+
+def test_clean_build_resets_external_flat_wheelhouse_without_removing_directory(tmp_path):
+    builder = _load_script(BUILD_SCRIPT, "distribution_clean_external")
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    external = tmp_path / "external-wheelhouse"
+    external.mkdir()
+    stale_wheel = external / "stale-0.1.0-py3-none-any.whl"
+    stale_wheel.write_bytes(b"stale")
+    alongside = tmp_path / "keep.txt"
+    alongside.write_text("keep", encoding="ascii")
+
+    builder.clean_generated_artifacts(project_root, external, ())
+
+    assert external.is_dir()
+    assert list(external.iterdir()) == []
+    assert alongside.read_text(encoding="ascii") == "keep"
+
+
+def test_clean_build_refuses_unexpected_external_content_without_deleting_anything(tmp_path):
+    builder = _load_script(BUILD_SCRIPT, "distribution_clean_external_unexpected")
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    external = tmp_path / "external-wheelhouse"
+    external.mkdir()
+    stale_wheel = external / "stale-0.1.0-py3-none-any.whl"
+    unexpected = external / "keep.txt"
+    stale_wheel.write_bytes(b"stale")
+    unexpected.write_text("keep", encoding="ascii")
+
+    try:
+        builder.clean_generated_artifacts(project_root, external, ())
+    except ValueError as exc:
+        assert "unexpected entry" in str(exc)
+    else:
+        raise AssertionError("unexpected external wheelhouse content must be refused")
+
+    assert stale_wheel.read_bytes() == b"stale"
+    assert unexpected.read_text(encoding="ascii") == "keep"
+
+
+def test_clean_build_rejects_external_ancestor_of_project_without_deletion(tmp_path):
+    builder = _load_script(BUILD_SCRIPT, "distribution_clean_external_ancestor")
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    sentinel = tmp_path / "keep.txt"
+    sentinel.write_text("keep", encoding="ascii")
+
+    try:
+        builder.clean_generated_artifacts(project_root, tmp_path, ())
+    except ValueError as exc:
+        assert "contain the project root" in str(exc)
+    else:
+        raise AssertionError("project ancestor must never be a distribution directory")
+
+    assert sentinel.read_text(encoding="ascii") == "keep"
+
+
+@unittest.skipIf(sys.platform != "win32", "Windows-only reparse-point contract")
+def test_clean_build_rejects_external_junction_without_touching_target(tmp_path):
+    builder = _load_script(BUILD_SCRIPT, "distribution_clean_external_junction")
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    sentinel = outside / "keep.txt"
+    sentinel.write_text("keep", encoding="ascii")
+    junction = tmp_path / "external-junction"
+    _create_junction(junction, outside)
+    try:
+        try:
+            builder.clean_generated_artifacts(project_root, junction, ())
+        except ValueError as exc:
+            assert "reparse point" in str(exc)
+        else:
+            raise AssertionError("external wheelhouse junction must be rejected")
+        assert sentinel.read_text(encoding="ascii") == "keep"
+    finally:
+        if junction.exists():
+            os.rmdir(str(junction))
+
+
+def test_external_wheelhouse_build_check_and_smoke_preserve_siblings(tmp_path):
+    external = tmp_path / "external-wheelhouse"
+    sibling = tmp_path / "keep.txt"
+    sibling.write_text("keep", encoding="ascii")
+    build = subprocess.run(
+        [sys.executable, str(BUILD_SCRIPT), "--dist-dir", str(external)],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert build.returncode == 0, build.stdout + build.stderr
+    check = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "check-python-distributions.py"),
+            "--dist-dir",
+            str(external),
+        ],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert check.returncode == 0, check.stdout + check.stderr
+    smoke = subprocess.run(
+        [
+            sys.executable,
+            str(SMOKE_SCRIPT),
+            "--dist-dir",
+            str(external),
+            "--python",
+            sys.executable,
+        ],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert smoke.returncode == 0, smoke.stdout + smoke.stderr
+    assert len(list(external.glob("*.whl"))) == 5
+    assert sibling.read_text(encoding="ascii") == "keep"
+
+
+def test_export_dependencies_supports_external_output_directory(tmp_path, monkeypatch):
+    exporter = _load_script(EXPORT_SCRIPT, "distribution_external_export")
+    output = tmp_path / "external-export"
+    sibling = tmp_path / "keep.txt"
+    sibling.write_text("keep", encoding="ascii")
+    monkeypatch.setattr(exporter, "get_all_dependencies", lambda _root: [])
+    original_run = exporter._run
+
+    def run_without_third_party_install(command, cwd=None, check=True):
+        if "--requirement" in command:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        return original_run(command, cwd=cwd, check=check)
+
+    monkeypatch.setattr(exporter, "_run", run_without_third_party_install)
+
+    exporter.export_site_packages(str(ROOT), str(output), "3.8")
+
+    assert len(list((output / "wheels").glob("*.whl"))) == 5
+    for package_name in (
+        "embedagent",
+        "embedagent_core",
+        "embedagent_protocol",
+        "embedagent_host",
+        "embedagent_composition",
+    ):
+        assert (output / "site-packages" / package_name).is_dir()
+    assert sibling.read_text(encoding="ascii") == "keep"
 
 
 def _write_installable_wheel(
