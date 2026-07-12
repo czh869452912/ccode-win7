@@ -73,6 +73,7 @@ WHEEL_PACKAGES = {
     "embedagent-protocol": "embedagent_protocol/",
     "embedagent-host": "embedagent_host/",
     "embedagent-composition": "embedagent_composition/",
+    "embedagent": "embedagent/",
 }
 
 
@@ -295,6 +296,29 @@ def test_wheel_checker_reports_forbidden_file_and_normalized_dependency(tmp_path
         "forbidden_prefix",
         "forbidden_dependency",
     ]
+
+
+@pytest.mark.parametrize(
+    "forbidden_file",
+    (
+        "embedagent_core/leak.py",
+        "embedagent_protocol/leak.py",
+        "embedagent/protocol/legacy.py",
+    ),
+)
+def test_wheel_checker_rejects_product_wheel_package_ownership_leaks(tmp_path, forbidden_file):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent").unlink()
+    _write_wheel(
+        tmp_path,
+        "embedagent",
+        files=["embedagent/__init__.py", forbidden_file],
+    )
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert _error_codes(report, "embedagent") == ["forbidden_prefix"]
 
 
 def test_wheel_checker_reports_a_missing_required_prefix(tmp_path):

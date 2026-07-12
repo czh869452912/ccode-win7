@@ -55,6 +55,17 @@ EXPECTED = (
         ),
         "forbidden_dependencies": (),
     },
+    {
+        "name": "embedagent",
+        "version": "0.1.0",
+        "required_prefixes": ("embedagent/",),
+        "forbidden_prefixes": (
+            "embedagent_core/",
+            "embedagent_protocol/",
+            "embedagent/protocol/",
+        ),
+        "forbidden_dependencies": (),
+    },
 )
 
 DEPENDENCY_NAME = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)")
