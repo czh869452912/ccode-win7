@@ -24,6 +24,40 @@ PROJECTS = (
     (Path("pyproject.toml"), "embedagent"),
 )
 
+WORKSPACE_MEMBERS = [
+    "packages/embedagent-core",
+    "packages/embedagent-protocol",
+    "packages/embedagent-host",
+    "packages/embedagent-composition",
+]
+
+WORKSPACE_DISTRIBUTIONS = (
+    "embedagent-core",
+    "embedagent-protocol",
+    "embedagent-host",
+    "embedagent-composition",
+)
+
+ROOT_DEPENDENCIES = [
+    "prompt-toolkit==3.0.52",
+    "rich==14.3.3",
+    "pywebview>=4.0",
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.23",
+    "websockets>=11.0",
+    "embedagent-core==0.1.0",
+    "embedagent-protocol==0.1.0",
+    "embedagent-host==0.1.0",
+    "embedagent-composition==0.1.0",
+]
+
+PACKAGE_LAYOUTS = (
+    (Path("packages/embedagent-core/pyproject.toml"), "embedagent_core*"),
+    (Path("packages/embedagent-protocol/pyproject.toml"), "embedagent_protocol*"),
+    (Path("packages/embedagent-host/pyproject.toml"), "embedagent_host*"),
+    (Path("packages/embedagent-composition/pyproject.toml"), "embedagent_composition*"),
+)
+
 DEPENDENCIES = (
     (Path("packages/embedagent-core/pyproject.toml"), []),
     (Path("packages/embedagent-protocol/pyproject.toml"), []),
@@ -58,6 +92,47 @@ def test_distribution_project_names_are_ordered_and_unique():
 
     assert actual_names == expected_names
     assert len(actual_names) == len(set(actual_names))
+
+
+def test_root_distribution_composes_exact_product_dependencies():
+    root_project = _read_pyproject(Path("pyproject.toml"))["project"]
+
+    assert root_project["name"] == "embedagent"
+    assert root_project["dependencies"] == ROOT_DEPENDENCIES
+
+
+def test_uv_workspace_members_and_sources_are_exact():
+    root = _read_pyproject(Path("pyproject.toml"))
+
+    assert root["tool"]["uv"]["workspace"]["members"] == WORKSPACE_MEMBERS
+    assert root["tool"]["uv"]["sources"] == {
+        distribution: {"workspace": True} for distribution in WORKSPACE_DISTRIBUTIONS
+    }
+
+
+def test_python38_toml_fallback_is_an_explicit_dev_dependency():
+    root = _read_pyproject(Path("pyproject.toml"))
+
+    assert "tomli==2.4.1" in root["dependency-groups"]["dev"]
+    assert not any(dependency.startswith("tomli") for dependency in root["project"]["dependencies"])
+
+
+@pytest.mark.parametrize(("relative_path", "package_pattern"), PACKAGE_LAYOUTS)
+def test_distribution_build_metadata_is_exact(relative_path, package_pattern):
+    metadata = _read_pyproject(relative_path)
+
+    assert metadata["build-system"] == {
+        "requires": ["setuptools>=65"],
+        "build-backend": "setuptools.build_meta",
+    }
+    assert metadata["project"]["version"] == "0.1.0"
+    assert metadata["project"]["requires-python"] == ">=3.8,<3.9"
+    assert metadata["tool"]["setuptools"]["package-dir"] == {"": "src"}
+    assert metadata["tool"]["setuptools"]["packages"]["find"] == {
+        "where": ["src"],
+        "include": [package_pattern],
+    }
+    assert (ROOT / relative_path.parent / "src").is_dir()
 
 
 @pytest.mark.parametrize(("relative_path", "expected"), DEPENDENCIES)

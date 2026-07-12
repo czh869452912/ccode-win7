@@ -6,6 +6,15 @@ resolution-markers = [
     "python_full_version < '3.8.1'",
 ]
 
+[manifest]
+members = [
+    "embedagent",
+    "embedagent-composition",
+    "embedagent-core",
+    "embedagent-host",
+    "embedagent-protocol",
+]
+
 [[package]]
 name = "annotated-doc"
 version = "0.0.4"
@@ -148,6 +157,10 @@ name = "embedagent"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "embedagent-composition" },
+    { name = "embedagent-core" },
+    { name = "embedagent-host" },
+    { name = "embedagent-protocol" },
     { name = "fastapi" },
     { name = "prompt-toolkit" },
     { name = "pywebview" },
@@ -168,10 +181,15 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "tomli" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "embedagent-composition", editable = "packages/embedagent-composition" },
+    { name = "embedagent-core", editable = "packages/embedagent-core" },
+    { name = "embedagent-host", editable = "packages/embedagent-host" },
+    { name = "embedagent-protocol", editable = "packages/embedagent-protocol" },
     { name = "fastapi", specifier = ">=0.100" },
     { name = "prompt-toolkit", specifier = "==3.0.52" },
     { name = "prompt-toolkit", marker = "extra == 'cli'", specifier = "==3.0.52" },
@@ -189,7 +207,38 @@ dev = [
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "pytest-cov", specifier = ">=4.0,<6.0" },
     { name = "ruff", specifier = ">=0.15.12" },
+    { name = "tomli", specifier = "==2.4.1" },
 ]
+
+[[package]]
+name = "embedagent-composition"
+version = "0.1.0"
+source = { editable = "packages/embedagent-composition" }
+
+[[package]]
+name = "embedagent-core"
+version = "0.1.0"
+source = { editable = "packages/embedagent-core" }
+
+[[package]]
+name = "embedagent-host"
+version = "0.1.0"
+source = { editable = "packages/embedagent-host" }
+dependencies = [
+    { name = "embedagent-core" },
+    { name = "embedagent-protocol" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "embedagent-core", editable = "packages/embedagent-core" },
+    { name = "embedagent-protocol", editable = "packages/embedagent-protocol" },
+]
+
+[[package]]
+name = "embedagent-protocol"
+version = "0.1.0"
+source = { editable = "packages/embedagent-protocol" }
 
 [[package]]
 name = "exceptiongroup"

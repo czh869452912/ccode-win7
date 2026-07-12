@@ -16,6 +16,10 @@ dependencies = [
     "fastapi>=0.100",
     "uvicorn[standard]>=0.23",
     "websockets>=11.0",
+    "embedagent-core==0.1.0",
+    "embedagent-protocol==0.1.0",
+    "embedagent-host==0.1.0",
+    "embedagent-composition==0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -43,6 +47,20 @@ embedagent = [
 
 [tool.uv]
 package = true
+
+[tool.uv.workspace]
+members = [
+    "packages/embedagent-core",
+    "packages/embedagent-protocol",
+    "packages/embedagent-host",
+    "packages/embedagent-composition",
+]
+
+[tool.uv.sources]
+embedagent-core = { workspace = true }
+embedagent-protocol = { workspace = true }
+embedagent-host = { workspace = true }
+embedagent-composition = { workspace = true }
 
 [tool.ruff]
 target-version = "py38"
@@ -90,4 +108,5 @@ dev = [
     "pytest>=8.3.5",
     "pytest-cov>=4.0,<6.0",
     "ruff>=0.15.12",
+    "tomli==2.4.1",
 ]
