@@ -14,6 +14,9 @@ DEFAULT_TARGETS = (
     "packages/embedagent-host/src/",
     "tests/",
     "scripts/lint.py",
+    "scripts/build-python-distributions.py",
+    "scripts/smoke-python-distributions.py",
+    "scripts/export-dependencies.py",
 )
 
 

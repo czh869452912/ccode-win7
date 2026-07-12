@@ -589,10 +589,25 @@ if (-not $guiFrontendStatus.ok) {
 }
 Write-Host "[prepare]   GUI assets: $($guiFrontendStatus.mode) (ok=$($guiFrontendStatus.ok))"
 
-Write-Host "[prepare] Staging application code..."
-$sourceAppRoot = Join-Path $projectRoot 'src\embedagent'
+if (-not $SitePackagesRoot) {
+    $candidateSitePackages = Join-Path $projectRoot 'build\offline-cache\site-packages-export\site-packages'
+    if (Test-Path -LiteralPath $candidateSitePackages) {
+        $SitePackagesRoot = $candidateSitePackages
+    }
+}
+$sitePackagesPath = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $SitePackagesRoot
+$installedAppRoot = if ($sitePackagesPath) { Join-Path $sitePackagesPath 'embedagent' } else { '' }
+if (-not $installedAppRoot -or -not (Test-Path -LiteralPath $installedAppRoot)) {
+    throw 'Installed embedagent distribution not found. Run package.ps1 deps or provide -SitePackagesRoot from export-dependencies.py.'
+}
+$installedGuiStaticRoot = Join-Path $installedAppRoot 'frontend\gui\static'
+if (-not (Test-Path -LiteralPath $installedGuiStaticRoot)) {
+    throw "Installed embedagent distribution is missing frontend\gui\static: $installedGuiStaticRoot"
+}
+
+Write-Host "[prepare] Staging installed application distribution..."
 $stagedAppRoot = Join-Path $bundleRoot 'app\embedagent'
-Stage-Directory -Source $sourceAppRoot -Destination $stagedAppRoot
+Stage-Directory -Source $installedAppRoot -Destination $stagedAppRoot
 Remove-TransientPythonArtifacts -Root $stagedAppRoot
 Write-Host "[prepare]   App code staged to $stagedAppRoot"
 
@@ -779,13 +794,6 @@ $defaultLlvmRoot = Join-Path $projectRoot 'toolchains\llvm\current'
 if (-not $LlvmRoot -and (Test-Path -LiteralPath $defaultLlvmRoot)) {
     $LlvmRoot = $defaultLlvmRoot
 }
-if (-not $SitePackagesRoot) {
-    $candidateSitePackages = Join-Path $projectRoot '.venv\Lib\site-packages'
-    if (Test-Path -LiteralPath $candidateSitePackages) {
-        $SitePackagesRoot = $candidateSitePackages
-    }
-}
-
 $normalizedAssetIds = Normalize-AssetIds -AssetIds $AssetIds
 $assetManifest = Load-AssetManifest -ManifestPath $assetManifestResolved
 $requestedAssetIds = @($normalizedAssetIds)
@@ -793,7 +801,6 @@ $resolvedAssets = @()
 $components = @()
 
 $pythonRuntimePath = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $PythonRuntimeRoot
-$sitePackagesPath = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $SitePackagesRoot
 $minGitPath = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $MinGitRoot
 $ripgrepResolved = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $RipgrepPath
 $ctagsResolved = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $CtagsPath
@@ -802,7 +809,7 @@ $llvmPath = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $LlvmRoot
 $guiLauncherExeResolved = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $GuiLauncherExePath
 $guiLauncherResult = Stage-GuiLauncherExe -Source $guiLauncherExeResolved -BundleRoot $bundleRoot
 
-$components += New-ComponentRecord -Name 'app_code' -StagedPath 'app\embedagent' -Required $true -Status 'staged' -SourcePath $sourceAppRoot -Notes 'Copied from src/embedagent.' -AssetId ''
+$components += New-ComponentRecord -Name 'app_code' -StagedPath 'app\embedagent' -Required $true -Status 'staged' -SourcePath $installedAppRoot -Notes 'Copied from the wheel-installed product distribution while preserving the GUI static layout.' -AssetId ''
 $components += New-ComponentRecord -Name 'docs_bundle' -StagedPath 'docs' -Required $true -Status 'staged' -SourcePath (Join-Path $projectRoot 'docs') -Notes 'Copied configuration, preflight, intranet, and Win7 GUI validation docs.' -AssetId ''
 $components += New-ComponentRecord -Name 'config_templates' -StagedPath 'config' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated default config and permission rules templates.' -AssetId ''
 $components += New-ComponentRecord -Name 'launcher_scripts' -StagedPath '.' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated embedagent.cmd, embedagent-tui.cmd, embedagent-gui.cmd, validate-gui-smoke.cmd, and validate-cpp-smoke.cmd.' -AssetId ''
@@ -856,9 +863,13 @@ if ($sitePackagesPath) {
         Stage-Directory -Source $sitePackagesPath -Destination (Join-Path $bundleRoot 'runtime\site-packages')
         Remove-TransientPythonArtifacts -Root (Join-Path $bundleRoot 'runtime\site-packages')
         Remove-ProjectEditableArtifacts -SitePackagesRoot (Join-Path $bundleRoot 'runtime\site-packages') -ProjectRoot $projectRoot
+        $duplicateProductPackage = Join-Path $bundleRoot 'runtime\site-packages\embedagent'
+        if (Test-Path -LiteralPath $duplicateProductPackage) {
+            Remove-Item -LiteralPath $duplicateProductPackage -Recurse -Force
+        }
     }
     $status = if ($SkipBuild) { 'skipped' } else { 'staged' }
-    $note = if ($SkipBuild) { 'Site-packages copy skipped by -SkipBuild.' } else { 'Copied vendored site-packages root and removed project-local editable path references.' }
+    $note = if ($SkipBuild) { 'Site-packages copy skipped by -SkipBuild.' } else { 'Copied wheel-installed site-packages, removed editable links, and kept the product package in app/embedagent.' }
     $components += New-ComponentRecord -Name 'python_packages' -StagedPath 'runtime\site-packages' -Required $true -Status $status -SourcePath $sitePackagesPath -Notes $note -AssetId ''
 }
 else {

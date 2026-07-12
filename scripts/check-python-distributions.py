@@ -63,6 +63,7 @@ EXPECTED = (
             "embedagent_protocol/",
             "embedagent_host/",
             "embedagent/protocol/",
+            "embedagent/frontend/gui/webapp/",
         ),
         "forbidden_dependencies": (),
     },

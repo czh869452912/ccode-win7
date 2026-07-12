@@ -108,6 +108,7 @@ def test_root_distribution_owns_only_product_package():
     assert root["tool"]["setuptools"]["packages"]["find"] == {
         "where": ["src"],
         "include": ["embedagent", "embedagent.*"],
+        "namespaces": False,
     }
 
 
@@ -596,6 +597,24 @@ def test_wheel_checker_rejects_unrelated_dist_info_identity(tmp_path):
 
     assert result.returncode != 0
     assert _error_codes(report, "embedagent-core") == ["dist_info_identity_mismatch"]
+
+
+def test_product_wheel_rejects_webapp_source_and_node_modules(tmp_path):
+    _write_valid_wheels(tmp_path)
+    _wheel_path(tmp_path, "embedagent").unlink()
+    _write_wheel(
+        tmp_path,
+        "embedagent",
+        files=[
+            "embedagent/__init__.py",
+            "embedagent/frontend/gui/webapp/node_modules/tool.py",
+        ],
+    )
+
+    result, report = _run_checker(tmp_path)
+
+    assert result.returncode != 0
+    assert _error_codes(report, "embedagent") == ["forbidden_prefix"]
 
 
 def test_wheel_checker_rejects_a_second_dist_info_stem(tmp_path):

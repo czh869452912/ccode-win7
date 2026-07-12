@@ -325,6 +325,59 @@ class TestPrepareOfflineContract(unittest.TestCase):
         self.assertIn("EmbedAgent.exe", script)
         self.assertIn("embedagent-gui.exe", script)
 
+    def test_prepare_offline_stages_product_from_installed_distribution(self):
+        script = self._script_text()
+
+        self.assertIn("installedAppRoot", script)
+        self.assertIn("runtime\\site-packages", script)
+        self.assertIn("app\\embedagent", script)
+        self.assertIn("frontend\\gui\\static", script)
+        self.assertNotIn("$sourceAppRoot = Join-Path $projectRoot 'src\\embedagent'", script)
+
+
+class TestPythonDistributionPackagingContract(unittest.TestCase):
+    def test_dependency_export_builds_and_installs_workspace_wheels_offline(self):
+        script = EXPORT_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertIn("--no-emit-workspace", script)
+        self.assertIn("build-python-distributions.py", script)
+        self.assertIn("--no-index", script)
+        self.assertIn("--find-links", script)
+        for name in (
+            "embedagent-core",
+            "embedagent-protocol",
+            "embedagent-host",
+            "embedagent-composition",
+            "embedagent",
+        ):
+            self.assertIn(name, script)
+
+    def test_make_ci_builds_checks_and_smokes_wheels_before_bundle_validation(self):
+        makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+
+        self.assertIn("python-distributions-check: python-distributions-build", makefile)
+        self.assertIn("python-distributions-smoke: python-distributions-check", makefile)
+        self.assertIn("offline-bundle-contract: python-distributions-smoke", makefile)
+        self.assertIn("ci: lint test smoke offline-bundle-contract", makefile)
+
+    def test_bundle_build_archives_the_exact_checked_python_wheelhouse(self):
+        script = (ROOT / "scripts" / "build-offline-bundle.ps1").read_text(encoding="utf-8")
+
+        self.assertIn("site-packages-export\\wheels", script)
+        self.assertIn("python-wheels", script)
+        self.assertIn("check-python-distributions.py", script)
+
+    def test_bundle_dependency_gate_requires_all_split_project_packages(self):
+        script = CHECK_SCRIPT.read_text(encoding="utf-8")
+
+        for package in (
+            "embedagent_core",
+            "embedagent_protocol",
+            "embedagent_host",
+            "embedagent_composition",
+        ):
+            self.assertIn('"{0}": ["{0}"]'.format(package), script)
+
 
 @unittest.skipIf(sys.platform != "win32", "Windows-only: requires PowerShell")
 class TestStageJsonReports(unittest.TestCase):
@@ -454,7 +507,11 @@ class TestStageJsonReports(unittest.TestCase):
             for path in [
                 "app/embedagent/__init__.py",
                 "runtime/python/python.exe",
-                "runtime/site-packages/embedagent/__init__.py",
+                "runtime/site-packages/embedagent-0.1.0.dist-info/METADATA",
+                "runtime/site-packages/embedagent_core/__init__.py",
+                "runtime/site-packages/embedagent_protocol/__init__.py",
+                "runtime/site-packages/embedagent_host/__init__.py",
+                "runtime/site-packages/embedagent_composition/__init__.py",
                 "runtime/site-packages/prompt_toolkit/__init__.py",
                 "runtime/site-packages/rich/__init__.py",
                 "runtime/site-packages/webview/__init__.py",
@@ -556,6 +613,11 @@ class TestStageJsonReports(unittest.TestCase):
                 "idna",
                 "sniffio",
                 "typing_extensions",
+                "embedagent_core",
+                "embedagent_protocol",
+                "embedagent_host",
+                "embedagent_composition",
+                "embedagent",
             ]:
                 (site_packages / name).mkdir()
             report_path = export_root / "export-report.json"

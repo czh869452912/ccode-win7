@@ -103,8 +103,12 @@ def check_site_packages(bundle_root: Path) -> Tuple[bool, List[str]]:
 
     # Critical packages that must be present
     critical = {
-        # Core
+        # Product and split agent distributions
         "embedagent": ["embedagent"],
+        "embedagent_core": ["embedagent_core"],
+        "embedagent_protocol": ["embedagent_protocol"],
+        "embedagent_host": ["embedagent_host"],
+        "embedagent_composition": ["embedagent_composition"],
         # TUI
         "prompt_toolkit": ["prompt_toolkit", "prompt-toolkit"],
         "rich": ["rich"],

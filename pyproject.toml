@@ -39,6 +39,7 @@ embedagent-gui = "embedagent.frontend.gui.launcher:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["embedagent", "embedagent.*"]
+namespaces = false
 
 [tool.setuptools.package-data]
 embedagent = [

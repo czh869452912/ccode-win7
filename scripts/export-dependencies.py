@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -38,9 +37,19 @@ def write_json_report(path: str, payload: Dict) -> None:
         json.dump(payload, handle, indent=2, sort_keys=True)
 
 
-def find_uv() -> str | None:
+PROJECT_DISTRIBUTIONS = (
+    "embedagent-core",
+    "embedagent-protocol",
+    "embedagent-host",
+    "embedagent-composition",
+    "embedagent",
+)
+
+
+def find_uv():
     """Return path to uv executable if available."""
     import shutil as sh
+
     return sh.which("uv")
 
 
@@ -52,14 +61,26 @@ def get_all_dependencies(project_root: str) -> List[str]:
     if uv and lock_file.exists():
         print("Using uv export from uv.lock...")
         result = _run(
-            [uv, "export", "--no-hashes", "--format", "requirements-txt"],
+            [
+                uv,
+                "export",
+                "--no-hashes",
+                "--format",
+                "requirements-txt",
+                "--no-emit-workspace",
+            ],
             cwd=project_root,
         )
         deps = []
         for line in result.stdout.splitlines():
             line = line.strip()
             # Skip comments, editable installs, annotation lines, blank lines
-            if not line or line.startswith("#") or line.startswith("-e") or line.startswith("    #"):
+            if (
+                not line
+                or line.startswith("#")
+                or line.startswith("-e")
+                or line.startswith("    #")
+            ):
                 continue
             deps.append(line)
         return deps
@@ -73,6 +94,73 @@ def get_all_dependencies(project_root: str) -> List[str]:
         if line and not line.startswith("#"):
             deps.append(line)
     return deps
+
+
+def build_project_wheels(project_root: str, wheelhouse: Path) -> List[Path]:
+    """Build and validate the five project distributions into a clean wheelhouse."""
+    root = Path(project_root).resolve()
+    build_script = root / "scripts" / "build-python-distributions.py"
+    check_script = root / "scripts" / "check-python-distributions.py"
+    _run(
+        [sys.executable, str(build_script), "--dist-dir", str(wheelhouse)],
+        cwd=str(root),
+    )
+    _run(
+        [sys.executable, str(check_script), "--dist-dir", str(wheelhouse)],
+        cwd=str(root),
+    )
+
+    wheels = []
+    for distribution in PROJECT_DISTRIBUTIONS:
+        filename_prefix = distribution.replace("-", "_") + "-"
+        if distribution == "embedagent":
+            filename_prefix = "embedagent-"
+        candidates = sorted(
+            path
+            for path in wheelhouse.glob(filename_prefix + "*.whl")
+            if path.is_file() and not path.is_symlink()
+        )
+        if len(candidates) != 1:
+            raise RuntimeError("Expected one wheel for {0}".format(distribution))
+        wheels.append(candidates[0])
+    return wheels
+
+
+def install_project_wheels(
+    project_root: str,
+    site_packages_dir: Path,
+    wheelhouse: Path,
+    wheels: List[Path],
+) -> None:
+    """Install only validated local project wheels, with all network resolution disabled."""
+    uv = find_uv()
+    wheel_args = [str(path) for path in wheels]
+    if uv:
+        command = [
+            uv,
+            "pip",
+            "install",
+            "--target",
+            str(site_packages_dir),
+            "--no-index",
+            "--find-links",
+            str(wheelhouse),
+            "--no-deps",
+        ] + wheel_args
+    else:
+        command = [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--target",
+            str(site_packages_dir),
+            "--no-index",
+            "--find-links",
+            str(wheelhouse),
+            "--no-deps",
+        ] + wheel_args
+    _run(command, cwd=project_root)
 
 
 def export_site_packages(
@@ -103,51 +191,53 @@ def export_site_packages(
         shutil.rmtree(site_packages_dir)
     site_packages_dir.mkdir()
 
-    print("\nStep 2: Installing dependencies into site-packages...")
+    wheelhouse = output_path / "wheels"
+    print("\nStep 2: Building checked project wheels...")
+    project_wheels = build_project_wheels(project_root, wheelhouse)
+
+    print("\nStep 3: Installing third-party dependencies into site-packages...")
     uv = find_uv()
     if uv:
         # uv pip install --target is fast and handles platform constraints well
         result = _run(
             [
-                uv, "pip", "install",
-                "--target", str(site_packages_dir),
-                "--requirement", str(requirements_file),
-                "--python", python_version,
+                uv,
+                "pip",
+                "install",
+                "--target",
+                str(site_packages_dir),
+                "--requirement",
+                str(requirements_file),
+                "--python",
+                python_version,
             ],
             cwd=project_root,
             check=False,
         )
         if result.returncode != 0:
-            print(f"Warning: uv pip install reported issues:\n{result.stderr}")
+            raise RuntimeError("uv dependency export failed: {0}".format(result.stderr.strip()))
     else:
         # pip fallback
         result = _run(
             [
-                sys.executable, "-m", "pip", "install",
-                "--target", str(site_packages_dir),
-                "--requirement", str(requirements_file),
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--target",
+                str(site_packages_dir),
+                "--requirement",
+                str(requirements_file),
                 "--no-deps",
             ],
             cwd=project_root,
             check=False,
         )
         if result.returncode != 0:
-            print(f"Warning: pip install reported issues:\n{result.stderr}")
+            raise RuntimeError("pip dependency export failed: {0}".format(result.stderr.strip()))
 
-    # Install the project itself (no-deps, to get embedagent package code)
-    print("\nStep 3: Installing project package (no-deps)...")
-    if uv:
-        result = _run(
-            [uv, "pip", "install", "--target", str(site_packages_dir), ".", "--no-deps"],
-            cwd=project_root,
-            check=False,
-        )
-    else:
-        result = _run(
-            [sys.executable, "-m", "pip", "install", "--target", str(site_packages_dir), ".", "--no-deps"],
-            cwd=project_root,
-            check=False,
-        )
+    print("\nStep 4: Installing checked project wheels without network access...")
+    install_project_wheels(project_root, site_packages_dir, wheelhouse, project_wheels)
 
     # Remove editable .pth files that would point back to dev tree
     for pth in site_packages_dir.glob("__editable__*.pth"):
@@ -155,10 +245,9 @@ def export_site_packages(
         print(f"Removed editable link: {pth.name}")
 
     # Count installed packages
-    pkg_count = len([
-        d for d in site_packages_dir.iterdir()
-        if d.is_dir() and not d.name.endswith(".dist-info")
-    ])
+    pkg_count = len(
+        [d for d in site_packages_dir.iterdir() if d.is_dir() and not d.name.endswith(".dist-info")]
+    )
     print(f"\nInstalled {pkg_count} packages to {site_packages_dir}")
 
     # Generate manifest
@@ -166,11 +255,16 @@ def export_site_packages(
         "python_version": python_version,
         "platform": "win_amd64",
         "total_packages": pkg_count,
-        "packages": sorted([
-            d.name for d in site_packages_dir.iterdir()
-            if d.is_dir() and not d.name.endswith(".dist-info")
-        ]),
+        "packages": sorted(
+            [
+                d.name
+                for d in site_packages_dir.iterdir()
+                if d.is_dir() and not d.name.endswith(".dist-info")
+            ]
+        ),
         "requirements": deps,
+        "project_distributions": list(PROJECT_DISTRIBUTIONS),
+        "project_wheels": [path.name for path in project_wheels],
     }
     manifest_file = output_path / "site-packages-manifest.json"
     with open(manifest_file, "w") as f:
@@ -196,6 +290,11 @@ def verify_site_packages(site_packages_dir: str) -> Tuple[bool, List[str]]:
         "idna",
         "sniffio",
         "typing_extensions",
+        "embedagent_core",
+        "embedagent_protocol",
+        "embedagent_host",
+        "embedagent_composition",
+        "embedagent",
     ]
 
     missing = []
@@ -253,7 +352,11 @@ def main():
         if args.verify_only:
             site_packages = Path(args.output_dir) / "site-packages"
             if not site_packages.exists():
-                payload = {"ok": False, "missing_packages": ["site-packages"], "mode": "verify-only"}
+                payload = {
+                    "ok": False,
+                    "missing_packages": ["site-packages"],
+                    "mode": "verify-only",
+                }
                 write_json_report(args.json_report, payload)
                 print(f"Site-packages not found: {site_packages}")
                 sys.exit(1)
@@ -286,6 +389,7 @@ def main():
                     "output_dir": args.output_dir,
                     "site_packages_root": str(site_packages),
                     "requirements_file": str(Path(args.output_dir) / "requirements-pinned.txt"),
+                    "wheelhouse": str(Path(args.output_dir) / "wheels"),
                     "missing_packages": missing,
                 },
             )

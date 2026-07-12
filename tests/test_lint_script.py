@@ -30,6 +30,9 @@ def test_lint_script_builds_default_check_commands(monkeypatch):
             "packages/embedagent-host/src/",
             "tests/",
             "scripts/lint.py",
+            "scripts/build-python-distributions.py",
+            "scripts/smoke-python-distributions.py",
+            "scripts/export-dependencies.py",
         ],
         [
             sys.executable,
@@ -42,6 +45,9 @@ def test_lint_script_builds_default_check_commands(monkeypatch):
             "packages/embedagent-host/src/",
             "tests/",
             "scripts/lint.py",
+            "scripts/build-python-distributions.py",
+            "scripts/smoke-python-distributions.py",
+            "scripts/export-dependencies.py",
         ],
     ]
 

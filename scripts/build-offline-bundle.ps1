@@ -233,6 +233,16 @@ $distRoot = Join-Path $buildRoot 'offline-dist'
 $distBundleRoot = Join-Path $distRoot $ArtifactName
 $sourcesRoot = Join-Path $distRoot ($ArtifactName + '-sources')
 $sourcesArchivesRoot = Join-Path $sourcesRoot 'archives'
+$defaultPythonWheelsSourceRoot = Join-Path $projectRoot 'build\offline-cache\site-packages-export\wheels'
+$pythonWheelsSourceRoot = $defaultPythonWheelsSourceRoot
+if ($SitePackagesRoot) {
+    $sitePackagesCandidate = $SitePackagesRoot
+    if (-not [System.IO.Path]::IsPathRooted($sitePackagesCandidate)) {
+        $sitePackagesCandidate = Join-Path $projectRoot $sitePackagesCandidate
+    }
+    $pythonWheelsSourceRoot = Join-Path (Split-Path -Parent $sitePackagesCandidate) 'wheels'
+}
+$pythonWheelsArchiveRoot = Join-Path $sourcesRoot 'python-wheels'
 $zipPath = Join-Path $distRoot ($ArtifactName + '.zip')
 $prepareScript = Join-Path $PSScriptRoot 'prepare-offline.ps1'
 
@@ -301,6 +311,18 @@ Write-BundleChecksums -Root $distBundleRoot -ChecksumPath $distChecksumsPath
 Write-Host "[build] Preparing sources archive..."
 Ensure-Directory -Path $sourcesRoot
 Ensure-Directory -Path $sourcesArchivesRoot
+
+if (-not (Test-Path -LiteralPath $pythonWheelsSourceRoot)) {
+    throw "Checked Python wheelhouse not found: $pythonWheelsSourceRoot"
+}
+$pythonDistributionChecker = Join-Path $projectRoot 'scripts\check-python-distributions.py'
+$packagePython = Resolve-PackagePythonPath -ProjectRoot $projectRoot
+& $packagePython $pythonDistributionChecker --dist-dir $pythonWheelsSourceRoot
+if ($LASTEXITCODE -ne 0) {
+    throw "Python distribution wheelhouse failed validation: $pythonWheelsSourceRoot"
+}
+Write-Host "[build] Archiving checked Python wheels..."
+Copy-BundleTree -Source $pythonWheelsSourceRoot -Destination $pythonWheelsArchiveRoot
 
 $assetManifest = Load-AssetManifest -ManifestPath $assetManifestResolved
 $distManifest = Get-Content -LiteralPath $distManifestPath -Raw | ConvertFrom-Json
