@@ -31,8 +31,8 @@ class SessionLifecycleManager(object):
         project_memory: ProjectMemoryStore,
         session_restorer: SessionRestorer,
         transcript_store: TranscriptStore,
-        mode_resolver: Optional[Callable[[str], Dict[str, Any]]] = None,
-        default_mode: str = "build",
+        mode_resolver: Callable[[str], Dict[str, Any]],
+        default_mode: str,
     ) -> None:
         self.session_store = session_store
         self.summary_store = summary_store
@@ -40,14 +40,26 @@ class SessionLifecycleManager(object):
         self.project_memory = project_memory
         self.session_restorer = session_restorer
         self.transcript_store = transcript_store
+        if not callable(mode_resolver):
+            raise TypeError("mode_resolver must be callable")
+        requested_default = str(default_mode or "").strip()
+        if not requested_default:
+            raise ValueError("default_mode is required")
         self.mode_resolver = mode_resolver
-        self.default_mode = str(default_mode or "build")
+        self.default_mode = self._require_mode_slug(requested_default)
+
+    def _require_mode_slug(self, requested: str) -> str:
+        definition = self.mode_resolver(requested)
+        if not isinstance(definition, dict):
+            raise ValueError("Mode resolver returned an invalid definition for %r" % requested)
+        slug = str(definition.get("slug") or "").strip()
+        if not slug:
+            raise ValueError("Mode resolver returned no slug for %r" % requested)
+        return slug
 
     def _resolve_mode(self, mode: str) -> str:
-        requested = str(mode or self.default_mode)
-        if self.mode_resolver is None:
-            return requested
-        return str(self.mode_resolver(requested)["slug"])
+        requested = str(mode or self.default_mode).strip()
+        return self._require_mode_slug(requested)
 
     def create_session_state(self, mode: str = "") -> ManagedSession:
         current_mode = self._resolve_mode(mode)

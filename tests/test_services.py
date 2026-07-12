@@ -107,6 +107,16 @@ class TestWorkspaceFileService(unittest.TestCase):
 
 
 class TestSessionLifecycleManager(unittest.TestCase):
+    def _manager_kwargs(self):
+        return {
+            "session_store": self.summary_store,
+            "summary_store": self.summary_store,
+            "plan_store": self.plan_store,
+            "project_memory": self.project_memory,
+            "session_restorer": self.session_restorer,
+            "transcript_store": self.transcript_store,
+        }
+
     def setUp(self):
         self.summary_store = MagicMock()
         self.plan_store = MagicMock()
@@ -114,13 +124,29 @@ class TestSessionLifecycleManager(unittest.TestCase):
         self.session_restorer = MagicMock()
         self.transcript_store = MagicMock()
         self.manager = SessionLifecycleManager(
-            session_store=self.summary_store,
-            summary_store=self.summary_store,
-            plan_store=self.plan_store,
-            project_memory=self.project_memory,
-            session_restorer=self.session_restorer,
-            transcript_store=self.transcript_store,
+            **self._manager_kwargs(),
+            mode_resolver=lambda name: {"slug": name} if name in ("explore", "build") else {},
+            default_mode="explore",
         )
+
+    def test_mode_policy_is_required(self):
+        with self.assertRaises(TypeError):
+            SessionLifecycleManager(**self._manager_kwargs())
+
+    def test_invalid_mode_fails_closed_through_resolver(self):
+        def resolve_mode(name):
+            if name not in ("explore", "build"):
+                raise ValueError("invalid mode")
+            return {"slug": name}
+
+        manager = SessionLifecycleManager(
+            **self._manager_kwargs(),
+            mode_resolver=resolve_mode,
+            default_mode="explore",
+        )
+
+        with self.assertRaisesRegex(ValueError, "invalid mode"):
+            manager.create_session_state("bogus")
 
     def test_list_sessions_delegates_to_store(self):
         self.summary_store.list_summaries.return_value = [{"id": "1"}]

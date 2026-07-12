@@ -956,7 +956,15 @@ class TestManagedRuntimeEnvironment(unittest.TestCase):
         bundle_root = os.path.join(self.workspace, "portable-bundle")
         workspace_root = os.path.join(bundle_root, "data", "workspace-template")
         os.makedirs(workspace_root)
-        fake_module_path = self._touch(bundle_root, "app", "embedagent", "tools", "_base.py")
+        fake_module_path = self._touch(
+            bundle_root,
+            "runtime",
+            "site-packages",
+            "embedagent_host",
+            "runtime",
+            "tools",
+            "_base.py",
+        )
         self._touch(bundle_root, "app", "embedagent", "__init__.py")
         self._touch(bundle_root, "runtime", "python", "python.exe")
         self._touch(bundle_root, "bin", "git", "cmd", "git.exe")
@@ -982,6 +990,49 @@ class TestManagedRuntimeEnvironment(unittest.TestCase):
         self.assertEqual(snapshot["tool_sources"]["ctags"], "bundle")
         self.assertEqual(snapshot["tool_sources"]["llvm"], "bundle")
         self.assertTrue(snapshot["resolved_tool_roots"]["bundle_root"].endswith("portable-bundle"))
+
+    def test_runtime_snapshot_detects_bundle_from_host_source_layout(self):
+        import embedagent_host.runtime.tools._base as tools_base
+
+        bundle_root = os.path.join(self.workspace, "source-bundle")
+        workspace_root = os.path.join(bundle_root, "data", "workspace-template")
+        os.makedirs(workspace_root)
+        fake_module_path = self._touch(
+            bundle_root,
+            "packages",
+            "embedagent-host",
+            "src",
+            "embedagent_host",
+            "runtime",
+            "tools",
+            "_base.py",
+        )
+        self._touch(bundle_root, "app", "embedagent", "__init__.py")
+        self._touch(bundle_root, "runtime", "python", "python.exe")
+        self._touch(bundle_root, "bin", "rg", "rg.exe")
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("EMBEDAGENT_BUNDLE_ROOT", None)
+            with patch.object(tools_base, "__file__", fake_module_path):
+                runtime = ToolRuntime(workspace_root)
+                snapshot = runtime.runtime_environment_snapshot()
+        self.assertTrue(snapshot["resolved_tool_roots"]["bundle_root"].endswith("source-bundle"))
+
+    def test_runtime_snapshot_does_not_scan_unknown_anchor_ancestors(self):
+        import embedagent_host.runtime.tools._base as tools_base
+
+        bundle_root = os.path.join(self.workspace, "unknown-layout-bundle")
+        workspace_root = os.path.join(bundle_root, "data", "workspace-template")
+        os.makedirs(workspace_root)
+        fake_module_path = self._touch(bundle_root, "alpha", "beta", "tools", "_base.py")
+        self._touch(bundle_root, "app", "embedagent", "__init__.py")
+        self._touch(bundle_root, "runtime", "python", "python.exe")
+        self._touch(bundle_root, "bin", "rg", "rg.exe")
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("EMBEDAGENT_BUNDLE_ROOT", None)
+            with patch.object(tools_base, "__file__", fake_module_path):
+                runtime = ToolRuntime(workspace_root)
+                snapshot = runtime.runtime_environment_snapshot()
+        self.assertEqual(snapshot["resolved_tool_roots"]["bundle_root"], "")
 
 
 class TestRuntimeContractAlignment(unittest.TestCase):

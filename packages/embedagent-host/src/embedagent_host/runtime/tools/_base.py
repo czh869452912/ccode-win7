@@ -91,6 +91,21 @@ LINKER_SIGNATURE_PATTERNS = [
     re.compile(r"^\s*LNK[0-9]+:", re.IGNORECASE),
 ]
 
+_BUNDLE_ANCHOR_LAYOUTS = (
+    (("runtime", "site-packages", "embedagent_host", "runtime", "tools"), 5),
+    (("packages", "embedagent-host", "src", "embedagent_host", "runtime", "tools"), 6),
+)
+
+
+def _bundle_anchor_levels(anchor_path: str) -> Tuple[int, ...]:
+    directory = os.path.dirname(os.path.realpath(anchor_path))
+    path_parts = tuple(os.path.normcase(item) for item in os.path.normpath(directory).split(os.sep))
+    for suffix, level in _BUNDLE_ANCHOR_LAYOUTS:
+        normalized_suffix = tuple(os.path.normcase(item) for item in suffix)
+        if path_parts[-len(normalized_suffix) :] == normalized_suffix:
+            return (level,)
+    return ()
+
 
 @dataclass
 class DecodedCommandOutput:
@@ -373,7 +388,7 @@ class ToolContext(object):
             self._bundle_root_cache = self._bundle_root_resolver(
                 env_root=os.environ.get("EMBEDAGENT_BUNDLE_ROOT", "").strip(),
                 anchor_path=__file__,
-                anchor_levels=(3,),
+                anchor_levels=_bundle_anchor_levels(__file__),
             )
             self._bundle_root_resolved = True
         return self._bundle_root_cache

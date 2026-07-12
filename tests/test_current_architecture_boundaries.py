@@ -354,6 +354,13 @@ def test_no_compatibility_reexports_for_core_extraction():
         assert result is InProcessAdapter
 
 
+def test_product_command_sanitizer_uses_host_runtime_implementation():
+    from embedagent.command_sanitizer import get_command_sanitizer
+
+    sanitizer = get_command_sanitizer(fresh=True)
+    assert type(sanitizer).__module__ == "embedagent_host.runtime.command_sanitizer"
+
+
 def test_transcript_store_has_no_schema_v1_compatibility_path():
     checked_files = (
         ROOT / "packages/embedagent-host/src/embedagent_host/runtime/transcript_store.py",

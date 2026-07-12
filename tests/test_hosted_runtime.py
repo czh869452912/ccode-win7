@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from embedagent_host.hosted.launch_config import (
@@ -59,6 +60,32 @@ def test_create_hosted_runtime_builds_session_host(tmp_path, monkeypatch):
     policy_cls.assert_called_once()
     adapter_cls.assert_called_once()
     assert adapter_cls.call_args.kwargs["agent_application_id"] == "tests.python"
+
+
+def test_generic_hosted_runtime_preserves_permanent_command_denials(tmp_path):
+    config = LaunchConfig(
+        workspace=str(tmp_path),
+        app_config=SimpleNamespace(),
+        base_url="http://localhost/v1",
+        api_key="",
+        model="test-model",
+        timeout=1,
+        max_turns=None,
+        approve_all=True,
+        approve_writes=False,
+        approve_commands=False,
+        permission_rules="",
+        agent_application_id="",
+    )
+    runtime = create_hosted_runtime(config)
+
+    for command in ("init 0", "su - root", "rm -rf build"):
+        observation = runtime.session_host.adapter.tools.execute(
+            "bash",
+            {"command": command},
+        )
+        assert observation.success is False
+        assert "禁止" in str(observation.error or "")
 
 
 def test_resolve_launch_config_projects_agent_application_id(tmp_path, monkeypatch):
