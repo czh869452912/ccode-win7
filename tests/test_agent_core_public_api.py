@@ -6,7 +6,6 @@ import threading
 import time
 
 import pytest
-
 from embedagent_core.api import AgentPorts, InteractionReply, RuntimeDefinition, UserTurn
 from embedagent_core.interaction import UserInputRequest, UserInputResponse
 from embedagent_core.model import ModelClient
