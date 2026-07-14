@@ -6,7 +6,7 @@
 > 类型：`module`
 > 负责人：`project maintainers`
 > 最后同步日期：`2026-07-02`
-> 对应代码范围：`src/embedagent/protocol/`, `src/embedagent/core/`
+> 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `src/embedagent/core/`
 
 ## 1. Purpose And Scope
 
@@ -25,7 +25,7 @@
 
 ## 3. Code Mapping
 
-- 目录：`src/embedagent/protocol/`, `src/embedagent/core/`
+- 目录：`packages/embedagent-protocol/src/embedagent_protocol/`, `src/embedagent/core/`
 - 入口文件：`src/embedagent/core/__init__.py`
 - 核心对象：
   - `protocol/__init__.py` — `CoreInterface`、`FrontendCallbacks`、`Message`、`ToolCall`、`SessionSnapshot` 等全部数据类
@@ -39,8 +39,8 @@
 
 上游依赖：
 
-- `src/embedagent_host/inprocess_adapter.py`
-- `src/embedagent_core/query_engine.py`
+- `packages/embedagent-host/src/embedagent_host/inprocess_adapter.py`
+- `packages/embedagent-core/src/embedagent_core/query_engine.py`
 
 下游消费者：
 

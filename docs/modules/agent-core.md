@@ -6,7 +6,7 @@
 > 类型：`module`
 > 负责人：`project maintainers`
 > 最后同步日期：`2026-07-02`
-> 对应代码范围：`src/embedagent_core/`, `src/embedagent_host/`, `src/embedagent/prompt_assembly_service.py`, `src/embedagent/project_extensions.py`, `src/embedagent/session_runtime.py`
+> 对应代码范围：`packages/embedagent-core/src/embedagent_core/`, `packages/embedagent-host/src/embedagent_host/`
 
 ## 1. Purpose And Scope
 
@@ -28,9 +28,9 @@
 
 ## 3. Code Mapping
 
-- Core 目录：`src/embedagent_core/`
-- Host 目录：`src/embedagent_host/`
-- Core 入口文件：`src/embedagent_core/query_engine.py`
+- Core 目录：`packages/embedagent-core/src/embedagent_core/`
+- Host 目录：`packages/embedagent-host/src/embedagent_host/`
+- Core 入口文件：`packages/embedagent-core/src/embedagent_core/query_engine.py`
 - 核心对象：`QueryEngine`、`AgentLoop`、`AgentToolActionService`、`AgentExtensionHost`、`InProcessAdapter`、`HostedCommandService`、`HostedInteractionService`、`TurnSnapshotService`、`PromptAssemblyService`、`CompactionJournal`、`ManagedSession`、`ExtensionManager`
 - 上游依赖：frontend / core adapter / slash commands
 - 下游影响：harness、tools runtime、session snapshot、transcript
@@ -48,14 +48,14 @@
 下游依赖：
 
 - `src/embedagent/workflow_packages/c_cpp/`
-- `src/embedagent/tools/`
-- `src/embedagent_core/extensions.py`
-- `src/embedagent/agent_applications.py`
+- `packages/embedagent-host/src/embedagent_host/runtime/tools/`
+- `packages/embedagent-core/src/embedagent_core/extensions.py`
+- `packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py`
 - `src/embedagent/workflow_packages/c_cpp/application.py`
-- `src/embedagent/project_extensions.py`
-- `src/embedagent/session.py`
-- `src/embedagent/transcript_store.py`
-- `src/embedagent/session_projector.py`
+- `packages/embedagent-host/src/embedagent_host/runtime/project_extensions.py`
+- `packages/embedagent-core/src/embedagent_core/session.py`
+- `packages/embedagent-host/src/embedagent_host/runtime/transcript_store.py`
+- `packages/embedagent-host/src/embedagent_host/runtime/session_projector.py`
 
 ## 5. Data / Control Flow
 
@@ -84,7 +84,7 @@ flowchart TD
 - `InProcessAdapter` 不应生成第二套 workflow identity，也不应重新拥有 slash-command 或 pending-interaction helper 逻辑。
 - `HostedCommandService` owns slash-command dispatch and command-result emission; `HostedInteractionService` owns approve/reject/reply/respond glue.
 - hosted product paths 通过 selected `AgentApplication` 安装 bundled/default workflow packages，并通过 `AgentApplication.refresh_managed_session()` 刷新应用拥有的 workflow/session projection；也可通过 `project_extensions.py` 加载 manifest-gated local extensions。
-- selected agent profile 的 prompt、write-glob、base-tool 和 mode-switch runtime policy 由 `src/embedagent/agent_profile_runtime.py` 提供；`InProcessAdapter` 只组合这些策略，不内联专用 agent 行为。
+- selected agent profile 的 prompt、write-glob、base-tool 和 mode-switch runtime policy 由 `packages/embedagent-host/src/embedagent_host/runtime/agent_profile_runtime.py` 提供；`InProcessAdapter` 只组合这些策略，不内联专用 agent 行为。
 - selected `AgentApplication.workspace_profile_detectors` 可向 hosted workspace profile 注入专用文件信号；通用 workspace profile 不持有 C/C++ 文件或构建系统常量。
 - base application registry 只持有 profile-only records；hosted product registry 显式组合默认 C/C++ workflow application，构建通用/非 C agent 不会导入默认 C/C++ workflow package。
 - runtime host 负责承载，而不是替代 engine 执行逻辑。

@@ -28,8 +28,8 @@
 
 ## 3. Code Mapping
 
-- 目录：`src/embedagent/tools/`, `src/embedagent/tooling/`, `src/embedagent/workflow_packages/c_cpp/`
-- 入口文件：`src/embedagent/tools/runtime.py`
+- 目录：`packages/embedagent-host/src/embedagent_host/runtime/tools/`, `src/embedagent/tooling/`, `src/embedagent/workflow_packages/c_cpp/`
+- 入口文件：`packages/embedagent-host/src/embedagent_host/runtime/tools/runtime.py`
 - 核心对象：`ToolRuntime`、`ToolDefinition`、tool ops modules、tool pack registry functions (`register_pack`, `list_packs`)
 - 上游依赖：`AgentExtensionHost`、`AgentToolActionService`、default C/C++ workflow extension
 - 下游影响：tool execution、context reduction、frontend tool catalog
@@ -41,9 +41,9 @@
 上游依赖：
 
 - `src/embedagent/workflow_packages/c_cpp/`
-- `src/embedagent_core/query_engine.py`
-- `src/embedagent_core/agent_extension_host.py`
-- `src/embedagent_core/agent_tool_action_service.py`
+- `packages/embedagent-core/src/embedagent_core/query_engine.py`
+- `packages/embedagent-core/src/embedagent_core/agent_extension_host.py`
+- `packages/embedagent-core/src/embedagent_core/agent_tool_action_service.py`
 
 下游消费者：
 
@@ -56,7 +56,7 @@
 
 `AgentExtensionHost` 把 workflow-neutral mode contract 与 shared `ExtensionManager` 的 active tools 合并后，通过 `ToolRuntime.schemas_for(..., tool_names=...)` 请求显式 schema。`ExtensionManager` 只消费扩展通过 `extension_capabilities()` 返回的 `ExtensionCapability` 记录；动态工具注册、active tool names 和 extension-owned tools 都必须显式声明。`AgentToolActionService` 在执行时先走 `PermissionPolicy` 与 extension hooks，再由 `ToolRuntime` 调度具体 tool ops；产出的 observations 进入 transcript、context 和前端可见工具结果投影。
 
-`src/embedagent/local_resources.py` 是 workflow-neutral file-resource
+`packages/embedagent-host/src/embedagent_host/runtime/local_resources.py` 是 workflow-neutral file-resource
 discovery：skills、prompts 和 `.embedagent/recipes/*.json` 只按资源声明投影，
 不会注入默认 C/C++ workflow tool names。`packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py`
 是 workflow-neutral file-resource/read-model facade：它只合并显式项目、本地
@@ -67,7 +67,7 @@ discovery：skills、prompts 和 `.embedagent/recipes/*.json` 只按资源声明
 `CHarnessWorkflowExtension` 的 `workspace_recipes` capability 暴露给 hosted API
 和 runtime provider。
 
-`src/embedagent/self_extension_authoring.py` 同样保持 workflow-neutral：生成
+`packages/embedagent-host/src/embedagent_host/runtime/self_extension_authoring.py` 同样保持 workflow-neutral：生成
 recipe 与 extension validation recipe 时不写入默认 C/C++ `tool_name`。这些
 文件只有在被选定 workflow package 聚合后，才会被映射到该 workflow 的可运行
 tool boundary。

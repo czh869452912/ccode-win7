@@ -46,7 +46,7 @@ The default C/C++ harness is the bundled built-in workflow package. Hosted produ
 
 上游依赖：
 
-- `src/embedagent_core/query_engine.py`
+- `packages/embedagent-core/src/embedagent_core/query_engine.py`
 - `src/embedagent/workflow_packages/c_cpp/application.py`
 
 下游消费者：

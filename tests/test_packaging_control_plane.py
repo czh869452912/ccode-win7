@@ -53,6 +53,31 @@ def _write_project_distribution_layout(bundle):
     return site_packages
 
 
+def _write_valid_site_packages_layout(bundle):
+    site_packages = _write_project_distribution_layout(bundle)
+    for import_name in (
+        "prompt_toolkit",
+        "rich",
+        "webview",
+        "fastapi",
+        "uvicorn",
+        "websockets",
+        "starlette",
+        "pydantic",
+        "anyio",
+        "sniffio",
+        "h11",
+        "idna",
+        "click",
+        "colorama",
+        "pygments",
+        "wcwidth",
+    ):
+        (site_packages / import_name).mkdir()
+    (site_packages / "typing_extensions.py").write_text("", encoding="ascii")
+    return site_packages
+
+
 def _write_checker_wheelhouse(root):
     layouts = (
         ("embedagent-core", "embedagent_core"),
@@ -403,6 +428,8 @@ class TestPrepareOfflineContract(unittest.TestCase):
         self.assertIn("runtime\\site-packages", script)
         self.assertIn("app\\embedagent", script)
         self.assertIn("frontend\\gui\\static", script)
+        self.assertIn("duplicateProductPackage", script)
+        self.assertIn("runtime\\site-packages\\embedagent", script)
         self.assertNotIn("$sourceAppRoot = Join-Path $projectRoot 'src\\embedagent'", script)
 
 
@@ -688,6 +715,27 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
             self.assertIn(
                 "Missing project distribution metadata: embedagent-0.1.0.dist-info",
                 errors,
+            )
+
+    def test_product_import_tree_must_not_be_duplicated_in_runtime_site_packages(self):
+        checker = _load_python_module(CHECK_SCRIPT, "bundle_checker_duplicate_product")
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = Path(tmp)
+            site_packages = _write_valid_site_packages_layout(bundle)
+            ok, errors = checker.check_site_packages(bundle)
+            self.assertTrue(ok, errors)
+            self.assertEqual(errors, [])
+
+            (site_packages / "embedagent").mkdir()
+            ok, errors = checker.check_site_packages(bundle)
+
+            self.assertFalse(ok)
+            self.assertEqual(
+                errors,
+                [
+                    "Duplicate product import package: "
+                    "runtime/site-packages/embedagent; use app/embedagent only"
+                ],
             )
 
 

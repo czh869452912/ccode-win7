@@ -104,6 +104,11 @@ def check_site_packages(bundle_root: Path) -> Tuple[bool, List[str]]:
     product_import_root = bundle_root / "app" / "embedagent"
     if not product_import_root.is_dir():
         errors.append("Missing product import package: app/embedagent")
+    if (sp / "embedagent").is_dir():
+        errors.append(
+            "Duplicate product import package: "
+            "runtime/site-packages/embedagent; use app/embedagent only"
+        )
     project_packages = (
         ("embedagent", "", "embedagent-0.1.0.dist-info"),
         ("embedagent_core", "embedagent_core", "embedagent_core-0.1.0.dist-info"),

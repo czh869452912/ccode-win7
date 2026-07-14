@@ -42,7 +42,7 @@
 上游依赖：
 
 - `prompt_toolkit`、`rich`
-- `embedagent.protocol`、`embedagent.config`、`embedagent.context`
+- `embedagent_protocol`、`embedagent.config`、`embedagent_host.runtime.context`
 - `embedagent_host.inprocess_adapter`、`embedagent.llm`、`embedagent.modes`
 - `embedagent_core.permissions`、`embedagent.project_memory`、`embedagent.tools`
 

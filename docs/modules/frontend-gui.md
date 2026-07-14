@@ -51,7 +51,7 @@
 
 - `pywebview`、`fastapi`、`uvicorn`、`websockets`
 - `embedagent.core`（`AgentCoreAdapter`）
-- `embedagent.protocol`（`FrontendCallbacks`、`CoreInterface`）
+- `embedagent_protocol`（`FrontendCallbacks`、`CoreInterface`）
 - `embedagent.llm`、`embedagent.tools`、`embedagent_core.permissions`
 
 下游消费者：

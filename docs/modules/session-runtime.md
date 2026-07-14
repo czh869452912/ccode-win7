@@ -6,7 +6,7 @@
 > 类型：`module`
 > 负责人：`project maintainers`
 > 最后同步日期：`2026-07-02`
-> 对应代码范围：`src/embedagent/session.py`, `src/embedagent/session_history.py`, `src/embedagent/session_projector.py`, `src/embedagent/transcript_store.py`
+> 对应代码范围：`packages/embedagent-core/src/embedagent_core/session.py`, `packages/embedagent-host/src/embedagent_host/runtime/session_history.py`, `packages/embedagent-host/src/embedagent_host/runtime/session_projector.py`, `packages/embedagent-host/src/embedagent_host/runtime/transcript_store.py`
 
 ## 1. Purpose And Scope
 
@@ -27,7 +27,7 @@
 ## 3. Code Mapping
 
 - 目录：`src/embedagent/`
-- 入口文件：`src/embedagent/session.py`
+- 入口文件：`packages/embedagent-core/src/embedagent_core/session.py`
 - 核心对象：`Session`、`SessionHistoryAssembler`、`SessionSnapshotProjector`、`TranscriptStore`
 - 上游依赖：`QueryEngine`
 - 下游影响：GUI bootstrap、history rendering、resume path
@@ -38,8 +38,8 @@
 
 上游依赖：
 
-- `src/embedagent_core/query_engine.py`
-- `src/embedagent_host/inprocess_adapter.py`
+- `packages/embedagent-core/src/embedagent_core/query_engine.py`
+- `packages/embedagent-host/src/embedagent_host/inprocess_adapter.py`
 
 下游消费者：
 

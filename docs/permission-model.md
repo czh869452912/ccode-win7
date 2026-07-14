@@ -4,7 +4,7 @@
 
 The repository now has one official permission engine:
 
-- `src/embedagent_core/permissions.py`
+- `packages/embedagent-core/src/embedagent_core/permissions.py`
 
 There is no parallel `permissions_v2` architecture anymore.
 

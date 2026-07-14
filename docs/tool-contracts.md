@@ -33,7 +33,7 @@ permissions, execute tools, or change workflow state.
 
 The official runtime facade is:
 
-- `src/embedagent/tools/runtime.py`
+- `packages/embedagent-host/src/embedagent_host/runtime/tools/runtime.py`
 
 Workflow extensions may activate focused subsets of registered tools for a turn. The default C/C++ harness extension owns harness-specific tool activation, recipe readiness/execution, context reducers, and `task_status` behavior, while `ask_user` and `propose_mode_switch` remain core interaction actions executed through the shared action lifecycle.
 
@@ -273,7 +273,7 @@ Examples of duplicates that should not be reintroduced:
 
 The authoritative implementation lives in:
 
-- `src/embedagent/tools/runtime.py`
+- `packages/embedagent-host/src/embedagent_host/runtime/tools/runtime.py`
 - `src/embedagent/workflow_packages/c_cpp/extension.py`
 - `src/embedagent/workflow_packages/c_cpp/tool_registry.py`
 - `src/embedagent/workflow_packages/c_cpp/tool_metadata.py`

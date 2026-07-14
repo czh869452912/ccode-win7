@@ -20,7 +20,7 @@ The protocol vocabulary is now:
 
 The stable contract boundary is:
 
-- `src/embedagent/protocol/__init__.py`
+- `packages/embedagent-protocol/src/embedagent_protocol/__init__.py`
 - `src/embedagent/core/adapter.py`
 
 Frontends should only rely on this boundary, not on internal session or query-engine details.
