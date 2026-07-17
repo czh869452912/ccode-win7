@@ -21,6 +21,7 @@ PROJECTS = (
     (Path("packages/embedagent-protocol/pyproject.toml"), "embedagent-protocol"),
     (Path("packages/embedagent-host/pyproject.toml"), "embedagent-host"),
     (Path("packages/embedagent-composition/pyproject.toml"), "embedagent-composition"),
+    (Path("packages/embedagent-workflow-cpp/pyproject.toml"), "embedagent-workflow-cpp"),
     (Path("pyproject.toml"), "embedagent"),
 )
 
@@ -29,6 +30,7 @@ WORKSPACE_MEMBERS = [
     "packages/embedagent-protocol",
     "packages/embedagent-host",
     "packages/embedagent-composition",
+    "packages/embedagent-workflow-cpp",
 ]
 
 WORKSPACE_DISTRIBUTIONS = (
@@ -36,6 +38,7 @@ WORKSPACE_DISTRIBUTIONS = (
     "embedagent-protocol",
     "embedagent-host",
     "embedagent-composition",
+    "embedagent-workflow-cpp",
 )
 
 ROOT_DEPENDENCIES = [
@@ -49,6 +52,7 @@ ROOT_DEPENDENCIES = [
     "embedagent-protocol==0.1.0",
     "embedagent-host==0.1.0",
     "embedagent-composition==0.1.0",
+    "embedagent-workflow-cpp==0.1.0",
 ]
 
 PACKAGE_LAYOUTS = (
@@ -56,6 +60,7 @@ PACKAGE_LAYOUTS = (
     (Path("packages/embedagent-protocol/pyproject.toml"), "embedagent_protocol*"),
     (Path("packages/embedagent-host/pyproject.toml"), "embedagent_host*"),
     (Path("packages/embedagent-composition/pyproject.toml"), "embedagent_composition*"),
+    (Path("packages/embedagent-workflow-cpp/pyproject.toml"), "embedagent_workflow_cpp*"),
 )
 
 DEPENDENCIES = (
@@ -66,6 +71,7 @@ DEPENDENCIES = (
         ["embedagent-core==0.1.0", "embedagent-protocol==0.1.0"],
     ),
     (Path("packages/embedagent-composition/pyproject.toml"), []),
+    (Path("packages/embedagent-workflow-cpp/pyproject.toml"), ["embedagent-core==0.1.0"]),
 )
 
 WHEEL_PACKAGES = {
@@ -73,6 +79,7 @@ WHEEL_PACKAGES = {
     "embedagent-protocol": "embedagent_protocol/",
     "embedagent-host": "embedagent_host/",
     "embedagent-composition": "embedagent_composition/",
+    "embedagent-workflow-cpp": "embedagent_workflow_cpp/",
     "embedagent": "embedagent/",
 }
 
@@ -84,12 +91,14 @@ VALID_WHEEL_DEPENDENCIES = {
         "embedagent-protocol ==0.1.0",
     ),
     "embedagent-composition": (),
+    "embedagent-workflow-cpp": ("embedagent-core ==0.1.0",),
     "embedagent": (
         "prompt-toolkit ==3.0.52",
         "embedagent-core ==0.1.0",
         "embedagent-protocol ==0.1.0",
         "embedagent-host ==0.1.0",
         "embedagent-composition ==0.1.0",
+        "embedagent-workflow-cpp ==0.1.0",
     ),
 }
 
@@ -284,6 +293,17 @@ def test_wheel_checker_accepts_isolated_distribution_wheels(tmp_path):
         ("embedagent-core", ("requests ==2.0",), "unexpected_runtime_dependency"),
         ("embedagent-protocol", ("embedagent-core ==0.1.0",), "unexpected_runtime_dependency"),
         ("embedagent-composition", ("tomli ==2.4.1",), "unexpected_runtime_dependency"),
+        ("embedagent-workflow-cpp", (), "workspace_dependency_missing"),
+        (
+            "embedagent-workflow-cpp",
+            ("embedagent-core >=0.1.0",),
+            "workspace_dependency_invalid",
+        ),
+        (
+            "embedagent-workflow-cpp",
+            ("embedagent-core ==0.1.0", "requests ==2.0"),
+            "unexpected_runtime_dependency",
+        ),
         ("embedagent-host", ("embedagent-core ==0.1.0",), "workspace_dependency_missing"),
         (
             "embedagent-host",
@@ -323,6 +343,7 @@ def test_wheel_checker_accepts_isolated_distribution_wheels(tmp_path):
                 "embedagent-core ==0.1.0",
                 "embedagent-protocol ==0.1.0",
                 "embedagent-host ==0.1.0",
+                "embedagent-workflow-cpp ==0.1.0",
             ),
             "workspace_dependency_missing",
         ),
@@ -334,6 +355,7 @@ def test_wheel_checker_accepts_isolated_distribution_wheels(tmp_path):
                 "embedagent-protocol ==0.1.0",
                 "embedagent-host ==0.1.0",
                 "embedagent-composition ==0.1.0 ; extra == 'bundle'",
+                "embedagent-workflow-cpp ==0.1.0",
             ),
             "workspace_dependency_invalid",
         ),
@@ -547,6 +569,7 @@ def test_wheel_checker_reports_only_the_exact_verified_wheel_set(tmp_path):
         "embedagent_protocol-0.1.0-py3-none-any.whl",
         "embedagent_host-0.1.0-py3-none-any.whl",
         "embedagent_composition-0.1.0-py3-none-any.whl",
+        "embedagent_workflow_cpp-0.1.0-py3-none-any.whl",
         "embedagent-0.1.0-py3-none-any.whl",
     ]
 

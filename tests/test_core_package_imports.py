@@ -71,6 +71,8 @@ for module_name in sys.modules:
     assert not module_name.startswith("embedagent_host.")
     assert module_name != "embedagent_protocol"
     assert not module_name.startswith("embedagent_protocol.")
+    assert module_name != "embedagent_workflow_cpp"
+    assert not module_name.startswith("embedagent_workflow_cpp.")
 """
             result = subprocess.run(
                 [sys.executable, "-I", "-S", "-c", script, temp_dir],
