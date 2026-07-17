@@ -11,7 +11,7 @@ pytestmark = pytest.mark.harness
 
 class HarnessRunnerVerifyTests(unittest.TestCase):
     def test_runner_builds_verify_units(self):
-        from embedagent.workflow_packages.c_cpp.runner import HarnessRunner
+        from embedagent_workflow_cpp.runner import HarnessRunner
 
         runner = HarnessRunner()
         units = runner.build_mode_units("verify", [])

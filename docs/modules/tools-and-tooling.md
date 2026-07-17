@@ -6,7 +6,7 @@
 > 类型：`module`
 > 负责人：`project maintainers`
 > 最后同步日期：`2026-07-05`
-> 对应代码范围：`packages/embedagent-host/src/embedagent_host/runtime/tools/`, `src/embedagent/tooling/`, `packages/embedagent-host/src/embedagent_host/runtime/local_resources.py`, `packages/embedagent-host/src/embedagent_host/runtime/self_extension_authoring.py`, `packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py`, `src/embedagent/workflow_packages/c_cpp/recipe_ops.py`, `src/embedagent/workflow_packages/c_cpp/session_ops.py`, `src/embedagent/workflow_packages/c_cpp/workspace_recipes.py`
+> 对应代码范围：`packages/embedagent-host/src/embedagent_host/runtime/tools/`, `src/embedagent/tooling/`, `packages/embedagent-host/src/embedagent_host/runtime/local_resources.py`, `packages/embedagent-host/src/embedagent_host/runtime/self_extension_authoring.py`, `packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/recipe_ops.py`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/session_ops.py`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workspace_recipes.py`
 
 ## 1. Purpose And Scope
 
@@ -28,7 +28,7 @@
 
 ## 3. Code Mapping
 
-- 目录：`packages/embedagent-host/src/embedagent_host/runtime/tools/`, `src/embedagent/tooling/`, `src/embedagent/workflow_packages/c_cpp/`
+- 目录：`packages/embedagent-host/src/embedagent_host/runtime/tools/`, `src/embedagent/tooling/`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`
 - 入口文件：`packages/embedagent-host/src/embedagent_host/runtime/tools/runtime.py`
 - 核心对象：`ToolRuntime`、`ToolDefinition`、tool ops modules、tool pack registry functions (`register_pack`, `list_packs`)
 - 上游依赖：`AgentExtensionHost`、`AgentToolActionService`、default C/C++ workflow extension
@@ -40,7 +40,7 @@
 
 上游依赖：
 
-- `src/embedagent/workflow_packages/c_cpp/`
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`
 - `packages/embedagent-core/src/embedagent_core/query_engine.py`
 - `packages/embedagent-core/src/embedagent_core/agent_extension_host.py`
 - `packages/embedagent-core/src/embedagent_core/agent_tool_action_service.py`
@@ -63,7 +63,7 @@ discovery：skills、prompts 和 `.embedagent/recipes/*.json` 只按资源声明
 资源与历史 recipe 记录，不做 CMake/Make/Ninja 检测，也不写入默认
 `run_recipe` tool name。默认 C/C++ 工作流的 runnable recipe 聚合、CMake/Make/Ninja
 检测、`run_recipe` 归一化与 recipe resolution 位于
-`src/embedagent/workflow_packages/c_cpp/workspace_recipes.py`，并由
+`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workspace_recipes.py`，并由
 `CHarnessWorkflowExtension` 的 `workspace_recipes` capability 暴露给 hosted API
 和 runtime provider。
 

@@ -232,7 +232,7 @@ def test_command_capability_payload_projects_safe_command_menu_items():
 
 
 def test_workflow_package_capability_descriptors_project_manifest():
-    from embedagent.workflow_packages.c_cpp.package_manifest import (
+    from embedagent_workflow_cpp.package_manifest import (
         build_c_workflow_package_manifest,
     )
 
@@ -245,7 +245,7 @@ def test_workflow_package_capability_descriptors_project_manifest():
     assert item["kind"] == "workflow_package"
     assert item["name"] == "embedagent.c_workflow"
     assert item["source_type"] == "builtin"
-    assert item["source_id"] == "embedagent.workflow_packages.c_cpp"
+    assert item["source_id"] == "embedagent_workflow_cpp"
     assert item["active"] is True
     assert item["metadata"]["label"] == "C/C++ Workflow"
     assert "packs" in item["metadata"]
@@ -255,8 +255,7 @@ def test_workflow_package_capability_descriptors_project_manifest():
 
 def test_mode_capability_descriptors_project_agent_profile_modes():
     from embedagent_core.capabilities import mode_capability_descriptors
-
-    from embedagent.workflow_packages.c_cpp.agent_profile import default_c_cpp_agent_profile
+    from embedagent_workflow_cpp.agent_profile import default_c_cpp_agent_profile
 
     descriptors = mode_capability_descriptors(default_c_cpp_agent_profile())
 

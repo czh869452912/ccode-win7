@@ -321,7 +321,7 @@ def test_builtin_and_c_cpp_workflow_tools_have_source_metadata(tmp_path):
     assert runtime.tool_catalog_entry("run_recipe")["source_type"] == "workflow_package"
     assert (
         runtime.tool_catalog_entry("run_recipe")["source_id"]
-        == "embedagent.workflow_packages.c_cpp"
+        == "embedagent_workflow_cpp"
     )
 
 

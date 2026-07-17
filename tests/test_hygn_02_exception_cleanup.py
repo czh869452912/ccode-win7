@@ -70,7 +70,7 @@ class TestNoBareExceptBlocks:
                 "JSONDecodeError",
                 "ValueError",
             ],
-            "src/embedagent/workflow_packages/c_cpp/task_store.py": [
+            "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/task_store.py": [
                 "OSError",
                 "JSONDecodeError",
                 "ValueError",

@@ -13,8 +13,7 @@ class TaskGraphV2Tests(unittest.TestCase):
     def test_c_cpp_workflow_extension_owns_task_graph_without_session_field(self):
         from embedagent_core.session import Observation, Session
         from embedagent_host.runtime.session_runtime import ManagedSession
-
-        from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
+        from embedagent_workflow_cpp.extension import CHarnessWorkflowExtension
 
         extension = CHarnessWorkflowExtension()
         session = Session()
@@ -46,21 +45,21 @@ class TaskGraphV2Tests(unittest.TestCase):
         self.assertTrue(workflow["items"])
 
     def test_new_graph_starts_with_single_active_task(self):
-        from embedagent.workflow_packages.c_cpp.task_graph import TaskGraph
+        from embedagent_workflow_cpp.task_graph import TaskGraph
 
         graph = TaskGraph.for_mode("build", "full_spec_tdd")
         self.assertEqual(len(graph.tasks), 1)
         self.assertEqual(graph.tasks[0].status, "in_progress")
 
     def test_graph_can_advance_task_status(self):
-        from embedagent.workflow_packages.c_cpp.task_graph import TaskGraph
+        from embedagent_workflow_cpp.task_graph import TaskGraph
 
         graph = TaskGraph.for_mode("build", "full_spec_tdd")
         graph.complete_current("contract ready")
         self.assertEqual(graph.tasks[0].status, "completed")
 
     def test_graph_summary_is_stable_text(self):
-        from embedagent.workflow_packages.c_cpp.task_graph import TaskGraph
+        from embedagent_workflow_cpp.task_graph import TaskGraph
 
         graph = TaskGraph.for_mode("build", "full_spec_tdd")
         summary = graph.render_summary()

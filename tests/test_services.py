@@ -9,8 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from embedagent_host.runtime.services.event_emitter import EventEmitter
 from embedagent_host.runtime.services.session_lifecycle import SessionLifecycleManager
 from embedagent_host.runtime.services.workspace_file_service import WorkspaceFileService
-
-from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
+from embedagent_workflow_cpp.extension import CHarnessWorkflowExtension
 
 
 class TestEventEmitter(unittest.TestCase):

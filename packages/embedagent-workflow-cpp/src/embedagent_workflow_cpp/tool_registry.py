@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import List
 
-from embedagent.workflow_packages.c_cpp import recipe_ops, session_ops
-from embedagent.workflow_packages.c_cpp.tool_metadata import C_WORKFLOW_TOOL_METADATA
+from embedagent_workflow_cpp import recipe_ops, session_ops
+from embedagent_workflow_cpp.tool_metadata import C_WORKFLOW_TOOL_METADATA
 
 
 def _attach_metadata(tool):

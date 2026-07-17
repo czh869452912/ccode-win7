@@ -2,17 +2,18 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from embedagent.workflow_packages.c_cpp.packs import C_WORKFLOW_PACKS
-from embedagent.workflow_packages.c_cpp.tool_metadata import C_WORKFLOW_TOOL_METADATA
 from embedagent_core.workflow_package_manifest import (
     WorkflowPackageManifest,
     WorkflowPackDeclaration,
     WorkflowToolDeclaration,
 )
 
+from embedagent_workflow_cpp.packs import C_WORKFLOW_PACKS
+from embedagent_workflow_cpp.tool_metadata import C_WORKFLOW_TOOL_METADATA
+
 C_WORKFLOW_PACKAGE_ID = "embedagent.c_workflow"
 C_WORKFLOW_PACKAGE_LABEL = "C/C++ Workflow"
-C_WORKFLOW_PACKAGE_SOURCE_ID = "embedagent.workflow_packages.c_cpp"
+C_WORKFLOW_PACKAGE_SOURCE_ID = "embedagent_workflow_cpp"
 C_WORKFLOW_SUPPORTED_MODES = ["build", "debug", "verify"]
 C_WORKFLOW_SUPPORTED_STATES = ["chat", "plan", "review", "command"]
 C_WORKFLOW_RESOURCE_SCOPES = [".embedagent/recipes"]

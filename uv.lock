@@ -13,6 +13,7 @@ members = [
     "embedagent-core",
     "embedagent-host",
     "embedagent-protocol",
+    "embedagent-workflow-cpp",
 ]
 
 [[package]]
@@ -161,6 +162,7 @@ dependencies = [
     { name = "embedagent-core" },
     { name = "embedagent-host" },
     { name = "embedagent-protocol" },
+    { name = "embedagent-workflow-cpp" },
     { name = "fastapi" },
     { name = "prompt-toolkit" },
     { name = "pywebview" },
@@ -190,6 +192,7 @@ requires-dist = [
     { name = "embedagent-core", editable = "packages/embedagent-core" },
     { name = "embedagent-host", editable = "packages/embedagent-host" },
     { name = "embedagent-protocol", editable = "packages/embedagent-protocol" },
+    { name = "embedagent-workflow-cpp", editable = "packages/embedagent-workflow-cpp" },
     { name = "fastapi", specifier = ">=0.100" },
     { name = "prompt-toolkit", specifier = "==3.0.52" },
     { name = "prompt-toolkit", marker = "extra == 'cli'", specifier = "==3.0.52" },
@@ -239,6 +242,17 @@ requires-dist = [
 name = "embedagent-protocol"
 version = "0.1.0"
 source = { editable = "packages/embedagent-protocol" }
+
+[[package]]
+name = "embedagent-workflow-cpp"
+version = "0.1.0"
+source = { editable = "packages/embedagent-workflow-cpp" }
+dependencies = [
+    { name = "embedagent-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "embedagent-core", editable = "packages/embedagent-core" }]
 
 [[package]]
 name = "exceptiongroup"

@@ -4,8 +4,7 @@ from embedagent_host.runtime.agent_applications import (
     BUILTIN_AGENT_APPLICATION_RECORDS,
     AgentApplicationRegistry,
 )
-
-from embedagent.workflow_packages.c_cpp.application_record import (
+from embedagent_workflow_cpp.application_record import (
     DEFAULT_C_CPP_AGENT_APPLICATION_ID,
     default_c_cpp_agent_application_record,
 )

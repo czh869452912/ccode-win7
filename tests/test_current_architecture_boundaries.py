@@ -37,7 +37,9 @@ def _source_files_under(*relative_roots, **kwargs):
 
 def test_c_cpp_workflow_package_replaces_embedagent_harness_package():
     old_package = ROOT / "src" / "embedagent" / "harness"
-    new_package = ROOT / "src" / "embedagent" / "workflow_packages" / "c_cpp"
+    new_package = (
+        ROOT / "packages" / "embedagent-workflow-cpp" / "src" / "embedagent_workflow_cpp"
+    )
     assert not old_package.exists()
     assert (new_package / "extension.py").is_file()
 
@@ -309,7 +311,7 @@ def test_no_compatibility_reexports_for_core_extraction():
     for path in _source_files_under("src/embedagent", suffixes=(".py",)):
         text = _read(path)
         rel = _relative(path)
-        if rel.startswith("src/embedagent/workflow_packages/c_cpp/"):
+        if rel.startswith("packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/"):
             continue
         for token in forbidden_reexport_text:
             if token in text and path.name in (
@@ -410,7 +412,7 @@ def test_c_workflow_tools_are_declared_only_by_c_workflow_package_or_tests():
         "record_failing_evidence",
         "task_status",
     )
-    allowed_prefixes = ("src/embedagent/workflow_packages/c_cpp/",)
+    allowed_prefixes = ("packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/",)
     assert not (
         ROOT / "packages/embedagent-host/src/embedagent_host/runtime/tools/recipe_ops.py"
     ).exists()
@@ -429,8 +431,8 @@ def test_c_workflow_tools_are_declared_only_by_c_workflow_package_or_tests():
 def test_c_cpp_agent_profile_lives_in_c_workflow_package():
     core_profile = ROOT / "packages/embedagent-core/src/embedagent_core/profile.py"
     base_profile = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/profiles.py"
-    c_profile = ROOT / "src/embedagent/workflow_packages/c_cpp/agent_profile.py"
-    application = ROOT / "src/embedagent/workflow_packages/c_cpp/application.py"
+    c_profile = ROOT / "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/agent_profile.py"
+    application = ROOT / "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application.py"
     loader = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py"
 
     assert core_profile.is_file()
@@ -484,12 +486,12 @@ def test_c_cpp_agent_profile_lives_in_c_workflow_package():
     assert "embedagent.workflow_packages" not in core_text
 
     assert "default_c_cpp_agent_profile" not in _read(loader)
-    assert "embedagent.workflow_packages.c_cpp.agent_profile" in _read(application)
+    assert "embedagent_workflow_cpp.agent_profile" in _read(application)
 
 
 def test_default_c_cpp_application_record_lives_in_c_workflow_package():
     registry = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py"
-    record = ROOT / "src/embedagent/workflow_packages/c_cpp/application_record.py"
+    record = ROOT / "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application_record.py"
     product_registry = ROOT / "src/embedagent/agent_application_registry.py"
 
     assert record.is_file()
@@ -504,7 +506,7 @@ def test_default_c_cpp_application_record_lives_in_c_workflow_package():
         '"Path to C/C++ project"',
         '"embedagent.c_workflow"',
         'profile_kind="default_c_cpp"',
-        "embedagent.workflow_packages.c_cpp",
+        "embedagent_workflow_cpp",
         "default_c_cpp_agent_application_record",
     ):
         assert token not in registry_text
@@ -567,7 +569,7 @@ def test_base_config_does_not_pin_default_c_cpp_application():
 
 def test_generic_workspace_profile_uses_workflow_owned_c_cpp_detectors():
     generic = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/workspace_profile.py"
-    c_detector = ROOT / "src/embedagent/workflow_packages/c_cpp/workspace_profile.py"
+    c_detector = ROOT / "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workspace_profile.py"
 
     generic_text = _read(generic)
     for token in (
@@ -591,7 +593,7 @@ def test_product_evidence_helpers_do_not_import_c_cpp_workflow_constants():
         ROOT / "packages/embedagent-host/src/embedagent_host/runtime/workspace_intelligence.py",
     )
     forbidden = (
-        "embedagent.workflow_packages.c_cpp",
+        "embedagent_workflow_cpp",
         "C_WORKFLOW_TOOL_",
         "C_WORKFLOW_DIAGNOSTIC_TOOL_NAMES",
     )
@@ -613,7 +615,7 @@ def test_generic_workspace_recipe_facade_does_not_import_c_cpp_workflow_constant
         ROOT / "packages/embedagent-host/src/embedagent_host/runtime/tools/runtime.py",
     )
     forbidden = (
-        "embedagent.workflow_packages.c_cpp",
+        "embedagent_workflow_cpp",
         "C_WORKFLOW_TOOL_",
         "run_recipe",
         "list_recipes",
@@ -638,4 +640,4 @@ def test_tools_module_docs_keep_workspace_recipes_workflow_neutral():
     assert "`packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py`" in text
     assert "workflow-neutral file-resource/read-model facade" in text
     assert "不做 CMake/Make/Ninja 检测" in text
-    assert "src/embedagent/workflow_packages/c_cpp/workspace_recipes.py" in text
+    assert "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workspace_recipes.py" in text

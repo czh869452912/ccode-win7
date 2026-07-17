@@ -11,8 +11,8 @@ pytestmark = pytest.mark.harness
 
 class PhaseEngineTests(unittest.TestCase):
     def test_understand_advances_when_contract_artifact_exists(self):
-        from embedagent.workflow_packages.c_cpp.contracts import ExecutionPhase
-        from embedagent.workflow_packages.c_cpp.phase_engine import advance_phase
+        from embedagent_workflow_cpp.contracts import ExecutionPhase
+        from embedagent_workflow_cpp.phase_engine import advance_phase
 
         next_phase = advance_phase(
             ExecutionPhase.UNDERSTAND,
@@ -22,8 +22,8 @@ class PhaseEngineTests(unittest.TestCase):
         self.assertEqual(next_phase.value, "contract")
 
     def test_nonzero_exit_does_not_force_phase_jump(self):
-        from embedagent.workflow_packages.c_cpp.contracts import ExecutionPhase
-        from embedagent.workflow_packages.c_cpp.phase_engine import advance_phase
+        from embedagent_workflow_cpp.contracts import ExecutionPhase
+        from embedagent_workflow_cpp.phase_engine import advance_phase
 
         next_phase = advance_phase(
             ExecutionPhase.IMPLEMENT,
@@ -33,8 +33,8 @@ class PhaseEngineTests(unittest.TestCase):
         self.assertEqual(next_phase.value, "implement")
 
     def test_reproduce_advances_when_failing_evidence_exists(self):
-        from embedagent.workflow_packages.c_cpp.contracts import ExecutionPhase
-        from embedagent.workflow_packages.c_cpp.phase_engine import advance_phase
+        from embedagent_workflow_cpp.contracts import ExecutionPhase
+        from embedagent_workflow_cpp.phase_engine import advance_phase
 
         next_phase = advance_phase(
             ExecutionPhase.REPRODUCE,
@@ -44,8 +44,8 @@ class PhaseEngineTests(unittest.TestCase):
         self.assertEqual(next_phase.value, "isolate")
 
     def test_patch_advances_when_regression_result_ready(self):
-        from embedagent.workflow_packages.c_cpp.contracts import ExecutionPhase
-        from embedagent.workflow_packages.c_cpp.phase_engine import advance_phase
+        from embedagent_workflow_cpp.contracts import ExecutionPhase
+        from embedagent_workflow_cpp.phase_engine import advance_phase
 
         next_phase = advance_phase(
             ExecutionPhase.PATCH,
@@ -55,8 +55,8 @@ class PhaseEngineTests(unittest.TestCase):
         self.assertEqual(next_phase.value, "regression_check")
 
     def test_contract_advances_to_test_design_when_failing_evidence_is_ready(self):
-        from embedagent.workflow_packages.c_cpp.contracts import ExecutionPhase
-        from embedagent.workflow_packages.c_cpp.phase_engine import advance_phase
+        from embedagent_workflow_cpp.contracts import ExecutionPhase
+        from embedagent_workflow_cpp.phase_engine import advance_phase
 
         next_phase = advance_phase(
             ExecutionPhase.CONTRACT,
@@ -66,8 +66,8 @@ class PhaseEngineTests(unittest.TestCase):
         self.assertEqual(next_phase.value, "test_design")
 
     def test_check_advances_to_repair_when_check_failed(self):
-        from embedagent.workflow_packages.c_cpp.contracts import ExecutionPhase
-        from embedagent.workflow_packages.c_cpp.phase_engine import advance_phase
+        from embedagent_workflow_cpp.contracts import ExecutionPhase
+        from embedagent_workflow_cpp.phase_engine import advance_phase
 
         next_phase = advance_phase(
             ExecutionPhase.CHECK,

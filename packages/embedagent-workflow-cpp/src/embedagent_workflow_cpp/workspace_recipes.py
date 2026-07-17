@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 
 from embedagent_host.runtime.local_resources import discover_local_resources
 
-from embedagent.workflow_packages.c_cpp.tool_names import (
+from embedagent_workflow_cpp.tool_names import (
     C_WORKFLOW_TOOL_LIST_RECIPES,
     C_WORKFLOW_TOOL_RUN_RECIPE,
 )

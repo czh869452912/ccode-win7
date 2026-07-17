@@ -9,9 +9,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_host.inprocess_adapter import InProcessAdapter
 from embedagent_host.runtime.tools import ToolRuntime
+from embedagent_workflow_cpp import task_store
 
 from embedagent.agent_application_registry import product_agent_application_registry
-from embedagent.workflow_packages.c_cpp import task_store
 
 _COUNTER = count(1)
 

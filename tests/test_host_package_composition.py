@@ -76,12 +76,12 @@ class HostPackageCompositionTests(unittest.TestCase):
             build_agent_application,
         )
         from embedagent_host.runtime.tools import ToolRuntime
+        from embedagent_workflow_cpp.application_record import (
+            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
+        )
 
         from embedagent.agent_application_registry import (
             product_agent_application_registry,
-        )
-        from embedagent.workflow_packages.c_cpp.application_record import (
-            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
         )
 
         registry = product_agent_application_registry()
@@ -191,9 +191,9 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertNotIn('== "c_cpp"', source)
         self.assertNotIn("_lazy_agent_application_records", source)
         self.assertNotIn("default_c_cpp_agent_application_record", source)
-        self.assertNotIn("embedagent.workflow_packages.c_cpp", source)
+        self.assertNotIn("embedagent_workflow_cpp", source)
         self.assertNotIn(
-            "from embedagent.workflow_packages.c_cpp.application import "
+            "from embedagent_workflow_cpp.application import "
             "build_c_cpp_agent_application",
             source,
         )
@@ -207,7 +207,7 @@ class HostPackageCompositionTests(unittest.TestCase):
             "from embedagent_host.runtime.tools import ToolRuntime\n"
             "with tempfile.TemporaryDirectory() as workspace:\n"
             "    build_agent_application('embedagent.generic', ToolRuntime(workspace))\n"
-            "loaded = any(name.startswith('embedagent.workflow_packages.c_cpp') for name in sys.modules)\n"
+            "loaded = any(name.startswith('embedagent_workflow_cpp') for name in sys.modules)\n"
             "raise SystemExit(1 if loaded else 0)\n"
         ) % repo_src
 
@@ -233,10 +233,10 @@ class HostPackageCompositionTests(unittest.TestCase):
         )
         record_path = os.path.join(
             root,
+            "packages",
+            "embedagent-workflow-cpp",
             "src",
-            "embedagent",
-            "workflow_packages",
-            "c_cpp",
+            "embedagent_workflow_cpp",
             "application_record.py",
         )
         self.assertTrue(os.path.isfile(record_path))
@@ -251,7 +251,7 @@ class HostPackageCompositionTests(unittest.TestCase):
             self.assertNotIn(token, registry_source)
             self.assertIn(token, record_source)
         self.assertNotIn('"embedagent.c_workflow"', registry_source)
-        self.assertNotIn("embedagent.workflow_packages.c_cpp", registry_source)
+        self.assertNotIn("embedagent_workflow_cpp", registry_source)
         self.assertNotIn("default_c_cpp_agent_application_record", registry_source)
         self.assertIn("C_WORKFLOW_PACKAGE_ID", record_source)
         self.assertNotIn('profile_kind="default_c_cpp"', registry_source)
@@ -375,11 +375,11 @@ class HostPackageCompositionTests(unittest.TestCase):
     def test_inprocess_adapter_loads_application_by_id(self):
         from embedagent_host.inprocess_adapter import InProcessAdapter
         from embedagent_host.runtime.tools import ToolRuntime
-
-        from embedagent.agent_application_registry import product_agent_application_registry
-        from embedagent.workflow_packages.c_cpp.application_record import (
+        from embedagent_workflow_cpp.application_record import (
             DEFAULT_C_CPP_AGENT_APPLICATION_ID,
         )
+
+        from embedagent.agent_application_registry import product_agent_application_registry
 
         with tempfile.TemporaryDirectory() as workspace:
             adapter = InProcessAdapter(

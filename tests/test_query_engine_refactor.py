@@ -29,10 +29,10 @@ from embedagent_host.runtime.workspace_intelligence import (
     RecipeProvider,
     WorkspaceIntelligenceBroker,
 )
+from embedagent_workflow_cpp.application import build_c_cpp_agent_application
 from query_engine_product_helpers import build_product_query_engine as QueryEngine
 
 from embedagent.config import AppConfig
-from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
 
 _COUNTER = count(1)
 

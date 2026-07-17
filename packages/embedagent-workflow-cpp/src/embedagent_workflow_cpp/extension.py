@@ -3,22 +3,23 @@ from __future__ import annotations
 import re
 from typing import Any, List, Optional, Set
 
-from embedagent.workflow_packages.c_cpp import task_store
-from embedagent.workflow_packages.c_cpp.context_reducers import register_c_workflow_context_reducers
-from embedagent.workflow_packages.c_cpp.package_manifest import c_workflow_package_manifest_dict
-from embedagent.workflow_packages.c_cpp.packs import pack_tool_names
-from embedagent.workflow_packages.c_cpp.runner import HarnessRunner
-from embedagent.workflow_packages.c_cpp.session_graph_state import HarnessSessionGraphState
-from embedagent.workflow_packages.c_cpp.tool_registry import build_c_workflow_tools
-from embedagent.workflow_packages.c_cpp.workflow_projection import (
+from embedagent_core.extensions import ExtensionCapability, ToolRegistrationResult, WorkflowPrompt
+from embedagent_core.session import Observation
+
+from embedagent_workflow_cpp import task_store
+from embedagent_workflow_cpp.context_reducers import register_c_workflow_context_reducers
+from embedagent_workflow_cpp.package_manifest import c_workflow_package_manifest_dict
+from embedagent_workflow_cpp.packs import pack_tool_names
+from embedagent_workflow_cpp.runner import HarnessRunner
+from embedagent_workflow_cpp.session_graph_state import HarnessSessionGraphState
+from embedagent_workflow_cpp.tool_registry import build_c_workflow_tools
+from embedagent_workflow_cpp.workflow_projection import (
     build_c_harness_workflow_projection,
 )
-from embedagent.workflow_packages.c_cpp.workspace_recipes import (
+from embedagent_workflow_cpp.workspace_recipes import (
     list_workspace_recipes,
     resolve_workspace_recipe,
 )
-from embedagent_core.extensions import ExtensionCapability, ToolRegistrationResult, WorkflowPrompt
-from embedagent_core.session import Observation
 
 
 class CHarnessWorkflowExtension(object):
@@ -255,7 +256,7 @@ class CHarnessWorkflowExtension(object):
         if tool_context is None:
             return ToolRegistrationResult(
                 tools=[],
-                source_id="embedagent.workflow_packages.c_cpp",
+                source_id="embedagent_workflow_cpp",
                 source_type="workflow_package",
             )
         register_recipe_provider = getattr(registry, "set_workspace_recipe_provider", None)
@@ -263,7 +264,7 @@ class CHarnessWorkflowExtension(object):
             register_recipe_provider(self.list_workspace_recipes)
         return ToolRegistrationResult(
             tools=build_c_workflow_tools(_CWorkflowToolContext(tool_context, self)),
-            source_id="embedagent.workflow_packages.c_cpp",
+            source_id="embedagent_workflow_cpp",
             source_type="workflow_package",
         )
 

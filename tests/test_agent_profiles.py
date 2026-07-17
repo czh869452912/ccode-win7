@@ -55,7 +55,7 @@ class AgentProfileTests(unittest.TestCase):
             profile.modes = ()
 
     def test_c_cpp_profile_declares_current_product_modes(self):
-        from embedagent.workflow_packages.c_cpp.agent_profile import (
+        from embedagent_workflow_cpp.agent_profile import (
             default_c_cpp_agent_profile,
         )
 
@@ -67,7 +67,7 @@ class AgentProfileTests(unittest.TestCase):
         )
 
     def test_profile_base_tools_exclude_c_workflow_tools(self):
-        from embedagent.workflow_packages.c_cpp.agent_profile import (
+        from embedagent_workflow_cpp.agent_profile import (
             default_c_cpp_agent_profile,
         )
 
@@ -83,7 +83,7 @@ class AgentProfileTests(unittest.TestCase):
             self.assertEqual(set(profile.allowed_tools_for(mode_name)) & harness_tools, set())
 
     def test_profile_mode_descriptor_payload_is_gui_safe(self):
-        from embedagent.workflow_packages.c_cpp.agent_profile import (
+        from embedagent_workflow_cpp.agent_profile import (
             default_c_cpp_agent_profile,
         )
 
@@ -102,8 +102,7 @@ class AgentProfileTests(unittest.TestCase):
             html_agent_profile,
             python_agent_profile,
         )
-
-        from embedagent.workflow_packages.c_cpp.agent_profile import (
+        from embedagent_workflow_cpp.agent_profile import (
             default_c_cpp_agent_profile,
         )
 
@@ -118,7 +117,7 @@ class AgentProfileTests(unittest.TestCase):
             self.assertNotIn("verify", tokens)
 
     def test_unknown_mode_raises_in_profile_lookup(self):
-        from embedagent.workflow_packages.c_cpp.agent_profile import (
+        from embedagent_workflow_cpp.agent_profile import (
             default_c_cpp_agent_profile,
         )
 

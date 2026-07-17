@@ -9,6 +9,7 @@ from embedagent_host.runtime.project_memory import ProjectMemoryStore
 from embedagent_host.runtime.tool_commit import ToolCommitCoordinator
 from embedagent_host.runtime.transcript_store import TranscriptStore
 from embedagent_host.runtime.workspace_intelligence import WorkspaceIntelligenceBroker
+from embedagent_workflow_cpp.application import build_c_cpp_agent_application
 
 from embedagent.modes import (
     allowed_tools_for,
@@ -18,7 +19,6 @@ from embedagent.modes import (
     parse_natural_language_mode_switch,
     require_mode,
 )
-from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
 
 
 class ProductModeToolPolicy(object):

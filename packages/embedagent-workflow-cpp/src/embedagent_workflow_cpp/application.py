@@ -8,13 +8,13 @@ from embedagent_host.runtime.agent_applications import (
     AgentApplicationManifest,
 )
 
-from embedagent.workflow_packages.c_cpp.agent_profile import default_c_cpp_agent_profile
-from embedagent.workflow_packages.c_cpp.application_record import (
+from embedagent_workflow_cpp.agent_profile import default_c_cpp_agent_profile
+from embedagent_workflow_cpp.application_record import (
     DEFAULT_C_CPP_AGENT_APPLICATION_ID,
 )
-from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
-from embedagent.workflow_packages.c_cpp.package_manifest import C_WORKFLOW_PACKAGE_ID
-from embedagent.workflow_packages.c_cpp.workspace_profile import (
+from embedagent_workflow_cpp.extension import CHarnessWorkflowExtension
+from embedagent_workflow_cpp.package_manifest import C_WORKFLOW_PACKAGE_ID
+from embedagent_workflow_cpp.workspace_profile import (
     c_cpp_workspace_profile_detectors,
 )
 
@@ -26,7 +26,7 @@ def c_cpp_agent_application_manifest() -> AgentApplicationManifest:
         profile_id="embedagent.default_c_cpp",
         workflow_package_ids=(C_WORKFLOW_PACKAGE_ID,),
         source_type="builtin",
-        source_id="embedagent.workflow_packages.c_cpp",
+        source_id="embedagent_workflow_cpp",
         default=True,
     )
 

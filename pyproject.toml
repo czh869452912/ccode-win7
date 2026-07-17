@@ -20,6 +20,7 @@ dependencies = [
     "embedagent-protocol==0.1.0",
     "embedagent-host==0.1.0",
     "embedagent-composition==0.1.0",
+    "embedagent-workflow-cpp==0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -55,6 +56,7 @@ members = [
     "packages/embedagent-protocol",
     "packages/embedagent-host",
     "packages/embedagent-composition",
+    "packages/embedagent-workflow-cpp",
 ]
 
 [tool.uv.sources]
@@ -62,6 +64,7 @@ embedagent-core = { workspace = true }
 embedagent-protocol = { workspace = true }
 embedagent-host = { workspace = true }
 embedagent-composition = { workspace = true }
+embedagent-workflow-cpp = { workspace = true }
 
 [tool.ruff]
 target-version = "py38"

@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 
 from embedagent_host.runtime.agent_applications import AgentApplicationRecord
 
-from embedagent.workflow_packages.c_cpp.package_manifest import C_WORKFLOW_PACKAGE_ID
+from embedagent_workflow_cpp.package_manifest import C_WORKFLOW_PACKAGE_ID
 
 DEFAULT_C_CPP_AGENT_APPLICATION_ID = "embedagent.default_c_cpp"
 
@@ -84,10 +84,10 @@ def default_c_cpp_agent_application_record(
         profile_kind="workflow_package",
         workflow_package_ids=(C_WORKFLOW_PACKAGE_ID,),
         builder_path=(
-            "embedagent.workflow_packages.c_cpp.application:" "build_c_cpp_agent_application"
+            "embedagent_workflow_cpp.application:" "build_c_cpp_agent_application"
         ),
         source_type="builtin",
-        source_id="embedagent.workflow_packages.c_cpp",
+        source_id="embedagent_workflow_cpp",
         default=True,
         empty_state={
             "scenario_label": "C/C++ workspace",

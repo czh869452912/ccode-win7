@@ -597,7 +597,7 @@ def test_public_core_has_no_chat_or_auto_approve_defaults():
 
 def test_c_cpp_workflow_extension_stays_behind_default_package_boundary():
     allowed_files = set()
-    allowed_prefixes = ("src/embedagent/workflow_packages/c_cpp/",)
+    allowed_prefixes = ("packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/",)
     offenders = []
     for path in _source_files_under("src/embedagent", suffixes=(".py",)):
         rel = _relative(path)
@@ -606,7 +606,7 @@ def test_c_cpp_workflow_extension_stays_behind_default_package_boundary():
         text = _read(path)
         for token in (
             "CHarnessWorkflowExtension",
-            "embedagent.workflow_packages.c_cpp.extension",
+            "embedagent_workflow_cpp.extension",
         ):
             if token in text:
                 offenders.append("%s imports or constructs %s" % (rel, token))
@@ -636,7 +636,7 @@ def test_active_source_does_not_reintroduce_tooling_pack_aliases():
 def test_local_resources_do_not_import_c_cpp_workflow_defaults():
     text = _read(ROOT / "packages/embedagent-host/src/embedagent_host/runtime/local_resources.py")
     forbidden = (
-        "embedagent.workflow_packages.c_cpp",
+        "embedagent_workflow_cpp",
         "C_WORKFLOW_TOOL_RUN_RECIPE",
     )
     offenders = [token for token in forbidden if token in text]
@@ -648,7 +648,7 @@ def test_self_extension_authoring_does_not_import_c_cpp_workflow_defaults():
         ROOT / "packages/embedagent-host/src/embedagent_host/runtime/self_extension_authoring.py"
     )
     forbidden = (
-        "embedagent.workflow_packages.c_cpp",
+        "embedagent_workflow_cpp",
         "C_WORKFLOW_TOOL_RUN_RECIPE",
     )
     offenders = [token for token in forbidden if token in text]
@@ -762,10 +762,10 @@ def test_development_tracker_uses_current_c_cpp_workflow_package_paths():
     )
     offenders = [token for token in forbidden_tokens if token in text]
     assert offenders == []
-    assert "src/embedagent/workflow_packages/c_cpp/extension.py" in text
-    assert "src/embedagent/workflow_packages/c_cpp/application.py" in text
-    assert "src/embedagent/workflow_packages/c_cpp/workflow_projection.py" in text
-    assert "src/embedagent/workflow_packages/c_cpp/packs.py" in text
+    assert "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/extension.py" in text
+    assert "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application.py" in text
+    assert "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workflow_projection.py" in text
+    assert "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/packs.py" in text
 
 
 def test_runtime_tool_execute_calls_stay_behind_action_or_hosted_services():
@@ -797,7 +797,7 @@ def test_tool_refresh_paths_use_read_model_invalidations_not_tool_name_lists():
     )
     refresh_words = ("refresh", "invalidate", "invalidations", "tool_finished", "tool_result")
     allowed_prefixes = (
-        "src/embedagent/workflow_packages/c_cpp/",
+        "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/",
         "packages/embedagent-host/src/embedagent_host/runtime/tools/",
     )
     offenders = []
@@ -1118,7 +1118,7 @@ def test_agent_application_capabilities_are_declared_by_backend_not_gui_defaults
     assert "AgentApplicationRecord" in application_registry_text
     assert "AgentApplicationRegistry" in application_registry_text
     assert "BUILTIN_AGENT_APPLICATION_RECORDS" in application_registry_text
-    assert "embedagent.workflow_packages.c_cpp" not in application_registry_text
+    assert "embedagent_workflow_cpp" not in application_registry_text
     assert "default_c_cpp_agent_application_record" not in application_registry_text
     assert "default_c_cpp_agent_application_record" in product_registry_text
     assert "DEFAULT_C_CPP_AGENT_APPLICATION_ID" in product_registry_text
