@@ -40,6 +40,9 @@ class CorePackageImportTests(unittest.TestCase):
                 if module == "embedagent_host" or module.startswith("embedagent_host."):
                     offenders.append((os.path.relpath(path, root), module))
                     continue
+                if module == "embedagent_workflow_cpp" or module.startswith("embedagent_workflow_cpp."):
+                    offenders.append((os.path.relpath(path, root), module))
+                    continue
                 if module == "embedagent_protocol" or module.startswith("embedagent_protocol."):
                     offenders.append((os.path.relpath(path, root), module))
                     continue

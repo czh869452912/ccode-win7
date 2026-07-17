@@ -83,6 +83,14 @@ WHEEL_PACKAGES = {
     "embedagent": "embedagent/",
 }
 
+CHECKER_BASELINE_DISTRIBUTIONS = (
+    "embedagent-core",
+    "embedagent-protocol",
+    "embedagent-host",
+    "embedagent-composition",
+    "embedagent",
+)
+
 VALID_WHEEL_DEPENDENCIES = {
     "embedagent-core": (),
     "embedagent-protocol": (),
@@ -236,7 +244,7 @@ def _write_wheel(
 
 
 def _write_valid_wheels(dist_dir):
-    for distribution in WHEEL_PACKAGES:
+    for distribution in CHECKER_BASELINE_DISTRIBUTIONS:
         _write_wheel(dist_dir, distribution)
 
 
@@ -283,8 +291,21 @@ def test_wheel_checker_accepts_isolated_distribution_wheels(tmp_path):
     assert first_result.stdout == second_result.stdout
     assert first_report["schema_version"] == 1
     assert first_report["ok"] is True
-    assert [item["name"] for item in first_report["distributions"]] == list(WHEEL_PACKAGES)
+    assert [item["name"] for item in first_report["distributions"]] == list(
+        CHECKER_BASELINE_DISTRIBUTIONS
+    )
     assert all(item["errors"] == [] for item in first_report["distributions"])
+
+
+def test_wheel_checker_accepts_target_cpp_workflow_wheel(tmp_path):
+    _write_valid_wheels(tmp_path)
+    _write_wheel(tmp_path, "embedagent-workflow-cpp")
+
+    result, report = _run_checker(tmp_path)
+
+    assert report["errors"] == []
+    assert result.returncode == 0
+    assert [item["name"] for item in report["distributions"]] == list(WHEEL_PACKAGES)
 
 
 @pytest.mark.parametrize(
@@ -546,7 +567,7 @@ def test_wheel_checker_rejects_unparseable_extra_wheel(tmp_path):
     assert report["verified_wheels"] == []
 
 
-def test_wheel_checker_reports_only_the_exact_verified_wheel_set(tmp_path):
+def test_wheel_checker_reports_only_the_current_verified_wheel_set(tmp_path):
     _write_valid_wheels(tmp_path)
 
     result, report = _run_checker(tmp_path)
@@ -558,7 +579,6 @@ def test_wheel_checker_reports_only_the_exact_verified_wheel_set(tmp_path):
         "embedagent_protocol-0.1.0-py3-none-any.whl",
         "embedagent_host-0.1.0-py3-none-any.whl",
         "embedagent_composition-0.1.0-py3-none-any.whl",
-        "embedagent_workflow_cpp-0.1.0-py3-none-any.whl",
         "embedagent-0.1.0-py3-none-any.whl",
     ]
 
