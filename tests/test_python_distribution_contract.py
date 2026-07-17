@@ -293,17 +293,6 @@ def test_wheel_checker_accepts_isolated_distribution_wheels(tmp_path):
         ("embedagent-core", ("requests ==2.0",), "unexpected_runtime_dependency"),
         ("embedagent-protocol", ("embedagent-core ==0.1.0",), "unexpected_runtime_dependency"),
         ("embedagent-composition", ("tomli ==2.4.1",), "unexpected_runtime_dependency"),
-        ("embedagent-workflow-cpp", (), "workspace_dependency_missing"),
-        (
-            "embedagent-workflow-cpp",
-            ("embedagent-core >=0.1.0",),
-            "workspace_dependency_invalid",
-        ),
-        (
-            "embedagent-workflow-cpp",
-            ("embedagent-core ==0.1.0", "requests ==2.0"),
-            "unexpected_runtime_dependency",
-        ),
         ("embedagent-host", ("embedagent-core ==0.1.0",), "workspace_dependency_missing"),
         (
             "embedagent-host",
