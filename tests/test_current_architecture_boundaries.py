@@ -427,14 +427,26 @@ def test_c_workflow_tools_are_declared_only_by_c_workflow_package_or_tests():
 
 
 def test_c_cpp_agent_profile_lives_in_c_workflow_package():
-    base_profile = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_profiles.py"
+    core_profile = ROOT / "packages/embedagent-core/src/embedagent_core/profile.py"
+    base_profile = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/profiles.py"
     c_profile = ROOT / "src/embedagent/workflow_packages/c_cpp/agent_profile.py"
     application = ROOT / "src/embedagent/workflow_packages/c_cpp/application.py"
     loader = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py"
 
+    assert core_profile.is_file()
+    assert base_profile.is_file()
     assert c_profile.is_file()
 
+    core_text = _read(core_profile)
     base_text = _read(base_profile)
+    c_text = _read(c_profile)
+    assert "class AgentModeDescriptor" in core_text
+    assert "class AgentProfile" in core_text
+    assert "class AgentModeDescriptor" not in base_text
+    assert "class AgentProfile" not in base_text
+    assert "from embedagent_core.profile import AgentModeDescriptor, AgentProfile" in base_text
+    assert "from embedagent_core.profile import AgentModeDescriptor, AgentProfile" in c_text
+
     forbidden_base_tokens = (
         "default_c_cpp_agent_profile",
         "DEVELOPMENT_WRITABLE_GLOBS",
@@ -446,10 +458,30 @@ def test_c_cpp_agent_profile_lives_in_c_workflow_package():
     for token in forbidden_base_tokens:
         if token in base_text:
             offenders.append(
-                "packages/embedagent-host/src/embedagent_host/runtime/agent_profiles.py contains %s"
+                "packages/embedagent-host/src/embedagent_host/runtime/profiles.py contains %s"
                 % token
             )
     assert offenders == []
+
+    forbidden_core_tokens = (
+        "generic_agent_profile",
+        "python_agent_profile",
+        "html_agent_profile",
+        "default_c_cpp_agent_profile",
+        "embedagent.generic",
+        "embedagent.python",
+        "embedagent.html",
+        "通用工程",
+        "Python 工程",
+        "HTML/Web",
+        "CMakeLists.txt",
+        "**/*.cpp",
+        "**/*.hpp",
+    )
+    for token in forbidden_core_tokens:
+        assert token not in core_text
+    assert "embedagent_host" not in core_text
+    assert "embedagent.workflow_packages" not in core_text
 
     assert "default_c_cpp_agent_profile" not in _read(loader)
     assert "embedagent.workflow_packages.c_cpp.agent_profile" in _read(application)
@@ -486,10 +518,13 @@ def test_default_c_cpp_application_record_lives_in_c_workflow_package():
 
 def test_hosted_adapter_uses_shared_agent_profile_runtime_policies():
     adapter = ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py"
+    profiles = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/profiles.py"
     runtime = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_profile_runtime.py"
 
+    assert profiles.is_file()
     assert runtime.is_file()
     adapter_text = _read(adapter)
+    profiles_text = _read(profiles)
     runtime_text = _read(runtime)
 
     assert "AgentProfileRuntimePolicy" in adapter_text
@@ -503,7 +538,9 @@ def test_hosted_adapter_uses_shared_agent_profile_runtime_policies():
         "你是 EmbedAgent 的受控模式原型。",
     ):
         assert token not in adapter_text
-    assert "PROFILE_PROMPT_FRAME" in runtime_text
+    assert "PROFILE_PROMPT_FRAME =" in profiles_text
+    assert "from embedagent_host.runtime.profiles import PROFILE_PROMPT_FRAME" in runtime_text
+    assert "PROFILE_PROMPT_FRAME =" not in runtime_text
 
 
 def test_base_config_does_not_pin_default_c_cpp_application():

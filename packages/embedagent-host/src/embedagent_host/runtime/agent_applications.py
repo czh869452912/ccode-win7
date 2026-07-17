@@ -5,9 +5,9 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from embedagent_core.extensions import ExtensionManager
+from embedagent_core.profile import AgentProfile
 
-from embedagent_host.runtime.agent_profiles import (
-    AgentProfile,
+from embedagent_host.runtime.profiles import (
     generic_agent_profile,
     html_agent_profile,
     python_agent_profile,
@@ -252,7 +252,7 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
         profile_id=GENERIC_AGENT_APPLICATION_ID,
         profile_kind="generic",
         source_type="builtin",
-        source_id="embedagent_host.runtime.agent_profiles",
+        source_id="embedagent_host.runtime.profiles",
         empty_state={
             "scenario_label": "Generic workspace",
             "primary": "Open a local project",
@@ -268,7 +268,7 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
         profile_id=PYTHON_AGENT_APPLICATION_ID,
         profile_kind="python",
         source_type="builtin",
-        source_id="embedagent_host.runtime.agent_profiles",
+        source_id="embedagent_host.runtime.profiles",
         empty_state={
             "scenario_label": "Python workspace",
             "primary": "Open a Python project",
@@ -284,7 +284,7 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
         profile_id=HTML_AGENT_APPLICATION_ID,
         profile_kind="html",
         source_type="builtin",
-        source_id="embedagent_host.runtime.agent_profiles",
+        source_id="embedagent_host.runtime.profiles",
         empty_state={
             "scenario_label": "HTML/Web workspace",
             "primary": "Open an HTML/Web project",

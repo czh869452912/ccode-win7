@@ -298,9 +298,9 @@ class HostPackageCompositionTests(unittest.TestCase):
 
     def test_inprocess_adapter_accepts_non_c_agent_application(self):
         from embedagent_core.extensions import ExtensionManager
+        from embedagent_core.profile import AgentModeDescriptor, AgentProfile
         from embedagent_host.inprocess_adapter import InProcessAdapter
         from embedagent_host.runtime.agent_applications import AgentApplication
-        from embedagent_host.runtime.agent_profiles import AgentModeDescriptor, AgentProfile
         from embedagent_host.runtime.tools import ToolRuntime
 
         profile = AgentProfile(

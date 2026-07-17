@@ -1,76 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import List
 
+from embedagent_core.profile import AgentModeDescriptor, AgentProfile
 
-@dataclass(frozen=True)
-class AgentModeDescriptor(object):
-    slug: str
-    label: str
-    description: str
-    system_prompt: str
-    allowed_tools: List[str] = field(default_factory=list)
-    writable_globs: List[str] = field(default_factory=list)
-    icon_key: str = "circle"
-    color_token: str = "info"
-
-    def to_mode_definition(self) -> Dict[str, object]:
-        return {
-            "slug": self.slug,
-            "system_prompt": self.system_prompt,
-            "allowed_tools": list(self.allowed_tools),
-            "writable_globs": list(self.writable_globs),
-            "label": self.label,
-            "description": self.description,
-            "icon_key": self.icon_key,
-            "color_token": self.color_token,
-        }
-
-    def to_capability_metadata(self, profile_id: str, order: int = 0) -> Dict[str, object]:
-        return {
-            "id": self.slug,
-            "label": self.label,
-            "description": self.description,
-            "icon_key": self.icon_key,
-            "color_token": self.color_token,
-            "order": int(order),
-            "command_id": "mode.%s" % self.slug,
-            "dispatch": {"kind": "mode.set", "mode": self.slug},
-            "source_type": "agent_profile",
-            "source_id": profile_id,
-        }
-
-
-@dataclass(frozen=True)
-class AgentProfile(object):
-    profile_id: str
-    label: str
-    default_mode: str
-    modes: List[AgentModeDescriptor]
-
-    def mode_registry(self) -> Dict[str, Dict[str, object]]:
-        return dict((item.slug, item.to_mode_definition()) for item in self.modes)
-
-    def require_mode(self, mode_name: str) -> AgentModeDescriptor:
-        requested = str(mode_name or "").strip()
-        for item in self.modes:
-            if item.slug == requested:
-                return item
-        raise ValueError("Unknown mode %r" % (mode_name,))
-
-    def allowed_tools_for(self, mode_name: str) -> List[str]:
-        return list(self.require_mode(mode_name).allowed_tools)
-
-    def writable_globs_for(self, mode_name: str) -> List[str]:
-        return list(self.require_mode(mode_name).writable_globs)
-
-    def mode_descriptor_payloads(self) -> List[Dict[str, object]]:
-        return [
-            item.to_capability_metadata(self.profile_id, order=index)
-            for index, item in enumerate(self.modes)
-        ]
-
+PROFILE_PROMPT_FRAME = (
+    "你是 EmbedAgent 的受控模式原型。"
+    "请优先用中文回答，并严格遵守当前模式边界。"
+    "模式不是权限系统；权限审批由运行时单独处理。"
+    "工程结构是可探测的软约定，不是你必须强推的模板。\n\n"
+    "当前模式：{mode_name}\n"
+    "模式说明：{mode_description}\n"
+    "模式切换规则：你不能主动切换模式。若需要切换，向用户提供明确选项并等待确认；或建议用户使用 /mode 命令。\n"
+    "用户确认规则：{ask_rule}\n"
+    "写入边界：{writable_globs}"
+)
 
 BASE_READ_TOOLS = ["read_file", "list_dir", "glob_files", "grep_text"]
 BASE_DISCUSSION_TOOLS = BASE_READ_TOOLS + ["git_status", "git_log", "ask_user"]

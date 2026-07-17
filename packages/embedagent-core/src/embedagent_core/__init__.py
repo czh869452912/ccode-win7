@@ -12,13 +12,16 @@ from embedagent_core.api import (
     RuntimeDefinition,
     UserTurn,
 )
+from embedagent_core.profile import AgentModeDescriptor, AgentProfile
 
 __version__ = "0.1.0"
 
 __all__ = [
     "Agent",
+    "AgentModeDescriptor",
     "AgentObserver",
     "AgentPorts",
+    "AgentProfile",
     "AgentResult",
     "AgentSession",
     "AgentSessionView",

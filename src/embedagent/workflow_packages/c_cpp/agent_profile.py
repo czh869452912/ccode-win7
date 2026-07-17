@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from embedagent_host.runtime.agent_profiles import (
+from embedagent_core.profile import AgentModeDescriptor, AgentProfile
+from embedagent_host.runtime.profiles import (
     BASE_DISCUSSION_TOOLS,
     BASE_READ_TOOLS,
     BASE_VERIFY_TOOLS,
     BASE_WRITE_TOOLS,
     SPEC_WRITABLE_GLOBS,
-    AgentModeDescriptor,
-    AgentProfile,
 )
 
 C_CPP_DEVELOPMENT_WRITABLE_GLOBS = SPEC_WRITABLE_GLOBS + [

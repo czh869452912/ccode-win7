@@ -6,6 +6,54 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class AgentProfileTests(unittest.TestCase):
+    def test_profile_contract_is_core_owned_and_canonicalizes_sequences(self):
+        from embedagent_core.profile import AgentModeDescriptor, AgentProfile
+
+        allowed_tools = ["read_file"]
+        writable_globs = ["**/*.md"]
+        modes = [
+            AgentModeDescriptor(
+                slug="explore",
+                label="Explore",
+                description="Read project context.",
+                system_prompt="Read only.",
+                allowed_tools=allowed_tools,
+                writable_globs=writable_globs,
+            )
+        ]
+
+        profile = AgentProfile(
+            profile_id="tests.base",
+            label="Base",
+            default_mode="",
+            modes=modes,
+        )
+
+        allowed_tools.append("write_file")
+        writable_globs.append("**/*.py")
+        modes.clear()
+
+        self.assertEqual(profile.default_mode, "")
+        self.assertEqual(profile.modes, (profile.require_mode("explore"),))
+        self.assertIsInstance(profile.modes, tuple)
+        self.assertEqual(profile.modes[0].allowed_tools, ("read_file",))
+        self.assertIsInstance(profile.modes[0].allowed_tools, tuple)
+        self.assertEqual(profile.modes[0].writable_globs, ("**/*.md",))
+        self.assertIsInstance(profile.modes[0].writable_globs, tuple)
+
+    def test_profile_contract_is_frozen(self):
+        from dataclasses import FrozenInstanceError
+
+        from embedagent_core.profile import AgentModeDescriptor, AgentProfile
+
+        mode = AgentModeDescriptor("explore", "Explore", "Read.", "Read only.")
+        profile = AgentProfile("tests.base", "Base", "", [mode])
+
+        with self.assertRaises(FrozenInstanceError):
+            mode.allowed_tools = ("write_file",)
+        with self.assertRaises(FrozenInstanceError):
+            profile.modes = ()
+
     def test_c_cpp_profile_declares_current_product_modes(self):
         from embedagent.workflow_packages.c_cpp.agent_profile import (
             default_c_cpp_agent_profile,
@@ -49,7 +97,7 @@ class AgentProfileTests(unittest.TestCase):
         self.assertEqual(build["source_id"], profile.profile_id)
 
     def test_builtin_profile_color_tokens_are_generic_not_mode_names(self):
-        from embedagent_host.runtime.agent_profiles import (
+        from embedagent_host.runtime.profiles import (
             generic_agent_profile,
             html_agent_profile,
             python_agent_profile,
@@ -80,7 +128,7 @@ class AgentProfileTests(unittest.TestCase):
 
     def test_agent_profile_runtime_policy_renders_and_routes_profile_modes(self):
         from embedagent_host.runtime.agent_profile_runtime import AgentProfileRuntimePolicy
-        from embedagent_host.runtime.agent_profiles import python_agent_profile
+        from embedagent_host.runtime.profiles import python_agent_profile
 
         policy = AgentProfileRuntimePolicy(python_agent_profile())
 
@@ -97,7 +145,7 @@ class AgentProfileTests(unittest.TestCase):
         )
 
     def test_base_agent_profiles_do_not_export_c_cpp_specialization(self):
-        import embedagent_host.runtime.agent_profiles as profiles
+        import embedagent_host.runtime.profiles as profiles
 
         self.assertFalse(hasattr(profiles, "default_c_cpp_agent_profile"))
 
@@ -109,7 +157,7 @@ class AgentProfileTests(unittest.TestCase):
             "src",
             "embedagent_host",
             "runtime",
-            "agent_profiles.py",
+            "profiles.py",
         )
         with open(module_path, "r", encoding="utf-8") as handle:
             source = handle.read()
@@ -123,7 +171,7 @@ class AgentProfileTests(unittest.TestCase):
             self.assertNotIn(token, source)
 
     def test_builtin_non_c_profiles_are_domain_scoped(self):
-        from embedagent_host.runtime.agent_profiles import (
+        from embedagent_host.runtime.profiles import (
             generic_agent_profile,
             html_agent_profile,
             python_agent_profile,

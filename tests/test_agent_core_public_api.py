@@ -169,8 +169,10 @@ def base_runtime(base_ports):
 def test_standalone_agent_core_public_symbols_are_available():
     from embedagent_core import (
         Agent,
+        AgentModeDescriptor,
         AgentObserver,
         AgentPorts,
+        AgentProfile,
         AgentResult,
         AgentSession,
         AgentSessionView,
@@ -182,8 +184,10 @@ def test_standalone_agent_core_public_symbols_are_available():
 
     public_symbols = (
         Agent,
+        AgentModeDescriptor,
         AgentObserver,
         AgentPorts,
+        AgentProfile,
         AgentResult,
         AgentSession,
         AgentSessionView,
