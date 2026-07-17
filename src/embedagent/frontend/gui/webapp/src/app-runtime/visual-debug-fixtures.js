@@ -999,7 +999,7 @@ export function installVisualDebugFixtures({
   if (!windowObject || typeof dispatch !== "function") return undefined;
   const params = new URLSearchParams(locationSearch || "");
   if (params.get("visual_debug") !== "1") return undefined;
-  windowObject.__EMBEDAGENT_VISUAL_DEBUG__ = {
+  const fixtures = {
     openDiffFixture({ title = "Visual Debug Diff", diff = "", filePath = "" } = {}) {
       if (typeof openDiffFixture === "function") {
         openDiffFixture({ title, diff, filePath });
@@ -1039,6 +1039,15 @@ export function installVisualDebugFixtures({
       loadTimelineContextFixture(dispatch);
     },
   };
+  windowObject.__EMBEDAGENT_VISUAL_DEBUG__ = fixtures;
+  const initialFixture = params.get("visual_fixture");
+  if (
+    ["permission", "user_input"].includes(initialFixture) &&
+    !windowObject.__EMBEDAGENT_VISUAL_DEBUG_INITIAL_FIXTURE__
+  ) {
+    fixtures.loadInteractionFixture(initialFixture);
+    windowObject.__EMBEDAGENT_VISUAL_DEBUG_INITIAL_FIXTURE__ = initialFixture;
+  }
   return () => {
     if (windowObject.__EMBEDAGENT_VISUAL_DEBUG__) {
       delete windowObject.__EMBEDAGENT_VISUAL_DEBUG__;

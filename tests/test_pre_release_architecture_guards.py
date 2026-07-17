@@ -1519,6 +1519,7 @@ def test_gui_chrome_copy_is_app_shell_declared():
     assert "chrome={appChrome.header || {}}" in app_text
     assert "chrome={appChrome}" in app_text
     assert "chrome={appChrome.composer || {}}" in app_text
+    assert "interactionChrome={appChrome.interaction || {}}" in app_text
     assert "chrome: appChrome.surfacePanel || {}" not in app_text
     assert "chrome: appChrome.surfacePanel || {}" in surface_panel_props_text
     assert "set_lang" not in store_text
@@ -1539,7 +1540,9 @@ def test_gui_chrome_copy_is_app_shell_declared():
     assert "chrome.commandPaletteShortLabel" in header_text
     assert "chrome.brandSubtitle" in sidebar_text
     assert "chrome.placeholder" in composer_text
-    assert "chrome={chrome.interaction || {}}" in composer_text
+    assert "interactionChrome = {}" in composer_text
+    assert "chrome={interactionChrome}" in composer_text
+    assert "chrome={chrome.interaction || {}}" not in composer_text
     assert "hintLabels[hint.id]" not in composer_text
     assert "hint.label || hint.id" in composer_text
     assert "summaryForPermission(kind, copy = {})" in interaction_model_text

@@ -20,6 +20,9 @@ export function runComposerIntegrationSourceTests() {
   assert.equal(composerSource.includes("ComposerPrimaryActions"), true);
   assert.equal(composerSource.includes("BranchToolbar"), true);
   assert.equal(composerSource.includes("ComposerInteractionPanel"), true);
+  assert.equal(composerSource.includes("interactionChrome = {}"), true);
+  assert.equal(composerSource.includes("chrome={interactionChrome}"), true);
+  assert.equal(composerSource.includes("chrome={chrome.interaction || {}}"), false);
   assert.equal(composerSource.includes("dismissedTriggerKey"), true);
   assert.equal(composerSource.includes("composer-hints"), false);
   assert.equal(composerSource.includes('className="composer-hint"'), false);
@@ -47,6 +50,10 @@ export function runComposerIntegrationSourceTests() {
   assert.equal(appSource.includes("composerCommands"), true);
   assert.equal(appSource.includes("commands={composerCommands}"), true);
   assert.equal(appSource.includes("fileTree={state.fileTree}"), true);
+  assert.equal(
+    appSource.includes("interactionChrome={appChrome.interaction || {}}"),
+    true,
+  );
   assert.equal(appSource.includes("EMPTY_COMMAND_HINTS"), false);
   assert.equal(appSource.includes("commandHints"), false);
 }

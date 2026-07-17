@@ -1124,15 +1124,71 @@ async function runInteractionScenario(page) {
     window.__EMBEDAGENT_VISUAL_DEBUG__.loadInteractionFixture("permission");
   });
   await page.waitForSelector('[data-testid="composer-interaction-panel"]', { timeout: 10000 });
-  const panelText = await page.locator('[data-testid="composer-interaction-panel"]').innerText();
+  const panel = page.locator('[data-testid="composer-interaction-panel"]');
+  const panelText = await panel.innerText();
   const noOverlap = await assertNoOverlap(page);
   if (!panelText.includes("edit_file") && !panelText.includes("parser.c")) {
     throw new Error("Interaction fixture did not render permission details");
   }
+  const expectedActionLabels = [
+    "Cancel turn",
+    "Decline",
+    "Always allow this session",
+    "Approve once",
+  ];
+  for (const label of expectedActionLabels) {
+    assert.equal(panelText.includes(label), true, `Missing permission action label: ${label}`);
+  }
+  const actionButtons = page.locator(".composer-interaction-actions button");
+  assert.equal(await actionButtons.count(), expectedActionLabels.length);
+  const actionButtonBoxes = await actionButtons.evaluateAll((buttons) =>
+    buttons.map((button) => {
+      const rect = button.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    }),
+  );
+  assert.equal(
+    actionButtonBoxes.every((box) => box.width > 0 && box.height >= 28),
+    true,
+    "Permission action buttons must retain visible hit targets",
+  );
   if (!noOverlap) throw new Error("Right panel tabs overlap in interaction scenario");
+
+  const responseRoute =
+    "**/api/sessions/visual-debug-interaction/interactions/visual-permission-1/respond";
+  await page.route(responseRoute, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "resolved",
+        snapshot: {
+          session_id: "visual-debug-interaction",
+          status: "idle",
+          current_mode: "explore",
+          pending_interaction_valid: false,
+          pending_interaction: null,
+        },
+      }),
+    });
+  });
+  let responsePayload = null;
+  try {
+    const requestPromise = page.waitForRequest(responseRoute);
+    await page.getByRole("button", { name: "Approve once", exact: true }).click();
+    const request = await requestPromise;
+    responsePayload = request.postDataJSON();
+    assert.deepEqual(responsePayload, { decision: "accept" });
+    await panel.waitFor({ state: "detached", timeout: 10000 });
+  } finally {
+    await page.unroute(responseRoute);
+  }
   return {
     hasInteractionPanel: true,
     panelText,
+    actionButtonBoxes,
+    responsePayload,
+    interactionResolved: true,
     rightTabsDoNotOverlap: noOverlap,
   };
 }

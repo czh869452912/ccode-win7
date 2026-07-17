@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { normalizeAppCapabilities } from "../src/app-shell/model.js";
 import {
   buildCommandVisibilityContext,
   commandById,
@@ -142,6 +143,31 @@ export function runWorkbenchStateTests() {
   assert.equal(surfaceChromeLabels(fullAppCapabilities).bottomDrawerAriaLabel, "Output drawer");
   assert.equal(surfaceChromeLabels(fullAppCapabilities).runOutputEmptyMessage, "No output yet.");
   assert.equal(surfaceChromeLabels(fullAppCapabilities).terminationReasonPrefix, "finished");
+  const normalizedBackendCapabilities = normalizeAppCapabilities({
+    surfaces: {
+      chrome: {
+        bottom_drawer_aria_label: "Backend output drawer",
+        run_output_empty_message: "Backend output is empty.",
+        termination_reason_prefix: "backend reason",
+      },
+    },
+  });
+  assert.deepEqual(surfaceChromeLabels(normalizedBackendCapabilities), {
+    rightPanelAriaLabel: "",
+    addSurfaceLabel: "",
+    emptyTitle: "",
+    emptyBody: "",
+    surfaceActionsLabelPrefix: "",
+    closeLabelPrefix: "",
+    closeActionLabel: "",
+    closeOthersActionLabel: "",
+    closeToRightActionLabel: "",
+    closeAllActionLabel: "",
+    defaultIcon: "",
+    bottomDrawerAriaLabel: "Backend output drawer",
+    runOutputEmptyMessage: "Backend output is empty.",
+    terminationReasonPrefix: "backend reason",
+  });
   assert.equal(rightPanelLauncherSurfaceDefinitions(fullAppCapabilities)[0].title, "Preview");
   assert.equal(rightPanelLauncherSurfaceDefinitions(fullAppCapabilities)[0].commandLabel, "Show Preview");
   const describedSurfaceCommands = surfaceCommandDefinitions({

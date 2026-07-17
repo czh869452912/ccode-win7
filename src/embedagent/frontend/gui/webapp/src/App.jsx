@@ -672,6 +672,7 @@ function App() {
             />
             <Composer
               chrome={appChrome.composer || {}}
+              interactionChrome={appChrome.interaction || {}}
               value={composerDraft}
               onChange={composerController.setDraft}
               onSend={composerController.sendMessage}

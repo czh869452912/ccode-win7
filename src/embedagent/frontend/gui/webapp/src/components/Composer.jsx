@@ -22,6 +22,7 @@ function syncComposerTextareaSize(target) {
 
 export default function Composer({
   chrome = {},
+  interactionChrome = {},
   value,
   onChange,
   onSend,
@@ -188,7 +189,7 @@ export default function Composer({
       <ComposerInteractionPanel
         interaction={interaction}
         notice={interactionNotice}
-        chrome={chrome.interaction || {}}
+        chrome={interactionChrome}
         busy={interactionBusy}
         onRespond={onRespondInteraction}
       />

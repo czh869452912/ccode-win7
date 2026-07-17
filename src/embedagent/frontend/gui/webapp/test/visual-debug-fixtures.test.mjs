@@ -92,6 +92,35 @@ export function runVisualDebugFixturesTests() {
   assert.equal(skippedCleanup, undefined);
   assert.equal(skippedWindow.__EMBEDAGENT_VISUAL_DEBUG__, undefined);
 
+  const automaticDispatched = [];
+  const automaticWindow = {};
+  const automaticCleanup = installVisualDebugFixtures({
+    windowObject: automaticWindow,
+    locationSearch: "?visual_debug=1&visual_fixture=permission",
+    dispatch: (action) => automaticDispatched.push(action),
+    currentMode: "debug",
+  });
+  const automaticActivation = automaticDispatched.find(
+    (action) => action.type === "session_activated",
+  );
+  assert.ok(automaticActivation, "permission fixture should activate a session");
+  assert.equal(automaticActivation.snapshot.status, "waiting_permission");
+  assert.equal(automaticActivation.snapshot.pending_interaction.kind, "permission");
+  const automaticDispatchCount = automaticDispatched.length;
+  automaticCleanup();
+  const repeatedCleanup = installVisualDebugFixtures({
+    windowObject: automaticWindow,
+    locationSearch: "?visual_debug=1&visual_fixture=permission",
+    dispatch: (action) => automaticDispatched.push(action),
+    currentMode: "debug",
+  });
+  assert.equal(automaticDispatched.length, automaticDispatchCount);
+  repeatedCleanup();
+  assert.equal(
+    automaticWindow.__EMBEDAGENT_VISUAL_DEBUG_INITIAL_FIXTURE__,
+    "permission",
+  );
+
   const dispatched = [];
   const opened = [];
   const windowObject = {};

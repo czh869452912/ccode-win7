@@ -2222,7 +2222,9 @@ async function main() {
   assert.equal(composerSource.includes("../strings.js"), false);
   assert.equal(composerSource.includes("useLang"), false);
   assert.equal(composerSource.includes("chrome.placeholder"), true);
-  assert.equal(composerSource.includes("chrome={chrome.interaction || {}}"), true);
+  assert.equal(composerSource.includes("interactionChrome = {}"), true);
+  assert.equal(composerSource.includes("chrome={interactionChrome}"), true);
+  assert.equal(composerSource.includes("chrome={chrome.interaction || {}}"), false);
   assert.equal(composerSource.includes("hintLabels[hint.id]"), false);
   assert.equal(composerSource.includes("hint.label || hint.id"), true);
   const composerInteractionModelSource = fs.readFileSync(
