@@ -3,7 +3,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "packages" / "embedagent-workflow-cpp" / "src" / "embedagent_workflow_cpp"
-FORBIDDEN_IMPORTS = ("embedagent", "embedagent_host", "embedagent_protocol")
+FORBIDDEN_IMPORTS = (
+    "embedagent",
+    "embedagent_composition",
+    "embedagent_host",
+    "embedagent_protocol",
+)
 
 
 def _imported_modules(tree):
@@ -20,7 +25,7 @@ def test_cpp_workflow_package_exists():
     assert (PACKAGE / "component.py").is_file()
 
 
-def test_cpp_workflow_imports_only_core_and_standard_library_project_packages():
+def test_cpp_workflow_does_not_import_forbidden_workspace_packages():
     offenders = []
     for path in PACKAGE.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
