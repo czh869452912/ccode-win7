@@ -123,6 +123,11 @@ def check_site_packages(bundle_root: Path) -> Tuple[bool, List[str]]:
             "embedagent_composition",
             "embedagent_composition-0.1.0.dist-info",
         ),
+        (
+            "embedagent_workflow_cpp",
+            "embedagent_workflow_cpp",
+            "embedagent_workflow_cpp-0.1.0.dist-info",
+        ),
     )
     for display_name, import_name, dist_info_name in project_packages:
         if import_name and not (sp / import_name).is_dir():
@@ -190,7 +195,9 @@ def check_site_packages(bundle_root: Path) -> Tuple[bool, List[str]]:
 
 def _paths_exist(bundle_root: Path, paths: List[str]) -> bool:
     for relative_path in paths:
-        if not bundle_root.joinpath(*str(relative_path or "").replace("\\", "/").split("/")).exists():
+        if not bundle_root.joinpath(
+            *str(relative_path or "").replace("\\", "/").split("/")
+        ).exists():
             return False
     return True
 
@@ -219,9 +226,7 @@ def check_external_tools(bundle_root: Path) -> Tuple[bool, List[str]]:
         alternatives = tool.get("alternatives")
         if isinstance(alternatives, list):
             if not _alternative_exists(bundle_root, alternatives):
-                errors.append(
-                    "runtime_tool.%s missing: alternatives not found" % tool_id
-                )
+                errors.append("runtime_tool.%s missing: alternatives not found" % tool_id)
         elif not _paths_exist(bundle_root, list(tool.get("paths") or [])):
             errors.append("runtime_tool.%s missing: required paths not found" % tool_id)
 
@@ -231,9 +236,7 @@ def check_external_tools(bundle_root: Path) -> Tuple[bool, List[str]]:
             child_id = str(child.get("id") or "")
             child_path = str(child.get("path") or "")
             if child_path and not _contract_path(bundle_root, child_path).exists():
-                errors.append(
-                    "runtime_tool.%s.%s missing: %s" % (tool_id, child_id, child_path)
-                )
+                errors.append("runtime_tool.%s.%s missing: %s" % (tool_id, child_id, child_path))
 
     return len(errors) == 0, errors
 

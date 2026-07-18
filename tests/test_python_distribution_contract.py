@@ -88,6 +88,7 @@ CHECKER_BASELINE_DISTRIBUTIONS = (
     "embedagent-protocol",
     "embedagent-host",
     "embedagent-composition",
+    "embedagent-workflow-cpp",
     "embedagent",
 )
 
@@ -299,12 +300,13 @@ def test_wheel_checker_accepts_isolated_distribution_wheels(tmp_path):
 
 def test_wheel_checker_accepts_target_cpp_workflow_wheel(tmp_path):
     _write_valid_wheels(tmp_path)
-    _write_wheel(tmp_path, "embedagent-workflow-cpp")
 
     result, report = _run_checker(tmp_path)
+    cpp_report = _distribution_report(report, "embedagent-workflow-cpp")
 
     assert report["errors"] == []
     assert result.returncode == 0
+    assert cpp_report["requires_dist"] == ["embedagent-core ==0.1.0"]
     assert [item["name"] for item in report["distributions"]] == list(WHEEL_PACKAGES)
 
 
@@ -314,6 +316,7 @@ def test_wheel_checker_accepts_target_cpp_workflow_wheel(tmp_path):
         ("embedagent-core", ("requests ==2.0",), "unexpected_runtime_dependency"),
         ("embedagent-protocol", ("embedagent-core ==0.1.0",), "unexpected_runtime_dependency"),
         ("embedagent-composition", ("tomli ==2.4.1",), "unexpected_runtime_dependency"),
+        ("embedagent-workflow-cpp", (), "workspace_dependency_missing"),
         ("embedagent-host", ("embedagent-core ==0.1.0",), "workspace_dependency_missing"),
         (
             "embedagent-host",
@@ -579,6 +582,7 @@ def test_wheel_checker_reports_only_the_current_verified_wheel_set(tmp_path):
         "embedagent_protocol-0.1.0-py3-none-any.whl",
         "embedagent_host-0.1.0-py3-none-any.whl",
         "embedagent_composition-0.1.0-py3-none-any.whl",
+        "embedagent_workflow_cpp-0.1.0-py3-none-any.whl",
         "embedagent-0.1.0-py3-none-any.whl",
     ]
 

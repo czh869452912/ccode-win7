@@ -42,6 +42,7 @@ PROJECT_DISTRIBUTIONS = (
     "embedagent-protocol",
     "embedagent-host",
     "embedagent-composition",
+    "embedagent-workflow-cpp",
     "embedagent",
 )
 
@@ -97,7 +98,7 @@ def get_all_dependencies(project_root: str) -> List[str]:
 
 
 def build_project_wheels(project_root: str, wheelhouse: Path) -> List[Path]:
-    """Build and validate the five project distributions into a clean wheelhouse."""
+    """Build and validate the six project distributions into a clean wheelhouse."""
     root = Path(project_root).resolve()
     build_script = root / "scripts" / "build-python-distributions.py"
     check_script = root / "scripts" / "check-python-distributions.py"

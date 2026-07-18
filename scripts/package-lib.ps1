@@ -30,8 +30,8 @@ function Copy-VerifiedPythonWheels {
     if (-not (Test-Path -LiteralPath $SourceRoot -PathType Container)) {
         throw "Python wheel source directory not found: $SourceRoot"
     }
-    if (@($WheelNames).Count -ne 5) {
-        throw 'Exactly five verified Python wheel names are required.'
+    if (@($WheelNames).Count -ne 6) {
+        throw 'Exactly six verified Python wheel names are required.'
     }
 
     $sourceRootItem = Get-Item -LiteralPath $SourceRoot -Force
@@ -160,7 +160,7 @@ function Publish-VerifiedPythonWheels {
         }
         $checkerReport = ($checkerOutput -join "`n") | ConvertFrom-Json
         $verifiedNames = @($checkerReport.verified_wheels)
-        if (-not $checkerReport.ok -or $verifiedNames.Count -ne 5) {
+        if (-not $checkerReport.ok -or $verifiedNames.Count -ne 6) {
             throw 'copied Python wheelhouse failed validation'
         }
         for ($index = 0; $index -lt $verifiedNames.Count; $index++) {

@@ -14,6 +14,7 @@ WORKSPACE_MEMBERS = (
     "packages/embedagent-protocol",
     "packages/embedagent-host",
     "packages/embedagent-composition",
+    "packages/embedagent-workflow-cpp",
 )
 
 

@@ -41,9 +41,7 @@ EXPECTED = (
         "name": "embedagent-host",
         "version": "0.1.0",
         "required_prefixes": ("embedagent_host/",),
-        "forbidden_prefixes": (
-            "embedagent/",
-        ),
+        "forbidden_prefixes": ("embedagent/",),
         "forbidden_dependencies": ("pywebview",),
         "workspace_dependencies": ("embedagent-core", "embedagent-protocol"),
         "allow_other_dependencies": False,
@@ -63,6 +61,20 @@ EXPECTED = (
         "allow_other_dependencies": False,
     },
     {
+        "name": "embedagent-workflow-cpp",
+        "version": "0.1.0",
+        "required_prefixes": ("embedagent_workflow_cpp/",),
+        "forbidden_prefixes": (
+            "embedagent_core/",
+            "embedagent_host/",
+            "embedagent_protocol/",
+            "embedagent/",
+        ),
+        "forbidden_dependencies": (),
+        "workspace_dependencies": ("embedagent-core",),
+        "allow_other_dependencies": False,
+    },
+    {
         "name": "embedagent",
         "version": "0.1.0",
         "required_prefixes": ("embedagent/",),
@@ -72,6 +84,7 @@ EXPECTED = (
             "embedagent_host/",
             "embedagent/protocol/",
             "embedagent/frontend/gui/webapp/",
+            "embedagent_workflow_cpp/",
         ),
         "forbidden_dependencies": (),
         "workspace_dependencies": (
@@ -79,6 +92,7 @@ EXPECTED = (
             "embedagent-protocol",
             "embedagent-host",
             "embedagent-composition",
+            "embedagent-workflow-cpp",
         ),
         "allow_other_dependencies": True,
     },
@@ -255,9 +269,7 @@ def validate_dependency_contract(requirements, spec, report):
             destination.append(name)
 
     for name in sorted(forbidden_names):
-        report["errors"].append(
-            error("forbidden_dependency", "forbidden dependency: %s" % name)
-        )
+        report["errors"].append(error("forbidden_dependency", "forbidden dependency: %s" % name))
     for name in sorted(unexpected_names):
         report["errors"].append(
             error(
@@ -506,9 +518,7 @@ def build_report(dist_dir):
     wheels = []
     if dist_dir.is_dir():
         wheels = sorted(dist_dir.glob("*.whl"), key=lambda path: path.name)
-    expected_names = {
-        normalize_distribution_name(spec["name"]): spec["name"] for spec in EXPECTED
-    }
+    expected_names = {normalize_distribution_name(spec["name"]): spec["name"] for spec in EXPECTED}
     wheel_set_errors = []
     for wheel in wheels:
         identity = wheel_filename_identity(wheel)
@@ -522,9 +532,7 @@ def build_report(dist_dir):
             continue
         normalized_name = normalize_distribution_name(identity["distribution"])
         if normalized_name not in expected_names:
-            wheel_set_errors.append(
-                error("unexpected_wheel", "unexpected wheel: %s" % wheel.name)
-            )
+            wheel_set_errors.append(error("unexpected_wheel", "unexpected wheel: %s" % wheel.name))
     distributions = [inspect_distribution(spec, wheels) for spec in EXPECTED]
     report = {
         "schema_version": 1,

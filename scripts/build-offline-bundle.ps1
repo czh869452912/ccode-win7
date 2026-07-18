@@ -322,8 +322,8 @@ if ($LASTEXITCODE -ne 0) {
     throw "Python distribution wheelhouse failed validation: $pythonWheelsSourceRoot"
 }
 $checkerReport = ($checkerOutput -join "`n") | ConvertFrom-Json
-if (-not $checkerReport.ok -or @($checkerReport.verified_wheels).Count -ne 5) {
-    throw "Python distribution checker did not return exactly five verified_wheels: $pythonWheelsSourceRoot"
+if (-not $checkerReport.ok -or @($checkerReport.verified_wheels).Count -ne 6) {
+    throw "Python distribution checker did not return exactly six verified_wheels: $pythonWheelsSourceRoot"
 }
 Write-Host "[build] Archiving checked Python wheels..."
 $null = Publish-VerifiedPythonWheels `

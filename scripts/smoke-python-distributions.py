@@ -48,6 +48,18 @@ SCENARIOS = (
         "probe": "import embedagent_composition\n",
     },
     {
+        "name": "workflow_cpp_only",
+        "distribution": "embedagent-workflow-cpp",
+        "distributions": ("embedagent-core", "embedagent-workflow-cpp"),
+        "probe": (
+            "import importlib.util\n"
+            "from embedagent_workflow_cpp import cpp_runtime_definition\n"
+            "blocked = ('embedagent_host', 'embedagent_protocol', 'embedagent')\n"
+            "raise SystemExit(1 if any(importlib.util.find_spec(name) is not None "
+            "for name in blocked) else 0)\n"
+        ),
+    },
+    {
         "name": "product_stack",
         "distribution": "embedagent",
         "distributions": (
@@ -55,6 +67,7 @@ SCENARIOS = (
             "embedagent-protocol",
             "embedagent-host",
             "embedagent-composition",
+            "embedagent-workflow-cpp",
             "embedagent",
         ),
         "probe": (
@@ -65,6 +78,7 @@ SCENARIOS = (
             "import embedagent_core\n"
             "import embedagent_host\n"
             "import embedagent_protocol\n"
+            "import embedagent_workflow_cpp\n"
             "product_file = os.path.realpath(embedagent.__file__)\n"
             "venv_root = os.path.realpath(sys.prefix)\n"
             "inside_venv = os.path.commonpath((venv_root, product_file)) == venv_root\n"
@@ -241,7 +255,7 @@ def build_report(dist_dir, python_path, timeout):
         report["error"] = _error("python_missing", "Python executable was not found")
         return report
     checker_report = _load_checker().build_report(dist_dir)
-    if not checker_report["ok"] or len(checker_report["verified_wheels"]) != 5:
+    if not checker_report["ok"] or len(checker_report["verified_wheels"]) != 6:
         report["error"] = _error(
             "distribution_check_failed", "wheelhouse failed exact distribution validation"
         )
@@ -254,6 +268,7 @@ def build_report(dist_dir, python_path, timeout):
             "embedagent-protocol",
             "embedagent-host",
             "embedagent-composition",
+            "embedagent-workflow-cpp",
             "embedagent",
         ),
         verified_paths,

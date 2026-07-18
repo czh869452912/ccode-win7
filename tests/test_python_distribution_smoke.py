@@ -45,6 +45,7 @@ def test_smoke_scenarios_cover_independent_and_composed_stacks():
         "protocol_only",
         "host_stack",
         "composition_only",
+        "workflow_cpp_only",
         "product_stack",
     ]
     assert smoke.SCENARIOS[0]["distribution"] == "embedagent-core"
@@ -54,16 +55,22 @@ def test_smoke_scenarios_cover_independent_and_composed_stacks():
         "embedagent-protocol",
         "embedagent-host",
     )
-    assert smoke.SCENARIOS[4]["distribution"] == "embedagent"
+    assert smoke.SCENARIOS[4]["distribution"] == "embedagent-workflow-cpp"
     assert smoke.SCENARIOS[4]["distributions"] == (
+        "embedagent-core",
+        "embedagent-workflow-cpp",
+    )
+    assert smoke.SCENARIOS[5]["distribution"] == "embedagent"
+    assert smoke.SCENARIOS[5]["distributions"] == (
         "embedagent-core",
         "embedagent-protocol",
         "embedagent-host",
         "embedagent-composition",
+        "embedagent-workflow-cpp",
         "embedagent",
     )
-    assert "embedagent.__file__" in smoke.SCENARIOS[4]["probe"]
-    assert "sys.prefix" in smoke.SCENARIOS[4]["probe"]
+    assert "embedagent.__file__" in smoke.SCENARIOS[5]["probe"]
+    assert "sys.prefix" in smoke.SCENARIOS[5]["probe"]
 
 
 def test_smoke_install_command_is_strictly_offline(tmp_path):
@@ -355,7 +362,7 @@ def test_external_wheelhouse_build_check_and_smoke_preserve_siblings(tmp_path):
         timeout=120,
     )
     assert smoke.returncode == 0, smoke.stdout + smoke.stderr
-    assert len(list(external.glob("*.whl"))) == 5
+    assert len(list(external.glob("*.whl"))) == 6
     assert sibling.read_text(encoding="ascii") == "keep"
 
 
@@ -376,13 +383,14 @@ def test_export_dependencies_supports_external_output_directory(tmp_path, monkey
 
     exporter.export_site_packages(str(ROOT), str(output), "3.8")
 
-    assert len(list((output / "wheels").glob("*.whl"))) == 5
+    assert len(list((output / "wheels").glob("*.whl"))) == 6
     for package_name in (
         "embedagent",
         "embedagent_core",
         "embedagent_protocol",
         "embedagent_host",
         "embedagent_composition",
+        "embedagent_workflow_cpp",
     ):
         assert (output / "site-packages" / package_name).is_dir()
     assert sibling.read_text(encoding="ascii") == "keep"
@@ -435,6 +443,13 @@ def _write_installable_distribution_set(dist_dir):
     _write_installable_wheel(dist_dir, "embedagent-composition", "embedagent_composition")
     _write_installable_wheel(
         dist_dir,
+        "embedagent-workflow-cpp",
+        "embedagent_workflow_cpp",
+        "def cpp_runtime_definition():\n    return None\n",
+        dependencies=("embedagent-core ==0.1.0",),
+    )
+    _write_installable_wheel(
+        dist_dir,
         "embedagent",
         "embedagent",
         dependencies=(
@@ -442,6 +457,7 @@ def _write_installable_distribution_set(dist_dir):
             "embedagent-protocol ==0.1.0",
             "embedagent-host ==0.1.0",
             "embedagent-composition ==0.1.0",
+            "embedagent-workflow-cpp ==0.1.0",
         ),
     )
 

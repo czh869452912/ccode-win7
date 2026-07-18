@@ -33,6 +33,7 @@ PROJECT_PACKAGE_LAYOUTS = (
     ("embedagent_protocol", "embedagent_protocol-0.1.0.dist-info"),
     ("embedagent_host", "embedagent_host-0.1.0.dist-info"),
     ("embedagent_composition", "embedagent_composition-0.1.0.dist-info"),
+    ("embedagent_workflow_cpp", "embedagent_workflow_cpp-0.1.0.dist-info"),
 )
 
 
@@ -84,9 +85,11 @@ def _write_checker_wheelhouse(root):
         ("embedagent-protocol", "embedagent_protocol"),
         ("embedagent-host", "embedagent_host"),
         ("embedagent-composition", "embedagent_composition"),
+        ("embedagent-workflow-cpp", "embedagent_workflow_cpp"),
         ("embedagent", "embedagent"),
     )
     dependencies = {
+        "embedagent-workflow-cpp": ("embedagent-core ==0.1.0",),
         "embedagent-host": (
             "embedagent-core ==0.1.0",
             "embedagent-protocol ==0.1.0",
@@ -96,6 +99,7 @@ def _write_checker_wheelhouse(root):
             "embedagent-protocol ==0.1.0",
             "embedagent-host ==0.1.0",
             "embedagent-composition ==0.1.0",
+            "embedagent-workflow-cpp ==0.1.0",
         ),
     }
     names = []
@@ -439,6 +443,7 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
         "embedagent_protocol-0.1.0-py3-none-any.whl",
         "embedagent_host-0.1.0-py3-none-any.whl",
         "embedagent_composition-0.1.0-py3-none-any.whl",
+        "embedagent_workflow_cpp-0.1.0-py3-none-any.whl",
         "embedagent-0.1.0-py3-none-any.whl",
     ]
 
@@ -487,6 +492,7 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
             "embedagent-protocol",
             "embedagent-host",
             "embedagent-composition",
+            "embedagent-workflow-cpp",
             "embedagent",
         ):
             self.assertIn(name, script)
@@ -520,6 +526,7 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
             "embedagent_protocol",
             "embedagent_host",
             "embedagent_composition",
+            "embedagent_workflow_cpp",
         ):
             self.assertIn('"{0}"'.format(package), script)
             self.assertIn('"{0}-0.1.0.dist-info"'.format(package), script)
@@ -876,6 +883,8 @@ class TestStageJsonReports(unittest.TestCase):
                 "runtime/site-packages/embedagent_host-0.1.0.dist-info/METADATA",
                 "runtime/site-packages/embedagent_composition/__init__.py",
                 "runtime/site-packages/embedagent_composition-0.1.0.dist-info/METADATA",
+                "runtime/site-packages/embedagent_workflow_cpp/__init__.py",
+                "runtime/site-packages/embedagent_workflow_cpp-0.1.0.dist-info/METADATA",
                 "runtime/site-packages/prompt_toolkit/__init__.py",
                 "runtime/site-packages/rich/__init__.py",
                 "runtime/site-packages/webview/__init__.py",
@@ -981,6 +990,7 @@ class TestStageJsonReports(unittest.TestCase):
                 "embedagent_protocol",
                 "embedagent_host",
                 "embedagent_composition",
+                "embedagent_workflow_cpp",
                 "embedagent",
             ]:
                 (site_packages / name).mkdir()
