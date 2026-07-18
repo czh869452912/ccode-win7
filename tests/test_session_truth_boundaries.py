@@ -31,11 +31,15 @@ def test_history_projection_is_transcript_backed_and_bootstrap_owned():
     adapter_source = _read(HOST_SOURCE / "inprocess_adapter.py")
     bootstrap_source = _read(HOST_SOURCE / "runtime" / "session_bootstrap_service.py")
     history_source = _read(HOST_SOURCE / "runtime" / "session_history.py")
+    projection_source = _read(HOST_SOURCE / "runtime" / "session_projection.py")
 
     assert "TranscriptStore" in adapter_source
-    assert "SessionHistoryAssembler" in adapter_source
+    assert "SessionProjectionService" in adapter_source
+    assert "SessionHistoryAssembler" not in adapter_source
     assert "history_loader" in bootstrap_source
     assert "transcript_event_count" in history_source
+    assert "OperationLogReducer" in projection_source
+    assert "TurnExperienceReducer" in projection_source
     assert "timeline_store" not in adapter_source
     assert "timeline_store" not in bootstrap_source
     assert "timeline_store" not in history_source

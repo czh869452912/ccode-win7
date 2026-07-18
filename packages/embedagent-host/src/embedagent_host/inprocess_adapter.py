@@ -26,7 +26,6 @@ from embedagent_core.profile_runtime import (
     AgentProfileToolPolicy,
     AgentProfileWritePathPolicy,
 )
-from embedagent_core.compaction_state import CompactionStateReducer
 from embedagent_host.runtime.context import ContextManager
 from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
 from embedagent_core.interaction import UserInputRequest, UserInputResponse
@@ -37,13 +36,11 @@ from embedagent_host.runtime.plan_store import PlanStore
 from embedagent_host.runtime.project_extensions import load_project_extensions
 from embedagent_host.runtime.project_memory import ProjectMemoryStore
 from embedagent_protocol import PermissionContext, PlanSnapshot
-from embedagent_core.recovery_state import RecoveryStateReducer
 from embedagent_host.hosted_command_service import HostedCommandService
 from embedagent_host.hosted_interaction_service import (
     HostedInteractionService,
 )
 from embedagent_core.runtime_capability_service import RuntimeCapabilityService
-from embedagent_core.runtime_config import RuntimeConfigReducer
 from embedagent_core.session import (
     Action,
     AssistantReply,
@@ -53,8 +50,7 @@ from embedagent_core.session import (
     TurnOutcome,
 )
 from embedagent_host.runtime.session_bootstrap_service import SessionBootstrapService
-from embedagent_host.runtime.session_history import SessionHistoryAssembler
-from embedagent_core.session_operation_log import OperationLogReducer, operation_diagnostics
+from embedagent_core.session_operation_log import operation_diagnostics
 from embedagent_host.runtime.session_projector import SessionSnapshotProjector
 from embedagent_core.session_restore import SessionRestorer
 from embedagent_host.runtime.session_runtime import ManagedSession
@@ -64,6 +60,7 @@ from embedagent_host.runtime.services import (
     SessionLifecycleManager,
     WorkspaceFileService,
 )
+from embedagent_host.runtime.session_projection import SessionProjectionService
 from embedagent_host.runtime.skill_index import build_skill_index
 from embedagent_host.runtime.slash_commands import (
     SlashCommandRegistry,
@@ -73,7 +70,6 @@ from embedagent_host.runtime.slash_commands import (
 from embedagent_host.runtime.tools import ToolRuntime
 from embedagent_host.runtime.tool_commit import ToolCommitCoordinator
 from embedagent_host.runtime.transcript_store import TranscriptStore
-from embedagent_core.turn_experience import TurnExperienceReducer
 from embedagent_host.runtime.workspace_intelligence import WorkspaceIntelligenceBroker
 from embedagent_host.runtime.workspace_profile import build_workspace_profile_message
 
@@ -316,6 +312,15 @@ class InProcessAdapter(object):
             mode_resolver=self._mode_runtime_policy.require_mode,
             default_mode=self._mode_runtime_policy.default_mode(),
         )
+        self.session_projection = SessionProjectionService(
+            transcript_store=self.transcript_store,
+            summary_loader=self._read_summary_for_state,
+            runtime_snapshot_lookup=getattr(self.tools, "runtime_environment_snapshot", None),
+            tool_catalog_lookup=getattr(self.tools, "tool_catalog_entry", None),
+            extension_diagnostics_lookup=self.extension_manager.diagnostics,
+            snapshot_projector=self.snapshot_projector,
+        )
+
         self._bootstrap_service = SessionBootstrapService(
             snapshot_loader=self.get_session_snapshot,
             history_loader=self.build_session_history,
@@ -645,14 +650,7 @@ class InProcessAdapter(object):
         )
 
     def _refresh_reducer_state(self, state: ManagedSession) -> None:
-        try:
-            events = self.transcript_store.load_events(state.session.session_id)
-        except (OSError, ValueError, TypeError):
-            return
-        state.runtime_config = RuntimeConfigReducer().reduce(events).to_dict()
-        state.compaction_state = CompactionStateReducer().reduce(events).to_dict()
-        state.recovery_state = RecoveryStateReducer().reduce(events).to_dict()
-        state.turn_experience = TurnExperienceReducer().reduce(events).to_dict()
+        self.session_projection.refresh(state)
 
     def _runtime_summary_for_recovery(self, runtime_config: Dict[str, Any]) -> Dict[str, Any]:
         resource_revision = runtime_config.get("resource_revision")
@@ -942,9 +940,8 @@ class InProcessAdapter(object):
             operation_diagnostics=operation_diagnostics(restored.operation_state),
             compaction_state=restored.compaction_state.to_dict(),
             recovery_state=restored.recovery_state.to_dict(),
-            runtime_config=RuntimeConfigReducer()
-            .reduce(events[: int(restored.consumed_event_count or 0)])
-            .to_dict(),
+            turn_experience=restored.turn_experience.to_dict(),
+            runtime_config=restored.runtime_config.to_dict(),
         )
         state.current_mode = state.agent_session._host_initialize_session(
             session,
@@ -1014,27 +1011,11 @@ class InProcessAdapter(object):
 
     def get_session_snapshot(self, session_id: str) -> Dict[str, Any]:
         state = self._ensure_session_active(session_id)
-        runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
-        runtime = runtime_lookup() if callable(runtime_lookup) else {}
         with state.lock:
-            self._refresh_operation_diagnostics(state)
-            self._refresh_reducer_state(state)
-            summary = self._read_summary_for_state(state)
-            return self.snapshot_projector.build_snapshot(
+            return self.session_projection.build_snapshot(
                 state,
-                summary,
-                runtime,
                 pending_interaction=_pending_interaction_payload(state),
-                extension_diagnostics=self.extension_manager.diagnostics(),
             )
-
-    def _refresh_operation_diagnostics(self, state: ManagedSession) -> None:
-        try:
-            events = self.transcript_store.load_events(state.session.session_id)
-        except (OSError, ValueError, TypeError):
-            return
-        operation_state = OperationLogReducer(close_unfinished=False).reduce(events)
-        state.operation_diagnostics = operation_diagnostics(operation_state)
 
     def get_workspace_snapshot(self) -> Dict[str, Any]:
         counts = self._count_workspace_items()
@@ -1085,36 +1066,11 @@ class InProcessAdapter(object):
         try:
             state = self._ensure_session_active(reference, mode)
         except ValueError as exc:
-            return {
-                "session_id": str(reference or ""),
-                "history_source": "transcript_restore",
-                "turns": [],
-                "current_interaction": None,
-                "integrity": {
-                    "status": "unavailable",
-                    "restore_stop_reason": self._history_unavailable_reason(exc),
-                    "consumed_event_count": 0,
-                    "transcript_event_count": 0,
-                },
-            }
-        assembler = SessionHistoryAssembler(
-            tool_catalog_lookup=getattr(self.tools, "tool_catalog_entry", None),
-            runtime_snapshot_lookup=getattr(self.tools, "runtime_environment_snapshot", None),
-        )
-        integrity_status = "healthy"
-        history_source = "session_state"
-        if int(state.restore_transcript_event_count or 0) > 0:
-            history_source = "transcript_restore"
-            if str(state.restore_stop_reason or "").strip():
-                integrity_status = "partial"
-        return assembler.build(
-            state.session,
-            history_source=history_source,
-            integrity_status=integrity_status,
-            restore_stop_reason=str(state.restore_stop_reason or ""),
-            consumed_event_count=int(state.restore_consumed_event_count or 0),
-            transcript_event_count=int(state.restore_transcript_event_count or 0),
-        )
+            return self.session_projection.unavailable_history(
+                str(reference or ""),
+                self._history_unavailable_reason(exc),
+            )
+        return self.session_projection.build_history(state)
 
     def get_session_bootstrap(self, reference: str, mode: str = "") -> Dict[str, Any]:
         state = self._ensure_session_active(reference, mode)

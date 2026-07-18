@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 from embedagent_core.compacted_history import CompactedHistoryReducer
 from embedagent_core.compaction_state import CompactionState, CompactionStateReducer
 from embedagent_core.recovery_state import RecoveryState, RecoveryStateReducer
+from embedagent_core.runtime_config import RuntimeConfigReducer, RuntimeConfigState
 from embedagent_core.session import (
     Action,
     AssistantReply,
@@ -19,6 +20,7 @@ from embedagent_core.session import (
     TranscriptMessage,
 )
 from embedagent_core.session_operation_log import OperationLogReducer, OperationLogState
+from embedagent_core.turn_experience import TurnExperienceReducer, TurnExperienceState
 
 _LOG = logging.getLogger(__name__)
 
@@ -35,6 +37,8 @@ class SessionRestoreResult:
     operation_state: OperationLogState = field(default_factory=OperationLogState)
     compaction_state: CompactionState = field(default_factory=CompactionState)
     recovery_state: RecoveryState = field(default_factory=RecoveryState)
+    runtime_config: RuntimeConfigState = field(default_factory=RuntimeConfigState)
+    turn_experience: TurnExperienceState = field(default_factory=TurnExperienceState)
 
 
 class SessionRestorer(object):
@@ -379,6 +383,8 @@ class SessionRestorer(object):
         operation_state = OperationLogReducer().reduce(consumed_events)
         compaction_state = CompactionStateReducer().reduce(consumed_events)
         recovery_state = RecoveryStateReducer().reduce(consumed_events)
+        runtime_config = RuntimeConfigReducer().reduce(consumed_events)
+        turn_experience = TurnExperienceReducer().reduce(consumed_events)
         return SessionRestoreResult(
             session=session,
             current_mode=current_mode,
@@ -390,6 +396,8 @@ class SessionRestorer(object):
             operation_state=operation_state,
             compaction_state=compaction_state,
             recovery_state=recovery_state,
+            runtime_config=runtime_config,
+            turn_experience=turn_experience,
         )
 
     def _should_skip_error(self, error_reason: str) -> bool:

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from embedagent_core.session import Session
+from embedagent_core.session_operation_log import operation_diagnostics
 from embedagent_core.session_restore import SessionRestorer
 
 from embedagent_host.runtime.plan_store import PlanStore
@@ -98,6 +99,11 @@ class SessionLifecycleManager(object):
             restore_stop_reason=str(restored.stop_reason or ""),
             restore_consumed_event_count=int(restored.consumed_event_count or 0),
             restore_transcript_event_count=int(restored.transcript_event_count or 0),
+            operation_diagnostics=operation_diagnostics(restored.operation_state),
+            runtime_config=restored.runtime_config.to_dict(),
+            compaction_state=restored.compaction_state.to_dict(),
+            recovery_state=restored.recovery_state.to_dict(),
+            turn_experience=restored.turn_experience.to_dict(),
         )
         if session.pending_interaction is not None:
             if session.pending_interaction.kind == "permission":
