@@ -1654,7 +1654,7 @@ async function main() {
   assert.equal(visualDebugFixturesSource.includes("thinkingActive: true"), true);
 
   const storeSource = fs.readFileSync(
-    webappSourcePath("store.js"),
+    webappSourcePath("client-runtime", "runtime-reducer.js"),
     "utf8",
   );
   assert.equal(storeSource.includes("createTerminalState"), true);
