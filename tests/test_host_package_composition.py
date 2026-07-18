@@ -193,8 +193,7 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertNotIn("default_c_cpp_agent_application_record", source)
         self.assertNotIn("embedagent_workflow_cpp", source)
         self.assertNotIn(
-            "from embedagent_workflow_cpp.application import "
-            "build_c_cpp_agent_application",
+            "from embedagent_workflow_cpp.application import " "build_c_cpp_agent_application",
             source,
         )
 

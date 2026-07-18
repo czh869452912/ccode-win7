@@ -83,9 +83,7 @@ def default_c_cpp_agent_application_record(
         profile_id=default_application_id,
         profile_kind="workflow_package",
         workflow_package_ids=(C_WORKFLOW_PACKAGE_ID,),
-        builder_path=(
-            "embedagent_workflow_cpp.application:" "build_c_cpp_agent_application"
-        ),
+        builder_path=("embedagent_workflow_cpp.application:" "build_c_cpp_agent_application"),
         source_type="builtin",
         source_id="embedagent_workflow_cpp",
         default=True,

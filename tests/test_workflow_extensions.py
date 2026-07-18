@@ -11,11 +11,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 CORE_SOURCE = _REPO_ROOT / "packages" / "embedagent-core" / "src" / "embedagent_core"
 PROTOCOL_SOURCE = _REPO_ROOT / "packages" / "embedagent-protocol" / "src" / "embedagent_protocol"
 CPP_WORKFLOW_SOURCE = (
-    _REPO_ROOT
-    / "packages"
-    / "embedagent-workflow-cpp"
-    / "src"
-    / "embedagent_workflow_cpp"
+    _REPO_ROOT / "packages" / "embedagent-workflow-cpp" / "src" / "embedagent_workflow_cpp"
 )
 
 
@@ -290,9 +286,7 @@ def test_c_harness_extension_uses_generic_workflow_prompt_kind(tmp_path):
 
 def test_workflow_prompt_descriptor_uses_generic_name():
     extensions_source = (CORE_SOURCE / "extensions.py").read_text(encoding="utf-8")
-    harness_source = (
-        CPP_WORKFLOW_SOURCE / "extension.py"
-    ).read_text(encoding="utf-8")
+    harness_source = (CPP_WORKFLOW_SOURCE / "extension.py").read_text(encoding="utf-8")
 
     assert "class WorkflowPrompt" in extensions_source
     assert "HarnessPrompt = WorkflowPrompt" not in extensions_source
@@ -351,9 +345,7 @@ def test_c_harness_workflow_projection_builder_shapes_generic_payload():
 
 
 def test_c_harness_extension_delegates_workflow_projection_to_builder():
-    source = (
-        CPP_WORKFLOW_SOURCE / "extension.py"
-    ).read_text(encoding="utf-8")
+    source = (CPP_WORKFLOW_SOURCE / "extension.py").read_text(encoding="utf-8")
 
     assert "build_c_harness_workflow_projection" in source
     assert '"id": "c_harness"' not in source
@@ -367,9 +359,7 @@ def test_query_engine_no_longer_imports_task_graph_directly():
 
 
 def test_c_harness_extension_no_longer_reads_session_task_graph_directly():
-    source = (
-        CPP_WORKFLOW_SOURCE / "extension.py"
-    ).read_text(encoding="utf-8")
+    source = (CPP_WORKFLOW_SOURCE / "extension.py").read_text(encoding="utf-8")
 
     assert "session.task_graph" not in source
     assert 'getattr(session, "task_graph"' not in source
@@ -378,10 +368,7 @@ def test_c_harness_extension_no_longer_reads_session_task_graph_directly():
 def test_query_engine_no_longer_imports_default_harness_extension_directly():
     source = (CORE_SOURCE / "query_engine.py").read_text(encoding="utf-8")
 
-    assert (
-        "from embedagent_workflow_cpp.extension import CHarnessWorkflowExtension"
-        not in source
-    )
+    assert "from embedagent_workflow_cpp.extension import CHarnessWorkflowExtension" not in source
     assert "CHarnessWorkflowExtension(" not in source
 
 
@@ -534,10 +521,7 @@ def test_inprocess_adapter_gets_default_workflow_from_agent_application():
         / "inprocess_adapter.py"
     ).read_text(encoding="utf-8")
 
-    assert (
-        "from embedagent_workflow_cpp.extension import CHarnessWorkflowExtension"
-        not in source
-    )
+    assert "from embedagent_workflow_cpp.extension import CHarnessWorkflowExtension" not in source
     assert "CHarnessWorkflowExtension(" not in source
     assert "build_default_extension_set" not in source
     assert "build_agent_application" in source

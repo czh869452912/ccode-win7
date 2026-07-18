@@ -319,10 +319,7 @@ def test_builtin_and_c_cpp_workflow_tools_have_source_metadata(tmp_path):
     assert runtime.tool_catalog_entry("read_file")["source_type"] == "builtin"
     assert runtime.tool_catalog_entry("read_file")["source_id"] == "embedagent.core"
     assert runtime.tool_catalog_entry("run_recipe")["source_type"] == "workflow_package"
-    assert (
-        runtime.tool_catalog_entry("run_recipe")["source_id"]
-        == "embedagent_workflow_cpp"
-    )
+    assert runtime.tool_catalog_entry("run_recipe")["source_id"] == "embedagent_workflow_cpp"
 
 
 class DynamicToolExtension(object):

@@ -764,7 +764,10 @@ def test_development_tracker_uses_current_c_cpp_workflow_package_paths():
     assert offenders == []
     assert "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/extension.py" in text
     assert "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application.py" in text
-    assert "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workflow_projection.py" in text
+    assert (
+        "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workflow_projection.py"
+        in text
+    )
     assert "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/packs.py" in text
 
 
