@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import { createJsonHttpClient } from "../src/app-runtime/http-client.js";
+import { runProtocolAdapterTests } from "./protocol-adapter.test.mjs";
 
 function response({ ok = true, status = 200, payload = null } = {}) {
   return {
@@ -11,6 +12,8 @@ function response({ ok = true, status = 200, payload = null } = {}) {
 }
 
 export async function runHttpClientTests() {
+  await runProtocolAdapterTests();
+
   const calls = [];
   const client = createJsonHttpClient({
     fetchImpl: async (url, options = {}) => {
