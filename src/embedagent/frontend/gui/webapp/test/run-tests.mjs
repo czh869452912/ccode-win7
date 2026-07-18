@@ -64,6 +64,7 @@ import { runAppHomeModelTests } from "./app-home-model.test.mjs";
 import { runBranchToolbarModelTests } from "./branch-toolbar-model.test.mjs";
 import { runCommandCapabilitiesTests } from "./command-capabilities.test.mjs";
 import { runProtocolNormalizerTests } from "./protocol-normalizer.test.mjs";
+import { runDynamicAgentCapabilityTests } from "./dynamic-agent-capabilities.test.mjs";
 import { runCommandPaletteModelTests } from "./command-palette-model.test.mjs";
 import { runCommandPaletteSourceTests } from "./command-palette-source.test.mjs";
 import { runComposerCommandSearchTests } from "./composer-command-search.test.mjs";
@@ -1654,7 +1655,7 @@ async function main() {
   assert.equal(visualDebugFixturesSource.includes("thinkingActive: true"), true);
 
   const storeSource = fs.readFileSync(
-    webappSourcePath("store.js"),
+    webappSourcePath("client-runtime", "runtime-reducer.js"),
     "utf8",
   );
   assert.equal(storeSource.includes("createTerminalState"), true);
@@ -2464,6 +2465,7 @@ async function main() {
   runAppHomeModelTests();
   runBranchToolbarModelTests();
   runProtocolNormalizerTests();
+  runDynamicAgentCapabilityTests();
   runCommandCapabilitiesTests();
   runCommandPaletteModelTests();
   runCommandPaletteSourceTests();

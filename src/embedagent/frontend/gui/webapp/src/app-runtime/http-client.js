@@ -1,3 +1,5 @@
+import { createAgentAppProtocolAdapter } from "../client-runtime/protocol-adapter.js";
+
 function defaultFetch(url, options) {
   return fetch(url, options);
 }
@@ -10,12 +12,12 @@ function errorDetail(payload) {
 export function createJsonHttpClient({ fetchImpl } = {}) {
   const request = typeof fetchImpl === "function" ? fetchImpl : defaultFetch;
 
-  async function fetchJson(url, options) {
+  async function rawFetchJson(url, options) {
     const res = await request(url, options);
     const payload = await res.json().catch(() => null);
     if (!res.ok) {
       const detail = errorDetail(payload);
-      const error = new Error(detail || `HTTP ${res.status}`);
+      const error = new Error(detail || "HTTP " + res.status);
       error.status = res.status;
       error.detail = detail;
       throw error;
@@ -23,7 +25,15 @@ export function createJsonHttpClient({ fetchImpl } = {}) {
     return payload;
   }
 
-  return { fetchJson };
+  const protocolAdapter = createAgentAppProtocolAdapter({
+    fetchJson: rawFetchJson,
+  });
+  return {
+    fetchJson: protocolAdapter.fetchJson,
+    protocolAdapter,
+  };
 }
 
-export const { fetchJson } = createJsonHttpClient();
+const defaultClient = createJsonHttpClient();
+export const { fetchJson } = defaultClient;
+export const protocolAdapter = defaultClient.protocolAdapter;

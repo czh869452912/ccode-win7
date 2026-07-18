@@ -842,7 +842,9 @@ def test_gui_command_result_diff_surface_is_payload_driven():
     text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"
     )
-    store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
+    runtime_reducer_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/client-runtime/runtime-reducer.js"
+    )
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     diff_controller_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/diff-surface-controller.js"
@@ -856,10 +858,10 @@ def test_gui_command_result_diff_surface_is_payload_driven():
     assert "createDiffSurfaceState" in diff_controller_text
     assert 'type: "diff_surface_opened"' in diff_controller_text
     assert "timelineItems" in diff_controller_text
-    assert "workbenchSurfaceAllowedForApp" in store_text
-    assert "surfaceDefinitionFor(kind, app.capabilities)" in store_text
-    assert "bottomDrawerSurfaceDefinitionFor(kind, app.capabilities)" in store_text
-    assert 'kind: "diff"' in store_text
+    assert "workbenchSurfaceAllowedForApp" in runtime_reducer_text
+    assert "surfaceDefinitionFor(kind, app.capabilities)" in runtime_reducer_text
+    assert "bottomDrawerSurfaceDefinitionFor(kind, app.capabilities)" in runtime_reducer_text
+    assert 'kind: "diff"' in runtime_reducer_text
 
 
 def test_gui_command_result_session_switch_is_payload_driven():
@@ -2421,7 +2423,9 @@ def test_gui_has_no_split_tool_catalog_facade():
 
 def test_gui_workbench_entrypoints_are_app_capability_driven():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
+    runtime_reducer_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/client-runtime/runtime-reducer.js"
+    )
     commands_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js")
     ui_state_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/ui-state.js")
     keybindings_text = _read(
@@ -2448,7 +2452,7 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert "surfaceCommandDefinitions(appCapabilities)" in commands_text
     assert "bottomDrawerCommandDefinitions(appCapabilities)" in commands_text
     assert "if (declared === null) return commands" not in commands_text
-    assert "sanitizeWorkbenchUiStateForAppCapabilities" in store_text
+    assert "sanitizeWorkbenchUiStateForAppCapabilities" in runtime_reducer_text
     assert "sanitizeWorkbenchUiStateForAppCapabilities" in ui_state_text
     assert "persistedSurfaceDefinitions(appCapabilities, placement)" in ui_state_text
     assert "persistedSurfaceFrom" in ui_state_text

@@ -94,15 +94,6 @@ const NO_FILE_CAPABILITIES = Object.freeze({
         launcherOrder: 10,
         command: true,
       },
-      {
-        id: "files",
-        kind: "files",
-        title: "Files",
-        commandLabel: "Open files",
-        launcher: true,
-        launcherOrder: 30,
-        command: true,
-      },
     ],
   },
 });

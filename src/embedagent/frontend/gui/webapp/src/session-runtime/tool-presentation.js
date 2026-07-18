@@ -17,6 +17,9 @@ export function resolveToolPresentation(toolName, catalog = {}) {
     declared,
     label: text(source.label, name),
     iconKey: text(source.iconKey || source.icon_key, "wrench"),
+    iconKeyDeclared: source.iconKeyDeclared !== undefined
+      ? Boolean(source.iconKeyDeclared)
+      : Boolean(text(source.iconKey || source.icon_key)),
     rendererKey: text(source.rendererKey || source.renderer_key, "generic"),
     permissionCategory: text(source.permissionCategory || source.permission_category, "other"),
     previewArg: text(metadata.previewArg || metadata.preview_arg),

@@ -1,5 +1,5 @@
 import React, { startTransition, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { INITIAL_REQUESTED_MODE, initialState, reducer } from "./store.js";
+import { INITIAL_REQUESTED_MODE, initialState, runtimeReducer } from "./client-runtime/runtime-reducer.js";
 import { normalizeSessionPayload } from "./state-helpers.js";
 import { createSessionTransportState } from "./session-runtime/session-transport-state.js";
 import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
@@ -89,7 +89,7 @@ function readCurrentSessionCapabilityModel(stateRef) {
 }
 
 function App() {
-  const [state, dispatch] = useReducer(reducer, initialState, (baseState) => ({
+  const [state, dispatch] = useReducer(runtimeReducer, initialState, (baseState) => ({
     ...baseState,
     workbench: readPersistedWorkbenchUiState(),
   }));

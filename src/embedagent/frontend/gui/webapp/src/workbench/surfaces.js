@@ -348,9 +348,15 @@ function configuredSurfaceDefinitionFor(kind, placement, appCapabilities = null)
   const normalized = String(kind || "");
   const staticDefinition = surfaceDefinitionForPlacement(normalized, placement);
   if (!appCapabilities) return staticDefinition;
-  const capability = surfaceCapabilityDefinitions(appCapabilities, placement)
-    .find((item) => item.kind === normalized);
-  if (!capability) return null;
+  const capabilities = surfaceCapabilityDefinitions(appCapabilities, placement);
+  const capability = capabilities.find((item) => item.kind === normalized);
+  if (!capability) {
+    const fileSurfaceEnabled =
+      normalized === "file" &&
+      Boolean(staticDefinition) &&
+      capabilities.some((item) => item.kind === "files");
+    return fileSurfaceEnabled ? staticDefinition : null;
+  }
   const definition = staticDefinition || dynamicSurfaceDefinitionFromCapability(capability, placement);
   if (!definition) return null;
   const merged = mergedSurfaceDefinition(definition, capability);
