@@ -11,6 +11,7 @@ import {
   openPreviewSurface,
   openSurface,
   openTerminalSurface,
+  surfaceDefinitionFor,
   splitTerminalSurfaceForWorkbench,
   activateTerminalPaneForWorkbench,
   closeTerminalPaneForWorkbench,
@@ -35,6 +36,14 @@ function serializedTextFor(value) {
 }
 
 export function runRightPanelStoreParityTests() {
+  const internalFileDefinition = surfaceDefinitionFor("file", {
+    surfaces: {
+      rightPanel: [{ id: "files", kind: "files", title: "Files" }],
+    },
+  });
+  assert.equal(internalFileDefinition.bodyKind, "file_preview");
+  assert.equal(internalFileDefinition.launcher, false);
+
   let state = createWorkbenchState();
 
   const emptyPreviewState = createWorkbenchState();

@@ -82,10 +82,12 @@ export function normalizeToolDescriptor(item = {}) {
   const data = objectValue(item);
   const name = firstText(data.name, data.id);
   if (!name) return null;
+  const iconKey = firstText(camelOrSnake(data, "iconKey", "icon_key"));
   return {
     name,
     label: firstText(data.label, name),
-    iconKey: firstText(camelOrSnake(data, "iconKey", "icon_key"), "wrench"),
+    iconKey: iconKey || "wrench",
+    iconKeyDeclared: Boolean(iconKey),
     rendererKey: firstText(camelOrSnake(data, "rendererKey", "renderer_key"), "generic"),
     permissionCategory: firstText(
       camelOrSnake(data, "permissionCategory", "permission_category"),

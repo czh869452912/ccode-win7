@@ -828,7 +828,7 @@ export function normalizeWorkEntry(item, options = {}) {
     itemType,
     requestKind,
     toolLifecycleStatus,
-    iconName: toolPresentation.declared ? toolPresentation.iconKey : "",
+    iconName: toolPresentation.declared && toolPresentation.iconKeyDeclared ? toolPresentation.iconKey : "",
     sourceActivityKind: firstString(
       item?.sourceActivityKind,
       item?.source_activity_kind,
