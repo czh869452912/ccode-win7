@@ -3,7 +3,29 @@ from __future__ import annotations
 import fnmatch
 from typing import Any, Dict, List, Tuple
 
-from embedagent_host.runtime.profiles import PROFILE_PROMPT_FRAME
+PROFILE_PROMPT_FRAME = (
+    "你是 EmbedAgent 的受控模式原型。"
+    "请优先用中文回答，并严格遵守当前模式边界。"
+    "模式不是权限系统；权限审批由运行时单独处理。"
+    "工程结构是可探测的软约定，不是你必须强推的模板。\n\n"
+    "当前模式：{mode_name}\n"
+    "模式说明：{mode_description}\n"
+    "模式切换规则：你不能主动切换模式。若需要切换，向用户提供明确选项并等待确认；或建议用户使用 /mode 命令。\n"
+    "用户确认规则：{ask_rule}\n"
+    "写入边界：{writable_globs}"
+)
+
+BASE_READ_TOOLS = ["read_file", "list_dir", "glob_files", "grep_text"]
+BASE_DISCUSSION_TOOLS = BASE_READ_TOOLS + ["git_status", "git_log", "ask_user"]
+BASE_WRITE_TOOLS = BASE_READ_TOOLS + [
+    "write_file",
+    "edit_file",
+    "bash",
+    "author_local_capability",
+    "ask_user",
+]
+BASE_VERIFY_TOOLS = BASE_READ_TOOLS + ["bash", "ask_user"]
+SPEC_WRITABLE_GLOBS = ["**/*.md", "**/*.rst", "**/*.txt"]
 
 
 def _fnmatch_with_doublestar(path: str, pattern: str) -> bool:

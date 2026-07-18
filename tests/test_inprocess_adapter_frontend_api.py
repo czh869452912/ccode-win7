@@ -18,7 +18,7 @@ from embedagent_host.inprocess_adapter import InProcessAdapter, _should_emit_con
 from embedagent_host.runtime.tools import ToolDefinition, ToolRuntime
 from embedagent_protocol import PermissionContext
 
-from embedagent.agent_application_registry import product_agent_application_registry
+from embedagent.product_catalog import product_agent_application_registry
 
 _COUNTER = count(1)
 

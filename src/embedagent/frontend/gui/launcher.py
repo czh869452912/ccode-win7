@@ -284,9 +284,9 @@ def launch_gui(
 
         from embedagent_host.runtime.agent_applications import agent_application_capability_payload
 
-        from embedagent.agent_application_registry import product_agent_application_registry
         from embedagent.frontend.gui.backend.app_host import GUIAppHost
         from embedagent.frontend.gui.backend.server import GUIBackend
+        from embedagent.product_catalog import product_agent_application_registry
 
         def core_factory(path: str):
             _LOGGER.info("Initializing Agent Core for workspace: %s", path)

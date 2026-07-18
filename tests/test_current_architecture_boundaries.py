@@ -429,12 +429,8 @@ def test_c_workflow_tools_are_declared_only_by_c_workflow_package_or_tests():
 def test_c_cpp_agent_profile_lives_in_c_workflow_package():
     core_profile = ROOT / "packages/embedagent-core/src/embedagent_core/profile.py"
     base_profile = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/profiles.py"
-    c_profile = (
-        ROOT / "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/agent_profile.py"
-    )
-    application = (
-        ROOT / "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application.py"
-    )
+    c_profile = ROOT / "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/profile.py"
+    component = ROOT / "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py"
     loader = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py"
 
     assert core_profile.is_file()
@@ -488,15 +484,13 @@ def test_c_cpp_agent_profile_lives_in_c_workflow_package():
     assert "embedagent.workflow_packages" not in core_text
 
     assert "default_c_cpp_agent_profile" not in _read(loader)
-    assert "embedagent_workflow_cpp.agent_profile" in _read(application)
+    assert "from embedagent_workflow_cpp.profile import default_cpp_profile" in _read(component)
 
 
 def test_default_c_cpp_application_record_lives_in_c_workflow_package():
     registry = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py"
-    record = (
-        ROOT / "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application_record.py"
-    )
-    product_registry = ROOT / "src/embedagent/agent_application_registry.py"
+    record = ROOT / "src/embedagent/product_catalog.py"
+    product_registry = ROOT / "src/embedagent/product_catalog.py"
 
     assert record.is_file()
     assert product_registry.is_file()
@@ -511,21 +505,21 @@ def test_default_c_cpp_application_record_lives_in_c_workflow_package():
         '"embedagent.c_workflow"',
         'profile_kind="default_c_cpp"',
         "embedagent_workflow_cpp",
-        "default_c_cpp_agent_application_record",
+        "default_c_cpp_application_record",
     ):
         assert token not in registry_text
     assert "AgentApplicationRegistry" in registry_text
-    assert "default_c_cpp_agent_application_record" in product_registry_text
+    assert "default_c_cpp_application_record" in product_registry_text
     assert "DEFAULT_C_CPP_AGENT_APPLICATION_ID" in product_registry_text
     assert "C_WORKFLOW_PACKAGE_ID" in record_text
     assert '"Default C/C++ Agent"' in record_text
-    assert 'profile_kind="workflow_package"' in record_text
+    assert "runtime_factory=cpp_runtime_definition" in record_text
 
 
 def test_hosted_adapter_uses_shared_agent_profile_runtime_policies():
     adapter = ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py"
     profiles = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/profiles.py"
-    runtime = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_profile_runtime.py"
+    runtime = ROOT / "packages/embedagent-core/src/embedagent_core/profile_runtime.py"
 
     assert profiles.is_file()
     assert runtime.is_file()
@@ -544,9 +538,9 @@ def test_hosted_adapter_uses_shared_agent_profile_runtime_policies():
         "你是 EmbedAgent 的受控模式原型。",
     ):
         assert token not in adapter_text
-    assert "PROFILE_PROMPT_FRAME =" in profiles_text
-    assert "from embedagent_host.runtime.profiles import PROFILE_PROMPT_FRAME" in runtime_text
-    assert "PROFILE_PROMPT_FRAME =" not in runtime_text
+    assert "PROFILE_PROMPT_FRAME" not in profiles_text
+    assert "PROFILE_PROMPT_FRAME =" in runtime_text
+    assert "from embedagent_host" not in runtime_text
 
 
 def test_base_config_does_not_pin_default_c_cpp_application():

@@ -1102,7 +1102,7 @@ def test_agent_application_capabilities_are_declared_by_backend_not_gui_defaults
     application_registry_text = _read(
         ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py"
     )
-    product_registry_text = _read(ROOT / "src/embedagent/agent_application_registry.py")
+    product_registry_text = _read(ROOT / "src/embedagent/product_catalog.py")
     product_hosted_text = _read(ROOT / "src/embedagent/hosted.py")
     protocol_text = _read(PROTOCOL_SOURCE / "app_protocol.py")
     normalizer_text = _read(
@@ -1122,8 +1122,8 @@ def test_agent_application_capabilities_are_declared_by_backend_not_gui_defaults
     assert "AgentApplicationRegistry" in application_registry_text
     assert "BUILTIN_AGENT_APPLICATION_RECORDS" in application_registry_text
     assert "embedagent_workflow_cpp" not in application_registry_text
-    assert "default_c_cpp_agent_application_record" not in application_registry_text
-    assert "default_c_cpp_agent_application_record" in product_registry_text
+    assert "default_c_cpp_application_record" not in application_registry_text
+    assert "default_c_cpp_application_record" in product_registry_text
     assert "DEFAULT_C_CPP_AGENT_APPLICATION_ID" in product_registry_text
     assert "AgentApplicationDefinition" not in application_registry_text
     assert "_builtin_agent_application_definitions" not in application_registry_text

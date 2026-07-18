@@ -112,7 +112,7 @@ class QueryEngineVerifySliceTests(unittest.TestCase):
         self.assertTrue(any("verify" in content for content in system_messages))
 
     def test_set_session_mode_refreshes_harness_snapshot(self):
-        from embedagent.agent_application_registry import product_agent_application_registry
+        from embedagent.product_catalog import product_agent_application_registry
 
         adapter = InProcessAdapter(
             client=DoneClient(),

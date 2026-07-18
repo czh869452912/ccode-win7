@@ -255,9 +255,9 @@ def test_workflow_package_capability_descriptors_project_manifest():
 
 def test_mode_capability_descriptors_project_agent_profile_modes():
     from embedagent_core.capabilities import mode_capability_descriptors
-    from embedagent_workflow_cpp.agent_profile import default_c_cpp_agent_profile
+    from embedagent_workflow_cpp.profile import default_cpp_profile
 
-    descriptors = mode_capability_descriptors(default_c_cpp_agent_profile())
+    descriptors = mode_capability_descriptors(default_cpp_profile())
 
     names = [item.name for item in descriptors]
     assert names == ["build", "debug", "explore", "spec", "verify"]

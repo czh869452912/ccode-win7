@@ -55,11 +55,11 @@ class AgentProfileTests(unittest.TestCase):
             profile.modes = ()
 
     def test_c_cpp_profile_declares_current_product_modes(self):
-        from embedagent_workflow_cpp.agent_profile import (
-            default_c_cpp_agent_profile,
+        from embedagent_workflow_cpp.profile import (
+            default_cpp_profile,
         )
 
-        profile = default_c_cpp_agent_profile()
+        profile = default_cpp_profile()
         self.assertEqual(profile.default_mode, "explore")
         self.assertEqual(
             [item.slug for item in profile.modes],
@@ -67,11 +67,11 @@ class AgentProfileTests(unittest.TestCase):
         )
 
     def test_profile_base_tools_exclude_c_workflow_tools(self):
-        from embedagent_workflow_cpp.agent_profile import (
-            default_c_cpp_agent_profile,
+        from embedagent_workflow_cpp.profile import (
+            default_cpp_profile,
         )
 
-        profile = default_c_cpp_agent_profile()
+        profile = default_cpp_profile()
         harness_tools = {
             "list_recipes",
             "run_recipe",
@@ -83,11 +83,11 @@ class AgentProfileTests(unittest.TestCase):
             self.assertEqual(set(profile.allowed_tools_for(mode_name)) & harness_tools, set())
 
     def test_profile_mode_descriptor_payload_is_gui_safe(self):
-        from embedagent_workflow_cpp.agent_profile import (
-            default_c_cpp_agent_profile,
+        from embedagent_workflow_cpp.profile import (
+            default_cpp_profile,
         )
 
-        profile = default_c_cpp_agent_profile()
+        profile = default_cpp_profile()
         payload = profile.mode_descriptor_payloads()
         build = [item for item in payload if item["id"] == "build"][0]
         self.assertEqual([item["order"] for item in payload], [0, 1, 2, 3, 4])
@@ -102,12 +102,12 @@ class AgentProfileTests(unittest.TestCase):
             html_agent_profile,
             python_agent_profile,
         )
-        from embedagent_workflow_cpp.agent_profile import (
-            default_c_cpp_agent_profile,
+        from embedagent_workflow_cpp.profile import (
+            default_cpp_profile,
         )
 
         profiles = [
-            default_c_cpp_agent_profile(),
+            default_cpp_profile(),
             generic_agent_profile(),
             python_agent_profile(),
             html_agent_profile(),
@@ -117,16 +117,16 @@ class AgentProfileTests(unittest.TestCase):
             self.assertNotIn("verify", tokens)
 
     def test_unknown_mode_raises_in_profile_lookup(self):
-        from embedagent_workflow_cpp.agent_profile import (
-            default_c_cpp_agent_profile,
+        from embedagent_workflow_cpp.profile import (
+            default_cpp_profile,
         )
 
-        profile = default_c_cpp_agent_profile()
+        profile = default_cpp_profile()
         with self.assertRaises(ValueError):
             profile.require_mode("python-build")
 
     def test_agent_profile_runtime_policy_renders_and_routes_profile_modes(self):
-        from embedagent_host.runtime.agent_profile_runtime import AgentProfileRuntimePolicy
+        from embedagent_core.profile_runtime import AgentProfileRuntimePolicy
         from embedagent_host.runtime.profiles import python_agent_profile
 
         policy = AgentProfileRuntimePolicy(python_agent_profile())

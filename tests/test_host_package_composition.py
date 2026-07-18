@@ -76,11 +76,9 @@ class HostPackageCompositionTests(unittest.TestCase):
             build_agent_application,
         )
         from embedagent_host.runtime.tools import ToolRuntime
-        from embedagent_workflow_cpp.application_record import (
-            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
-        )
 
-        from embedagent.agent_application_registry import (
+        from embedagent.product_catalog import (
+            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
             product_agent_application_registry,
         )
 
@@ -169,7 +167,7 @@ class HostPackageCompositionTests(unittest.TestCase):
             ["preview"],
         )
 
-    def test_agent_application_registry_uses_lazy_builder_paths_not_workflow_kind_branch(self):
+    def test_agent_application_registry_uses_explicit_runtime_factories(self):
         module_path = os.path.join(
             os.path.dirname(__file__),
             "..",
@@ -186,16 +184,13 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertIn("class AgentApplicationRecord", source)
         self.assertIn("class AgentApplicationRegistry", source)
         self.assertIn("BUILTIN_AGENT_APPLICATION_RECORDS", source)
-        self.assertIn("builder_path", source)
-        self.assertNotIn("workflow_kind", source)
+        self.assertNotIn("builder_path", source)
+        self.assertNotIn("profile_kind", source)
         self.assertNotIn('== "c_cpp"', source)
         self.assertNotIn("_lazy_agent_application_records", source)
-        self.assertNotIn("default_c_cpp_agent_application_record", source)
+        self.assertNotIn("default_c_cpp_application_record", source)
         self.assertNotIn("embedagent_workflow_cpp", source)
-        self.assertNotIn(
-            "from embedagent_workflow_cpp.application import " "build_c_cpp_agent_application",
-            source,
-        )
+        self.assertNotIn("from embedagent_workflow_cpp.component import", source)
 
     def test_importing_base_agent_application_registry_does_not_load_c_workflow(self):
         repo_src = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -232,11 +227,9 @@ class HostPackageCompositionTests(unittest.TestCase):
         )
         record_path = os.path.join(
             root,
-            "packages",
-            "embedagent-workflow-cpp",
             "src",
-            "embedagent_workflow_cpp",
-            "application_record.py",
+            "embedagent",
+            "product_catalog.py",
         )
         self.assertTrue(os.path.isfile(record_path))
 
@@ -251,10 +244,10 @@ class HostPackageCompositionTests(unittest.TestCase):
             self.assertIn(token, record_source)
         self.assertNotIn('"embedagent.c_workflow"', registry_source)
         self.assertNotIn("embedagent_workflow_cpp", registry_source)
-        self.assertNotIn("default_c_cpp_agent_application_record", registry_source)
+        self.assertNotIn("default_c_cpp_application_record", registry_source)
         self.assertIn("C_WORKFLOW_PACKAGE_ID", record_source)
         self.assertNotIn('profile_kind="default_c_cpp"', registry_source)
-        self.assertIn('profile_kind="workflow_package"', record_source)
+        self.assertIn("runtime_factory=cpp_runtime_definition", record_source)
 
     def test_default_application_compatibility_wrapper_is_removed(self):
         import embedagent_host.runtime.agent_applications as agent_applications
@@ -374,11 +367,11 @@ class HostPackageCompositionTests(unittest.TestCase):
     def test_inprocess_adapter_loads_application_by_id(self):
         from embedagent_host.inprocess_adapter import InProcessAdapter
         from embedagent_host.runtime.tools import ToolRuntime
-        from embedagent_workflow_cpp.application_record import (
-            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
-        )
 
-        from embedagent.agent_application_registry import product_agent_application_registry
+        from embedagent.product_catalog import (
+            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
+            product_agent_application_registry,
+        )
 
         with tempfile.TemporaryDirectory() as workspace:
             adapter = InProcessAdapter(

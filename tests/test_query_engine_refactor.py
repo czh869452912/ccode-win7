@@ -29,7 +29,7 @@ from embedagent_host.runtime.workspace_intelligence import (
     RecipeProvider,
     WorkspaceIntelligenceBroker,
 )
-from embedagent_workflow_cpp.application import build_c_cpp_agent_application
+from query_engine_product_helpers import build_product_agent_application
 from query_engine_product_helpers import build_product_query_engine as QueryEngine
 
 from embedagent.config import AppConfig
@@ -1462,7 +1462,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_initialize_session_injects_profile_mode_and_harness_once(self):
         transcript_store = TranscriptStore(self.workspace)
-        default_extensions = build_c_cpp_agent_application(self.tools)
+        default_extensions = build_product_agent_application(self.tools)
         engine = QueryEngine(
             client=FakeClient(),
             tools=self.tools,
@@ -1491,7 +1491,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_workflow_prompt_dedupe_ignores_non_workflow_prompt_kinds(self):
         transcript_store = TranscriptStore(self.workspace)
-        default_extensions = build_c_cpp_agent_application(self.tools)
+        default_extensions = build_product_agent_application(self.tools)
         engine = QueryEngine(
             client=FakeClient(),
             tools=self.tools,
@@ -3862,7 +3862,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             self.workspace,
             app_config=AppConfig(allow_system_tool_fallback=True),
         )
-        default_extensions = build_c_cpp_agent_application(interrupt_tools)
+        default_extensions = build_product_agent_application(interrupt_tools)
         engine = QueryEngine(
             client=SlowCommandClient(),
             tools=interrupt_tools,

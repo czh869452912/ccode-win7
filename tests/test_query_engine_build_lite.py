@@ -14,7 +14,7 @@ from embedagent_host.runtime.context import ContextManager
 from embedagent_host.runtime.project_memory import ProjectMemoryStore
 from embedagent_host.runtime.tools import ToolRuntime
 from embedagent_host.runtime.workspace_intelligence import WorkspaceIntelligenceBroker
-from embedagent_workflow_cpp.application import build_c_cpp_agent_application
+from query_engine_product_helpers import build_product_agent_application
 
 from embedagent.modes import (
     allowed_tools_for,
@@ -106,7 +106,7 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def _build_engine(self, client=None):
-        default_extensions = build_c_cpp_agent_application(self.tools)
+        default_extensions = build_product_agent_application(self.tools)
         project_memory = ProjectMemoryStore(self.workspace)
         return QueryEngine(
             client=client or DoneClient(),

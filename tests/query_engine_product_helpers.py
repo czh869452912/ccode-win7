@@ -4,12 +4,12 @@ from typing import Any
 
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.query_engine import QueryEngine as CoreQueryEngine
+from embedagent_host.runtime.agent_applications import build_agent_application
 from embedagent_host.runtime.context import ContextManager
 from embedagent_host.runtime.project_memory import ProjectMemoryStore
 from embedagent_host.runtime.tool_commit import ToolCommitCoordinator
 from embedagent_host.runtime.transcript_store import TranscriptStore
 from embedagent_host.runtime.workspace_intelligence import WorkspaceIntelligenceBroker
-from embedagent_workflow_cpp.application import build_c_cpp_agent_application
 
 from embedagent.modes import (
     allowed_tools_for,
@@ -19,6 +19,7 @@ from embedagent.modes import (
     parse_natural_language_mode_switch,
     require_mode,
 )
+from embedagent.product_catalog import product_agent_application_registry
 
 
 class ProductModeToolPolicy(object):
@@ -63,6 +64,10 @@ class ProductModeRuntimePolicy(object):
         return parse_natural_language_mode_switch(user_text, fallback_mode=fallback_mode)
 
 
+def build_product_agent_application(tools):
+    return build_agent_application("", tools, registry=product_agent_application_registry())
+
+
 def build_product_query_engine(
     client,
     tools,
@@ -86,7 +91,7 @@ def build_product_query_engine(
         )
     manager = extension_manager
     if manager is None:
-        manager = build_c_cpp_agent_application(tools).extension_manager
+        manager = build_product_agent_application(tools).extension_manager
     return CoreQueryEngine(
         client=client,
         tools=tools,

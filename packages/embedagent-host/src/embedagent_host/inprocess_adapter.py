@@ -21,7 +21,7 @@ from embedagent_host.runtime.agent_applications import (
     base_agent_application_registry,
     build_agent_application,
 )
-from embedagent_host.runtime.agent_profile_runtime import (
+from embedagent_core.profile_runtime import (
     AgentProfileRuntimePolicy,
     AgentProfileToolPolicy,
     AgentProfileWritePathPolicy,
@@ -280,9 +280,18 @@ class InProcessAdapter(object):
             getattr(self.agent_application, "workspace_profile_detectors", ()),
         )
         self._agent_profile = self.agent_application.profile
-        self._mode_tool_policy = AgentProfileToolPolicy(self._agent_profile)
-        self._write_path_policy = AgentProfileWritePathPolicy(self._agent_profile)
-        self._mode_runtime_policy = AgentProfileRuntimePolicy(self._agent_profile)
+        self.runtime_definition = getattr(self.agent_application, "runtime_definition", None)
+        if self.runtime_definition is None:
+            self.runtime_definition = RuntimeDefinition(
+                agent_id=str(self.agent_application.application_id),
+                default_mode=self._agent_profile.default_mode,
+                mode_tool_policy=AgentProfileToolPolicy(self._agent_profile),
+                write_path_policy=AgentProfileWritePathPolicy(self._agent_profile),
+                mode_runtime_policy=AgentProfileRuntimePolicy(self._agent_profile),
+            )
+        self._mode_tool_policy = self.runtime_definition.mode_tool_policy
+        self._write_path_policy = self.runtime_definition.write_path_policy
+        self._mode_runtime_policy = self.runtime_definition.mode_runtime_policy
         self.extension_manager = self.agent_application.extension_manager
         self.extension_manager.register_context_reducers(self.context_manager.reducers)
         self.project_extension_state = self._load_project_extensions()
@@ -436,14 +445,7 @@ class InProcessAdapter(object):
             runtime_services=runtime_services,
             extension_manager=self.extension_manager,
         )
-        definition = RuntimeDefinition(
-            agent_id=str(getattr(self.agent_application, "application_id", "") or "hosted"),
-            default_mode=self._mode_runtime_policy.default_mode(),
-            workflow_state="chat",
-            mode_tool_policy=self._mode_tool_policy,
-            write_path_policy=self._write_path_policy,
-            mode_runtime_policy=self._mode_runtime_policy,
-        )
+        definition = self.runtime_definition
         return Agent.create(ports, definition)
 
     def _workflow_state_for_session(self, session_id: str) -> str:

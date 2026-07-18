@@ -1,6 +1,6 @@
-"""Default C/C++ workflow package.
+"""Default C/C++ workflow package contracts."""
 
-Import concrete workflow modules explicitly from their owning files.  The
-package root intentionally avoids re-exporting harness runtime objects so
-metadata-only imports do not load runner or task graph internals.
-"""
+from embedagent_workflow_cpp.component import cpp_runtime_definition
+from embedagent_workflow_cpp.package_manifest import C_WORKFLOW_PACKAGE_ID
+
+__all__ = ["C_WORKFLOW_PACKAGE_ID", "cpp_runtime_definition"]

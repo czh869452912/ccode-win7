@@ -70,11 +70,11 @@ class WorkspaceProfileTests(unittest.TestCase):
     def test_c_cpp_application_contributes_workspace_profile_detector(self):
         from embedagent_host.inprocess_adapter import InProcessAdapter
         from embedagent_host.runtime.tools import ToolRuntime
-        from embedagent_workflow_cpp.application_record import (
-            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
-        )
 
-        from embedagent.agent_application_registry import product_agent_application_registry
+        from embedagent.product_catalog import (
+            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
+            product_agent_application_registry,
+        )
 
         native_dir = os.path.join(self.workspace, "native")
         os.makedirs(native_dir)

@@ -1,11 +1,16 @@
 from __future__ import annotations
 
-import importlib
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from embedagent_core import RuntimeDefinition
 from embedagent_core.extensions import ExtensionManager
 from embedagent_core.profile import AgentProfile
+from embedagent_core.profile_runtime import (
+    AgentProfileRuntimePolicy,
+    AgentProfileToolPolicy,
+    AgentProfileWritePathPolicy,
+)
 
 from embedagent_host.runtime.profiles import (
     generic_agent_profile,
@@ -49,6 +54,7 @@ class AgentApplication:
     profile: AgentProfile
     extension_manager: ExtensionManager
     manifest: Optional[AgentApplicationManifest] = None
+    runtime_definition: Optional[RuntimeDefinition] = None
     workflow_refreshers: Tuple[Any, ...] = field(default_factory=tuple)
     workspace_profile_detectors: Tuple[Any, ...] = field(default_factory=tuple)
 
@@ -69,9 +75,10 @@ class AgentApplicationRecord:
     application_id: str
     label: str
     profile_id: str
-    profile_kind: str
+    profile_factory: Any = None
+    runtime_factory: Any = None
     workflow_package_ids: Tuple[str, ...] = field(default_factory=tuple)
-    builder_path: str = ""
+    workspace_profile_detectors_factory: Any = None
     source_type: str = "builtin"
     source_id: str = ""
     default: bool = False
@@ -250,7 +257,7 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
         application_id=GENERIC_AGENT_APPLICATION_ID,
         label="Generic Agent",
         profile_id=GENERIC_AGENT_APPLICATION_ID,
-        profile_kind="generic",
+        profile_factory=generic_agent_profile,
         source_type="builtin",
         source_id="embedagent_host.runtime.profiles",
         empty_state={
@@ -266,7 +273,7 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
         application_id=PYTHON_AGENT_APPLICATION_ID,
         label="Python Agent",
         profile_id=PYTHON_AGENT_APPLICATION_ID,
-        profile_kind="python",
+        profile_factory=python_agent_profile,
         source_type="builtin",
         source_id="embedagent_host.runtime.profiles",
         empty_state={
@@ -282,7 +289,7 @@ BUILTIN_AGENT_APPLICATION_RECORDS = (
         application_id=HTML_AGENT_APPLICATION_ID,
         label="HTML Agent",
         profile_id=HTML_AGENT_APPLICATION_ID,
-        profile_kind="html",
+        profile_factory=html_agent_profile,
         source_type="builtin",
         source_id="embedagent_host.runtime.profiles",
         empty_state={
@@ -318,38 +325,49 @@ def _record_by_id(
 
 
 def _profile_for_record(record: AgentApplicationRecord) -> AgentProfile:
-    if record.profile_kind == "generic":
-        return generic_agent_profile()
-    if record.profile_kind == "python":
-        return python_agent_profile()
-    if record.profile_kind == "html":
-        return html_agent_profile()
-    raise ValueError("Unknown agent profile kind %r" % (record.profile_kind,))
+    factory = record.profile_factory
+    if not callable(factory):
+        raise ValueError("Agent profile factory is not configured")
+    return factory()
+
+
+def _runtime_definition_for_profile(profile: AgentProfile) -> RuntimeDefinition:
+    return RuntimeDefinition(
+        agent_id=profile.profile_id,
+        default_mode=profile.default_mode,
+        mode_tool_policy=AgentProfileToolPolicy(profile),
+        write_path_policy=AgentProfileWritePathPolicy(profile),
+        mode_runtime_policy=AgentProfileRuntimePolicy(profile),
+    )
 
 
 def _build_profile_application(
     record: AgentApplicationRecord,
-    profile: AgentProfile,
+    tools: Any,
 ) -> AgentApplication:
     manifest = record.to_manifest()
+    profile = _profile_for_record(record)
+    runtime_factory = record.runtime_factory
+    definition = (
+        runtime_factory() if callable(runtime_factory) else _runtime_definition_for_profile(profile)
+    )
+    extensions = list(definition.extensions or ())
+    for extension in extensions:
+        if hasattr(extension, "tools") and getattr(extension, "tools", None) is None:
+            extension.tools = tools
+    extension_manager = ExtensionManager(extensions)
+    detectors_factory = record.workspace_profile_detectors_factory
+    detectors = detectors_factory() if callable(detectors_factory) else ()
     return AgentApplication(
         application_id=manifest.application_id,
         label=manifest.label,
         profile=profile,
-        extension_manager=ExtensionManager(),
+        extension_manager=extension_manager,
         manifest=manifest,
+        runtime_definition=definition,
+        workflow_refreshers=tuple(extensions),
+        workspace_profile_detectors=tuple(detectors or ()),
     )
-
-
-def _load_application_builder(path: str) -> Any:
-    module_name, separator, function_name = str(path or "").partition(":")
-    if not module_name or separator != ":" or not function_name:
-        raise ValueError("Invalid agent application builder path %r" % (path,))
-    module = importlib.import_module(module_name)
-    builder = getattr(module, function_name, None)
-    if not callable(builder):
-        raise ValueError("Agent application builder is not callable: %s" % (path,))
-    return builder
 
 
 def generic_agent_application_manifest() -> AgentApplicationManifest:
@@ -413,6 +431,4 @@ def build_agent_application(
     registry: Optional[AgentApplicationRegistry] = None,
 ) -> AgentApplication:
     record = _record_by_id(application_id, registry=registry)
-    if record.builder_path:
-        return _load_application_builder(record.builder_path)(tools)
-    return _build_profile_application(record, _profile_for_record(record))
+    return _build_profile_application(record, tools)

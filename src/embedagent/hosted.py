@@ -18,10 +18,10 @@ from embedagent_host.hosted.runtime import (
     create_hosted_runtime as create_generic_hosted_runtime,
 )
 
-from embedagent.agent_application_registry import product_agent_application_registry
 from embedagent.command_sanitizer import get_command_sanitizer
 from embedagent.config import load_config
 from embedagent.modes import build_system_prompt
+from embedagent.product_catalog import product_agent_application_registry
 from embedagent.runtime_discovery import discover_bundle_root
 
 

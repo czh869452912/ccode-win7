@@ -133,7 +133,7 @@ class QueryEngineDebugLiteTests(unittest.TestCase):
         self.assertEqual(snapshot["current_activity"], "")
 
     def test_adapter_submit_user_message_refreshes_debug_phase(self):
-        from embedagent.agent_application_registry import product_agent_application_registry
+        from embedagent.product_catalog import product_agent_application_registry
 
         adapter = InProcessAdapter(
             client=RecordEvidenceClient(),

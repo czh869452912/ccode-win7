@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from embedagent_core.profile import AgentModeDescriptor, AgentProfile
-from embedagent_host.runtime.profiles import (
+from embedagent_core.profile_runtime import (
     BASE_DISCUSSION_TOOLS,
     BASE_READ_TOOLS,
     BASE_VERIFY_TOOLS,
@@ -40,7 +40,7 @@ C_CPP_DEVELOPMENT_WRITABLE_GLOBS = SPEC_WRITABLE_GLOBS + [
 ]
 
 
-def default_c_cpp_agent_profile() -> AgentProfile:
+def default_cpp_profile() -> AgentProfile:
     return AgentProfile(
         profile_id="embedagent.default_c_cpp",
         label="Default C/C++ Agent",
