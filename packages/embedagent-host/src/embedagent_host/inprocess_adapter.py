@@ -317,7 +317,7 @@ class InProcessAdapter(object):
             summary_loader=self._read_summary_for_state,
             runtime_snapshot_lookup=getattr(self.tools, "runtime_environment_snapshot", None),
             tool_catalog_lookup=getattr(self.tools, "tool_catalog_entry", None),
-            extension_diagnostics_lookup=self.extension_manager.diagnostics,
+            extension_diagnostics_lookup=lambda: self.extension_manager.diagnostics(),
             snapshot_projector=self.snapshot_projector,
         )
 
