@@ -1,8 +1,9 @@
-from embedagent.product_catalog import product_agent_application_registry
 from embedagent_host.runtime.agent_applications import (
     agent_application_capability_payload,
     base_agent_application_registry,
 )
+
+from embedagent.product_catalog import product_agent_application_registry
 
 
 def test_base_agent_matrix_excludes_workflow_specialization():
@@ -17,9 +18,7 @@ def test_base_agent_matrix_excludes_workflow_specialization():
 
 def test_product_agent_matrix_declares_c_cpp_alongside_base_agents():
     registry = product_agent_application_registry()
-    payload = agent_application_capability_payload(
-        "embedagent.default_c_cpp", registry=registry
-    )
+    payload = agent_application_capability_payload("embedagent.default_c_cpp", registry=registry)
     ids = [item["applicationId"] for item in payload["agentApplications"]]
     assert ids[0] == "embedagent.default_c_cpp"
     assert ids[1:] == ["embedagent.generic", "embedagent.python", "embedagent.html"]

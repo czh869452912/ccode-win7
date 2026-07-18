@@ -100,11 +100,17 @@ def test_cpp_export_contains_workflow_assets_and_reproducible_lock(tmp_path):
     first_dir = tmp_path / "first"
     second_dir = tmp_path / "second"
     first = export_agent(
-        cpp_definition(), catalog, first_dir, asset_root=asset_root,
+        cpp_definition(),
+        catalog,
+        first_dir,
+        asset_root=asset_root,
         component_files={"embedagent-workflow-cpp": wheel},
     )
     second = export_agent(
-        cpp_definition(), catalog, second_dir, asset_root=asset_root,
+        cpp_definition(),
+        catalog,
+        second_dir,
+        asset_root=asset_root,
         component_files={"embedagent-workflow-cpp": wheel},
     )
 
@@ -113,7 +119,9 @@ def test_cpp_export_contains_workflow_assets_and_reproducible_lock(tmp_path):
     assert (first_dir / "export-report.json").is_file()
     assert (first_dir / "components" / wheel.name).read_bytes() == b"workflow-wheel"
     assert first.to_dict() == second.to_dict()
-    assert (first_dir / "agent.lock.json").read_bytes() == (second_dir / "agent.lock.json").read_bytes()
+    assert (first_dir / "agent.lock.json").read_bytes() == (
+        second_dir / "agent.lock.json"
+    ).read_bytes()
     lock = json.loads((first_dir / "agent.lock.json").read_text(encoding="utf-8"))
     assert any(item["component_id"] == "embedagent-workflow-cpp" for item in lock["components"])
     assert "api_key" not in (first_dir / "export-report.json").read_text(encoding="utf-8")

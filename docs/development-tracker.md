@@ -775,9 +775,9 @@
 
 ### 总阶段
 
-- 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口 + Pi-inspired minimal Core enterprise boundary 收口`
+- 当前阶段：`Phase 6 GUI / Agent export convergence 已完成；Phase 7 Win7 离线交付与 Phase 8 真实 C/C++ 验证待完成`
 - 总体状态：`进行中`
-- 当前重点：`Agent Harness V2 official cutover 六步程序与文档治理 Batch A 已完成。模块文档（protocol/core、TUI、GUI、packaging）已补齐，代码-文档矩阵已同步。workflow extension boundary 代码迁移、repo-side 回归、本机 release bundle 验证和本机剩余边界清理已收口；Pi-inspired minimal Core Phase M core alias cleanup、enterprise/intranet capability boundary foundation、GUI terminal bottom drawer 与 GUI source-control foundation 已完成。下一步重点是在真实 Win7 目标机重跑离线 bundle smoke、继续真实 C/C++ 工程验证，并用架构守卫防止旧兼容路径回流。`
+- 当前重点：`Phase 6 已完成版本化 GUI 协议、单一 renderer transport adapter、T3 client-runtime 边界、通用/专用 Agent 确定性组合导出与跨 Agent GUI 能力矩阵。下一步进入 Phase 7，在干净 Windows 7/WebView2 目标环境完成六 wheel 离线 bundle 实机证据；随后 Phase 8 完成真实 C/C++ 工程验证。Phase 9 enterprise/intranet adapter 工作保持可选且位于 Agent Core 外。`
 - 最新 session-history 收口：`GUI session activation 已切到单一 `/api/sessions/{id}/bootstrap` 合约；历史 turns 现在只从 `transcript.jsonl -> Session -> SessionHistoryAssembler` 生成；当前契约无 durable timeline transport，raw fallback 不再是正式 GUI 恢复模式。`
 - 最新稳定化收口：`set_session_mode()` 现在会先重置旧 phase 再刷新 Harness snapshot，避免 build/debug/verify 跨 mode 切换时把上一模式的 phase 残留到新会话快照；同时 `Context` 高优先级工具、reducer registry 与 `/review` 文案已统一到 `run_recipe/report_quality_v2/task_status` 正式词汇。`
 - 最新 dead-code 清理：`tools_v2/` 中仍被正式主路径使用的 discovery/recipe/session 模块已迁入官方 `packages/embedagent-host/src/embedagent_host/runtime/tools/`；旧 `tools_v2/*.py` 与已无人引用的 legacy `loop.py` 已删除，产品源码不再直接 import `tools_v2`。当前 `packages/embedagent-core/src/embedagent_core/agent_loop.py` 是 Slice 5 新增的正式 turn-loop 边界。`
@@ -1033,6 +1033,9 @@
 
 ## 5. 里程碑进度
 
+下表保留早期产品阶段名称作为历史追踪索引；当前执行路线以本文“总阶段”
+以及 `docs/implementation-roadmap.md` 的 Phase 6/7/8/9 定义为准。
+
 | 阶段 | 名称 | 状态 | 说明 |
 |------|------|------|------|
 | Phase 0 | 仓库基线与工作约束 | `completed` | 已完成文档、版本策略、治理基线、工具规范 |
@@ -1041,7 +1044,7 @@
 | Phase 3 | 模式系统 v2 | `completed` | 5 模式配置驱动（explore/spec/code/debug/verify）、initialize_modes、工具过滤、/mode 已完成；switch_mode LLM 工具已移除 |
 | Phase 4 | Clang 工具链 | `in_progress` | 已有项目内闭环工具链，待真实工程与 Win7 验证 |
 | Phase 5 | 质量保障层 | `completed` | 权限、上下文、记忆、恢复与 cleanup 已落地；修复根目录文件写入边界后，专项验证脚本已复验通过 |
-| Phase 6 | CLI / TUI / GUI | `in_progress` | InProcessAdapter 已扩展 workspace / timeline / artifact / task 前端接口；终端前端已拆为 `frontend/tui` 子模块；GUI 已切换到 React/Vite webapp + PyWebView 宿主，并已补 T3code-style timeline/composer/diff surfaces；当前环境 smoke 覆盖 tool / permission / ask_user / task 隔离，dev-only visual harness 覆盖 load/chat/diff；待 Win7 Chromium 实机验证与编辑闭环细化 |
+| Phase 6 | GUI / Agent export convergence | `completed` | 四类 GUI 协议 envelope、单一 renderer transport adapter、T3 client-runtime 边界、确定性 Agent composition/export 与 empty/generic/C++/Python/HTML/injected Agent GUI 能力矩阵已完成；Win7/WebView2 实机证据归 Phase 7，真实 C/C++ 工程验证归 Phase 8 |
 | Phase 7 | 打包与离线交付 | `in_progress` | 设计基线、ADR、`prepare/build/validate` 三段脚本骨架已完成；Python/MinGit/rg/ctags 真实资产接入已完成；`package.ps1` 控制面已接上 mocked orchestration；GUI 依赖与 bundle-local smoke 已进入交付物，`validate-offline-bundle -RequireComplete`、`check-bundle-dependencies.py` 与 bundle 级 windowed GUI smoke 已通过；待真实 release pipeline 与 Win7 bundle 实机验收 |
 
 ---

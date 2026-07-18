@@ -43,7 +43,7 @@ The remaining release evidence is environmental rather than an architecture
 boundary claim: a clean Windows 7/WebView2 bundle smoke must still be recorded
 before release compatibility is asserted.
 
-## Phase 5 Completion
+## 4. Phase 5 Completion
 
 Phase 5 durable session projection and Agent Core thinning is complete. The
 transcript is the only durable session-history truth; Host projections,
@@ -52,7 +52,28 @@ use the official Core/Host boundaries. See
 `docs/superpowers/plans/2026-07-18-phase5-closeout.md` for the slice record and
 verification evidence. Clean Windows 7/WebView2 bundle smoke and real C/C++
 project validation remain Phase 7 and Phase 8 release work.
-## 3. Completed Core Programs
+
+## 5. Phase 6 Completion
+
+Phase 6 GUI and Agent export convergence is complete. The GUI consumes
+versioned app-shell, session, capability, and IDE-service protocol envelopes
+through one renderer transport adapter, while the renderer remains independent
+of concrete Agent and workflow identities. The same production GUI build is
+covered against empty, generic, C/C++, Python, HTML, and injected specialized
+Agent capability fixtures.
+
+`embedagent-composition` now provides the deterministic build-time composition
+and export layer for generic and specialized Agent products. It emits stable
+manifests, locks, reports, hashes, and declared assets without entering the
+Agent Core runtime dependency graph. See
+`docs/superpowers/plans/2026-07-19-phase6-closeout.md` for the implementation
+record and verification evidence.
+
+Phase 7 remains clean Windows 7/WebView2 offline bundle delivery evidence.
+Phase 8 remains real C/C++ project validation. Phase 9 remains optional
+enterprise/intranet adapter work outside Agent Core.
+
+## 6. Completed Core Programs
 
 The following core programs are now complete in the current architecture baseline:
 
@@ -552,7 +573,7 @@ Recent stabilization work has also completed the agent-core ownership cutover:
   artifact invalidation no longer opens a sidecar refetch facade
 - transcript sequence allocation uses cached counters instead of rescanning on every append
 
-## 4. Remaining Near-Term Work
+## 7. Remaining Near-Term Work
 
 The 2026-06-25 pre-release debt cleanup program described in
 `pre-release-architecture-debt-audit.md` is closed, and its completed plan is
@@ -755,7 +776,7 @@ After architecture cutover, the highest-value validation is:
 - Win7 bundle runtime validation
 - clean Win7 unpack-and-run smoke for the contract-backed offline bundle
 
-## 5. Product Areas
+## 8. Product Areas
 
 ### Agent Core
 
@@ -778,7 +799,7 @@ Frontends should evolve only through the protocol/core contract and must not rei
 
 Offline packaging remains a first-class product requirement, but it must follow the current official runtime and protocol architecture rather than older mode/tool assumptions.
 
-## 6. Verification Expectations
+## 9. Verification Expectations
 
 Before claiming a roadmap slice complete:
 
@@ -787,7 +808,7 @@ Before claiming a roadmap slice complete:
 - re-run relevant webapp helper/runtime tests
 - update tracker and change log in the same change
 
-## 7. Current Roadmap Summary
+## 10. Current Roadmap Summary
 
 The repository is now past the architecture cutover stage and into pre-release
 debt cleanup:
