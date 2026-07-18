@@ -33,6 +33,8 @@ Every phase uses a dedicated worktree, focused tests before implementation, one 
 
 ## Phase 5: Durable Session Projection And Core Thinning
 
+**Status:** Complete on 2026-07-18. See `docs/superpowers/plans/2026-07-18-phase5-closeout.md` for delivered boundaries and verification evidence.
+
 **Objective:** Make the durable session log the authoritative source for live session/read models and remove residual orchestration from `QueryEngine`/`InProcessAdapter` without changing public Core contracts.
 
 **Primary areas:**

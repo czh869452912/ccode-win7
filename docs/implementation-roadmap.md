@@ -43,6 +43,15 @@ The remaining release evidence is environmental rather than an architecture
 boundary claim: a clean Windows 7/WebView2 bundle smoke must still be recorded
 before release compatibility is asserted.
 
+## Phase 5 Completion
+
+Phase 5 durable session projection and Agent Core thinning is complete. The
+transcript is the only durable session-history truth; Host projections,
+restore read models, pending action lifecycle, and hosted review evidence now
+use the official Core/Host boundaries. See
+`docs/superpowers/plans/2026-07-18-phase5-closeout.md` for the slice record and
+verification evidence. Clean Windows 7/WebView2 bundle smoke and real C/C++
+project validation remain Phase 7 and Phase 8 release work.
 ## 3. Completed Core Programs
 
 The following core programs are now complete in the current architecture baseline:
