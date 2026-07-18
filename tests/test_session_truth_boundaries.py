@@ -71,11 +71,14 @@ def test_gui_session_bootstrap_serializes_history_without_replay_payload():
 def test_hosted_command_permissions_use_the_core_action_pipeline_once():
     adapter_source = _read(HOST_SOURCE / "inprocess_adapter.py")
     command_source = _read(HOST_SOURCE / "hosted_command_service.py")
+    review_source = _read(HOST_SOURCE / "runtime" / "review_command.py")
     query_source = _read(CORE_SOURCE / "query_engine.py")
     action_source = _read(CORE_SOURCE / "agent_tool_action_service.py")
     api_source = _read(CORE_SOURCE / "api.py")
     runner_source = _read(CORE_SOURCE / "runner.py")
 
+    assert "build_payload_from_history" in command_source
+    assert "build_payload_from_session" not in review_source
     assert "_host_submit_command_turn" in command_source
     assert "_record_pending_permission" not in command_source
     assert "_record_command_pending_permission" not in adapter_source

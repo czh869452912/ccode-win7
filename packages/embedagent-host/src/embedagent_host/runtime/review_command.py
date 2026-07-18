@@ -14,8 +14,10 @@ class ReviewCommandService(object):
     def __init__(self, tools: Any) -> None:
         self.tools = tools
 
-    def build_payload_from_session(self, session: Any, limit: int = 400) -> Dict[str, Any]:
-        return self.build_payload(self._events_from_session(session, limit=limit))
+    def build_payload_from_history(
+        self, history: Dict[str, Any], limit: int = 400
+    ) -> Dict[str, Any]:
+        return self.build_payload(self._events_from_history(history, limit=limit))
 
     def build_payload(self, events: List[Dict[str, Any]]) -> Dict[str, Any]:
         findings = []  # type: List[Dict[str, Any]]
@@ -113,37 +115,27 @@ class ReviewCommandService(object):
             "sections": sections,
         }
 
-    def _events_from_session(self, session: Any, limit: int = 400) -> List[Dict[str, Any]]:
+    def _events_from_history(
+        self, history: Dict[str, Any], limit: int = 400
+    ) -> List[Dict[str, Any]]:
         events = []  # type: List[Dict[str, Any]]
-        seen_call_ids = set()
-        for turn in list(getattr(session, "turns", []) or []):
-            for step in list(getattr(turn, "steps", []) or []):
-                for record in list(getattr(step, "tool_calls", []) or []):
-                    observation = getattr(record, "observation", None)
-                    if observation is None:
-                        continue
-                    call_id = str(getattr(record, "call_id", "") or "")
-                    if call_id and call_id in seen_call_ids:
-                        continue
-                    if call_id:
-                        seen_call_ids.add(call_id)
-                    data = (
-                        observation.data
-                        if isinstance(getattr(observation, "data", None), dict)
-                        else {}
-                    )
-                    events.append(
-                        {
-                            "event": "tool_finished",
-                            "payload": {
-                                "tool_name": getattr(record, "tool_name", ""),
-                                "success": bool(getattr(observation, "success", False)),
-                                "call_id": call_id,
-                                "error": getattr(observation, "error", "") or "",
-                                "data": dict(data),
-                            },
-                        }
-                    )
+        activities = history.get("activities") if isinstance(history, dict) else []
+        for activity in list(activities or []):
+            if not isinstance(activity, dict) or activity.get("kind") != "tool":
+                continue
+            data = activity.get("data") if isinstance(activity.get("data"), dict) else {}
+            events.append(
+                {
+                    "event": "tool_finished",
+                    "payload": {
+                        "tool_name": str(activity.get("tool_name") or ""),
+                        "success": str(activity.get("status") or "") == "success",
+                        "call_id": str(activity.get("call_id") or ""),
+                        "error": str(activity.get("error") or ""),
+                        "data": dict(data),
+                    },
+                }
+            )
         if limit > 0:
             return events[-limit:]
         return events

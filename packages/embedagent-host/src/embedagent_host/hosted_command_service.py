@@ -48,6 +48,7 @@ class HostedCommandService(object):
         reload_resources: Callable[..., Dict[str, Any]],
         list_tasks: Callable[..., Dict[str, Any]],
         get_permission_context: Callable[[str], Any],
+        history_loader: Callable[[str], Dict[str, Any]],
         emit: Callable[[Optional[EventHandler], str, str, Dict[str, Any]], None],
         emit_with_snapshot: Callable[
             [Optional[EventHandler], str, ManagedSession, Dict[str, Any]], None
@@ -74,6 +75,7 @@ class HostedCommandService(object):
         self._reload_resources = reload_resources
         self._list_tasks = list_tasks
         self._get_permission_context = get_permission_context
+        self._history_loader = history_loader
         self._emit = emit
         self._emit_with_snapshot = emit_with_snapshot
         self._notify_status = notify_status
@@ -723,7 +725,8 @@ class HostedCommandService(object):
         event_handler: Optional[EventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
-        review = self.review_command.build_payload_from_session(state.session, limit=400)
+        history = self._history_loader(state.session.session_id)
+        review = self.review_command.build_payload_from_history(history, limit=400)
         lines = self.review_command.markdown_lines(review)
         self.emit_command_result(
             event_handler,

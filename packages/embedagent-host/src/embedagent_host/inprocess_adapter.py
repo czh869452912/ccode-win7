@@ -356,6 +356,7 @@ class InProcessAdapter(object):
             reload_resources=self.reload_resources,
             list_tasks=self.list_tasks,
             get_permission_context=self.get_permission_context,
+            history_loader=self.build_session_history,
             emit=self._emit,
             emit_with_snapshot=self._emit_with_snapshot,
             notify_status=self._notify_status,

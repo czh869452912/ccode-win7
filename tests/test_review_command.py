@@ -1,4 +1,4 @@
-from embedagent_core.session import Action, Observation, Session
+from embedagent_core.session import Observation
 from embedagent_host.runtime.review_command import ReviewCommandService
 
 
@@ -84,28 +84,26 @@ def test_review_service_classifies_recipe_evidence_by_payload_shape_not_tool_nam
     assert [item["id"] for item in review["findings"]] == ["tests-failed-custom-test"]
 
 
-def test_review_service_builds_payload_from_session_tool_observations():
+def test_review_service_builds_payload_from_session_history_projection():
     service = ReviewCommandService(FakeTools(diff_file_count=0))
-    session = Session(session_id="sess-review")
-    session.add_user_message("verify failed", turn_id="turn-review")
-    session.begin_step(step_id="step-review")
-    action = Action("run_recipe", {"recipe_id": "cmake.test.default"}, "call-test")
-    session.record_tool_call(action)
-    session.add_observation(
-        action,
-        Observation(
-            "run_recipe",
-            False,
-            "recipe failed",
+    history = {
+        "activities": [
             {
-                "recipe_id": "cmake.test.default",
-                "recipe_action": "test",
-                "test_summary": {"failed": 2},
-            },
-        ),
-    )
+                "kind": "tool",
+                "tool_name": "run_recipe",
+                "call_id": "call-test",
+                "status": "error",
+                "error": "recipe failed",
+                "data": {
+                    "recipe_id": "cmake.test.default",
+                    "recipe_action": "test",
+                    "test_summary": {"failed": 2},
+                },
+            }
+        ]
+    }
 
-    review = service.build_payload_from_session(session, limit=400)
+    review = service.build_payload_from_history(history, limit=400)
 
     assert review["tests_seen"] is True
     assert [item["id"] for item in review["findings"]] == ["tests-failed-call-test"]
