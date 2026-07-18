@@ -17,6 +17,32 @@ It describes the current implementation order and the next remaining priorities.
   session, timeline, GUI reducer, and extension-hook shapes instead of adding
   new adapters over them
 
+## 3. Phase 3 Completion
+
+Phase 3 has completed the independent-agent/workflow packaging slice:
+
+- Core now owns reusable profile descriptors and profile runtime policy
+  contracts; Host owns only generic concrete profiles and hosted services.
+- The first-party C/C++ workflow is an independent
+  `embedagent-workflow-cpp` wheel. Its package root exports only the workflow
+  package identity and Core runtime-definition factory, and its source tree
+  has no Host, Protocol, Composition, or product imports.
+- Product composition selects the C/C++ workflow through an injected
+  `RuntimeDefinition` and application catalog record. The Host adapter does
+  not construct the workflow package or `QueryEngine`.
+- C++ recipe projection consumes Host-discovered JSON-safe recipe records and
+  resource metadata through the extension boundary. Local resource discovery
+  remains Host-owned; CMake/Make/Ninja detection and recipe normalization
+  remain workflow-owned.
+- The offline distribution contract now builds, checks, stages, and smokes
+  six project wheels. The checker enforces the exact DAG:
+  Core/Protocol/Composition/C++ workflow are leaves, Host depends on Core and
+  Protocol, and product depends on all five lower distributions.
+
+The remaining release evidence is environmental rather than an architecture
+boundary claim: a clean Windows 7/WebView2 bundle smoke must still be recorded
+before release compatibility is asserted.
+
 ## 3. Completed Core Programs
 
 The following core programs are now complete in the current architecture baseline:
@@ -29,7 +55,7 @@ The following core programs are now complete in the current architecture baselin
 6. Agent core ownership cutover
 7. Standalone Agent Core public API promotion
 8. Independent Python distribution split for Core, Protocol, Host,
-   Composition, and product
+   Composition, C/C++ workflow, and product
 
 This means the repository now has one official execution spine centered on:
 
@@ -41,23 +67,23 @@ This means the repository now has one official execution spine centered on:
 Recent workflow-boundary work has split the generic Agent Core from hosted
 product composition and default C/C++ behavior:
 
-- the repository is a uv workspace that builds exactly five version-locked
+- the repository is a uv workspace that builds exactly six version-locked
   distributions: dependency-free Core, Protocol, and Composition leaves; Host
-  depending only on Core and Protocol; and the product aggregator depending on
-  all four workspace members
+  depending only on Core and Protocol; the C/C++ workflow depending only on
+  Core; and the product aggregator depending on all five lower distributions
 - Core, Protocol, and Host have distribution-owned source roots; the root
   product wheel contains only product code and GUI static assets
 - product-specific application selection, configuration, prompt construction,
   command sanitization, and bundle discovery are injected into generic Host
   factories; Host does not import product or C/C++ workflow modules
 - clean wheel construction, archive ownership inspection, Python 3.8 isolated
-  no-index import smoke across all five project distributions, and wheel-only
+  no-index import smoke across all six project distributions, and wheel-only
   offline dependency staging are now local CI and packaging gates; the smoke is
   an import boundary test rather than a full GUI/provider runtime test
 - wheel METADATA inspection now enforces exact workspace pins and dependency
   direction while deliberately leaving documented third-party dependency
   version policy outside that checker
-- the five project distributions are installed wheel-only; locked third-party
+- the six project distributions are installed wheel-only; locked third-party
   dependency preparation remains a separate controlled build-time step and may
   build sdists, currently `proxy-tools==0.1.0`; binary-only third-party supply
   with source/license/hash curation remains release hardening
@@ -90,8 +116,8 @@ product composition and default C/C++ behavior:
 - `packages/embedagent-host/src/embedagent_host/` now contains generic hosted
   runtime services, providers, tools, hosted command/interaction services, and
   adapter glue; product composition remains in the root product
-- `src/embedagent/workflow_packages/c_cpp/` now contains the first-party C/C++
-  workflow package
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/` now
+  contains the first-party independently exported C/C++ workflow package
 - `packages/embedagent-core/src/embedagent_core/extensions.py` now provides the in-process workflow extension boundary
 - the C/C++ harness is wrapped as the default built-in workflow extension
 - `QueryEngine` no longer imports or instantiates `TaskGraph` directly
@@ -99,7 +125,7 @@ product composition and default C/C++ behavior:
 - `Session.workflow_state` is the generic workflow-state carrier; `Session.task_graph` has been removed and default C harness graph state is owned behind `CHarnessWorkflowExtension`
 - `SessionSnapshotProjector` and live frontend task APIs now project harness task fields from `Session.workflow_state["workflow"]`
 - the obsolete extracted turn-orchestrator strategy has been removed; `AgentLoop` is the only turn-loop owner and `AgentToolActionService` is the only non-LLM action execution owner
-- `src/embedagent/workflow_packages/c_cpp/workflow_projection.py` now owns the C harness to generic workflow payload adapter
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workflow_projection.py` now owns the C harness to generic workflow payload adapter
 - `InProcessAdapter` no longer constructs `HarnessRunner` directly; managed-session workflow refresh is delegated through the selected `AgentApplication`, and the bundled C/C++ application delegates task-snapshot persistence to the built-in C harness extension
 - `QueryEngine` now asks for schemas using explicit active tool names through `ToolRuntime.schemas_for(...)`, so default harness pack activation is owned by the workflow extension boundary
 - Agent profile contracts now own hosted scenario mode/base-tool metadata and GUI mode capability projection, while workflow package contracts own scenario-specific workflow tools, package-owned tool names, and packs; the global `embedagent.modes` facade uses the generic base profile, and selected hosted applications provide specialized mode policy; `ToolRuntime.schemas_for(...)` no longer performs implicit mode fallback when active tool names are omitted
@@ -121,7 +147,7 @@ product composition and default C/C++ behavior:
 - workflow prompt descriptors now use generic `WorkflowPrompt` naming and new prompt messages use `workflow_prompt`; old harness prompt names and compatibility aliases are no longer active prompt assembly kinds
 - `propose_mode_switch` is no longer projected as an unconditional model tool; it appears only when explicitly activated through the active-tool boundary
 - `ToolCatalogEntry` now keeps internal execution, presentation, and context-policy facets while preserving the legacy flat catalog payload for protocol/frontend compatibility
-- C/C++ workflow pack definitions now live only under `src/embedagent/workflow_packages/c_cpp/packs.py`; the obsolete tooling-package compatibility export has been removed
+- C/C++ workflow pack definitions now live only under `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/packs.py`; the obsolete tooling-package compatibility export has been removed
 - Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E self-extension authoring loop, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, Phase K recovery state, Phase L pack compatibility cleanup, Phase M core alias cleanup, Phase N agent application manifest/capability projection, and the Pi-style prompt-surface/resource/runtime-state alignment slice are complete
 - the Pi-style enterprise/intranet capability boundary foundation is implemented: runtime tool catalog metadata is the source of truth for permission category, unknown or invalid categories fall back to ask-by-default `other`, `network` and `telemetry` permission categories are recognized by policy/runtime/extension metadata, and `embedagent.telemetry` provides local safe telemetry envelopes while future intranet Git, custom service, provider, organization-local catalog, and sink work stays optional and outside Agent Core
 - stale core compatibility aliases have been removed; current code uses `get_mode_registry()`, `get_command_sanitizer()`, and `get_inprocess_adapter()` directly instead of removed registry, sanitizer, or adapter private aliases

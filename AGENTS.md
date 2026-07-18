@@ -38,7 +38,7 @@ uv run --locked python scripts/lint.py --fix
 # Full local CI equivalent
 make ci
 
-# Build, inspect, and isolate-smoke all five Python distributions
+# Build, inspect, and isolate-smoke all six Python distributions
 uv run python scripts/build-python-distributions.py --dist-dir dist
 uv run python scripts/check-python-distributions.py --dist-dir dist
 uv run python scripts/smoke-python-distributions.py --dist-dir dist --python .venv/Scripts/python.exe
@@ -49,7 +49,7 @@ raw `uv build --all-packages` release command: it cleans known build caches and
 protects external wheelhouses from reparse points or unrelated files before
 building. The checker must pass before any wheel is installed or archived.
 It enforces the exact inter-distribution DAG from wheel METADATA; it is not a
-general third-party dependency version auditor. Isolated smoke covers all five
+general third-party dependency version auditor. Isolated smoke covers all six
 project distributions across independent and composed import scenarios, but it
 does not start the GUI, provider, or complete hosted runtime.
 
@@ -81,7 +81,7 @@ Win7/WebView2 bundle smoke results.
 
 ## Python Distribution Ownership
 
-The uv workspace produces exactly five Python distributions:
+The uv workspace produces exactly six Python distributions:
 
 - `embedagent-core`: `embedagent_core`; no runtime dependencies and no imports
   from Protocol, Host, product, GUI, or workflow packages.
@@ -92,18 +92,21 @@ The uv workspace produces exactly five Python distributions:
   Core and Protocol distributions and must not import `embedagent`.
 - `embedagent-composition`: `embedagent_composition`; dependency-free neutral
   composition marker.
+- `embedagent-workflow-cpp`: `embedagent_workflow_cpp`; independently
+  exported C/C++ workflow package depending exactly on Core.
 - `embedagent`: product aggregator; owns CLI/TUI/GUI, product bootstrap, and the
-  bundled C/C++ workflow, and depends on all four workspace distributions.
+  product composition, and depends on all five lower workspace distributions.
 
 When adding a module, place workflow-neutral turn/session policy and public SDK
 contracts in Core; JSON-safe UI/Host DTOs in Protocol; generic concrete runtime
 implementations in Host; neutral composition markers in Composition; and all
-GUI, product configuration/bootstrap, and first-party C/C++ workflow behavior
-in the product. Product bootstrap must inject product registries, policy
+GUI and product configuration/bootstrap belong in the product; first-party
+C/C++ workflow behavior belongs in the workflow package. Product bootstrap injects
+product registries, policy
 factories, and runtime discovery into Host. Never solve a Host need by importing
 the product back into Host.
 
-Offline dependency export must build and validate the five project wheels,
+Offline dependency export must build and validate the six project wheels,
 install those project distributions wheel-only with network resolution
 disabled, and stage the installed product under `app/embedagent` while the
 other installed distributions remain under `runtime/site-packages`. Editable
@@ -263,11 +266,11 @@ Official task truth for the default C/C++ harness workflow is:
 
 `Session.workflow_state` is the generic workflow-state carrier. Frontend-facing task fields are projected from `Session.workflow_state["workflow"]`.
 
-Default C/C++ workflow projection assembly lives in `src/embedagent/workflow_packages/c_cpp/workflow_projection.py`. Harness internals may use `TaskGraph`, but the core/frontend boundary must consume the generic workflow payload produced there.
+Default C/C++ workflow projection assembly lives in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workflow_projection.py`. Harness internals may use `TaskGraph`, but the core/frontend boundary must consume the generic workflow payload produced there.
 
 `Session.task_graph` has been removed. Default C/C++ graph ownership lives behind `CHarnessWorkflowExtension` and its harness-owned session graph state. Workflow-neutral strategies, projectors, and frontend task APIs must consume only `Session.workflow_state["workflow"]`.
 
-Importing or instantiating `embedagent.session.Session` must not load `embedagent.workflow_packages.c_cpp.task_graph`; C harness graph internals stay behind the default harness workflow extension.
+Importing or instantiating `embedagent.session.Session` must not load `embedagent_workflow_cpp.task_graph`; C harness graph internals stay behind the default harness workflow extension.
 
 The retired todo-management tool is not part of the official workflow architecture.
 
@@ -294,7 +297,7 @@ Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. D
 
 `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract. Do not use runtime mode contracts as a shortcut for default harness pack activation; use `AgentExtensionHost` over the shared `ExtensionManager` and pass explicit active tool names into runtime schema projection.
 
-C/C++ workflow pack definitions live only in `src/embedagent/workflow_packages/c_cpp/packs.py`. Do not reintroduce `src/embedagent/tooling/packs.py`, `embedagent.tooling.packs`, or package-root pack aliases on `embedagent.tooling`; those were stale compatibility paths and are no longer part of the product contract.
+C/C++ workflow pack definitions live only in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/packs.py`. Do not reintroduce `src/embedagent/tooling/packs.py`, `embedagent.tooling.packs`, or package-root pack aliases on `embedagent.tooling`; those were stale compatibility paths and are no longer part of the product contract.
 
 Command sanitization uses `get_command_sanitizer()` directly. Do not reintroduce
 removed sanitizer proxy/wrapper aliases; shell execution must continue through

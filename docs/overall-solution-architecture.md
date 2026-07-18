@@ -20,7 +20,7 @@ The product is organized around one main execution spine:
 
 ### Distribution Boundaries
 
-The repository is a uv workspace with five independently built Python
+The repository is a uv workspace with six independently built Python
 distributions:
 
 | Distribution | Import package | Owns | Runtime dependencies |
@@ -29,22 +29,24 @@ distributions:
 | `embedagent-protocol` | `embedagent_protocol` | JSON-safe Host/UI DTOs | none |
 | `embedagent-host` | `embedagent_host` | Generic hosted runtime, providers, local services, tools, and stores | exact Core and Protocol |
 | `embedagent-composition` | `embedagent_composition` | Neutral composition marker | none |
+| `embedagent-workflow-cpp` | `embedagent_workflow_cpp` | First-party C/C++ workflow package, tools, packs, recipes, task projection, and manifest | exact Core |
 | `embedagent` | `embedagent` | Product CLI/TUI/GUI, bootstrap, and bundled C/C++ workflow | all workspace distributions plus product/UI dependencies |
 
 The allowed dependency graph is acyclic. Host may use Core and Protocol; the
-product may use every lower distribution. Core, Protocol, and Composition are
+C/C++ workflow package may use Core; the product may use every lower
+distribution. Core, Protocol, Composition, and the C/C++ workflow are
 independent leaves. Core and Host must not import `embedagent`, and Host must
-not import the bundled C/C++ workflow. Product bootstrap provides the selected
+not import the C/C++ workflow. Product bootstrap provides the selected
 application registry, config loader, prompt builder, command sanitizer, and
 bundle discovery functions to generic Host factories.
 
-Wheel inspection enforces this inter-distribution DAG from METADATA: the three
+Wheel inspection enforces this inter-distribution DAG from METADATA: the four
 leaf distributions have no runtime requirements, Host has exactly two
-unconditional `0.1.0` workspace pins, and the product has exactly four. Product
-third-party requirements are allowed but are not fully version-audited by this
-checker. Isolated smoke installs exact checker-approved wheel paths and covers
-all five distributions across independent and composed imports; it is not a
-full GUI, provider, or hosted runtime test.
+unconditional `0.1.0` workspace pins, the C/C++ workflow has exactly one, and
+the product has exactly five. Product third-party requirements are allowed but
+are not fully version-audited by this checker. Isolated smoke installs exact
+checker-approved wheel paths and covers all six distributions across independent
+and composed imports; it is not a full GUI, provider, or hosted runtime test.
 
 Source ownership follows the distribution boundary: reusable SDK policy belongs
 to Core, cross-shell wire DTOs to Protocol, concrete workflow-neutral runtime
@@ -52,7 +54,8 @@ implementations to Host, and product/GUI/C++ workflow behavior to the product.
 The stable source roots are `packages/embedagent-core/src/embedagent_core/`,
 `packages/embedagent-protocol/src/embedagent_protocol/`,
 `packages/embedagent-host/src/embedagent_host/`,
-`packages/embedagent-composition/src/embedagent_composition/`, and
+`packages/embedagent-composition/src/embedagent_composition/`,
+`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`, and
 `src/embedagent/`.
 
 Project distributions enter release composition only as checked wheels. Locked
@@ -531,8 +534,8 @@ abstraction.
 - `packages/embedagent-host/src/embedagent_host/runtime/project_extensions.py`
 - `packages/embedagent-host/src/embedagent_host/runtime/slash_commands.py`
 - `src/embedagent/hosted.py`
-- `src/embedagent/agent_application_registry.py`
-- `src/embedagent/workflow_packages/`
+- `src/embedagent/product_catalog.py`
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`
 
 The Host distribution provides generic concrete services over Agent Core:
 selected application loading, local resources, project-local extensions,
@@ -546,15 +549,16 @@ Hosted `AgentApplication` records declare scenario identity, manifest metadata,
 profile, mode policy, extension manager, and workflow refreshers. The hosted
 application registry stores built-in applications as `AgentApplicationRecord`
 data. Profile-only applications build directly from profile records; workflow
-backed specialized applications declare a `builder_path` that resolves to the
-package-owned application factory, so the generic loader does not contain C/C++
-workflow branches. Profile-only records stay in the base registry and can be
-built without importing the bundled C/C++ workflow package. Workflow-backed
-built-ins, including the default C/C++ product application, are added only by the
-product registry in `src/embedagent/agent_application_registry.py`.
+backed specialized applications declare profile/runtime factories, so the
+generic loader does not contain C/C++ workflow branches. Profile-only records
+stay in the base registry and can be built without importing the independent
+C/C++ workflow package. Product composition adds the default C/C++ application
+in `src/embedagent/product_catalog.py`.
 The default C/C++ application record and app-shell overlay live in
-`src/embedagent/workflow_packages/c_cpp/application_record.py`; the base
-registry does not import that package. The selected registry exposes safe
+The C/C++ profile and runtime definition live in
+`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/profile.py` and
+`component.py`; the product catalog owns app-shell metadata. The selected
+registry exposes safe
 `AgentApplicationManifest` records for GUI capability projection. Agent profiles
 declare scenario mode metadata, base tool policy, and GUI mode capability
 projection.
@@ -566,11 +570,11 @@ The legacy/global `src/embedagent/modes.py` facade is intentionally backed by
 the generic base agent profile; hosted runtime paths use the selected
 `AgentApplication.profile` for specialized writable globs, prompt copy, mode
 descriptors, and active-tool base policy through
-`embedagent_host.runtime.agent_profile_runtime`. `InProcessAdapter` composes those
+`embedagent_core.profile_runtime`. `InProcessAdapter` composes those
 shared profile runtime policies and must not inline product prompt rendering,
 write-glob evaluation, or mode-switch parsing. The default C/C++ profile is
-loaded only from `src/embedagent/workflow_packages/c_cpp/agent_profile.py` by
-the default C/C++ application, not by the global mode facade or generic
+loaded only from `embedagent_workflow_cpp.profile` by the default C/C++
+application, not by the global mode facade or generic
 application loader.
 Workflow packages declare scenario-specific
 workflow tools, packs, prompts, resources, manifests, workspace-profile
@@ -591,12 +595,12 @@ selection falls through to the product registry default.
 
 ### Default C/C++ Workflow Package
 
-- `src/embedagent/workflow_packages/c_cpp/`
-- `src/embedagent/workflow_packages/c_cpp/extension.py`
-- `src/embedagent/workflow_packages/c_cpp/workflow_projection.py`
-- `src/embedagent/workflow_packages/c_cpp/packs.py`
-- `src/embedagent/workflow_packages/c_cpp/tool_registry.py`
-- `src/embedagent/workflow_packages/c_cpp/tool_metadata.py`
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/extension.py`
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workflow_projection.py`
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/packs.py`
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/tool_registry.py`
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/tool_metadata.py`
 
 The first-party C/C++ workflow package owns C/C++ discipline, phase, task graph,
 tool registration, metadata, packs, workspace-profile detector, context

@@ -14,7 +14,7 @@ The current product baseline is:
 
 ## Current Official Architecture
 
-The repository is a five-distribution uv workspace:
+The repository is a six-distribution uv workspace:
 
 - `embedagent-core` owns the workflow-neutral `embedagent_core` SDK. It has no
   runtime dependencies and must not import Protocol, Host, product, GUI, or
@@ -26,16 +26,20 @@ The repository is a five-distribution uv workspace:
   Core and Protocol distributions and must not import the product package.
 - `embedagent-composition` is a dependency-free composition marker available to
   products that need a neutral composition distribution.
-- `embedagent` is the product aggregator. It depends on all four workspace
+- `embedagent-workflow-cpp` is the independently exportable, Core-only
+  first-party C/C++ workflow package. It owns C/C++ modes, packs, tools,
+  recipes, task projection, and workflow metadata without importing Host.
+- `embedagent` is the product aggregator. It depends on all five lower
   distributions and owns CLI/TUI/GUI shells, product bootstrap, and the bundled
-  C/C++ workflow package.
+  product composition.
 
 The base scenario application registry lives in Host. The product registry
 explicitly adds the bundled `embedagent.default_c_cpp` specialized agent as the
 packaged default, and product bootstrap injects that registry plus configuration,
 command sanitization, runtime discovery, and prompt policy into Host.
-- `src/embedagent/workflow_packages/c_cpp/` is the first-party default C/C++
-  workflow package. It is bundled by the hosted product, but it is not Core.
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/` is the
+  first-party C/C++ workflow package. It is bundled by product composition,
+  but it is independently buildable and is not Core or Host.
 - `packages/embedagent-protocol/src/embedagent_protocol/` contains the Agent App
   Protocol contracts consumed by reusable GUI/TUI shells.
 
@@ -49,20 +53,21 @@ The distribution dependency direction is:
 
 ```text
 embedagent-core       embedagent-protocol       embedagent-composition
-        \                    /
-         \                  /
-             embedagent-host
-                    \
-                     embedagent (product)
+        \                    /                  \
+         \                  /                    \
+             embedagent-host                    embedagent-workflow-cpp
+                    \                         /
+                     \                       /
+                       embedagent (product)
 ```
 
 The product may depend on every lower distribution. Host may depend only on
-Core and Protocol. Core, Protocol, and Composition are independent leaves;
-none may import the product.
+Core and Protocol. Core, Protocol, Composition, and the C/C++ workflow are
+independent leaves; none may import the product.
 
 ## Python Distribution Gates
 
-Build, inspect, and smoke the five wheels from a clean repository root:
+Build, inspect, and smoke the six wheels from a clean repository root:
 
 ```bash
 uv sync
@@ -78,11 +83,12 @@ each distribution and rejects cross-owned packages, unsafe Windows paths, and
 an invalid inter-distribution dependency DAG. It does not audit every
 third-party version. The smoke command uses Python 3.8 temporary virtual
 environments, `--no-index`, `--no-deps`, and isolated imports. Its independent
-and composed scenarios cover all five project distributions, including the
-product wheel, but do not start a full GUI, provider, or hosted product runtime.
+and composed scenarios cover all six project distributions, including a
+C/C++-only stack and the product wheel, but do not start a full GUI, provider,
+or hosted product runtime.
 
 Project distribution staging is wheel-only. The dependency export separately
-builds the five checked project wheels, prepares locked third-party packages at
+builds the six checked project wheels, prepares locked third-party packages at
 build time, installs the project wheels without network resolution, and stages
 the resulting `site-packages` for offline runtime:
 
