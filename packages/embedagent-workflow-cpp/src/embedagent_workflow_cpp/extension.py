@@ -272,7 +272,12 @@ class CHarnessWorkflowExtension(object):
         workspace = self._workspace()
         if not workspace:
             return {"workspace": "", "items": []}
-        return list_workspace_recipes(workspace, resource_paths=self._resource_paths())
+        resource_payload = self._resource_snapshot()
+        return list_workspace_recipes(
+            workspace,
+            local_recipe_records=resource_payload.get("recipes") or [],
+            resource_metadata=resource_payload,
+        )
 
     def resolve_workspace_recipe(
         self,
@@ -281,26 +286,28 @@ class CHarnessWorkflowExtension(object):
         target: str = "",
         profile: str = "",
     ) -> dict:
+        resource_payload = self._resource_snapshot()
         return resolve_workspace_recipe(
             self._workspace(),
             recipe_id=recipe_id,
             expected_tool_name=expected_tool_name,
             target=target,
             profile=profile,
-            resource_paths=self._resource_paths(),
+            local_recipe_records=resource_payload.get("recipes") or [],
+            resource_metadata=resource_payload,
         )
 
     def _workspace(self) -> str:
         return str(getattr(self.tools, "workspace", "") or "")
 
-    def _resource_paths(self) -> dict:
+    def _resource_snapshot(self) -> dict:
         local_resources = getattr(self.tools, "local_resources", None)
         if not callable(local_resources):
             return {}
         payload = local_resources()
         if not isinstance(payload, dict):
             return {}
-        return dict(payload.get("resource_paths") or {})
+        return dict(payload)
 
     def register_context_reducers(self, reducer_registry: Any) -> None:
         register_c_workflow_context_reducers(reducer_registry)

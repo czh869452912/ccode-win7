@@ -11,13 +11,6 @@ FORBIDDEN_IMPORTS = (
 )
 
 
-DEFERRED_RESOURCE_IMPORTS = {
-    "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workspace_recipes.py": (
-        "embedagent_host.runtime.local_resources",
-    ),
-}
-
-
 def _imported_modules(tree):
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
@@ -42,14 +35,7 @@ def test_cpp_workflow_package_exists():
 
 def test_cpp_workflow_does_not_import_forbidden_workspace_packages():
     offenders = []
-    deferred = {
-        (relative_path, module)
-        for relative_path, modules in DEFERRED_RESOURCE_IMPORTS.items()
-        for module in modules
-    }
     for relative_path, module in _cpp_imports():
-        if (relative_path, module) in deferred:
-            continue
         if any(module == name or module.startswith(name + ".") for name in FORBIDDEN_IMPORTS):
             offenders.append((relative_path, module))
     assert offenders == []
@@ -59,18 +45,21 @@ def test_legacy_nested_cpp_package_is_deleted():
     assert not (ROOT / "src" / "embedagent" / "workflow_packages" / "c_cpp").exists()
 
 
-def test_cpp_workflow_deferred_imports_are_resource_only():
-    expected = sorted(
-        (relative_path, module)
-        for relative_path, modules in DEFERRED_RESOURCE_IMPORTS.items()
-        for module in modules
+def test_cpp_recipe_projection_consumes_resource_records():
+    from embedagent_workflow_cpp.workspace_recipes import workspace_recipe_records
+
+    recipes = workspace_recipe_records(
+        workspace="D:/demo",
+        local_recipe_records=[{"name": "build", "command": "cmake --build build"}],
     )
-    actual = sorted(
-        (relative_path, module)
-        for relative_path, module in _cpp_imports()
-        if (relative_path, module) in expected
-    )
-    assert actual == expected
+
+    assert recipes[0]["name"] == "build"
+    assert recipes[0]["id"] == "build"
+
+
+def test_cpp_recipe_projection_does_not_discover_host_resources():
+    source = (PACKAGE / "workspace_recipes.py").read_text(encoding="utf-8")
+    assert "discover_local_resources" not in source
 
 
 def test_cpp_component_returns_core_runtime_definition():

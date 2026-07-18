@@ -3,9 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from typing import Any, Dict, List
-
-from embedagent_host.runtime.local_resources import discover_local_resources
+from typing import Any, Dict, Iterable, List, Optional
 
 from embedagent_workflow_cpp.tool_names import (
     C_WORKFLOW_TOOL_LIST_RECIPES,
@@ -24,29 +22,49 @@ class RecipeResolutionError(ValueError):
 
 def list_workspace_recipes(
     workspace: str,
-    resource_paths: Dict[str, List[str]] = None,
+    local_recipe_records: Optional[Iterable[Dict[str, Any]]] = None,
+    resource_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     workspace = os.path.realpath(workspace)
     items = []  # type: List[Dict[str, Any]]
-    resource_payload = discover_local_resources(
-        workspace,
-        recipe_paths=list((resource_paths or {}).get("recipe_paths") or []),
-        reason="recipes",
-    )
+    resource_records = workspace_recipe_records(workspace, local_recipe_records)
+    resource_payload = dict(resource_metadata or {})
     items.extend(_load_project_recipes(workspace))
-    items.extend(list(resource_payload.get("recipes") or []))
+    items.extend(resource_records)
     items.extend(_detect_builtin_recipes(workspace))
     items.extend(_load_history_recipes(workspace))
     items = [_normalize_recipe_item(item) for item in items if isinstance(item, dict)]
+    counts = dict(resource_payload.get("counts") or {})
+    counts["recipes"] = len(resource_records)
     return {
         "workspace": workspace,
         "items": items,
         "resources": {
-            "counts": dict(resource_payload.get("counts") or {}),
+            "counts": counts,
             "diagnostics": list(resource_payload.get("diagnostics") or []),
             "resource_paths": dict(resource_payload.get("resource_paths") or {}),
         },
     }
+
+
+def workspace_recipe_records(
+    workspace: str,
+    local_recipe_records: Optional[Iterable[Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """Normalize Host-discovered recipe records at the workflow boundary."""
+    del workspace
+    records = []  # type: List[Dict[str, Any]]
+    for record in local_recipe_records or ():
+        if not isinstance(record, dict):
+            continue
+        normalized = dict(record)
+        recipe_id = str(normalized.get("id") or normalized.get("name") or "").strip()
+        if not recipe_id:
+            continue
+        normalized["id"] = recipe_id
+        normalized.setdefault("name", recipe_id)
+        records.append(normalized)
+    return records
 
 
 def resolve_workspace_recipe(
@@ -55,10 +73,15 @@ def resolve_workspace_recipe(
     expected_tool_name: str = "",
     target: str = "",
     profile: str = "",
-    resource_paths: Dict[str, List[str]] = None,
+    local_recipe_records: Optional[Iterable[Dict[str, Any]]] = None,
+    resource_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     workspace = os.path.realpath(workspace)
-    payload = list_workspace_recipes(workspace, resource_paths=resource_paths)
+    payload = list_workspace_recipes(
+        workspace,
+        local_recipe_records=local_recipe_records,
+        resource_metadata=resource_metadata,
+    )
     items = list(payload.get("items") or [])
     normalized_id = str(recipe_id or "").strip()
     normalized_expected = str(expected_tool_name or "").strip()
