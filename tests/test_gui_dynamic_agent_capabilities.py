@@ -5,7 +5,6 @@ import sys
 import unittest
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WEBAPP_SOURCE = REPO_ROOT / "src" / "embedagent" / "frontend" / "gui" / "webapp" / "src"
 FORBIDDEN_RENDERER_LITERALS = re.compile(
@@ -164,9 +163,7 @@ if "embedagent_workflow_cpp" in sys.modules:
         source_path = str(REPO_ROOT / "src")
         existing_python_path = environment.get("PYTHONPATH", "")
         environment["PYTHONPATH"] = (
-            source_path + os.pathsep + existing_python_path
-            if existing_python_path
-            else source_path
+            source_path + os.pathsep + existing_python_path if existing_python_path else source_path
         )
         result = subprocess.run(
             [sys.executable, "-c", script],
