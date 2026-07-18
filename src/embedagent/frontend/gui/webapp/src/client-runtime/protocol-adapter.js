@@ -1,3 +1,5 @@
+import { normalizeProtocolEnvelope } from "../session-runtime/protocol-envelope.js";
+
 function text(value) {
   return String(value == null ? "" : value);
 }
@@ -25,6 +27,28 @@ export function createAgentAppProtocolAdapter({
   sendSocketMessage,
 } = {}) {
   const request = getRequest(fetchJson);
+
+  function requestFor(protocol, url, options) {
+    return Promise.resolve(request(url, options)).then((payload) => {
+      if (!payload || typeof payload !== "object" || !payload.protocol) return payload;
+      const normalized = normalizeProtocolEnvelope(payload, protocol);
+      if (!normalized.valid) {
+        const error = new Error("invalid_protocol_envelope");
+        error.protocol = protocol;
+        error.errors = normalized.errors;
+        throw error;
+      }
+      return {
+        ...normalized.payload,
+        protocolEnvelope: {
+          protocol: normalized.protocol,
+          version: normalized.version,
+          sequence: normalized.sequence,
+          revision: normalized.revision,
+        },
+      };
+    });
+  }
   const sendSocket =
     typeof sendSocketMessage === "function" ? sendSocketMessage : () => undefined;
 
@@ -32,7 +56,7 @@ export function createAgentAppProtocolAdapter({
     request,
     fetchJson: request,
     loadAppBootstrap() {
-      return request("/api/app/bootstrap", jsonOptions("GET"));
+      return requestFor("app_shell_v1", "/api/app/bootstrap", jsonOptions("GET"));
     },
     openWorkspacePath(path) {
       return request("/api/app/workspaces", jsonOptions("POST", { path: text(path) }));
@@ -57,10 +81,11 @@ export function createAgentAppProtocolAdapter({
       return request("/api/sessions" + query, jsonOptions("GET"));
     },
     loadSessionCapabilities() {
-      return request("/api/sessions/capabilities", jsonOptions("GET"));
+      return requestFor("capability_v1", "/api/sessions/capabilities", jsonOptions("GET"));
     },
     loadSessionBootstrap(sessionId) {
-      return request(
+      return requestFor(
+        "agent_session_v1",
         "/api/sessions/" + encode(sessionId) + "/bootstrap",
         jsonOptions("GET"),
       );
@@ -238,3 +263,4 @@ export function createAgentAppProtocolAdapter({
 
   return Object.freeze(api);
 }
+
