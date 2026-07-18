@@ -2128,6 +2128,14 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             self.assertIn("pending_interaction", waiting)
             self.assertEqual(waiting["pending_interaction"]["kind"], "permission")
             self.assertTrue(str(waiting["pending_interaction"].get("step_id") or "").strip())
+            events = adapter.transcript_store.load_events(session_id)
+            pending_starts = [
+                item
+                for item in events
+                if item.get("type") == "operation_started"
+                and (item.get("payload") or {}).get("kind") == "pending_interaction"
+            ]
+            self.assertEqual(len(pending_starts), 1)
             payload = adapter.build_session_history(session_id)
             self.assertEqual(len(payload["turns"]), 1)
             turn = payload["turns"][0]

@@ -363,7 +363,6 @@ class InProcessAdapter(object):
             refresh_workflow_state=self._refresh_application_state,
             tool_event_metadata=self._tool_event_metadata,
             create_permission_ticket=self.interaction_service.create_permission_ticket,
-            record_pending_permission=self._record_command_pending_permission,
             clear_pending_interaction=self.interaction_service.clear_pending_interaction,
         )
 
@@ -476,30 +475,6 @@ class InProcessAdapter(object):
             return []
         with state.lock:
             return sorted(state.remembered_permission_categories)
-
-    def _record_command_pending_permission(
-        self,
-        state: ManagedSession,
-        action: Action,
-        request: PermissionRequest,
-        current_mode: str,
-        interaction_id: str = "",
-    ) -> None:
-        details = dict(request.details)
-        details.pop("_interaction_id", None)
-        permission_payload = {
-            "tool_name": request.tool_name,
-            "category": request.category,
-            "reason": request.reason,
-            "details": details,
-        }
-        state.agent_session._host_record_pending_permission(
-            state.session,
-            action,
-            permission_payload,
-            current_mode,
-            interaction_id=interaction_id,
-        )
 
     def capability_snapshot(self) -> Dict[str, Any]:
         return self._runtime_capabilities.snapshot()

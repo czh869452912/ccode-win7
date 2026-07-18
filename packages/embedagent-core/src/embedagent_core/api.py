@@ -236,23 +236,6 @@ class AgentSession(object):
     def _host_record_command_result(self, session: Any, **kwargs: Any) -> None:
         self._runtime.host_record_command_result(self.session_id, session, **kwargs)
 
-    def _host_record_pending_permission(
-        self,
-        session: Any,
-        action: Any,
-        permission_payload: Dict[str, Any],
-        current_mode: str,
-        interaction_id: str = "",
-    ) -> None:
-        self._runtime.host_record_pending_permission(
-            self.session_id,
-            session,
-            action,
-            permission_payload,
-            current_mode,
-            interaction_id=interaction_id,
-        )
-
     def _host_submit_command_turn(self, **kwargs: Any) -> Any:
         return self._runtime.host_submit_command_turn(self.session_id, **kwargs)
 

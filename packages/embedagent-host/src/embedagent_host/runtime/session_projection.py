@@ -44,8 +44,9 @@ class SessionProjectionService(object):
         except (OSError, ValueError, TypeError):
             return False
         events = self._trusted_events(state, events)
+        close_unfinished = bool(getattr(state, "restore_transcript_event_count", 0) or 0)
         state.operation_diagnostics = operation_diagnostics(
-            OperationLogReducer(close_unfinished=False).reduce(events)
+            OperationLogReducer(close_unfinished=close_unfinished).reduce(events)
         )
         state.runtime_config = RuntimeConfigReducer().reduce(events).to_dict()
         state.compaction_state = CompactionStateReducer().reduce(events).to_dict()

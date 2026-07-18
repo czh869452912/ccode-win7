@@ -57,7 +57,6 @@ class HostedCommandService(object):
         refresh_workflow_state: Callable[[ManagedSession], None],
         tool_event_metadata: Callable[[str], Dict[str, Any]],
         create_permission_ticket: Callable[..., Any],
-        record_pending_permission: Callable[..., Any],
         clear_pending_interaction: Callable[[ManagedSession], None],
     ) -> None:
         self.tools = tools
@@ -82,7 +81,6 @@ class HostedCommandService(object):
         self._refresh_workflow_state = refresh_workflow_state
         self._tool_event_metadata = tool_event_metadata
         self._create_permission_ticket = create_permission_ticket
-        self._record_pending_permission = record_pending_permission
         self._clear_pending_interaction = clear_pending_interaction
         self._slash_commands = SlashCommandService(
             {
@@ -816,6 +814,8 @@ class HostedCommandService(object):
             payload.update(self._tool_event_metadata(finished_action.name))
             self._emit_with_snapshot(event_handler, "tool_finished", state, payload)
 
+        pending_ticket = {"value": None}
+
         def permission_handler(request: PermissionRequest) -> Optional[bool]:
             ticket = self._create_permission_ticket(
                 state,
@@ -824,31 +824,24 @@ class HostedCommandService(object):
                 step_id=current_step["step_id"],
                 step_index=current_step["step_index"],
             )
-            self._record_pending_permission(
-                state,
-                action,
-                request,
-                state.current_mode,
-                interaction_id=ticket.permission_id,
-            )
-            self._emit_with_snapshot(
-                event_handler,
-                "permission_required",
-                state,
-                {
-                    "permission": ticket.to_dict(),
-                    "turn_id": ticket.turn_id,
-                    "step_id": ticket.step_id,
-                    "step_index": ticket.step_index,
-                },
-            )
-            self._notify_status(event_handler, state)
+            pending_ticket["value"] = ticket
             if permission_resolver is not None:
+                self._emit_with_snapshot(
+                    event_handler,
+                    "permission_required",
+                    state,
+                    {
+                        "permission": ticket.to_dict(),
+                        "turn_id": ticket.turn_id,
+                        "step_id": ticket.step_id,
+                        "step_index": ticket.step_index,
+                    },
+                )
+                self._notify_status(event_handler, state)
                 approved = bool(permission_resolver(ticket.to_dict()))
                 self._clear_pending_interaction(state)
                 return approved
             with state.lock:
-                state.status = "waiting_permission"
                 state.pending_event = threading.Event()
             return None
 
@@ -873,7 +866,23 @@ class HostedCommandService(object):
             and permission_resolver is None
         ):
             with state.lock:
+                state.status = "waiting_permission"
+                state.updated_at = _utc_now()
                 event = state.pending_event
+            ticket = pending_ticket.get("value")
+            if ticket is not None:
+                self._emit_with_snapshot(
+                    event_handler,
+                    "permission_required",
+                    state,
+                    {
+                        "permission": ticket.to_dict(),
+                        "turn_id": ticket.turn_id,
+                        "step_id": ticket.step_id,
+                        "step_index": ticket.step_index,
+                    },
+                )
+            self._notify_status(event_handler, state)
             if event is not None:
                 event.wait()
             approved = False

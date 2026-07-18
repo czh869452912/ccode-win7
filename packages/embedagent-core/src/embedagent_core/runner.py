@@ -155,24 +155,6 @@ class AgentRuntime(object):
         with self._host_lease(session_id):
             self.build_engine().record_command_result(session, **kwargs)
 
-    def host_record_pending_permission(
-        self,
-        session_id: str,
-        session: Session,
-        action: Action,
-        permission_payload: Dict[str, Any],
-        current_mode: str,
-        interaction_id: str = "",
-    ) -> None:
-        with self._host_lease(session_id):
-            self.build_engine().kernel.record_pending_permission(
-                session,
-                action,
-                permission_payload,
-                current_mode,
-                interaction_id=interaction_id,
-            )
-
     def host_submit_command_turn(self, session_id: str, **kwargs: Any) -> Any:
         with self._host_lease(session_id):
             return self.build_engine().submit_command_turn(**kwargs)

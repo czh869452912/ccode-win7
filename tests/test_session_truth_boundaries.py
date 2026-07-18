@@ -66,3 +66,20 @@ def test_gui_session_bootstrap_serializes_history_without_replay_payload():
     assert "replay" not in payload
     assert "timeline" not in encoded
     assert "replay" not in encoded
+
+
+def test_hosted_command_permissions_use_the_core_action_pipeline_once():
+    adapter_source = _read(HOST_SOURCE / "inprocess_adapter.py")
+    command_source = _read(HOST_SOURCE / "hosted_command_service.py")
+    query_source = _read(CORE_SOURCE / "query_engine.py")
+    action_source = _read(CORE_SOURCE / "agent_tool_action_service.py")
+    api_source = _read(CORE_SOURCE / "api.py")
+    runner_source = _read(CORE_SOURCE / "runner.py")
+
+    assert "_host_submit_command_turn" in command_source
+    assert "_record_pending_permission" not in command_source
+    assert "_record_command_pending_permission" not in adapter_source
+    assert "permission_pending_handler=self._build_permission_pending_result" in query_source
+    assert "self._permission_pending_handler(" in action_source
+    assert "_host_record_pending_permission" not in api_source
+    assert "host_record_pending_permission" not in runner_source

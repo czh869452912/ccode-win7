@@ -132,3 +132,27 @@ def test_restore_result_contains_all_durable_read_models():
     assert result.runtime_config.to_dict()["model_profile"]["name"] == "offline-test"
     assert isinstance(result.turn_experience.to_dict(), dict)
     assert result.operation_state is not None
+
+
+def test_restored_projection_marks_unfinished_operations_interrupted():
+    session = Session(session_id="session-1")
+    state = _state(session)
+    state.restore_transcript_event_count = 1
+    state.restore_consumed_event_count = 1
+    service = SessionProjectionService(
+        transcript_store=_TranscriptStore(
+            [
+                {
+                    "type": "operation_started",
+                    "session_id": "session-1",
+                    "payload": {"operation_id": "op-1", "kind": "turn"},
+                }
+            ]
+        ),
+        summary_loader=lambda current_state: None,
+    )
+
+    service.refresh(state)
+
+    assert state.operation_diagnostics["interrupted_count"] == 1
+    assert state.operation_diagnostics["started_count"] == 0
