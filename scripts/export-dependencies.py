@@ -8,6 +8,7 @@ Uses uv (preferred) if available, falls back to pip.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 import subprocess
@@ -164,14 +165,56 @@ def install_project_wheels(
     _run(command, cwd=project_root)
 
 
+_GENERATED_EXPORT_ENTRIES = frozenset(
+    (
+        "requirements-pinned.txt",
+        "site-packages",
+        "site-packages-manifest.json",
+        "wheels",
+    )
+)
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def clean_export_root(output_dir: Path) -> Path:
+    root = Path(output_dir)
+    if root.exists():
+        if root.is_symlink() or not root.is_dir():
+            raise ValueError("export root must be a normal directory")
+        unknown = sorted(
+            entry.name for entry in root.iterdir() if entry.name not in _GENERATED_EXPORT_ENTRIES
+        )
+        if unknown:
+            raise ValueError("unexpected export entry: %s" % unknown[0])
+        for name in sorted(_GENERATED_EXPORT_ENTRIES):
+            entry = root / name
+            if not entry.exists():
+                continue
+            if entry.is_symlink():
+                raise ValueError("generated export entry must not be a reparse point: %s" % entry)
+            if entry.is_dir():
+                shutil.rmtree(str(entry))
+            else:
+                entry.unlink()
+    else:
+        root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 def export_site_packages(
     project_root: str,
     output_dir: str,
     python_version: str = "3.8",
 ) -> None:
     """Export complete site-packages for offline use."""
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
+    output_path = clean_export_root(Path(output_dir))
 
     print("Step 1: Getting full dependency list...")
     deps = get_all_dependencies(project_root)
@@ -266,6 +309,7 @@ def export_site_packages(
         "requirements": deps,
         "project_distributions": list(PROJECT_DISTRIBUTIONS),
         "project_wheels": [path.name for path in project_wheels],
+        "wheel_hashes": {path.name: _sha256_file(path) for path in project_wheels},
     }
     manifest_file = output_path / "site-packages-manifest.json"
     with open(manifest_file, "w") as f:
@@ -391,6 +435,17 @@ def main():
                     "site_packages_root": str(site_packages),
                     "requirements_file": str(Path(args.output_dir) / "requirements-pinned.txt"),
                     "wheelhouse": str(Path(args.output_dir) / "wheels"),
+                    "project_distributions": list(PROJECT_DISTRIBUTIONS),
+                    "project_wheels": json.loads(
+                        (Path(args.output_dir) / "site-packages-manifest.json").read_text(
+                            encoding="utf-8"
+                        )
+                    ).get("project_wheels", []),
+                    "wheel_hashes": json.loads(
+                        (Path(args.output_dir) / "site-packages-manifest.json").read_text(
+                            encoding="utf-8"
+                        )
+                    ).get("wheel_hashes", {}),
                     "missing_packages": missing,
                 },
             )

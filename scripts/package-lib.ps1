@@ -930,7 +930,30 @@ function Invoke-PackageDeps {
     $timer = New-PackageStageTimer
     $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $scriptPath -Arguments @('--output-dir', $outputRoot, '--json-report', $jsonPath)
     $payload = Get-Content -LiteralPath $jsonPath -Raw | ConvertFrom-Json
-    Add-StageResult -Report $Report -Name 'deps' -Status $(if ($payload.ok) { 'pass' } else { 'fail' }) -ExitCode $(if ($payload.ok) { 0 } else { 1 }) -Summary @{ report = $jsonPath } -StageTimer $timer
+    $expectedDistributions = @()
+    if ($Context.profile_config.PSObject.Properties.Name -contains 'required_project_distributions') {
+        $expectedDistributions = @($Context.profile_config.required_project_distributions)
+    }
+    if ($expectedDistributions.Count -eq 0) {
+        $expectedDistributions = @('embedagent-core', 'embedagent-protocol', 'embedagent-host', 'embedagent-composition', 'embedagent-workflow-cpp', 'embedagent')
+    }
+    $actualDistributions = @($payload.project_distributions)
+    $actualWheels = @($payload.project_wheels)
+    $wheelHashCount = if ($payload.wheel_hashes) { @($payload.wheel_hashes.PSObject.Properties).Count } else { 0 }
+    $depsOk = [bool]$payload.ok -and $actualDistributions.Count -eq $expectedDistributions.Count -and (($actualDistributions -join '|') -eq ($expectedDistributions -join '|')) -and $actualWheels.Count -eq 6 -and $wheelHashCount -eq 6
+    $summary = @{
+        report = $jsonPath
+        project_distributions = $actualDistributions
+        project_wheels = $actualWheels
+        wheel_hashes = $payload.wheel_hashes
+        output_root = $outputRoot
+    }
+    if (-not $depsOk) {
+        $Report.Value.blocking_issues += 'deps: exact six-wheel report handoff failed'
+    }
+    $depsStatus = if ($depsOk) { 'pass' } else { 'fail' }
+    $depsExitCode = if ($depsOk) { 0 } else { 1 }
+    Add-StageResult -Report $Report -Name 'deps' -Status $depsStatus -ExitCode $depsExitCode -Summary $summary -StageTimer $timer
 }
 
 function Invoke-FrontendBuild {
