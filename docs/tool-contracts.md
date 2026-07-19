@@ -39,7 +39,7 @@ Workflow extensions may activate focused subsets of registered tools for a turn.
 
 `CORE_PACK` is the minimal editing/search/shell foundation. Harness-only tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` must be registered/activated by workflow packs/extensions rather than being treated as bare Core tools.
 
-Bundled C/C++ workflow pack definitions are owned only by `src/embedagent/workflow_packages/c_cpp/packs.py`. The removed tooling-package pack re-export and package-root aliases must not be treated as official tool contracts.
+Bundled C/C++ workflow pack definitions are owned only by `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/packs.py`. The removed tooling-package pack re-export and package-root aliases must not be treated as official tool contracts.
 
 Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. They must not be used as the complete default C/C++ tool list. The C harness extension reports only its active pack tools; product paths that need the default harness behavior must union the mode contract with active workflow-extension tools and request schemas by explicit active tool names.
 
@@ -274,8 +274,8 @@ Examples of duplicates that should not be reintroduced:
 The authoritative implementation lives in:
 
 - `packages/embedagent-host/src/embedagent_host/runtime/tools/runtime.py`
-- `src/embedagent/workflow_packages/c_cpp/extension.py`
-- `src/embedagent/workflow_packages/c_cpp/tool_registry.py`
-- `src/embedagent/workflow_packages/c_cpp/tool_metadata.py`
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/extension.py`
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/tool_registry.py`
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/tool_metadata.py`
 
 This document must stay aligned with those files.

@@ -1,7 +1,7 @@
 # EmbedAgent Win7 部署前检查清单
 
-> 更新日期：2026-06-25
-> 适用阶段：Phase 7 目标机验收
+> 更新日期：2026-07-19
+> 适用阶段：Phase 7B 目标机验收
 
 ---
 
@@ -78,7 +78,7 @@
 
 ## 5. 目标机命令级检查
 
-以下命令为**计划中的目标机验收命令**，假定 Phase 7 bundle 已按设计完成：
+以下命令是当前 release bundle 的目标机验收命令：
 
 ```powershell
 embedagent.cmd --help

@@ -1,7 +1,7 @@
 # EmbedAgent 内网环境部署指南
 
 > 适用场景：物理隔离内网，无互联网访问，但可访问内网大模型服务
-> 更新日期：2026-05-29
+> 更新日期：`2026-07-19`
 
 ---
 
@@ -49,7 +49,7 @@ pwsh -File scripts/package.ps1 release -Json
 - `final_status`
 - `blocking_issues`
 
-只有 `final_status == "READY"` 时，才应把结果视为 release-ready 候选物。
+只有 `final_status == "TARGET_READY"` 且 `acceptance_status == "PENDING_WIN7"` 时，才可把结果视为仓库侧 release candidate；这仍不等于 Win7 `ACCEPTED`。
 
 ---
 
@@ -72,7 +72,7 @@ pwsh -File scripts/package.ps1 release
 Expand-Archive -Path embedagent-win7-x64.zip -DestinationPath C:\Tools
 
 # 2. 按 bundle 自带文档执行预检
-# docs\win7-preflight-checklist.md
+# docs\guides\win7-preflight-checklist.md
 
 # 3. 配置内网大模型服务
 copy C:\Tools\EmbedAgent\config\config.json C:\Users\<username>\.embedagent\
@@ -113,8 +113,8 @@ cd C:\Tools\EmbedAgent
 
 按这些文档执行：
 
-- `docs\win7-preflight-checklist.md`
-- `docs\win7-gui-validation.md`
+- `docs\guides\win7-preflight-checklist.md`
+- `docs\guides\win7-gui-validation.md`
 
 ---
 
@@ -140,7 +140,7 @@ build/offline-reports/latest.json
 
 ### Q3: GUI 启动失败
 
-优先确认 bundle 中包含 Fixed Version WebView2 109，并按 `docs/win7-gui-validation.md` 复核。
+优先确认 bundle 中包含 Fixed Version WebView2 109，并按 `docs/guides/win7-gui-validation.md` 复核。
 
 ### Q4: 无法连接内网模型服务
 

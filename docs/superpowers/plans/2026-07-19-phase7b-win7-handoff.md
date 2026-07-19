@@ -4,9 +4,9 @@ Date: 2026-07-19
 
 ## Status
 
-Phase 7B remains `ACCEPTED_PENDING_EXTERNAL`. The repository-side release
-candidate gate is now operational and the current local bundle reaches
-`TARGET_READY` with `acceptance_status=PENDING_WIN7`. This is not an
+The repository-side Phase 7B handoff is complete in `main` commit `65e1946a`.
+The local release candidate reaches `TARGET_READY` with
+`acceptance_status=PENDING_WIN7` and `publishable=false`. This is not an
 `ACCEPTED` claim.
 
 A clean Windows 7 SP1 x64 machine is still required to run the bundled
@@ -47,11 +47,11 @@ and `--offline` controls. Production packaging uses the ignored project-local
 `.uv-cache` and release dependencies are installed only after a controlled
 build-time cache-preparation step. Runtime bundle execution remains offline.
 
-Before publishing a candidate, commit the intended source changes and rerun
-the release from the clean revision. The report above was generated while
-this working tree still contained the Phase 7B changes, so its source revision
-is diagnostic evidence only and must not be treated as the final release
-identity.
+The Phase 7B code and documentation are committed in `main` as `65e1946a`.
+The reports above were generated before that commit, so they are
+repository-side diagnostic evidence. Before publishing, rerun the release and
+reproducibility gate from this clean revision so the release identity binds to
+the committed source.
 
 ## Target-Machine Procedure
 
@@ -83,13 +83,13 @@ no blocking errors. Only its `ACCEPTED` result closes Phase 7B.
 
 ## Remaining Work
 
-- commit the final Phase 7B code and documentation;
-- rerun `package.ps1 release -Profile release -Json` from that clean revision;
+- rerun `package.ps1 release -Profile release -Json` from commit `65e1946a`;
 - optionally run `package.ps1 release -Reproducible` and retain both child
   reports plus the normalized comparison report;
 - perform the external Win7 windowed smoke and run the offline acceptance
   validator;
 - keep Phase 8 real C/C++ project validation separate from this release gate.
+
 ## Reproducibility Evidence
 
 The two-run production gate also passed:

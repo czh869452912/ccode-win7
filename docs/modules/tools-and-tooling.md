@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-05`
+> 最后同步日期：`2026-07-19`
 > 对应代码范围：`packages/embedagent-host/src/embedagent_host/runtime/tools/`, `src/embedagent/tooling/`, `packages/embedagent-host/src/embedagent_host/runtime/local_resources.py`, `packages/embedagent-host/src/embedagent_host/runtime/self_extension_authoring.py`, `packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/recipe_ops.py`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/session_ops.py`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workspace_recipes.py`
 
 ## 1. Purpose And Scope

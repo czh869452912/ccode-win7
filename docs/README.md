@@ -3,12 +3,12 @@
 > 状态：`active`
 > 类型：`reference`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-01`
+> 最后同步日期：`2026-07-19`
 > 对应代码范围：`README.md`, `AGENTS.md`, `docs/`
 
 ## 1. 文档分层
 
-- `docs/superpowers/`：当前切片说明书，服务本轮设计、计划、实施与 review；已完成切片必须先同步回全局 active docs，再移入 `docs/archive/`。截至 `2026-07-01`，预发布架构债务清理、Pi/T3 residual debt cleanup、hosted runtime shell isolation、interaction lifecycle convergence、GUI/T3 parity、GUI runtime boundary、GUI native launcher、Pi-style loop continuation 等完成材料已归档；当前 `docs/superpowers/` 入口无 plan/spec 文件。
+- `docs/superpowers/`：当前切片说明书，服务本轮设计、计划、实施与 review；已完成切片必须先同步回全局 active docs，再移入 `docs/archive/`。截至 `2026-07-19`，预发布架构债务清理、Pi/T3 residual debt cleanup、Phase 5/6、Phase 7A/7R 等完成材料均已归档；当前仅保留尚待真实 Win7 验收的 `2026-07-19-phase7b-win7-handoff.md`。
 - `docs/` 活动文档：长期 `source-of-truth`，记录当前官方口径、模块边界和维护规则。
 - `docs/archive/`：历史留痕，保存已完成切片的设计、计划、分析和复盘材料。
 

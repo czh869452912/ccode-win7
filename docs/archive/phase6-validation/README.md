@@ -13,6 +13,8 @@
 归档内容：
 
 - [phase6-validation.md](phase6-validation.md)
+- `2026-07-19-phase6-closeout.md`：GUI / Agent export convergence closeout
+- `2026-07-19-phase6-gui-agent-export-convergence.md`：实施计划与验证记录
 
 当前活跃状态请看：
 

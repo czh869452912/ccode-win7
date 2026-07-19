@@ -11,3 +11,6 @@ The durable conclusions have been synchronized into the active frontend GUI
 module documentation, development tracker, and design change log. These archived
 files are historical implementation materials, not current architecture truth.
 
+
+
+本次收口新增：`2026-07-18-t3-current-gui-parity-and-agent-adapter-design.md` 与 `2026-07-18-t3-current-gui-parity-and-agent-adapter-execution.md`。

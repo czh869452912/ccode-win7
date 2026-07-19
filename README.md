@@ -139,12 +139,12 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
   workflow-state name such as `chat`; they forward the explicit snapshot value
   and use the separate generic `workflow` payload for frontend workflow display.
 - Default C/C++ task graph ownership: `CHarnessWorkflowExtension` keeps harness graph state behind the extension boundary; `Session` no longer exposes `task_graph`
-- Default C/C++ workflow projection adapter: `src/embedagent/workflow_packages/c_cpp/workflow_projection.py` maps harness internals into the generic workflow payload
+- Default C/C++ workflow projection adapter: `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workflow_projection.py` maps harness internals into the generic workflow payload
 - Official build/verify execution: `list_recipes` + `run_recipe` + `report_quality_v2`
 - Hosted agent profiles declare scenario mode metadata, base tool policy, and GUI mode capability projection. Workflow packages declare scenario-specific workflow tools, packs, prompts, resources, and manifests. Provider-facing schemas are always projected from explicit active tool names computed by the shared extension boundary.
 - Mode allowed-tool contracts are workflow-neutral; default harness tools are activated by the built-in C/C++ workflow extension
 - Bare `ToolRuntime` construction is workflow-neutral; the bundled C/C++ workflow package registers recipe, quality, evidence, and task-status tools through `CHarnessWorkflowExtension.register_tools(...)`
-- C/C++ workflow pack definitions live only under `src/embedagent/workflow_packages/c_cpp/packs.py`; the obsolete `embedagent.tooling.packs` compatibility re-export has been removed
+- C/C++ workflow pack definitions live only under `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/packs.py`; the obsolete `embedagent.tooling.packs` compatibility re-export has been removed
 - Official file discovery: `list_dir`, `glob_files`, `grep_text`
 - Official permission engine: `PermissionPolicy` with structured rule matching and stable explanation text
 - Official enterprise permission categories: `network` and `telemetry` exist for optional intranet/custom-service tools and telemetry flush/sink actions; both require explicit metadata and default to confirmation
@@ -156,7 +156,7 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official local resources: `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are discovered as workspace-bound file resources and can be refreshed through `ToolRuntime.reload_resources()`, `InProcessAdapter.reload_resources(...)`, `/resources reload`, or `POST /api/sessions/{id}/resources/reload`. Skills support Agent Skills-style frontmatter; visible skills are summarized through one lightweight local skill listing prompt unit, while `/skill:<name> [args]` explicitly expands a local skill file into a normal user turn. Prompt files are not injected into default system prompts; `/prompt:<name-or-path> [args]` explicitly expands a workspace-bound prompt file into a normal user turn.
 - Official local self-extension authoring: `SelfExtensionAuthoringService` and the `author_local_capability` tool generate workspace-bound skills, prompts, workflow-neutral recipe JSON, and disabled-by-default project extension skeletons. Authoring writes files only; it does not reload resources, load Python extension code, or stamp generated recipe files with default C/C++ workflow tool names.
 - Official project extension loading: hosted product paths may load enabled `.embedagent/extensions/<name>/extension.json` manifests with workspace-bound `extension.py` entrypoints; `enabled` defaults to false, enabled manifests must declare permissions, no dependency installation or remote registry is allowed, and loaded extensions register explicit `api.ExtensionCapability` records through the same shared `ExtensionManager`
-- Official agent application assembly: `embedagent_host.runtime.agent_applications` defines the generic hosted scenario application boundary, manifest registry, and selected-application loader. The product registry loads `src/embedagent/workflow_packages/c_cpp/application.py`, which installs the bundled C/C++ workflow extension outside `QueryEngine`; profile-only built-ins such as `embedagent.generic`, `embedagent.python`, and `embedagent.html` load the same Agent Core and GUI without installing the C/C++ workflow package. `QueryEngine` itself has no built-in harness import or constructor fallback.
+- Official agent application assembly: `embedagent_host.runtime.agent_applications` defines the generic hosted scenario application boundary, manifest registry, and selected-application loader. The product registry loads `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application.py`, which installs the bundled C/C++ workflow extension outside `QueryEngine`; profile-only built-ins such as `embedagent.generic`, `embedagent.python`, and `embedagent.html` load the same Agent Core and GUI without installing the C/C++ workflow package. `QueryEngine` itself has no built-in harness import or constructor fallback.
 - Official frontend application capability: hosted capability payloads expose the selected application as `agentApplication` and available same-package applications as `agentApplications`. GUI shells consume these backend-declared descriptors and must not hard-code C/C++ defaults, no-workspace copy, or application-specific mode/tool lists.
 - Official GUI app capability read model: renderer app-shell capability fanout
   lives in `webapp/src/app-runtime/app-capability-model.js`.
@@ -374,12 +374,12 @@ The product no longer treats the old `code` mode or legacy todo-management workf
   In-process extension contract and manager for workflow prompt/tool/state hooks.
 - `packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py`
   Hosted scenario application boundary, manifest registry, selected-application loader, profile, mode policy, extension manager, and workflow refreshers.
-- `src/embedagent/workflow_packages/c_cpp/application.py`
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application.py`
   Default C/C++ scenario application factory that installs the bundled workflow extension outside `QueryEngine`.
 - `packages/embedagent-host/src/embedagent_host/runtime/session_runtime.py` and
   `packages/embedagent-host/src/embedagent_host/runtime/session_projector.py`
   Runtime host state plus pure snapshot/bootstrap projection from session truth.
-- `src/embedagent/workflow_packages/c_cpp/`
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`
   Default C/C++ workflow extension internals: mode registry, discipline/phase modeling, prompt stack, task graph, workflow projection, and session task snapshot persistence.
 - `packages/embedagent-host/src/embedagent_host/runtime/tools/`
   Official tool runtime, catalog metadata, managed environment discovery, and tool execution.
@@ -501,7 +501,8 @@ Current architecture cutover status:
 - Pi-inspired minimal Core Phase K recovery state: completed
 - Pi-inspired minimal Core Phase L pack compatibility cleanup: completed
 - Pi-inspired minimal Core Phase M core alias cleanup: completed
-- Remaining release evidence: clean Win7/WebView2 bundle smoke and broader real C/C++ project validation before release claims; the pre-release debt cleanup slices are closed, and repo-side C smoke validation is contract-backed through `validate-cpp-smoke.py`
+- Repository-side release state: `TARGET_READY` with `acceptance_status=PENDING_WIN7` and `publishable=false`; Phase 7B still requires clean Windows 7 SP1 x64/WebView2 109 windowed evidence through `validate-release-evidence.py`.
+- Phase 8 real C/C++ project validation remains separate and open; the repo-side bundle C smoke gate does not close that program.
 
 ## Verification
 

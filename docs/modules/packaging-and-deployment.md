@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-12`
+> 最后同步日期：`2026-07-19`
 > 对应代码范围：`scripts/`
 
 ## 1. Purpose And Scope
@@ -259,7 +259,9 @@ result as target-machine acceptance evidence.
 ## 11. Phase 7B handoff and offline cache
 
 The current repository-side release gate reaches TARGET_READY with
-acceptance_status=PENDING_WIN7 and publishable=false. The passing local gates
+acceptance_status=PENDING_WIN7 and publishable=false. Phase 7B code and docs are
+committed in main at 65e1946a; the recorded pre-commit report remains
+diagnostic until the release is regenerated from that clean revision. The passing local gates
 include exact six-wheel export, wheel-only staging, GUI headless smoke,
 bundle-local C smoke, and zip extraction re-validation. This remains a local
 candidate state, not a Windows 7 delivery claim.

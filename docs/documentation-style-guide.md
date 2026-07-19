@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`reference`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-17`
+> 最后同步日期：`2026-07-19`
 > 对应代码范围：`docs/`
 
 ## 1. Language Rules
@@ -29,7 +29,7 @@
 > 类型：`module`
 > 负责人：`project maintainers`
 > 最后同步日期：`2026-04-08`
-> 对应代码范围：`src/embedagent/workflow_packages/c_cpp/`
+> 对应代码范围：`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`
 ```
 
 ## 3. Required Sections By Document Type

@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-02`
+> 最后同步日期：`2026-07-19`
 > 对应代码范围：`packages/embedagent-core/src/embedagent_core/permissions.py`, `packages/embedagent-host/src/embedagent_host/runtime/context.py`, `packages/embedagent-host/src/embedagent_host/runtime/workspace_intelligence.py`
 
 ## 1. Purpose And Scope

@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-07-05（Pi/T3 decoupling continuation）
+> 更新日期：2026-07-19（Phase 7B documentation closeout）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,15 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-07-19 - Current Closeout Baseline
+
+- 当前分支：`main`，Phase 7B 代码与文档已提交于 `65e1946a`。
+- 当前发布状态：仓库侧 `TARGET_READY`；`acceptance_status=PENDING_WIN7`；`publishable=false`。这不是 Win7 交付或 `ACCEPTED` 声明。
+- Phase 5（Session projection）、Phase 6（GUI / Agent export convergence）和 Phase 7R（release-candidate control plane）均已完成。
+- 下一阻塞项：在干净 Windows 7 SP1 x64 目标机上使用 bundle 内 WebView2 109 完成 windowed GUI、bundle C smoke 与 `validate-release-evidence.py` 验收。
+- Phase 8 真实 C/C++ 工程验证保持独立，不因本地 bundle C smoke 通过而提前关闭。
+- 活动 `docs/superpowers/` 仅保留 Phase 7B 外部验收 handoff；已完成的 Phase 5/6/7A/7R 材料已归档。
 
 ### 2026-07-01 - Superpowers Archive Closeout
 
@@ -775,9 +784,9 @@
 
 ### 总阶段
 
-- 当前阶段：`Phase 6 GUI / Agent export convergence 已完成；Phase 7 Win7 离线交付与 Phase 8 真实 C/C++ 验证待完成`
-- 总体状态：`进行中`
-- 当前重点：`Phase 6 已完成版本化 GUI 协议、单一 renderer transport adapter、T3 client-runtime 边界、通用/专用 Agent 确定性组合导出与跨 Agent GUI 能力矩阵。下一步进入 Phase 7，在干净 Windows 7/WebView2 目标环境完成六 wheel 离线 bundle 实机证据；随后 Phase 8 完成真实 C/C++ 工程验证。Phase 9 enterprise/intranet adapter 工作保持可选且位于 Agent Core 外。`
+- 当前阶段：`Phase 7B 外部 Win7 验收 handoff；Phase 8 真实 C/C++ 验证待开始`
+- 总体状态：`TARGET_READY / PENDING_WIN7`
+- 当前重点：`先从提交 65e1946a 的 clean revision 重跑 release/reproducibility，再在真实 Windows 7 SP1 x64 上完成 WebView2 109 windowed smoke 和证据验证；Phase 8 真实 C/C++ 工程验证随后单独启动。Phase 9 enterprise/intranet adapter 工作保持可选且位于 Agent Core 外。`
 - 最新 session-history 收口：`GUI session activation 已切到单一 `/api/sessions/{id}/bootstrap` 合约；历史 turns 现在只从 `transcript.jsonl -> Session -> SessionHistoryAssembler` 生成；当前契约无 durable timeline transport，raw fallback 不再是正式 GUI 恢复模式。`
 - 最新稳定化收口：`set_session_mode()` 现在会先重置旧 phase 再刷新 Harness snapshot，避免 build/debug/verify 跨 mode 切换时把上一模式的 phase 残留到新会话快照；同时 `Context` 高优先级工具、reducer registry 与 `/review` 文案已统一到 `run_recipe/report_quality_v2/task_status` 正式词汇。`
 - 最新 dead-code 清理：`tools_v2/` 中仍被正式主路径使用的 discovery/recipe/session 模块已迁入官方 `packages/embedagent-host/src/embedagent_host/runtime/tools/`；旧 `tools_v2/*.py` 与已无人引用的 legacy `loop.py` 已删除，产品源码不再直接 import `tools_v2`。当前 `packages/embedagent-core/src/embedagent_core/agent_loop.py` 是 Slice 5 新增的正式 turn-loop 边界。`
@@ -807,7 +816,7 @@
 - 最新 documentation cleanup：`docs/guides/configuration-guide.md` 已改写为当前正式配置指南，使用 `explore/spec/build/debug/verify` 与 `build` 实现模式口径，不再把 `code` 或 `manage_todos` 作为当前配置/工作流示例。`
 - 最新 runtime cleanup：`task_status` 前端元数据现已统一为 `tasks/task` 词汇，workspace profile 不再输出待办语义提示，运行时残留 `todos.py` 已删除。`
 - 最新 GUI closeout：GUI backend 与 webapp 默认新建会话入口已统一为 `explore`，resume 默认不再强制覆盖 restored mode；GUI task 面板、样式和静态产物已清理 `todo-*` / `tasks.todo` 与 `mode-code` 残留，保留正式 `tasks/task` 与 `mode-build` 词汇。T3code-style timeline rows、composer interaction panel、Diff right-panel surface、neutral workbench visual language 与 dev-only visual debug harness 已落地；changed-files card 已升级为目录树，Diff panel 已具备 file rail + viewport 布局，project/thread 管理表面和 backend-backed thread lifecycle action rail 已进入正式 GUI/Core 边界；`AppShellService` 与 frontend `app-shell` read model 已补齐 standalone app shell 第一层边界，Settings/Diagnostics app surfaces 与 app commands 已接入；right panel 已继续收敛到 T3 Code-like ordered surface descriptors / surface tabs / add menu / empty-state cards，首批 surface 为 `diff/files/terminal/plan`；visual harness 通过 `?visual_debug=1` fixture hook 稳定验证真实 GUI diff/thread surfaces；harness 已覆盖 app/thread/load/chat/diff/responsive/timeline/interaction 并修复 streaming assistant 文本重复问题。
-- 最新归档收尾：已关闭的 documentation governance baseline、workflow extension boundary follow-up、Pi-inspired minimal Core Phase A/B、enterprise boundary foundation、local skills / remaining Pi architecture gap materials、GUI IDE redesign 旧设计、GUI app-shell boundary、GUI thread lifecycle boundary、Pi-aligned tool architecture、hosted runtime shell isolation、interaction lifecycle convergence 和根目录历史 refactor notes 已迁入对应 `docs/archive/<topic>/`；`docs/archive/README.md` 与主题包 README 已补索引。活动 `docs/superpowers/` 入口当前没有 plan/spec 文件；后续新切片启动时再放入新的工作材料。`
+- 最新归档收尾：已关闭的 documentation governance baseline、workflow extension boundary follow-up、Pi-inspired minimal Core Phase A/B、enterprise boundary foundation、local skills / remaining Pi architecture gap materials、GUI IDE redesign 旧设计、GUI app-shell boundary、GUI thread lifecycle boundary、Pi-aligned tool architecture、hosted runtime shell isolation、interaction lifecycle convergence 和根目录历史 refactor notes 已迁入对应 `docs/archive/<topic>/`；`docs/archive/README.md` 与主题包 README 已补索引。活动 `docs/superpowers/` 入口当前仅保留 Phase 7B 外部验收 handoff；其余完成材料已归档。`
 
 ### 当前判断
 

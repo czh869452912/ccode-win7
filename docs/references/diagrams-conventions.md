@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`reference`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-04-08`
+> 最后同步日期：`2026-07-19`
 > 对应代码范围：`docs/`
 
 ## 1. Preferred Diagram Types

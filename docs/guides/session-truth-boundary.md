@@ -1,17 +1,17 @@
 # Session Truth Boundary
 
-Status: Phase 5A baseline, based on `main` commit `44cb11a2`.
+Status: current transcript-backed session-history boundary; synchronized 2026-07-19.
 
-This guide records the current durable session-history boundary before the
-larger Phase 5B reducer work. It is an ownership contract, not a new runtime
-API.
+This guide records the current durable session-history boundary after the
+Phase 5 session projection and reducer work. It is an ownership contract, not
+a new runtime API.
 
 ## Official Truth
 
 | Concern | Owner | Durable status |
 | --- | --- | --- |
 | Session log entries | `SessionLogPort`; hosted `TranscriptStore` adapter | `transcript.jsonl` is durable input |
-| Live Core state | `embedagent_core.Session` during an active turn | mutable working projection; Phase 5B will reduce more of it from the log |
+| Live Core state | `embedagent_core.Session` during an active turn | live structured working projection; durable history remains the transcript log |
 | Restore | `SessionRestorer` | reduces a trusted transcript prefix and exposes operation/compaction/recovery read models |
 | GUI/TUI history | `SessionHistoryAssembler` through session bootstrap | projection of `Session`/transcript restore, not a separate ledger |
 | GUI activation | `GET /api/sessions/{id}/bootstrap` | one bootstrap payload containing snapshot, history, plan, permissions, and capabilities |
@@ -53,9 +53,10 @@ Future changes must not:
 If a live stream is needed, it remains a transport cache or a transcript-
 derived replay channel and must not become a second source of session truth.
 
-## Remaining Phase 5B Work
+## Closed Follow-Up
 
-This baseline does not claim that `Session` is already a pure durable-log
-projection. The next slice must address the remaining mutable aggregate and
-imperative restore branches incrementally, preserving the public
-`Agent`/`AgentSession` contract and the existing trusted-prefix safety rules.
+The Phase 5 session projection and reducer work is closed for the current
+pre-release architecture. Session remains the live structured state for an
+active turn, while transcript.jsonl is the only durable session-history
+ledger. Future changes must preserve this split and must not introduce a second
+timeline or replay store.

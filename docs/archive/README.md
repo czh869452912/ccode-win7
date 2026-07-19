@@ -3,7 +3,7 @@
 > 状态：`archive`
 > 类型：`reference`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-01`
+> 最后同步日期：`2026-07-19`
 > 对应代码范围：`docs/archive/`
 
 ## 1. Purpose
@@ -14,6 +14,7 @@ Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md`�
 
 ## 2. Current Archive Packages
 
+- `agent-core-program/`
 - `agent-core-cutover/`
 - `agent-core-refactor-history/`
 - `agent-harness-v2/`
@@ -25,9 +26,11 @@ Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md`�
 - `gui-app-runtime-boundary/`
 - `gui-redesign/`
 - `gui-app-shell-boundary/`
+- `gui-terminal-bottom-drawer/`
 - `gui-thread-lifecycle-boundary/`
 - `gui-native-bundle-launcher/`
 - `gui-runtime-hardening/`
+- `gui-source-control-foundation/`
 - `gui-timeline-event-anchors/`
 - `issues/`
 - `packaging-pipeline-redesign/`
@@ -44,7 +47,9 @@ Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md`�
 - `phase-k-recovery-state/`
 - `phase-l-pack-compat-cleanup/`
 - `phase-m-core-alias-cleanup/`
+- `phase5-validation/`
 - `phase6-validation/`
+- `phase7-release-readiness/`
 - `pi-aligned-tool-architecture/`
 - `pi-t3-residual-debt-cleanup/`
 - `pre-release-debt-cleanup/`

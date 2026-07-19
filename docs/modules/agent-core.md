@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-02`
+> 最后同步日期：`2026-07-19`
 > 对应代码范围：`packages/embedagent-core/src/embedagent_core/`, `packages/embedagent-host/src/embedagent_host/`
 
 ## 1. Purpose And Scope
@@ -47,11 +47,11 @@
 
 下游依赖：
 
-- `src/embedagent/workflow_packages/c_cpp/`
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`
 - `packages/embedagent-host/src/embedagent_host/runtime/tools/`
 - `packages/embedagent-core/src/embedagent_core/extensions.py`
 - `packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py`
-- `src/embedagent/workflow_packages/c_cpp/application.py`
+- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application.py`
 - `packages/embedagent-host/src/embedagent_host/runtime/project_extensions.py`
 - `packages/embedagent-core/src/embedagent_core/session.py`
 - `packages/embedagent-host/src/embedagent_host/runtime/transcript_store.py`
