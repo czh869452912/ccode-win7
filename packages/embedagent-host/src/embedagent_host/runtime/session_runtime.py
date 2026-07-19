@@ -32,6 +32,7 @@ class ManagedSession(object):
     pending_event: Optional[threading.Event] = None
     pending_response: Optional[Dict[str, Any]] = None
     active_thread: Optional[threading.Thread] = None
+    active_thread_is_worker: bool = False
     resume_summary: Optional[Dict[str, Any]] = None
     last_assistant_message: str = ""
     restore_stop_reason: str = ""

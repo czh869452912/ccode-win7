@@ -2381,6 +2381,56 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(final_snapshot["current_mode"], "debug")
         self.assertIn("user_input_required", events)
 
+    def test_interaction_response_waits_for_live_submit_release(self):
+        adapter = _product_adapter(
+            client=AskUserClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("spec")
+        session_id = str(snapshot.get("session_id") or "")
+        response_errors = []
+        response_done = threading.Event()
+        response_started = threading.Event()
+
+        def on_event(event_name, current_session_id, payload):
+            if event_name != "user_input_required" or response_started.is_set():
+                return
+            response_started.set()
+            ticket = payload.get("user_input") or {}
+            interaction_id = str(ticket.get("interaction_id") or "")
+
+            def respond():
+                try:
+                    adapter.respond_to_interaction(
+                        current_session_id,
+                        interaction_id,
+                        {"answers": {"answer": "切到 debug 模式继续排查"}},
+                    )
+                except Exception as exc:
+                    response_errors.append(exc)
+                finally:
+                    response_done.set()
+
+            threading.Thread(target=respond).start()
+
+        worker = threading.Thread(
+            target=adapter.submit_user_message,
+            kwargs={
+                "session_id": session_id,
+                "text": "请继续",
+                "stream": False,
+                "wait": True,
+                "event_handler": on_event,
+            },
+        )
+        worker.start()
+        worker.join(5.0)
+        self.assertTrue(response_done.wait(5.0))
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(response_errors, [])
+        self.assertEqual(adapter.get_session_snapshot(session_id)["status"], "idle")
+
     def test_respond_to_interaction_emits_ask_user_tool_finish_and_completes_pending(self):
         adapter = _product_adapter(
             client=AskUserClient(),

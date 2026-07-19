@@ -11,6 +11,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Dict, List, Optional
@@ -29,6 +30,7 @@ class SmokeFailure(RuntimeError):
         self.stage = str(stage)
         self.details = dict(details or {})
         super().__init__(self.details.get("message") or self.category)
+
 
 _FAILURE_CATEGORIES = (
     "launcher_exit",
@@ -121,6 +123,7 @@ def _write_json_report(path, payload):
 def _emit_report(payload, report_path):
     _write_json_report(report_path, payload)
     print(json.dumps(payload, ensure_ascii=False, indent=2))
+
 
 def _free_port() -> int:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -284,10 +287,10 @@ class FakeOpenAIHandler(BaseHTTPRequestHandler):
         if "permission" in text:
             return {
                 "id": "call-permission",
-                "name": "run_command",
+                "name": "bash",
                 "arguments": {"command": "echo gui smoke permission", "cwd": ".", "timeout_sec": 5},
             }
-        if "ask" in text:
+        if text.strip() == "ask smoke":
             return {
                 "id": "call-ask",
                 "name": "ask_user",
@@ -316,13 +319,11 @@ class FakeOpenAIHandler(BaseHTTPRequestHandler):
         text = (user_text or "").lower()
         if "permission" in text:
             return "permission flow ok"
-        if "ask" in text:
+        if text.strip() == "ask smoke":
             return "ask flow ok"
         if "task" in text:
             return "task flow ok"
         return self.assistant_text
-
-
 
 
 def _wait_for_http(
@@ -371,6 +372,8 @@ def _wait_for_app_bootstrap(gui_port, timeout, process, checks):
             "app_bootstrap",
             {"url": url, "message": str(exc)},
         )
+
+
 def _json_request(
     url: str, method: str = "GET", payload: Dict[str, object] = None
 ) -> Dict[str, object]:
@@ -380,19 +383,95 @@ def _json_request(
         data = json.dumps(payload).encode("utf-8")
         headers["Content-Type"] = "application/json"
     request = urllib.request.Request(url, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(request, timeout=10.0) as response:
-        return json.loads(response.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(request, timeout=10.0) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")
+        raise RuntimeError("HTTP %d: %s" % (exc.code, detail[:500]))
 
 
-async def _consume_until_idle(websocket, session_id: str, summary: Dict[str, object]) -> None:
+def _respond_to_interaction(
+    api_root: str, session_id: str, event_payload: Dict[str, object], approval: bool
+) -> None:
+    candidates = [event_payload]
+    for key in ("permission", "request", "request_data", "request_payload", "details"):
+        value = event_payload.get(key)
+        if isinstance(value, dict):
+            candidates.append(value)
+    request_id = ""
+    for candidate in candidates:
+        request_id = str(
+            candidate.get("request_id")
+            or candidate.get("interaction_id")
+            or candidate.get("permission_id")
+            or candidate.get("id")
+            or ""
+        )
+        if request_id:
+            break
+    if not request_id:
+        snapshot = _json_request(api_root + "/api/sessions/%s" % session_id)
+        pending = snapshot.get("pending_interaction") if isinstance(snapshot, dict) else None
+        if isinstance(pending, dict):
+            request_id = str(
+                pending.get("interaction_id")
+                or pending.get("request_id")
+                or pending.get("permission_id")
+                or ""
+            )
+    if not request_id:
+        raise RuntimeError("interaction event did not include request_id")
+    endpoint = "%s/api/sessions/%s/interactions/%s/respond" % (
+        api_root,
+        session_id,
+        request_id,
+    )
+    if approval:
+        _json_request(endpoint, method="POST", payload={"decision": "accept"})
+        return
+    request = event_payload.get("request")
+    request = request if isinstance(request, dict) else {}
+    details = request.get("details")
+    details = details if isinstance(details, dict) else {}
+    options = event_payload.get("options")
+    if not isinstance(options, list):
+        options = details.get("options")
+    if not isinstance(options, list):
+        options = []
+    selected = options[1] if len(options) > 1 else (options[0] if options else {})
+    selected = selected if isinstance(selected, dict) else {}
+    _json_request(
+        endpoint,
+        method="POST",
+        payload={"answers": {"answer": selected.get("text") or "继续当前方案"}},
+    )
+
+
+async def _consume_until_idle(
+    websocket,
+    session_id: str,
+    summary: Dict[str, object],
+    api_root: str,
+) -> None:
     saw_running = False
     saw_command_result = False
+    seen_types = []
+    seen_event_kinds = []
     deadline = time.time() + 20.0
     while time.time() < deadline:
         remaining = max(0.1, deadline - time.time())
-        raw = await asyncio.wait_for(websocket.recv(), timeout=remaining)
+        try:
+            raw = await asyncio.wait_for(websocket.recv(), timeout=remaining)
+        except asyncio.TimeoutError:
+            raise RuntimeError(
+                "Timed out waiting for session to return to idle; types=%s; event_kinds=%s"
+                % (seen_types[-12:], seen_event_kinds[-12:])
+            )
         payload = json.loads(raw)
         msg_type = payload.get("type")
+        if msg_type not in seen_types:
+            seen_types.append(msg_type)
         data = payload.get("data") or {}
         snapshot = (
             data.get("session_snapshot") if isinstance(data.get("session_snapshot"), dict) else {}
@@ -400,6 +479,55 @@ async def _consume_until_idle(websocket, session_id: str, summary: Dict[str, obj
         target_session = str(snapshot.get("session_id") or data.get("session_id") or "")
         if target_session and target_session != session_id:
             continue
+
+        if msg_type == "session_event":
+            event_kind = str(data.get("event_kind") or "")
+            if event_kind not in seen_event_kinds:
+                seen_event_kinds.append(event_kind)
+            event_payload = data.get("payload")
+            event_payload = event_payload if isinstance(event_payload, dict) else {}
+            if event_kind == "tool.started":
+                summary["tool_events"].append(
+                    {
+                        "type": "tool_start",
+                        "call_id": event_payload.get("call_id"),
+                        "tool_name": event_payload.get("tool_name"),
+                    }
+                )
+            elif event_kind == "tool.finished":
+                summary["tool_events"].append(
+                    {
+                        "type": "tool_finish",
+                        "call_id": event_payload.get("call_id"),
+                        "tool_name": event_payload.get("tool_name"),
+                    }
+                )
+            elif event_kind == "approval.requested":
+                summary["permission_requests"] += 1
+                await asyncio.get_event_loop().run_in_executor(
+                    None, _respond_to_interaction, api_root, session_id, event_payload, True
+                )
+            elif event_kind == "user-input.requested":
+                summary["user_input_requests"] += 1
+                await asyncio.get_event_loop().run_in_executor(
+                    None, _respond_to_interaction, api_root, session_id, event_payload, False
+                )
+            elif event_kind == "session.finished":
+                return
+            elif event_kind == "transition.recorded":
+                reason = str(
+                    event_payload.get("termination_reason") or event_payload.get("reason") or ""
+                )
+                summary["session_transitions"].append(reason)
+                if reason not in (
+                    "user_input_wait",
+                    "approval_wait",
+                    "permission_wait",
+                    "interaction_wait",
+                ):
+                    return
+            continue
+
         if msg_type == "stream_delta":
             summary["stream_deltas"].append(str(data.get("text") or ""))
         elif msg_type == "tool_start":
@@ -432,30 +560,13 @@ async def _consume_until_idle(websocket, session_id: str, summary: Dict[str, obj
                 return
         elif msg_type == "permission_request":
             summary["permission_requests"] += 1
-            await websocket.send(
-                json.dumps(
-                    {
-                        "type": "permission_response",
-                        "permission_id": data.get("permission_id"),
-                        "approved": True,
-                    }
-                )
+            await asyncio.get_event_loop().run_in_executor(
+                None, _respond_to_interaction, api_root, session_id, data, True
             )
         elif msg_type == "user_input_request":
             summary["user_input_requests"] += 1
-            options = data.get("options") or []
-            selected = options[1] if len(options) > 1 else (options[0] if options else {})
-            await websocket.send(
-                json.dumps(
-                    {
-                        "type": "user_input_response",
-                        "request_id": data.get("request_id"),
-                        "answer": selected.get("text") or "继续当前方案",
-                        "selected_index": selected.get("index"),
-                        "selected_mode": selected.get("mode") or "",
-                        "selected_option_text": selected.get("text") or "",
-                    }
-                )
+            await asyncio.get_event_loop().run_in_executor(
+                None, _respond_to_interaction, api_root, session_id, data, False
             )
         elif msg_type == "session_status":
             status = str(data.get("status") or snapshot.get("status") or "")
@@ -469,6 +580,15 @@ async def _consume_until_idle(websocket, session_id: str, summary: Dict[str, obj
     raise RuntimeError("Timed out waiting for session to return to idle")
 
 
+async def _drain_pending_messages(websocket) -> None:
+    await asyncio.sleep(0.05)
+    while True:
+        try:
+            await asyncio.wait_for(websocket.recv(), timeout=0.05)
+        except asyncio.TimeoutError:
+            return
+
+
 async def _exercise_gui(gui_port: int) -> Dict[str, object]:
     websocket_url = "ws://127.0.0.1:%d/ws" % gui_port
     api_root = "http://127.0.0.1:%d" % gui_port
@@ -479,6 +599,7 @@ async def _exercise_gui(gui_port: int) -> Dict[str, object]:
         "command_results": [],
         "permission_requests": 0,
         "user_input_requests": 0,
+        "session_transitions": [],
     }
     async with websockets.connect(websocket_url) as websocket:
         session = _json_request(api_root + "/api/sessions?mode=build", method="POST")
@@ -490,35 +611,40 @@ async def _exercise_gui(gui_port: int) -> Dict[str, object]:
             method="POST",
             payload={"text": "tool smoke"},
         )
-        await _consume_until_idle(websocket, session_id, summary)
+        await _consume_until_idle(websocket, session_id, summary, api_root)
+        await _drain_pending_messages(websocket)
 
         _json_request(
             api_root + "/api/sessions/%s/message" % session_id,
             method="POST",
             payload={"text": "task smoke"},
         )
-        await _consume_until_idle(websocket, session_id, summary)
+        await _consume_until_idle(websocket, session_id, summary, api_root)
+        await _drain_pending_messages(websocket)
 
         _json_request(
             api_root + "/api/sessions/%s/message" % session_id,
             method="POST",
             payload={"text": "ask smoke"},
         )
-        await _consume_until_idle(websocket, session_id, summary)
+        await _consume_until_idle(websocket, session_id, summary, api_root)
+        await _drain_pending_messages(websocket)
 
         _json_request(
             api_root + "/api/sessions/%s/message" % session_id,
             method="POST",
             payload={"text": "permission smoke"},
         )
-        await _consume_until_idle(websocket, session_id, summary)
+        await _consume_until_idle(websocket, session_id, summary, api_root)
+        await _drain_pending_messages(websocket)
 
         _json_request(
             api_root + "/api/sessions/%s/message" % session_id,
             method="POST",
             payload={"text": "/review"},
         )
-        await _consume_until_idle(websocket, session_id, summary)
+        await _consume_until_idle(websocket, session_id, summary, api_root)
+        await _drain_pending_messages(websocket)
 
         first_bootstrap = _json_request(api_root + "/api/sessions/%s/bootstrap" % session_id)
         second_session = _json_request(api_root + "/api/sessions?mode=build", method="POST")
@@ -550,6 +676,8 @@ def _build_command(
             raise RuntimeError(
                 "GUI launcher not found in bundle: %s or %s" % (native_launcher, cmd_launcher)
             )
+        env = dict(os.environ)
+        env["EMBEDAGENT_GUI_APP_HOME"] = os.path.join(workspace_dir, ".embedagent-gui-home")
         return {
             "command": [
                 launcher,
@@ -567,13 +695,14 @@ def _build_command(
                 "2",
             ],
             "cwd": bundle_root,
-            "env": dict(os.environ),
+            "env": env,
         }
 
     if not os.path.isfile(PYTHON_EXE):
         raise RuntimeError("Python venv not found: %s" % PYTHON_EXE)
     env = dict(os.environ)
     env["PYTHONPATH"] = os.path.join(REPO_ROOT, "src")
+    env["EMBEDAGENT_GUI_APP_HOME"] = os.path.join(workspace_dir, ".embedagent-gui-home")
     return {
         "command": [
             PYTHON_EXE,
@@ -597,13 +726,74 @@ def _build_command(
     }
 
 
-def _detect_webview2_runtime_major(runtime_path: str) -> Optional[int]:
+def _detect_file_version_major(runtime_exe: str) -> Optional[int]:
+    if not runtime_exe or os.name != "nt" or not os.path.isfile(runtime_exe):
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        version = ctypes.WinDLL("Version")
+        get_size = version.GetFileVersionInfoSizeW
+        get_size.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(wintypes.DWORD)]
+        get_size.restype = wintypes.DWORD
+        size = get_size(runtime_exe, None)
+        if not size:
+            return None
+        data = ctypes.create_string_buffer(size)
+        get_info = version.GetFileVersionInfoW
+        get_info.argtypes = [
+            wintypes.LPCWSTR,
+            wintypes.DWORD,
+            wintypes.DWORD,
+            wintypes.LPVOID,
+        ]
+        get_info.restype = wintypes.BOOL
+        if not get_info(runtime_exe, 0, size, data):
+            return None
+
+        class VSFixedFileInfo(ctypes.Structure):
+            _fields_ = [
+                ("signature", wintypes.DWORD),
+                ("struct_version", wintypes.DWORD),
+                ("file_version_ms", wintypes.DWORD),
+                ("file_version_ls", wintypes.DWORD),
+                ("product_version_ms", wintypes.DWORD),
+                ("product_version_ls", wintypes.DWORD),
+                ("file_flags_mask", wintypes.DWORD),
+                ("file_flags", wintypes.DWORD),
+                ("file_os", wintypes.DWORD),
+                ("file_type", wintypes.DWORD),
+                ("file_subtype", wintypes.DWORD),
+                ("file_date_ms", wintypes.DWORD),
+                ("file_date_ls", wintypes.DWORD),
+            ]
+
+        value = ctypes.c_void_p()
+        value_length = wintypes.UINT()
+        query = version.VerQueryValueW
+        query.argtypes = [
+            wintypes.LPVOID,
+            wintypes.LPCWSTR,
+            ctypes.POINTER(ctypes.c_void_p),
+            ctypes.POINTER(wintypes.UINT),
+        ]
+        query.restype = wintypes.BOOL
+        if not query(data, "\\", ctypes.byref(value), ctypes.byref(value_length)):
+            return None
+        info = ctypes.cast(value, ctypes.POINTER(VSFixedFileInfo)).contents
+        return int(info.file_version_ms >> 16)
+    except (AttributeError, OSError, TypeError, ValueError):
+        return None
+
+
+def _detect_webview2_runtime_major(runtime_path: str, runtime_exe: str = "") -> Optional[int]:
     parts = os.path.normpath(runtime_path or "").split(os.sep)
     for item in reversed(parts):
         first = item.split(".", 1)[0]
         if first.isdigit():
             return int(first)
-    return None
+    return _detect_file_version_major(runtime_exe)
 
 
 def _fixed_webview2_report(bundle_root: str) -> Dict[str, object]:
@@ -614,7 +804,7 @@ def _fixed_webview2_report(bundle_root: str) -> Dict[str, object]:
         "expected_runtime_major": EXPECTED_WEBVIEW2_FIXED_RUNTIME_MAJOR,
         "runtime_exe": runtime_exe,
         "runtime_path": runtime_path,
-        "runtime_major": _detect_webview2_runtime_major(runtime_path),
+        "runtime_major": _detect_webview2_runtime_major(runtime_path, runtime_exe),
         "exists": os.path.isfile(runtime_exe),
     }
 
@@ -641,9 +831,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Require bundled Fixed Version WebView2 109 when validating a bundle.",
     )
     parser.add_argument("--json-report", default="", help="Write a structured smoke report")
-    parser.add_argument(
-        "--diagnostic-dir", default="", help="Directory for launcher stdout/stderr"
-    )
+    parser.add_argument("--diagnostic-dir", default="", help="Directory for launcher stdout/stderr")
     parser.add_argument("--startup-timeout", type=float, default=20.0)
     return parser
 
@@ -660,6 +848,14 @@ def _legacy_main(argv: Optional[List[str]] = None) -> int:
             raise RuntimeError(
                 "Bundled Fixed Version WebView2 runtime is missing: %s"
                 % fixed_webview2.get("runtime_exe")
+            )
+        if fixed_webview2.get("runtime_major") != fixed_webview2.get("expected_runtime_major"):
+            raise RuntimeError(
+                "Bundled Fixed Version WebView2 major is not %s: %s"
+                % (
+                    fixed_webview2.get("expected_runtime_major"),
+                    fixed_webview2.get("runtime_major"),
+                )
             )
 
     model_port = _free_port()
@@ -712,10 +908,7 @@ def _legacy_main(argv: Optional[List[str]] = None) -> int:
         ]
         if not review_commands or not review_commands[0].get("success"):
             raise RuntimeError("GUI smoke did not exercise /review workflow: %s" % summary)
-        if (
-            "first_session_task_items" not in summary
-            or "second_session_task_items" not in summary
-        ):
+        if "first_session_task_items" not in summary or "second_session_task_items" not in summary:
             raise RuntimeError("GUI smoke bootstrap task projection check failed: %s" % summary)
         renderer_report = {}
         if os.path.isfile(renderer_report_path):
@@ -771,7 +964,6 @@ def _legacy_main(argv: Optional[List[str]] = None) -> int:
                 process.wait(timeout=10.0)
 
 
-
 def main(argv: Optional[List[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     bundle_root = os.path.realpath(args.bundle_root) if args.bundle_root else ""
@@ -782,7 +974,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     if not os.path.isdir(workspace_dir):
         os.makedirs(workspace_dir)
-    diagnostic_dir = os.path.realpath(args.diagnostic_dir or os.path.join(workspace_dir, "diagnostics"))
+    diagnostic_dir = os.path.realpath(
+        args.diagnostic_dir or os.path.join(workspace_dir, "diagnostics")
+    )
     if not os.path.isdir(diagnostic_dir):
         os.makedirs(diagnostic_dir)
     stdout_path = os.path.join(diagnostic_dir, "launcher.stdout.log")
@@ -807,6 +1001,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                     "renderer_failure",
                     "fixed_webview2",
                     {"runtime_exe": fixed_webview2.get("runtime_exe")},
+                )
+            if fixed_webview2.get("runtime_major") != fixed_webview2.get("expected_runtime_major"):
+                raise SmokeFailure(
+                    "renderer_failure",
+                    "fixed_webview2",
+                    {
+                        "expected_runtime_major": fixed_webview2.get("expected_runtime_major"),
+                        "runtime_major": fixed_webview2.get("runtime_major"),
+                    },
                 )
 
         FakeOpenAIHandler.requests_seen = []
@@ -868,7 +1071,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             raise SmokeFailure(
                 "protocol_failure",
                 "interaction",
-                {"message": "permission/user-input flow was not exercised"},
+                {
+                    "message": "permission/user-input flow was not exercised",
+                    "permission_requests": summary.get("permission_requests", 0),
+                    "user_input_requests": summary.get("user_input_requests", 0),
+                    "session_transitions": summary.get("session_transitions", []),
+                },
             )
         tool_event_types = [item.get("type") for item in summary.get("tool_events", [])]
         if "tool_start" not in tool_event_types or "tool_finish" not in tool_event_types:
@@ -881,9 +1089,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             if item.get("command_name") == "review"
         ]
         if not review_commands or not review_commands[0].get("success"):
-            raise SmokeFailure(
-                "protocol_failure", "review", {"message": "/review workflow failed"}
-            )
+            raise SmokeFailure("protocol_failure", "review", {"message": "/review workflow failed"})
         if "first_session_task_items" not in summary or "second_session_task_items" not in summary:
             raise SmokeFailure(
                 "protocol_failure", "task_projection", {"message": "task projection check failed"}
@@ -970,5 +1176,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             stdout_handle.close()
         if stderr_handle:
             stderr_handle.close()
+
+
 if __name__ == "__main__":
     sys.exit(main())

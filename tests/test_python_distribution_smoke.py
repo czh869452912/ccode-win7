@@ -322,12 +322,36 @@ def test_clean_build_rejects_external_junction_without_touching_target(tmp_path)
             os.rmdir(str(junction))
 
 
+def test_builder_supports_explicit_offline_cache_configuration(tmp_path):
+    builder = _load_script(BUILD_SCRIPT, "distribution_offline_builder_options")
+    cache_dir = tmp_path / "uv-cache"
+    dist_dir = tmp_path / "dist"
+
+    args = builder.parse_args(
+        ["--dist-dir", str(dist_dir), "--cache-dir", str(cache_dir), "--offline"]
+    )
+    command = builder.build_command(args.uv, dist_dir, offline=args.offline)
+    environment = builder.build_environment(args.cache_dir, offline=args.offline)
+
+    assert "--offline" in command
+    assert environment["UV_CACHE_DIR"] == str(cache_dir.resolve())
+    assert environment["UV_OFFLINE"] == "1"
+
+
 def test_external_wheelhouse_build_check_and_smoke_preserve_siblings(tmp_path):
     external = tmp_path / "external-wheelhouse"
     sibling = tmp_path / "keep.txt"
     sibling.write_text("keep", encoding="ascii")
     build = subprocess.run(
-        [sys.executable, str(BUILD_SCRIPT), "--dist-dir", str(external)],
+        [
+            sys.executable,
+            str(BUILD_SCRIPT),
+            "--dist-dir",
+            str(external),
+            "--cache-dir",
+            str(ROOT / ".uv-cache"),
+            "--offline",
+        ],
         cwd=str(ROOT),
         capture_output=True,
         text=True,
@@ -381,7 +405,13 @@ def test_export_dependencies_supports_external_output_directory(tmp_path, monkey
 
     monkeypatch.setattr(exporter, "_run", run_without_third_party_install)
 
-    exporter.export_site_packages(str(ROOT), str(output), "3.8")
+    exporter.export_site_packages(
+        str(ROOT),
+        str(output),
+        "3.8",
+        cache_dir=str(ROOT / ".uv-cache"),
+        offline=True,
+    )
 
     assert len(list((output / "wheels").glob("*.whl"))) == 6
     for package_name in (

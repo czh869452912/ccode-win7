@@ -6,6 +6,8 @@ from pathlib import Path
 parser = argparse.ArgumentParser()
 parser.add_argument("--json-report", required=True)
 parser.add_argument("--output-dir", required=False, default="")
+parser.add_argument("--cache-dir", required=False, default="")
+parser.add_argument("--offline", action="store_true")
 args = parser.parse_args()
 
 if args.output_dir:

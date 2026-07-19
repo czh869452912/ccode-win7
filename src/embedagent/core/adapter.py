@@ -358,6 +358,8 @@ class AgentCoreAdapter(CoreInterface):
     def attach_adapter(self, adapter) -> None:
         """Attach a hosted InProcessAdapter built outside this protocol wrapper."""
         self._adapter = adapter
+        if adapter is not None:
+            adapter.event_handler = self._on_adapter_event
 
     def register_frontend(self, frontend: FrontendCallbacks) -> None:
         """注册前端回调"""

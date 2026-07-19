@@ -255,3 +255,29 @@ collected.
 Atomic report writes use sibling temporary files and replacement on the same
 volume. Never treat a report path, duration, log tail, or local Windows 10 smoke
 result as target-machine acceptance evidence.
+
+## 11. Phase 7B handoff and offline cache
+
+The current repository-side release gate reaches TARGET_READY with
+acceptance_status=PENDING_WIN7 and publishable=false. The passing local gates
+include exact six-wheel export, wheel-only staging, GUI headless smoke,
+bundle-local C smoke, and zip extraction re-validation. This remains a local
+candidate state, not a Windows 7 delivery claim.
+
+The wheel builder and dependency exporter expose explicit cache controls:
+
+    uv run python scripts/build-python-distributions.py --dist-dir build/offline-cache/site-packages-export/wheels --cache-dir .uv-cache --offline
+    uv run python scripts/export-dependencies.py --output-dir build/offline-cache/site-packages-export --cache-dir .uv-cache --offline
+
+The release profile supplies the same project-local cache and offline flag
+through package.ps1. Third-party wheels/sdists may be prepared in a controlled
+build-time step; the bundle runtime never resolves dependencies or reaches the
+network.
+
+The bundle GUI smoke must report renderer=edgechromium,
+runtime_source=bundle, and fixed_webview2.runtime_major=109. A real Windows 7
+SP1 x64 windowed run is still required. Runbook evidence must be copied into
+manifests/evidence/win7-evidence.json and validated with
+tools/validation/validate-release-evidence.py; only ACCEPTED from that
+validator closes Phase 7B. A release report produced from a dirty worktree is
+diagnostic only and must be regenerated after committing the source revision.

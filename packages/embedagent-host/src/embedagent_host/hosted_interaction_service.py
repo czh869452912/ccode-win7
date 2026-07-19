@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -365,6 +366,17 @@ class HostedInteractionService(object):
             time.sleep(0.05)
         return snapshot
 
+    def _wait_for_active_submit_release(self, state: ManagedSession) -> None:
+        deadline = time.time() + 5.0
+        current = threading.current_thread()
+        while time.time() < deadline:
+            with state.lock:
+                active = state.active_thread
+            if active is None or active is current or not active.is_alive():
+                return
+            active.join(min(0.05, max(0.01, deadline - time.time())))
+        raise RuntimeError("interaction submit is still active")
+
     def _respond_to_permission_decision(
         self,
         state: ManagedSession,
@@ -403,6 +415,7 @@ class HostedInteractionService(object):
             snapshot = self._get_session_snapshot(state.session.session_id)
             self._notify_status(None, state)
             return snapshot
+        self._wait_for_active_submit_release(state)
         self._run_turn(
             state=state,
             text="",
@@ -437,6 +450,7 @@ class HostedInteractionService(object):
             snapshot = self.wait_for_command_resolution(state.session.session_id)
             self._notify_status(None, state)
             return snapshot
+        self._wait_for_active_submit_release(state)
         self._run_turn(
             state=state,
             text="",

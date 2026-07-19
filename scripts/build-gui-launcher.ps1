@@ -145,6 +145,7 @@ $arguments = @(
     '/link',
     '/NOLOGO',
     '/SUBSYSTEM:WINDOWS,6.01',
+    '/Brepro',
     ('/OUT:' + $outputResolved),
     'shell32.lib',
     'user32.lib'

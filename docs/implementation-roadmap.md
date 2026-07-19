@@ -69,7 +69,7 @@ Agent Core runtime dependency graph. See
 `docs/superpowers/plans/2026-07-19-phase6-closeout.md` for the implementation
 record and verification evidence.
 
-Phase 7 remains clean Windows 7/WebView2 offline bundle delivery evidence.
+Phase 7 repository-side release gates now reach a local TARGET_READY handoff; Phase 7B remains the external clean Windows 7/WebView2 acceptance gate.
 Phase 8 remains real C/C++ project validation. Phase 9 remains optional
 enterprise/intranet adapter work outside Agent Core.
 
@@ -821,18 +821,32 @@ debt cleanup:
 - do not reopen old dual-path architecture
 ### 10. Phase 7 Offline Release Gate Status
 
-Phase 7 now has a six-wheel release identity, wheel-only product staging, strict release doctor checks, bundle/source hash manifests, bundle-local GUI/C smoke entry points, zip extraction re-validation, and a Win7 evidence kit. Local success is reported as `TARGET_READY` only after those repository and bundle gates pass. `ACCEPTED` remains a target-machine state produced by `validate-release-evidence.py`; it requires a real Windows 7 SP1 x64 report and cannot be synthesized locally. A current GUI smoke timeout therefore remains a release blocker even when doctor, static bundle validation, dependency checking, and C smoke pass.
+Phase 7 now has a six-wheel release identity, wheel-only product staging,
+strict release doctor checks, bundle/source hash manifests, bundle-local GUI/C
+smoke entry points, zip extraction re-validation, and a Win7 evidence kit. The
+current local release passes doctor, deps, assembly, verify, bundle GUI
+headless smoke, bundle C smoke, and zip extraction, and reports TARGET_READY
+with acceptance_status=PENDING_WIN7 and publishable=false. The GUI report
+verifies renderer=edgechromium, runtime_source=bundle, and Fixed Version
+WebView2 runtime_major=109. ACCEPTED remains a target-machine state produced
+by validate-release-evidence.py; it requires a real Windows 7 SP1 x64 windowed
+report and cannot be synthesized locally.
 
 ### 10.1 Phase 7R active stabilization slice
 
-Phase 7R now closes the repository-side release-candidate control plane:
+Phase 7R closes the repository-side release-candidate control plane:
 structured GUI smoke/startup diagnostics, provenance-bound atomic packaging
-reports, fixture output isolation, and the two-run `-Reproducible` artifact gate
-are implemented. `TARGET_READY` is emitted only when both isolated release runs
-and their normalized comparison pass, with `publishable=false` and
-`PENDING_WIN7` retained.
+reports, fixture output isolation, and the two-run -Reproducible artifact gate
+are implemented. TARGET_READY is emitted only when both isolated release runs
+and their normalized comparison pass, with publishable=false and
+acceptance_status=PENDING_WIN7 retained.
 
-Phase 7 is not fully complete: clean Windows 7 SP1 x64 unpack-and-run evidence
-using bundled WebView2 109 is still required for `ACCEPTED`. Phase 8 real C/C++
-project validation remains open. Optional Phase 9 enterprise/intranet adapters
-remain outside Agent Core.
+### 10.2 Phase 7B handoff
+
+The detailed handoff is in
+docs/superpowers/plans/2026-07-19-phase7b-win7-handoff.md. The checked-in
+release candidate must be rebuilt from a clean source revision; the current
+local report was generated on a dirty worktree and is diagnostic only. Clean
+Windows 7 SP1 x64 unpack-and-run evidence using bundled WebView2 109 is still
+required for ACCEPTED. Phase 8 real C/C++ project validation remains open.
+Optional Phase 9 enterprise/intranet adapters remain outside Agent Core.

@@ -30,3 +30,8 @@ This local state is not a Windows 7 claim. `ACCEPTED` is reserved for the
 bundle-local `validate-release-evidence.py` result produced from a clean Windows
 7 SP1 x64 machine. Do not copy a local report into the target evidence path or
 substitute Windows 10/WebView2 results for the target report.
+
+The validator reads the bundled msedgewebview2.exe file version on Windows and
+requires fixed_webview2.runtime_major=109; do not fill runtime_major by hand.
+If the major version is missing or differs from 109, the GUI evidence is not
+acceptable.

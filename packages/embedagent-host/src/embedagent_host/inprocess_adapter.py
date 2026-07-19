@@ -1226,16 +1226,26 @@ class InProcessAdapter(object):
         self._emit_with_snapshot(event_handler, "turn_started", state, payload)
         self._notify_status(event_handler, state)
         if wait:
-            self._run_turn(
-                state=state,
-                text=text_to_run,
-                stream=stream,
-                permission_resolver=permission_resolver,
-                user_input_resolver=user_input_resolver,
-                event_handler=event_handler,
-                turn_id=command_turn_id or "",
-                emit_turn_start=not bool(command_turn_id),
-            )
+            current_thread = threading.current_thread()
+            with state.lock:
+                state.active_thread = current_thread
+                state.active_thread_is_worker = False
+            try:
+                self._run_turn(
+                    state=state,
+                    text=text_to_run,
+                    stream=stream,
+                    permission_resolver=permission_resolver,
+                    user_input_resolver=user_input_resolver,
+                    event_handler=event_handler,
+                    turn_id=command_turn_id or "",
+                    emit_turn_start=not bool(command_turn_id),
+                )
+            finally:
+                with state.lock:
+                    if state.active_thread is current_thread:
+                        state.active_thread = None
+                        state.active_thread_is_worker = False
             return self.get_session_snapshot(session_id)
         thread = threading.Thread(
             target=self._run_turn,
@@ -1253,6 +1263,7 @@ class InProcessAdapter(object):
         )
         with state.lock:
             state.active_thread = thread
+            state.active_thread_is_worker = True
         thread.daemon = True
         thread.start()
         return self.get_session_snapshot(session_id)
@@ -1629,10 +1640,14 @@ class InProcessAdapter(object):
         except (OSError, RuntimeError, ValueError, TypeError) as exc:
             set_thinking(False, "session_error")
             with state.lock:
-                is_worker_thread = threading.current_thread() is state.active_thread
+                is_worker_thread = (
+                    state.active_thread_is_worker
+                    and threading.current_thread() is state.active_thread
+                )
                 state.status = "error"
                 state.last_error = str(exc)
                 state.active_thread = None
+                state.active_thread_is_worker = False
                 state.updated_at = _utc_now()
             self._emit_with_snapshot(
                 event_handler,
@@ -1660,6 +1675,7 @@ class InProcessAdapter(object):
                 )
                 state.updated_at = _utc_now()
                 state.active_thread = None
+                state.active_thread_is_worker = False
             self._notify_status(event_handler, state)
             return
         with state.lock:
@@ -1668,6 +1684,7 @@ class InProcessAdapter(object):
             self._refresh_application_state(state)
             state.status = "idle"
             state.active_thread = None
+            state.active_thread_is_worker = False
             state.updated_at = _utc_now()
         self._emit(
             event_handler,

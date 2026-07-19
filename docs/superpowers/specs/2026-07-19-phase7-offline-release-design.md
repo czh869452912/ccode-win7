@@ -1,7 +1,7 @@
 # Phase 7 Offline Release Design
 
 Date: 2026-07-19
-Status: design approved; implementation not started
+Status: repository-side 7A gates implemented; 7B external acceptance pending
 
 ## Goal
 

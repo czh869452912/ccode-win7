@@ -153,7 +153,30 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dist-dir", default="dist", help="Clean wheel output directory")
     parser.add_argument("--uv", default="uv", help="uv executable")
+    parser.add_argument("--cache-dir", default="", help="Optional isolated uv cache directory")
+    parser.add_argument(
+        "--offline", action="store_true", help="Disable network access during wheel build"
+    )
     return parser.parse_args(argv)
+
+
+def build_command(uv, dist_dir, offline=False):
+    command = [uv, "build", "--all-packages", "--wheel", "--out-dir", str(dist_dir)]
+    if offline:
+        command.insert(2, "--offline")
+    return command
+
+
+def build_environment(cache_dir="", offline=False):
+    environment = dict(os.environ)
+    if not cache_dir:
+        cache_dir = environment.get("UV_CACHE_DIR", "") or os.path.join(os.getcwd(), ".uv-cache")
+    if cache_dir:
+        environment["UV_CACHE_DIR"] = str(_absolute_path(cache_dir))
+    if offline:
+        environment["UV_OFFLINE"] = "1"
+    environment["SOURCE_DATE_EPOCH"] = "0"
+    return environment
 
 
 def main(argv=None):
@@ -165,15 +188,12 @@ def main(argv=None):
     package_roots = tuple(project_root / member for member in WORKSPACE_MEMBERS)
     try:
         clean_generated_artifacts(project_root, dist_dir, package_roots)
-        command = [
-            args.uv,
-            "build",
-            "--all-packages",
-            "--wheel",
-            "--out-dir",
-            str(dist_dir),
-        ]
-        result = subprocess.run(command, cwd=str(project_root))
+        command = build_command(args.uv, dist_dir, offline=args.offline)
+        result = subprocess.run(
+            command,
+            cwd=str(project_root),
+            env=build_environment(args.cache_dir, offline=args.offline),
+        )
     except (OSError, ValueError) as exc:
         print("distribution build failed: %s" % exc, file=sys.stderr)
         return 1

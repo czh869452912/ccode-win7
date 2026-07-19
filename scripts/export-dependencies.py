@@ -5,11 +5,13 @@ Ensures zero external dependencies in the final package.
 
 Uses uv (preferred) if available, falls back to pip.
 """
+
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -98,15 +100,22 @@ def get_all_dependencies(project_root: str) -> List[str]:
     return deps
 
 
-def build_project_wheels(project_root: str, wheelhouse: Path) -> List[Path]:
+def build_project_wheels(
+    project_root: str,
+    wheelhouse: Path,
+    cache_dir: str = "",
+    offline: bool = False,
+) -> List[Path]:
     """Build and validate the six project distributions into a clean wheelhouse."""
     root = Path(project_root).resolve()
     build_script = root / "scripts" / "build-python-distributions.py"
     check_script = root / "scripts" / "check-python-distributions.py"
-    _run(
-        [sys.executable, str(build_script), "--dist-dir", str(wheelhouse)],
-        cwd=str(root),
-    )
+    command = [sys.executable, str(build_script), "--dist-dir", str(wheelhouse)]
+    if cache_dir:
+        command.extend(["--cache-dir", str(cache_dir)])
+    if offline:
+        command.append("--offline")
+    _run(command, cwd=str(root))
     _run(
         [sys.executable, str(check_script), "--dist-dir", str(wheelhouse)],
         cwd=str(root),
@@ -218,8 +227,14 @@ def export_site_packages(
     project_root: str,
     output_dir: str,
     python_version: str = "3.8",
+    cache_dir: str = "",
+    offline: bool = False,
 ) -> None:
     """Export complete site-packages for offline use."""
+    if cache_dir:
+        os.environ["UV_CACHE_DIR"] = str(Path(cache_dir).resolve())
+    if offline:
+        os.environ["UV_OFFLINE"] = "1"
     output_path = clean_export_root(Path(output_dir))
 
     print("Step 1: Getting full dependency list...")
@@ -243,24 +258,36 @@ def export_site_packages(
 
     wheelhouse = output_path / "wheels"
     print("\nStep 2: Building checked project wheels...")
-    project_wheels = build_project_wheels(project_root, wheelhouse)
+    project_wheels = build_project_wheels(
+        project_root,
+        wheelhouse,
+        cache_dir=cache_dir,
+        offline=offline,
+    )
 
     print("\nStep 3: Installing third-party dependencies into site-packages...")
     uv = find_uv()
     if uv:
         # uv pip install --target is fast and handles platform constraints well
-        result = _run(
+        command = [
+            uv,
+            "pip",
+            "install",
+        ]
+        if offline:
+            command.append("--offline")
+        command.extend(
             [
-                uv,
-                "pip",
-                "install",
                 "--target",
                 str(site_packages_dir),
                 "--requirement",
                 str(requirements_file),
                 "--python",
                 python_version,
-            ],
+            ]
+        )
+        result = _run(
+            command,
             cwd=project_root,
             check=False,
         )
@@ -289,6 +316,22 @@ def export_site_packages(
     print("\nStep 4: Installing checked project wheels without network access...")
     install_project_wheels(project_root, site_packages_dir, wheelhouse, project_wheels)
 
+    # Remove transient installer metadata that embeds local cache paths.
+    for metadata_name in ("direct_url.json", "uv_cache.json"):
+        for metadata_path in site_packages_dir.rglob(metadata_name):
+            metadata_path.unlink()
+    for record_path in site_packages_dir.rglob("RECORD"):
+        records = [
+            line
+            for line in record_path.read_text(encoding="utf-8").splitlines()
+            if not line.startswith(
+                (
+                    record_path.parent.name + "/direct_url.json,",
+                    record_path.parent.name + "/uv_cache.json,",
+                )
+            )
+        ]
+        record_path.write_text("\n".join(records) + "\n", encoding="utf-8")
     # Remove editable .pth files that would point back to dev tree
     for pth in site_packages_dir.glob("__editable__*.pth"):
         pth.unlink()
@@ -396,6 +439,16 @@ def main():
         default="",
         help="Optional path for a machine-readable JSON report",
     )
+    parser.add_argument(
+        "--cache-dir",
+        default="",
+        help="Optional isolated uv cache directory for project wheel builds",
+    )
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="Disable network access during project wheel builds",
+    )
 
     args = parser.parse_args()
 
@@ -427,6 +480,8 @@ def main():
             args.project_root,
             args.output_dir,
             args.python_version,
+            cache_dir=args.cache_dir,
+            offline=args.offline,
         )
 
         site_packages = Path(args.output_dir) / "site-packages"
@@ -456,11 +511,11 @@ def main():
                 },
             )
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("Export complete!")
         print(f"Output: {args.output_dir}")
         print("Use this directory as -SitePackagesRoot in prepare-offline.ps1")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
     except Exception as exc:
         write_json_report(
             args.json_report,

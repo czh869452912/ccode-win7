@@ -1,13 +1,63 @@
+import importlib.util
 import os
+import tempfile
 import unittest
+
+ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
+
+
+def _load_smoke_script():
+    path = os.path.join(ROOT, "scripts", "validate-gui-smoke.py")
+    spec = importlib.util.spec_from_file_location("gui_smoke_contract", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class TestGuiSmokeContract(unittest.TestCase):
     def _script_text(self):
-        root = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
-        path = os.path.join(root, "scripts", "validate-gui-smoke.py")
+        path = os.path.join(ROOT, "scripts", "validate-gui-smoke.py")
         with open(path, "r", encoding="utf-8") as handle:
             return handle.read()
+
+    def test_smoke_launcher_uses_workspace_scoped_app_home(self):
+        smoke = _load_smoke_script()
+        with tempfile.TemporaryDirectory() as root:
+            bundle_root = os.path.join(root, "bundle")
+            workspace = os.path.join(root, "workspace")
+            os.makedirs(bundle_root)
+            os.makedirs(workspace)
+            with open(os.path.join(bundle_root, "embedagent-gui.cmd"), "w") as handle:
+                handle.write("")
+
+            launch = smoke._build_command(bundle_root, workspace, 18080, 18081)
+
+            self.assertEqual(
+                launch["env"]["EMBEDAGENT_GUI_APP_HOME"],
+                os.path.join(workspace, ".embedagent-gui-home"),
+            )
+
+    def test_smoke_exercises_current_session_event_protocol(self):
+        text = self._script_text()
+        self.assertIn('"session_event"', text)
+        self.assertIn('"transition.recorded"', text)
+        self.assertIn("/interactions/%s/respond", text)
+
+    def test_fixed_webview2_path_version_detection(self):
+        smoke = _load_smoke_script()
+        versioned_path = os.path.join("bundle", "109.0.1518.78")
+        self.assertEqual(smoke._detect_webview2_runtime_major(versioned_path), 109)
+
+    def test_smoke_fake_provider_does_not_match_task_as_ask(self):
+        smoke = _load_smoke_script()
+        self.assertEqual(
+            smoke.FakeOpenAIHandler._tool_call_for_text("task smoke")["name"], "task_status"
+        )
+
+    def test_smoke_fake_provider_uses_official_bash_tool(self):
+        text = self._script_text()
+        self.assertIn('"name": "bash"', text)
+        self.assertNotIn('"name": "run_command"', text)
 
     def test_smoke_script_uses_current_task_contract(self):
         text = self._script_text()

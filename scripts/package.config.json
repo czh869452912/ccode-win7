@@ -8,6 +8,7 @@
     "project_root": ".",
     "build_root": "build",
     "asset_cache_root": "build/offline-cache",
+    "uv_cache_root": ".uv-cache",
     "reports_root": "build/offline-reports",
     "asset_manifest": "scripts/offline-assets.json",
     "site_packages_export_root": "build/offline-cache/site-packages-export",
@@ -30,6 +31,7 @@
     "dev": {
       "artifact_name": "embedagent-win7-x64-dev",
       "allow_download": false,
+      "offline_dependency_build": false,
       "require_complete": false,
       "create_zip": false,
       "run_frontend_build": true,
@@ -47,6 +49,7 @@
     "release": {
       "artifact_name": "embedagent-win7-x64",
       "allow_download": false,
+      "offline_dependency_build": true,
       "require_complete": true,
       "create_zip": true,
       "run_frontend_build": true,

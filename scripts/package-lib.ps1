@@ -988,8 +988,25 @@ function Invoke-PackageDeps {
     $scriptPath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.export_dependencies)
     $jsonPath = New-ReportPath -Context $Context -StageName 'deps'
     $outputRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.site_packages_export_root)
+    $uvCacheRoot = if ($Context.config.paths.PSObject.Properties.Name -contains 'uv_cache_root') {
+        Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.uv_cache_root)
+    }
+    else {
+        Join-Path $Context.project_root 'build\offline-cache\uv'
+    }
+    $arguments = @('--output-dir', $outputRoot, '--json-report', $jsonPath, '--cache-dir', $uvCacheRoot)
+    $offlineDependencyBuild = $false
+    if ($Context.profile_config.PSObject.Properties.Name -contains 'offline_dependency_build') {
+        $offlineDependencyBuild = [bool]$Context.profile_config.offline_dependency_build
+    }
+    elseif ($Context.profile -eq 'release') {
+        $offlineDependencyBuild = $true
+    }
+    if ($offlineDependencyBuild) {
+        $arguments += '--offline'
+    }
     $timer = New-PackageStageTimer
-    $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $scriptPath -Arguments @('--output-dir', $outputRoot, '--json-report', $jsonPath)
+    $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $scriptPath -Arguments $arguments
     $payload = Get-Content -LiteralPath $jsonPath -Raw | ConvertFrom-Json
     $expectedDistributions = @()
     if ($Context.profile_config.PSObject.Properties.Name -contains 'required_project_distributions') {
@@ -1371,6 +1388,33 @@ function Invoke-PackageZipExtractionGate {
         }
     }
 }
+function Remove-PostSmokeTransientArtifacts {
+    param(
+        [string]$BundleRoot
+    )
+
+    $cacheDirectories = @(
+        Get-ChildItem -LiteralPath $BundleRoot -Recurse -Directory -Force -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -eq '__pycache__' } |
+            Sort-Object FullName -Descending
+    )
+    foreach ($directory in $cacheDirectories) {
+        Remove-Item -LiteralPath $directory.FullName -Recurse -Force
+    }
+
+    $cacheFiles = @(
+        Get-ChildItem -LiteralPath $BundleRoot -Recurse -File -Force -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -in '.pyc', '.pyo' }
+    )
+    foreach ($file in $cacheFiles) {
+        Remove-Item -LiteralPath $file.FullName -Force
+    }
+
+    $smokeBuildRoot = Join-Path $BundleRoot 'data\workspace-template\.embedagent\smoke-build'
+    if (Test-Path -LiteralPath $smokeBuildRoot) {
+        Remove-Item -LiteralPath $smokeBuildRoot -Recurse -Force
+    }
+}
 function Invoke-PackageVerify {
     param(
         [System.Collections.IDictionary]$Context,
@@ -1440,6 +1484,13 @@ function Invoke-PackageVerify {
         $cppScript = Join-Path $bundleRoot 'tools\validation\validate-cpp-smoke.py'
         $cppReport = Join-Path $reportsRoot 'cpp-smoke.json'
         if (-not (Invoke-PackageLocalGate -Context $Context -Report $Report -Name 'cpp_smoke' -ScriptPath $cppScript -Arguments @('--bundle-root', $bundleRoot, '--json-report', $cppReport) -ReportPath $cppReport)) {
+            $localGatesOk = $false
+        }
+        try {
+            Remove-PostSmokeTransientArtifacts -BundleRoot $bundleRoot
+        }
+        catch {
+            Write-PackageLog ("[verify]   transient cleanup FAILED: {0}" -f $_.Exception.Message)
             $localGatesOk = $false
         }
         $zipPath = Join-Path (Split-Path -Parent $bundleRoot) ((Split-Path -Leaf $bundleRoot) + '.zip')

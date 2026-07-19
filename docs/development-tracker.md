@@ -1203,3 +1203,33 @@
 - Current open blockers are environmental: real target-machine Win7/WebView2
   smoke and real C/C++ project validation. Neither may be synthesized from
   local Windows 10 or mock-stage output.
+
+## 2026-07-19 - Phase 7B offline GUI and release handoff
+
+- 修复 GUI smoke 对当前 session_event 协议的消费与交互响应：权限和
+  user-input 都通过正式 /interactions/{id}/respond 合约恢复；smoke fake
+  provider 使用正式 bash / task_status 工具。
+- 修复 hosted Core 的默认 event handler 绑定，以及同步提交与 HTTP
+  interaction resume 之间的 submit lease 竞态；同步异常继续向调用者传播，
+  worker 异常仍写入 session error。
+- wheel builder / dependency exporter 新增显式 --cache-dir / --offline，
+  release profile 使用项目级 .uv-cache，运行时仍保持无网络。
+- package.ps1 doctor -Profile release -Json 为 READY；正式 release 的
+  deps、identity、frontend、native launcher、prepare、bundle、GUI headless、
+  C smoke、zip extraction、verify 全部通过，报告为
+  final_status=TARGET_READY / acceptance_status=PENDING_WIN7 /
+  publishable=false。
+- bundle GUI smoke 已验证 renderer=edgechromium、
+  runtime_source=bundle、Fixed Version WebView2 runtime_major=109、
+  permission/user-input flow 和 /review；C smoke 明确
+  runtime_source=bundle 且 allow_system_tool_fallback=false。
+- 当前 release 报告是在未提交工作树上生成，source revision 尚未包含本轮
+  改动，只能作为诊断证据；提交后必须从 clean revision 重跑 release，必要时
+  再跑 release -Reproducible。
+- Phase 7B 仍未 ACCEPTED：需要真实 Windows 7 SP1 x64 上的 windowed
+  WebView2 109 smoke 和离线 validate-release-evidence.py 报告。Phase 8
+  的真实 C/C++ 工程验证继续独立。
+- 双次 production release -Reproducible 已通过：comparison mismatches=[]，
+  两个 normalized bundle tree SHA-256 相同，outer 状态为
+  TARGET_READY/PENDING_WIN7/publishable=false。该结果仍绑定当前 dirty
+  worktree 的旧 HEAD 标识，提交后需从 clean revision 重跑。

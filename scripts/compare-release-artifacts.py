@@ -31,6 +31,7 @@ DEFAULT_EXCLUDED_PATHS = (
     "manifests/evidence/acceptance-report.json",
     "manifests/evidence/expected-bundle-hashes.json",
     "manifests/evidence/win7-evidence.json",
+    "manifests/deps-report.json",
 )
 DEFAULT_NORMALIZED_JSON_FIELDS = {
     "manifests/bundle-manifest.json": (
@@ -43,6 +44,18 @@ DEFAULT_NORMALIZED_JSON_FIELDS = {
         "sources_root",
         "zip_path",
         "asset_manifest_path",
+        "source_path",
+        "cache_archive_path",
+        "wheelhouse_path",
+        "identity_path",
+        "deps_report_path",
+        "report_path",
+        "output_root",
+        "staged_path",
+        "staging_bundle_root",
+        "sources_root",
+        "zip_path",
+        "built_at",
     )
 }
 

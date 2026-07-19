@@ -470,6 +470,16 @@ class TestAgentCoreAdapterApi(unittest.TestCase):
         core._adapter.fork_session.assert_called_once_with("sess-1", title="Copy")
         core._adapter.cancel_session.assert_called_once_with("sess-1")
 
+    def test_attach_adapter_binds_default_event_handler_for_resumed_interactions(self):
+        from embedagent.core.adapter import AgentCoreAdapter
+
+        core = AgentCoreAdapter(workspace="D:\\workspace")
+        adapter = MagicMock()
+
+        core.attach_adapter(adapter)
+
+        self.assertEqual(adapter.event_handler, core._on_adapter_event)
+
     def test_submit_message_uses_core_owned_interaction_lifecycle(self):
         from embedagent.core.adapter import AgentCoreAdapter
 
