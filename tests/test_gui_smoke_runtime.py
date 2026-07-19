@@ -25,9 +25,7 @@ def test_failure_payload_contains_exit_and_log_tails(tmp_path):
     stderr.write_text("trace\n", encoding="utf-8")
     failure = smoke.SmokeFailure("launcher_exit", "http", {"returncode": 3})
 
-    payload = smoke._failure_payload(
-        failure, FakeProcess(3), stdout, stderr, ["process"]
-    )
+    payload = smoke._failure_payload(failure, FakeProcess(3), stdout, stderr, ["process"])
 
     assert payload["ok"] is False
     assert payload["failure"]["category"] == "launcher_exit"
@@ -62,9 +60,7 @@ def test_failure_payload_redacts_sensitive_details(tmp_path):
         },
     )
 
-    payload = smoke._failure_payload(
-        failure, FakeProcess(1), stdout, stderr, ["process"]
-    )
+    payload = smoke._failure_payload(failure, FakeProcess(1), stdout, stderr, ["process"])
     text = str(payload)
 
     assert "api_key" not in text

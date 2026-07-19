@@ -196,7 +196,6 @@ def _write_renderer_report(path: str, report: Dict[str, Any]) -> None:
         json.dump(report, handle, indent=2, ensure_ascii=False)
 
 
-
 def _write_startup_report(
     path: str,
     events,
@@ -224,6 +223,8 @@ def _write_startup_report(
         json.dump(payload, handle, indent=2, ensure_ascii=False)
         handle.write("\n")
     os.replace(temp_path, target)
+
+
 def launch_gui(
     workspace: str = "",
     host: str = "127.0.0.1",

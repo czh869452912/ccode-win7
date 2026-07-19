@@ -221,6 +221,10 @@ function Read-PackageConfig {
     }
     $raw = Get-Content -LiteralPath $Path -Raw
     $config = $raw | ConvertFrom-Json
+    $configOrigin = [string]$config.metadata.config_origin
+    if ($configOrigin -notin @('production', 'fixture')) {
+        throw "Package config must define metadata.config_origin as production or fixture."
+    }
     if (-not $config.profiles.dev -or -not $config.profiles.release) {
         throw "Package config must define both dev and release profiles."
     }
@@ -247,6 +251,32 @@ function New-PackageReport {
     }
 }
 
+function New-PackageContextReport {
+    param(
+        [System.Collections.IDictionary]$Context
+    )
+
+    $runId = if ($Context.run_id) { [string]$Context.run_id } else { [guid]::NewGuid().ToString('N') }
+    return [ordered]@{
+        command = [string]$Context.command
+        profile = [string]$Context.profile
+        run_id = $runId
+        execution_kind = [string]$Context.execution_kind
+        config_origin = [string]$Context.config_origin
+        config_path = [string]$Context.config_path
+        source_revision = [string]$Context.source_revision
+        reports_root = [string]$Context.reports_root
+        artifact_root = [string]$Context.artifact_root
+        started_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+        command_status = 'running'
+        final_status = $null
+        artifact_status = 'provisional'
+        publishable = $false
+        stages = @()
+        blocking_issues = @()
+        warnings = @()
+    }
+}
 function New-PackageStageTimer {
     $started = Get-Date
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -391,7 +421,24 @@ function New-PackageContext {
         throw "Unknown packaging profile: $effectiveProfile"
     }
 
+    $configOrigin = [string]$Config.metadata.config_origin
+    $executionKind = if ($configOrigin -eq 'production') { 'release' } else { 'test' }
+    $sourceRevision = (& git -C $ProjectRoot rev-parse HEAD 2>$null | Out-String).Trim()
+    if (-not $sourceRevision) {
+        if ($configOrigin -eq 'production') {
+            throw 'Unable to resolve source revision for production package config.'
+        }
+        $sourceRevision = 'unknown'
+    }
+    $reportsRoot = Resolve-ConfigPath -ProjectRoot $ProjectRoot -Path ([string]$Config.paths.reports_root)
+    $artifactRoot = Resolve-ConfigPath -ProjectRoot $ProjectRoot -Path ([string]$Config.paths.dist_bundle_root)
     return [ordered]@{
+        run_id = [guid]::NewGuid().ToString('N')
+        execution_kind = $executionKind
+        config_origin = $configOrigin
+        source_revision = $sourceRevision
+        reports_root = $reportsRoot
+        artifact_root = $artifactRoot
         project_root = $ProjectRoot
         config_path = $ConfigPath
         config = $Config
@@ -758,7 +805,7 @@ function Invoke-PackageDoctor {
     )
 
     Write-PackageLog "[doctor] Running environment checks..."
-    $report = New-PackageReport -Command 'doctor' -Profile $Context.profile
+    $report = New-PackageContextReport -Context $Context
     $doctorChecks = @(Get-PackageDoctorChecks -Context $Context)
     foreach ($check in $doctorChecks) {
         $status = if ($check.ok) { 'OK' } elseif ($check.blocking) { 'FAIL' } else { 'WARN' }
@@ -1381,6 +1428,25 @@ $verifyOk = ([bool]$validatePayload.ok) -and ([bool]$checkPayload.ok) -and $loca
     Write-PackageLog ("[verify] Overall: {0}" -f $(if ($verifyOk) { "PASS" } else { "FAIL" }))
 }
 
+function Write-AtomicPackageText {
+    param(
+        [string]$Path,
+        [string]$Content,
+        [System.Text.Encoding]$Encoding
+    )
+
+    $temporaryPath = $Path + ".tmp." + [guid]::NewGuid().ToString('N')
+    try {
+        [System.IO.File]::WriteAllText($temporaryPath, $Content, $Encoding)
+        Move-Item -LiteralPath $temporaryPath -Destination $Path -Force
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporaryPath) {
+            Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Write-PackageReport {
     param(
         [System.Collections.IDictionary]$Context,
@@ -1392,14 +1458,14 @@ function Write-PackageReport {
         New-Item -ItemType Directory -Path $reportsRoot -Force | Out-Null
     }
     $timestamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddHHmmss')
-    $reportPath = Join-Path $reportsRoot ($timestamp + '-' + $Context.command + '.json')
+    $reportPath = Join-Path $reportsRoot ($timestamp + '-' + $Context.run_id + '-' + $Context.command + '.json')
     $latestPath = Join-Path $reportsRoot 'latest.json'
     $Report.report_path = $reportPath
     $Report.generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
     $json = $Report | ConvertTo-Json -Depth 10
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-    [System.IO.File]::WriteAllText($reportPath, $json, $utf8NoBom)
-    [System.IO.File]::WriteAllText($latestPath, $json, $utf8NoBom)
+    Write-AtomicPackageText -Path $reportPath -Content $json -Encoding $utf8NoBom
+    Write-AtomicPackageText -Path $latestPath -Content $json -Encoding $utf8NoBom
     return $reportPath
 }
 
@@ -1410,7 +1476,7 @@ function Invoke-PackageCommand {
 
     Write-PackageLog ""
     Write-PackageLog ("=== Package Command: {0} (profile: {1}) ===" -f $Context.command, $Context.profile)
-    $report = New-PackageReport -Command $Context.command -Profile $Context.profile
+    $report = New-PackageContextReport -Context $Context
     switch ($Context.command) {
         'deps' {
             Invoke-PackageDeps -Context $Context -Report ([ref]$report)
@@ -1436,6 +1502,9 @@ function Invoke-PackageCommand {
     }
     Complete-PackageReport -Report ([ref]$report)
     $identityConfigured = $Context.config.paths.PSObject.Properties.Name -contains 'release_identity'
+    if ($identityConfigured -and ($Context.execution_kind -ne 'release' -or $Context.config_origin -ne 'production' -or $Context.profile -ne 'release')) {
+        $identityConfigured = $false
+    }
     if ($identityConfigured -and $report.final_status -eq 'READY') {
         $report.final_status = 'TARGET_READY'
         $report.release_state = 'TARGET_READY'

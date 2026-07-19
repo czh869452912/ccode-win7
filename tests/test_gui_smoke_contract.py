@@ -51,6 +51,5 @@ class TestGuiSmokeContract(unittest.TestCase):
             self.assertIn(marker, text)
 
 
-
 if __name__ == "__main__":
     unittest.main()

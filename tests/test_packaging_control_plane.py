@@ -21,6 +21,17 @@ RUNTIME_CONTRACT = ROOT / "scripts" / "offline-runtime-contract.json"
 MOCK_CONFIG = ROOT / "tests" / "fixtures" / "package" / "mock-config.json"
 
 
+def _write_isolated_mock_config(root, dynamic=False):
+    config = json.loads(MOCK_CONFIG.read_text(encoding="utf-8"))
+    config["metadata"] = {"config_origin": "fixture"}
+    config["paths"]["reports_root"] = str(root / "reports")
+    if dynamic:
+        config["profiles"]["release"]["run_dynamic_checks"] = True
+    path = root / "mock-config.json"
+    path.write_text(json.dumps(config), encoding="utf-8")
+    return path
+
+
 def _load_python_module(path, module_name):
     spec = importlib.util.spec_from_file_location(module_name, str(path))
     module = importlib.util.module_from_spec(spec)
@@ -1489,6 +1500,8 @@ class TestPackageOrchestration(unittest.TestCase):
     def test_package_release_with_mock_stages_returns_ready(self):
         env = os.environ.copy()
         env["EMBEDAGENT_PYTHON"] = sys.executable
+        tmp_dir = tempfile.TemporaryDirectory()
+        config_path = _write_isolated_mock_config(Path(tmp_dir.name))
         result = subprocess.run(
             [
                 _powershell_exe(),
@@ -1497,7 +1510,7 @@ class TestPackageOrchestration(unittest.TestCase):
                 str(PACKAGE_SCRIPT),
                 "release",
                 "-Config",
-                str(MOCK_CONFIG),
+                str(config_path),
                 "-Json",
             ],
             cwd=str(ROOT),
@@ -1531,11 +1544,9 @@ class TestPackageOrchestration(unittest.TestCase):
     def test_package_release_honors_dynamic_check_profile(self):
         env = os.environ.copy()
         env["EMBEDAGENT_PYTHON"] = sys.executable
+        validate_payload = None
         with tempfile.TemporaryDirectory() as tmp:
-            config = json.loads(MOCK_CONFIG.read_text(encoding="utf-8"))
-            config["profiles"]["release"]["run_dynamic_checks"] = True
-            config_path = Path(tmp) / "mock-config-dynamic.json"
-            config_path.write_text(json.dumps(config), encoding="utf-8")
+            config_path = _write_isolated_mock_config(Path(tmp), dynamic=True)
 
             result = subprocess.run(
                 [
@@ -1553,16 +1564,18 @@ class TestPackageOrchestration(unittest.TestCase):
                 text=True,
                 env=env,
             )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        payload = json.loads(result.stdout)
-        verify_summary = payload["stages"][-1]["summary"]
-        validate_report = Path(verify_summary["validate_report"])
-        validate_payload = json.loads(validate_report.read_text(encoding="utf-8"))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            verify_summary = payload["stages"][-1]["summary"]
+            validate_report = Path(verify_summary["validate_report"])
+            validate_payload = json.loads(validate_report.read_text(encoding="utf-8"))
         self.assertFalse(validate_payload["skip_dynamic_checks"])
 
     def test_mock_release_does_not_inject_frontend_build_stage(self):
         env = os.environ.copy()
         env["EMBEDAGENT_PYTHON"] = sys.executable
+        tmp_dir = tempfile.TemporaryDirectory()
+        config_path = _write_isolated_mock_config(Path(tmp_dir.name))
         result = subprocess.run(
             [
                 _powershell_exe(),
@@ -1571,7 +1584,7 @@ class TestPackageOrchestration(unittest.TestCase):
                 str(PACKAGE_SCRIPT),
                 "release",
                 "-Config",
-                str(MOCK_CONFIG),
+                str(config_path),
                 "-Json",
             ],
             cwd=str(ROOT),
