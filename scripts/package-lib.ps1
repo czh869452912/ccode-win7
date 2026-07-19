@@ -564,6 +564,185 @@ function Ensure-GuiFrontendAssets {
     }
 }
 
+function New-PackageDoctorCheck {
+    param(
+        [string]$Name,
+        [string]$Code,
+        [bool]$Ok,
+        [bool]$Blocking,
+        [string]$Path,
+        [string]$Detail = ''
+    )
+
+    return [ordered]@{
+        name = $Name
+        code = $Code
+        ok = $Ok
+        blocking = $Blocking
+        path = $Path
+        detail = $Detail
+    }
+}
+
+function Get-PackageDoctorChecks {
+    param(
+        [System.Collections.IDictionary]$Context
+    )
+
+    $releaseBlocking = [string]::Equals([string]$Context.profile, 'release', [System.StringComparison]::OrdinalIgnoreCase)
+    $checks = @()
+    $projectRoot = [string]$Context.project_root
+    $config = $Context.config
+    $configPath = [string]$Context.config_path
+    $checks += New-PackageDoctorCheck -Name 'config' -Code 'config' -Ok (Test-Path -LiteralPath $configPath) -Blocking $releaseBlocking -Path $configPath
+    $assetManifestPath = Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.paths.asset_manifest)
+    $checks += New-PackageDoctorCheck -Name 'asset_manifest' -Code 'asset_manifest' -Ok (Test-Path -LiteralPath $assetManifestPath) -Blocking $releaseBlocking -Path $assetManifestPath
+
+    $toolingPaths = @(
+        (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.export_dependencies)),
+        (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.build_gui_launcher)),
+        (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.prepare_bundle)),
+        (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.build_bundle)),
+        (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.validate_bundle)),
+        (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.check_dependencies))
+    )
+    foreach ($toolPath in $toolingPaths) {
+        $toolName = [System.IO.Path]::GetFileName($toolPath)
+        $checks += New-PackageDoctorCheck -Name ('tool:' + $toolName) -Code ('tool.' + $toolName) -Ok (Test-Path -LiteralPath $toolPath) -Blocking $releaseBlocking -Path $toolPath
+    }
+
+    $npmOk = $false
+    $npmVersion = ''
+    try {
+        $npmVersion = (& npm --version 2>&1 | Out-String).Trim()
+        $npmOk = ($LASTEXITCODE -eq 0) -and ($npmVersion -ne '')
+    }
+    catch {
+        $npmOk = $false
+    }
+    $prebuiltFrontendStatus = Get-GuiFrontendAssetStatus -ProjectRoot $projectRoot
+    $prebuiltFrontendOk = [bool]$prebuiltFrontendStatus.ok
+    $npmPath = if ($npmOk) { 'npm (' + $npmVersion + ')' } else { [string]$prebuiltFrontendStatus.static_root }
+    $checks += New-PackageDoctorCheck -Name 'runtime:npm' -Code 'runtime.npm' -Ok ($npmOk -or $prebuiltFrontendOk) -Blocking $releaseBlocking -Path $npmPath
+
+    $pythonPath = ''
+    $pythonVersion = ''
+    $pythonCandidates = @(Get-PackagePythonCandidates -ProjectRoot $projectRoot)
+    if ($pythonCandidates.Count -gt 0) {
+        $pythonPath = [string]$pythonCandidates[0]
+        try {
+            $pythonVersion = (& $pythonPath --version 2>&1 | Out-String).Trim()
+        }
+        catch {
+            $pythonVersion = ''
+        }
+    }
+    $pythonOk = $pythonVersion -match '^Python 3\.8\.'
+    $checks += New-PackageDoctorCheck -Name 'python:version' -Code 'python.version' -Ok $pythonOk -Blocking $releaseBlocking -Path $pythonPath -Detail $pythonVersion
+
+    $assetManifest = $null
+    try {
+        if (Test-Path -LiteralPath $assetManifestPath) {
+            $assetManifest = Get-Content -Raw -LiteralPath $assetManifestPath | ConvertFrom-Json
+        }
+    }
+    catch {
+        $assetManifest = $null
+    }
+    $cacheRoot = Resolve-ConfigPath -ProjectRoot $projectRoot -Path (Join-Path ([string]$config.paths.build_root) 'offline-cache')
+    $requiredAssetIds = @()
+    if ($Context.profile_config.required_assets) {
+        $requiredAssetIds = @($Context.profile_config.required_assets)
+    }
+    foreach ($assetId in $requiredAssetIds) {
+        $asset = @($assetManifest.assets | Where-Object { [string]$_.id -eq [string]$assetId }) | Select-Object -First 1
+        $cachePath = if ($asset) { Join-Path $cacheRoot ([string]$asset.cache_relpath) } else { Join-Path $cacheRoot ([string]$assetId) }
+        $cacheOk = [bool]$asset -and (Test-Path -LiteralPath $cachePath -PathType Leaf)
+        if ($Context.allow_download -and -not $cacheOk) {
+            $cacheOk = $true
+        }
+        $checks += New-PackageDoctorCheck -Name ('asset:' + $assetId) -Code ('asset.cache.' + $assetId) -Ok $cacheOk -Blocking $releaseBlocking -Path $cachePath
+    }
+
+    $webviewAsset = @($assetManifest.assets | Where-Object { [string]$_.id -eq 'webview2_fixed_runtime_x64' }) | Select-Object -First 1
+    $webviewPath = if ($webviewAsset) { Join-Path $cacheRoot ([string]$webviewAsset.cache_relpath) } else { Join-Path $cacheRoot 'webview2' }
+    $webviewOk = [bool]$webviewAsset -and (Test-Path -LiteralPath $webviewPath -PathType Leaf)
+    if ($Context.allow_download -and -not $webviewOk) {
+        $webviewOk = $true
+    }
+    $checks += New-PackageDoctorCheck -Name 'asset:webview2_fixed_runtime_x64' -Code 'asset.cache.webview2_fixed_runtime_x64' -Ok $webviewOk -Blocking $releaseBlocking -Path $webviewPath
+
+    $llvmRoot = Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.paths.llvm_root)
+    $llvmMain = Join-Path $llvmRoot 'bin\clang.exe'
+    $checks += New-PackageDoctorCheck -Name 'toolchain:llvm' -Code 'toolchain.llvm' -Ok (Test-Path -LiteralPath $llvmMain -PathType Leaf) -Blocking $releaseBlocking -Path $llvmMain
+    foreach ($childName in @('clang.exe', 'clang++.exe', 'clang-cl.exe', 'clang-tidy.exe', 'clang-analyzer.bat', 'llvm-profdata.exe', 'llvm-cov.exe')) {
+        $childPath = Join-Path $llvmRoot ('bin\' + $childName)
+        $checks += New-PackageDoctorCheck -Name ('toolchain:llvm:' + $childName) -Code ('toolchain.llvm.' + $childName) -Ok (Test-Path -LiteralPath $childPath -PathType Leaf) -Blocking $releaseBlocking -Path $childPath
+    }
+
+    $distributionNames = @()
+    if ($Context.profile_config.PSObject.Properties.Name -contains 'required_project_distributions') {
+        $distributionNames = @($Context.profile_config.required_project_distributions)
+    }
+    if ($distributionNames.Count -eq 0) {
+        $distributionNames = @('embedagent-core', 'embedagent-protocol', 'embedagent-host', 'embedagent-composition', 'embedagent-workflow-cpp', 'embedagent')
+    }
+    foreach ($distributionName in $distributionNames) {
+        $projectPath = if ($distributionName -eq 'embedagent') {
+            Join-Path $projectRoot 'pyproject.toml'
+        }
+        elseif ($distributionName -eq 'embedagent-workflow-cpp') {
+            Join-Path $projectRoot 'packages\embedagent-workflow-cpp\pyproject.toml'
+        }
+        else {
+            Join-Path $projectRoot ('packages\' + $distributionName + '\pyproject.toml')
+        }
+        $checks += New-PackageDoctorCheck -Name ('project:' + $distributionName) -Code ('project.' + $distributionName) -Ok (Test-Path -LiteralPath $projectPath -PathType Leaf) -Blocking $releaseBlocking -Path $projectPath
+    }
+
+    $wheelhouseRoot = Resolve-ConfigPath -ProjectRoot $projectRoot -Path (Join-Path ([string]$config.paths.site_packages_export_root) 'wheels')
+    $wheelhouseOk = $true
+    $wheelhouseDetail = 'will be created by deps'
+    if (Test-Path -LiteralPath $wheelhouseRoot) {
+        $wheelhouseItem = Get-Item -LiteralPath $wheelhouseRoot -Force
+        $wheelhouseOk = (($wheelhouseItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0)
+        if ($wheelhouseOk) {
+            foreach ($entry in @(Get-ChildItem -LiteralPath $wheelhouseRoot -Force)) {
+                if ($entry.PSIsContainer -or $entry.Extension -ne '.whl') {
+                    $wheelhouseOk = $false
+                    $wheelhouseDetail = 'unsafe entry: ' + $entry.Name
+                    break
+                }
+            }
+        }
+    }
+    $checks += New-PackageDoctorCheck -Name 'wheelhouse:output_root' -Code 'wheelhouse.output_root' -Ok $wheelhouseOk -Blocking $releaseBlocking -Path $wheelhouseRoot -Detail $wheelhouseDetail
+
+    $buildRoot = Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.paths.build_root)
+    $buildParent = Split-Path -Qualifier $buildRoot
+    $freeBytes = 0
+    $freeKnown = $false
+    try {
+        $driveName = $buildParent.TrimEnd('\').TrimEnd(':')
+        $drive = Get-PSDrive -Name $driveName -ErrorAction Stop
+        $freeBytes = [int64]$drive.Free
+        $freeKnown = $true
+    }
+    catch {
+        $freeKnown = $false
+    }
+    $minimumBytes = 0
+    if ($Context.profile_config.PSObject.Properties.Name -contains 'minimum_free_bytes') {
+        if ($Context.profile_config.minimum_free_bytes) {
+            $minimumBytes = [int64]$Context.profile_config.minimum_free_bytes
+        }
+    }
+    $freeOk = (-not $freeKnown) -or ($freeBytes -ge $minimumBytes)
+    $checks += New-PackageDoctorCheck -Name 'disk:output_free_space' -Code 'disk.output_free_space' -Ok $freeOk -Blocking $releaseBlocking -Path $buildRoot -Detail ([string]$freeBytes)
+
+    return @($checks)
+}
+
 function Invoke-PackageDoctor {
     param(
         [System.Collections.IDictionary]$Context
@@ -571,57 +750,22 @@ function Invoke-PackageDoctor {
 
     Write-PackageLog "[doctor] Running environment checks..."
     $report = New-PackageReport -Command 'doctor' -Profile $Context.profile
-    $doctorChecks = @()
-
-    $assetManifestPath = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.asset_manifest)
-    $toolingRootChecks = @(
-        (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.tooling.export_dependencies))
-        (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.tooling.build_gui_launcher))
-        (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.tooling.prepare_bundle))
-        (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.tooling.build_bundle))
-        (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.tooling.validate_bundle))
-        (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.tooling.check_dependencies))
-    )
-
-    $doctorChecks += [ordered]@{ name = 'config'; ok = (Test-Path -LiteralPath $Context.config_path); path = $Context.config_path }
-    $doctorChecks += [ordered]@{ name = 'asset_manifest'; ok = (Test-Path -LiteralPath $assetManifestPath); path = $assetManifestPath }
-    Write-PackageLog "[doctor] Checking configuration files..." 
-    foreach ($toolPath in $toolingRootChecks) {
-        $doctorChecks += [ordered]@{ name = ('tool:' + [System.IO.Path]::GetFileName($toolPath)); ok = (Test-Path -LiteralPath $toolPath); path = $toolPath }
-    }
-
-    # Check that Node.js / npm are available on the build machine, or that
-    # complete prebuilt GUI static assets already exist in the source tree.
-    $npmOk = $false
-    $npmVersion = ''
-    try {
-        $npmVersion = (& npm --version 2>&1 | Out-String).Trim()
-        $npmOk = ($LASTEXITCODE -eq 0) -and ($npmVersion -ne '')
-    } catch { $npmOk = $false }
-    $prebuiltFrontendStatus = Get-GuiFrontendAssetStatus -ProjectRoot $Context.project_root
-    $prebuiltFrontendOk = [bool]$prebuiltFrontendStatus.ok
-    $doctorChecks += [ordered]@{
-        name = 'runtime:npm'
-        ok = ($npmOk -or $prebuiltFrontendOk)
-        path = if ($npmOk) { "npm ($npmVersion)" } else { "prebuilt frontend assets present at $($prebuiltFrontendStatus.static_root)" }
-    }
-
+    $doctorChecks = @(Get-PackageDoctorChecks -Context $Context)
     foreach ($check in $doctorChecks) {
-        $status = if ($check.ok) { "OK" } else { "FAIL" }
+        $status = if ($check.ok) { 'OK' } elseif ($check.blocking) { 'FAIL' } else { 'WARN' }
         Write-PackageLog ("[doctor]   {0}: {1} ({2})" -f $check.name, $status, $check.path)
         if (-not $check.ok) {
-            if ($check.name -eq 'runtime:npm') {
-                $report.warnings += ('Optional runtime unavailable: ' + $check.path)
+            if ($check.blocking) {
+                $report.blocking_issues += ([string]$check.code + ': ' + [string]$check.path)
             }
             else {
-                $report.blocking_issues += ('Missing required path: ' + $check.path)
+                $report.warnings += ([string]$check.code + ': ' + [string]$check.path)
             }
         }
     }
-
     $report.doctor_checks = $doctorChecks
     Complete-PackageReport -Report ([ref]$report)
-    $overall = if ($report.command_status -eq 'READY') { "READY" } else { "NOT_READY" }
+    $overall = if ($report.command_status -eq 'READY') { 'READY' } else { 'NOT_READY' }
     Write-PackageLog ("[doctor] Overall status: {0}" -f $overall)
     return $report
 }

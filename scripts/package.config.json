@@ -10,7 +10,9 @@
     "site_packages_root": "build/offline-cache/site-packages-export/site-packages",
     "gui_launcher_build_root": "build/offline-cache/gui-launcher",
     "llvm_root": "toolchains/llvm/current",
-    "dist_bundle_root": "build/offline-dist/embedagent-win7-x64"
+    "dist_bundle_root": "build/offline-dist/embedagent-win7-x64",
+    "release_identity": "manifests/release-identity.json",
+    "release_evidence_root": "manifests/evidence"
   },
   "tooling": {
     "export_dependencies": "scripts/export-dependencies.py",
@@ -47,6 +49,15 @@
       "run_gui_launcher_build": true,
       "run_dynamic_checks": true,
       "run_dependency_checker": true,
+      "minimum_free_bytes": 8589934592,
+      "required_project_distributions": [
+        "embedagent-core",
+        "embedagent-protocol",
+        "embedagent-host",
+        "embedagent-composition",
+        "embedagent-workflow-cpp",
+        "embedagent"
+      ],
       "required_assets": [
         "python_embedded_x64",
         "mingit_x64",
