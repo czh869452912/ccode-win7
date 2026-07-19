@@ -209,6 +209,44 @@ function Remove-ProjectEditableArtifacts {
     }
 }
 
+function Get-ProjectWheelMetadata {
+    param(
+        [string]$SitePackagesRoot
+    )
+
+    $wheelRoot = Join-Path (Split-Path -Parent $SitePackagesRoot) 'wheels'
+    if (-not (Test-Path -LiteralPath $wheelRoot -PathType Container)) {
+        throw "Checked project wheelhouse not found: $wheelRoot"
+    }
+    $expected = [ordered]@{
+        'embedagent-core' = 'embedagent_core-*.whl'
+        'embedagent-protocol' = 'embedagent_protocol-*.whl'
+        'embedagent-host' = 'embedagent_host-*.whl'
+        'embedagent-composition' = 'embedagent_composition-*.whl'
+        'embedagent-workflow-cpp' = 'embedagent_workflow_cpp-*.whl'
+        'embedagent' = 'embedagent-*.whl'
+    }
+    $allWheels = @(Get-ChildItem -LiteralPath $wheelRoot -Filter '*.whl' -File)
+    if ($allWheels.Count -ne $expected.Count) {
+        throw ('Expected exactly six project wheels, found {0} in {1}' -f $allWheels.Count, $wheelRoot)
+    }
+    $wheelNames = @()
+    $wheelHashes = [ordered]@{}
+    foreach ($distribution in $expected.Keys) {
+        $matches = @(Get-ChildItem -LiteralPath $wheelRoot -Filter $expected[$distribution] -File)
+        if ($matches.Count -ne 1) {
+            throw ('Expected exactly one wheel for {0}, found {1}' -f $distribution, $matches.Count)
+        }
+        $wheel = $matches[0]
+        $wheelNames += $wheel.Name
+        $wheelHashes[$wheel.Name] = (Get-FileHash -LiteralPath $wheel.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+    return [ordered]@{
+        project_wheels = $wheelNames
+        wheel_hashes = $wheelHashes
+        wheelhouse_path = $wheelRoot
+    }
+}
 function Write-TextFile {
     param(
         [string]$Path,
@@ -864,8 +902,20 @@ if ($sitePackagesPath) {
         Remove-TransientPythonArtifacts -Root (Join-Path $bundleRoot 'runtime\site-packages')
         Remove-ProjectEditableArtifacts -SitePackagesRoot (Join-Path $bundleRoot 'runtime\site-packages') -ProjectRoot $projectRoot
         $duplicateProductPackage = Join-Path $bundleRoot 'runtime\site-packages\embedagent'
+        $duplicateProductDistInfo = @(Get-ChildItem -LiteralPath (Join-Path $bundleRoot 'runtime\site-packages') -Directory -Filter 'embedagent-*.dist-info' -ErrorAction SilentlyContinue)
         if (Test-Path -LiteralPath $duplicateProductPackage) {
             Remove-Item -LiteralPath $duplicateProductPackage -Recurse -Force
+        }
+        foreach ($distInfo in $duplicateProductDistInfo) {
+            Remove-Item -LiteralPath $distInfo.FullName -Recurse -Force
+        }
+        if ((Test-Path -LiteralPath $duplicateProductPackage) -or @((Get-ChildItem -LiteralPath (Join-Path $bundleRoot 'runtime\site-packages') -Directory -Filter 'embedagent-*.dist-info' -ErrorAction SilentlyContinue)).Count -gt 0) {
+            throw 'duplicate product package or dist-info remains in runtime/site-packages'
+        }
+        foreach ($lowerDistribution in @('embedagent_core', 'embedagent_protocol', 'embedagent_host', 'embedagent_composition', 'embedagent_workflow_cpp')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $bundleRoot ('runtime\site-packages\' + $lowerDistribution)))) {
+                throw ('lower project distribution missing from runtime/site-packages: {0}' -f $lowerDistribution)
+            }
         }
     }
     $status = if ($SkipBuild) { 'skipped' } else { 'staged' }
@@ -1047,6 +1097,20 @@ else {
     $components += New-ComponentRecord -Name 'llvm_clang_bundle' -StagedPath 'bin\llvm' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -LlvmRoot to stage the LLVM/Clang bundle.' -AssetId ''
 }
 
+$projectWheelMetadata = [ordered]@{
+    project_wheels = @()
+    wheel_hashes = [ordered]@{}
+    wheelhouse_path = ''
+}
+if ($sitePackagesPath -and -not $SkipBuild) {
+    $projectWheelMetadata = Get-ProjectWheelMetadata -SitePackagesRoot $sitePackagesPath
+}
+$releaseIdentitySource = Join-Path $projectRoot 'manifests\release-identity.json'
+$identityPath = ''
+if (Test-Path -LiteralPath $releaseIdentitySource -PathType Leaf) {
+    Stage-File -Source $releaseIdentitySource -Destination (Join-Path $bundleRoot 'manifests\release-identity.json')
+    $identityPath = 'manifests/release-identity.json'
+}
 $requiredMissing = @($components | Where-Object { $_.required -and $_.status -eq 'missing' })
 $summary = [ordered]@{
     staged = @($components | Where-Object { $_.status -eq 'staged' }).Count
@@ -1067,6 +1131,11 @@ $manifest = [ordered]@{
     summary = $summary
     resolved_assets = $resolvedAssets
     components = $components
+    project_wheels = $projectWheelMetadata.project_wheels
+    wheel_hashes = $projectWheelMetadata.wheel_hashes
+    wheelhouse_path = $projectWheelMetadata.wheelhouse_path
+    identity_path = $identityPath
+    source_mode = 'wheel-installed'
 }
 
 Write-Host "[prepare] Writing bundle manifest and checksums..."

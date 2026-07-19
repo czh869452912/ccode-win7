@@ -136,6 +136,29 @@ function Update-BundleManifest {
     $manifest | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $ManifestPath -Encoding ASCII
 }
 
+function Get-BundleTreeSha256 {
+    param(
+        [string]$Root
+    )
+
+    $records = @()
+    foreach ($file in @(Get-ChildItem -LiteralPath $Root -Recurse -File | Sort-Object FullName)) {
+        $relative = $file.FullName.Substring($Root.Length).TrimStart('\')
+        if ($relative -eq 'manifests\checksums.txt') {
+            continue
+        }
+        $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+        $records += ($relative.Replace('\', '/') + ':' + $hash)
+    }
+    $payload = ($records -join "`n")
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([System.BitConverter]::ToString($sha256.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($payload)))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+    }
+}
 function Write-BundleChecksums {
     param(
         [string]$Root,
@@ -206,6 +229,24 @@ function Invoke-PrepareOffline {
     & $PrepareScript @prepareParams
 }
 
+function Copy-OptionalReleaseFile {
+    param(
+        [string]$Source,
+        [string[]]$Destinations
+    )
+
+    if (-not (Test-Path -LiteralPath $Source -PathType Leaf)) {
+        return @()
+    }
+    $copied = @()
+    foreach ($destination in @($Destinations)) {
+        $parent = Split-Path -Parent $destination
+        Ensure-Directory -Path $parent
+        Copy-Item -LiteralPath $Source -Destination $destination -Force
+        $copied += $destination
+    }
+    return $copied
+}
 function Create-BundleZip {
     param(
         [string]$SourceDirectory,
@@ -333,8 +374,49 @@ $null = Publish-VerifiedPythonWheels `
     -PythonPath $packagePython `
     -CheckerPath $pythonDistributionChecker
 
+$checkerReportPath = Join-Path $sourcesRoot 'checker-report.json'
+$checkerOutputText = $checkerOutput -join "`n"
+Set-Content -LiteralPath $checkerReportPath -Value ($checkerOutputText + "`n") -Encoding ASCII
+$projectWheels = @($checkerReport.verified_wheels)
+$projectDistributions = @(
+    'embedagent-core',
+    'embedagent-protocol',
+    'embedagent-host',
+    'embedagent-composition',
+    'embedagent-workflow-cpp',
+    'embedagent'
+)
+$wheelHashes = [ordered]@{}
+foreach ($wheelName in $projectWheels) {
+    $wheelPath = Join-Path $pythonWheelsSourceRoot ([string]$wheelName)
+    $wheelHashes[[string]$wheelName] = (Get-FileHash -LiteralPath $wheelPath -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+$identitySourcePath = Join-Path $projectRoot 'manifests\release-identity.json'
+$targetReportSchemaSource = Join-Path $projectRoot 'scripts\target-report.schema.json'
+$depsReportSource = Join-Path $projectRoot 'build\offline-reports\deps.json'
+$identityCopied = @(Copy-OptionalReleaseFile -Source $identitySourcePath -Destinations @(
+    (Join-Path $sourcesRoot 'release-identity.json'),
+    (Join-Path $distBundleRoot 'manifests\release-identity.json')
+))
+$schemaCopied = @(Copy-OptionalReleaseFile -Source $targetReportSchemaSource -Destinations @(
+    (Join-Path $sourcesRoot 'target-report.schema.json'),
+    (Join-Path $distBundleRoot 'manifests\evidence\target-report.schema.json')
+))
+$depsCopied = @(Copy-OptionalReleaseFile -Source $depsReportSource -Destinations @(
+    (Join-Path $sourcesRoot 'deps-report.json'),
+    (Join-Path $distBundleRoot 'manifests\deps-report.json')
+))
+
 $assetManifest = Load-AssetManifest -ManifestPath $assetManifestResolved
 $distManifest = Get-Content -LiteralPath $distManifestPath -Raw | ConvertFrom-Json
+$distManifest | Add-Member -NotePropertyName project_distributions -NotePropertyValue $projectDistributions -Force
+$distManifest | Add-Member -NotePropertyName project_wheels -NotePropertyValue $projectWheels -Force
+$distManifest | Add-Member -NotePropertyName wheel_hashes -NotePropertyValue $wheelHashes -Force
+$distManifest | Add-Member -NotePropertyName identity_path -NotePropertyValue $(if ($identityCopied.Count -gt 0) { 'manifests/release-identity.json' } else { '' }) -Force
+$distManifest | Add-Member -NotePropertyName source_mode -NotePropertyValue 'wheel-installed' -Force
+$distManifest | Add-Member -NotePropertyName artifact_status -NotePropertyValue 'provisional' -Force
+$distManifest | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $distManifestPath -Encoding ASCII
+Write-BundleChecksums -Root $distBundleRoot -ChecksumPath $distChecksumsPath
 $resolvedAssetIds = @()
 foreach ($asset in @($distManifest.resolved_assets)) {
     if ($asset.id) {
@@ -355,6 +437,14 @@ $sourcesManifest = [ordered]@{
     generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
     artifact_name = $ArtifactName
     assets = $selectedAssets
+    project_distributions = $projectDistributions
+    project_wheels = $projectWheels
+    wheel_hashes = $wheelHashes
+    identity_path = $(if ($identityCopied.Count -gt 0) { 'release-identity.json' } else { '' })
+    checker_report_path = 'checker-report.json'
+    deps_report_path = $(if ($depsCopied.Count -gt 0) { 'deps-report.json' } else { '' })
+    target_report_schema_path = $(if ($schemaCopied.Count -gt 0) { 'target-report.schema.json' } else { '' })
+    source_mode = 'wheel-installed'
 }
 $sourcesManifestPath = Join-Path $sourcesRoot 'assets-manifest.json'
 $sourcesManifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $sourcesManifestPath -Encoding ASCII
@@ -391,6 +481,16 @@ if (-not $NoZip) {
     Write-Host "[build]   Zip created"
 }
 
+$artifactHashesPath = Join-Path $sourcesRoot 'artifact-hashes.json'
+$artifactHashes = [ordered]@{
+    schema_version = 1
+    artifact_name = $ArtifactName
+    bundle_sha256 = Get-BundleTreeSha256 -Root $distBundleRoot
+    zip_sha256 = $(if ($zipCreated) { (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null })
+    identity_sha256 = $(if (Test-Path -LiteralPath (Join-Path $distBundleRoot 'manifests\release-identity.json')) { (Get-FileHash -LiteralPath (Join-Path $distBundleRoot 'manifests\release-identity.json') -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null })
+}
+$artifactHashes | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $artifactHashesPath -Encoding ASCII
+Write-BundleChecksums -Root $sourcesRoot -ChecksumPath $sourcesChecksumsPath
 Write-Host ""
 Write-Host "=========================================="
 Write-Host "[build] Offline bundle build complete"

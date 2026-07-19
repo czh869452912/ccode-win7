@@ -239,6 +239,8 @@ function New-PackageReport {
         started_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
         command_status = 'running'
         final_status = $null
+        artifact_status = 'provisional'
+        publishable = $false
         stages = @()
         blocking_issues = @()
         warnings = @()
@@ -325,12 +327,18 @@ function Complete-PackageReport {
 
     if ($hasFailures) {
         $report['final_status'] = 'NOT_READY'
+        $report['artifact_status'] = 'provisional'
+        $report['publishable'] = $false
     }
     elseif ($report['command'] -eq 'release' -or $report['profile'] -eq 'release') {
         $report['final_status'] = 'READY'
+        $report['artifact_status'] = 'verified'
+        $report['publishable'] = $true
     }
     else {
         $report['final_status'] = 'DEV_ONLY'
+        $report['artifact_status'] = 'provisional'
+        $report['publishable'] = $false
     }
     $report['command_status'] = 'completed'
 }
@@ -937,15 +945,33 @@ function Invoke-PackageDeps {
     if ($expectedDistributions.Count -eq 0) {
         $expectedDistributions = @('embedagent-core', 'embedagent-protocol', 'embedagent-host', 'embedagent-composition', 'embedagent-workflow-cpp', 'embedagent')
     }
-    $actualDistributions = @($payload.project_distributions)
-    $actualWheels = @($payload.project_wheels)
-    $wheelHashCount = if ($payload.wheel_hashes) { @($payload.wheel_hashes.PSObject.Properties).Count } else { 0 }
-    $depsOk = [bool]$payload.ok -and $actualDistributions.Count -eq $expectedDistributions.Count -and (($actualDistributions -join '|') -eq ($expectedDistributions -join '|')) -and $actualWheels.Count -eq 6 -and $wheelHashCount -eq 6
+    $actualDistributions = @()
+    if ($payload.PSObject.Properties.Name -contains 'project_distributions') {
+        $actualDistributions = @($payload.project_distributions)
+    }
+    $actualWheels = @()
+    if ($payload.PSObject.Properties.Name -contains 'project_wheels') {
+        $actualWheels = @($payload.project_wheels)
+    }
+    $wheelHashCount = 0
+    if (($payload.PSObject.Properties.Name -contains 'wheel_hashes') -and $payload.wheel_hashes) {
+        $wheelHashCount = @($payload.wheel_hashes.PSObject.Properties).Count
+    }
+    $hasSixWheelContract = ($Context.profile_config.PSObject.Properties.Name -contains 'required_project_distributions') -or ($payload.PSObject.Properties.Name -contains 'project_distributions')
+    $depsOk = if ($hasSixWheelContract) {
+        [bool]$payload.ok -and $actualDistributions.Count -eq $expectedDistributions.Count -and (($actualDistributions -join '|' ) -eq ($expectedDistributions -join '|' )) -and $actualWheels.Count -eq 6 -and $wheelHashCount -eq 6
+    } else {
+        [bool]$payload.ok
+    }
+    $actualWheelHashes = $null
+    if ($payload.PSObject.Properties.Name -contains 'wheel_hashes') {
+        $actualWheelHashes = $payload.wheel_hashes
+    }
     $summary = @{
         report = $jsonPath
         project_distributions = $actualDistributions
         project_wheels = $actualWheels
-        wheel_hashes = $payload.wheel_hashes
+        wheel_hashes = $actualWheelHashes
         output_root = $outputRoot
     }
     if (-not $depsOk) {
@@ -1020,6 +1046,50 @@ function Invoke-GuiLauncherBuild {
     return $outputPath
 }
 
+function Invoke-ReleaseIdentity {
+    param(
+        [System.Collections.IDictionary]$Context
+    )
+
+    if ($Context.profile -ne 'release') {
+        return $null
+    }
+    if (-not ($Context.config.paths.PSObject.Properties.Name -contains 'release_identity')) {
+        return $null
+    }
+    $identityScript = Join-Path $Context.project_root 'scripts\create-release-identity.py'
+    $identityPath = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.release_identity)
+    $wheelRoot = Join-Path (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.site_packages_export_root)) 'wheels'
+    $guiStaticRoot = Join-Path $Context.project_root 'src\embedagent\frontend\gui\static'
+    $assetManifestPath = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.asset_manifest)
+    $runtimeContractPath = Join-Path $Context.project_root 'scripts\offline-runtime-contract.json'
+    if (-not (Test-Path -LiteralPath $identityScript -PathType Leaf)) {
+        throw "Release identity script not found: $identityScript"
+    }
+    if (-not (Test-Path -LiteralPath $wheelRoot -PathType Container)) {
+        throw "Release identity wheelhouse not found: $wheelRoot"
+    }
+    $arguments = @(
+        '--project-root', $Context.project_root,
+        '--profile', $Context.profile,
+        '--wheel-dir', $wheelRoot,
+        '--gui-static-root', $guiStaticRoot,
+        '--asset-manifest', $assetManifestPath,
+        '--runtime-contract', $runtimeContractPath,
+        '--output', $identityPath
+    )
+    $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $identityScript -Arguments $arguments
+    $identity = Get-Content -LiteralPath $identityPath -Raw | ConvertFrom-Json
+    if (@($identity.project_distributions).Count -ne 6 -or @($identity.wheels).Count -ne 6) {
+        throw 'Release identity must contain exactly six project distributions and wheels.'
+    }
+    return [ordered]@{
+        path = $identityPath
+        source_revision = $identity.source_revision
+        version = $identity.version
+        project_wheels = @($identity.wheels | ForEach-Object { $_.filename })
+    }
+}
 function Invoke-PackageAssemble {
     param(
         [System.Collections.IDictionary]$Context,
@@ -1027,6 +1097,17 @@ function Invoke-PackageAssemble {
     )
 
     Write-PackageLog "[assemble] Starting package assembly (profile: $($Context.profile))..."
+    $identityTimer = New-PackageStageTimer
+    try {
+        $identitySummary = Invoke-ReleaseIdentity -Context $Context
+        if ($identitySummary) {
+            Add-StageResult -Report $Report -Name 'release_identity' -Status 'pass' -ExitCode 0 -Summary $identitySummary -StageTimer $identityTimer
+        }
+    }
+    catch {
+        Add-StageResult -Report $Report -Name 'release_identity' -Status 'fail' -ExitCode 1 -Summary @{ error = $_.Exception.Message } -StageTimer $identityTimer
+        return
+    }
 
     if ([bool]$Context.profile_config.run_frontend_build) {
         Invoke-FrontendBuild -Context $Context -Report $Report

@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EmbedAgent Win7 target evidence",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "release_identity_sha256",
+    "machine",
+    "webview2",
+    "gui",
+    "cpp_smoke",
+    "blocking_errors"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "release_identity_sha256": { "type": "string", "minLength": 64, "maxLength": 64 },
+    "machine": {
+      "type": "object",
+      "required": ["os", "service_pack", "architecture"],
+      "properties": {
+        "os": { "type": "string" },
+        "service_pack": { "type": "string" },
+        "architecture": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "webview2": {
+      "type": "object",
+      "required": ["major", "runtime_source"],
+      "properties": {
+        "major": { "type": "integer" },
+        "runtime_source": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "gui": {
+      "type": "object",
+      "required": ["renderer", "windowed_smoke"],
+      "properties": {
+        "renderer": { "type": "string" },
+        "windowed_smoke": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "cpp_smoke": { "type": "object" },
+    "blocking_errors": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

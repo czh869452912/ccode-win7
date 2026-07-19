@@ -576,6 +576,164 @@ function Test-NoEditableBundleLinks {
     Add-Result -Results $Results -Level 'pass' -Code 'python.editable_links' -Message 'Bundle site-packages contains no editable path links.'
 }
 
+function Get-TreeContentSha256 {
+    param(
+        [string]$Root,
+        [string[]]$ExcludedRelativePaths = @()
+    )
+
+    $excluded = @($ExcludedRelativePaths | ForEach-Object { $_.Replace('/', '\') })
+    $records = @()
+    foreach ($file in @(Get-ChildItem -LiteralPath $Root -Recurse -File | Sort-Object FullName)) {
+        $relative = $file.FullName.Substring($Root.Length).TrimStart('\')
+        if ($excluded -contains $relative) {
+            continue
+        }
+        $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+        $records += ($relative.Replace('\', '/') + ':' + $hash)
+    }
+    $payload = ($records -join "`n")
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
+        return ([System.BitConverter]::ToString($sha256.ComputeHash($bytes))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+    }
+}
+
+function Test-ReleaseArtifactContract {
+    param(
+        [System.Collections.ArrayList]$Results,
+        [object]$Manifest,
+        [string]$BundleRoot,
+        [string]$SourcesRoot,
+        [string]$ZipPath
+    )
+
+    $identityPath = Join-Path $BundleRoot 'manifests\release-identity.json'
+    if (-not (Test-Path -LiteralPath $identityPath -PathType Leaf)) {
+        $level = if ($RequireComplete) { 'fail' } else { 'warn' }
+        Add-Result -Results $Results -Level $level -Code 'release.identity' -Message 'release-identity.json is missing from the bundle.'
+        return
+    }
+    try {
+        $identity = Get-Content -LiteralPath $identityPath -Raw | ConvertFrom-Json
+        Add-Result -Results $Results -Level 'pass' -Code 'release.identity' -Message 'release-identity.json parsed successfully.'
+    }
+    catch {
+        Add-Result -Results $Results -Level 'fail' -Code 'release.identity' -Message ('release-identity.json is invalid: {0}' -f $_.Exception.Message)
+        return
+    }
+
+    $manifestSourceMode = ''
+    if ($Manifest -and ($Manifest.PSObject.Properties.Name -contains 'source_mode')) {
+        $manifestSourceMode = [string]$Manifest.source_mode
+    }
+    if ($manifestSourceMode -ne 'wheel-installed') {
+        Add-Result -Results $Results -Level 'fail' -Code 'release.source_mode' -Message 'Bundle manifest must declare source_mode=wheel-installed.'
+    }
+    else {
+        Add-Result -Results $Results -Level 'pass' -Code 'release.source_mode' -Message 'Bundle app was assembled from wheel-installed packages.'
+    }
+
+    $expectedDistributions = @('embedagent-core', 'embedagent-protocol', 'embedagent-host', 'embedagent-composition', 'embedagent-workflow-cpp', 'embedagent')
+    $wheelNames = @()
+    if ($Manifest -and ($Manifest.PSObject.Properties.Name -contains 'project_wheels')) {
+        $wheelNames = @($Manifest.project_wheels)
+    }
+    $wheelHashes = $null
+    if ($Manifest -and ($Manifest.PSObject.Properties.Name -contains 'wheel_hashes')) {
+        $wheelHashes = $Manifest.wheel_hashes
+    }
+    $declaredDistributions = @()
+    if ($Manifest -and ($Manifest.PSObject.Properties.Name -contains 'project_distributions')) {
+        $declaredDistributions = @($Manifest.project_distributions)
+    }
+    if ($wheelNames.Count -ne 6 -or $declaredDistributions.Count -ne 6) {
+        Add-Result -Results $Results -Level 'fail' -Code 'release.project_wheels' -Message 'Bundle manifest must declare exactly six project distributions and wheels.'
+    }
+    else {
+        Add-Result -Results $Results -Level 'pass' -Code 'release.project_wheels' -Message 'Bundle manifest declares the exact six project wheels.'
+    }
+    if (-not $wheelHashes -or @($wheelHashes.PSObject.Properties).Count -ne 6) {
+        Add-Result -Results $Results -Level 'fail' -Code 'release.wheel_hashes' -Message 'Bundle manifest must declare SHA-256 for all six project wheels.'
+    }
+
+    $sitePackages = Join-Path $BundleRoot 'runtime\site-packages'
+    $duplicatePackage = Join-Path $sitePackages 'embedagent'
+    $duplicateDistInfo = @(Get-ChildItem -LiteralPath $sitePackages -Directory -Filter 'embedagent-*.dist-info' -ErrorAction SilentlyContinue)
+    if ((Test-Path -LiteralPath $duplicatePackage) -or $duplicateDistInfo.Count -gt 0) {
+        Add-Result -Results $Results -Level 'fail' -Code 'release.duplicate_product' -Message 'runtime/site-packages contains a duplicate product package or dist-info.'
+    }
+    else {
+        Add-Result -Results $Results -Level 'pass' -Code 'release.duplicate_product' -Message 'Product package exists only under app/embedagent.'
+    }
+    foreach ($lowerDistribution in @('embedagent_core', 'embedagent_protocol', 'embedagent_host', 'embedagent_composition', 'embedagent_workflow_cpp')) {
+        if (-not (Test-Path -LiteralPath (Join-Path $sitePackages $lowerDistribution))) {
+            Add-Result -Results $Results -Level 'fail' -Code 'release.lower_distribution' -Message ('Missing lower project distribution: {0}' -f $lowerDistribution)
+        }
+    }
+
+    $wheelRoot = Join-Path $SourcesRoot 'python-wheels'
+    foreach ($wheelName in $wheelNames) {
+        $wheelPath = Join-Path $wheelRoot ([string]$wheelName)
+        if (-not (Test-Path -LiteralPath $wheelPath -PathType Leaf)) {
+            Add-Result -Results $Results -Level 'fail' -Code 'release.wheel_missing' -Message ('Missing archived project wheel: {0}' -f $wheelName)
+            continue
+        }
+        $expectedHash = ''
+        if ($wheelHashes -and ($wheelHashes.PSObject.Properties.Name -contains ([string]$wheelName))) {
+            $expectedHash = [string]$wheelHashes.([string]$wheelName)
+        }
+        $actualHash = (Get-FileHash -LiteralPath $wheelPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($expectedHash -and $expectedHash.ToLowerInvariant() -eq $actualHash) {
+            Add-Result -Results $Results -Level 'pass' -Code 'release.wheel_hash' -Message ('Wheel hash verified: {0}' -f $wheelName)
+        }
+        else {
+            Add-Result -Results $Results -Level 'fail' -Code 'release.wheel_hash' -Message ('Wheel hash mismatch: {0}' -f $wheelName)
+        }
+    }
+
+    $declaredBundleHash = ''
+    if ($Manifest -and ($Manifest.PSObject.Properties.Name -contains 'bundle_sha256')) {
+        $declaredBundleHash = [string]$Manifest.bundle_sha256
+    }
+    if ($declaredBundleHash) {
+        $actualBundleHash = Get-TreeContentSha256 -Root $BundleRoot -ExcludedRelativePaths @('manifests/checksums.txt')
+        if ($declaredBundleHash -ne $actualBundleHash) {
+            Add-Result -Results $Results -Level 'fail' -Code 'release.bundle_sha256' -Message 'Declared bundle_sha256 does not match the bundle tree.'
+        }
+    }
+    $declaredZipHash = ''
+    if ($Manifest -and ($Manifest.PSObject.Properties.Name -contains 'zip_sha256')) {
+        $declaredZipHash = [string]$Manifest.zip_sha256
+    }
+    if ($declaredZipHash) {
+        if (-not (Test-Path -LiteralPath $ZipPath -PathType Leaf)) {
+            Add-Result -Results $Results -Level 'fail' -Code 'release.zip_sha256' -Message 'Declared zip_sha256 has no zip artifact.'
+        }
+        elseif ((Get-FileHash -LiteralPath $ZipPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $declaredZipHash.ToLowerInvariant()) {
+            Add-Result -Results $Results -Level 'fail' -Code 'release.zip_sha256' -Message 'Declared zip_sha256 does not match the zip artifact.'
+        }
+    }
+    $artifactHashesPath = Join-Path $SourcesRoot 'artifact-hashes.json'
+    if (Test-Path -LiteralPath $artifactHashesPath -PathType Leaf) {
+        try {
+            $artifactHashes = Get-Content -LiteralPath $artifactHashesPath -Raw | ConvertFrom-Json
+            if ($artifactHashes.zip_sha256 -and (Test-Path -LiteralPath $ZipPath -PathType Leaf) -and (Get-FileHash -LiteralPath $ZipPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne ([string]$artifactHashes.zip_sha256).ToLowerInvariant()) {
+                Add-Result -Results $Results -Level 'fail' -Code 'release.zip_sha256' -Message 'artifact-hashes.json zip_sha256 mismatch.'
+            }
+            else {
+                Add-Result -Results $Results -Level 'pass' -Code 'release.zip_sha256' -Message 'Zip artifact hash matches artifact-hashes.json.'
+            }
+        }
+        catch {
+            Add-Result -Results $Results -Level 'fail' -Code 'release.artifact_hashes' -Message ('artifact-hashes.json is invalid: {0}' -f $_.Exception.Message)
+        }
+    }
+}
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $defaultBundleRoot = Join-Path $projectRoot ('build\offline-dist\' + $ArtifactName)
 $defaultZipPath = Join-Path $projectRoot ('build\offline-dist\' + $ArtifactName + '.zip')
@@ -668,7 +826,11 @@ if (Test-Path -LiteralPath $manifestPath) {
 
 if ($manifest -ne $null) {
     $completeGateComponents = @('python_runtime', 'python_packages', 'mingit_portable', 'ripgrep', 'universal_ctags', 'llvm_clang_bundle', 'webview2_fixed_runtime', 'gui_launcher_exe')
-    foreach ($component in @($manifest.components)) {
+    $manifestComponents = @()
+    if ($manifest.PSObject.Properties.Name -contains 'components') {
+        $manifestComponents = @($manifest.components)
+    }
+    foreach ($component in $manifestComponents) {
         if (-not $component.required) {
             continue
         }
@@ -712,6 +874,7 @@ if (Test-Path -LiteralPath (Join-Path $BundleRoot 'runtime\python')) {
     Validate-PthFile -Results $results -PythonRoot (Join-Path $BundleRoot 'runtime\python')
 }
 Test-NoEditableBundleLinks -Results $results -SitePackagesRoot (Join-Path $BundleRoot 'runtime\site-packages')
+Test-ReleaseArtifactContract -Results $results -Manifest $manifest -BundleRoot $BundleRoot -SourcesRoot $SourcesRoot -ZipPath $ZipPath
 
 if (-not $SkipDynamicChecks) {
     Invoke-RuntimeContractDynamicChecks -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract
