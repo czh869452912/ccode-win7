@@ -158,3 +158,16 @@ validate-cpp-smoke.cmd：
 - `docs/design-change-log.md`
 - `docs/modules/packaging-and-deployment.md`
 - `docs/modules/frontend-gui.md`
+---
+
+## 7. 生成验收报告
+
+窗口化 smoke 必须使用 `--require-fixed-webview2`，并把 `renderer == edgechromium`、`runtime_source == bundle`、WebView2 major 109 和退出码写入 `manifests\evidence\win7-evidence.json`。同时合并 `validate-cpp-smoke.cmd` 的 bundle Clang 结果，明确 `system_tool_fallback == false`。
+
+完成后运行：
+
+```cmd
+runtime\python\python.exe tools\validation\validate-release-evidence.py --identity manifests\release-identity.json --report manifests\evidence\win7-evidence.json --json-report manifests\evidence\acceptance-report.json
+```
+
+回传结构化 JSON 和机器环境摘要即可，不回传 API key、prompt、源文件或原始工具输出。

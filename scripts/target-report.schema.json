@@ -9,6 +9,7 @@
     "webview2",
     "gui",
     "cpp_smoke",
+    "command_exit_codes",
     "blocking_errors"
   ],
   "properties": {
@@ -26,10 +27,11 @@
     },
     "webview2": {
       "type": "object",
-      "required": ["major", "runtime_source"],
+      "required": ["major", "runtime_source", "fixed_runtime_exists"],
       "properties": {
         "major": { "type": "integer" },
-        "runtime_source": { "type": "string" }
+        "runtime_source": { "type": "string" },
+        "fixed_runtime_exists": { "type": "boolean" }
       },
       "additionalProperties": true
     },
@@ -42,7 +44,20 @@
       },
       "additionalProperties": true
     },
-    "cpp_smoke": { "type": "object" },
+    "cpp_smoke": {
+      "type": "object",
+      "required": ["ok", "runtime_source", "system_tool_fallback"],
+      "properties": {
+        "ok": { "type": "boolean" },
+        "runtime_source": { "type": "string" },
+        "system_tool_fallback": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "command_exit_codes": {
+      "type": "object",
+      "additionalProperties": { "type": "integer" }
+    },
     "blocking_errors": { "type": "array", "items": { "type": "string" } }
   },
   "additionalProperties": true

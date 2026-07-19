@@ -183,3 +183,16 @@ Phase 7 的目标机验收不应该从“现场试试看能不能跑”开始，
 - CLI/TUI 的首次启动表现
 
 只有这样，Phase 7 才能证明“离线交付”不是开发机偶然可运行，而是可复制、可审计、可验收的正式交付能力。
+---
+
+## 10. Phase 7 结构化证据回传
+
+目标机验收必须返回与当前 release identity 绑定的 `win7-evidence.json`。报告至少包含 Windows 7 SP1 AMD64、WebView2 109 bundle runtime、`edgechromium` windowed smoke、bundle Clang C smoke、命令退出码以及空的 `blocking_errors`。
+
+在 bundle 根目录使用 bundle 内 Python 离线验证：
+
+```cmd
+runtime\python\python.exe tools\validation\validate-release-evidence.py --identity manifests\release-identity.json --report manifests\evidence\win7-evidence.json --json-report manifests\evidence\acceptance-report.json
+```
+
+只有 `acceptance-report.json` 的 `status` 为 `ACCEPTED` 才能形成 Win7 交付结论。构建机或 Windows 10 上的同类结果只能作为诊断，不能替代真实 Win7 SP1 x64 证据。

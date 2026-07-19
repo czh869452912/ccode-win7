@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -10,8 +11,6 @@ from release_identity import canonical_json
 
 
 def identity_sha256(identity):
-    import hashlib
-
     return hashlib.sha256(canonical_json(identity).encode("ascii")).hexdigest()
 
 
@@ -20,6 +19,19 @@ def _check(checks, blocking_errors, code, condition):
     checks.append(item)
     if not condition:
         blocking_errors.append(code)
+
+
+def _webview2_values(report, gui):
+    webview2 = report.get("webview2")
+    if not isinstance(webview2, dict):
+        webview2 = {}
+    return {
+        "major": gui.get("webview2_major") or webview2.get("major"),
+        "runtime_source": gui.get("runtime_source") or webview2.get("runtime_source"),
+        "fixed_runtime_exists": gui.get(
+            "fixed_runtime_exists", webview2.get("fixed_runtime_exists")
+        ),
+    }
 
 
 def validate_report(identity, report):
@@ -34,6 +46,7 @@ def validate_report(identity, report):
         "release_identity.sha256",
         report.get("release_identity_sha256") == identity_sha256(identity),
     )
+
     machine = report.get("machine")
     _check(checks, blocking_errors, "machine.missing", isinstance(machine, dict))
     if isinstance(machine, dict):
@@ -41,23 +54,59 @@ def validate_report(identity, report):
             checks,
             blocking_errors,
             "machine.os_name",
-            machine.get("os_name") == "Microsoft Windows 7",
+            (machine.get("os_name") or machine.get("os")) == "Microsoft Windows 7",
         )
-        _check(checks, blocking_errors, "machine.service_pack", machine.get("service_pack") == "SP1")
-        _check(checks, blocking_errors, "machine.architecture", machine.get("architecture") == "AMD64")
+        _check(
+            checks, blocking_errors, "machine.service_pack", machine.get("service_pack") == "SP1"
+        )
+        _check(
+            checks, blocking_errors, "machine.architecture", machine.get("architecture") == "AMD64"
+        )
+
     gui = report.get("gui")
     _check(checks, blocking_errors, "gui.missing", isinstance(gui, dict))
     if isinstance(gui, dict):
+        webview2_values = _webview2_values(report, gui)
         _check(checks, blocking_errors, "gui.renderer", gui.get("renderer") == "edgechromium")
-        _check(checks, blocking_errors, "gui.runtime_source", gui.get("runtime_source") == "bundle")
-        _check(checks, blocking_errors, "gui.webview2_major", gui.get("webview2_major") == 109)
+        _check(
+            checks,
+            blocking_errors,
+            "gui.runtime_source",
+            webview2_values["runtime_source"] == "bundle",
+        )
+        _check(
+            checks,
+            blocking_errors,
+            "gui.webview2_major",
+            webview2_values["major"] == 109,
+        )
         _check(
             checks,
             blocking_errors,
             "gui.fixed_runtime_exists",
-            gui.get("fixed_runtime_exists") is True,
+            webview2_values["fixed_runtime_exists"] is True,
         )
-    cpp = report.get("cpp")
+        if "windowed_smoke" in gui:
+            _check(
+                checks,
+                blocking_errors,
+                "gui.windowed_smoke",
+                gui.get("windowed_smoke") in (True, "passed", "pass"),
+            )
+
+    webview2 = report.get("webview2")
+    if webview2 is not None:
+        _check(checks, blocking_errors, "webview2.object", isinstance(webview2, dict))
+        if isinstance(webview2, dict):
+            _check(checks, blocking_errors, "webview2.major", webview2.get("major") == 109)
+            _check(
+                checks,
+                blocking_errors,
+                "webview2.runtime_source",
+                webview2.get("runtime_source") == "bundle",
+            )
+
+    cpp = report.get("cpp") or report.get("cpp_smoke")
     _check(checks, blocking_errors, "cpp.missing", isinstance(cpp, dict))
     if isinstance(cpp, dict):
         _check(checks, blocking_errors, "cpp.ok", cpp.get("ok") is True)
@@ -66,7 +115,19 @@ def validate_report(identity, report):
             checks,
             blocking_errors,
             "cpp.system_tool_fallback",
-            cpp.get("allow_system_tool_fallback") is False,
+            cpp.get("allow_system_tool_fallback", cpp.get("system_tool_fallback")) is False,
+        )
+
+    command_exit_codes = report.get("command_exit_codes")
+    structured_report = "webview2" in report or "cpp_smoke" in report
+    if command_exit_codes is not None or structured_report:
+        _check(
+            checks,
+            blocking_errors,
+            "command_exit_codes.zero",
+            isinstance(command_exit_codes, dict)
+            and bool(command_exit_codes)
+            and all(value == 0 for value in command_exit_codes.values()),
         )
     _check(
         checks,
@@ -102,4 +163,3 @@ def main(argv=None):
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -675,6 +675,16 @@ if (Test-Path -LiteralPath $guiSmokeScript) {
 $cppSmokeScript = Join-Path $projectRoot 'scripts\validate-cpp-smoke.py'
 if (Test-Path -LiteralPath $cppSmokeScript) {
     Stage-File -Source $cppSmokeScript -Destination (Join-Path $bundleRoot 'tools\validation\validate-cpp-smoke.py')
+}$releaseEvidenceScript = Join-Path $projectRoot 'scripts\validate-release-evidence.py'
+if (Test-Path -LiteralPath $releaseEvidenceScript) {
+    Stage-File -Source $releaseEvidenceScript -Destination (Join-Path $bundleRoot 'tools\validation\validate-release-evidence.py')
+}$releaseIdentityHelper = Join-Path $projectRoot 'scripts\release_identity.py'
+if (Test-Path -LiteralPath $releaseIdentityHelper) {
+    Stage-File -Source $releaseIdentityHelper -Destination (Join-Path $bundleRoot 'tools\validation\release_identity.py')
+}
+$win7Runbook = Join-Path $projectRoot 'docs\guides\win7-release-runbook.md'
+if (Test-Path -LiteralPath $win7Runbook) {
+    Stage-File -Source $win7Runbook -Destination (Join-Path $bundleRoot 'manifests\evidence\win7-runbook.md')
 }
 
 $defaultConfig = @'
@@ -852,7 +862,7 @@ $components += New-ComponentRecord -Name 'docs_bundle' -StagedPath 'docs' -Requi
 $components += New-ComponentRecord -Name 'config_templates' -StagedPath 'config' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated default config and permission rules templates.' -AssetId ''
 $components += New-ComponentRecord -Name 'launcher_scripts' -StagedPath '.' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated embedagent.cmd, embedagent-tui.cmd, embedagent-gui.cmd, validate-gui-smoke.cmd, and validate-cpp-smoke.cmd.' -AssetId ''
 $components += New-ComponentRecord -Name 'gui_launcher_exe' -StagedPath 'EmbedAgent.exe;embedagent-gui.exe' -Required $true -Status $guiLauncherResult.status -SourcePath $guiLauncherResult.source_path -Notes $guiLauncherResult.notes -AssetId ''
-$components += New-ComponentRecord -Name 'validation_tools' -StagedPath 'tools\validation' -Required $true -Status 'staged' -SourcePath $guiSmokeScript -Notes 'Copied bundle-local GUI and C/C++ smoke validation scripts.' -AssetId ''
+$components += New-ComponentRecord -Name 'validation_tools' -StagedPath 'tools\validation' -Required $true -Status 'staged' -SourcePath $guiSmokeScript -Notes 'Copied bundle-local GUI, C/C++ smoke, and release-evidence validation scripts.' -AssetId ''
 
 Write-Host "[prepare] Resolving runtime assets..."
 Write-Host "[prepare]   Requested assets: $($requestedAssetIds -join ', ')"

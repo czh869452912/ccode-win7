@@ -696,6 +696,32 @@ function Test-ReleaseArtifactContract {
         }
     }
 
+    $expectedHashesPath = Join-Path $BundleRoot 'manifests\evidence\expected-bundle-hashes.json'
+    if (Test-Path -LiteralPath $expectedHashesPath -PathType Leaf) {
+        try {
+            $expectedHashes = Get-Content -LiteralPath $expectedHashesPath -Raw | ConvertFrom-Json
+            $expectedBundleHash = [string]$expectedHashes.bundle_sha256
+            $actualExpectedBundleHash = Get-TreeContentSha256 -Root $BundleRoot -ExcludedRelativePaths @('manifests/checksums.txt', 'manifests/evidence/expected-bundle-hashes.json', 'manifests/cpp-smoke-report.json', 'manifests/evidence/win7-evidence.json', 'manifests/evidence/acceptance-report.json')
+            if (-not $expectedBundleHash -or $expectedBundleHash.ToLowerInvariant() -ne $actualExpectedBundleHash) {
+                Add-Result -Results $Results -Level 'fail' -Code 'release.bundle_sha256' -Message 'expected-bundle-hashes.json bundle_sha256 mismatch.'
+            }
+            else {
+                Add-Result -Results $Results -Level 'pass' -Code 'release.bundle_sha256' -Message 'Bundle tree matches expected-bundle-hashes.json.'
+            }
+            if ($expectedHashes.release_identity_sha256) {
+                $actualIdentityHash = (Get-FileHash -LiteralPath $identityPath -Algorithm SHA256).Hash.ToLowerInvariant()
+                if (([string]$expectedHashes.release_identity_sha256).ToLowerInvariant() -ne $actualIdentityHash) {
+                    Add-Result -Results $Results -Level 'fail' -Code 'release.identity_sha256' -Message 'Expected identity hash does not match release-identity.json.'
+                }
+            }
+        }
+        catch {
+            Add-Result -Results $Results -Level 'fail' -Code 'release.expected_hashes' -Message ('expected-bundle-hashes.json is invalid: {0}' -f $_.Exception.Message)
+        }
+    }
+    elseif ($RequireComplete) {
+        Add-Result -Results $Results -Level 'fail' -Code 'release.expected_hashes' -Message 'expected-bundle-hashes.json is missing.'
+    }
     $declaredBundleHash = ''
     if ($Manifest -and ($Manifest.PSObject.Properties.Name -contains 'bundle_sha256')) {
         $declaredBundleHash = [string]$Manifest.bundle_sha256

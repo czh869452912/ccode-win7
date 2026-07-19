@@ -138,13 +138,15 @@ function Update-BundleManifest {
 
 function Get-BundleTreeSha256 {
     param(
-        [string]$Root
+        [string]$Root,
+        [string[]]$ExcludedRelativePaths = @()
     )
 
+    $excluded = @('manifests\checksums.txt') + @($ExcludedRelativePaths | ForEach-Object { $_.Replace('/', '\') })
     $records = @()
     foreach ($file in @(Get-ChildItem -LiteralPath $Root -Recurse -File | Sort-Object FullName)) {
         $relative = $file.FullName.Substring($Root.Length).TrimStart('\')
-        if ($relative -eq 'manifests\checksums.txt') {
+        if ($excluded -contains $relative) {
             continue
         }
         $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -396,7 +398,8 @@ $targetReportSchemaSource = Join-Path $projectRoot 'scripts\target-report.schema
 $depsReportSource = Join-Path $projectRoot 'build\offline-reports\deps.json'
 $identityCopied = @(Copy-OptionalReleaseFile -Source $identitySourcePath -Destinations @(
     (Join-Path $sourcesRoot 'release-identity.json'),
-    (Join-Path $distBundleRoot 'manifests\release-identity.json')
+    (Join-Path $distBundleRoot 'manifests\release-identity.json'),
+    (Join-Path $distBundleRoot 'manifests\evidence\release-identity.json')
 ))
 $schemaCopied = @(Copy-OptionalReleaseFile -Source $targetReportSchemaSource -Destinations @(
     (Join-Path $sourcesRoot 'target-report.schema.json'),
@@ -416,6 +419,19 @@ $distManifest | Add-Member -NotePropertyName identity_path -NotePropertyValue $(
 $distManifest | Add-Member -NotePropertyName source_mode -NotePropertyValue 'wheel-installed' -Force
 $distManifest | Add-Member -NotePropertyName artifact_status -NotePropertyValue 'provisional' -Force
 $distManifest | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $distManifestPath -Encoding ASCII
+$expectedHashesPath = Join-Path $distBundleRoot 'manifests\evidence\expected-bundle-hashes.json'
+$expectedHashes = [ordered]@{
+    schema_version = 1
+    artifact_name = $ArtifactName
+    release_identity_sha256 = $(if (Test-Path -LiteralPath (Join-Path $distBundleRoot 'manifests\release-identity.json')) { (Get-FileHash -LiteralPath (Join-Path $distBundleRoot 'manifests\release-identity.json') -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null })
+    bundle_sha256 = $null
+    zip_sha256 = $null
+    hash_scope = 'bundle tree excluding checksums, generated smoke/acceptance reports, and this file; zip hash is the external sidecar value'
+}
+$expectedHashes | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $expectedHashesPath -Encoding ASCII
+$expectedHashes.bundle_sha256 = Get-BundleTreeSha256 -Root $distBundleRoot -ExcludedRelativePaths @('manifests/evidence/expected-bundle-hashes.json', 'manifests/cpp-smoke-report.json', 'manifests/evidence/win7-evidence.json', 'manifests/evidence/acceptance-report.json')
+$expectedHashes | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $expectedHashesPath -Encoding ASCII
+Copy-Item -LiteralPath $expectedHashesPath -Destination (Join-Path $sourcesRoot 'expected-bundle-hashes.json') -Force
 Write-BundleChecksums -Root $distBundleRoot -ChecksumPath $distChecksumsPath
 $resolvedAssetIds = @()
 foreach ($asset in @($distManifest.resolved_assets)) {
@@ -469,15 +485,7 @@ if (-not $NoZip) {
     Write-Host "[build] Creating distribution zip archive..."
     Create-BundleZip -SourceDirectory $distBundleRoot -ZipPath $zipPath
     $zipCreated = $true
-    Update-BundleManifest `
-        -ManifestPath $distManifestPath `
-        -ArtifactName $ArtifactName `
-        -StagingBundleRoot $stagingBundleRoot `
-        -DistBundleRoot $distBundleRoot `
-        -ZipPath $zipPath `
-        -ZipCreated $zipCreated `
-        -SourcesRoot $sourcesRoot
-    Write-BundleChecksums -Root $distBundleRoot -ChecksumPath $distChecksumsPath
+
     Write-Host "[build]   Zip created"
 }
 
@@ -485,11 +493,12 @@ $artifactHashesPath = Join-Path $sourcesRoot 'artifact-hashes.json'
 $artifactHashes = [ordered]@{
     schema_version = 1
     artifact_name = $ArtifactName
-    bundle_sha256 = Get-BundleTreeSha256 -Root $distBundleRoot
+    bundle_sha256 = Get-BundleTreeSha256 -Root $distBundleRoot -ExcludedRelativePaths @('manifests/evidence/expected-bundle-hashes.json', 'manifests/cpp-smoke-report.json', 'manifests/evidence/win7-evidence.json', 'manifests/evidence/acceptance-report.json')
     zip_sha256 = $(if ($zipCreated) { (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null })
     identity_sha256 = $(if (Test-Path -LiteralPath (Join-Path $distBundleRoot 'manifests\release-identity.json')) { (Get-FileHash -LiteralPath (Join-Path $distBundleRoot 'manifests\release-identity.json') -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null })
 }
 $artifactHashes | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $artifactHashesPath -Encoding ASCII
+$artifactHashes | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $sourcesRoot 'expected-bundle-hashes.json') -Encoding ASCII
 Write-BundleChecksums -Root $sourcesRoot -ChecksumPath $sourcesChecksumsPath
 Write-Host ""
 Write-Host "=========================================="

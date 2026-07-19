@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "win7_evidence_schema_version": 1,
   "description": "Runtime-invoked tools that must be present in the offline portable bundle.",
   "release_gates": [
     {
@@ -42,6 +43,7 @@
         "--require-fixed-webview2"
       ],
       "manual_on_win7": true,
+      "report_schema_version": 1,
       "webview2_fixed_runtime_major": 109,
       "expected_renderer": "edgechromium",
       "expected_runtime_source": "bundle"

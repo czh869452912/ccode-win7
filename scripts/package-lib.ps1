@@ -774,13 +774,7 @@ function Invoke-PackageDoctor {
     }
     $report.doctor_checks = $doctorChecks
     Complete-PackageReport -Report ([ref]$report)
-    $identityConfigured = $Context.config.paths.PSObject.Properties.Name -contains 'release_identity'
-    if ($identityConfigured -and $report.final_status -eq 'READY') {
-        $report.final_status = 'TARGET_READY'
-        $report.release_state = 'TARGET_READY'
-        $report.artifact_status = 'target-ready'
-        $report.publishable = $false
-    }
+
     $overall = if ($report.command_status -eq 'READY') { 'READY' } else { 'NOT_READY' }
     Write-PackageLog ("[doctor] Overall status: {0}" -f $overall)
     return $report
@@ -1445,8 +1439,11 @@ function Invoke-PackageCommand {
     if ($identityConfigured -and $report.final_status -eq 'READY') {
         $report.final_status = 'TARGET_READY'
         $report.release_state = 'TARGET_READY'
+        $report.acceptance_status = 'PENDING_WIN7'
         $report.artifact_status = 'target-ready'
         $report.publishable = $false
+        $targetBundleRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.dist_bundle_root)
+        $report.evidence_root = Join-Path $targetBundleRoot 'manifests\evidence'
     }
     $null = Write-PackageReport -Context $Context -Report $report
     $statusStr = $report.command_status
