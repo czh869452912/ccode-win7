@@ -23,6 +23,105 @@ FIXED_WEBVIEW2_RELATIVE_EXE = r"runtime\webview2-fixed-runtime\msedgewebview2.ex
 EXPECTED_WEBVIEW2_FIXED_RUNTIME_MAJOR = 109
 
 
+class SmokeFailure(RuntimeError):
+    def __init__(self, category: str, stage: str, details: Dict[str, object]):
+        self.category = str(category)
+        self.stage = str(stage)
+        self.details = dict(details or {})
+        super().__init__(self.details.get("message") or self.category)
+
+_FAILURE_CATEGORIES = (
+    "launcher_exit",
+    "http_timeout",
+    "app_bootstrap_failure",
+    "protocol_failure",
+    "model_failure",
+    "renderer_failure",
+    "cleanup_failure",
+)
+
+_SENSITIVE_KEYS = (
+    "api_key",
+    "apikey",
+    "password",
+    "secret",
+    "token",
+    "credential",
+    "prompt",
+    "raw_output",
+)
+
+
+def _safe_details(value):
+    if isinstance(value, dict):
+        result = {}
+        for key, child in value.items():
+            if any(part in str(key).lower() for part in _SENSITIVE_KEYS):
+                continue
+            result[str(key)] = _safe_details(child)
+        return result
+    if isinstance(value, (list, tuple)):
+        return [_safe_details(item) for item in value]
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return str(value)
+
+
+def _tail_text(path, max_lines=40):
+    if not path or not os.path.isfile(str(path)):
+        return []
+    try:
+        with open(str(path), "r", encoding="utf-8", errors="replace") as handle:
+            lines = [line.rstrip("\r\n") for line in handle.readlines()]
+        return lines[-int(max_lines) :]
+    except (OSError, ValueError):
+        return []
+
+
+def _process_exit_details(process):
+    if process is None:
+        return None
+    return getattr(process, "returncode", None)
+
+
+def _failure_payload(failure, process, stdout_path, stderr_path, checks):
+    return {
+        "ok": False,
+        "failure": {
+            "category": failure.category,
+            "stage": failure.stage,
+            "details": _safe_details(failure.details),
+        },
+        "process": {
+            "pid": getattr(process, "pid", None) if process is not None else None,
+            "returncode": _process_exit_details(process),
+        },
+        "stdout_path": str(stdout_path or ""),
+        "stderr_path": str(stderr_path or ""),
+        "stdout_tail": _tail_text(stdout_path),
+        "stderr_tail": _tail_text(stderr_path),
+        "checks": list(checks or []),
+    }
+
+
+def _write_json_report(path, payload):
+    if not path:
+        return
+    report_path = os.path.realpath(str(path))
+    parent = os.path.dirname(report_path)
+    if parent and not os.path.isdir(parent):
+        os.makedirs(parent)
+    temp_path = report_path + ".tmp"
+    with open(temp_path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    os.replace(temp_path, report_path)
+
+
+def _emit_report(payload, report_path):
+    _write_json_report(report_path, payload)
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+
 def _free_port() -> int:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))
@@ -224,20 +323,54 @@ class FakeOpenAIHandler(BaseHTTPRequestHandler):
         return self.assistant_text
 
 
-def _wait_for_http(url: str, timeout: float) -> None:
+
+
+def _wait_for_http(
+    url: str,
+    timeout: float,
+    process=None,
+    stage: str = "http",
+    checks=None,
+) -> None:
     deadline = time.time() + timeout
     last_error = None
     while time.time() < deadline:
+        exit_code = _process_exit_details(process)
+        if exit_code is not None:
+            raise SmokeFailure(
+                "launcher_exit",
+                stage,
+                {"returncode": int(exit_code), "url": url},
+            )
         try:
             with urllib.request.urlopen(url, timeout=2.0) as response:
                 if response.status == 200:
+                    if checks is not None:
+                        checks.append(stage)
                     return
         except Exception as exc:  # pragma: no cover - smoke helper
             last_error = exc
         time.sleep(0.25)
-    raise RuntimeError("Timed out waiting for %s: %s" % (url, last_error))
+    raise SmokeFailure(
+        "http_timeout",
+        stage,
+        {"url": url, "timeout_sec": timeout, "last_error": str(last_error or "")},
+    )
 
 
+def _wait_for_app_bootstrap(gui_port, timeout, process, checks):
+    url = "http://127.0.0.1:%d/api/app/bootstrap" % gui_port
+    try:
+        _wait_for_http(url, timeout, process=process, stage="app_bootstrap", checks=checks)
+        _json_request(url)
+    except SmokeFailure:
+        raise
+    except Exception as exc:
+        raise SmokeFailure(
+            "app_bootstrap_failure",
+            "app_bootstrap",
+            {"url": url, "message": str(exc)},
+        )
 def _json_request(
     url: str, method: str = "GET", payload: Dict[str, object] = None
 ) -> Dict[str, object]:
@@ -507,10 +640,15 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Require bundled Fixed Version WebView2 109 when validating a bundle.",
     )
+    parser.add_argument("--json-report", default="", help="Write a structured smoke report")
+    parser.add_argument(
+        "--diagnostic-dir", default="", help="Directory for launcher stdout/stderr"
+    )
+    parser.add_argument("--startup-timeout", type=float, default=20.0)
     return parser
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def _legacy_main(argv: Optional[List[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     bundle_root = os.path.realpath(args.bundle_root) if args.bundle_root else ""
     fixed_webview2 = {}
@@ -633,5 +771,202 @@ def main(argv: Optional[List[str]] = None) -> int:
                 process.wait(timeout=10.0)
 
 
+
+def main(argv: Optional[List[str]] = None) -> int:
+    args = build_parser().parse_args(argv)
+    bundle_root = os.path.realpath(args.bundle_root) if args.bundle_root else ""
+    workspace_dir = (
+        os.path.realpath(args.workspace)
+        if args.workspace
+        else tempfile.mkdtemp(prefix="embedagent-gui-smoke-")
+    )
+    if not os.path.isdir(workspace_dir):
+        os.makedirs(workspace_dir)
+    diagnostic_dir = os.path.realpath(args.diagnostic_dir or os.path.join(workspace_dir, "diagnostics"))
+    if not os.path.isdir(diagnostic_dir):
+        os.makedirs(diagnostic_dir)
+    stdout_path = os.path.join(diagnostic_dir, "launcher.stdout.log")
+    stderr_path = os.path.join(diagnostic_dir, "launcher.stderr.log")
+    stdout_handle = None
+    stderr_handle = None
+    process = None
+    checks = []
+    fixed_webview2 = {}
+    model_server = None
+    try:
+        if args.require_fixed_webview2:
+            if not bundle_root:
+                raise SmokeFailure(
+                    "renderer_failure",
+                    "fixed_webview2",
+                    {"message": "--require-fixed-webview2 requires --bundle-root"},
+                )
+            fixed_webview2 = _fixed_webview2_report(bundle_root)
+            if not fixed_webview2.get("exists"):
+                raise SmokeFailure(
+                    "renderer_failure",
+                    "fixed_webview2",
+                    {"runtime_exe": fixed_webview2.get("runtime_exe")},
+                )
+
+        FakeOpenAIHandler.requests_seen = []
+        model_port = _free_port()
+        gui_port = _free_port()
+        model_server = ThreadingHTTPServer(("127.0.0.1", model_port), FakeOpenAIHandler)
+        server_thread = threading.Thread(target=model_server.serve_forever)
+        server_thread.daemon = True
+        server_thread.start()
+
+        launch = _build_command(bundle_root or None, workspace_dir, model_port, gui_port)
+        renderer_report_path = os.path.join(workspace_dir, "renderer-report.json")
+        launch["command"] += ["--renderer-report", renderer_report_path]
+        if args.windowed:
+            launch["command"] += ["--auto-close-seconds", str(args.auto_close_seconds)]
+        else:
+            launch["command"].append("--headless")
+        stdout_handle = open(stdout_path, "w", encoding="utf-8")
+        stderr_handle = open(stderr_path, "w", encoding="utf-8")
+        process = subprocess.Popen(
+            launch["command"],
+            cwd=str(launch["cwd"]),
+            env=launch["env"],
+            stdout=stdout_handle,
+            stderr=stderr_handle,
+        )
+        _wait_for_http(
+            "http://127.0.0.1:%d/" % gui_port,
+            timeout=args.startup_timeout,
+            process=process,
+            stage="http",
+            checks=checks,
+        )
+        _wait_for_app_bootstrap(gui_port, args.startup_timeout, process, checks)
+        try:
+            summary = asyncio.run(_exercise_gui(gui_port))
+        except SmokeFailure:
+            raise
+        except Exception as exc:
+            raise SmokeFailure(
+                "protocol_failure",
+                "exercise",
+                {"message": "%s: %s" % (type(exc).__name__, str(exc))},
+            )
+        checks.append("exercise")
+        if "GUI smoke reply" not in summary.get("assistant_text", ""):
+            raise SmokeFailure(
+                "model_failure",
+                "assistant_stream",
+                {"message": "GUI smoke did not receive assistant stream text"},
+            )
+        if not FakeOpenAIHandler.requests_seen:
+            raise SmokeFailure(
+                "model_failure", "model_request", {"message": "fake model received no request"}
+            )
+        if summary.get("permission_requests", 0) < 1 or summary.get("user_input_requests", 0) < 1:
+            raise SmokeFailure(
+                "protocol_failure",
+                "interaction",
+                {"message": "permission/user-input flow was not exercised"},
+            )
+        tool_event_types = [item.get("type") for item in summary.get("tool_events", [])]
+        if "tool_start" not in tool_event_types or "tool_finish" not in tool_event_types:
+            raise SmokeFailure(
+                "protocol_failure", "tool_events", {"message": "tool events were not exercised"}
+            )
+        review_commands = [
+            item
+            for item in summary.get("command_results", [])
+            if item.get("command_name") == "review"
+        ]
+        if not review_commands or not review_commands[0].get("success"):
+            raise SmokeFailure(
+                "protocol_failure", "review", {"message": "/review workflow failed"}
+            )
+        if "first_session_task_items" not in summary or "second_session_task_items" not in summary:
+            raise SmokeFailure(
+                "protocol_failure", "task_projection", {"message": "task projection check failed"}
+            )
+        renderer_report = {}
+        if os.path.isfile(renderer_report_path):
+            with open(renderer_report_path, "r", encoding="utf-8") as handle:
+                renderer_report = json.load(handle)
+        if bundle_root and renderer_report.get("runtime_source") != "bundle":
+            raise SmokeFailure(
+                "renderer_failure",
+                "renderer_report",
+                {"message": "bundle GUI did not use bundled Chromium runtime"},
+            )
+        if args.require_fixed_webview2:
+            if renderer_report.get("renderer") != "edgechromium":
+                raise SmokeFailure(
+                    "renderer_failure",
+                    "renderer_report",
+                    {"message": "bundle GUI did not use edgechromium renderer"},
+                )
+            if renderer_report.get("runtime_source") != "bundle":
+                raise SmokeFailure(
+                    "renderer_failure",
+                    "renderer_report",
+                    {"message": "bundle GUI did not use bundled WebView2 runtime"},
+                )
+        payload = {
+            "ok": True,
+            "bundle_root": bundle_root or "",
+            "workspace": workspace_dir,
+            "diagnostic_dir": diagnostic_dir,
+            "gui_port": gui_port,
+            "model_port": model_port,
+            "assistant_text": summary.get("assistant_text"),
+            "session_statuses": summary.get("session_statuses"),
+            "tool_events": summary.get("tool_events"),
+            "command_results": summary.get("command_results"),
+            "model_requests": len(FakeOpenAIHandler.requests_seen),
+            "renderer_report": renderer_report,
+            "fixed_webview2": fixed_webview2,
+            "checks": checks,
+        }
+        _emit_report(payload, args.json_report)
+        return 0
+    except SmokeFailure as failure:
+        if stdout_handle:
+            stdout_handle.flush()
+        if stderr_handle:
+            stderr_handle.flush()
+        _emit_report(
+            _failure_payload(failure, process, stdout_path, stderr_path, checks),
+            args.json_report,
+        )
+        return 1
+    except Exception as exc:
+        if stdout_handle:
+            stdout_handle.flush()
+        if stderr_handle:
+            stderr_handle.flush()
+        failure = SmokeFailure("protocol_failure", "startup", {"message": str(exc)})
+        _emit_report(
+            _failure_payload(failure, process, stdout_path, stderr_path, checks),
+            args.json_report,
+        )
+        return 1
+    finally:
+        if model_server is not None:
+            model_server.shutdown()
+            model_server.server_close()
+        if process is not None:
+            process.terminate()
+            try:
+                process.wait(timeout=10.0)
+            except subprocess.TimeoutExpired:
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                process.wait(timeout=10.0)
+        if stdout_handle:
+            stdout_handle.close()
+        if stderr_handle:
+            stderr_handle.close()
 if __name__ == "__main__":
     sys.exit(main())

@@ -32,6 +32,25 @@ class TestGuiSmokeContract(unittest.TestCase):
         self.assertIn('"runtime_major"', text)
         self.assertIn('"expected_runtime_major"', text)
 
+    def test_smoke_script_exposes_structured_diagnostics(self):
+        text = self._script_text()
+
+        for marker in (
+            "--json-report",
+            "--diagnostic-dir",
+            "--startup-timeout",
+            "/api/app/bootstrap",
+            "launcher_exit",
+            "http_timeout",
+            "app_bootstrap_failure",
+            "protocol_failure",
+            "model_failure",
+            "renderer_failure",
+            "cleanup_failure",
+        ):
+            self.assertIn(marker, text)
+
+
 
 if __name__ == "__main__":
     unittest.main()
