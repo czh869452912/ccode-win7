@@ -196,6 +196,34 @@ def _write_renderer_report(path: str, report: Dict[str, Any]) -> None:
         json.dump(report, handle, indent=2, ensure_ascii=False)
 
 
+
+def _write_startup_report(
+    path: str,
+    events,
+    status: str = "running",
+    error: Optional[BaseException] = None,
+) -> None:
+    if not path:
+        return
+    payload = {
+        "schema_version": 1,
+        "status": str(status),
+        "events": list(events or []),
+    }
+    if error is not None:
+        payload["error"] = {
+            "type": type(error).__name__,
+            "message": str(error),
+        }
+    target = os.path.realpath(path)
+    parent = os.path.dirname(target)
+    if parent and not os.path.isdir(parent):
+        os.makedirs(parent)
+    temp_path = target + ".tmp"
+    with open(temp_path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, ensure_ascii=False)
+        handle.write("\n")
+    os.replace(temp_path, target)
 def launch_gui(
     workspace: str = "",
     host: str = "127.0.0.1",
@@ -215,6 +243,7 @@ def launch_gui(
     agent_application_id: Optional[str] = None,
     auto_close_seconds: Optional[float] = None,
     renderer_report: str = "",
+    startup_report: str = "",
     cdp_port: Optional[int] = None,
 ):
     """
@@ -228,9 +257,14 @@ def launch_gui(
         debug: 是否调试模式
         headless: 是否无窗口模式（用于测试）
     """
+    startup_events = []
+    startup_status = "running"
+    _write_startup_report(startup_report, startup_events, status=startup_status)
     if not check_dependencies():
         raise RuntimeError("GUI 依赖未安装。")
 
+    startup_events.append("dependencies_checked")
+    _write_startup_report(startup_report, startup_events, status=startup_status)
     import uvicorn
     import webview
 
@@ -306,6 +340,8 @@ def launch_gui(
             app_host=app_host,
             host_diagnostics=host_diagnostics,
         )
+        startup_events.append("backend_constructed")
+        _write_startup_report(startup_report, startup_events, status=startup_status)
         if workspace:
             app_host.open_workspace_path(workspace)
 
@@ -317,6 +353,8 @@ def launch_gui(
                 backend.app, host=host, port=port, log_level="warning" if not debug else "info"
             )
 
+        startup_events.append("server_thread_started")
+        _write_startup_report(startup_report, startup_events, status=startup_status)
         server_thread = threading.Thread(target=run_server, daemon=True)
         server_thread.start()
 
@@ -331,6 +369,9 @@ def launch_gui(
         time.sleep(1)
 
         if headless:
+            startup_events.append("headless_started")
+            startup_status = "ready"
+            _write_startup_report(startup_report, startup_events, status=startup_status)
             _LOGGER.info("Running in headless mode, press Ctrl+C to exit")
             try:
                 while True:
@@ -365,6 +406,9 @@ def launch_gui(
             **webview_settings,
         )
 
+        startup_events.append("window_created")
+        startup_status = "ready"
+        _write_startup_report(startup_report, startup_events, status=startup_status)
         _LOGGER.info("Starting GUI...")
         if auto_close_seconds and auto_close_seconds > 0:
 
@@ -378,10 +422,18 @@ def launch_gui(
             webview.start(close_after_delay, debug=debug)
         else:
             webview.start(debug=debug)
+    except Exception as exc:
+        startup_status = "failed"
+        _write_startup_report(startup_report, startup_events, status=startup_status, error=exc)
+        raise
     finally:
+        startup_events.append("shutdown_started")
+        _write_startup_report(startup_report, startup_events, status=startup_status)
         _LOGGER.info("Shutting down...")
         if app_host is not None:
             app_host.shutdown()
+        startup_events.append("shutdown_finished")
+        _write_startup_report(startup_report, startup_events, status=startup_status)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -425,6 +477,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--renderer-report", default="", help="Optional path to write renderer detection JSON"
     )
+    parser.add_argument(
+        "--startup-report", default="", help="Optional path to write startup diagnostics JSON"
+    )
     parser.add_argument("--debug", action="store_true", help="Debug mode")
     parser.add_argument("--headless", action="store_true", help="Headless mode (no window)")
     parser.add_argument(
@@ -461,6 +516,7 @@ def main(argv: Optional[list] = None) -> int:
             approve_writes=args.approve_writes,
             approve_commands=args.approve_commands,
             permission_rules=args.permission_rules,
+            startup_report=args.startup_report,
             agent_application_id=args.agent_application or None,
             auto_close_seconds=args.auto_close_seconds,
             renderer_report=args.renderer_report,

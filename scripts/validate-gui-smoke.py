@@ -820,6 +820,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         launch = _build_command(bundle_root or None, workspace_dir, model_port, gui_port)
         renderer_report_path = os.path.join(workspace_dir, "renderer-report.json")
         launch["command"] += ["--renderer-report", renderer_report_path]
+        startup_report_path = os.path.join(diagnostic_dir, "startup-report.json")
+        launch["command"] += ["--startup-report", startup_report_path]
         if args.windowed:
             launch["command"] += ["--auto-close-seconds", str(args.auto_close_seconds)]
         else:
