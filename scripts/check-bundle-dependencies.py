@@ -109,6 +109,14 @@ def check_site_packages(bundle_root: Path) -> Tuple[bool, List[str]]:
             "Duplicate product import package: "
             "runtime/site-packages/embedagent; use app/embedagent only"
         )
+    wheel_only_manifest = False
+    manifest_path = bundle_root / "manifests" / "bundle-manifest.json"
+    if manifest_path.is_file():
+        try:
+            with open(manifest_path) as manifest_file:
+                wheel_only_manifest = json.load(manifest_file).get("source_mode") == "wheel-installed"
+        except (OSError, json.JSONDecodeError):
+            wheel_only_manifest = False
     project_packages = (
         ("embedagent", "", "embedagent-0.1.0.dist-info"),
         ("embedagent_core", "embedagent_core", "embedagent_core-0.1.0.dist-info"),
@@ -130,6 +138,11 @@ def check_site_packages(bundle_root: Path) -> Tuple[bool, List[str]]:
         ),
     )
     for display_name, import_name, dist_info_name in project_packages:
+        if display_name == "embedagent" and wheel_only_manifest:
+            # Product code is intentionally staged under app/embedagent. Its
+            # wheel metadata is represented by bundle-manifest project_wheels;
+            # it must not be duplicated in runtime/site-packages.
+            continue
         if import_name and not (sp / import_name).is_dir():
             errors.append("Missing project import package: %s" % display_name)
         if not (sp / dist_info_name / "METADATA").is_file():
@@ -366,6 +379,19 @@ def check_manifest(bundle_root: Path) -> Tuple[bool, List[str]]:
                 errors.append(f"Manifest missing key: {key}")
         if "bundle_id" not in manifest and "artifact_name" not in manifest:
             errors.append("Manifest missing identifier key: bundle_id or artifact_name")
+        if "source_mode" in manifest:
+            if manifest.get("source_mode") != "wheel-installed":
+                errors.append("Manifest source_mode must be wheel-installed")
+            expected_wheels = {
+                "embedagent_core-0.1.0-py3-none-any.whl",
+                "embedagent_protocol-0.1.0-py3-none-any.whl",
+                "embedagent_host-0.1.0-py3-none-any.whl",
+                "embedagent_composition-0.1.0-py3-none-any.whl",
+                "embedagent_workflow_cpp-0.1.0-py3-none-any.whl",
+                "embedagent-0.1.0-py3-none-any.whl",
+            }
+            if set(manifest.get("project_wheels") or []) != expected_wheels:
+                errors.append("Manifest project_wheels must contain the exact six project wheels")
     except json.JSONDecodeError as e:
         errors.append(f"Invalid manifest JSON: {e}")
 

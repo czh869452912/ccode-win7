@@ -819,3 +819,6 @@ debt cleanup:
 - keep tightening offline bundle behavior around the shared runtime contract
 - keep the transcript-backed session-history path as the only official history model
 - do not reopen old dual-path architecture
+### 10. Phase 7 Offline Release Gate Status
+
+Phase 7 now has a six-wheel release identity, wheel-only product staging, strict release doctor checks, bundle/source hash manifests, bundle-local GUI/C smoke entry points, zip extraction re-validation, and a Win7 evidence kit. Local success is reported as `TARGET_READY` only after those repository and bundle gates pass. `ACCEPTED` remains a target-machine state produced by `validate-release-evidence.py`; it requires a real Windows 7 SP1 x64 report and cannot be synthesized locally. A current GUI smoke timeout therefore remains a release blocker even when doctor, static bundle validation, dependency checking, and C smoke pass.

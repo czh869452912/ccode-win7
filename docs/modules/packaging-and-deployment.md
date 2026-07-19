@@ -211,3 +211,16 @@ bundle 上记录 bundled WebView2 109 的 clean Win7 windowed GUI smoke 证据�
 - `docs/guides/win7-preflight-checklist.md`
 - `docs/references/code-doc-matrix.md`
 - `docs/references/glossary.md`
+## 9. Phase 7 release identity and acceptance states
+
+Release packaging is bound to one credential-free `manifests/release-identity.json`. The identity records the source revision, version, exact six project wheel names and SHA-256 values, GUI static hash, asset manifest hash, and runtime-contract hash. `prepare-offline.ps1` stages the product only from `build/offline-cache/site-packages-export/site-packages/embedagent`; the product package and product dist-info are absent from `runtime/site-packages`, while the five lower distributions remain there with their checked metadata.
+
+A release zip is provisional during assembly. `validate-offline-bundle.ps1 -RequireComplete` and `check-bundle-dependencies.py` must pass before the package report can reach `TARGET_READY`. `TARGET_READY` means repository-side and bundle-local gates passed; it is not a Win7 delivery claim and does not mean the artifact is publishable as accepted evidence. `ACCEPTED` is written only by the offline evidence validator after a copied report proves Windows 7 SP1 AMD64, Fixed Version WebView2 109 from the bundle, `edgechromium`, bundle C smoke, zero tool fallback, zero command failures, and no blocking errors.
+
+The target-machine command is:
+
+```cmd
+runtime\python\python.exe tools\validation\validate-release-evidence.py --identity manifests\release-identity.json --report manifests\evidence\win7-evidence.json --json-report manifests\evidence\acceptance-report.json
+```
+
+Do not use local Windows 10 output or a system PATH tool as a substitute for the Win7 report. See `docs/guides/win7-release-runbook.md` for the structured evidence handoff.

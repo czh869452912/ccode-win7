@@ -112,6 +112,12 @@ def build_project_wheels(project_root: str, wheelhouse: Path) -> List[Path]:
         cwd=str(root),
     )
 
+    generated_gitignore = wheelhouse / ".gitignore"
+    if generated_gitignore.is_file():
+        if generated_gitignore.read_text(encoding="ascii").strip() != "*":
+            raise RuntimeError("unexpected wheelhouse .gitignore contents")
+        generated_gitignore.unlink()
+
     wheels = []
     for distribution in PROJECT_DISTRIBUTIONS:
         filename_prefix = distribution.replace("-", "_") + "-"
