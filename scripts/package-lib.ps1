@@ -403,7 +403,9 @@ function New-PackageContext {
         [string]$ArtifactName,
         [bool]$AllowDownload,
         [bool]$NoZip,
-        [bool]$Strict
+        [bool]$Strict,
+        [bool]$Reproducible = $false,
+        [string]$ReproducibilityRoot = ''
     )
 
     $effectiveProfile = if ($RequestedProfile) {
@@ -451,6 +453,8 @@ function New-PackageContext {
         allow_download = $AllowDownload -or [bool]$profileConfig.allow_download
         no_zip = $NoZip
         strict = $Strict
+        reproducible = $Reproducible
+        reproducibility_root = $ReproducibilityRoot
     }
 }
 
@@ -1172,7 +1176,24 @@ function Invoke-PackageAssemble {
     $preparePath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.prepare_bundle)
     $buildPath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.build_bundle)
     $requiredAssetIds = Get-PackageRequiredAssetIds -Context $Context
-    $prepareArgs = @()
+    $buildRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.build_root)
+    $assetCacheRoot = ''
+    if ($Context.config.paths.PSObject.Properties.Name -contains 'asset_cache_root') {
+        $assetCacheRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.asset_cache_root)
+    }
+    $releaseIdentityPath = ''
+    $reportsRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.reports_root)
+    $depsReportPath = Join-Path $reportsRoot 'deps.json'
+    if ($Context.config.paths.PSObject.Properties.Name -contains 'release_identity') {
+        $releaseIdentityPath = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.release_identity)
+    }
+    $prepareArgs = @('-BuildRoot', $buildRoot)
+    if ($assetCacheRoot) {
+        $prepareArgs += @('-AssetCacheRoot', $assetCacheRoot)
+    }
+    if ($releaseIdentityPath) {
+        $prepareArgs += @('-ReleaseIdentityPath', $releaseIdentityPath)
+    }
     if (@($requiredAssetIds).Count -gt 0) {
         $prepareArgs += '-AssetIds'
         $prepareArgs += ($requiredAssetIds -join ',')
@@ -1190,7 +1211,14 @@ function Invoke-PackageAssemble {
         $prepareArgs += $sitePackagesRoot
     }
 
-    $buildArgs = @('-ArtifactName', [string]$Context.artifact_name)
+    $buildArgs = @('-ArtifactName', [string]$Context.artifact_name, '-BuildRoot', $buildRoot)
+    if ($assetCacheRoot) {
+        $buildArgs += @('-AssetCacheRoot', $assetCacheRoot)
+    }
+    if ($releaseIdentityPath) {
+        $buildArgs += @('-ReleaseIdentityPath', $releaseIdentityPath)
+    }
+    $buildArgs += @('-DepsReportPath', $depsReportPath)
     if (@($requiredAssetIds).Count -gt 0) {
         $buildArgs += '-AssetIds'
         $buildArgs += ($requiredAssetIds -join ',')
@@ -1469,6 +1497,186 @@ function Write-PackageReport {
     return $reportPath
 }
 
+function New-ReproducibilityRunConfig {
+    param(
+        [System.Collections.IDictionary]$Context,
+        [string]$RunRoot
+    )
+
+    New-Item -ItemType Directory -Path $RunRoot -Force | Out-Null
+    $config = ($Context.config | ConvertTo-Json -Depth 20) | ConvertFrom-Json
+    $buildRoot = Join-Path $RunRoot 'build'
+    $reportsRoot = Join-Path $RunRoot 'reports'
+    $exportRoot = Join-Path $RunRoot 'site-packages-export'
+    $artifactName = [string]$Context.artifact_name
+    $bundleRoot = Join-Path $buildRoot (Join-Path 'offline-dist' $artifactName)
+    $assetCacheRoot = if ($Context.config.paths.PSObject.Properties.Name -contains 'asset_cache_root') {
+        Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.asset_cache_root)
+    }
+    else {
+        Join-Path $Context.project_root 'build\offline-cache'
+    }
+
+    $config.metadata.config_origin = 'production'
+    $config.default_profile = 'release'
+    $config.paths.build_root = $buildRoot
+    $config.paths.reports_root = $reportsRoot
+    $config.paths.site_packages_export_root = $exportRoot
+    $config.paths.site_packages_root = Join-Path $exportRoot 'site-packages'
+    $config.paths.gui_launcher_build_root = Join-Path $RunRoot 'gui-launcher'
+    $config.paths.dist_bundle_root = $bundleRoot
+    if ($config.paths.PSObject.Properties.Name -contains 'asset_cache_root') {
+        $config.paths.asset_cache_root = $assetCacheRoot
+    }
+    else {
+        $config.paths | Add-Member -NotePropertyName asset_cache_root -NotePropertyValue $assetCacheRoot
+    }
+    if ($config.paths.PSObject.Properties.Name -contains 'release_identity') {
+        $config.paths.release_identity = Join-Path $RunRoot 'release-identity.json'
+    }
+    if ($config.paths.PSObject.Properties.Name -contains 'release_evidence_root') {
+        $config.paths.release_evidence_root = Join-Path $RunRoot 'evidence'
+    }
+
+    $configPath = Join-Path $RunRoot 'package.config.json'
+    $json = $config | ConvertTo-Json -Depth 20
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    Write-AtomicPackageText -Path $configPath -Content $json -Encoding $utf8NoBom
+    return [ordered]@{
+        config_path = $configPath
+        reports_root = $reportsRoot
+        bundle_root = $bundleRoot
+    }
+}
+
+function Invoke-ReproducibilityChildRelease {
+    param(
+        [System.Collections.IDictionary]$Context,
+        [System.Collections.IDictionary]$Run
+    )
+
+    $powerShellPath = Resolve-PackagePowerShellPath
+    $packageScript = Join-Path $Context.project_root 'scripts\package.ps1'
+    $arguments = @(
+        '-NoProfile',
+        '-ExecutionPolicy', 'Bypass',
+        '-File', $packageScript,
+        'release',
+        '-Profile', 'release',
+        '-Config', [string]$Run.config_path,
+        '-Json'
+    )
+    $output = & $powerShellPath @arguments 2>&1
+    $exitCode = $LASTEXITCODE
+    $payload = $null
+    try {
+        $payload = (($output | Out-String).Trim()) | ConvertFrom-Json
+    }
+    catch {
+        $payload = $null
+    }
+    return [ordered]@{
+        exit_code = $exitCode
+        report = $payload
+        report_path = $(if ($payload -and $payload.report_path) { [string]$payload.report_path } else { '' })
+        bundle_root = [string]$Run.bundle_root
+    }
+}
+
+function Test-ReproducibilityChildEligible {
+    param(
+        [System.Collections.IDictionary]$Child
+    )
+
+    if ($Child.exit_code -ne 0 -or -not $Child.report) {
+        return $false
+    }
+    return (
+        $Child.report.execution_kind -eq 'release' -and
+        $Child.report.config_origin -eq 'production' -and
+        $Child.report.profile -eq 'release' -and
+        $Child.report.final_status -in @('READY', 'TARGET_READY')
+    )
+}
+
+function Invoke-PackageReproducibility {
+    param(
+        [System.Collections.IDictionary]$Context
+    )
+
+    $report = New-PackageContextReport -Context $Context
+    $timer = New-PackageStageTimer
+    $baseRoot = if ($Context.reproducibility_root) {
+        Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.reproducibility_root)
+    }
+    else {
+        Join-Path $Context.project_root 'build\release-reproducibility'
+    }
+    $executionRoot = Join-Path $baseRoot ([string]$Context.run_id)
+    $firstRun = New-ReproducibilityRunConfig -Context $Context -RunRoot (Join-Path $executionRoot 'run-a')
+    $secondRun = New-ReproducibilityRunConfig -Context $Context -RunRoot (Join-Path $executionRoot 'run-b')
+    $firstChild = Invoke-ReproducibilityChildRelease -Context $Context -Run $firstRun
+    $secondChild = Invoke-ReproducibilityChildRelease -Context $Context -Run $secondRun
+    $comparisonPath = Join-Path $executionRoot 'artifact-reproducibility.json'
+    $mismatches = @()
+    $comparison = $null
+
+    if (-not (Test-ReproducibilityChildEligible -Child $firstChild)) {
+        $mismatches += 'child.run-a.not_ready'
+    }
+    if (-not (Test-ReproducibilityChildEligible -Child $secondChild)) {
+        $mismatches += 'child.run-b.not_ready'
+    }
+    if ($mismatches.Count -eq 0) {
+        $compareScript = Join-Path $Context.project_root 'scripts\compare-release-artifacts.py'
+        try {
+            $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $compareScript -Arguments @(
+                '--first-report', [string]$firstChild.report_path,
+                '--second-report', [string]$secondChild.report_path,
+                '--first-root', [string]$firstChild.bundle_root,
+                '--second-root', [string]$secondChild.bundle_root,
+                '--json-report', $comparisonPath
+            )
+        }
+        catch {
+            # The comparison report is authoritative even when the comparator returns 1.
+        }
+        if (Test-Path -LiteralPath $comparisonPath -PathType Leaf) {
+            $comparison = Get-Content -LiteralPath $comparisonPath -Raw | ConvertFrom-Json
+            $mismatches = @($comparison.mismatches)
+        }
+        else {
+            $mismatches = @('comparison.report_missing')
+        }
+    }
+
+    $summary = [ordered]@{
+        execution_root = $executionRoot
+        first_report = [string]$firstChild.report_path
+        second_report = [string]$secondChild.report_path
+        first_bundle_root = [string]$firstChild.bundle_root
+        second_bundle_root = [string]$secondChild.bundle_root
+        comparison_report = $comparisonPath
+        first_bundle_sha256 = $(if ($comparison) { $comparison.first_bundle_sha256 } else { $null })
+        second_bundle_sha256 = $(if ($comparison) { $comparison.second_bundle_sha256 } else { $null })
+        mismatches = @($mismatches)
+        excluded_paths = $(if ($comparison) { @($comparison.excluded_paths) } else { @() })
+    }
+    $ok = ($mismatches.Count -eq 0)
+    Add-StageResult -Report ([ref]$report) -Name 'artifact_reproducibility' -Status $(if ($ok) { 'pass' } else { 'fail' }) -ExitCode $(if ($ok) { 0 } else { 1 }) -Summary $summary -StageTimer $timer
+    Complete-PackageReport -Report ([ref]$report)
+    if ($ok -and $Context.execution_kind -eq 'release' -and $Context.config_origin -eq 'production' -and $Context.profile -eq 'release') {
+        $report.final_status = 'TARGET_READY'
+        $report.release_state = 'TARGET_READY'
+        $report.acceptance_status = 'PENDING_WIN7'
+        $report.artifact_status = 'target-ready'
+        $report.publishable = $false
+        $report.artifact_root = [string]$secondChild.bundle_root
+        $report.evidence_root = Join-Path ([string]$secondChild.bundle_root) 'manifests\evidence'
+    }
+    $null = Write-PackageReport -Context $Context -Report $report
+    return $report
+}
 function Invoke-PackageCommand {
     param(
         [System.Collections.IDictionary]$Context

@@ -24,6 +24,11 @@ def _write_isolated_config(root, origin="fixture"):
     # The fixture scripts intentionally emit their mock bundle under the
     # repository build tree; only the package report ledger is under test here.
     config["paths"]["reports_root"] = str(root / "reports")
+    config["paths"]["build_root"] = str(root / "build")
+    config["paths"]["site_packages_export_root"] = str(root / "export")
+    config["paths"]["site_packages_root"] = str(root / "export" / "site-packages")
+    config["paths"]["gui_launcher_build_root"] = str(root / "launcher")
+    config["paths"]["dist_bundle_root"] = str(root / "build" / "offline-dist" / "mock-artifact")
     config_path = root / "mock-config.json"
     config_path.write_text(json.dumps(config), encoding="utf-8")
     return config_path

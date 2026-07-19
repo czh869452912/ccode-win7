@@ -14,6 +14,8 @@ param(
     [switch]$AllowDownload,
     [switch]$NoZip,
     [switch]$Strict,
+    [switch]$Reproducible,
+    [string]$ReproducibilityRoot = '',
     [switch]$Json
 )
 
@@ -41,14 +43,23 @@ try {
         -ArtifactName $ArtifactName `
         -AllowDownload ([bool]$AllowDownload) `
         -NoZip ([bool]$NoZip) `
-        -Strict ([bool]$Strict)
+        -Strict ([bool]$Strict) `
+        -Reproducible ([bool]$Reproducible) `
+        -ReproducibilityRoot $ReproducibilityRoot
 
     switch ($Command) {
         'doctor' { $report = Invoke-PackageDoctor -Context $context }
         'deps' { $report = Invoke-PackageCommand -Context $context }
         'assemble' { $report = Invoke-PackageCommand -Context $context }
         'verify' { $report = Invoke-PackageCommand -Context $context }
-        'release' { $report = Invoke-PackageCommand -Context $context }
+        'release' {
+            if ($Reproducible) {
+                $report = Invoke-PackageReproducibility -Context $context
+            }
+            else {
+                $report = Invoke-PackageCommand -Context $context
+            }
+        }
         default { throw "Unsupported command: $Command" }
     }
 }

@@ -8,6 +8,10 @@ param(
     [string[]]$AssetIds = @(),
     [switch]$NoZip,
     [switch]$Clean,
+    [string]$BuildRoot = "",
+    [string]$AssetCacheRoot = "",
+    [string]$ReleaseIdentityPath = "",
+    [string]$DepsReportPath = "",
     [string]$PythonRuntimeRoot = "",
     [string]$SitePackagesRoot = "",
     [string]$MinGitRoot = "",
@@ -186,6 +190,9 @@ function Invoke-PrepareOffline {
         [string[]]$AssetIds,
         [bool]$PrepareSkipBuild,
         [bool]$AllowDownload,
+        [string]$BuildRoot,
+        [string]$AssetCacheRoot,
+        [string]$ReleaseIdentityPath,
         [string]$PythonRuntimeRoot,
         [string]$SitePackagesRoot,
         [string]$MinGitRoot,
@@ -206,6 +213,15 @@ function Invoke-PrepareOffline {
     }
     if ($AllowDownload) {
         $prepareParams.AllowDownload = $true
+    }
+    if ($BuildRoot) {
+        $prepareParams.BuildRoot = $BuildRoot
+    }
+    if ($AssetCacheRoot) {
+        $prepareParams.AssetCacheRoot = $AssetCacheRoot
+    }
+    if ($ReleaseIdentityPath) {
+        $prepareParams.ReleaseIdentityPath = $ReleaseIdentityPath
     }
     if ($PythonRuntimeRoot) {
         $prepareParams.PythonRuntimeRoot = $PythonRuntimeRoot
@@ -270,7 +286,12 @@ function Create-BundleZip {
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $assetManifestResolved = if ([System.IO.Path]::IsPathRooted($AssetManifestPath)) { $AssetManifestPath } else { Join-Path $projectRoot $AssetManifestPath }
 $normalizedAssetIds = Normalize-AssetIds -AssetIds $AssetIds
-$buildRoot = Join-Path $projectRoot 'build'
+$buildRoot = if ($BuildRoot) {
+    if ([System.IO.Path]::IsPathRooted($BuildRoot)) { $BuildRoot } else { Join-Path $projectRoot $BuildRoot }
+}
+else {
+    Join-Path $projectRoot 'build'
+}
 $stagingBundleRoot = Join-Path $buildRoot 'offline-staging\EmbedAgent'
 $distRoot = Join-Path $buildRoot 'offline-dist'
 $distBundleRoot = Join-Path $distRoot $ArtifactName
@@ -300,6 +321,9 @@ if ($shouldPrepare) {
         -AssetIds $normalizedAssetIds `
         -PrepareSkipBuild ([bool]$PrepareSkipBuild) `
         -AllowDownload ([bool]$AllowDownload) `
+        -BuildRoot $buildRoot `
+        -AssetCacheRoot $AssetCacheRoot `
+        -ReleaseIdentityPath $ReleaseIdentityPath `
         -PythonRuntimeRoot $PythonRuntimeRoot `
         -SitePackagesRoot $SitePackagesRoot `
         -MinGitRoot $MinGitRoot `
@@ -393,9 +417,19 @@ foreach ($wheelName in $projectWheels) {
     $wheelPath = Join-Path $pythonWheelsSourceRoot ([string]$wheelName)
     $wheelHashes[[string]$wheelName] = (Get-FileHash -LiteralPath $wheelPath -Algorithm SHA256).Hash.ToLowerInvariant()
 }
-$identitySourcePath = Join-Path $projectRoot 'manifests\release-identity.json'
+$identitySourcePath = if ($ReleaseIdentityPath) {
+    if ([System.IO.Path]::IsPathRooted($ReleaseIdentityPath)) { $ReleaseIdentityPath } else { Join-Path $projectRoot $ReleaseIdentityPath }
+}
+else {
+    Join-Path $projectRoot 'manifests\release-identity.json'
+}
 $targetReportSchemaSource = Join-Path $projectRoot 'scripts\target-report.schema.json'
-$depsReportSource = Join-Path $projectRoot 'build\offline-reports\deps.json'
+$depsReportSource = if ($DepsReportPath) {
+    if ([System.IO.Path]::IsPathRooted($DepsReportPath)) { $DepsReportPath } else { Join-Path $projectRoot $DepsReportPath }
+}
+else {
+    Join-Path $projectRoot 'build\offline-reports\deps.json'
+}
 $identityCopied = @(Copy-OptionalReleaseFile -Source $identitySourcePath -Destinations @(
     (Join-Path $sourcesRoot 'release-identity.json'),
     (Join-Path $distBundleRoot 'manifests\release-identity.json'),

@@ -2,7 +2,9 @@
 param(
     [string[]]$AssetIds = @(),
     [switch]$AllowDownload,
-    [string]$SitePackagesRoot = ""
+    [string]$SitePackagesRoot = "",
+    [string]$BuildRoot = "",
+    [string]$AssetCacheRoot = ""
 )
 
 if (@($AssetIds).Count -eq 0) {
@@ -16,12 +18,8 @@ if (-not $SitePackagesRoot) {
 }
 
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..')).Path
-$expectedSitePackagesRoot = Join-Path $projectRoot 'build\offline-cache\site-packages-export\site-packages'
-if ($SitePackagesRoot -ne $expectedSitePackagesRoot) {
-    throw "mock prepare expected SitePackagesRoot=$expectedSitePackagesRoot but got $SitePackagesRoot"
-}
-
-$bundleRoot = Join-Path $projectRoot 'build\offline-staging\EmbedAgent'
+$effectiveBuildRoot = if ($BuildRoot) { $BuildRoot } else { Join-Path $projectRoot 'build' }
+$bundleRoot = Join-Path $effectiveBuildRoot 'offline-staging\EmbedAgent'
 New-Item -ItemType Directory -Path (Join-Path $bundleRoot 'manifests') -Force | Out-Null
 @{
     schema_version = 2

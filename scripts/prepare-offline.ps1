@@ -11,6 +11,9 @@ param(
     [string]$WebView2RuntimeRoot = "",
     [string]$LlvmRoot = "",
     [string]$GuiLauncherExePath = "",
+    [string]$BuildRoot = "",
+    [string]$AssetCacheRoot = "",
+    [string]$ReleaseIdentityPath = "",
     [switch]$SkipBuild,
     [switch]$Clean
 )
@@ -576,8 +579,18 @@ function Resolve-AssetForStaging {
 
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $assetManifestResolved = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $AssetManifestPath
-$buildRoot = Join-Path $projectRoot 'build'
-$cacheRoot = Join-Path $buildRoot 'offline-cache'
+$buildRoot = if ($BuildRoot) {
+    if ([System.IO.Path]::IsPathRooted($BuildRoot)) { $BuildRoot } else { Join-Path $projectRoot $BuildRoot }
+}
+else {
+    Join-Path $projectRoot 'build'
+}
+$cacheRoot = if ($AssetCacheRoot) {
+    if ([System.IO.Path]::IsPathRooted($AssetCacheRoot)) { $AssetCacheRoot } else { Join-Path $projectRoot $AssetCacheRoot }
+}
+else {
+    Join-Path $buildRoot 'offline-cache'
+}
 $stagingRoot = Join-Path $buildRoot 'offline-staging'
 $distRoot = Join-Path $buildRoot 'offline-dist'
 $bundleRoot = Join-Path $stagingRoot 'EmbedAgent'
@@ -1115,7 +1128,12 @@ $projectWheelMetadata = [ordered]@{
 if ($sitePackagesPath -and -not $SkipBuild) {
     $projectWheelMetadata = Get-ProjectWheelMetadata -SitePackagesRoot $sitePackagesPath
 }
-$releaseIdentitySource = Join-Path $projectRoot 'manifests\release-identity.json'
+$releaseIdentitySource = if ($ReleaseIdentityPath) {
+    if ([System.IO.Path]::IsPathRooted($ReleaseIdentityPath)) { $ReleaseIdentityPath } else { Join-Path $projectRoot $ReleaseIdentityPath }
+}
+else {
+    Join-Path $projectRoot 'manifests\release-identity.json'
+}
 $identityPath = ''
 if (Test-Path -LiteralPath $releaseIdentitySource -PathType Leaf) {
     Stage-File -Source $releaseIdentitySource -Destination (Join-Path $bundleRoot 'manifests\release-identity.json')

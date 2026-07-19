@@ -4,8 +4,37 @@
   "source_revision": "same-for-both-assemblies",
   "wheelhouse": "build/offline-cache/site-packages-export/wheels",
   "asset_cache": "build/offline-cache/assets",
-  "first_output_root": "build/phase7-repro/first",
-  "second_output_root": "build/phase7-repro/second",
+  "reproducibility_root": "build/phase7-repro",
+  "first_output_root": "build/phase7-repro/run-a",
+  "second_output_root": "build/phase7-repro/run-b",
+  "excluded_paths": [
+    "manifests/checksums.txt",
+    "manifests/cpp-smoke-report.json",
+    "manifests/evidence/acceptance-report.json",
+    "manifests/evidence/expected-bundle-hashes.json",
+    "manifests/evidence/win7-evidence.json",
+    "manifests/deps-report.json"
+  ],
+  "normalized_json_fields": {
+    "manifests/bundle-manifest.json": [
+      "generated_at",
+      "built_at",
+      "project_root",
+      "build_root",
+      "bundle_root",
+      "staging_bundle_root",
+      "sources_root",
+      "zip_path",
+      "asset_manifest_path",
+      "source_path",
+      "cache_archive_path",
+      "wheelhouse_path",
+      "identity_path",
+      "deps_report_path",
+      "report_path",
+      "output_root"
+    ]
+  },
   "operational_fields": [
     "generated_at",
     "started_at",

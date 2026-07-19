@@ -25,6 +25,11 @@ def _write_isolated_mock_config(root, dynamic=False):
     config = json.loads(MOCK_CONFIG.read_text(encoding="utf-8"))
     config["metadata"] = {"config_origin": "fixture"}
     config["paths"]["reports_root"] = str(root / "reports")
+    config["paths"]["build_root"] = str(root / "build")
+    config["paths"]["site_packages_export_root"] = str(root / "export")
+    config["paths"]["site_packages_root"] = str(root / "export" / "site-packages")
+    config["paths"]["gui_launcher_build_root"] = str(root / "launcher")
+    config["paths"]["dist_bundle_root"] = str(root / "build" / "offline-dist" / "mock-artifact")
     if dynamic:
         config["profiles"]["release"]["run_dynamic_checks"] = True
     path = root / "mock-config.json"
