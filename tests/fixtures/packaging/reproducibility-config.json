@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "profile": "release",
+  "source_revision": "same-for-both-assemblies",
+  "wheelhouse": "build/offline-cache/site-packages-export/wheels",
+  "asset_cache": "build/offline-cache/assets",
+  "first_output_root": "build/phase7-repro/first",
+  "second_output_root": "build/phase7-repro/second",
+  "operational_fields": [
+    "generated_at",
+    "started_at",
+    "finished_at",
+    "duration_ms",
+    "report_path",
+    "bundle_root",
+    "staging_bundle_root",
+    "sources_root",
+    "zip_path"
+  ]
+}

@@ -722,7 +722,14 @@ function Test-ReleaseArtifactContract {
     if (Test-Path -LiteralPath $artifactHashesPath -PathType Leaf) {
         try {
             $artifactHashes = Get-Content -LiteralPath $artifactHashesPath -Raw | ConvertFrom-Json
-            if ($artifactHashes.zip_sha256 -and (Test-Path -LiteralPath $ZipPath -PathType Leaf) -and (Get-FileHash -LiteralPath $ZipPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne ([string]$artifactHashes.zip_sha256).ToLowerInvariant()) {
+            $artifactZipHash = ''
+            if ($artifactHashes.PSObject.Properties.Name -contains 'zip_sha256') {
+                $artifactZipHash = [string]$artifactHashes.zip_sha256
+            }
+            if ($artifactZipHash -and -not (Test-Path -LiteralPath $ZipPath -PathType Leaf)) {
+                Add-Result -Results $Results -Level 'fail' -Code 'release.zip_sha256' -Message 'artifact-hashes.json declares a zip hash but the zip is missing.'
+            }
+            elseif ($artifactZipHash -and (Get-FileHash -LiteralPath $ZipPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $artifactZipHash.ToLowerInvariant()) {
                 Add-Result -Results $Results -Level 'fail' -Code 'release.zip_sha256' -Message 'artifact-hashes.json zip_sha256 mismatch.'
             }
             else {

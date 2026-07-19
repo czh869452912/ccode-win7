@@ -354,6 +354,7 @@ function Get-PackageExitCode {
 
     switch ($Report['final_status']) {
         'READY' { return 0 }
+        'TARGET_READY' { return 0 }
         'DEV_ONLY' { return 0 }
         'NOT_READY' { return 1 }
         default { return 2 }
@@ -773,6 +774,13 @@ function Invoke-PackageDoctor {
     }
     $report.doctor_checks = $doctorChecks
     Complete-PackageReport -Report ([ref]$report)
+    $identityConfigured = $Context.config.paths.PSObject.Properties.Name -contains 'release_identity'
+    if ($identityConfigured -and $report.final_status -eq 'READY') {
+        $report.final_status = 'TARGET_READY'
+        $report.release_state = 'TARGET_READY'
+        $report.artifact_status = 'target-ready'
+        $report.publishable = $false
+    }
     $overall = if ($report.command_status -eq 'READY') { 'READY' } else { 'NOT_READY' }
     Write-PackageLog ("[doctor] Overall status: {0}" -f $overall)
     return $report
@@ -1179,6 +1187,121 @@ function Invoke-PackageAssemble {
     Write-PackageLog "[assemble] Package assembly complete"
 }
 
+function Invoke-PackageLocalGate {
+    param(
+        [System.Collections.IDictionary]$Context,
+        [ref]$Report,
+        [string]$Name,
+        [string]$ScriptPath,
+        [string[]]$Arguments,
+        [string]$ReportPath
+    )
+
+    $timer = New-PackageStageTimer
+    $summary = @{ script = $ScriptPath; report = $ReportPath }
+    try {
+        $output = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $ScriptPath -Arguments $Arguments
+        if ($ReportPath -and @($output).Count -gt 0) {
+            $parent = Split-Path -Parent $ReportPath
+            if (-not (Test-Path -LiteralPath $parent)) {
+                New-Item -ItemType Directory -Path $parent -Force | Out-Null
+            }
+            Set-Content -LiteralPath $ReportPath -Value (($output -join "`n") + "`n") -Encoding UTF8
+        }
+        Add-StageResult -Report $Report -Name $Name -Status 'pass' -ExitCode 0 -Summary $summary -StageTimer $timer
+        return $true
+    }
+    catch {
+        $summary.error = $_.Exception.Message
+        Add-StageResult -Report $Report -Name $Name -Status 'fail' -ExitCode 1 -Summary $summary -StageTimer $timer
+        return $false
+    }
+}
+
+function Invoke-PackageIdentityGate {
+    param(
+        [System.Collections.IDictionary]$Context,
+        [System.Collections.IDictionary]$Report,
+        [string]$BundleRoot,
+        [string]$SourcesRoot
+    )
+
+    $timer = New-PackageStageTimer
+    $bundleIdentity = Join-Path $BundleRoot 'manifests\release-identity.json'
+    $sourceIdentity = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.release_identity)
+    $summary = @{ bundle_identity = $bundleIdentity; source_identity = $sourceIdentity; sources_root = $SourcesRoot }
+    try {
+        if (-not (Test-Path -LiteralPath $bundleIdentity -PathType Leaf)) {
+            throw 'bundle release identity is missing'
+        }
+        if (-not (Test-Path -LiteralPath $sourceIdentity -PathType Leaf)) {
+            throw 'source release identity is missing'
+        }
+        $bundleHash = (Get-FileHash -LiteralPath $bundleIdentity -Algorithm SHA256).Hash.ToLowerInvariant()
+        $sourceHash = (Get-FileHash -LiteralPath $sourceIdentity -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($bundleHash -ne $sourceHash) {
+            throw 'bundle and source release identities differ'
+        }
+        $artifactHashesPath = Join-Path $SourcesRoot 'artifact-hashes.json'
+        if (Test-Path -LiteralPath $artifactHashesPath -PathType Leaf) {
+            $artifactHashes = Get-Content -LiteralPath $artifactHashesPath -Raw | ConvertFrom-Json
+            if ($artifactHashes.identity_sha256 -and ([string]$artifactHashes.identity_sha256).ToLowerInvariant() -ne $bundleHash) {
+                throw 'artifact-hashes identity_sha256 differs from the bundle identity'
+            }
+        }
+        $summary.identity_sha256 = $bundleHash
+        Add-StageResult -Report $Report -Name 'identity_reproducibility' -Status 'pass' -ExitCode 0 -Summary $summary -StageTimer $timer
+        return $true
+    }
+    catch {
+        $summary.error = $_.Exception.Message
+        Add-StageResult -Report $Report -Name 'identity_reproducibility' -Status 'fail' -ExitCode 1 -Summary $summary -StageTimer $timer
+        return $false
+    }
+}
+
+function Invoke-PackageZipExtractionGate {
+    param(
+        [System.Collections.IDictionary]$Context,
+        [System.Collections.IDictionary]$Report,
+        [string]$BundleRoot,
+        [string]$SourcesRoot,
+        [string]$ZipPath
+    )
+
+    $timer = New-PackageStageTimer
+    $reportsRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.reports_root)
+    $validationScript = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.validate_bundle)
+    $reportPath = Join-Path $reportsRoot 'zip-extracted-validate.json'
+    $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('embedagent-zip-verify-' + [System.Guid]::NewGuid().ToString('N'))
+    $summary = @{ zip = $ZipPath; extracted_root = $tempRoot; report = $reportPath }
+    try {
+        if (-not (Test-Path -LiteralPath $ZipPath -PathType Leaf)) {
+            throw 'zip artifact is missing'
+        }
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($ZipPath, $tempRoot)
+        $args = @('-BundleRoot', $tempRoot, '-SourcesRoot', $SourcesRoot, '-ZipPath', $ZipPath, '-SkipDynamicChecks', '-RequireComplete', '-JsonOutputPath', $reportPath)
+        $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $validationScript -Arguments $args
+        $payload = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
+        if (-not $payload.ok) {
+            throw 'zip-extracted bundle validation failed'
+        }
+        Add-StageResult -Report $Report -Name 'zip_extraction' -Status 'pass' -ExitCode 0 -Summary $summary -StageTimer $timer
+        return $true
+    }
+    catch {
+        $summary.error = $_.Exception.Message
+        Add-StageResult -Report $Report -Name 'zip_extraction' -Status 'fail' -ExitCode 1 -Summary $summary -StageTimer $timer
+        return $false
+    }
+    finally {
+        if (Test-Path -LiteralPath $tempRoot) {
+            Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
 function Invoke-PackageVerify {
     param(
         [System.Collections.IDictionary]$Context,
@@ -1232,7 +1355,30 @@ function Invoke-PackageVerify {
         return
     }
 
-    $verifyOk = ([bool]$validatePayload.ok) -and ([bool]$checkPayload.ok)
+    $localGatesOk = $true
+    $strictRelease = ($Context.config.paths.PSObject.Properties.Name -contains 'release_identity') -and [bool]$Context.profile_config.run_dynamic_checks
+    if ($strictRelease) {
+        $sourcesRoot = Join-Path (Split-Path -Parent $bundleRoot) ((Split-Path -Leaf $bundleRoot) + '-sources')
+        if (-not (Invoke-PackageIdentityGate -Context $Context -Report $Report.Value -BundleRoot $bundleRoot -SourcesRoot $sourcesRoot)) {
+            $localGatesOk = $false
+        }
+        $reportsRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.reports_root)
+        $guiScript = Join-Path $bundleRoot 'tools\validation\validate-gui-smoke.py'
+        $guiReport = Join-Path $reportsRoot 'gui-smoke.json'
+        if (-not (Invoke-PackageLocalGate -Context $Context -Report $Report -Name 'gui_headless_smoke' -ScriptPath $guiScript -Arguments @('--bundle-root', $bundleRoot, '--require-fixed-webview2') -ReportPath $guiReport)) {
+            $localGatesOk = $false
+        }
+        $cppScript = Join-Path $bundleRoot 'tools\validation\validate-cpp-smoke.py'
+        $cppReport = Join-Path $reportsRoot 'cpp-smoke.json'
+        if (-not (Invoke-PackageLocalGate -Context $Context -Report $Report -Name 'cpp_smoke' -ScriptPath $cppScript -Arguments @('--bundle-root', $bundleRoot, '--json-report', $cppReport) -ReportPath $cppReport)) {
+            $localGatesOk = $false
+        }
+        $zipPath = Join-Path (Split-Path -Parent $bundleRoot) ((Split-Path -Leaf $bundleRoot) + '.zip')
+        if (-not (Invoke-PackageZipExtractionGate -Context $Context -Report $Report.Value -BundleRoot $bundleRoot -SourcesRoot $sourcesRoot -ZipPath $zipPath)) {
+            $localGatesOk = $false
+        }
+    }
+$verifyOk = ([bool]$validatePayload.ok) -and ([bool]$checkPayload.ok) -and $localGatesOk
     Add-StageResult -Report $Report -Name 'verify' -Status $(if ($verifyOk) { 'pass' } else { 'fail' }) -ExitCode $(if ($verifyOk) { 0 } else { 1 }) -Summary @{
         bundle_root = $bundleRoot
         validate_report = $validateJson
@@ -1295,6 +1441,13 @@ function Invoke-PackageCommand {
         }
     }
     Complete-PackageReport -Report ([ref]$report)
+    $identityConfigured = $Context.config.paths.PSObject.Properties.Name -contains 'release_identity'
+    if ($identityConfigured -and $report.final_status -eq 'READY') {
+        $report.final_status = 'TARGET_READY'
+        $report.release_state = 'TARGET_READY'
+        $report.artifact_status = 'target-ready'
+        $report.publishable = $false
+    }
     $null = Write-PackageReport -Context $Context -Report $report
     $statusStr = $report.command_status
     if ($report.final_status) {
