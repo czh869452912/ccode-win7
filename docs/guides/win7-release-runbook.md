@@ -17,3 +17,16 @@ The report must identify Windows 7 SP1 AMD64, renderer `edgechromium`, Fixed
 Version WebView2 109 from the bundle, bundle C smoke, and an empty
 `blocking_errors` list. A local or Windows 10 run can diagnose problems but
 cannot replace this target-machine evidence.
+
+## Phase 7R local versus target evidence
+
+`package.ps1 release -Reproducible` runs two isolated child releases and compares
+credential-free bundle records. A passing local run may report `TARGET_READY`
+only after both child reports are release-eligible and
+`artifact_reproducibility` is `pass`; the comparison report records excluded
+operational paths and normalized bundle hashes.
+
+This local state is not a Windows 7 claim. `ACCEPTED` is reserved for the
+bundle-local `validate-release-evidence.py` result produced from a clean Windows
+7 SP1 x64 machine. Do not copy a local report into the target evidence path or
+substitute Windows 10/WebView2 results for the target report.

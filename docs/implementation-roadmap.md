@@ -822,3 +822,17 @@ debt cleanup:
 ### 10. Phase 7 Offline Release Gate Status
 
 Phase 7 now has a six-wheel release identity, wheel-only product staging, strict release doctor checks, bundle/source hash manifests, bundle-local GUI/C smoke entry points, zip extraction re-validation, and a Win7 evidence kit. Local success is reported as `TARGET_READY` only after those repository and bundle gates pass. `ACCEPTED` remains a target-machine state produced by `validate-release-evidence.py`; it requires a real Windows 7 SP1 x64 report and cannot be synthesized locally. A current GUI smoke timeout therefore remains a release blocker even when doctor, static bundle validation, dependency checking, and C smoke pass.
+
+### 10.1 Phase 7R active stabilization slice
+
+Phase 7R now closes the repository-side release-candidate control plane:
+structured GUI smoke/startup diagnostics, provenance-bound atomic packaging
+reports, fixture output isolation, and the two-run `-Reproducible` artifact gate
+are implemented. `TARGET_READY` is emitted only when both isolated release runs
+and their normalized comparison pass, with `publishable=false` and
+`PENDING_WIN7` retained.
+
+Phase 7 is not fully complete: clean Windows 7 SP1 x64 unpack-and-run evidence
+using bundled WebView2 109 is still required for `ACCEPTED`. Phase 8 real C/C++
+project validation remains open. Optional Phase 9 enterprise/intranet adapters
+remain outside Agent Core.

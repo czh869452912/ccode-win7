@@ -423,7 +423,7 @@ def launch_gui(
             webview.start(close_after_delay, debug=debug)
         else:
             webview.start(debug=debug)
-    except Exception as exc:
+    except (AttributeError, ImportError, OSError, RuntimeError, TypeError, ValueError) as exc:
         startup_status = "failed"
         _write_startup_report(startup_report, startup_events, status=startup_status, error=exc)
         raise

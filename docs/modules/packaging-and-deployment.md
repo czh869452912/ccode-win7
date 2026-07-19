@@ -224,3 +224,34 @@ runtime\python\python.exe tools\validation\validate-release-evidence.py --identi
 ```
 
 Do not use local Windows 10 output or a system PATH tool as a substitute for the Win7 report. See `docs/guides/win7-release-runbook.md` for the structured evidence handoff.
+
+## 10. Phase 7R provenance and reproducibility
+
+Every package configuration declares `metadata.config_origin` as either
+`production` or `fixture`. Production reports carry a run id, source revision,
+execution kind, resolved report/artifact roots, and config path. Unknown origins
+are rejected before a package command runs. Fixture tests must deep-copy the
+mock config into a temporary directory and redirect all writable roots; fixture
+runs must never update `build/offline-reports/latest.json`.
+
+Use the two-run gate for a local release candidate:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/package.ps1 release `
+  -Reproducible -ReproducibilityRoot build/phase7-repro
+```
+
+The command creates `run-a` and `run-b` child configs, writes child reports and
+artifacts under those roots, and invokes `scripts/compare-release-artifacts.py`.
+The comparator ignores only the explicit generated evidence paths in
+`tests/fixtures/packaging/reproducibility-config.json` and normalizes the
+manifest's declared operational path/timestamp fields. A stable file, source
+revision, identity, wheel filename/hash, GUI static hash, asset-manifest hash, or
+runtime-contract hash difference blocks the outer report. The outer report is
+`TARGET_READY` only when both children and the comparison pass; it remains
+`publishable=false` and `acceptance_status=PENDING_WIN7` until target evidence is
+collected.
+
+Atomic report writes use sibling temporary files and replacement on the same
+volume. Never treat a report path, duration, log tail, or local Windows 10 smoke
+result as target-machine acceptance evidence.

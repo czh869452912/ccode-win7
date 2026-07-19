@@ -1187,3 +1187,19 @@
 | 2026-03-31 | 已定位并修复 dist/source GUI 漂移：原因是旧 dist 未在 GUI 静态产物迁移后重建、WebView2 资产未纳入 prepare/build、以及 `.venv` 里的 `__editable__.embedagent-0.1.0.pth` 被直接带入 bundle；当前已重建 bundle，并通过 `validate-offline-bundle.ps1`、bundle 级 `validate-gui-smoke.py` 与 `check-bundle-dependencies.py` |
 | 2026-04-02 | 已启动 Query / Context 激进重构切片：新增 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume 与 focused regression tests；`tests.test_context_config` / `tests.test_guard` / `tests.test_modes` / `tests.test_session_timeline` / `tests.test_query_engine_refactor` 已复验通过 |
 | 2026-07-19 | Phase 7 offline release gate implementation: release identity/evidence schemas, strict release doctor, clean six-wheel export, wheel-only bundle staging, bundle/source hash manifests, zip extraction verification, and Win7 acceptance kit are implemented in commits `d751d9df`, `d80648ad`, `34609117`, `0e9455c4`, `7e939dc3`, and `bb173d03`. Current local evidence: doctor READY; `build/offline-reports/deps.json` reports the exact six wheels and hashes; static bundle validation 88/88; dependency checker PASS; bundle C smoke PASS with `runtime_source=bundle`; GUI headless smoke timed out and no real Win7 SP1 x64 report exists. Therefore current release state is NOT_READY, not TARGET_READY/ACCEPTED. The next blocker is restoring bundle/source GUI smoke before making a TARGET_READY claim. |
+
+## 2026-07-19 - Phase 7R release-candidate stabilization
+
+- GUI smoke now emits process-aware, structured failure reports and the native
+  launcher can write safe startup-stage reports without exposing prompts,
+  source, tool output, or credentials.
+- Packaging reports carry production/fixture provenance and unique run ids;
+  fixture release tests redirect build, export, launcher, artifact, and report
+  roots to temporary directories.
+- `package.ps1 release -Reproducible` performs two isolated child releases and
+  gates the outer `TARGET_READY` state on canonical artifact comparison. The
+  local state remains provisional until clean Win7 SP1 x64 evidence produces
+  `ACCEPTED`.
+- Current open blockers are environmental: real target-machine Win7/WebView2
+  smoke and real C/C++ project validation. Neither may be synthesized from
+  local Windows 10 or mock-stage output.
