@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-19`
+> 最后同步日期：`2026-07-20`
 > 对应代码范围：`src/embedagent/frontend/gui/`
 
 ## 1. Purpose And Scope
@@ -61,7 +61,7 @@
 
 ## 5. Data / Control Flow
 
-用户通过 `pywebview` 窗口与 React SPA 交互；SPA 通过 WebSocket/HTTP 访问 FastAPI 后端；`GUIBackend` 将 `WebSocketFrontend` 注册为 `AgentCoreAdapter` 的回调目标。权限与 user-input 交互的可见真相来自 `Session.pending_interaction` / `pending_interaction_valid` 快照字段和 backend-owned interaction session events；GUI 通过统一的 `respond_to_interaction(session_id, interaction_id, payload)` 路径提交响应；`HostedInteractionService` 负责 pending ticket glue，实际恢复继续回到 Agent Core 的 action pipeline。
+用户通过 `pywebview` 窗口与 React SPA 交互；SPA 通过 WebSocket/HTTP 访问 FastAPI 后端；`GUIBackend` 将 `WebSocketFrontend` 注册为 `AgentCoreAdapter` 的回调目标。权限与 user-input 交互的可见真相来自 `Session.pending_interaction` / `pending_interaction_valid` 快照字段和 backend-owned interaction session events；GUI 通过统一的 `respond_to_interaction(session_id, interaction_id, payload)` 路径提交响应。响应先返回 `accepted` acknowledgement，最终状态由通用 resolved event 和后续 session snapshot 收敛；`HostedInteractionService` 负责原子 claim、后台恢复协调和 pending ticket glue，实际恢复继续回到 Agent Core 的 action pipeline。
 
 Preview surface chrome, File Preview chrome, source-control panel chrome,
 bottom drawer run-output chrome, terminal chrome, thread lifecycle actions,
@@ -136,6 +136,8 @@ flowchart TD
 - `WebSocketFrontend` 只负责把 Core/session 回调广播为 WebSocket 消息；它不拥有 permission 或 user-input 的阻塞等待状态。
 - `permission_request` / `user_input_request` 原始 WebSocket 消息只用于唤醒当前交互 UI/传输路径；renderer 不从这些消息合成历史、activity 或第二套 pending state。
 - React SPA 负责自动重连、会话 bootstrap reload，以及从 `snapshot.pending_interaction` 渲染当前可响应交互。
+- `POST .../interactions/{interaction_id}/respond` 的 `accepted` acknowledgement 不携带可应用的 snapshot；renderer 只在通用 resolved event 到达后释放 busy 状态，不用 HTTP 返回值覆盖 WebSocket 状态。
+- `HostedInteractionService` 通过一次性 claim 防止重复点击触发重复恢复；命令路径和 Core 路径均在 Host 后台协调线程中继续，不把恢复等待放进 GUI 请求线程。
 
 ## 6. Workbench Shell
 

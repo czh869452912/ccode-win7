@@ -23,6 +23,7 @@ Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md`�
 - `documentation-governance-baseline/`
 - `enterprise-boundary-foundation/`
 - `gui-agent-bridge-review-fixes/`
+- `interaction-response-async/`
 - `gui-app-runtime-boundary/`
 - `gui-redesign/`
 - `gui-app-shell-boundary/`

@@ -431,6 +431,18 @@ instead of parallel permission or user-input snapshot fields. `tool_name` is a
 payload field, not a frontend classification fallback; missing user-input tool
 names must not be synthesized as `ask_user`.
 
+Interaction responses use one asynchronous lifecycle. `POST
+/api/sessions/{session_id}/interactions/{interaction_id}/respond` returns an
+acknowledgement envelope with `status: "accepted"` and `snapshot: null` once
+the backend has atomically claimed the pending interaction. The frontend must
+not apply that acknowledgement as session state or refetch a snapshot to infer
+completion. Backend resolved events and subsequent session snapshots are
+authoritative; the renderer keeps the interaction busy until the generic
+resolved event clears its `requestId`. A duplicate response is rejected by the
+hosted interaction boundary and does not resume the Core session twice. The
+resume coordinator, command-owned interaction bridge, permission policy, and
+pending lifecycle remain backend/Host responsibilities.
+
 `max_turns`, where present in snapshots or turn-end events, is a compatibility projection for an explicitly supplied runtime/test loop safety limit. Persistent JSON configuration must not set this value. A missing or null value means the default Pi-style continuation path has no fixed turn-count cutoff. Frontends may display explicit safety-limit values for diagnostics, but they must not treat them as required session budgets or infer loop policy from them.
 
 `extensions.local_resources` may contain the latest file-only resource reload state, including counts and diagnostics for `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes`. Skill resource entries may include Agent Skills-style metadata such as `name`, `description`, `base_dir`, `disable_model_invocation`, and `prompt_visible`.
@@ -516,6 +528,11 @@ the current blocking interaction UI/response channel; renderer code must not
 synthesize interaction-created transport events, history rows, or activity
 records from those raw request messages. User-input display remains
 `kind`/event-kind driven even when the payload omits `tool_name`.
+Resolution events (`permission_resolved` and `user_input_resolved`) carry only
+safe interaction identifiers and lifecycle metadata. Generic resume diagnostic
+events may expose lease wait duration and an error category, but never prompt
+text, answers, source contents, raw tool output, credentials, or permission
+secrets.
 
 `history.integrity.status` is the official history health signal:
 

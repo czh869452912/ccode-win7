@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-19`
+> 最后同步日期：`2026-07-20`
 > 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `src/embedagent/core/`
 
 ## 1. Purpose And Scope
@@ -18,6 +18,7 @@
 - 声明共享 `dataclass`、枚举和双向接口（`CoreInterface`、`FrontendCallbacks`）
 - 把 hosted runtime 负载翻译成协议快照和事件
 - 把引擎回调按正确类型和元数据转发给前端
+- 透出统一 interaction response acknowledgement 与 resolved lifecycle event
 - 在变更型工具完成后触发前端数据刷新
 - expose resource reload through the stable core API
 - carry `extensions.local_resources`, `extensions.project_extensions`, and `extension_diagnostics` through snapshots
@@ -50,7 +51,7 @@
 
 ## 5. Data / Control Flow
 
-用户动作通过 `CoreInterface` 进入 `AgentCoreAdapter`，再委托给 `InProcessAdapter`；引擎产生事件后由 `CallbackBridge` 转换为协议对象，最终送达 `FrontendCallbacks`。
+用户动作通过 `CoreInterface` 进入 `AgentCoreAdapter`，再委托给 `InProcessAdapter`；交互响应由 Host 的 `HostedInteractionService` 原子 claim 后返回 `accepted` acknowledgement，恢复继续在 Host 后台协调线程中进入同一个 `AgentSession` action pipeline。引擎产生事件后由 `CallbackBridge` 转换为协议对象，最终送达 `FrontendCallbacks`；resolved event 和 session snapshot 是前端最终状态的唯一依据。
 
 ```mermaid
 flowchart LR

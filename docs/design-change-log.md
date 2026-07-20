@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-07-10
+> 更新日期：2026-07-20
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,35 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-314
+
+- Date: 2026-07-20
+- Change Topic: GUI interaction responses acknowledge asynchronously
+- Summary:
+  - `HostedInteractionService` now atomically claims a pending interaction,
+    returns a generic `accepted` acknowledgement, and resumes Core/command
+    work through a Host background coordinator.
+  - GUI resolution is driven by generic resolved events and subsequent session
+    snapshots; accepted responses never become a second session-state source
+    and the renderer adds no tool/workflow registration.
+  - Safe lifecycle events expose only interaction identifiers, turn metadata,
+    lease wait duration, and error categories.
+- Impacted Scope:
+  - `packages/embedagent-host/src/embedagent_host/hosted_interaction_service.py`
+  - `packages/embedagent-host/src/embedagent_host/hosted_command_service.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/interaction-response-controller.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/socket-effect-executor.js`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+- Related Docs:
+  - `docs/archive/interaction-response-async/2026-07-20-interaction-response-async-design.md`
+  - `docs/archive/interaction-response-async/2026-07-20-interaction-response-async-plan.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Keep real Win7/WebView2 GUI smoke evidence separate from local tests.
+  - Resolve known environment-only fast-suite failures before release claims.
 
 ### DC-313
 

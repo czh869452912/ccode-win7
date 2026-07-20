@@ -1,6 +1,6 @@
 # Interaction Response Async Design
 
-**Status:** Approved design; implementation not started.
+**Status:** Implemented and closed on 2026-07-20; commit `6ce5e033`.
 
 ## Goal
 
@@ -159,3 +159,16 @@ the generated GUI static assets.
 - No movement of command execution into Core or the renderer.
 - No replacement of transcript/session events with an acknowledgement log.
 - No new public `HookBus`, Core facade, remote registry, or runtime dependency.
+
+## Closeout
+
+- Host claim/coordinator, command and Core asynchronous acknowledgement, cancel
+  cleanup, safe lifecycle diagnostics, generic frontend resolved-event cleanup,
+  regression tests, and generated GUI assets are implemented.
+- The accepted response intentionally carries no session snapshot. Backend
+  resolved events and subsequent snapshots remain authoritative.
+- Verification passed for the focused Host/GUI suites, webapp tests and build,
+  and Python lint. The full fast suite retained only previously classified
+  environment/baseline failures: stale package `__pycache__` directories,
+  Windows symbolic-link privilege errors, a machine-sensitive performance
+  threshold, and the nested HYGN aggregate failure.

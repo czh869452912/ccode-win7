@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-07-19（Phase 7B documentation closeout）
+> 更新日期：2026-07-20（interaction response async closeout）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,20 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-07-20 - Asynchronous Interaction Response Closeout
+
+- `ask_user`、permission 和 command-owned permission response 已切换为 Host
+  asynchronous acknowledgement：HTTP 只确认一次性 claim，Core/命令恢复在
+  后台协调线程中继续。
+- GUI 只消费通用 resolved event 和后续 session snapshot；`accepted`
+  acknowledgement 不携带可应用快照，前端不再用陈旧 HTTP snapshot 覆盖 WebSocket
+  状态，也没有新增静态工具注册或 workflow 分支。
+- 交互 claim、取消生命周期、resolved/lifecycle 安全诊断和事件回归测试已完成，
+  实现提交为 `6ce5e033`；本轮 spec/plan 已按治理规则归档。
+- 验证：交互相关 Host 测试 96/96、GUI backend 24/24、Host facade 17/17、
+  webapp tests/build、Python lint 均通过。完整 fast suite 的剩余失败属于已知
+  `__pycache__` 残留、Windows 符号链接权限、机器性能阈值和嵌套 HYGN 环境问题。
 
 ### 2026-07-19 - Current Closeout Baseline
 
