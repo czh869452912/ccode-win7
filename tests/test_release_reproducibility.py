@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "compare-release-artifacts.py"
 FIXTURE = ROOT / "tests" / "fixtures" / "packaging" / "reproducibility-config.json"
@@ -227,6 +229,7 @@ def _run_reproducible_package(tmp_path, mutate_second=False):
     return result, payload
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows-only: requires PowerShell")
 def test_package_reproducibility_gate_accepts_matching_runs(tmp_path):
     result, payload = _run_reproducible_package(tmp_path)
 
@@ -238,6 +241,7 @@ def test_package_reproducibility_gate_accepts_matching_runs(tmp_path):
     assert stage["summary"]["mismatches"] == []
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows-only: requires PowerShell")
 def test_package_reproducibility_gate_blocks_mutated_second_run(tmp_path):
     result, payload = _run_reproducible_package(tmp_path, mutate_second=True)
 

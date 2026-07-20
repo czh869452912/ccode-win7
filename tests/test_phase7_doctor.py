@@ -3,6 +3,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "scripts" / "package.config.json"
 PACKAGE_SCRIPT = ROOT / "scripts" / "package.ps1"
@@ -62,6 +64,7 @@ def test_release_config_declares_identity_evidence_and_distribution_contract():
     ]
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows-only: requires PowerShell")
 def test_release_doctor_projects_structured_runtime_and_asset_checks():
     report = _doctor("release")
     checks = {item["code"]: item for item in report["doctor_checks"]}
@@ -78,6 +81,7 @@ def test_release_doctor_projects_structured_runtime_and_asset_checks():
         assert {"code", "ok", "blocking"}.issubset(checks[code])
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows-only: requires PowerShell")
 def test_dev_and_release_doctor_preserve_profile_severity():
     dev = _doctor("dev")
     release = _doctor("release")

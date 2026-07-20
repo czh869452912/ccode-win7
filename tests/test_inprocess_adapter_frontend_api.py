@@ -2552,13 +2552,14 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             item[0] == "interaction_resume_finished" for item in events
         ):
             time.sleep(0.01)
-        lifecycle_events = [
-            item for item in events if item[0].startswith("interaction_resume_")
-        ]
-        self.assertEqual([item[0] for item in lifecycle_events], [
-            "interaction_resume_started",
-            "interaction_resume_finished",
-        ])
+        lifecycle_events = [item for item in events if item[0].startswith("interaction_resume_")]
+        self.assertEqual(
+            [item[0] for item in lifecycle_events],
+            [
+                "interaction_resume_started",
+                "interaction_resume_finished",
+            ],
+        )
         for _, _, diagnostic in lifecycle_events:
             self.assertEqual(diagnostic.get("interaction_id"), interaction_id)
             self.assertGreaterEqual(diagnostic.get("lease_wait_ms", -1), 0)

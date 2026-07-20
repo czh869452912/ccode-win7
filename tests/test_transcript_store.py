@@ -232,6 +232,7 @@ class TestTranscriptStore(unittest.TestCase):
         with second.acquire_lease("session-one"):
             pass
 
+    @unittest.skipUnless(os.name == "nt", "Windows directory symlink contract")
     def test_session_lease_identity_survives_in_root_directory_redirect(self):
         first = TranscriptStore(self.workspace)
         second = TranscriptStore(self.workspace)
@@ -351,6 +352,7 @@ class TestTranscriptStore(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "^transcript reference is invalid$"):
             store.resolve_transcript_reference(noncanonical_path)
 
+    @unittest.skipUnless(os.name == "nt", "Windows directory symlink contract")
     def test_session_id_operations_reject_in_root_directory_redirect(self):
         store = TranscriptStore(self.workspace)
         store.append_event("session-b", "message", {"content": "preserve"})
@@ -378,6 +380,7 @@ class TestTranscriptStore(unittest.TestCase):
         finally:
             os.rmdir(session_a)
 
+    @unittest.skipUnless(os.name == "nt", "Windows directory symlink contract")
     def test_explicit_reference_follows_in_root_alias_to_canonical_session(self):
         store = TranscriptStore(self.workspace)
         store.append_event("session-b", "message", {"content": "canonical"})

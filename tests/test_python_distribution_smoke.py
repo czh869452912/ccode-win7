@@ -338,6 +338,7 @@ def test_builder_supports_explicit_offline_cache_configuration(tmp_path):
     assert environment["UV_OFFLINE"] == "1"
 
 
+@unittest.skipIf(sys.platform != "win32", "Windows-only: requires pinned release toolchain")
 def test_external_wheelhouse_build_check_and_smoke_preserve_siblings(tmp_path):
     external = tmp_path / "external-wheelhouse"
     sibling = tmp_path / "keep.txt"
@@ -390,6 +391,7 @@ def test_external_wheelhouse_build_check_and_smoke_preserve_siblings(tmp_path):
     assert sibling.read_text(encoding="ascii") == "keep"
 
 
+@unittest.skipIf(sys.platform != "win32", "Windows-only: requires pinned release toolchain")
 def test_export_dependencies_supports_external_output_directory(tmp_path, monkeypatch):
     exporter = _load_script(EXPORT_SCRIPT, "distribution_external_export")
     output = tmp_path / "external-export"

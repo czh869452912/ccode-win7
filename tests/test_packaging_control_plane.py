@@ -547,6 +547,7 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
             self.assertIn('"{0}"'.format(package), script)
             self.assertIn('"{0}-0.1.0.dist-info"'.format(package), script)
 
+    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires PowerShell")
     def test_verified_wheel_archive_ignores_unverified_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -562,6 +563,7 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
             self.assertEqual(json.loads(result.stdout), verified)
             self.assertEqual(sorted(path.name for path in destination.iterdir()), sorted(verified))
 
+    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires PowerShell")
     def test_atomic_wheel_publish_rechecks_copied_bytes_before_replacing_destination(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -594,6 +596,7 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
             self.assertEqual([path.name for path in destination.iterdir()], ["keep.txt"])
             self.assertEqual(list(root.glob(".python-wheels.tmp.*")), [])
 
+    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires PowerShell")
     def test_atomic_wheel_publish_publishes_only_rechecked_temp_bytes(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
