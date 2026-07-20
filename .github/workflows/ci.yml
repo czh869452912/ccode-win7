@@ -52,6 +52,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.8"
+      - name: Install uv
+        run: pip install uv
       - name: Install locked workspace
         # The product depends on the five lower workspace distributions. Resolve
         # them from this checkout instead of asking pip for unpublished wheels.
@@ -65,6 +67,8 @@ jobs:
   windows-packaging:
     name: Windows packaging and release tests
     runs-on: windows-latest
+    env:
+      UV_CACHE_DIR: ${{ github.workspace }}\.uv-cache
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -78,7 +82,13 @@ jobs:
         run: >-
           uv run --locked --python python pytest
           tests/test_packaging_control_plane.py
-          tests/test_phase7_doctor.py
           tests/test_release_reproducibility.py
           tests/test_python_distribution_smoke.py
+          -v
+      - name: Run package configuration contract test
+        # Full doctor tests require the downloaded release assets and LLVM
+        # toolchain supplied by the offline bundle pipeline, not a source CI checkout.
+        run: >-
+          uv run --locked --python python pytest
+          tests/test_phase7_doctor.py -k release_config_declares_identity_evidence_and_distribution_contract
           -v

@@ -40,7 +40,8 @@
 - Modify: `.github/workflows/ci.yml`
 
 - [ ] Add a Windows job using `windows-latest` and `actions/setup-python` with Python `3.8.10`.
-- [ ] Install uv, run `uv sync --locked --python "${{ ... }}"` using the setup interpreter, and execute the skipped packaging, doctor, reproducibility, and distribution-smoke modules.
+- [ ] Install uv, run `uv sync --locked --python python` with a job-local `UV_CACHE_DIR`, and execute packaging, reproducibility, and distribution-smoke modules against that same cache.
+- [ ] Run only the package configuration contract from `test_phase7_doctor.py`; full doctor checks remain release-pipeline checks because they require downloaded offline assets and LLVM.
 - [ ] Keep the job bounded to existing tests; do not change runtime package ownership or release scripts.
 
 ### Task 4: Verify and record the fix

@@ -521,6 +521,16 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
         self.assertIn("offline-bundle-contract: python-distributions-smoke", makefile)
         self.assertIn("ci: lint test smoke offline-bundle-contract", makefile)
 
+    def test_ci_workspace_jobs_provision_uv_and_share_offline_build_cache(self):
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+        self.assertIn("name: Install uv", workflow)
+        self.assertIn("UV_CACHE_DIR: ${{ github.workspace }}\\.uv-cache", workflow)
+        self.assertIn("uv sync --locked --python python", workflow)
+        self.assertIn("tests/test_phase7_doctor.py -k release_config_declares", workflow)
+        smoke = workflow.split("  smoke:\n", 1)[1].split("  windows-packaging:\n", 1)[0]
+        self.assertIn("name: Install uv", smoke)
+
     def test_bundle_build_archives_the_exact_checked_python_wheelhouse(self):
         script = (ROOT / "scripts" / "build-offline-bundle.ps1").read_text(encoding="utf-8")
 
