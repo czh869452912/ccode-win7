@@ -46,6 +46,7 @@ export function runActivityStateTests() {
     toolName: "read_file",
     label: "Read File",
     arguments: { path: "src/parser.c" },
+    createdAt: "2026-06-27T00:00:02.500Z",
   });
   activity = reduceActivityState(activity, {
     type: "tool_finished",
@@ -54,6 +55,7 @@ export function runActivityStateTests() {
     label: "Read File",
     success: true,
     data: { path: "src/parser.c" },
+    completedAt: "2026-06-27T00:00:02.900Z",
   });
   activity = reduceActivityState(activity, {
     type: "assistant_delta",
@@ -69,6 +71,9 @@ export function runActivityStateTests() {
   assert.equal(activity.activities.filter((item) => item.kind === "reasoning").length, 1);
   assert.equal(activity.activities.filter((item) => item.kind === "tool").length, 1);
   assert.equal(activity.activities.filter((item) => item.kind === "assistant").length, 1);
+  const toolActivity = activity.activities.find((item) => item.kind === "tool");
+  assert.equal(toolActivity.createdAt, "2026-06-27T00:00:02.500Z");
+  assert.equal(toolActivity.completedAt, "2026-06-27T00:00:02.900Z");
   assert.equal(activity.streamingAssistantId, "");
 
   activity = reduceActivityState(activity, {
@@ -216,7 +221,11 @@ export function runActivityStateTests() {
   assert.equal(pendingRuntime.interactionNotice, null);
   assert.equal(
     pendingRuntime.t3TimelineRows.filter((row) => row.kind === "interaction").length,
-    1,
+    0,
+  );
+  assert.equal(
+    pendingRuntime.t3TimelineRows.filter((row) => row.kind === "system_notice").length,
+    0,
   );
 
   const snapshotPendingRuntime = buildSessionActivityRuntime({

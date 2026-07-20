@@ -114,6 +114,7 @@ export function createSourceControlController({
 
   return {
     loadStatus,
+    refreshStatus: () => loadStatus(true),
     openFile,
   };
 }

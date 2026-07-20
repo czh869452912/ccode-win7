@@ -166,6 +166,37 @@ class ToolClient(object):
         return reply
 
 
+class MissingEditClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        name="edit_file",
+                        arguments={
+                            "path": "missing.c",
+                            "old_text": "before",
+                            "new_text": "after",
+                        },
+                        call_id="call-edit-missing",
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="done", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class FrontendCatalogDynamicToolExtension(object):
     extension_id = "frontend_catalog_dynamic"
     builtin_extension = False
@@ -2344,11 +2375,40 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         ]
         self.assertEqual(tool_start.get("call_id"), "call-read-demo")
         self.assertEqual(tool_finish.get("call_id"), "call-read-demo")
+
         self.assertEqual(tool_start.get("tool_label"), "Read File")
         self.assertEqual(tool_finish.get("permission_category"), "read")
         self.assertEqual(tool_start.get("progress_renderer_key"), "file")
         self.assertEqual(tool_finish.get("result_renderer_key"), "file")
         self.assertEqual(tool_finish.get("read_model_invalidations"), [])
+
+    def test_edit_failure_emits_tool_finish_without_standalone_session_error(self):
+        adapter = _product_adapter(
+            client=MissingEditClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        events = []
+        adapter.submit_user_message(
+            session_id=str(snapshot.get("session_id") or ""),
+            text="edit missing file",
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, session_id, payload: events.append(
+                (event_name, payload)
+            ),
+        )
+
+        tool_finished = [
+            payload
+            for event_name, payload in events
+            if event_name == "tool_finished" and payload.get("call_id") == "call-edit-missing"
+        ]
+        self.assertEqual(len(tool_finished), 1)
+        self.assertFalse(tool_finished[0].get("success"))
+        self.assertIn("不存在", str(tool_finished[0].get("error") or ""))
+        self.assertNotIn("session_error", [event_name for event_name, _ in events])
 
     def test_adapter_step_events_use_engine_step_id(self):
         adapter = _product_adapter(

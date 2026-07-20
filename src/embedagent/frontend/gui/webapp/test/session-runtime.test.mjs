@@ -129,7 +129,7 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(interactionRuntime.currentInteraction.interactionId, "int-2");
   assert.equal(interactionRuntime.timelineItems.length, 1);
-  assert.equal(interactionRuntime.t3TimelineRows.filter((row) => row.kind === "interaction").length, 1);
+  assert.equal(interactionRuntime.t3TimelineRows.filter((row) => row.kind === "interaction").length, 0);
 
   const ignoredTransportEventRuntime = buildSessionActivityRuntime({
     snapshot: {
@@ -183,7 +183,7 @@ export function runSessionRuntimeTests() {
     dedupedInteractionRuntime.timelineItems.filter((item) => item.kind === "interaction").length,
     1,
   );
-  assert.equal(dedupedInteractionRuntime.t3TimelineRows.filter((row) => row.kind === "interaction").length, 1);
+  assert.equal(dedupedInteractionRuntime.t3TimelineRows.filter((row) => row.kind === "interaction").length, 0);
 
   const commandRuntime = buildSessionActivityRuntime({
     snapshot: {

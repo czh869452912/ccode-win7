@@ -638,9 +638,74 @@ class TestToolRuntimeExecute(unittest.TestCase):
             },
         )
         self.assertTrue(obs.success)
+        self.assertEqual(obs.data["additions"], 1)
+        self.assertEqual(obs.data["deletions"], 1)
+        self.assertIn("@@", obs.data["diff_preview"])
+        self.assertEqual(obs.data["changed_files"][0]["path"], "edit_me.py")
+        self.assertEqual(obs.data["changed_files"][0]["additions"], 1)
+        self.assertEqual(obs.data["changed_files"][0]["deletions"], 1)
+        self.assertEqual(obs.data["changed_files"][0]["diff"], obs.data["diff_preview"])
         with open(test_file, "r", encoding="utf-8") as f:
             content = f.read()
         self.assertIn("x = 2", content)
+
+    def test_edit_file_does_not_stash_or_remove_untracked_target(self):
+        target = os.path.join(self.workspace, "untracked.txt")
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write("before\n")
+
+        class DestructiveSnapshot:
+            def __init__(self, _workspace):
+                pass
+
+            def create_snapshot(self, reason=""):
+                del reason
+                os.remove(target)
+
+        with patch(
+            "embedagent_host.runtime.tools.file_ops.ShadowGitSnapshot",
+            DestructiveSnapshot,
+            create=True,
+        ):
+            obs = self.rt.execute(
+                "edit_file",
+                {"path": "untracked.txt", "old_text": "before", "new_text": "after"},
+            )
+
+        self.assertTrue(obs.success)
+        with open(target, "r", encoding="utf-8") as handle:
+            self.assertEqual(handle.read(), "after\n")
+
+    def test_edit_file_missing_replacement_arguments_is_failure_observation(self):
+        with open(os.path.join(self.workspace, "edit_me.py"), "w", encoding="utf-8") as handle:
+            handle.write("x = 1\n")
+
+        obs = self.rt.execute("edit_file", {"path": "edit_me.py"})
+
+        self.assertFalse(obs.success)
+        self.assertEqual(obs.data["error_kind"], "tool_error")
+        self.assertIn("old_text", obs.error)
+
+    def test_runtime_converts_unexpected_tool_exception_to_failure_observation(self):
+        def broken_handler(_arguments):
+            raise OSError("file disappeared")
+
+        self.rt.register_tool(
+            ToolDefinition(
+                name="broken_tool",
+                description="test tool",
+                parameters={"type": "object", "properties": {}},
+                handler=broken_handler,
+                metadata={"permission_category": "read"},
+            ),
+            source_id="tests",
+        )
+
+        obs = self.rt.execute("broken_tool", {})
+
+        self.assertFalse(obs.success)
+        self.assertEqual(obs.data["error_kind"], "tool_error")
+        self.assertIn("file disappeared", obs.error)
 
     def test_write_file_creates_new_file(self):
         obs = self.rt.execute(
@@ -652,11 +717,36 @@ class TestToolRuntimeExecute(unittest.TestCase):
         )
         self.assertTrue(obs.success)
         self.assertTrue(obs.data["created"])
+        self.assertEqual(obs.data["additions"], 1)
+        self.assertEqual(obs.data["deletions"], 0)
+        self.assertIn("+# Requirements", obs.data["diff_preview"])
+        self.assertEqual(obs.data["changed_files"][0]["path"], "docs/requirements.md")
+        self.assertEqual(obs.data["changed_files"][0]["additions"], 1)
         with open(
             os.path.join(self.workspace, "docs", "requirements.md"), "r", encoding="utf-8"
         ) as f:
             content = f.read()
         self.assertEqual(content, "# Requirements\n")
+
+    def test_write_file_identical_overwrite_reports_no_changed_files(self):
+        target = os.path.join(self.workspace, "same.txt")
+        with open(target, "w", encoding="utf-8") as handle:
+            handle.write("same\n")
+
+        obs = self.rt.execute(
+            "write_file",
+            {
+                "path": "same.txt",
+                "content": "same\n",
+                "overwrite": True,
+            },
+        )
+
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.data["additions"], 0)
+        self.assertEqual(obs.data["deletions"], 0)
+        self.assertEqual(obs.data["diff_preview"], "")
+        self.assertEqual(obs.data["changed_files"], [])
 
     def test_write_file_blocks_existing_without_overwrite(self):
         test_file = os.path.join(self.workspace, "existing.txt")
@@ -686,6 +776,10 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertTrue(obs.data["supports_diff_preview"])
         self.assertEqual(obs.data["progress_renderer_key"], "file_write")
         self.assertEqual(obs.data["result_renderer_key"], "file_write")
+        self.assertEqual(
+            obs.data["read_model_invalidations"],
+            ["workspace_files", "tasks", "source_control"],
+        )
 
     def test_runtime_rejects_removed_build_wrapper_tools(self):
         self._register_default_c_workflow_tools()

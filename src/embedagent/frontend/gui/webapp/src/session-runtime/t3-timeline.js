@@ -7,7 +7,6 @@ export const T3_ROW_KINDS = Object.freeze({
   MESSAGE: "message",
   WORK: "work",
   TURN_FOLD: "turn_fold",
-  INTERACTION: "interaction",
   DIFF_SUMMARY: "diff_summary",
   CONTEXT_SUMMARY: "context_summary",
   COMMAND_RESULT: "command_result",
@@ -303,7 +302,7 @@ function explicitChangedFiles(item) {
     data.changedFiles ||
     data.changed_files ||
     data.files_changed;
-  if (!Array.isArray(source)) return [];
+  if (!Array.isArray(source)) return null;
   return source.map(normalizeChangedFileEntry).filter(Boolean);
 }
 
@@ -311,7 +310,8 @@ export function summarizeChangedFiles(items = [], options = {}) {
   const fileMap = new Map();
   const toolCatalog = options?.toolCatalog || {};
   for (const item of items || []) {
-    for (const file of explicitChangedFiles(item)) {
+    const declaredFiles = explicitChangedFiles(item);
+    for (const file of declaredFiles || []) {
       mergeFileStats(fileMap, { ...file, sourceId: item?.id || item?.call_id || "" });
     }
     const toolName = stringValue(item?.toolName || item?.tool_name);
@@ -324,12 +324,15 @@ export function summarizeChangedFiles(items = [], options = {}) {
       }
       continue;
     }
+    if (declaredFiles !== null) continue;
     const path = changedPathFromItem(item, toolPresentation);
-    if (path) {
+    const additions = numberValue(item?.data?.additions);
+    const deletions = numberValue(item?.data?.deletions);
+    if (path && (additions || deletions)) {
       mergeFileStats(fileMap, {
         path,
-        additions: numberValue(item?.data?.additions),
-        deletions: numberValue(item?.data?.deletions),
+        additions,
+        deletions,
         sourceId: item?.id || item?.call_id || "",
       });
     }
@@ -1053,27 +1056,14 @@ function turnExperienceSummaryRow(turnExperience) {
   };
 }
 
-function interactionRow(item, fallback = {}) {
-  return {
-    id: stringValue(item?.id || item?.interactionId || fallback.id || "interaction"),
-    kind: T3_ROW_KINDS.INTERACTION,
-    turnId: stringValue(item?.turnId || item?.turn_id || fallback.turnId),
-    createdAt: timestampValue(item?.createdAt, item?.created_at, fallback.createdAt),
-    interactionId: stringValue(item?.interactionId || item?.interaction_id || item?.id),
-    interactionKind: stringValue(item?.interactionKind || item?.kind || fallback.kind),
-    status: item?.kind === "interaction_resolved" || item?.resolved ? "resolved" : "pending",
-    label: stringValue(item?.label || fallback.label || "interaction"),
-    detail: stringValue(item?.detail || fallback.detail),
-    rawItem: item || {},
-  };
-}
-
 function activityRowForItem(item, context = {}) {
   if (!item) return null;
   if (item.kind === "tool") return normalizeWorkEntry(item, context);
-  if (item.kind === "interaction_requested" || item.kind === "interaction_resolved") {
-    return interactionRow(item);
-  }
+  if (
+    item.kind === "interaction" ||
+    item.kind === "interaction_requested" ||
+    item.kind === "interaction_resolved"
+  ) return null;
   if (item.kind === "reasoning") return item.streaming ? null : reasoningRow(item);
   if (item.kind === "compact") return contextSummaryRow(item);
   if (item.kind === "command_result" || item.kind === "command_result_fallback") {
@@ -1321,6 +1311,11 @@ export function isTurnFoldedByDefault(group, context = {}) {
 
 function pushLooseItem(push, item, context = {}) {
   if (!item) return;
+  if (
+    item.kind === "interaction" ||
+    item.kind === "interaction_requested" ||
+    item.kind === "interaction_resolved"
+  ) return;
   if (item.kind === "assistant") push(messageRow(item, "assistant"));
   else if (item.kind === "user") push(messageRow(item, "user"));
   else {
@@ -1355,14 +1350,8 @@ export function projectT3TimelineRows({
 } = {}) {
   const rows = [];
   const context = { currentStatus, activeTurnId, toolCatalog };
-  const seenInteractionIds = new Set();
   function pushRow(row) {
     if (!row) return;
-    if (row.kind === T3_ROW_KINDS.INTERACTION) {
-      const key = row.interactionId || row.id || "";
-      if (key && seenInteractionIds.has(key)) return;
-      if (key) seenInteractionIds.add(key);
-    }
     rows.push(row);
   }
   for (const group of turnGroups || []) {
@@ -1421,20 +1410,7 @@ export function projectT3TimelineRows({
     for (const item of group?.sessionFallbackItems || []) pushLooseItem(pushRow, item, context);
   }
 
-  if (currentInteraction) {
-    pushRow(
-      interactionRow(currentInteraction, {
-        id: currentInteraction.interactionId || currentInteraction.interaction_id,
-        kind: currentInteraction.kind,
-        label:
-          currentInteraction.toolName ||
-          currentInteraction.tool_name ||
-          currentInteraction.question ||
-          currentInteraction.kind,
-        detail: currentInteraction.reason || currentInteraction.question || "",
-      }),
-    );
-  } else if (interactionNotice) {
+  if (!currentInteraction && interactionNotice) {
     pushRow({
       id: `interaction-notice-${interactionNotice.interactionId || interactionNotice.kind || "notice"}`,
       kind: T3_ROW_KINDS.SYSTEM_NOTICE,

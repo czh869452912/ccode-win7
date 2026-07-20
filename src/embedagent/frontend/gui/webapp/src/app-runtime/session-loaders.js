@@ -9,6 +9,7 @@ export const LOADER_REQUESTS = Object.freeze({
   LOAD_SESSION: "load_session",
   LOAD_FILE_CHILDREN: "load_file_children",
   LOAD_SESSION_CAPABILITIES: "load_session_capabilities",
+  LOAD_SOURCE_CONTROL_STATUS: "load_source_control_status",
 });
 
 function invoke(callback, ...args) {
@@ -40,6 +41,9 @@ export function createLoaderRequestExecutor(loaders = {}) {
     }
     if (name === LOADER_REQUESTS.LOAD_FILE_CHILDREN) {
       return invoke(loaders.loadFileChildren, request.path || ".");
+    }
+    if (name === LOADER_REQUESTS.LOAD_SOURCE_CONTROL_STATUS) {
+      return invoke(loaders.loadSourceControl);
     }
     if (name === LOADER_REQUESTS.LOAD_SESSION_CAPABILITIES) {
       return invoke(loaders.loadSessionCommandCapabilities);

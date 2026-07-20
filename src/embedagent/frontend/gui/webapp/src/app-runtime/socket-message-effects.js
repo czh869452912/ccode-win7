@@ -5,6 +5,7 @@ import { LOADER_REQUESTS } from "./session-loaders.js";
 
 const WORKSPACE_FILES_INVALIDATION = "workspace_files";
 const CAPABILITIES_INVALIDATION = "capabilities";
+const SOURCE_CONTROL_INVALIDATION = "source_control";
 
 function emptyEffects() {
   return { actions: [], transportEvents: [], loaderRequests: [] };
@@ -327,6 +328,9 @@ export function deriveSocketMessageEffects({
     );
     if (readModelInvalidations(payload).includes(WORKSPACE_FILES_INVALIDATION)) {
       effects.loaderRequests.push({ name: LOADER_REQUESTS.LOAD_FILE_CHILDREN, path: "." });
+    }
+    if (readModelInvalidations(payload).includes(SOURCE_CONTROL_INVALIDATION)) {
+      effects.loaderRequests.push({ name: LOADER_REQUESTS.LOAD_SOURCE_CONTROL_STATUS });
     }
     return effects;
   }

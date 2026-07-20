@@ -169,17 +169,18 @@ export function runSocketMessageEffectsTests() {
     tool_label: "Project Write",
     success: true,
     data: { path: "src/main.c" },
-    read_model_invalidations: ["workspace_files"],
+    read_model_invalidations: ["workspace_files", "source_control"],
     turn_id: "turn-1",
     step_id: "step-1",
     step_index: 1,
   });
   assert.equal(toolFinish.actions[0].type, "tool_finished");
   assert.equal(toolFinish.actions[0].toolName, "project_write");
-  assert.deepEqual(toolFinish.actions[0].readModelInvalidations, ["workspace_files"]);
+  assert.deepEqual(toolFinish.actions[0].readModelInvalidations, ["workspace_files", "source_control"]);
   assert.equal(toolFinish.actions[0].completedAt, "2026-06-18T00:00:00.000Z");
   assert.deepEqual(toolFinish.loaderRequests, [
     { name: LOADER_REQUESTS.LOAD_FILE_CHILDREN, path: "." },
+    { name: LOADER_REQUESTS.LOAD_SOURCE_CONTROL_STATUS },
   ]);
 
   const toolFinishWithoutInvalidation = derive("tool_finish", {

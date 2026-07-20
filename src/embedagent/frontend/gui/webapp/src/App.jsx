@@ -544,6 +544,7 @@ function App() {
     loadSessions,
     loadSession,
     loadFileChildren,
+    loadSourceControl: sourceControlController.refreshStatus,
     loadSessionCommandCapabilities: loadSessionCommandCapabilitiesForApp,
   });
 

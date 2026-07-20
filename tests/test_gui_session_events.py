@@ -44,6 +44,33 @@ class GuiSessionEventTests(unittest.TestCase):
         self.assertEqual(data["payload"]["request_id"], "ask-1")
         self.assertEqual(data["payload"]["interaction_id"], "ask-1")
 
+    def test_nested_user_input_payload_preserves_interaction_fields(self):
+        questions = [
+            {
+                "id": "target",
+                "question": "Choose target?",
+                "options": [{"index": 1, "label": "Win32"}],
+            }
+        ]
+        message = build_session_event(
+            "sess-1",
+            "user_input_required",
+            {
+                "user_input": {
+                    "interaction_id": "ask-nested",
+                    "tool_name": "ask_user",
+                    "questions": questions,
+                },
+                "turn_id": "turn-2",
+            },
+        )
+
+        payload = message["data"]["payload"]
+        self.assertEqual(payload["request_id"], "ask-nested")
+        self.assertEqual(payload["interaction_id"], "ask-nested")
+        self.assertEqual(payload["tool_name"], "ask_user")
+        self.assertEqual(payload["questions"], questions)
+
 
 if __name__ == "__main__":
     unittest.main()

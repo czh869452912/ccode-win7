@@ -1,20 +1,65 @@
 from __future__ import annotations
 
-import logging
+import difflib
 import os
 from typing import Any, Dict, List
 
 from embedagent_core.session import Observation
 from embedagent_core.tool_contracts import ToolDefinition, ToolError, diagnostic_tool_error
 
-from embedagent_host.runtime.services.shadow_git import ShadowGitSnapshot
 from embedagent_host.runtime.strategies.diff_engine import DiffBlock, MultiSearchReplaceDiffEngine
 from embedagent_host.runtime.tools._base import (
     MAX_READ_CHARS,
     ToolContext,
 )
 
-logger = logging.getLogger(__name__)
+_MAX_DIFF_PREVIEW_CHARS = 20000
+
+
+def _file_change_data(relative_path: str, before: str, after: str) -> Dict[str, Any]:
+    display_path = str(relative_path or "").replace("\\", "/")
+    raw_lines = difflib.unified_diff(
+        before.splitlines(keepends=True),
+        after.splitlines(keepends=True),
+        fromfile="a/%s" % display_path,
+        tofile="b/%s" % display_path,
+        lineterm="",
+    )
+    diff_lines = [line.rstrip("\r\n") for line in raw_lines]
+    additions = sum(
+        1 for line in diff_lines if line.startswith("+") and not line.startswith("+++ ")
+    )
+    deletions = sum(
+        1 for line in diff_lines if line.startswith("-") and not line.startswith("--- ")
+    )
+    diff_text = "\n".join(diff_lines)
+    if diff_text:
+        diff_text += "\n"
+    truncated = len(diff_text) > _MAX_DIFF_PREVIEW_CHARS
+    if truncated:
+        preview = diff_text[:_MAX_DIFF_PREVIEW_CHARS]
+        line_boundary = preview.rfind("\n")
+        if line_boundary >= 0:
+            preview = preview[: line_boundary + 1]
+    else:
+        preview = diff_text
+    changed_files = []
+    if diff_text:
+        changed_files.append(
+            {
+                "path": display_path,
+                "additions": additions,
+                "deletions": deletions,
+                "diff": preview,
+            }
+        )
+    return {
+        "additions": additions,
+        "deletions": deletions,
+        "diff_preview": preview,
+        "diff_truncated": truncated,
+        "changed_files": changed_files,
+    }
 
 
 def _read_file_tool_error(error: ToolError) -> ToolError:
@@ -80,30 +125,33 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
         path = ctx.resolve_path(str(arguments["path"]))
         if not os.path.isfile(path):
             raise ToolError("只能修改已存在的文本文件。")
-
-        # Create pre-edit snapshot
-        try:
-            snapshot = ShadowGitSnapshot(ctx.workspace)
-            snapshot.create_snapshot(reason="pre_edit:edit_file")
-        except (ToolError, OSError, ValueError) as exc:
-            logger.warning("Pre-edit snapshot failed: %s", exc)
-
         content, newline_style, encoding = ctx.read_text(path)
         engine = MultiSearchReplaceDiffEngine()
 
-        # Build blocks from arguments
         blocks = []
-        if "blocks" in arguments and arguments["blocks"]:
-            for block_data in arguments["blocks"]:
+        block_values = arguments.get("blocks")
+        if block_values:
+            if not isinstance(block_values, list):
+                raise ToolError("blocks 必须是替换块列表。")
+            for block_data in block_values:
+                if not isinstance(block_data, dict):
+                    raise ToolError("blocks 中的每一项都必须是对象。")
+                if "old_text" not in block_data or "new_text" not in block_data:
+                    raise ToolError("blocks 中的每一项都必须包含 old_text 和 new_text。")
+                old_text = str(block_data["old_text"])
+                if not old_text:
+                    raise ToolError("blocks 中的 old_text 不能为空。")
                 blocks.append(
                     DiffBlock(
-                        old_text=str(block_data["old_text"]),
+                        old_text=old_text,
                         new_text=str(block_data["new_text"]),
                         expected_start_line=block_data.get("expected_start_line"),
                         fuzzy=block_data.get("fuzzy", True),
                     )
                 )
         else:
+            if "old_text" not in arguments or "new_text" not in arguments:
+                raise ToolError("必须提供 old_text/new_text 或非空 blocks。")
             old_text = str(arguments["old_text"])
             new_text = str(arguments["new_text"])
             if not old_text:
@@ -121,17 +169,20 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
         ctx.write_text(path, updated_content, newline_style, encoding)
 
         applied_count = len([r for r in results if r["status"] == "applied"])
+        relative_path = ctx.relative_path(path)
+        data = {
+            "path": relative_path,
+            "encoding": encoding,
+            "replaced": True,
+            "applied_blocks": applied_count,
+            "line_count": updated_content.count("\n") + (1 if updated_content else 0),
+        }
+        data.update(_file_change_data(relative_path, content, updated_content))
         return Observation(
             tool_name="edit_file",
             success=True,
             error=None,
-            data={
-                "path": ctx.relative_path(path),
-                "encoding": encoding,
-                "replaced": True,
-                "applied_blocks": applied_count,
-                "line_count": updated_content.count("\n") + (1 if updated_content else 0),
-            },
+            data=data,
         )
 
     def _write_file(arguments: Dict[str, Any]) -> Observation:
@@ -148,17 +199,20 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
             os.makedirs(parent)
         newline_style = "\n"
         encoding = "utf-8"
+        previous_content = ""
         if existed:
-            _, newline_style, encoding = ctx.read_text(path)
+            previous_content, newline_style, encoding = ctx.read_text(path)
         ctx.write_text(path, content, newline_style, encoding)
+        relative_path = ctx.relative_path(path)
         data = {
-            "path": ctx.relative_path(path),
+            "path": relative_path,
             "created": not existed,
             "overwritten": existed,
             "encoding": encoding,
             "char_count": len(content),
             "line_count": content.count("\n") + (1 if content else 0),
         }
+        data.update(_file_change_data(relative_path, previous_content, content))
         return Observation(tool_name="write_file", success=True, error=None, data=data)
 
     return [

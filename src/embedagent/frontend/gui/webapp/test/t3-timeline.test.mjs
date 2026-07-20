@@ -936,6 +936,50 @@ export function runT3TimelineTests() {
   assert.deepEqual(catalogChanged.files.map((file) => file.path), ["src/catalog-driven.c"]);
   assert.equal(catalogChanged.additions, 1);
 
+  const catalogWithoutStats = summarizeChangedFiles(
+    [
+      {
+        id: "catalog-write-no-stats",
+        kind: "tool",
+        toolName: "write_file",
+        status: "success",
+        arguments: { path: "src/no-stats.c" },
+        data: {},
+      },
+    ],
+    {
+      toolCatalog: {
+        write_file: {
+          name: "write_file",
+          metadata: { changed_path_arg: "path" },
+        },
+      },
+    },
+  );
+  assert.deepEqual(catalogWithoutStats.files, []);
+
+  const explicitNoChanges = summarizeChangedFiles(
+    [
+      {
+        id: "catalog-write-no-change",
+        kind: "tool",
+        toolName: "write_file",
+        status: "success",
+        arguments: { path: "src/unchanged.c" },
+        data: { changed_files: [] },
+      },
+    ],
+    {
+      toolCatalog: {
+        write_file: {
+          name: "write_file",
+          metadata: { changed_path_arg: "path" },
+        },
+      },
+    },
+  );
+  assert.deepEqual(explicitNoChanges.files, []);
+
   const undeclaredChanged = summarizeChangedFiles([
     {
       id: "undeclared-write-1",

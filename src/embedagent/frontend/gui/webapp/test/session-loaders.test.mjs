@@ -21,6 +21,7 @@ function createRecordedLoaders() {
       loadActiveWorkspaceData: record("loadActiveWorkspaceData"),
       loadSessions: record("loadSessions"),
       loadSession: record("loadSession"),
+      loadSourceControl: record("loadSourceControl"),
       loadFileChildren: record("loadFileChildren"),
       loadSessionCommandCapabilities: record("loadSessionCommandCapabilities"),
     },
@@ -56,10 +57,14 @@ export async function runSessionLoadersTests() {
   assert.deepEqual(calls.at(-1), { name: "loadSession", args: ["sess-2"] });
 
   await execute({ name: LOADER_REQUESTS.LOAD_FILE_CHILDREN });
+
   assert.deepEqual(calls.at(-1), { name: "loadFileChildren", args: ["."] });
 
   await execute({ name: LOADER_REQUESTS.LOAD_FILE_CHILDREN, path: "src" });
   assert.deepEqual(calls.at(-1), { name: "loadFileChildren", args: ["src"] });
+  await execute({ name: LOADER_REQUESTS.LOAD_SOURCE_CONTROL_STATUS });
+  assert.deepEqual(calls.at(-1), { name: "loadSourceControl", args: [] });
+
 
   await execute({ name: LOADER_REQUESTS.LOAD_SESSION_CAPABILITIES });
   assert.deepEqual(calls.at(-1), { name: "loadSessionCommandCapabilities", args: [] });
