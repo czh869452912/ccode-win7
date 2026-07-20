@@ -258,6 +258,15 @@ function App() {
     respondingRequestIdsHandle.sync(respondingRequestIds);
   }, [respondingRequestIds, respondingRequestIdsHandle]);
 
+  useEffect(() => {
+    const activeInteractionId = String(
+      runtimeState.currentInteraction?.interactionId || "",
+    );
+    respondingRequestIdsHandle.set((existing) =>
+      existing.filter((requestId) => requestId === activeInteractionId),
+    );
+  }, [runtimeState.currentInteraction?.interactionId, respondingRequestIdsHandle]);
+
   // initial app/workspace data load
   useEffect(() => {
     createInitialAppLoadController({
@@ -548,6 +557,7 @@ function App() {
         updateSessionTransportState: sessionTransportHandle.update,
         getCurrentSessionId: () => currentSessionIdRef.current,
         loadSession,
+        clearRespondingRequestId: respondingRequestIdsHandle.clear,
         getDiffPanelChrome: () => readCurrentAppCapabilityModel(stateRef).diffPanelChrome,
         scheduleMessage: startTransition,
       }),

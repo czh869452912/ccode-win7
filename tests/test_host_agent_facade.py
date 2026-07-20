@@ -14,6 +14,17 @@ from embedagent_host.runtime.tools import ToolRuntime
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _wait_for_session_settled(adapter, session_id, timeout=5.0):
+    deadline = time.time() + timeout
+    snapshot = adapter.get_session_snapshot(session_id)
+    while time.time() < deadline:
+        snapshot = adapter.get_session_snapshot(session_id)
+        if snapshot.get("status") != "running":
+            return snapshot
+        time.sleep(0.02)
+    return snapshot
+
+
 class DoneClient(ModelClient):
     def generate(self, messages, tools=None):
         del messages, tools
@@ -198,6 +209,7 @@ def test_pending_host_interaction_submits_interaction_reply(tmp_path):
 
     state.agent_session.submit = recording_submit
     adapter.respond_to_interaction(session_id, interaction_id, {"decision": "accept"})
+    _wait_for_session_settled(adapter, session_id)
 
     assert snapshot.get("status") == "waiting_permission"
     assert len(captured) == 1
@@ -330,6 +342,7 @@ def test_interaction_resume_rebuilds_host_extension_projection(tmp_path):
     interaction_id = (snapshot.get("pending_interaction") or {}).get("interaction_id")
 
     adapter.respond_to_interaction(session_id, interaction_id, {"decision": "accept"})
+    _wait_for_session_settled(adapter, session_id)
     after = dict(state.session.workflow_state.get("extensions") or {})
 
     assert after["project_extensions"] == before["project_extensions"]

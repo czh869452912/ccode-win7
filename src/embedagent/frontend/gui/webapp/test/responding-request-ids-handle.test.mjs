@@ -22,4 +22,6 @@ export function runRespondingRequestIdsHandleTests() {
 
   assert.deepEqual(handle.sync(["req-4", 0, ""]), ["req-4"]);
   assert.deepEqual(handle.read(), ["req-4"]);
+  assert.deepEqual(handle.clear("req-4"), []);
+  assert.deepEqual(handle.clear("missing"), []);
 }

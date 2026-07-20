@@ -22,6 +22,7 @@ export function createSocketMessageController({
   updateSessionTransportState,
   getCurrentSessionId,
   loadSession,
+  clearRespondingRequestId,
   getDiffPanelChrome,
   makeId,
   nowIso,
@@ -50,6 +51,7 @@ export function createSocketMessageController({
           updateSessionTransportState,
           getCurrentSessionId,
           loadSession,
+          clearRespondingRequestId,
         });
 
   function handleMessage(messageOrType, data) {

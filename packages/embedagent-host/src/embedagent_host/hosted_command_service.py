@@ -896,6 +896,7 @@ class HostedCommandService(object):
                 approved = bool(response.get("approved"))
                 state.pending_event = None
                 state.pending_response = None
+                state.pending_resolution_claim_id = ""
                 state.status = "running"
             resumed = state.agent_session._host_resume_command_interaction(
                 session=state.session,

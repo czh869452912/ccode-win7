@@ -8,6 +8,7 @@ export async function runSocketEffectExecutorTests() {
   const loaderRequests = [];
   const appendedEvents = [];
   const recovered = [];
+  const clearedRequestIds = [];
   const controller = {
     appendEvent(event) {
       appendedEvents.push(event);
@@ -23,6 +24,7 @@ export async function runSocketEffectExecutorTests() {
     executeLoaderRequest: (request) => loaderRequests.push(request),
     getSessionTransportController: () => controller,
     getCurrentSessionId: () => "sess-active",
+    clearRespondingRequestId: (requestId) => clearedRequestIds.push(requestId),
   });
 
   execute({
@@ -34,7 +36,10 @@ export async function runSocketEffectExecutorTests() {
         payload: { turn_id: "turn-1" },
       },
     ],
-    actions: [{ type: "session_snapshot", snapshot: { session_id: "sess-active" } }],
+    actions: [
+      { type: "interaction_resolved", requestId: "ask-1" },
+      { type: "session_snapshot", snapshot: { session_id: "sess-active" } },
+    ],
     loaderRequests: [{ name: "load_sessions" }],
   });
 
@@ -42,7 +47,11 @@ export async function runSocketEffectExecutorTests() {
   assert.equal(recovered.length, 1);
   assert.equal(recovered[0].sessionId, "sess-active");
   assert.equal(recovered[0].transportState.reloadState, "reload_required");
-  assert.deepEqual(actions, [{ type: "session_snapshot", snapshot: { session_id: "sess-active" } }]);
+  assert.deepEqual(clearedRequestIds, ["ask-1"]);
+  assert.deepEqual(actions, [
+    { type: "interaction_resolved", requestId: "ask-1" },
+    { type: "session_snapshot", snapshot: { session_id: "sess-active" } },
+  ]);
   assert.deepEqual(loaderRequests, [{ name: "load_sessions" }]);
 
   let transport = createSessionTransportState();

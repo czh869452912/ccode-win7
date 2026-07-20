@@ -193,7 +193,12 @@ class HostedPendingInteraction:
 
 
 class HostedInteractionService(object):
-    """Hosted GUI/TUI interaction glue around the core resume pipeline."""
+    """Hosted GUI/TUI interaction glue around the core resume pipeline.
+
+    Pending-interaction resume runs on a managed worker thread registered as
+    ``state.active_thread`` so callers (HTTP handlers, the TUI input loop)
+    return immediately; live progress keeps flowing through session events.
+    """
 
     def __init__(
         self,
@@ -202,12 +207,61 @@ class HostedInteractionService(object):
         get_session_snapshot: Callable[[str], Dict[str, Any]],
         notify_status: Callable[[Optional[EventHandler], ManagedSession], None],
         default_event_handler: Callable[[], Optional[EventHandler]],
+        emit_event: Optional[
+            Callable[[Optional[EventHandler], str, str, Dict[str, Any]], None]
+        ] = None,
     ) -> None:
         self._require_session = require_session
         self._run_turn = run_turn
         self._get_session_snapshot = get_session_snapshot
         self._notify_status = notify_status
         self._default_event_handler = default_event_handler
+        self._emit_event = emit_event
+
+    def _emit_resolution_event(
+        self, state: ManagedSession, ticket: HostedPendingInteraction
+    ) -> None:
+        if self._emit_event is None:
+            return
+        with state.lock:
+            had_pending_event = state.pending_event is not None
+        event_name = "permission_resolved" if ticket.kind == "permission" else "user_input_resolved"
+        self._emit_event(
+            self._default_event_handler(),
+            event_name,
+            state.session.session_id,
+            {
+                "interaction_id": ticket.interaction_id,
+                "request_id": ticket.interaction_id,
+                "turn_id": ticket.turn_id,
+                "status": "accepted",
+                "pending_event": had_pending_event,
+            },
+        )
+
+    def _emit_resume_lifecycle_event(
+        self,
+        state: ManagedSession,
+        ticket: HostedPendingInteraction,
+        phase: str,
+        lease_wait_ms: int = 0,
+        error_kind: str = "",
+    ) -> None:
+        if self._emit_event is None:
+            return
+        self._emit_event(
+            self._default_event_handler(),
+            "interaction_resume_%s" % phase,
+            state.session.session_id,
+            {
+                "interaction_id": ticket.interaction_id,
+                "turn_id": ticket.turn_id,
+                "kind": ticket.kind,
+                "phase": phase,
+                "lease_wait_ms": max(int(lease_wait_ms), 0),
+                "error_kind": str(error_kind or ""),
+            },
+        )
 
     def create_permission_ticket(
         self,
@@ -236,6 +290,7 @@ class HostedInteractionService(object):
         )
         with state.lock:
             state.pending_interaction = ticket
+            state.pending_resolution_claim_id = ""
             state.pending_response = None
             state.updated_at = _utc_now()
         return ticket
@@ -262,6 +317,7 @@ class HostedInteractionService(object):
         )
         with state.lock:
             state.pending_interaction = ticket
+            state.pending_resolution_claim_id = ""
             state.pending_response = None
             state.updated_at = _utc_now()
         return ticket
@@ -269,6 +325,7 @@ class HostedInteractionService(object):
     def clear_pending_interaction(self, state: ManagedSession) -> None:
         with state.lock:
             state.pending_interaction = None
+            state.pending_resolution_claim_id = ""
             state.pending_event = None
             state.pending_response = None
             if state.status != "error":
@@ -305,10 +362,31 @@ class HostedInteractionService(object):
         )
         with state.lock:
             state.pending_interaction = ticket
+            state.pending_resolution_claim_id = ""
             state.pending_response = None
             state.pending_event = None
             state.updated_at = _utc_now()
         return True
+
+    def _claim_pending_interaction(
+        self,
+        state: ManagedSession,
+        ticket: HostedPendingInteraction,
+    ) -> Optional[threading.Event]:
+        with state.lock:
+            if state.pending_resolution_claim_id:
+                raise ValueError("interaction_conflict")
+            pending = state.pending_interaction
+            if pending is None:
+                raise ValueError("interaction_expired")
+            if pending.interaction_id != ticket.interaction_id:
+                raise ValueError("interaction_conflict")
+            state.pending_resolution_claim_id = ticket.interaction_id
+            event = state.pending_event
+            state.pending_interaction = None
+            state.status = "running"
+            state.updated_at = _utc_now()
+            return event
 
     def respond_to_interaction(
         self,
@@ -377,6 +455,127 @@ class HostedInteractionService(object):
             active.join(min(0.05, max(0.01, deadline - time.time())))
         raise RuntimeError("interaction submit is still active")
 
+    def _accepted_response(
+        self, state: ManagedSession, ticket: HostedPendingInteraction
+    ) -> Dict[str, Any]:
+        return {
+            "session_id": state.session.session_id,
+            "interaction_id": ticket.interaction_id,
+            "status": "accepted",
+            "snapshot": None,
+        }
+
+    def _run_resume_coordinator(
+        self,
+        state: ManagedSession,
+        ticket: HostedPendingInteraction,
+        interaction_resolution: Dict[str, Any],
+    ) -> None:
+        wait_started = time.perf_counter()
+        try:
+            self._wait_for_active_submit_release(state)
+            lease_wait_ms = int((time.perf_counter() - wait_started) * 1000)
+            with state.lock:
+                if state.pending_resolution_claim_id != ticket.interaction_id:
+                    return
+                active = state.active_thread
+                if (
+                    active is not None
+                    and active is not threading.current_thread()
+                    and active.is_alive()
+                ):
+                    raise RuntimeError("interaction submit is still active")
+                state.active_thread = threading.current_thread()
+                state.active_thread_is_worker = True
+                state.status = "running"
+                state.updated_at = _utc_now()
+            self._emit_resume_lifecycle_event(
+                state,
+                ticket,
+                "started",
+                lease_wait_ms=lease_wait_ms,
+            )
+            self._run_turn(
+                state=state,
+                text="",
+                stream=True,
+                permission_resolver=None,
+                user_input_resolver=None,
+                event_handler=self._default_event_handler(),
+                interaction_resolution=dict(interaction_resolution or {}),
+                resume_pending=True,
+            )
+            self._emit_resume_lifecycle_event(
+                state,
+                ticket,
+                "finished",
+                lease_wait_ms=lease_wait_ms,
+            )
+        except (OSError, RuntimeError, ValueError, TypeError) as exc:
+            self._emit_resume_lifecycle_event(
+                state,
+                ticket,
+                "failed",
+                lease_wait_ms=int((time.perf_counter() - wait_started) * 1000),
+                error_kind=type(exc).__name__,
+            )
+            with state.lock:
+                if state.active_thread is threading.current_thread():
+                    state.status = "error"
+                    state.last_error = str(exc)
+                    state.active_thread = None
+                    state.active_thread_is_worker = False
+                    state.updated_at = _utc_now()
+            self._notify_status(None, state)
+        finally:
+            with state.lock:
+                if state.resume_thread is threading.current_thread():
+                    state.resume_thread = None
+
+    def _start_resume_worker(
+        self,
+        state: ManagedSession,
+        ticket: HostedPendingInteraction,
+        interaction_resolution: Dict[str, Any],
+    ) -> threading.Thread:
+        worker = threading.Thread(
+            target=self._run_resume_coordinator,
+            kwargs={
+                "state": state,
+                "ticket": ticket,
+                "interaction_resolution": dict(interaction_resolution or {}),
+            },
+            name="embedagent-session-resume-%s" % state.session.session_id[:8],
+        )
+        worker.daemon = True
+        with state.lock:
+            active = state.active_thread
+            state.resume_thread = worker
+            if active is None or not active.is_alive():
+                state.active_thread = worker
+                state.active_thread_is_worker = True
+            state.status = "running"
+            state.updated_at = _utc_now()
+        try:
+            worker.start()
+        except (OSError, RuntimeError):
+            with state.lock:
+                if state.resume_thread is worker:
+                    state.resume_thread = None
+                    if state.active_thread is worker:
+                        state.active_thread = None
+                        state.active_thread_is_worker = False
+                    state.pending_resolution_claim_id = ""
+                    state.pending_interaction = ticket
+                    state.status = (
+                        "waiting_permission"
+                        if ticket.kind == "permission"
+                        else "waiting_user_input"
+                    )
+                    state.updated_at = _utc_now()
+            raise
+        return worker
+
     def _respond_to_permission_decision(
         self,
         state: ManagedSession,
@@ -384,6 +583,7 @@ class HostedInteractionService(object):
         decision: str,
     ) -> Dict[str, Any]:
         approved = decision in ("accept", "acceptForSession")
+        event = self._claim_pending_interaction(state, ticket)
         if decision == "acceptForSession":
             category = str(ticket.payload.get("category") or "").strip()
             if category:
@@ -392,11 +592,6 @@ class HostedInteractionService(object):
                     state.updated_at = _utc_now()
         command_wait = False
         with state.lock:
-            if state.pending_interaction is None:
-                raise ValueError("interaction_expired")
-            if state.pending_interaction.interaction_id != ticket.interaction_id:
-                raise ValueError("interaction_conflict")
-            event = state.pending_event
             if decision == "cancel":
                 state.stop_event.set()
                 state.pending_response = {"cancelled": True, "approved": False}
@@ -406,29 +601,28 @@ class HostedInteractionService(object):
                 event.set()
                 command_wait = True
         if command_wait:
-            snapshot = self.wait_for_command_resolution(state.session.session_id)
+            self._emit_resolution_event(state, ticket)
             self._notify_status(None, state)
-            return snapshot
+            return self._accepted_response(state, ticket)
         if decision == "cancel":
             with state.lock:
                 state.stop_event.set()
-            snapshot = self._get_session_snapshot(state.session.session_id)
+            self._start_resume_worker(
+                state,
+                ticket,
+                interaction_resolution={"approved": False, "cancelled": True},
+            )
+            self._emit_resolution_event(state, ticket)
             self._notify_status(None, state)
-            return snapshot
-        self._wait_for_active_submit_release(state)
-        self._run_turn(
-            state=state,
-            text="",
-            stream=True,
-            permission_resolver=None,
-            user_input_resolver=None,
-            event_handler=self._default_event_handler(),
+            return self._accepted_response(state, ticket)
+        self._start_resume_worker(
+            state,
+            ticket,
             interaction_resolution={"approved": bool(approved)},
-            resume_pending=True,
         )
-        snapshot = self._get_session_snapshot(state.session.session_id)
+        self._emit_resolution_event(state, ticket)
         self._notify_status(None, state)
-        return snapshot
+        return self._accepted_response(state, ticket)
 
     def _respond_to_user_input(
         self,
@@ -436,36 +630,27 @@ class HostedInteractionService(object):
         ticket: HostedPendingInteraction,
         response: UserInputResponse,
     ) -> Dict[str, Any]:
+        event = self._claim_pending_interaction(state, ticket)
         command_wait = False
         with state.lock:
-            if state.pending_interaction is None:
-                raise ValueError("interaction_expired")
-            if state.pending_interaction.interaction_id != ticket.interaction_id:
-                raise ValueError("interaction_conflict")
-            if state.pending_event is not None:
+            if event is not None:
                 state.pending_response = {"user_input": response}
-                state.pending_event.set()
+                event.set()
                 command_wait = True
         if command_wait:
-            snapshot = self.wait_for_command_resolution(state.session.session_id)
+            self._emit_resolution_event(state, ticket)
             self._notify_status(None, state)
-            return snapshot
-        self._wait_for_active_submit_release(state)
-        self._run_turn(
-            state=state,
-            text="",
-            stream=True,
-            permission_resolver=None,
-            user_input_resolver=None,
-            event_handler=self._default_event_handler(),
+            return self._accepted_response(state, ticket)
+        self._start_resume_worker(
+            state,
+            ticket,
             interaction_resolution={
                 "answer": str(response.answer or ""),
                 "selected_index": response.selected_index,
                 "selected_mode": str(response.selected_mode or ""),
                 "selected_option_text": str(response.selected_option_text or ""),
             },
-            resume_pending=True,
         )
-        snapshot = self._get_session_snapshot(state.session.session_id)
+        self._emit_resolution_event(state, ticket)
         self._notify_status(None, state)
-        return snapshot
+        return self._accepted_response(state, ticket)

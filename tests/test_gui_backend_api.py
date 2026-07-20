@@ -74,6 +74,17 @@ class _ModeCaptureCore(_FakeCore):
         }
 
 
+class _AcceptedInteractionCore(_FakeCore):
+    def respond_to_interaction(self, session_id, interaction_id, payload):
+        self.respond_calls.append((session_id, interaction_id, payload))
+        return {
+            "session_id": session_id,
+            "interaction_id": interaction_id,
+            "status": "accepted",
+            "snapshot": None,
+        }
+
+
 class _FakeCoreWithTimeline(_FakeCore):
     def get_session_capabilities(self):
         return {
@@ -459,6 +470,28 @@ class TestGuiBackendApi(unittest.TestCase):
         self.assertEqual(response["status"], "resolved")
         self.assertIsNone(response["snapshot"])
         self.assertEqual(core.respond_calls, [("sess-1", "int-1", {"decision": "accept"})])
+
+    def test_post_interaction_response_preserves_accepted_without_snapshot(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            backend = GUIBackend(_AcceptedInteractionCore(), static_dir=static_dir)
+            route = None
+            for item in backend.app.routes:
+                if getattr(
+                    item, "path", ""
+                ) == "/api/sessions/{session_id}/interactions/{interaction_id}/respond" and "POST" in getattr(
+                    item, "methods", set()
+                ):
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            response = asyncio.run(route.endpoint("sess-1", "int-accepted", {"decision": "accept"}))
+
+        self.assertEqual(response["session_id"], "sess-1")
+        self.assertEqual(response["interaction_id"], "int-accepted")
+        self.assertEqual(response["status"], "accepted")
+        self.assertIsNone(response["snapshot"])
 
     def test_post_interaction_response_routes_frontend_pending_input_through_core(self):
         with tempfile.TemporaryDirectory() as static_dir:

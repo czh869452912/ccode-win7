@@ -65,6 +65,37 @@ export async function runInteractionResponseControllerTests() {
     detail: "yes",
   });
 
+  respondingIds = [];
+  let acceptedReloads = 0;
+  const acceptedDispatches = [];
+  const acceptedController = createInteractionResponseController({
+    fetchJson: async () => ({
+      session_id: "sess-1",
+      interaction_id: "ask-accepted",
+      status: "accepted",
+      snapshot: null,
+    }),
+    dispatch: (action) => acceptedDispatches.push(action),
+    getCurrentSessionId: () => "sess-1",
+    getCurrentInteraction: () => ({ interactionId: "ask-accepted", kind: "user_input" }),
+    getRespondingRequestIds: () => respondingIds,
+    setRespondingRequestIds: (value) => {
+      respondingIds = typeof value === "function" ? value(respondingIds) : value;
+    },
+    loadSession: async () => {
+      acceptedReloads += 1;
+    },
+  });
+
+  const accepted = await acceptedController.respondToInteraction({
+    answers: { answer: "yes" },
+  });
+
+  assert.equal(accepted.status, "accepted");
+  assert.equal(acceptedReloads, 0);
+  assert.equal(acceptedDispatches.some((action) => action.type === "session_snapshot"), false);
+  assert.deepEqual(respondingIds, ["ask-accepted"]);
+
   let loadedSession = "";
   respondingIds = [];
   const expiredController = createInteractionResponseController({

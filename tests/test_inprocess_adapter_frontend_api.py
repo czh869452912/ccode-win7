@@ -42,6 +42,17 @@ def _make_workspace():
     return root
 
 
+def _wait_for_session_settled(adapter, session_id, timeout=5.0):
+    deadline = time.time() + timeout
+    snapshot = adapter.get_session_snapshot(session_id)
+    while time.time() < deadline:
+        snapshot = adapter.get_session_snapshot(session_id)
+        if snapshot.get("status") != "running":
+            return snapshot
+        time.sleep(0.01)
+    return snapshot
+
+
 class FakeClient(object):
     def __init__(self):
         self.calls = 0
@@ -87,6 +98,18 @@ class AskUserClient(object):
         if on_text_delta is not None and reply.content:
             on_text_delta(reply.content)
         return reply
+
+
+class DelayedResumeAskUserClient(AskUserClient):
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        if self.calls >= 1:
+            time.sleep(0.25)
+        return super(DelayedResumeAskUserClient, self).stream(
+            messages,
+            tools=tools,
+            on_text_delta=on_text_delta,
+            on_reasoning_delta=on_reasoning_delta,
+        )
 
 
 class SwitchModeClient(object):
@@ -2429,7 +2452,12 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertTrue(response_done.wait(5.0))
         self.assertFalse(worker.is_alive())
         self.assertEqual(response_errors, [])
-        self.assertEqual(adapter.get_session_snapshot(session_id)["status"], "idle")
+        deadline = time.time() + 5.0
+        final_snapshot = adapter.get_session_snapshot(session_id)
+        while time.time() < deadline and final_snapshot.get("status") != "idle":
+            time.sleep(0.01)
+            final_snapshot = adapter.get_session_snapshot(session_id)
+        self.assertEqual(final_snapshot["status"], "idle")
 
     def test_respond_to_interaction_emits_ask_user_tool_finish_and_completes_pending(self):
         adapter = _product_adapter(
@@ -2465,6 +2493,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             interaction_id,
             {"answers": {"answer": "切到 debug 模式继续排查"}},
         )
+        final_snapshot = _wait_for_session_settled(adapter, session_id)
 
         tool_finished = [
             payload
@@ -2475,10 +2504,66 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(tool_finished[-1].get("call_id"), "call-ask")
         self.assertEqual((tool_finished[-1].get("data") or {}).get("selected_mode"), "debug")
 
-        final_snapshot = adapter.get_session_snapshot(session_id)
         self.assertEqual(final_snapshot["status"], "idle")
         self.assertFalse(final_snapshot["pending_interaction_valid"])
         self.assertEqual(final_snapshot["current_mode"], "debug")
+
+    def test_core_interaction_response_acknowledges_before_delayed_resume(self):
+        events = []
+        adapter = _product_adapter(
+            client=DelayedResumeAskUserClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            event_handler=lambda event_name, current_session_id, payload: events.append(
+                (event_name, current_session_id, dict(payload))
+            ),
+        )
+        snapshot = adapter.create_session("spec")
+        session_id = str(snapshot.get("session_id") or "")
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="请继续",
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        waiting = adapter.get_session_snapshot(session_id)
+        interaction_id = str((waiting.get("pending_interaction") or {}).get("interaction_id") or "")
+
+        started = time.time()
+        response = adapter.respond_to_interaction(
+            session_id,
+            interaction_id,
+            {"answers": {"answer": "切到 debug 模式继续排查"}},
+        )
+        elapsed = time.time() - started
+
+        self.assertEqual(response["status"], "accepted")
+        self.assertLess(elapsed, 0.15)
+        resolved_events = [item for item in events if item[0] == "user_input_resolved"]
+        self.assertEqual(len(resolved_events), 1)
+        self.assertEqual(resolved_events[0][2].get("interaction_id"), interaction_id)
+        self.assertEqual(resolved_events[0][2].get("status"), "accepted")
+        self.assertNotIn("answer", resolved_events[0][2])
+        final_snapshot = _wait_for_session_settled(adapter, session_id)
+        self.assertEqual(final_snapshot["status"], "idle")
+        deadline = time.time() + 1.0
+        while time.time() < deadline and not any(
+            item[0] == "interaction_resume_finished" for item in events
+        ):
+            time.sleep(0.01)
+        lifecycle_events = [
+            item for item in events if item[0].startswith("interaction_resume_")
+        ]
+        self.assertEqual([item[0] for item in lifecycle_events], [
+            "interaction_resume_started",
+            "interaction_resume_finished",
+        ])
+        for _, _, diagnostic in lifecycle_events:
+            self.assertEqual(diagnostic.get("interaction_id"), interaction_id)
+            self.assertGreaterEqual(diagnostic.get("lease_wait_ms", -1), 0)
+            self.assertNotIn("answer", diagnostic)
+            self.assertNotIn("request", diagnostic)
 
     def test_live_user_input_pending_id_matches_session_pending_interaction(self):
         adapter = _product_adapter(
@@ -2616,10 +2701,73 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         )
 
         worker.join(3.0)
-        self.assertEqual(resolved["status"], "idle")
-        self.assertFalse(resolved["pending_interaction_valid"])
-        self.assertIsNone(resolved.get("pending_interaction"))
-        self.assertNotIn("has_pending_permission", resolved)
+        self.assertEqual(resolved["status"], "accepted")
+        self.assertIsNone(resolved.get("snapshot"))
+        final_snapshot = adapter.get_session_snapshot(session_id)
+        self.assertEqual(final_snapshot["status"], "idle")
+        self.assertFalse(final_snapshot["pending_interaction_valid"])
+        self.assertIsNone(final_snapshot.get("pending_interaction"))
+        self.assertNotIn("has_pending_permission", final_snapshot)
+
+    def test_permission_accept_command_path_acknowledges_before_delayed_resume(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
+        with open(
+            os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
+            handle.write(
+                '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
+            )
+        adapter = _product_adapter(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        state = adapter._sessions[session_id]
+        original_resume = state.agent_session._host_resume_command_interaction
+
+        def delayed_resume(*args, **kwargs):
+            time.sleep(0.25)
+            return original_resume(*args, **kwargs)
+
+        state.agent_session._host_resume_command_interaction = delayed_resume
+        worker = threading.Thread(
+            target=adapter.submit_user_message,
+            kwargs={
+                "session_id": session_id,
+                "text": "/run custom.build",
+                "stream": False,
+                "wait": True,
+                "event_handler": lambda event_name, current_session_id, payload: None,
+            },
+        )
+        worker.start()
+        deadline = time.time() + 3.0
+        waiting = adapter.get_session_snapshot(session_id)
+        while time.time() < deadline:
+            waiting = adapter.get_session_snapshot(session_id)
+            if waiting.get("status") == "waiting_permission":
+                break
+            time.sleep(0.05)
+        pending = waiting.get("pending_interaction") or {}
+        self.assertEqual(pending.get("kind"), "permission")
+        interaction_id = str(pending.get("interaction_id") or "")
+
+        started = time.time()
+        accepted = adapter.respond_to_interaction(
+            session_id,
+            interaction_id,
+            {"decision": "accept"},
+        )
+        elapsed = time.time() - started
+
+        self.assertEqual(accepted.get("status"), "accepted")
+        self.assertLess(elapsed, 0.15)
+        worker.join(3.0)
+        self.assertFalse(worker.is_alive())
 
     def test_permission_accept_for_session_remembers_backend_ticket_category(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
@@ -2765,7 +2913,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         final_snapshot = adapter.get_session_snapshot(session_id)
         self.assertFalse(final_snapshot["pending_interaction_valid"])
         self.assertIsNone(final_snapshot.get("pending_interaction"))
-        self.assertIn(resolved["status"], ("idle", "running"))
+        self.assertEqual(resolved["status"], "accepted")
+        self.assertIsNone(resolved.get("snapshot"))
 
     def test_live_permission_pending_id_matches_session_pending_interaction(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
@@ -2846,7 +2995,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             permission_id,
             {"decision": "acceptForSession"},
         )
-        final_snapshot = adapter.get_session_snapshot(session_id)
+        final_snapshot = _wait_for_session_settled(adapter, session_id)
 
         self.assertEqual(final_snapshot["status"], "idle")
         self.assertFalse(final_snapshot["pending_interaction_valid"])

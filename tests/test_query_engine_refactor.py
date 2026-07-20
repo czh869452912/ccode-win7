@@ -55,6 +55,17 @@ def _py_sleep_command(seconds):
     return '"%s" -c "import time; time.sleep(%s)"' % (sys.executable, seconds)
 
 
+def _wait_for_session_settled(adapter, session_id, timeout=5.0):
+    deadline = time.time() + timeout
+    snapshot = adapter.get_session_snapshot(session_id)
+    while time.time() < deadline:
+        snapshot = adapter.get_session_snapshot(session_id)
+        if snapshot.get("status") != "running":
+            return snapshot
+        time.sleep(0.01)
+    return snapshot
+
+
 class AskThenDoneClient(object):
     def __init__(self):
         self.calls = 0
@@ -3923,7 +3934,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             request_id,
             {"answers": {"answer": "切到 debug 模式继续排查"}},
         )
-        final_snapshot = adapter.get_session_snapshot(session_id)
+        final_snapshot = _wait_for_session_settled(adapter, session_id)
         self.assertEqual(final_snapshot["status"], "idle")
         self.assertEqual(final_snapshot["current_mode"], "debug")
 
@@ -3948,7 +3959,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(pending_interaction.get("kind"), "permission")
         permission_id = str(pending_interaction.get("interaction_id") or "")
         adapter.respond_to_interaction(session_id, permission_id, {"decision": "accept"})
-        final_snapshot = adapter.get_session_snapshot(session_id)
+        final_snapshot = _wait_for_session_settled(adapter, session_id)
         self.assertEqual(final_snapshot["status"], "idle")
         self.assertTrue(os.path.isfile(os.path.join(self.workspace, "src", "generated_write.c")))
 

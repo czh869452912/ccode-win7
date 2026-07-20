@@ -15,6 +15,7 @@ export function createSocketEffectExecutor({
   updateSessionTransportState,
   getCurrentSessionId,
   loadSession,
+  clearRespondingRequestId,
 } = {}) {
   const send = typeof dispatch === "function" ? dispatch : () => {};
   const executeLoader =
@@ -65,6 +66,12 @@ export function createSocketEffectExecutor({
     }
 
     for (const action of effects.actions || []) {
+      if (
+        action?.type === "interaction_resolved" &&
+        typeof clearRespondingRequestId === "function"
+      ) {
+        clearRespondingRequestId(action.requestId);
+      }
       send(action);
     }
 

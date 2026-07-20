@@ -26,5 +26,11 @@ export function createRespondingRequestIdsHandle({
     return currentRequestIds;
   }
 
-  return { read, set, sync };
+  function clear(requestId) {
+    const target = String(requestId || "");
+    if (!target || !currentRequestIds.includes(target)) return currentRequestIds;
+    return set(currentRequestIds.filter((item) => item !== target));
+  }
+
+  return { read, set, sync, clear };
 }

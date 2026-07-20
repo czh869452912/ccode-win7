@@ -340,6 +340,7 @@ class InProcessAdapter(object):
             get_session_snapshot=lambda session_id: self.get_session_snapshot(session_id),
             notify_status=self._notify_status,
             default_event_handler=lambda: self.event_handler,
+            emit_event=self._emit,
         )
         self.command_service = HostedCommandService(
             tools=self.tools,
@@ -1398,6 +1399,7 @@ class InProcessAdapter(object):
             state.last_error = None
             state.updated_at = _utc_now()
             state.pending_interaction = None
+            state.pending_resolution_claim_id = ""
             state.pending_event = None
             state.pending_response = None
             state.restore_stop_reason = ""
@@ -1648,6 +1650,7 @@ class InProcessAdapter(object):
                 state.last_error = str(exc)
                 state.active_thread = None
                 state.active_thread_is_worker = False
+                state.pending_resolution_claim_id = ""
                 state.updated_at = _utc_now()
             self._emit_with_snapshot(
                 event_handler,
@@ -1685,6 +1688,7 @@ class InProcessAdapter(object):
             state.status = "idle"
             state.active_thread = None
             state.active_thread_is_worker = False
+            state.pending_resolution_claim_id = ""
             state.updated_at = _utc_now()
         self._emit(
             event_handler,

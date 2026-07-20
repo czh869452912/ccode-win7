@@ -70,6 +70,7 @@ export function createInteractionResponseController({
 
     markResponding(interactionId);
     send({ type: "interaction_notice_clear" });
+    let keepResponding = false;
     try {
       const response = await fetchPayload(
         `/api/sessions/${encodeURIComponent(sessionId)}/interactions/${encodeURIComponent(interactionId)}/respond`,
@@ -79,7 +80,11 @@ export function createInteractionResponseController({
           body: JSON.stringify(payload || {}),
         },
       );
-      if (response?.snapshot) {
+      if (response?.status === "accepted") {
+        // Backend events and the next session snapshot are authoritative while the
+        // claimed interaction resumes; never apply an acknowledgement as state.
+        keepResponding = true;
+      } else if (response?.snapshot) {
         send({
           type: "session_snapshot",
           snapshot: normalize(response.snapshot),
@@ -112,7 +117,7 @@ export function createInteractionResponseController({
       }
       throw error;
     } finally {
-      clearResponding(interactionId);
+      if (!keepResponding) clearResponding(interactionId);
     }
   }
 
