@@ -4,7 +4,7 @@ import threading
 import uuid
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, Protocol, Tuple, Union
+from typing import Any, Dict, Optional, Protocol, Tuple, Union
 
 from embedagent_core.extensions import ExtensionManager
 from embedagent_core.model import ModelClient
@@ -17,7 +17,7 @@ from embedagent_core.policies import (
     NeutralModeRuntimePolicy,
     WritePathPolicy,
 )
-from embedagent_core.ports import ContextAssemblerPort
+from embedagent_core.ports import ContextAssemblerPort, SessionRestorePolicyPort
 from embedagent_core.session import PendingInteraction
 from embedagent_core.session_log import SessionLogPort, normalize_session_id
 from embedagent_core.tool_contracts import ToolRuntimePort
@@ -46,6 +46,7 @@ class UserTurn:
     text: str
     mode: str = ""
     stream: bool = True
+    workflow_state: str = ""
 
     def __post_init__(self) -> None:
         if not isinstance(self.text, str):
@@ -59,6 +60,7 @@ class InteractionReply:
     interaction_id: str
     value: Dict[str, Any]
     stream: bool = True
+    workflow_state: str = ""
 
     def __post_init__(self) -> None:
         if not isinstance(self.interaction_id, str):
@@ -75,7 +77,6 @@ AgentInput = Union[UserTurn, InteractionReply]
 
 @dataclass(frozen=True)
 class AgentRuntimeServices:
-    max_turns: Optional[int] = None
     summary_store: Any = None
     project_memory_store: Any = None
     memory_maintenance: Any = None
@@ -83,9 +84,6 @@ class AgentRuntimeServices:
     intelligence_broker: Any = None
     tool_commit: Any = None
     workspace_profile: Any = None
-    remembered_permission_categories_provider: Optional[Callable[[Any], list]] = None
-    workflow_state_provider: Optional[Callable[[str], str]] = None
-    best_effort_history_count_provider: Optional[Callable[[str], int]] = None
 
 
 @dataclass(frozen=True)
@@ -95,6 +93,7 @@ class AgentPorts:
     session_log: SessionLogPort
     context: ContextAssemblerPort
     permissions: PermissionPolicy
+    restore_policy: Optional[SessionRestorePolicyPort] = None
     runtime_services: Optional[AgentRuntimeServices] = None
     extension_manager: Optional[ExtensionManager] = None
 
@@ -104,6 +103,7 @@ class RuntimeDefinition:
     agent_id: str = "embedagent.base"
     default_mode: str = ""
     workflow_state: str = ""
+    max_turns: Optional[int] = None
     extensions: Tuple[Any, ...] = field(default_factory=tuple)
     mode_tool_policy: ModeToolPolicy = field(default_factory=EmptyModeToolPolicy)
     write_path_policy: WritePathPolicy = field(default_factory=DenyWritePathPolicy)

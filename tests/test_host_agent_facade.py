@@ -10,6 +10,7 @@ from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.runner import SessionRecoveryRequired
 from embedagent_core.session import Action, AssistantReply
 from embedagent_host.inprocess_adapter import InProcessAdapter
+from embedagent_host.runtime.session_restore_policy import ManagedSessionRestorePolicy
 from embedagent_host.runtime.tools import ToolRuntime
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -138,6 +139,17 @@ def test_created_and_resumed_sessions_hold_agent_session_handles(tmp_path):
 
     assert isinstance(resumed_state.hosted_session, HostedSessionController)
     assert resumed_state.hosted_session.session_id == created["session_id"]
+
+
+def test_host_binds_focused_restore_and_permission_memory_owners(tmp_path):
+    adapter = _adapter(tmp_path)
+    session_id = adapter.create_session("build")["session_id"]
+    state = adapter._require_session(session_id)
+    state.remembered_permission_categories.add("workspace_write")
+
+    assert isinstance(adapter.restore_policy, ManagedSessionRestorePolicy)
+    assert adapter.agent._runtime.ports.restore_policy is adapter.restore_policy
+    assert adapter.permission_policy.remembered_categories_for(state.session) == ["workspace_write"]
 
 
 def test_all_host_session_handles_share_one_runtime_and_extension_manager(tmp_path):

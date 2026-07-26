@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 import concurrent.futures
+import dataclasses
 import json
 import threading
 import time
@@ -125,6 +126,39 @@ class ContextReducerRegistrarExtension(object):
         time.sleep(0.02)
         if call_number > 1:
             raise RuntimeError("context reducers registered more than once")
+
+
+class RecordingContext(NoopContextAssembler):
+    def __init__(self):
+        self.workflow_states = []
+
+    def build_messages(
+        self,
+        session,
+        mode_name,
+        tools=None,
+        workflow_state="",
+        intelligence_broker=None,
+        force_compact=False,
+    ):
+        self.workflow_states.append(workflow_state)
+        return super(RecordingContext, self).build_messages(
+            session,
+            mode_name,
+            tools=tools,
+            workflow_state=workflow_state,
+            intelligence_broker=intelligence_broker,
+            force_compact=force_compact,
+        )
+
+
+class RecordingRestorePolicy(object):
+    def __init__(self):
+        self.session_ids = []
+
+    def trusted_event_count(self, session_id):
+        self.session_ids.append(session_id)
+        return 0
 
 
 class BuildCountingAgentRuntime(AgentRuntime):
@@ -559,6 +593,39 @@ def test_runtime_definition_uses_neutral_defaults():
     assert definition.default_mode == ""
     assert definition.workflow_state == ""
     assert definition.extensions == ()
+
+
+def test_user_turn_carries_explicit_workflow_state(base_ports):
+    from embedagent_core import Agent
+
+    context = RecordingContext()
+    ports = dataclasses.replace(base_ports, context=context)
+    Agent.create(ports).open("session-workflow").submit(
+        UserTurn("hello", workflow_state="custom", stream=False)
+    )
+
+    assert context.workflow_states == ["custom"]
+
+
+def test_runtime_definition_owns_optional_turn_fuse():
+    definition = RuntimeDefinition(max_turns=3)
+
+    assert definition.max_turns == 3
+
+
+def test_agent_uses_focused_restore_policy(base_ports):
+    run_agent(
+        AgentRuntime(base_ports, RuntimeDefinition()),
+        AgentRequest("restore-policy-session", UserTurn("first", stream=False)),
+    )
+    policy = RecordingRestorePolicy()
+    ports = dataclasses.replace(base_ports, restore_policy=policy)
+    run_agent(
+        AgentRuntime(ports, RuntimeDefinition()),
+        AgentRequest("restore-policy-session", UserTurn("second", stream=False)),
+    )
+
+    assert policy.session_ids == ["restore-policy-session"]
 
 
 def test_runtime_definition_policy_defaults_are_isolated():

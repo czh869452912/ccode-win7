@@ -18,6 +18,7 @@ from embedagent_core.api import (
     UserTurn,
 )
 from embedagent_core.extensions import ExtensionManager
+from embedagent_core.ports import StrictSessionRestorePolicy
 from embedagent_core.query_engine import QueryEngine
 from embedagent_core.session import (
     Action,
@@ -67,7 +68,7 @@ class AgentRuntime(object):
         return QueryEngine(
             client=self.ports.model,
             tools=self.ports.tools,
-            max_turns=services.max_turns,
+            max_turns=self.definition.max_turns,
             permission_policy=self.ports.permissions,
             context_manager=self.ports.context,
             summary_store=services.summary_store,
@@ -77,25 +78,12 @@ class AgentRuntime(object):
             intelligence_broker=services.intelligence_broker,
             transcript_store=self.ports.session_log,
             extension_manager=self.extension_manager,
-            remembered_permission_categories_provider=(
-                services.remembered_permission_categories_provider
-            ),
             mode_tool_policy=self.definition.mode_tool_policy,
             write_path_policy=self.definition.write_path_policy,
             mode_runtime_policy=self.definition.mode_runtime_policy,
             tool_commit=services.tool_commit,
             workspace_profile=services.workspace_profile,
         )
-
-    def workflow_state(self, session_id: str) -> str:
-        provider = self._services().workflow_state_provider
-        if callable(provider):
-            return str(provider(session_id) or self.definition.workflow_state or "")
-        return str(self.definition.workflow_state or "")
-
-    def best_effort_history_count(self, session_id: str) -> int:
-        provider = self._services().best_effort_history_count_provider
-        return max(0, int(provider(session_id) or 0)) if callable(provider) else 0
 
     @contextmanager
     def _host_lease(self, session_id: str) -> Iterator[None]:
@@ -306,7 +294,10 @@ def run_agent(
     with session_log.acquire_lease(session_id):
         if session_log.transcript_exists(session_id):
             events = session_log.load_events(session_id)
-            best_effort_history_count = runtime.best_effort_history_count(session_id)
+            restore_policy = runtime.ports.restore_policy or StrictSessionRestorePolicy()
+            best_effort_history_count = max(
+                0, int(restore_policy.trusted_event_count(session_id) or 0)
+            )
             restored = SessionRestorer().restore(
                 events,
                 best_effort=best_effort_history_count > 0,
@@ -321,8 +312,10 @@ def run_agent(
             current_mode = runtime.definition.default_mode
 
         engine = runtime.build_engine()
-        workflow_state = runtime.workflow_state(session_id)
         input_value = request.input
+        workflow_state = str(
+            getattr(input_value, "workflow_state", "") or runtime.definition.workflow_state or ""
+        )
         if isinstance(input_value, UserTurn):
             initial_mode = input_value.mode or current_mode
             result = engine.submit_user_turn(

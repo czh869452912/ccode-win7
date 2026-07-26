@@ -8,7 +8,7 @@ from embedagent_core.permissions import (
     OFFICIAL_PERMISSION_CATEGORIES,
     PermissionPolicy,
 )
-from embedagent_core.session import Action
+from embedagent_core.session import Action, Session
 from embedagent_host.runtime.tools import ToolRuntime
 
 
@@ -119,6 +119,17 @@ class TestPermissionPolicy(unittest.TestCase):
         self.assertEqual(decision.outcome, "allow")
         self.assertEqual(decision.details.get("category"), "workspace_write")
         self.assertEqual(decision.details.get("remembered_category"), "workspace_write")
+
+    def test_policy_owns_remembered_category_lookup(self):
+        policy = PermissionPolicy(auto_approve_all=False, workspace="D:\\workspace")
+        session = Session()
+        policy.set_remembered_categories_provider(
+            lambda selected: ["workspace_write", "workspace_write"] if selected is session else []
+        )
+
+        remembered = policy.remembered_categories_for(session)
+
+        self.assertEqual(remembered, ["workspace_write"])
 
     def test_invalid_metadata_category_falls_back_to_other(self):
         policy = PermissionPolicy(

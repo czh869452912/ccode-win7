@@ -103,7 +103,6 @@ class QueryEngine(object):
         tracer: Optional[ExecutionTracer] = None,
         extension_manager: Optional[ExtensionManager] = None,
         runtime_config_provider: Optional[Callable[[Session], Dict[str, Any]]] = None,
-        remembered_permission_categories_provider: Optional[Callable[[Session], list]] = None,
         mode_tool_policy: Optional[ModeToolPolicy] = None,
         write_path_policy: Optional[WritePathPolicy] = None,
         mode_runtime_policy: Optional[ModeRuntimePolicy] = None,
@@ -125,7 +124,6 @@ class QueryEngine(object):
         self.transcript_store = transcript_store or InMemorySessionLog()
         self.tracer = tracer
         self._runtime_config_provider = runtime_config_provider
-        self._remembered_permission_categories_provider = remembered_permission_categories_provider
         self._mode_tool_policy = mode_tool_policy or EmptyModeToolPolicy()
         self._write_path_policy = write_path_policy or DenyWritePathPolicy()
         self._mode_runtime_policy = mode_runtime_policy or NeutralModeRuntimePolicy()
@@ -157,7 +155,6 @@ class QueryEngine(object):
             user_input_pending_handler=self._build_user_input_pending_result,
             user_input_response_handler=self._build_user_input_observation,
             lifecycle=self.lifecycle,
-            remembered_categories_provider=self._remembered_permission_categories,
         )
         self._llm_wrapper = LLMClientRetryWrapper(
             client=client,
@@ -229,12 +226,6 @@ class QueryEngine(object):
 
     def last_turn_snapshot(self) -> Optional[TurnSnapshot]:
         return self._last_turn_snapshot
-
-    def _remembered_permission_categories(self, session: Session) -> list:
-        provider = self._remembered_permission_categories_provider
-        if provider is None:
-            return []
-        return list(provider(session) or [])
 
     def _session_guard(self):
         return self._session_lock

@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from embedagent_core.session import Action
+from embedagent_core.session import Action, Session
 
 
 @dataclass
@@ -95,17 +95,28 @@ class PermissionPolicy(object):
         workspace: str = "",
         rules_path: str = "",
         category_lookup: Optional[Callable[[str], str]] = None,
+        remembered_categories_provider: Optional[Callable[[Session], List[str]]] = None,
     ) -> None:
         self.auto_approve_all = auto_approve_all
         self.auto_approve_writes = auto_approve_writes
         self.auto_approve_commands = auto_approve_commands
         self.workspace = os.path.realpath(workspace) if workspace else ""
         self._category_lookup = category_lookup
+        self._remembered_categories_provider = remembered_categories_provider
         self.rules_path = self._resolve_rules_path(rules_path)
         self.rules = self._load_rules(self.rules_path)
 
     def set_category_lookup(self, category_lookup: Optional[Callable[[str], str]]) -> None:
         self._category_lookup = category_lookup
+
+    def set_remembered_categories_provider(self, provider: Any) -> None:
+        self._remembered_categories_provider = provider
+
+    def remembered_categories_for(self, session: Session) -> List[str]:
+        provider = self._remembered_categories_provider
+        if not callable(provider):
+            return []
+        return sorted(set(str(item) for item in (provider(session) or []) if str(item)))
 
     def evaluate(
         self,

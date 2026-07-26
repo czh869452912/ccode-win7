@@ -20,6 +20,17 @@ class ContextAssemblerPort(Protocol):
         raise NotImplementedError
 
 
+class SessionRestorePolicyPort(Protocol):
+    def trusted_event_count(self, session_id: str) -> int:
+        raise NotImplementedError
+
+
+class StrictSessionRestorePolicy(object):
+    def trusted_event_count(self, session_id: str) -> int:
+        del session_id
+        return 0
+
+
 class SessionSummaryStorePort(Protocol):
     def persist(
         self,

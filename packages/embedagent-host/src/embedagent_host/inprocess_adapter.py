@@ -4,6 +4,7 @@ import copy
 import os
 import threading
 import uuid
+from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
@@ -54,6 +55,7 @@ from embedagent_host.runtime.session_bootstrap_service import SessionBootstrapSe
 from embedagent_core.session_operation_log import operation_diagnostics
 from embedagent_host.runtime.session_projector import SessionSnapshotProjector
 from embedagent_core.session_restore import SessionRestorer
+from embedagent_host.runtime.session_restore_policy import ManagedSessionRestorePolicy
 from embedagent_host.runtime.session_runtime import ManagedSession
 from embedagent_host.runtime.session_store import SessionSummaryStore
 from embedagent_host.runtime.services import (
@@ -286,6 +288,10 @@ class InProcessAdapter(object):
                 write_path_policy=AgentProfileWritePathPolicy(self._agent_profile),
                 mode_runtime_policy=AgentProfileRuntimePolicy(self._agent_profile),
             )
+        if max_turns is not None:
+            self.runtime_definition = replace(self.runtime_definition, max_turns=max_turns)
+        self.max_turns = self.runtime_definition.max_turns
+
         self._mode_tool_policy = self.runtime_definition.mode_tool_policy
         self._write_path_policy = self.runtime_definition.write_path_policy
         self._mode_runtime_policy = self.runtime_definition.mode_runtime_policy
@@ -297,6 +303,10 @@ class InProcessAdapter(object):
             category_setter(self._tool_permission_category)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
+        self.restore_policy = ManagedSessionRestorePolicy(self._require_session)
+        remembered_setter = self.permission_policy.set_remembered_categories_provider
+        remembered_setter(self._remembered_categories_for_session)
+
         self.agent = self._build_agent()
         self._event_emitter = EventEmitter()
         self._workspace_files = WorkspaceFileService(
@@ -432,7 +442,6 @@ class InProcessAdapter(object):
 
     def _build_agent(self) -> Agent:
         runtime_services = AgentRuntimeServices(
-            max_turns=self.max_turns,
             summary_store=self.summary_store,
             project_memory_store=self.project_memory_store,
             memory_maintenance=self.memory_maintenance,
@@ -440,9 +449,6 @@ class InProcessAdapter(object):
             intelligence_broker=self.intelligence_broker,
             tool_commit=self.tool_commit,
             workspace_profile=self.workspace_profile,
-            remembered_permission_categories_provider=self._remembered_categories_for_session,
-            workflow_state_provider=self._workflow_state_for_session,
-            best_effort_history_count_provider=self._best_effort_history_count_for_session,
         )
         ports = AgentPorts(
             model=self.client,
@@ -450,27 +456,12 @@ class InProcessAdapter(object):
             session_log=self.transcript_store,
             context=self.context_manager,
             permissions=self.permission_policy,
+            restore_policy=self.restore_policy,
             runtime_services=runtime_services,
             extension_manager=self.extension_manager,
         )
         definition = self.runtime_definition
         return Agent.create(ports, definition)
-
-    def _workflow_state_for_session(self, session_id: str) -> str:
-        with self._lock:
-            state = self._sessions.get(session_id)
-        if state is None:
-            return str(self.runtime_definition.workflow_state or "")
-        with state.lock:
-            return str(state.workflow_state or "")
-
-    def _best_effort_history_count_for_session(self, session_id: str) -> int:
-        with self._lock:
-            state = self._sessions.get(session_id)
-        if state is None:
-            return 0
-        with state.lock:
-            return int(state.best_effort_restore_event_count or 0)
 
     def _remembered_categories_for_session(self, session: Session) -> List[str]:
         with self._lock:
@@ -1622,13 +1613,19 @@ class InProcessAdapter(object):
                         pending_interaction_id,
                         dict(interaction_resolution or {}),
                         stream=stream,
+                        workflow_state=state.workflow_state,
                     ),
                     observer=observer,
                     cancel=stop_event or state.stop_event,
                 )
             else:
                 public_result = state.agent_session.submit(
-                    UserTurn(text, mode=state.current_mode, stream=stream),
+                    UserTurn(
+                        text,
+                        mode=state.current_mode,
+                        stream=stream,
+                        workflow_state=state.workflow_state,
+                    ),
                     observer=observer,
                     cancel=stop_event or state.stop_event,
                 )
