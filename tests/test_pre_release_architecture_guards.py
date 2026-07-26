@@ -766,6 +766,52 @@ def test_active_docs_keep_legacy_architecture_terms_in_removed_contexts():
     assert offenders == []
 
 
+def test_active_docs_use_phase7c_paths_and_vocabulary():
+    active_docs = {str(_relative(path)): _read(path) for path in _active_contract_doc_files()}
+    joined = "\n".join(active_docs.values())
+    forbidden = (
+        "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application.py",
+        "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application_record.py",
+        "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/agent_profile.py",
+        "src/embedagent/agent_application_registry.py",
+        "packages/embedagent-host/src/embedagent_host/runtime/agent_profile_runtime.py",
+        "embedagent.workflow_packages.c_cpp",
+        "AgentRuntimeServices",
+        "builder_path",
+        "CallbackBridge",
+        "WebSocketFrontend.on_turn_event",
+    )
+    offenders = []
+    for rel, text in active_docs.items():
+        for token in forbidden:
+            if token in text:
+                offenders.append("%s contains %s" % (rel, token))
+    assert offenders == []
+
+    readme = active_docs["README.md"]
+    architecture = active_docs["docs/overall-solution-architecture.md"]
+    harness = active_docs["docs/modules/harness.md"]
+    frontend_protocol = active_docs["docs/frontend-protocol.md"]
+    component_path = "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py"
+    profile_path = "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/profile.py"
+
+    assert component_path in readme
+    assert "src/embedagent/product_catalog.py" in readme
+    assert component_path in harness
+    assert profile_path in harness
+    assert "HostedSessionController" in architecture
+    for port_name in (
+        "ContextAssemblerPort",
+        "SessionProjectionPort",
+        "SessionRestorePolicyPort",
+        "ToolRuntimePort",
+    ):
+        assert port_name in architecture
+    assert "SessionEventEnvelope" in frontend_protocol
+    assert "session_event" in frontend_protocol
+    assert "SessionEventEnvelope" in joined
+
+
 def test_development_tracker_uses_current_c_cpp_workflow_package_paths():
     text = _read(ROOT / "docs/development-tracker.md")
 

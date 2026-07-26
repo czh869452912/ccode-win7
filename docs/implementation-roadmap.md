@@ -151,7 +151,7 @@ product composition and default C/C++ behavior:
 - `packages/embedagent-core/src/embedagent_core/extensions.py` now provides the in-process workflow extension boundary
 - the C/C++ harness is wrapped as the default built-in workflow extension
 - `QueryEngine` no longer imports or instantiates `TaskGraph` directly
-- `QueryEngine` no longer imports or constructs the default C harness extension; hosted paths install selected scenario applications through `embedagent_host.runtime.agent_applications`, with the default C/C++ application factory in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application.py`
+- `QueryEngine` no longer imports or constructs the default C harness extension; `src/embedagent/product_catalog.py` composes the default C/C++ `AgentApplicationRecord` with the callable runtime factory from `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py`
 - `Session.workflow_state` is the generic workflow-state carrier; `Session.task_graph` has been removed and default C harness graph state is owned behind `CHarnessWorkflowExtension`
 - `SessionSnapshotProjector` and live frontend task APIs now project harness task fields from `Session.workflow_state["workflow"]`
 - the obsolete extracted turn-orchestrator strategy has been removed; `AgentLoop` is the only turn-loop owner and `AgentToolActionService` is the only non-LLM action execution owner
@@ -714,10 +714,10 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - current implementation status: Phase N is complete for the hosted boundary and first built-in multi-application registry
 - `AgentApplicationManifest` records describe application id, label, profile id, workflow package ids, source metadata, and default status
 - `build_agent_application(application_id, tools, registry=...)` is the selected-application loader; the default C/C++ application is one hosted product registry record, not a `QueryEngine` fallback
-- built-in applications are declared as `AgentApplicationRecord` data; profile-only applications build directly from their profile record, while workflow-backed specialized applications declare a `builder_path` so the generic loader does not hard-code C/C++ workflow branches; the default C/C++ application record/app-shell overlay lives in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application_record.py`, and its mode profile lives in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/agent_profile.py`
-- base registry ids are `embedagent.generic`, `embedagent.python`, and `embedagent.html`; the product registry in `src/embedagent/agent_application_registry.py` composes those base records with packaged `embedagent.default_c_cpp`
-   - profile-only records remain in the base application registry; workflow-backed built-in records are added by the hosted product registry, so building `embedagent.generic`, `embedagent.python`, or `embedagent.html` through the base registry no longer imports `embedagent.workflow_packages.c_cpp`
-   - profile runtime policy is shared through `embedagent_host.runtime.agent_profile_runtime`; hosted adapters compose `AgentProfileRuntimePolicy`, `AgentProfileToolPolicy`, and `AgentProfileWritePathPolicy` instead of carrying product prompt, write-glob, or mode-switch parsing copies
+- built-in applications are declared as `AgentApplicationRecord` data with callable profile/runtime factories; the generic loader has no C/C++ branch. The default C/C++ application record/app-shell overlay lives in `src/embedagent/product_catalog.py`, while `component.py` and `profile.py` remain independently exported workflow-package code.
+- base registry ids are `embedagent.generic`, `embedagent.python`, and `embedagent.html`; the product registry in `src/embedagent/product_catalog.py` composes those base records with packaged `embedagent.default_c_cpp`
+   - profile-only records remain in the base application registry; workflow-backed built-in records are added by the hosted product registry, so building `embedagent.generic`, `embedagent.python`, or `embedagent.html` through the base registry no longer imports `embedagent_workflow_cpp`
+   - profile runtime policy and neutral base constants are shared through `embedagent_core.profile_runtime`; hosted adapters and workflow packages compose `AgentProfileRuntimePolicy`, `AgentProfileToolPolicy`, and `AgentProfileWritePathPolicy` instead of carrying product copies
    - base config examples and `config/config.json.template` no longer pin `embedagent.default_c_cpp`; omitted `agent_application_id` is resolved by the hosted application registry
    - C/C++ workspace-profile file signals now live in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workspace_profile.py`; generic `embedagent_host.runtime.workspace_profile` consumes optional application detectors and no longer hard-codes CMake/Make/C++ source roots
    - GUI/session capability payloads expose `agentApplication` and `agentApplications` from the backend, and injected external applications do not leak the bundled C/C++ application into their available-application list
@@ -851,11 +851,28 @@ Windows 7 SP1 x64 unpack-and-run evidence using bundled WebView2 109 is still
 required for ACCEPTED. Phase 8 real C/C++ project validation remains open.
 Optional Phase 9 enterprise/intranet adapters remain outside Agent Core.
 
-### 10.3 Current next actions
+### 10.3 Phase 7C architecture convergence (completed)
 
-1. Rerun the release and two-run reproducibility gates from clean commit
-   65e1946a so the release identity binds to the committed documentation and
-   source.
+Phase 7C closes the repository-side separation and redundancy program:
+
+- bare `Agent` tool projection accepts arbitrary explicit workflow state and
+  Core-only wheel smoke executes a fake-model turn
+- `AgentPorts` uses focused context, projection, restore, tool, log,
+  permission, and extension collaborators; `HostedSessionController` is the
+  supported non-root Core/Host bridge
+- Host creates one `SessionEventEnvelope`; Python adapters forward it
+  unchanged and GUI session activity enters through one ordered
+  `session_event` branch
+- obsolete product tooling/workflow namespaces and duplicate profile constants
+  are deleted
+
+This completion does not close Phase 8 real C/C++ project validation or the
+clean Windows 7/WebView2 109 external acceptance gate.
+
+### 10.4 Current next actions
+
+1. Rerun the release and two-run reproducibility gates from the clean committed
+   Phase 7C source revision so release identity binds to current code and docs.
 2. Perform the external Windows 7 SP1 x64 windowed GUI and bundle C smoke using
    the bundled Fixed Version WebView2 109 runtime.
 3. Validate the hash-bound target report offline. Only ACCEPTED closes Phase 7B.

@@ -333,6 +333,19 @@ The debt program closed after these promoted paths were in place:
   have an explicit release-artifact review policy.
 - Offline bundle release gates are contract-backed, including bundle-local C
   smoke validation and explicit Win7/WebView2 GUI smoke metadata.
+- Standalone Core is executable from the isolated `embedagent-core` wheel with
+  explicit `AgentPorts`, `InMemorySessionLog`, context, tool, and permission
+  collaborators.
+- `HostedSessionController` is the supported non-root Core/Host bridge, while
+  context assembly, session projection, restore, tool runtime, and permissions
+  use focused ports rather than a general hosted service bag.
+- Live session updates use one protocol `SessionEventEnvelope`; Host encodes
+  it once, Python frontend layers forward it unchanged, and the GUI applies
+  ordering checks before timeline/interaction reduction.
+- The obsolete product `embedagent.tooling` and
+  `embedagent.workflow_packages` namespaces, duplicate profile constants, and
+  event translation layers are deleted rather than preserved as compatibility
+  paths.
 
 Remaining release evidence is intentionally narrower: before release claims, a
 clean Windows 7 target machine still must run the fixed-WebView2 windowed GUI

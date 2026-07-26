@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-07-20
+> 更新日期：2026-07-26
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,41 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-315
+
+- Date: 2026-07-26
+- Change Topic: Phase 7C standalone/hosted/protocol architecture convergence
+- Summary:
+  - Base Core tool projection is workflow-neutral, and missing mode/workflow
+    values remain explicit.
+  - `AgentPorts` uses focused ports; `HostedSessionController` is the
+    supported non-root Core/Host bridge.
+  - Host encodes one `SessionEventEnvelope`; Python frontend layers forward it
+    unchanged and the GUI consumes one ordered `session_event` branch.
+  - Dead product tooling/workflow namespaces, duplicate profile constants, and
+    event translation layers are deleted.
+  - Core-only distribution smoke now executes a fake-model `Agent` turn.
+- Impacted Scope:
+  - `packages/embedagent-core/src/embedagent_core/`
+  - `packages/embedagent-protocol/src/embedagent_protocol/`
+  - `packages/embedagent-host/src/embedagent_host/`
+  - `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`
+  - `src/embedagent/core/`
+  - `src/embedagent/frontend/`
+  - `scripts/smoke-python-distributions.py`
+- Related Docs:
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/pre-release-architecture-debt-audit.md`
+  - `docs/frontend-protocol.md`
+- ADR Required: No
+- Follow-up:
+  - Run the complete architecture, non-GUI, GUI, six-wheel inspection, and
+    isolated smoke gates from the clean Phase 7C revision.
+  - Keep Phase 8 real C/C++ project validation and clean Windows 7/WebView2 109
+    acceptance explicitly open.
 
 ### DC-314
 

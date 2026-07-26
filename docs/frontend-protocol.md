@@ -519,20 +519,16 @@ formatting the same `history.activities` records into local display lines.
 Legacy helpers that rebuilt timeline items from `turns`, transport events, or
 TUI-local `items` history streams are not frontend protocol surfaces.
 
-For live GUI updates, interaction activity is also backend-owned. Core turn
-events such as `permission_required` and `user_input_required` are forwarded by
-`CallbackBridge` to `WebSocketFrontend.on_turn_event(...)`, then normalized as
-`session_event` messages whose event kind denotes interaction creation. Raw
-`permission_request` and `user_input_request` WebSocket messages remain only
-the current blocking interaction UI/response channel; renderer code must not
-synthesize interaction-created transport events, history rows, or activity
-records from those raw request messages. User-input display remains
-`kind`/event-kind driven even when the payload omits `tool_name`.
-Resolution events (`permission_resolved` and `user_input_resolved`) carry only
-safe interaction identifiers and lifecycle metadata. Generic resume diagnostic
-events may expose lease wait duration and an error category, but never prompt
-text, answers, source contents, raw tool output, credentials, or permission
-secrets.
+For live GUI updates, interaction activity is backend-owned. Approval and
+user-input request, resolution, and response-failure states are canonical
+`SessionEventEnvelope.event_kind` values carried by one `session_event`
+WebSocket message. The renderer must not synthesize interaction events, history
+rows, or activity records from HTTP acknowledgements or local pending-state
+guesses. User-input display remains event-kind driven even when the payload
+omits `tool_name`. Resolution events carry only safe interaction identifiers
+and lifecycle metadata. Generic resume diagnostics may expose lease wait
+duration and an error category, but never prompt text, answers, source
+contents, raw tool output, credentials, or permission secrets.
 
 `history.integrity.status` is the official history health signal:
 
@@ -688,24 +684,34 @@ mutations.
 
 ## 5. WebSocket Event Types
 
-Important pushed event types include:
+The outer WebSocket message types are:
 
-- `session_status`
-- `stream_delta`
-- `reasoning_delta`
-- `thinking_state`
-- `tool_start`
-- `tool_finish`
-- `permission_request`
-- `user_input_request`
-- `command_result`
-- `plan_updated`
-- `turn_start`
-- `turn_end`
-- `session_finished`
-- `message`
-- `session_event`
-- `terminal_event`
+- `workspace_changed` for app-shell workspace activation state
+- `session_event` carrying one canonical `SessionEventEnvelope`
+- `terminal_event` for GUI-owned terminal output/lifecycle deltas
+
+`SessionEventEnvelope` is defined by `embedagent-protocol` and contains:
+
+- `schema_version`
+- `event_id`
+- `session_id`
+- `sequence`
+- `event_kind`
+- `timestamp`
+- JSON-safe `payload`
+
+Host assigns identity and sequence and encodes the envelope once. Product
+`AgentCoreAdapter`, TUI, and GUI backend layers forward it unchanged. Turn,
+step, assistant/reasoning delta, thinking, tool, approval, user-input, command,
+plan, compaction, session status/error, and session-finished lifecycle are
+`event_kind` values inside this envelope, not independent WebSocket message
+types or frontend callback methods.
+
+Failed tool and session events carry a structured `failure` record with safe
+`code`, `message`, `category`, and retry metadata where available. A
+failed edit remains a normal failed `tool.finished` event visible to the
+Agent transcript and GUI timeline; it must not become an unrelated side-channel
+error frame.
 
 For `command_result`, GUI follow-up loader effects must be keyed from
 structured payload fields. A result carrying `data.switch_session_id` may load
@@ -722,6 +728,12 @@ payload, and the active GUI timeline is a frontend projection of that activity
 read model plus live reducer actions. There is no durable timeline-backed
 session-history store; that historical path has been removed and must not be
 treated as current frontend history truth.
+
+The renderer accepts live session activity only through its `session_event`
+branch. It validates the envelope before applying reducer actions, ignores
+duplicate event ids, and marks transport reload required on sequence gaps.
+Rejected envelopes do not create timeline rows, interaction frames, or diff
+updates.
 
 `terminal_event` carries GUI terminal output/lifecycle deltas for the bottom
 drawer. It is intentionally not part of session replay/history and must not be

@@ -367,7 +367,7 @@ Outcomes:
 - frontend projections consume generic workflow state
 - bare AgentKernel works without the C/C++ package
 
-Current implementation status: Phase D is complete for default C/C++ workflow capability ownership and the monorepo package split has landed. `ToolRuntime` construction is workflow-neutral and no longer imports the harness runtime facade. `CHarnessWorkflowExtension.register_tools(...)` registers recipe, quality, evidence, and task-status tools into the shared runtime with source metadata, and its explicit `workspace_recipes` capability owns CMake/Make/Ninja recipe detection plus `run_recipe` projection. C/C++ workflow tool metadata lives in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/tool_metadata.py`; C/C++ workflow packs live in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/packs.py`; hosted product paths load the bundled package through the default C/C++ `AgentApplication` in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application.py`, while bare Agent Core under `packages/embedagent-core/src/embedagent_core/` does not expose C/C++ workflow tools unless that package is installed. The hosted application registry declares profile-only base agents directly from profile records and reaches workflow-backed specialized agents through lazy package-owned builder paths rather than a C/C++ branch in the generic loader; the default C/C++ application record and app-shell overlay live in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application_record.py`. The legacy/global `embedagent.modes` facade is backed by the Generic Agent profile; specialized C/C++ mode prompt copy, writable globs, mode descriptors, and base tool policy live in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/agent_profile.py` and enter hosted runtime only through the selected default C/C++ application. The hosted application registry now also exposes profile-only `embedagent.generic`, `embedagent.python`, and `embedagent.html` applications that share the same Agent Core and GUI without installing the C/C++ workflow package; their `metadata.appShell` profiles let the GUI narrow app-shell commands, surfaces, keybindings, palette groups, and disabled GUI capabilities per selected application. Hosted review, project-memory, and workspace-intelligence helpers classify recipe, test, coverage, diagnostic, and quality-gate evidence through workflow-neutral payload fields rather than importing default C/C++ workflow tool constants.
+Current implementation status: Phase D is complete for default C/C++ workflow capability ownership and the monorepo package split has landed. `ToolRuntime` construction is workflow-neutral and no longer imports the harness runtime facade. `CHarnessWorkflowExtension.register_tools(...)` registers recipe, quality, evidence, and task-status tools into the shared runtime with source metadata, and its explicit `workspace_recipes` capability owns CMake/Make/Ninja recipe detection plus `run_recipe` projection. C/C++ workflow tool metadata lives in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/tool_metadata.py`; C/C++ workflow packs live in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/packs.py`; `src/embedagent/product_catalog.py` composes the default C/C++ `AgentApplicationRecord` from the runtime factory in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py`, while bare Agent Core under `packages/embedagent-core/src/embedagent_core/` does not expose C/C++ workflow tools unless that package is installed. The hosted application registry declares profile-only base agents directly from profile records and reaches workflow-backed specialized agents through callable package-owned runtime factories rather than a C/C++ branch in the generic loader; the default C/C++ application record and app-shell overlay live in `src/embedagent/product_catalog.py`. The legacy/global `embedagent.modes` facade is backed by the Generic Agent profile; specialized C/C++ mode prompt copy, writable globs, mode descriptors, and base tool policy live in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/profile.py` and enter hosted runtime only through the selected default C/C++ application. The hosted application registry now also exposes profile-only `embedagent.generic`, `embedagent.python`, and `embedagent.html` applications that share the same Agent Core and GUI without installing the C/C++ workflow package; their `metadata.appShell` profiles let the GUI narrow app-shell commands, surfaces, keybindings, palette groups, and disabled GUI capabilities per selected application. Hosted review, project-memory, and workspace-intelligence helpers classify recipe, test, coverage, diagnostic, and quality-gate evidence through workflow-neutral payload fields rather than importing default C/C++ workflow tool constants.
 
 ### Phase E: Self-Extension Authoring Loop
 
@@ -461,12 +461,12 @@ Delete stale C/C++ workflow pack import surfaces now that the default workflow p
 
 Outcomes:
 
-- `src/embedagent/tooling/packs.py` is removed
-- `embedagent.tooling` no longer re-exports C/C++ workflow pack aliases
+- the obsolete product `src/embedagent/tooling/` namespace is removed
+- no product package re-exports C/C++ workflow pack aliases
 - bundled C/C++ workflow pack truth is available only from `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/packs.py`
 - active tool selection, schema projection, permissions, and hosted C/C++ behavior remain unchanged
 
-Current implementation status: Phase L is complete. The historical `embedagent.tooling.packs` re-export has been deleted, package-root pack aliases have been removed from `embedagent.tooling`, and architecture tests guard the single harness-owned pack import path.
+Current implementation status: Phase L is complete and Phase 7C deleted the remaining unused tooling contract/budget modules and package root. Architecture tests guard the single workflow-package-owned pack import path.
 
 ### Phase M: Core Alias Cleanup
 
@@ -486,6 +486,33 @@ Outcomes:
 Current implementation status: Phase M is complete. The remaining core
 compatibility aliases for mode registry, command sanitizer, and adapter class
 lookup have been removed, and tests guard the explicit accessor boundary.
+
+### Phase N: Standalone, Hosted, And Protocol Convergence
+
+Close the remaining boundaries needed to export a minimal Core and compose
+specialized hosted agents without GUI coupling.
+
+Outcomes:
+
+- base tool schema projection is workflow-neutral and missing mode/workflow
+  values remain explicit
+- `AgentPorts` uses focused context, projection, restore, tool, log,
+  permission, and extension collaborators
+- `HostedSessionController` is the supported non-root Core/Host bridge; Host
+  does not call private `AgentSession` members
+- Host creates one `SessionEventEnvelope`, Python adapter layers forward it
+  unchanged, and GUI session activity enters through one ordered
+  `session_event` branch
+- the product `embedagent.tooling` and `embedagent.workflow_packages`
+  namespaces, duplicate profile constants, and stale event translators are
+  deleted
+- isolated `embedagent-core` wheel smoke executes a fake-model `Agent` turn
+
+Current implementation status: Phase N / repository Phase 7C is complete.
+Architecture, frontend, and six-distribution gates verify the resulting
+boundaries. This is an in-repository architecture claim only: Phase 8 real
+C/C++ project validation and clean Windows 7/WebView2 109 acceptance remain
+open external programs.
 
 ## 9. Enterprise/Intranet Capability Boundary
 

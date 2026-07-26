@@ -656,7 +656,7 @@ transcript/workflow truth.
 - `tests/test_gui_source_control_service.py`、`tests/test_gui_source_control_api.py` — GUI source-control service、workspace path guard、read-only Git status/diff routes 和错误映射
 - `tests/test_gui_terminal_service.py`、`tests/test_gui_terminal_api.py` — GUI terminal service、workspace/cwd guard、HTTP routes、event broadcast 和错误映射
 - `tests/test_gui_runtime.py` — 启动器、阻塞等待器、调度器、WebSocket 生命周期、适配器快照投影
-- `tests/test_gui_sync.py` — 端到端待处理输入解析、`CallbackBridge` 刷新行为、元数据保留
+- `tests/test_gui_sync.py` — 端到端待处理输入解析、canonical `SessionEventEnvelope` 透传、元数据保留
 - `cd src/embedagent/frontend/gui/webapp && npm test` — frontend reducer、timeline、interaction、diff、workbench、T3 visual-language CSS contract 和 visual harness helper 合约
 - `cd src/embedagent/frontend/gui/webapp && npm run visual:gui -- --scenario all --bundle-root <bundle-root>` — dev-only Playwright visual harness；启动真实 GUI、执行 app/load/chat/diff/responsive/timeline/interaction、生成截图和 `summary.json`，并检查 console warning/error
 

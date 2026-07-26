@@ -555,10 +555,10 @@ stay in the base registry and can be built without importing the independent
 C/C++ workflow package. Product composition adds the default C/C++ application
 in `src/embedagent/product_catalog.py`.
 The default C/C++ application record and app-shell overlay live in
-The C/C++ profile and runtime definition live in
+`src/embedagent/product_catalog.py`. The C/C++ profile and runtime definition live in
 `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/profile.py` and
-`component.py`; the product catalog owns app-shell metadata. The selected
-registry exposes safe
+`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py`.
+The selected registry exposes safe
 `AgentApplicationManifest` records for GUI capability projection. Agent profiles
 declare scenario mode metadata, base tool policy, and GUI mode capability
 projection.
@@ -588,7 +588,7 @@ registry composes those base records with `embedagent.default_c_cpp` as the
 packaged default specialized application. The non-C applications share the same
 Agent Core, hosted runtime, protocol, and GUI shell while carrying no C/C++
 workflow package manifest or harness refresh path, and constructing them through
-the base registry does not import `embedagent.workflow_packages.c_cpp`. Base
+the base registry does not import `embedagent_workflow_cpp`. Base
 configuration and bundled config templates do not pin the default C/C++
 application id; when `agent_application_id` is omitted, hosted product
 selection falls through to the product registry default.
@@ -613,6 +613,20 @@ The default C/C++ harness is now entered through the in-process workflow extensi
 `Agent` and opens each managed `AgentSession` from that runtime. Frontend tool
 catalog visibility is computed from the same manager, so model-facing tools and
 shell metadata share one extension chain.
+
+`AgentPorts` is the focused Core composition boundary. It carries the model,
+`ToolRuntimePort`, `SessionLogPort`, `ContextAssemblerPort`,
+`SessionProjectionPort`, `SessionRestorePolicyPort`, extension manager, and
+permission policy. Host implementations such as `ContextManager`,
+`SessionSnapshotProjector`, transcript restore, `HostedSessionMaintenance`,
+and tool-result commit remain in Host; Core depends only on their focused
+contracts and contains no hosted runtime service bag.
+
+`HostedSessionController` in `embedagent_core.hosting` is the supported
+non-root Core/Host bridge used by `ManagedSession`. It exposes trusted hosted
+continuation and inspection without making `QueryEngine` public and without
+allowing Host to call private `AgentSession` members. It is intentionally not
+re-exported from the `embedagent_core` package root.
 
 Hosted adapter behavior that is not Agent Core lives in focused hosted
 services. `HostedCommandService` owns slash-command dispatch, command-result
@@ -663,7 +677,7 @@ Explicit user mode-switch requests are routed by `QueryEngine` before provider c
 
 `TurnExperienceReducer` is the replayable turn-experience read model. It reduces safe `tool_result` and `loop_transition` transcript events into completed work, unverified changes, validation failures, blockers, last failure, and suggested next steps. It feeds `ManagedSession.turn_experience`, protocol snapshots, session snapshots, `session_finished` payloads, CLI diagnostics, the TUI inspector, and GUI T3 system notices. It remains display/replay state and must not drive loop continuation, validation policy, active-tool selection, permission decisions, restore rules, extension loading, or session-history truth.
 
-Default bundled workflow assembly is outside Core's public facade through `AgentApplication`. A standalone `Agent` uses its explicitly supplied ports and definition; missing mode/workflow values remain empty and no C/C++ package is installed implicitly. Hosted product paths select an application, bind its extension manager into one `Agent` runtime, and open all managed `AgentSession` handles from that runtime. The default C/C++ product application lives in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application.py` and is reached through the application record's lazy builder path, while `InProcessAdapter` depends only on the application boundary, selected application id, and injected mode/profile policies. Hosted capability payloads expose the selected application as `agentApplication` and available applications from the same selected registry as `agentApplications`; built-in agent applications share the central `agent_application_capability_payload(...)` projection used by both hosted session capabilities and no-workspace GUI app bootstrap. An injected external application must not leak the bundled C/C++ application into its GUI capability list. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Loaded project extensions receive `api.ExtensionCapability` and must explicitly declare every active hook from `extension_capabilities()`. Public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
+Default bundled workflow assembly is outside Core's public facade through `AgentApplication`. A standalone `Agent` uses its explicitly supplied ports and definition; missing mode/workflow values remain empty and no C/C++ package is installed implicitly. Hosted product paths select an application, bind its extension manager into one `Agent` runtime, and open all managed `AgentSession` handles from that runtime. The default C/C++ product application lives in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py` and is selected through the application record's callable runtime factory, while `InProcessAdapter` depends only on the application boundary, selected application id, and injected mode/profile policies. Hosted capability payloads expose the selected application as `agentApplication` and available applications from the same selected registry as `agentApplications`; built-in agent applications share the central `agent_application_capability_payload(...)` projection used by both hosted session capabilities and no-workspace GUI app bootstrap. An injected external application must not leak the bundled C/C++ application into its GUI capability list. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Loaded project extensions receive `api.ExtensionCapability` and must explicitly declare every active hook from `extension_capabilities()`. Public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
 
 Optional enterprise/intranet integrations are hosted capabilities, not Agent Core responsibilities. Intranet Git adapters, custom service providers, model gateways, organization-local catalogs, and telemetry sinks must be explicitly configured, trusted, disableable, and failure-tolerant. They attach through provider, extension, workflow-package, or passive sink boundaries with source metadata and normal permission checks; they must not make startup, default C/C++ workflows, restore, resource reload, or session history depend on network availability.
 
@@ -674,21 +688,21 @@ Managed-session workflow refresh in the product adapter path goes through `Agent
 ### Session Runtime Ownership
 
 - `InProcessAdapter` creates one hosted `Agent` runtime and one shared `ExtensionManager`
-- `ManagedSession` hosts thread/lock/status, durable `Session` references, and an `AgentSession` opened from that shared runtime
+- `ManagedSession` hosts thread/lock/status, durable `Session` references, and a `HostedSessionController` wrapping the `AgentSession` opened from that shared runtime
 - user turns and ordinary turn-owned permission/user-input continuations enter through `AgentSession.submit(...)` with `UserTurn` or `InteractionReply`
-- hosted command-owned permission continuations use the private `AgentSession` host bridge; that bridge reuses the same Agent runtime, session lease, and action pipeline without exposing `QueryEngine` as a Host contract
+- trusted hosted continuation enters through `HostedSessionController`; Host must not call private `AgentSession` members or construct `QueryEngine`
 - `run_agent` and `QueryEngine` remain below the public object facade; `AgentKernel`, `AgentLifecycleJournal`, `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own lifecycle, journal, loop, action, active schema, and extension dispatch internals
 - `InProcessAdapter` is a host/bridge layer and must not mint duplicate workflow identities or own slash-command business rules that can live in hosted services such as `ReviewCommandService`
+- Host encodes every live session change once as `SessionEventEnvelope`; `AgentCoreAdapter`, TUI, and GUI backends forward that protocol DTO without a second event mapping layer
+- the GUI renderer consumes live session activity only from the `session_event` branch and applies envelope sequence/dedup/gap checks before reducing timeline or interaction state
 - `SessionSnapshotProjector` and `SessionHistoryAssembler` are projections, not workflow truth
 - `SessionHistoryAssembler` emits both nested `turns` and direct T3-style `activities` from the same transcript-backed `Session` state
 - the React GUI consumes `history.activities` through `session-runtime/activity-state.js`; the TUI formats the same activities into local display lines; nested `history.turns` is diagnostic structure and must not be reprojected into a second frontend history source
 - `SessionHistoryAssembler.build()` is the only active history serializer; deleted flat item serializers and TUI `items` history views must not be reintroduced
-- GUI live interaction activity is backend-owned: Core `permission_required`
-  and `user_input_required` turn events flow through `CallbackBridge` into
-  `WebSocketFrontend.on_turn_event(...)` and then into `session_event`
-  envelopes. Raw `permission_request` / `user_input_request` WebSocket
-  messages drive only the current blocking interaction UI and must not become
-  renderer-synthesized activity/history streams.
+- GUI live interaction activity is backend-owned: approval and user-input
+  request/resolution/failure states are canonical `SessionEventEnvelope`
+  event kinds. The renderer must not synthesize activity/history streams from
+  HTTP acknowledgements, command names, or local pending-state guesses.
 - GUI pending interaction response busy state is a local renderer bridge:
   `app-runtime/responding-request-ids-handle.js` owns request-id normalization,
   sync, reads, and updates, while `App.jsx` keeps only the React state cell used

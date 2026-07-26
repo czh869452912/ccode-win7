@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-20`
+> 最后同步日期：`2026-07-26`
 > 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `src/embedagent/core/`
 
 ## 1. Purpose And Scope
@@ -17,9 +17,9 @@
 
 - 声明共享 `dataclass`、枚举和双向接口（`CoreInterface`、`FrontendCallbacks`）
 - 把 hosted runtime 负载翻译成协议快照和事件
-- 把引擎回调按正确类型和元数据转发给前端
+- 原样转发 Host 编码的 `SessionEventEnvelope`
 - 透出统一 interaction response acknowledgement 与 resolved lifecycle event
-- 在变更型工具完成后触发前端数据刷新
+- 通过 envelope 中的 `read_model_invalidations` 元数据触发前端安全读模型刷新
 - expose resource reload through the stable core API
 - carry `extensions.local_resources`, `extensions.project_extensions`, and `extension_diagnostics` through snapshots
 - keep tool catalog visibility aligned with the hosted runtime's shared `ExtensionManager`
@@ -30,7 +30,7 @@
 - 入口文件：`src/embedagent/core/__init__.py`
 - 核心对象：
   - `protocol/__init__.py` — `CoreInterface`、`FrontendCallbacks`、`Message`、`ToolCall`、`SessionSnapshot` 等全部数据类
-  - `core/adapter.py` — `AgentCoreAdapter`、`CallbackBridge`
+  - `core/adapter.py` — `AgentCoreAdapter` 和 canonical envelope validation/forwarding
 - 上游依赖：`InProcessAdapter`（hosted runtime）
 - 下游影响：`frontend/tui/frontend_adapter.py`、`frontend/gui/backend/server.py`
 - 相关测试：`tests/test_architecture.py`、`tests/test_gui_sync.py`、`tests/test_gui_runtime.py`、`tests/test_gui_backend_api.py`、`tests/test_local_resources.py`、`tests/test_project_extensions.py`、`tests/test_capability_extensions.py`
@@ -51,26 +51,25 @@
 
 ## 5. Data / Control Flow
 
-用户动作通过 `CoreInterface` 进入 `AgentCoreAdapter`，再委托给 `InProcessAdapter`；交互响应由 Host 的 `HostedInteractionService` 原子 claim 后返回 `accepted` acknowledgement，恢复继续在 Host 后台协调线程中进入同一个 `AgentSession` action pipeline。引擎产生事件后由 `CallbackBridge` 转换为协议对象，最终送达 `FrontendCallbacks`；resolved event 和 session snapshot 是前端最终状态的唯一依据。
+用户动作通过 `CoreInterface` 进入 `AgentCoreAdapter`，再委托给 `InProcessAdapter`；交互响应由 Host 的 `HostedInteractionService` 原子 claim 后返回 `accepted` acknowledgement，恢复继续通过同一个 hosted session action pipeline。Host 将每个 live session change 编码一次为 `SessionEventEnvelope`，`AgentCoreAdapter` 验证后直接调用 `FrontendCallbacks.on_session_event(envelope)`。resolved event 和 session snapshot 是前端最终状态的唯一依据。
 
 ```mermaid
 flowchart LR
     Frontend["Frontend<br/>implements FrontendCallbacks"]
     Adapter["AgentCoreAdapter<br/>implements CoreInterface"]
-    Bridge["CallbackBridge"]
-    Engine["InProcessAdapter"]
+    Host["InProcessAdapter<br/>encodes SessionEventEnvelope"]
 
     Frontend -->|CoreInterface calls| Adapter
-    Adapter -->|delegates| Engine
-    Engine -->|raw events| Bridge
-    Bridge -->|typed protocol events| Frontend
+    Adapter -->|delegates| Host
+    Host -->|SessionEventEnvelope| Adapter
+    Adapter -->|on_session_event| Frontend
 ```
 
 关键边界：
 
 - `protocol` 只依赖标准库，不耦合后端内部实现。
-- `AgentCoreAdapter` 是 `CoreInterface` 的唯一实现，负责所有翻译逻辑。
-- `CallbackBridge` 不知道内部引擎细节，只使用协议类型。
+- `AgentCoreAdapter` 是 `CoreInterface` 的唯一实现；它不重新映射 Host event kinds 或 payload。
+- `FrontendCallbacks` 只有 canonical `on_session_event` live-session callback。
 - resource reload、project extension state 和 extension diagnostics 只作为 backend-owned health/diagnostics state 透出；前端不拥有 extension execution policy。
 
 ## 6. Verification And Tests
@@ -78,7 +77,7 @@ flowchart LR
 推荐回归入口：
 
 - `tests/test_architecture.py` — 协议对象创建、`MockFrontend`、导入检查
-- `tests/test_gui_sync.py` — `CallbackBridge` 事件翻译、刷新推送语义、端到端交互路由
+- `tests/test_gui_sync.py` — canonical envelope 透传、刷新元数据与端到端交互路由
 - `tests/test_gui_runtime.py` — 适配器 API、`WebSocketFrontend` 广播与错误处理、启动器连线
 - `tests/test_gui_backend_api.py`
 - `tests/test_local_resources.py`
@@ -91,7 +90,7 @@ flowchart LR
 
 以下变化必须同步更新本文件：
 
-- `InProcessAdapter` 新增事件类型，需要在 `CallbackBridge.emit` 中补充映射
+- Host 新增 live session event kind 时必须通过 `SessionEventEnvelope` 编码，不得新增产品 adapter 映射层
 - 会话快照字段变化，需要更新 `_session_snapshot_from_dict` 和 `SessionSnapshot`
 - resource reload 或 extension diagnostics API/字段变化
 - 新增应在完成后触发 UI 刷新的工具，需要在工具目录元数据声明 `read_model_invalidations`，并通过工具事件传递给 GUI；不要新增 Core/GUI 侧工具名刷新列表

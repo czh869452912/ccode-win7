@@ -49,6 +49,11 @@ def test_smoke_scenarios_cover_independent_and_composed_stacks():
         "product_stack",
     ]
     assert smoke.SCENARIOS[0]["distribution"] == "embedagent-core"
+    core_probe = smoke.SCENARIOS[0]["probe"]
+    assert "AgentPorts(" in core_probe
+    assert "InMemorySessionLog" in core_probe
+    assert ".submit(UserTurn(" in core_probe
+    assert "result.final_text == 'done'" in core_probe
     assert smoke.SCENARIOS[2]["distribution"] == "embedagent-host"
     assert smoke.SCENARIOS[2]["distributions"] == (
         "embedagent-core",
@@ -459,11 +464,78 @@ def _write_installable_wheel(
 
 
 def _write_installable_distribution_set(dist_dir):
+    core_fixture = """
+import sys
+import types
+
+
+class AgentPorts(object):
+    def __init__(self, **ports):
+        self.ports = ports
+
+
+class UserTurn(object):
+    def __init__(self, text, stream=True):
+        self.text = text
+        self.stream = stream
+
+
+class _AgentResult(object):
+    final_text = "done"
+
+
+class _AgentSession(object):
+    def submit(self, turn):
+        del turn
+        return _AgentResult()
+
+
+class Agent(object):
+    @classmethod
+    def create(cls, ports):
+        del ports
+        return cls()
+
+    def open(self, session_id):
+        del session_id
+        return _AgentSession()
+
+
+class PermissionPolicy(object):
+    pass
+
+
+class NoopContextAssembler(object):
+    pass
+
+
+class AssistantReply(object):
+    def __init__(self, content="", actions=None, finish_reason=""):
+        self.content = content
+        self.actions = actions or []
+        self.finish_reason = finish_reason
+
+
+class InMemorySessionLog(object):
+    pass
+
+
+def _publish_module(name, symbol_name, symbol):
+    module = types.ModuleType(name)
+    setattr(module, symbol_name, symbol)
+    sys.modules[name] = module
+
+
+_publish_module(__name__ + ".permissions", "PermissionPolicy", PermissionPolicy)
+_publish_module(__name__ + ".ports", "NoopContextAssembler", NoopContextAssembler)
+_publish_module(__name__ + ".session", "AssistantReply", AssistantReply)
+_publish_module(__name__ + ".session_log", "InMemorySessionLog", InMemorySessionLog)
+"""
     _write_installable_wheel(
         dist_dir,
         "embedagent-core",
         "embedagent_core",
-        "class Agent:\n    pass\n",
+        core_fixture,
     )
     _write_installable_wheel(dist_dir, "embedagent-protocol", "embedagent_protocol")
     _write_installable_wheel(

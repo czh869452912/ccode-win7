@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-07-20（interaction response async closeout）
+> 更新日期：2026-07-26（Phase 7C architecture convergence）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,27 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-07-26 - Phase 7C Architecture Convergence
+
+- standalone Core 不再由 base tool projection 或缺省 `chat` workflow
+  污染；独立 Core wheel smoke 已升级为真实 fake-model `Agent` turn。
+- `AgentPorts` 已收敛为 focused context/projection/restore/tool/log/
+  permission/extension collaborators；`HostedSessionController` 是支持的
+  non-root Core/Host bridge，Host 不再调用 private `AgentSession` 成员。
+- Host 只生成一种 canonical `SessionEventEnvelope`；Python adapter、
+  TUI、GUI backend 原样转发，renderer 只从 ordered `session_event`
+  分支消费 live session activity。
+- GUI failed tool/edit 结果使用同一个 structured `failure` payload，
+  timeline 会保留 started arguments、失败状态与 diff/read-model
+  invalidation，不再依赖 side-channel red error frame。
+- 产品 `embedagent.tooling` / `embedagent.workflow_packages` 遗留
+  namespace、重复 profile constants 和旧 event translators 已删除。
+- focused verification 已覆盖 profile/tool/distribution contracts、Host/
+  protocol/GUI architecture guards、webapp tests/build 和 lint；最终 closure
+  还必须以完整非 GUI gate、GUI gate 和 fresh six-wheel isolated smoke 为准。
+- Phase 8 真实 C/C++ 工程验证与 clean Windows 7 SP1 x64 /
+  WebView2 109 external acceptance 仍未完成，不能由本地 Phase 7C 结果替代。
 
 ### 2026-07-20 - Asynchronous Interaction Response Closeout
 
