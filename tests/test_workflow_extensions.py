@@ -1,5 +1,5 @@
 import ast
-import importlib.util
+import importlib.machinery
 import subprocess
 import sys
 from pathlib import Path
@@ -571,19 +571,13 @@ def test_core_pack_no_longer_contains_harness_workflow_tools():
     assert "task_status" in C_WORKFLOW_VERIFY_PACK
 
 
-def test_tooling_package_no_longer_reexports_c_workflow_packs():
-    import embedagent.tooling as tooling
+def test_removed_product_tooling_package_has_no_pack_import_surface():
+    package_root = _REPO_ROOT / "src" / "embedagent" / "tooling"
 
-    assert importlib.util.find_spec("embedagent.tooling.packs") is None
-    for name in (
-        "BUILD_LITE_PACK",
-        "CORE_PACK",
-        "DEBUG_LITE_PACK",
-        "VERIFY_PACK",
-        "PACKS",
-        "pack_tool_names",
-    ):
-        assert not hasattr(tooling, name)
+    assert not (package_root / "__init__.py").is_file()
+    assert not (package_root / "packs.py").is_file()
+    pack_spec = importlib.machinery.PathFinder.find_spec("packs", [str(package_root)])
+    assert pack_spec is None
 
 
 def test_mode_allowed_tools_no_longer_own_harness_workflow_tools():
