@@ -272,44 +272,8 @@ class WorkspaceInfo:
 class FrontendCallbacks(Protocol):
     """前端回调协议 - Core 调用 Frontend"""
 
-    def on_message(self, message: Message) -> None:
-        """新消息到达"""
-        ...
-
-    def on_tool_start(self, call: ToolCall) -> None:
-        """工具开始执行"""
-        ...
-
-    def on_tool_progress(self, call_id: str, progress: Dict[str, Any]) -> None:
-        """工具进度更新"""
-        ...
-
-    def on_tool_finish(self, result: ToolResult) -> None:
-        """工具执行完成"""
-        ...
-
-    def on_session_status_change(self, snapshot: SessionSnapshot) -> None:
-        """会话状态变化"""
-        ...
-
-    def on_stream_delta(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> None:
-        """流式输出增量"""
-        ...
-
-    def on_reasoning_delta(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> None:
-        """thinking / reasoning 流式增量"""
-        ...
-
-    def on_thinking_state_change(self, active: bool, reason: str = "") -> None:
-        """模型是否处于 thinking 阶段"""
-        ...
-
-    def on_command_result(self, result: CommandResult) -> None:
-        """slash command / workflow 结果"""
-        ...
-
-    def on_plan_updated(self, plan: PlanSnapshot) -> None:
-        """计划更新"""
+    def on_session_event(self, envelope: SessionEventEnvelope) -> None:
+        """Receive one already encoded hosted session event."""
         ...
 
 

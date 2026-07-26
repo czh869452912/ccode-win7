@@ -6,43 +6,26 @@ Agent Core 适配器 - 实现 CoreInterface
 from __future__ import annotations
 
 import difflib
+import logging
 import threading
-import uuid
 from typing import Any, Dict, List, Optional
 
 from embedagent_protocol import (
-    CommandResult,
     CoreInterface,
     DiffPreview,
     FrontendCallbacks,
-    Message,
-    MessageType,
     PermissionContext,
     PlanSnapshot,
     RuntimeEnvironmentSnapshot,
+    SessionEventEnvelope,
     SessionSnapshot,
     SessionStatus,
-    ToolCall,
-    ToolResult,
     WorkspaceInfo,
 )
 
 from embedagent.di_container import get_default_container
 
-_SESSION_EVENT_NAMES: frozenset = frozenset(
-    {
-        "turn_start",
-        "turn_end",
-        "step_start",
-        "step_end",
-        "tool_started",
-        "tool_finished",
-        "permission_required",
-        "user_input_required",
-        "session_finished",
-        "session_error",
-    }
-)
+_LOGGER = logging.getLogger(__name__)
 
 
 def get_inprocess_adapter(fresh: bool = False):
@@ -144,182 +127,6 @@ def _session_snapshot_from_dict(snapshot: Dict[str, Any]) -> SessionSnapshot:
     )
 
 
-class CallbackBridge:
-    """回调桥接器 - 将 callback 转换为 Protocol 类型"""
-
-    def __init__(self, frontend: FrontendCallbacks):
-        self.frontend = frontend
-
-    def emit(self, event_name: str, session_id: str, payload: Dict[str, Any]) -> None:
-        """处理来自 Adapter 的事件"""
-        if event_name == "assistant_delta":
-            self.frontend.on_stream_delta(
-                payload.get("text", ""),
-                {
-                    "turn_id": payload.get("turn_id", ""),
-                    "step_id": payload.get("step_id", ""),
-                    "step_index": payload.get("step_index", 0),
-                },
-            )
-
-        elif event_name == "tool_started":
-            arguments = payload.get("arguments", {})
-            if not isinstance(arguments, dict):
-                arguments = {}
-            arguments = dict(arguments)
-            if payload.get("tool_label"):
-                arguments["_tool_label"] = payload.get("tool_label")
-            if payload.get("permission_category"):
-                arguments["_permission_category"] = payload.get("permission_category")
-            if "supports_diff_preview" in payload:
-                arguments["_supports_diff_preview"] = bool(payload.get("supports_diff_preview"))
-            if payload.get("progress_renderer_key"):
-                arguments["_progress_renderer_key"] = payload.get("progress_renderer_key")
-            if payload.get("result_renderer_key"):
-                arguments["_result_renderer_key"] = payload.get("result_renderer_key")
-            if isinstance(payload.get("read_model_invalidations"), list):
-                arguments["_read_model_invalidations"] = list(
-                    payload.get("read_model_invalidations") or []
-                )
-            call = ToolCall(
-                tool_name=payload.get("tool_name", ""),
-                arguments=arguments,
-                call_id=str(payload.get("call_id") or str(uuid.uuid4())[:8]),
-                turn_id=str(payload.get("turn_id") or ""),
-                step_id=str(payload.get("step_id") or ""),
-                step_index=int(payload.get("step_index") or 0),
-                runtime_source=str(payload.get("runtime_source") or ""),
-                resolved_tool_roots=(
-                    payload.get("resolved_tool_roots", {})
-                    if isinstance(payload.get("resolved_tool_roots"), dict)
-                    else {}
-                ),
-            )
-            self.frontend.on_tool_start(call)
-
-        elif event_name == "tool_finished":
-            result = ToolResult(
-                tool_name=payload.get("tool_name", ""),
-                success=payload.get("success", False),
-                data=payload.get("data", {}),
-                error=payload.get("error"),
-                call_id=str(payload.get("call_id") or ""),
-                turn_id=str(payload.get("turn_id") or ""),
-                step_id=str(payload.get("step_id") or ""),
-                step_index=int(payload.get("step_index") or 0),
-                runtime_source=str(payload.get("runtime_source") or ""),
-                resolved_tool_roots=(
-                    payload.get("resolved_tool_roots", {})
-                    if isinstance(payload.get("resolved_tool_roots"), dict)
-                    else {}
-                ),
-            )
-            self.frontend.on_tool_finish(result)
-
-        elif event_name == "session_error":
-            snapshot = payload.get("session_snapshot", {})
-            if isinstance(snapshot, dict) and snapshot.get("session_id"):
-                self._notify_status_change(snapshot)
-            msg = Message(
-                id=str(uuid.uuid4()),
-                type=MessageType.ERROR,
-                content=payload.get("error", "Unknown error"),
-                metadata={
-                    "turn_id": str(payload.get("turn_id") or ""),
-                    "step_id": str(payload.get("step_id") or ""),
-                    "step_index": int(payload.get("step_index") or 0),
-                    "phase": str(payload.get("phase") or ""),
-                },
-            )
-            self.frontend.on_message(msg)
-
-        elif event_name == "session_status":
-            snapshot = payload.get("session_snapshot", {})
-            if isinstance(snapshot, dict):
-                self._notify_status_change(snapshot)
-
-        elif event_name == "reasoning_delta":
-            self.frontend.on_reasoning_delta(
-                payload.get("text", ""),
-                {
-                    "turn_id": payload.get("turn_id", ""),
-                    "step_id": payload.get("step_id", ""),
-                    "step_index": payload.get("step_index", 0),
-                },
-            )
-
-        elif event_name == "thinking_state":
-            self.frontend.on_thinking_state_change(
-                bool(payload.get("active", False)),
-                str(payload.get("reason") or ""),
-            )
-
-        elif event_name == "command_result":
-            self.frontend.on_command_result(
-                CommandResult(
-                    command_name=str(payload.get("command_name") or ""),
-                    success=bool(payload.get("success", False)),
-                    message=str(payload.get("message") or ""),
-                    data=payload.get("data", {}),
-                    turn_id=str(payload.get("turn_id") or ""),
-                    step_id=str(payload.get("step_id") or ""),
-                    step_index=int(payload.get("step_index") or 0),
-                )
-            )
-
-        elif event_name == "plan_updated":
-            plan = payload.get("plan", {})
-            if isinstance(plan, dict):
-                self.frontend.on_plan_updated(
-                    PlanSnapshot(
-                        session_id=str(plan.get("session_id") or session_id),
-                        title=str(plan.get("title") or "Current Plan"),
-                        content=str(plan.get("content") or ""),
-                        updated_at=str(plan.get("updated_at") or ""),
-                        workflow_state=str(plan.get("workflow_state") or "plan"),
-                        path=str(plan.get("path") or ""),
-                        summary=str(plan.get("summary") or ""),
-                    )
-                )
-
-        elif event_name == "session_finished":
-            snapshot = payload.get("session_snapshot", {})
-            self._notify_status_change(snapshot)
-
-        if event_name in _SESSION_EVENT_NAMES:
-            if hasattr(self.frontend, "on_turn_event"):
-                event_payload = dict(payload or {})
-                event_payload.setdefault("session_id", session_id)
-                self.frontend.on_turn_event(event_name, event_payload)
-
-        elif event_name == "mode_changed":
-            snapshot = payload.get("session_snapshot", {})
-            if isinstance(snapshot, dict) and snapshot.get("session_id"):
-                self._notify_status_change(snapshot)
-
-        elif event_name == "context_compacted":
-            stats = payload.get("recent_turns", 0)
-            msg = Message(
-                id=str(uuid.uuid4()),
-                type=MessageType.CONTEXT_COMPACTED,
-                content=f"Context compacted: {stats} turns kept",
-                metadata={
-                    "recent_turns": payload.get("recent_turns", 0),
-                    "summarized_turns": payload.get("summarized_turns", 0),
-                    "approx_tokens_after": payload.get("approx_tokens_after"),
-                    "analysis": payload.get("analysis", {}),
-                    "turn_id": str(payload.get("turn_id") or ""),
-                    "step_id": str(payload.get("step_id") or ""),
-                    "step_index": int(payload.get("step_index") or 0),
-                },
-            )
-            self.frontend.on_message(msg)
-
-    def _notify_status_change(self, snapshot: Dict[str, Any]) -> None:
-        """通知状态变化"""
-        self.frontend.on_session_status_change(_session_snapshot_from_dict(snapshot))
-
-
 class AgentCoreAdapter(CoreInterface):
     """
     Agent Core 适配器
@@ -331,7 +138,6 @@ class AgentCoreAdapter(CoreInterface):
         self.config = config or {}
         self._adapter = None
         self._frontend: Optional[FrontendCallbacks] = None
-        self._callback_bridge: Optional[CallbackBridge] = None
         self._lock = threading.RLock()
 
     def initialize(self, client, tools, **kwargs) -> None:
@@ -358,12 +164,11 @@ class AgentCoreAdapter(CoreInterface):
     def register_frontend(self, frontend: FrontendCallbacks) -> None:
         """注册前端回调"""
         self._frontend = frontend
-        self._callback_bridge = CallbackBridge(frontend)
 
-    def _on_adapter_event(self, event_name: str, session_id: str, payload: Dict[str, Any]) -> None:
-        """处理 Adapter 事件"""
-        if self._callback_bridge:
-            self._callback_bridge.emit(event_name, session_id, payload)
+    def _on_adapter_event(self, envelope: SessionEventEnvelope) -> None:
+        """Forward the canonical hosted event without reshaping it."""
+        if self._frontend is not None:
+            self._frontend.on_session_event(envelope)
 
     def _snapshot_to_protocol(self, snapshot: Dict[str, Any]) -> SessionSnapshot:
         """转换快照格式"""
@@ -418,11 +223,8 @@ class AgentCoreAdapter(CoreInterface):
                     user_input_resolver=None,
                     event_handler=self._on_adapter_event,
                 )
-            except (RuntimeError, ValueError, TypeError) as e:
-                if self._frontend:
-                    self._frontend.on_message(
-                        Message(id=str(uuid.uuid4()), type=MessageType.ERROR, content=str(e))
-                    )
+            except (RuntimeError, ValueError, TypeError):
+                _LOGGER.exception("Unhandled hosted session submission failure")
 
         thread = threading.Thread(target=run, daemon=True)
         thread.start()
@@ -507,7 +309,6 @@ class AgentCoreAdapter(CoreInterface):
             adapter = self._adapter
             self._adapter = None
             self._frontend = None
-            self._callback_bridge = None
         if adapter is None:
             return
         shutdown = getattr(adapter, "shutdown", None)

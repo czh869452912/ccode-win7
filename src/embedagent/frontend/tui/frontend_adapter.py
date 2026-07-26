@@ -1,145 +1,118 @@
 """
-TUI Frontend Adapter
-将现有 TUI 适配到新的 protocol 接口
+TUI frontend adapter for canonical hosted session events.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict
 
-from embedagent_protocol import (
-    CommandResult,
-    FrontendCallbacks,
-    Message,
-    MessageType,
-    PlanSnapshot,
-    SessionSnapshot,
-    ToolCall,
-    ToolResult,
-)
+from embedagent_protocol import FrontendCallbacks, SessionEventEnvelope
 
 if TYPE_CHECKING:
     from embedagent.frontend.tui.app import TerminalApp
 
 
 class TUIFrontend(FrontendCallbacks):
-    """
-    TUI 前端适配器
-    将 Protocol 回调转换为 TUI 更新
-    """
-
     def __init__(self, app: "TerminalApp", assembler=None):
         del assembler
         self.app = app
 
-    def refresh_timeline(self):
-        """Refresh the timeline view with current data."""
+    def refresh_timeline(self) -> None:
         self.app.refresh_views()
 
-    def on_message(self, message: Message) -> None:
-        """新消息到达"""
+    def on_session_event(self, envelope: SessionEventEnvelope) -> None:
         from embedagent.frontend.tui import reducer
-
-        # 根据消息类型显示
-        if message.type == MessageType.USER:
-            reducer.append_line(self.app.state, f"user> {message.content}")
-        elif message.type == MessageType.ASSISTANT:
-            reducer.append_line(self.app.state, f"assistant> {message.content}")
-        elif message.type == MessageType.SYSTEM:
-            reducer.append_line(self.app.state, f"[system] {message.content}")
-        elif message.type == MessageType.ERROR:
-            reducer.append_line(self.app.state, f"[error] {message.content}")
-        elif message.type == MessageType.CONTEXT_COMPACTED:
-            reducer.append_line(self.app.state, f"[context] {message.content}")
-
-        self.app.refresh_views()
-
-    def on_tool_start(self, call: ToolCall) -> None:
-        """工具开始执行"""
-        from embedagent.frontend.tui import reducer
-
-        arguments = {}
-        if isinstance(call.arguments, dict):
-            for key, value in call.arguments.items():
-                if str(key).startswith("_"):
-                    continue
-                arguments[key] = value
-        reducer.append_line(self.app.state, f"[tool] {call.tool_name} {arguments}")
-        self.app.refresh_views()
-
-    def on_tool_progress(self, call_id: str, progress: Dict[str, Any]) -> None:
-        """工具进度更新"""
-        # TUI 暂不支持进度更新，可以后续添加 spinner
-        pass
-
-    def on_tool_finish(self, result: ToolResult) -> None:
-        """工具执行完成"""
-        from embedagent.frontend.tui import reducer
-        from embedagent.frontend.tui.views.timeline import format_observation_line
-
-        payload = {
-            "tool_name": result.tool_name,
-            "success": result.success,
-            "data": result.data,
-            "error": result.error,
-        }
-        reducer.append_line(self.app.state, format_observation_line(payload))
-        self.app.refresh_views()
-
-    def on_session_status_change(self, snapshot: SessionSnapshot) -> None:
-        """会话状态变化"""
-        from embedagent.frontend.tui import reducer
-
-        # 更新状态
-        pending_interaction = (
-            snapshot.pending_interaction if snapshot.pending_interaction_valid else None
+        from embedagent.frontend.tui.views.timeline import (
+            format_context_line,
+            format_observation_line,
         )
-        reducer.set_pending_interaction(self.app.state, pending_interaction)
+
+        event_kind = envelope.event_kind
+        payload = dict(envelope.payload)
+
+        if event_kind == "assistant.delta":
+            reducer.append_delta(self.app.state, str(payload.get("text") or ""))
+        elif event_kind == "reasoning.delta":
+            reducer.append_line(
+                self.app.state,
+                "[thinking] %s" % str(payload.get("text") or ""),
+            )
+        elif event_kind == "thinking.state":
+            if bool(payload.get("active")):
+                reducer.append_line(self.app.state, "[thinking] 模型正在思考...")
+        elif event_kind == "tool.started":
+            arguments = self._public_arguments(payload.get("arguments"))
+            reducer.append_line(
+                self.app.state,
+                "[tool] %s %s" % (str(payload.get("tool_name") or ""), arguments),
+            )
+        elif event_kind == "tool.finished":
+            failure = payload.get("failure") if isinstance(payload.get("failure"), dict) else {}
+            observation = {
+                "tool_name": str(payload.get("tool_name") or ""),
+                "success": bool(payload.get("success")),
+                "data": payload.get("data"),
+                "error": str(payload.get("error") or failure.get("message") or ""),
+            }
+            reducer.append_line(self.app.state, format_observation_line(observation))
+        elif event_kind in ("session.status", "session.finished", "session.error"):
+            self._apply_session_snapshot(payload, render_error=event_kind != "session.error")
+            if event_kind == "session.error":
+                snapshot = payload.get("session_snapshot")
+                snapshot_error = snapshot.get("last_error") if isinstance(snapshot, dict) else ""
+                message = str(payload.get("error") or snapshot_error or "")
+                if message:
+                    reducer.set_last_error(self.app.state, message)
+                    reducer.append_line(self.app.state, "[error] %s" % message)
+        elif event_kind == "context.compacted":
+            reducer.set_context_event(self.app.state, payload)
+            reducer.append_line(self.app.state, format_context_line(payload))
+        elif event_kind == "command.result":
+            reducer.append_line(
+                self.app.state,
+                "[command] %s" % str(payload.get("message") or ""),
+            )
+        elif event_kind == "plan.updated":
+            plan = payload.get("plan") if isinstance(payload.get("plan"), dict) else {}
+            reducer.append_line(
+                self.app.state,
+                "[plan] %s" % str(plan.get("title") or "Current Plan"),
+            )
+        elif event_kind in ("approval.requested", "user-input.requested"):
+            reducer.set_pending_interaction(self.app.state, payload)
+        elif event_kind in ("approval.resolved", "user-input.resolved"):
+            reducer.set_pending_interaction(self.app.state, None)
+
+        self.app.refresh_views()
+
+    def _apply_session_snapshot(self, payload: Dict[str, Any], render_error: bool = True) -> None:
+        from embedagent.frontend.tui import reducer
+
+        snapshot = (
+            dict(payload.get("session_snapshot") or {})
+            if isinstance(payload.get("session_snapshot"), dict)
+            else {}
+        )
+        if not snapshot:
+            return
+        pending = (
+            dict(snapshot.get("pending_interaction") or {})
+            if bool(snapshot.get("pending_interaction_valid"))
+            and isinstance(snapshot.get("pending_interaction"), dict)
+            else None
+        )
+        reducer.set_pending_interaction(self.app.state, pending)
         reducer.update_snapshot(
             self.app.state,
-            status=snapshot.status.value,
-            current_mode=snapshot.current_mode,
-            pending_interaction=pending_interaction,
-            pending_interaction_valid=bool(pending_interaction),
+            **snapshot,
         )
+        if render_error and snapshot.get("last_error"):
+            message = str(snapshot.get("last_error") or "")
+            reducer.set_last_error(self.app.state, message)
+            reducer.append_line(self.app.state, "[error] %s" % message)
 
-        # 如果有错误，显示
-        if snapshot.last_error:
-            reducer.set_last_error(self.app.state, snapshot.last_error)
-            reducer.append_line(self.app.state, f"[error] {snapshot.last_error}")
-
-        self.app.refresh_views()
-
-    def on_stream_delta(self, text: str, metadata=None) -> None:
-        """流式输出增量"""
-        from embedagent.frontend.tui import reducer
-
-        reducer.append_delta(self.app.state, text)
-        self.app.refresh_views()
-
-    def on_reasoning_delta(self, text: str, metadata=None) -> None:
-        from embedagent.frontend.tui import reducer
-
-        reducer.append_line(self.app.state, "[thinking] %s" % text)
-        self.app.refresh_views()
-
-    def on_thinking_state_change(self, active: bool, reason: str = "") -> None:
-        from embedagent.frontend.tui import reducer
-
-        if active:
-            reducer.append_line(self.app.state, "[thinking] 模型正在思考...")
-        self.app.refresh_views()
-
-    def on_command_result(self, result: CommandResult) -> None:
-        from embedagent.frontend.tui import reducer
-
-        reducer.append_line(
-            self.app.state, "[command:/%s] %s" % (result.command_name, result.message)
-        )
-        self.app.refresh_views()
-
-    def on_plan_updated(self, plan: PlanSnapshot) -> None:
-        from embedagent.frontend.tui import reducer
-
-        reducer.append_line(self.app.state, "[plan] %s" % (plan.title or "Current Plan"))
-        self.app.refresh_views()
+    @staticmethod
+    def _public_arguments(value: Any) -> Dict[str, Any]:
+        if not isinstance(value, dict):
+            return {}
+        return {key: item for key, item in value.items() if not str(key).startswith("_")}

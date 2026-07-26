@@ -14,6 +14,7 @@ from embedagent_protocol import (
     Message,
     MessageType,
     PlanSnapshot,
+    SessionEventEnvelope,
     SessionSnapshot,
     SessionStatus,
     ToolCall,
@@ -26,48 +27,40 @@ from embedagent.core.adapter import _session_snapshot_from_dict
 
 
 class MockFrontend(FrontendCallbacks):
-    """Mock frontend for testing"""
-
     def __init__(self):
-        self.messages = []
-        self.tools_started = []
-        self.tools_finished = []
-        self.session_changes = []
-        self.stream_deltas = []
-        self.reasoning_deltas = []
-        self.thinking_states = []
-        self.command_results = []
-        self.plan_updates = []
+        self.events = []
 
-    def on_message(self, message: Message) -> None:
-        self.messages.append(message)
+    def on_session_event(self, envelope: SessionEventEnvelope) -> None:
+        self.events.append(envelope)
 
-    def on_tool_start(self, call: ToolCall) -> None:
-        self.tools_started.append(call)
 
-    def on_tool_progress(self, call_id: str, progress: dict) -> None:
-        pass
+class TestFrontendCallbacks(unittest.TestCase):
+    def test_frontend_protocol_exposes_one_session_event_callback(self):
+        self.assertIn("on_session_event", FrontendCallbacks.__dict__)
+        for legacy_name in (
+            "on_message",
+            "on_tool_start",
+            "on_tool_finish",
+            "on_session_status_change",
+            "on_command_result",
+        ):
+            self.assertNotIn(legacy_name, FrontendCallbacks.__dict__)
 
-    def on_tool_finish(self, result: ToolResult) -> None:
-        self.tools_finished.append(result)
+    def test_frontend_receives_protocol_envelope(self):
+        frontend = MockFrontend()
+        envelope = SessionEventEnvelope(
+            1,
+            "evt-1",
+            "session-1",
+            1,
+            "turn.started",
+            "2026-07-26T00:00:00Z",
+            {"turn_id": "turn-1"},
+        )
 
-    def on_session_status_change(self, snapshot: SessionSnapshot) -> None:
-        self.session_changes.append(snapshot)
+        frontend.on_session_event(envelope)
 
-    def on_stream_delta(self, text: str, metadata=None) -> None:
-        self.stream_deltas.append(text)
-
-    def on_reasoning_delta(self, text: str, metadata=None) -> None:
-        self.reasoning_deltas.append(text)
-
-    def on_thinking_state_change(self, active: bool, reason: str = "") -> None:
-        self.thinking_states.append((active, reason))
-
-    def on_command_result(self, result: CommandResult) -> None:
-        self.command_results.append(result)
-
-    def on_plan_updated(self, plan: PlanSnapshot) -> None:
-        self.plan_updates.append(plan)
+        self.assertEqual(frontend.events, [envelope])
 
 
 class TestProtocol(unittest.TestCase):
@@ -163,64 +156,6 @@ class TestProtocol(unittest.TestCase):
     def test_turn_record(self):
         turn = TurnRecord(turn_id="turn_1", user_text="hi")
         self.assertEqual(turn.turn_id, "turn_1")
-
-
-class TestMockFrontend(unittest.TestCase):
-    """Test mock frontend implementation"""
-
-    def setUp(self):
-        self.frontend = MockFrontend()
-
-    def test_message_handling(self):
-        msg = Message(id="1", type=MessageType.ASSISTANT, content="Hi")
-        self.frontend.on_message(msg)
-        self.assertEqual(len(self.frontend.messages), 1)
-        self.assertEqual(self.frontend.messages[0].content, "Hi")
-
-    def test_tool_start(self):
-        call = ToolCall(tool_name="edit_file", arguments={}, call_id="1")
-        self.frontend.on_tool_start(call)
-        self.assertEqual(len(self.frontend.tools_started), 1)
-
-    def test_tool_finish(self):
-        result = ToolResult(tool_name="edit_file", success=True, data={})
-        self.frontend.on_tool_finish(result)
-        self.assertEqual(len(self.frontend.tools_finished), 1)
-
-    def test_session_status_change(self):
-        snap = SessionSnapshot(
-            session_id="s1",
-            status=SessionStatus.RUNNING,
-            current_mode="build",
-            created_at="2026-03-30T10:00:00",
-            updated_at="2026-03-30T10:00:00",
-        )
-        self.frontend.on_session_status_change(snap)
-        self.assertEqual(len(self.frontend.session_changes), 1)
-
-    def test_stream_delta(self):
-        self.frontend.on_stream_delta("Hello")
-        self.frontend.on_stream_delta(" World")
-        self.assertEqual(self.frontend.stream_deltas, ["Hello", " World"])
-
-    def test_reasoning_delta(self):
-        self.frontend.on_reasoning_delta("thinking")
-        self.assertEqual(self.frontend.reasoning_deltas, ["thinking"])
-
-    def test_command_result_and_plan_update(self):
-        self.frontend.on_command_result(
-            CommandResult(command_name="help", success=True, message="ok")
-        )
-        self.frontend.on_plan_updated(
-            PlanSnapshot(
-                session_id="s1",
-                title="Current Plan",
-                content="body",
-                updated_at="2026-03-30T10:00:00",
-            )
-        )
-        self.assertEqual(len(self.frontend.command_results), 1)
-        self.assertEqual(len(self.frontend.plan_updates), 1)
 
 
 class TestFrontendTUIImport(unittest.TestCase):

@@ -6,7 +6,6 @@ import sys
 import tempfile
 import time
 import unittest
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -15,7 +14,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_host.runtime.tools import ToolRuntime
-from embedagent_protocol import MessageType
 
 
 @pytest.mark.gui
@@ -93,90 +91,6 @@ class TestGuiSync(unittest.TestCase):
         finally:
             shutil.rmtree(workspace, ignore_errors=True)
             shutil.rmtree(static_dir, ignore_errors=True)
-
-    def test_callback_bridge_keeps_tool_finish_with_read_model_invalidations(self):
-        from embedagent.core.adapter import CallbackBridge
-
-        class Frontend(object):
-            def __init__(self):
-                self.tool_finished = 0
-
-            def on_tool_finish(self, _result):
-                self.tool_finished += 1
-
-        frontend = Frontend()
-        bridge = CallbackBridge(frontend)
-        bridge.emit(
-            "tool_finished",
-            "session-1",
-            {
-                "tool_name": "dynamic_tool",
-                "success": True,
-                "data": {"read_model_invalidations": ["tasks"]},
-                "call_id": "call-1",
-            },
-        )
-        self.assertEqual(frontend.tool_finished, 1)
-
-    def test_callback_bridge_context_compacted_preserves_metadata(self):
-        from embedagent.core.adapter import CallbackBridge
-
-        mock_frontend = MagicMock()
-        bridge = CallbackBridge(mock_frontend)
-        bridge.emit(
-            "context_compacted",
-            "session-1",
-            {
-                "recent_turns": 2,
-                "summarized_turns": 5,
-                "approx_tokens_after": 1024,
-                "turn_id": "turn-1",
-                "step_id": "step-2",
-                "step_index": 2,
-            },
-        )
-        mock_frontend.on_message.assert_called_once()
-        message = mock_frontend.on_message.call_args[0][0]
-        self.assertEqual(message.type, MessageType.CONTEXT_COMPACTED)
-        self.assertEqual(message.metadata.get("recent_turns"), 2)
-        self.assertEqual(message.metadata.get("summarized_turns"), 5)
-        self.assertEqual(message.metadata.get("approx_tokens_after"), 1024)
-        self.assertEqual(message.metadata.get("turn_id"), "turn-1")
-        self.assertEqual(message.metadata.get("step_id"), "step-2")
-        self.assertEqual(message.metadata.get("step_index"), 2)
-
-    def test_callback_bridge_session_status_preserves_pending_interaction_fields(self):
-        from embedagent.core.adapter import CallbackBridge
-
-        mock_frontend = MagicMock()
-        bridge = CallbackBridge(mock_frontend)
-        bridge.emit(
-            "session_status",
-            "session-1",
-            {
-                "session_snapshot": {
-                    "session_id": "session-1",
-                    "status": "waiting_user_input",
-                    "current_mode": "spec",
-                    "started_at": "2026-04-06T00:00:00Z",
-                    "updated_at": "2026-04-06T00:00:01Z",
-                    "pending_interaction": {
-                        "interaction_id": "ask-1",
-                        "session_id": "session-1",
-                        "kind": "user_input",
-                        "tool_name": "ask_user",
-                        "question": "下一步怎么做？",
-                        "options": [{"index": 1, "text": "继续"}],
-                    },
-                    "pending_interaction_valid": True,
-                    "restore_stop_reason": "",
-                }
-            },
-        )
-        snapshot = mock_frontend.on_session_status_change.call_args[0][0]
-        self.assertEqual(snapshot.pending_interaction["interaction_id"], "ask-1")
-        self.assertTrue(snapshot.pending_interaction_valid)
-        self.assertEqual(snapshot.restore_stop_reason, "")
 
 
 if __name__ == "__main__":

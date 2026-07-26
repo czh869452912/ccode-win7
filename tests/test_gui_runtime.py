@@ -9,7 +9,8 @@ from unittest.mock import ANY, MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.core.adapter import CallbackBridge
+from embedagent_protocol import SessionEventEnvelope
+
 from embedagent.frontend.gui import launcher as gui_launcher
 from embedagent.frontend.gui.backend.bridge import ThreadsafeAsyncDispatcher
 from embedagent.frontend.gui.backend.server import GUIBackend, WebSocketFrontend
@@ -245,102 +246,26 @@ class TestWebSocketFrontend(unittest.TestCase):
         self.assertEqual(late.messages, [{"type": "ping"}])
         self.assertNotIn(late, frontend.connections)
 
-    def test_on_turn_event_wraps_payload_as_session_event(self):
+    def test_session_event_is_forwarded_without_backend_metadata_changes(self):
         frontend = WebSocketFrontend()
         dispatched = []
         frontend._dispatch_message = lambda message: dispatched.append(message) or True
-
-        frontend.on_turn_event(
-            "tool_started",
-            {
-                "session_id": "sess-1",
-                "_session_event": {
-                    "event_id": "evt-1",
-                    "seq": 3,
-                    "created_at": "2026-04-04T00:00:00Z",
-                    "event": "tool_started",
-                },
-                "tool_name": "read_file",
-                "arguments": {"path": "README.md"},
-            },
+        envelope = SessionEventEnvelope(
+            schema_version=1,
+            event_id="evt-host",
+            session_id="sess-1",
+            sequence=4,
+            event_kind="approval.requested",
+            timestamp="2026-07-26T00:00:00Z",
+            payload={"request_id": "perm-1", "interaction_id": "perm-1"},
         )
 
-        self.assertEqual(dispatched[0]["type"], "session_event")
-        self.assertEqual(dispatched[0]["data"]["session_id"], "sess-1")
-        self.assertEqual(dispatched[0]["data"]["event_kind"], "tool.started")
-        self.assertEqual(dispatched[0]["data"]["seq"], 3)
+        frontend.on_session_event(envelope)
 
-    def test_on_turn_event_generates_metadata_when_core_payload_has_none(self):
-        frontend = WebSocketFrontend()
-        dispatched = []
-        frontend._dispatch_message = lambda message: dispatched.append(message) or True
-
-        frontend.on_turn_event(
-            "permission_required",
-            {
-                "session_id": "sess-1",
-                "permission": {
-                    "permission_id": "perm-1",
-                    "tool_name": "write_file",
-                    "category": "workspace_write",
-                    "reason": "Allow write",
-                },
-                "turn_id": "turn-1",
-                "step_id": "step-1",
-                "step_index": 1,
-            },
+        self.assertEqual(
+            dispatched,
+            [{"type": "session_event", "data": envelope.to_dict()}],
         )
-
-        event = dispatched[0]["data"]
-        self.assertEqual(event["session_id"], "sess-1")
-        self.assertEqual(event["event_kind"], "approval.requested")
-        self.assertTrue(event["event_id"].startswith("evt-"))
-        self.assertEqual(event["seq"], 1)
-        self.assertTrue(event["created_at"].endswith("Z"))
-        self.assertEqual(event["payload"]["permission"]["permission_id"], "perm-1")
-        self.assertEqual(event["payload"]["request_id"], "perm-1")
-
-
-class TestCallbackBridge(unittest.TestCase):
-    def test_interaction_required_events_are_forwarded_to_session_event_stream(self):
-        frontend = MagicMock()
-        bridge = CallbackBridge(frontend)
-
-        bridge.emit(
-            "permission_required",
-            "sess-1",
-            {
-                "permission": {"permission_id": "perm-1", "tool_name": "write_file"},
-                "turn_id": "turn-1",
-                "step_id": "step-1",
-                "step_index": 1,
-            },
-        )
-
-        frontend.on_turn_event.assert_called_once()
-        event_name, payload = frontend.on_turn_event.call_args[0]
-        self.assertEqual(event_name, "permission_required")
-        self.assertEqual(payload["session_id"], "sess-1")
-        self.assertEqual(payload["permission"]["permission_id"], "perm-1")
-
-    def test_command_result_preserves_read_model_invalidations(self):
-        frontend = MagicMock()
-        bridge = CallbackBridge(frontend)
-
-        bridge.emit(
-            "command_result",
-            "sess-1",
-            {
-                "command_name": "resources",
-                "success": True,
-                "message": "reloaded",
-                "data": {"read_model_invalidations": ["capabilities"]},
-            },
-        )
-
-        result = frontend.on_command_result.call_args[0][0]
-        self.assertEqual(result.command_name, "resources")
-        self.assertEqual(result.data["read_model_invalidations"], ["capabilities"])
 
 
 class TestWebSocketFrontendDispatch(unittest.TestCase):
