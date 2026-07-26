@@ -3,19 +3,14 @@ from __future__ import annotations
 from typing import List
 
 from embedagent_core.profile import AgentModeDescriptor, AgentProfile
+from embedagent_core.profile_runtime import (
+    BASE_DISCUSSION_TOOLS,
+    BASE_READ_TOOLS,
+    BASE_VERIFY_TOOLS,
+    BASE_WRITE_TOOLS,
+    SPEC_WRITABLE_GLOBS,
+)
 
-BASE_READ_TOOLS = ["read_file", "list_dir", "glob_files", "grep_text"]
-BASE_DISCUSSION_TOOLS = BASE_READ_TOOLS + ["git_status", "git_log", "ask_user"]
-BASE_WRITE_TOOLS = BASE_READ_TOOLS + [
-    "write_file",
-    "edit_file",
-    "bash",
-    "author_local_capability",
-    "ask_user",
-]
-BASE_VERIFY_TOOLS = BASE_READ_TOOLS + ["bash", "ask_user"]
-
-SPEC_WRITABLE_GLOBS = ["**/*.md", "**/*.rst", "**/*.txt"]
 GENERIC_BUILD_WRITABLE_GLOBS = ["**/*"]
 PYTHON_BUILD_WRITABLE_GLOBS = SPEC_WRITABLE_GLOBS + [
     "**/*.py",

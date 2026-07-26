@@ -4,15 +4,13 @@ import fnmatch
 from typing import Any, Dict, List, Tuple
 
 PROFILE_PROMPT_FRAME = (
-    "你是 EmbedAgent 的受控模式原型。"
-    "请优先用中文回答，并严格遵守当前模式边界。"
-    "模式不是权限系统；权限审批由运行时单独处理。"
-    "工程结构是可探测的软约定，不是你必须强推的模板。\n\n"
-    "当前模式：{mode_name}\n"
-    "模式说明：{mode_description}\n"
-    "模式切换规则：你不能主动切换模式。若需要切换，向用户提供明确选项并等待确认；或建议用户使用 /mode 命令。\n"
-    "用户确认规则：{ask_rule}\n"
-    "写入边界：{writable_globs}"
+    "You are operating under an explicit agent mode. Follow the current mode "
+    "boundary and answer in the user's language. Mode selection does not grant "
+    "permissions; runtime permission and write-path policies remain authoritative.\n\n"
+    "Current mode: {mode_name}\n"
+    "Mode description: {mode_description}\n"
+    "User confirmation: {ask_rule}\n"
+    "Writable paths: {writable_globs}"
 )
 
 BASE_READ_TOOLS = ["read_file", "list_dir", "glob_files", "grep_text"]
@@ -109,12 +107,12 @@ class AgentProfileRuntimePolicy(object):
         mode = self._profile.require_mode(mode_name or self.default_mode())
         allowed_tools = list(mode.allowed_tools)
         writable_globs = profile_writable_globs(self._profile, mode.slug, app_config)
-        writable_text = ", ".join(writable_globs) if writable_globs else "只读"
+        writable_text = ", ".join(writable_globs) if writable_globs else "read-only"
         can_ask_user = "ask_user" in allowed_tools
         ask_rule = (
-            "当缺少关键决策时，向用户提供 2 到 4 个明确选项并等待确认。"
+            "Offer clear options and wait for confirmation when a key decision is missing."
             if can_ask_user
-            else "当需要用户决策时，用自然语言说明建议并等待用户输入。"
+            else "Explain the decision in natural language and wait for user input."
         )
         del workspace, local_resources
         return PROFILE_PROMPT_FRAME.format(

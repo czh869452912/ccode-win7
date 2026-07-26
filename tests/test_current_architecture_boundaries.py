@@ -466,6 +466,17 @@ def test_c_cpp_agent_profile_lives_in_c_workflow_package():
     assert "class AgentProfile" not in base_text
     assert "from embedagent_core.profile import AgentModeDescriptor, AgentProfile" in base_text
     assert "from embedagent_core.profile import AgentModeDescriptor, AgentProfile" in c_text
+    assert "from embedagent_core.profile_runtime import (" in base_text
+    assert "from embedagent_core.profile_runtime import (" in c_text
+    for duplicate in (
+        "BASE_READ_TOOLS =",
+        "BASE_DISCUSSION_TOOLS =",
+        "BASE_WRITE_TOOLS =",
+        "BASE_VERIFY_TOOLS =",
+        "SPEC_WRITABLE_GLOBS =",
+    ):
+        assert duplicate not in base_text
+        assert duplicate not in c_text
 
     forbidden_base_tokens = (
         "default_c_cpp_agent_profile",
@@ -685,3 +696,22 @@ def test_query_engine_has_no_hosted_service_constructor_parameters():
         "workspace_profile",
     ):
         assert name not in constructor
+
+
+def test_retired_product_tooling_modules_do_not_exist():
+    retired = (
+        "src/embedagent/tooling/contracts.py",
+        "src/embedagent/tooling/result_budget.py",
+        "src/embedagent/tooling/__init__.py",
+        "src/embedagent/workflow_packages/__init__.py",
+    )
+    for relative_path in retired:
+        assert not (ROOT / relative_path).is_file()
+
+
+def test_core_profile_prompt_is_product_neutral():
+    source = (ROOT / "packages/embedagent-core/src/embedagent_core/profile_runtime.py").read_text(
+        encoding="utf-8"
+    )
+    assert "EmbedAgent" not in source
+    assert "优先用中文" not in source

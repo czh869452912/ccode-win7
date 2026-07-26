@@ -5,8 +5,8 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-19`
-> 对应代码范围：`packages/embedagent-host/src/embedagent_host/runtime/tools/`, `src/embedagent/tooling/`, `packages/embedagent-host/src/embedagent_host/runtime/local_resources.py`, `packages/embedagent-host/src/embedagent_host/runtime/self_extension_authoring.py`, `packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/recipe_ops.py`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/session_ops.py`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workspace_recipes.py`
+> 最后同步日期：`2026-07-26`
+> 对应代码范围：`packages/embedagent-host/src/embedagent_host/runtime/tools/`, `packages/embedagent-host/src/embedagent_host/runtime/local_resources.py`, `packages/embedagent-host/src/embedagent_host/runtime/self_extension_authoring.py`, `packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/recipe_ops.py`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/session_ops.py`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workspace_recipes.py`
 
 ## 1. Purpose And Scope
 
@@ -28,12 +28,12 @@
 
 ## 3. Code Mapping
 
-- 目录：`packages/embedagent-host/src/embedagent_host/runtime/tools/`, `src/embedagent/tooling/`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`
+- 目录：`packages/embedagent-host/src/embedagent_host/runtime/tools/`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`
 - 入口文件：`packages/embedagent-host/src/embedagent_host/runtime/tools/runtime.py`
-- 核心对象：`ToolRuntime`、`ToolDefinition`、tool ops modules、tool pack registry functions (`register_pack`, `list_packs`)
+- 核心对象：`ToolRuntime`、`ToolDefinition`、tool ops modules
 - 上游依赖：`AgentExtensionHost`、`AgentToolActionService`、default C/C++ workflow extension
 - 下游影响：tool execution、context reduction、frontend tool catalog
-- 相关测试：`tests/test_tools_package.py`、`tests/test_tools_v2_runtime.py`、`tests/test_tool_execution.py`、`tests/test_tool_commit.py`、`tests/test_tooling_budget_v2.py`、`tests/test_dynamic_tool_registration.py`、`tests/test_local_resources.py`、`tests/test_project_extensions.py`、`tests/test_workflow_extensions.py`
+- 相关测试：`tests/test_tools_package.py`、`tests/test_tools_v2_runtime.py`、`tests/test_tool_execution.py`、`tests/test_tool_commit.py`、`tests/test_tool_result_store.py`、`tests/test_dynamic_tool_registration.py`、`tests/test_local_resources.py`、`tests/test_project_extensions.py`、`tests/test_workflow_extensions.py`
 - 相关契约：`docs/tool-contracts.md`、`docs/overall-solution-architecture.md`
 
 ## 4. Dependencies And Consumers
@@ -93,7 +93,6 @@ flowchart TD
 - `tests/test_tool_execution.py`
 - `tests/test_tool_commit.py`
 - `tests/test_tool_result_store.py`
-- `tests/test_tooling_budget_v2.py`
 - `tests/test_dynamic_tool_registration.py`
 - `tests/test_local_resources.py`
 - `tests/test_project_extensions.py`

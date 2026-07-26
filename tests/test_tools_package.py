@@ -159,7 +159,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
             self.assertEqual(func["parameters"]["type"], "object")
             self.assertIn("required", func["parameters"])
 
-    def test_review_workflow_filters_out_write_tools_from_spec_mode(self):
+    def test_explicit_spec_tool_names_are_not_reinterpreted_by_workflow_state(self):
         schemas = self.rt.schemas_for(
             "spec",
             workflow_state="review",
@@ -168,7 +168,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         tool_names = [item["function"]["name"] for item in schemas]
         self.assertIn("read_file", tool_names)
         self.assertNotIn("task_status", tool_names)
-        self.assertNotIn("write_file", tool_names)
+        self.assertIn("write_file", tool_names)
 
     def test_verify_review_workflow_uses_explicit_read_only_tool_names(self):
         schemas = self.rt.schemas_for(

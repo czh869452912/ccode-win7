@@ -133,7 +133,7 @@ class AgentProfileTests(unittest.TestCase):
 
         prompt = policy.build_system_prompt("build")
         self.assertIn("Python 工程", prompt)
-        self.assertIn("当前模式：build", prompt)
+        self.assertIn("Current mode: build", prompt)
         self.assertEqual(
             policy.parse_mode_switch_request("/mode debug fix it", "explore"),
             ("debug", "fix it", True),
@@ -142,6 +142,17 @@ class AgentProfileTests(unittest.TestCase):
             policy.parse_mode_switch_request("切换到verify模式", "explore"),
             ("verify", "", True),
         )
+
+    def test_agent_profile_runtime_prompt_frame_is_product_neutral(self):
+        from embedagent_core.profile_runtime import AgentProfileRuntimePolicy
+        from embedagent_host.runtime.profiles import python_agent_profile
+
+        prompt = AgentProfileRuntimePolicy(python_agent_profile()).build_system_prompt("build")
+
+        self.assertIn("Current mode: build", prompt)
+        self.assertIn("answer in the user's language", prompt)
+        self.assertNotIn("EmbedAgent", prompt)
+        self.assertNotIn("优先用中文", prompt)
 
     def test_base_agent_profiles_do_not_export_c_cpp_specialization(self):
         import embedagent_host.runtime.profiles as profiles
