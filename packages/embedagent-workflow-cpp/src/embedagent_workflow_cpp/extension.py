@@ -122,7 +122,7 @@ class CHarnessWorkflowExtension(object):
     def describe_prompt(
         self,
         current_mode: str,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
         session: Any = None,
     ) -> Optional[WorkflowPrompt]:
         context = self._describe_context(current_mode, workflow_state=workflow_state)
@@ -141,7 +141,7 @@ class CHarnessWorkflowExtension(object):
         session: Any,
         user_text: str,
         current_mode: str,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
     ) -> None:
         if not self.should_inject_workflow(user_text, current_mode):
             return
@@ -155,7 +155,7 @@ class CHarnessWorkflowExtension(object):
         self,
         session: Any,
         current_mode: str,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
         observations: Optional[List[Any]] = None,
     ) -> None:
         graph = self.graph_state.get(session)
@@ -229,7 +229,7 @@ class CHarnessWorkflowExtension(object):
         self,
         session: Any,
         current_mode: str,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
     ) -> Any:
         graph = self.graph_state.get(session)
         return self._describe_context(
@@ -243,7 +243,7 @@ class CHarnessWorkflowExtension(object):
     def package_manifest(self) -> dict:
         return c_workflow_package_manifest_dict()
 
-    def allowed_tool_names(self, mode_name: str, workflow_state: str = "chat") -> Set[str]:
+    def allowed_tool_names(self, mode_name: str, workflow_state: str = "") -> Set[str]:
         context = self._describe_context(mode_name, workflow_state=workflow_state)
         if context is None:
             return set()
@@ -326,7 +326,7 @@ class CHarnessWorkflowExtension(object):
         session: Any,
         tool_name: str,
         current_mode: str,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
     ) -> Optional[Observation]:
         if tool_name != "task_status":
             return None
@@ -367,7 +367,7 @@ class CHarnessWorkflowExtension(object):
     def _describe_context(
         self,
         mode_name: str,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
         current_phase: str = "",
         observations: Optional[List[Any]] = None,
     ) -> Any:
@@ -388,7 +388,7 @@ class CHarnessWorkflowExtension(object):
             observations=observations or [],
         )
 
-    def _discipline_override(self, mode_name: str, workflow_state: str = "chat") -> Optional[str]:
+    def _discipline_override(self, mode_name: str, workflow_state: str = "") -> Optional[str]:
         if str(mode_name or "") == "build" and str(workflow_state or "") == "plan":
             return "full_spec_tdd"
         return None

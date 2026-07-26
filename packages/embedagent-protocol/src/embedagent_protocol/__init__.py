@@ -215,7 +215,7 @@ class SessionSnapshot:
     current_mode: str
     created_at: str
     updated_at: str
-    workflow_state: str = "chat"
+    workflow_state: str = ""
     has_active_plan: bool = False
     active_plan_ref: str = ""
     current_command_context: str = ""

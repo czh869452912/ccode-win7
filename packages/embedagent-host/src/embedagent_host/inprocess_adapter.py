@@ -311,6 +311,7 @@ class InProcessAdapter(object):
             transcript_store=self.transcript_store,
             mode_resolver=self._mode_runtime_policy.require_mode,
             default_mode=self._mode_runtime_policy.default_mode(),
+            default_workflow_state=str(self.runtime_definition.workflow_state or ""),
         )
         self.session_projection = SessionProjectionService(
             transcript_store=self.transcript_store,
@@ -458,9 +459,9 @@ class InProcessAdapter(object):
         with self._lock:
             state = self._sessions.get(session_id)
         if state is None:
-            return "chat"
+            return str(self.runtime_definition.workflow_state or "")
         with state.lock:
-            return str(state.workflow_state or "chat")
+            return str(state.workflow_state or "")
 
     def _best_effort_history_count_for_session(self, session_id: str) -> int:
         with self._lock:
@@ -697,7 +698,7 @@ class InProcessAdapter(object):
         self,
         reason: str = "catalog",
         mode_name: str = "",
-        workflow_state: str = "chat",
+        workflow_state: str = "",
     ) -> None:
         runtime_snapshot = {}
         runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
@@ -706,7 +707,7 @@ class InProcessAdapter(object):
         self.extension_manager.register_tools(
             ToolRegistrationEvent(
                 current_mode=str(mode_name or ""),
-                workflow_state_name=str(workflow_state or "chat"),
+                workflow_state_name=str(workflow_state or ""),
                 reason=str(reason or "catalog"),
             ),
             ExtensionContext(
@@ -857,7 +858,9 @@ class InProcessAdapter(object):
             session=session,
             current_mode=current_mode,
             active_plan_ref=plan.path if plan is not None else "",
-            workflow_state="plan" if plan is not None else "chat",
+            workflow_state=(
+                "plan" if plan is not None else str(self.runtime_definition.workflow_state or "")
+            ),
             agent_session=self.agent.open(session.session_id),
         )
         state.current_mode = state.agent_session._host_initialize_session(
@@ -902,7 +905,7 @@ class InProcessAdapter(object):
         state = ManagedSession(
             session=session,
             current_mode=current_mode,
-            workflow_state="chat",
+            workflow_state=str(self.runtime_definition.workflow_state or ""),
             agent_session=self.agent.open(session.session_id),
             summary_ref=summary_ref,
             updated_at=_utc_now(),
@@ -1127,7 +1130,7 @@ class InProcessAdapter(object):
                 allowed.update(
                     self.extension_manager.allowed_tool_names(
                         mode_name,
-                        workflow_state="chat",
+                        workflow_state=str(self.runtime_definition.workflow_state or ""),
                         base_tool_names=set(self._mode_tool_policy.allowed_tools_for(mode_name)),
                     )
                 )
@@ -1216,8 +1219,6 @@ class InProcessAdapter(object):
             state.status = "running"
             state.last_error = None
             state.current_command_context = ""
-            if state.workflow_state != "plan":
-                state.workflow_state = "chat"
             state.updated_at = _utc_now()
         payload = {
             "text": text_to_run,

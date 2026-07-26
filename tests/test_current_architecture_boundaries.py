@@ -402,6 +402,26 @@ def test_tool_runtime_does_not_import_mode_registry_for_schema_projection():
     assert "allowed_tools_for(mode_name)" not in runtime_source
 
 
+def test_generic_layers_do_not_default_workflow_state_to_chat():
+    paths = [
+        ROOT / "packages/embedagent-protocol/src/embedagent_protocol/__init__.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/context.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/services/session_lifecycle.py",
+        ROOT / "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/extension.py",
+    ]
+    forbidden = (
+        'workflow_state: str = "chat"',
+        'workflow_state or "chat"',
+        'workflow_state="chat"',
+        'state.workflow_state = "chat"',
+        'else "chat"',
+    )
+    for path in paths:
+        source = _read(path)
+        assert not [token for token in forbidden if token in source], str(path)
+
+
 def test_c_workflow_tools_are_declared_only_by_c_workflow_package_or_tests():
     c_tools = (
         "list_recipes",

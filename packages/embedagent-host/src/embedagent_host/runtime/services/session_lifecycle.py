@@ -34,6 +34,7 @@ class SessionLifecycleManager(object):
         transcript_store: TranscriptStore,
         mode_resolver: Callable[[str], Dict[str, Any]],
         default_mode: str,
+        default_workflow_state: str = "",
     ) -> None:
         self.session_store = session_store
         self.summary_store = summary_store
@@ -48,6 +49,7 @@ class SessionLifecycleManager(object):
             raise ValueError("default_mode is required")
         self.mode_resolver = mode_resolver
         self.default_mode = self._require_mode_slug(requested_default)
+        self.default_workflow_state = str(default_workflow_state or "")
 
     def _require_mode_slug(self, requested: str) -> str:
         definition = self.mode_resolver(requested)
@@ -70,7 +72,7 @@ class SessionLifecycleManager(object):
             session=session,
             current_mode=current_mode,
             active_plan_ref=plan.path if plan is not None else "",
-            workflow_state="plan" if plan is not None else "chat",
+            workflow_state=("plan" if plan is not None else self.default_workflow_state),
         )
         return state
 

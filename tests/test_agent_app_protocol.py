@@ -12,6 +12,8 @@ from embedagent_protocol import (
     CommandDescriptor,
     InteractionActivity,
     ModeDescriptor,
+    SessionSnapshot,
+    SessionStatus,
     ThreadDetailSnapshot,
     ThreadShell,
     ToolPresentation,
@@ -145,6 +147,17 @@ class AgentAppProtocolTests(unittest.TestCase):
         self.assertIn("app", payload)
         self.assertNotIn("history", payload)
         self.assertNotIn("snapshot", payload)
+
+    def test_session_snapshot_preserves_missing_workflow_state(self):
+        snapshot = SessionSnapshot(
+            session_id="s-1",
+            status=SessionStatus.IDLE,
+            current_mode="explore",
+            created_at="",
+            updated_at="",
+        )
+
+        self.assertEqual(snapshot.workflow_state, "")
 
 
 if __name__ == "__main__":

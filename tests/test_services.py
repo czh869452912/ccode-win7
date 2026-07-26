@@ -194,6 +194,7 @@ class TestSessionLifecycleManager(unittest.TestCase):
         state = self.manager.create_session_state(mode="explore")
         self.assertIsNotNone(state.session)
         self.assertEqual(state.current_mode, "explore")
+        self.assertEqual(state.workflow_state, "")
 
     def test_restore_uses_explicit_transcript_reference_loader(self):
         self.summary_store.resolve_transcript_path.return_value = "transcript-reference"

@@ -201,8 +201,9 @@ class FrontendCatalogDynamicToolExtension(object):
     extension_id = "frontend_catalog_dynamic"
     builtin_extension = False
 
-    def __init__(self):
+    def __init__(self, workflow_state=""):
         self.active = False
+        self.workflow_state = str(workflow_state or "")
 
     def extension_capabilities(self):
         from embedagent_core.extensions import ExtensionCapability
@@ -236,7 +237,7 @@ class FrontendCatalogDynamicToolExtension(object):
             metadata={
                 "permission_category": "network",
                 "mode_visibility": ["build"],
-                "workflow_visibility": ["chat"],
+                "workflow_visibility": [self.workflow_state] if self.workflow_state else [],
                 "read_only": False,
             },
             read_only=False,
@@ -244,8 +245,9 @@ class FrontendCatalogDynamicToolExtension(object):
         assert context.tool_registry is not None
         return ToolRegistrationResult(tools=[tool], source_id=self.extension_id)
 
-    def allowed_tool_names(self, mode_name, workflow_state="chat"):
-        if self.active and mode_name == "build" and workflow_state == "chat":
+    def allowed_tool_names(self, mode_name, workflow_state=""):
+        state_matches = not self.workflow_state or workflow_state == self.workflow_state
+        if self.active and mode_name == "build" and state_matches:
             return {"frontend_intranet_fetch"}
         return set()
 
@@ -495,6 +497,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         )
         self.snapshot = self.adapter.create_session("build")
 
+    def test_session_starts_with_explicit_empty_workflow_state(self):
+        self.assertEqual(self.snapshot["workflow_state"], "")
+
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
@@ -657,8 +662,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(active_entry.get("source_type"), "extension")
         self.assertEqual(active_entry.get("permission_category"), "network")
 
-    def test_resume_preserves_host_chat_workflow_and_chat_only_tool_activation(self):
-        extension = FrontendCatalogDynamicToolExtension()
+    def test_resume_preserves_empty_workflow_and_filters_chat_only_tool(self):
+        extension = FrontendCatalogDynamicToolExtension("chat")
         extension.active = True
         self.adapter.extension_manager.register(extension)
         created = self.adapter.create_session("build")
@@ -673,19 +678,19 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                 workspace=self.workspace,
             ),
         )
-        resumed_extension = FrontendCatalogDynamicToolExtension()
+        resumed_extension = FrontendCatalogDynamicToolExtension("chat")
         resumed_extension.active = True
         resumed_adapter.extension_manager.register(resumed_extension)
         resumed = resumed_adapter.resume_session(session_id, "build")
         resumed_state = resumed_adapter._sessions[session_id]
 
-        self.assertEqual(created.get("workflow_state"), "chat")
-        self.assertIn(
+        self.assertEqual(created.get("workflow_state"), "")
+        self.assertNotIn(
             "frontend_intranet_fetch",
             self.adapter._active_tool_names_for_state(created_state),
         )
-        self.assertEqual(resumed.get("workflow_state"), "chat")
-        self.assertIn(
+        self.assertEqual(resumed.get("workflow_state"), "")
+        self.assertNotIn(
             "frontend_intranet_fetch",
             resumed_adapter._active_tool_names_for_state(resumed_state),
         )

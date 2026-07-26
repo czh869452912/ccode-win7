@@ -726,7 +726,7 @@ class ContextManager(object):
         session: Session,
         mode_name: Optional[str] = None,
         tools: Optional[Any] = None,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
         intelligence_broker: Optional[WorkspaceIntelligenceBroker] = None,
         force_compact: bool = False,
         compact_trigger: str = "",
