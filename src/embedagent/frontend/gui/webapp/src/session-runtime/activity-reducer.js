@@ -243,7 +243,10 @@ export function reduceActivityState(state, action) {
           (item) => item.kind === "tool" && item.id === action.callId,
         ),
       };
-    case "tool_finished":
+    case "tool_finished": {
+      const existing = state.activities.find(
+        (item) => item.kind === "tool" && item.id === action.callId,
+      );
       return {
         ...state,
         activities: upsertActivityItem(
@@ -253,10 +256,11 @@ export function reduceActivityState(state, action) {
             kind: "tool",
             toolName: action.toolName,
             label: action.label || action.toolName,
-            arguments: action.arguments || {},
-            status: action.success ? "success" : "error",
+            arguments: action.arguments || existing?.arguments || {},
+            status: action.success ? "success" : "failed",
             data: action.data,
             error: action.error,
+            failure: action.failure || null,
             turnId: action.turnId || state.activeTurnId,
             stepId: action.stepId || state.activeStepId,
             stepIndex: action.stepIndex || state.activeStepIndex,
@@ -276,12 +280,14 @@ export function reduceActivityState(state, action) {
             sourceActivityKind: action.sourceActivityKind || "",
             changedFiles: action.changedFiles || [],
             toolData: action.toolData,
+            createdAt: existing?.createdAt || action.createdAt || "",
             completedAt: action.completedAt || action.createdAt || "",
             ...liveProjectionMeta(),
           },
           (item) => item.kind === "tool" && item.id === action.callId,
         ),
       };
+    }
     case "step_ended": {
       const turnId = action.turnId || state.activeTurnId;
       const stepId = action.stepId || state.activeStepId;

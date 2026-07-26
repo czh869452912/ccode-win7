@@ -1,5 +1,5 @@
 import {
-  appendSessionTransportEvent,
+  applySessionTransportEvent,
   capRetryAttempt,
 } from "../session-runtime/session-transport-state.js";
 import { shouldReconnectSocket } from "../session-runtime/websocket-lifecycle.js";
@@ -113,8 +113,13 @@ export function createSessionTransportController({
     };
   }
 
-  function appendEvent(event) {
-    return updateTransport((current) => appendSessionTransportEvent(current, event));
+  function applyEvent(event) {
+    let result = null;
+    updateTransport((current) => {
+      result = applySessionTransportEvent(current, event);
+      return result.state;
+    });
+    return result;
   }
 
   function close() {
@@ -123,5 +128,5 @@ export function createSessionTransportController({
     socket = null;
   }
 
-  return { connect, close, recover, appendEvent };
+  return { connect, close, recover, applyEvent };
 }

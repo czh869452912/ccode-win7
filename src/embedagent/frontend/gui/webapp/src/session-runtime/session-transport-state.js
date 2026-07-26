@@ -22,30 +22,63 @@ export function capRetryAttempt(value) {
   return Math.min(Math.max(numeric, 0), 20);
 }
 
-export function appendSessionTransportEvent(state, event) {
-  if (!event || !event.event_id) return state;
-  if (!event.event_kind || typeof event.payload !== "object" || event.payload === null) {
-    return {
-      ...state,
-      reloadState: "degraded",
-    };
+function application(state, accepted, reason = "") {
+  return { state, accepted, reason };
+}
+
+function validEnvelope(event) {
+  if (!event || typeof event !== "object") return false;
+  if (!Number.isInteger(event.schema_version) || event.schema_version <= 0) return false;
+  if (!String(event.event_id || "").trim()) return false;
+  if (!String(event.session_id || "").trim()) return false;
+  if (!Number.isInteger(event.sequence) || event.sequence <= 0) return false;
+  if (!String(event.event_kind || "").trim()) return false;
+  if (!String(event.timestamp || "").trim()) return false;
+  if (
+    typeof event.payload !== "object" ||
+    event.payload === null ||
+    Array.isArray(event.payload)
+  ) {
+    return false;
   }
-  if (state.eventIds.has(event.event_id)) return state;
-  const seq = Number(event.seq || 0);
-  if (state.lastAppliedSeq && seq !== state.lastAppliedSeq + 1) {
-    return {
-      ...state,
-      reloadState: "reload_required",
-    };
+  return true;
+}
+
+export function applySessionTransportEvent(state, event) {
+  if (!validEnvelope(event)) {
+    return application(
+      {
+        ...state,
+        reloadState: "degraded",
+      },
+      false,
+      "invalid_envelope",
+    );
+  }
+  if (state.eventIds.has(event.event_id)) {
+    return application(state, false, "duplicate_event");
+  }
+  if (state.lastAppliedSeq && event.sequence !== state.lastAppliedSeq + 1) {
+    return application(
+      {
+        ...state,
+        reloadState: "reload_required",
+      },
+      false,
+      "sequence_gap",
+    );
   }
   const eventIds = new Set(state.eventIds);
   eventIds.add(event.event_id);
-  return {
-    ...state,
-    events: state.events.concat(event),
-    eventIds,
-    lastAppliedSeq: seq || state.lastAppliedSeq,
-  };
+  return application(
+    {
+      ...state,
+      events: state.events.concat(event),
+      eventIds,
+      lastAppliedSeq: event.sequence,
+    },
+    true,
+  );
 }
 
 export function projectTransportView({ transportState } = {}) {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
-  appendSessionTransportEvent,
+  applySessionTransportEvent,
   capRetryAttempt,
   createSessionTransportState,
   projectTransportView,
@@ -10,23 +10,26 @@ import { buildSessionActivityRuntime } from "../src/session-runtime/activity-sta
 
 export function runSessionRuntimeTests() {
   const initial = createSessionTransportState();
-  const first = appendSessionTransportEvent(initial, {
+  const firstApplication = applySessionTransportEvent(initial, {
+    schema_version: 1,
     session_id: "sess-1",
     event_id: "evt-1",
-    seq: 1,
+    sequence: 1,
     event_kind: "turn.started",
-    created_at: "2026-04-04T00:00:00Z",
+    timestamp: "2026-04-04T00:00:00Z",
     payload: { turn_id: "turn-1", user_text: "hello" },
   });
-  const gap = appendSessionTransportEvent(first, {
+  const gap = applySessionTransportEvent(firstApplication.state, {
+    schema_version: 1,
     session_id: "sess-1",
     event_id: "evt-3",
-    seq: 3,
+    sequence: 3,
     event_kind: "step.started",
-    created_at: "2026-04-04T00:00:01Z",
+    timestamp: "2026-04-04T00:00:01Z",
     payload: { turn_id: "turn-1", step_id: "step-1" },
   });
-  assert.equal(gap.reloadState, "reload_required");
+  assert.equal(gap.state.reloadState, "reload_required");
+  assert.equal(gap.accepted, false);
 
   const runtime = buildSessionActivityRuntime({
     snapshot: {
@@ -142,11 +145,12 @@ export function runSessionRuntimeTests() {
       ...createSessionTransportState(),
       events: [
         {
+          schema_version: 1,
           session_id: "sess-1",
           event_id: "evt-ignored",
-          seq: 1,
+          sequence: 1,
           event_kind: "approval.requested",
-          created_at: "2026-04-04T00:01:00Z",
+          timestamp: "2026-04-04T00:01:00Z",
           payload: {
             interaction_id: "int-ignored",
             kind: "user_input",
@@ -241,15 +245,17 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(detachedRuntime.timelineView[0].trailingTurnItems[0].id, "detached-tool");
 
-  const malformedTransport = appendSessionTransportEvent(createSessionTransportState(), {
+  const malformedTransport = applySessionTransportEvent(createSessionTransportState(), {
+    schema_version: 1,
     session_id: "sess-1",
     event_id: "evt-bad",
-    seq: 1,
+    sequence: 1,
     event_kind: "",
-    created_at: "2026-04-04T00:02:00Z",
+    timestamp: "2026-04-04T00:02:00Z",
     payload: null,
   });
-  assert.equal(malformedTransport.reloadState, "degraded");
+  assert.equal(malformedTransport.state.reloadState, "degraded");
+  assert.equal(malformedTransport.reason, "invalid_envelope");
 
   const retryState = capRetryAttempt(200);
   assert.equal(retryState, 20);

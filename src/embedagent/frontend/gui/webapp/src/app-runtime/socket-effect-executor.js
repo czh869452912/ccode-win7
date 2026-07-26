@@ -1,4 +1,4 @@
-import { appendSessionTransportEvent } from "../session-runtime/session-transport-state.js";
+import { applySessionTransportEvent } from "../session-runtime/session-transport-state.js";
 
 function isReloadRequired(transportState) {
   return (
@@ -33,11 +33,16 @@ export function createSocketEffectExecutor({
   const readCurrentSessionId =
     typeof getCurrentSessionId === "function" ? getCurrentSessionId : () => "";
 
-  function appendTransportEvent(transportController, entry) {
-    if (transportController && typeof transportController.appendEvent === "function") {
-      return transportController.appendEvent(entry || {});
+  function applyTransportEvent(transportController, entry) {
+    if (transportController && typeof transportController.applyEvent === "function") {
+      return transportController.applyEvent(entry || {});
     }
-    return updateTransport((current) => appendSessionTransportEvent(current, entry || {}));
+    let result = null;
+    updateTransport((current) => {
+      result = applySessionTransportEvent(current, entry || {});
+      return result.state;
+    });
+    return result;
   }
 
   function recoverIfNeeded(transportController, nextTransport) {
@@ -56,14 +61,18 @@ export function createSocketEffectExecutor({
     const transportEvents = Array.isArray(effects.transportEvents)
       ? effects.transportEvents
       : [];
+    let transportAccepted = true;
     if (transportEvents.length) {
       const transportController = readTransportController();
       let nextTransport = readTransportState();
       for (const entry of transportEvents) {
-        nextTransport = appendTransportEvent(transportController, entry);
+        const result = applyTransportEvent(transportController, entry);
+        nextTransport = result?.state || nextTransport;
+        if (!result?.accepted) transportAccepted = false;
       }
       recoverIfNeeded(transportController, nextTransport);
     }
+    if (!transportAccepted) return;
 
     for (const action of effects.actions || []) {
       if (

@@ -10,9 +10,12 @@ export async function runSocketEffectExecutorTests() {
   const recovered = [];
   const clearedRequestIds = [];
   const controller = {
-    appendEvent(event) {
+    applyEvent(event) {
       appendedEvents.push(event);
-      return { reloadState: "reload_required", lastAppliedSeq: 7 };
+      return {
+        state: { reloadState: "reload_required", lastAppliedSeq: 7 },
+        accepted: true,
+      };
     },
     recover(sessionId, transportState) {
       recovered.push({ sessionId, transportState });
@@ -30,9 +33,12 @@ export async function runSocketEffectExecutorTests() {
   execute({
     transportEvents: [
       {
+        schema_version: 1,
+        session_id: "sess-active",
         event_id: "evt-7",
-        seq: 7,
+        sequence: 7,
         event_kind: "turn.started",
+        timestamp: "2026-07-26T00:00:07Z",
         payload: { turn_id: "turn-1" },
       },
     ],
@@ -72,15 +78,21 @@ export async function runSocketEffectExecutorTests() {
   fallbackExecute({
     transportEvents: [
       {
+        schema_version: 1,
+        session_id: "sess-fallback",
         event_id: "evt-1",
-        seq: 1,
+        sequence: 1,
         event_kind: "turn.started",
+        timestamp: "2026-07-26T00:00:01Z",
         payload: { turn_id: "turn-1" },
       },
       {
+        schema_version: 1,
+        session_id: "sess-fallback",
         event_id: "evt-3",
-        seq: 3,
+        sequence: 3,
         event_kind: "step.started",
+        timestamp: "2026-07-26T00:00:03Z",
         payload: { turn_id: "turn-1", step_id: "step-1" },
       },
     ],
@@ -89,4 +101,33 @@ export async function runSocketEffectExecutorTests() {
   assert.equal(transport.lastAppliedSeq, 1);
   assert.equal(transport.reloadState, "reload_required");
   assert.deepEqual(fallbackLoadedSessions, ["sess-fallback"]);
+
+  const rejectedActions = [];
+  const reject = createSocketEffectExecutor({
+    dispatch: (action) => rejectedActions.push(action),
+    getSessionTransportController: () => ({
+      applyEvent() {
+        return {
+          state: { reloadState: "healthy", lastAppliedSeq: 1 },
+          accepted: false,
+          reason: "duplicate_event",
+        };
+      },
+    }),
+  });
+  reject({
+    transportEvents: [
+      {
+        schema_version: 1,
+        session_id: "sess-active",
+        event_id: "evt-1",
+        sequence: 1,
+        event_kind: "turn.started",
+        timestamp: "2026-07-26T00:00:01Z",
+        payload: { turn_id: "turn-1" },
+      },
+    ],
+    actions: [{ type: "turn_started", turnId: "turn-1" }],
+  });
+  assert.deepEqual(rejectedActions, []);
 }

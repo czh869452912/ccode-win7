@@ -303,7 +303,6 @@ def test_gui_backend_routes_do_not_use_active_core_proxy():
 def test_no_timeline_reload_route_or_metadata_in_active_gui_backend():
     files = [
         ROOT / "src/embedagent/frontend/gui/backend/server.py",
-        ROOT / "src/embedagent/frontend/gui/backend/session_events.py",
         ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py",
         ROOT / "src/embedagent/core/adapter.py",
     ]
@@ -983,7 +982,7 @@ def test_gui_socket_effect_execution_is_controller_owned():
     assert "scheduleMessage" in controller_text
     assert "function handleMessage" in controller_text
     assert "export function createSocketEffectExecutor" in executor_text
-    assert "appendSessionTransportEvent" in executor_text
+    assert "applySessionTransportEvent" in executor_text
     assert "recover(currentSessionId, nextTransport)" in executor_text
     assert "executeLoaderRequest" in executor_text
 
@@ -1028,9 +1027,9 @@ def test_gui_command_result_run_output_log_is_payload_driven():
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"
     )
 
-    assert "function commandLogPayload" in text
     assert "log_label" in text
-    assert "logLabel" in text
+    assert "log_detail" in text
+    assert "logLabel" not in text
     assert "command: /" not in text
     assert 'data?.success ? "ok" : "error"' not in text
 
@@ -3064,7 +3063,6 @@ def test_gui_interaction_responses_route_through_core_lifecycle():
     files = [
         ROOT / "src/embedagent/frontend/gui/backend/routes_sessions.py",
         ROOT / "src/embedagent/frontend/gui/backend/server.py",
-        ROOT / "src/embedagent/frontend/gui/backend/session_events.py",
     ]
     forbidden = (
         "resolve_interaction_response",
@@ -3083,6 +3081,35 @@ def test_gui_interaction_responses_route_through_core_lifecycle():
             if token in text:
                 offenders.append("%s contains %s" % (_relative(path), token))
     assert offenders == []
+
+
+def test_renderer_has_one_agent_event_transport_path():
+    source = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"
+    )
+
+    assert 'type === "session_event"' in source
+    for legacy_type in (
+        "tool_start",
+        "tool_finish",
+        "command_result",
+        "session_status",
+        "stream_delta",
+        "reasoning_delta",
+        "session_finished",
+    ):
+        assert 'type === "%s"' % legacy_type not in source
+
+
+def test_renderer_transport_uses_canonical_envelope_ordering_fields():
+    source = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/session-transport-state.js"
+    )
+
+    assert "event.sequence" in source
+    assert re.search(r"event\.seq(?!uence)", source) is None
+    assert "event.schema_version" in source
+    assert "event.timestamp" in source
 
 
 def test_gui_workspace_lifecycle_stays_in_workspace_controller():

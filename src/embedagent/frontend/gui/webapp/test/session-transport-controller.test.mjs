@@ -64,29 +64,33 @@ export async function runSessionTransportControllerTests() {
   assert.equal(transport.reloadState, "healthy");
 
   harness.sockets[0].onmessage({
-    data: JSON.stringify({ type: "session_event", data: { seq: 1 } }),
+    data: JSON.stringify({ type: "session_event", data: { sequence: 1 } }),
   });
-  assert.deepEqual(messages, [{ type: "session_event", data: { seq: 1 } }]);
+  assert.deepEqual(messages, [{ type: "session_event", data: { sequence: 1 } }]);
 
-  let appended = controller.appendEvent({
+  let application = controller.applyEvent({
+    schema_version: 1,
     session_id: "sess-transport",
     event_id: "evt-1",
-    seq: 1,
+    sequence: 1,
     event_kind: "turn.started",
-    created_at: "2026-06-26T00:00:00Z",
+    timestamp: "2026-06-26T00:00:00Z",
     payload: { turn_id: "turn-1" },
   });
-  assert.equal(appended.lastAppliedSeq, 1);
-  appended = controller.appendEvent({
+  assert.equal(application.state.lastAppliedSeq, 1);
+  assert.equal(application.accepted, true);
+  application = controller.applyEvent({
+    schema_version: 1,
     session_id: "sess-transport",
     event_id: "evt-3",
-    seq: 3,
+    sequence: 3,
     event_kind: "step.started",
-    created_at: "2026-06-26T00:00:01Z",
+    timestamp: "2026-06-26T00:00:01Z",
     payload: { turn_id: "turn-1", step_id: "step-1" },
   });
-  assert.equal(appended.reloadState, "reload_required");
-  await controller.recover("sess-transport", appended);
+  assert.equal(application.state.reloadState, "reload_required");
+  assert.equal(application.accepted, false);
+  await controller.recover("sess-transport", application.state);
   assert.equal(loadedSessions.length, 2);
   assert.equal(transport.reloadState, "healthy");
 

@@ -758,6 +758,7 @@ function buildToolDetailModel(item, args, changed) {
 }
 
 function detailTextFor(item) {
+  if (item?.failure?.message) return stringValue(item.failure.message).slice(0, 4000);
   if (item?.error) return stringValue(item.error).slice(0, 4000);
   const data = item?.data;
   if (data == null) return "";
@@ -772,7 +773,7 @@ function toneForWork(item, status) {
   const errorKind = stringValue(item?.data?.error_kind);
   if (errorKind === "interrupted") return "interrupted";
   if (errorKind === "discarded") return "discarded";
-  if (status === "error") return "error";
+  if (status === "error" || status === "failed") return "error";
   if (status === "running") return "running";
   return "neutral";
 }
@@ -781,7 +782,8 @@ export function normalizeWorkEntry(item, options = {}) {
   const args = publicArgs(item?.arguments || {});
   const toolName = stringValue(item?.toolName || item?.tool_name);
   const toolPresentation = resolveToolPresentation(toolName, options.toolCatalog || {});
-  const status = stringValue(item?.status || "running");
+  const sourceStatus = stringValue(item?.status || "running");
+  const status = sourceStatus === "failed" ? "error" : sourceStatus;
   const changed = summarizeChangedFiles([item], { toolCatalog: options.toolCatalog || {} });
   const data = item?.data && typeof item.data === "object" ? item.data : {};
   const requestKind =
@@ -859,6 +861,7 @@ export function normalizeWorkEntry(item, options = {}) {
     args,
     detail,
     detailModel: buildToolDetailModel(item, args, changed),
+    failure: item?.failure || null,
     changedFiles: changed.files,
     additions: changed.additions,
     deletions: changed.deletions,

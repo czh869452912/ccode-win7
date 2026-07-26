@@ -1527,9 +1527,15 @@ async function main() {
   assert.equal(socketMessageEffectsSource.includes('type: "set_inspector"'), false);
   assert.equal(socketMessageEffectsSource.includes("inspectorTab"), false);
   assert.equal(socketMessageEffectsSource.includes("session_event"), true);
-  assert.equal(socketMessageEffectsSource.includes('type === "permission_request"'), true);
-  assert.equal(socketMessageEffectsSource.includes('type === "user_input_request"'), true);
-  assert.equal(socketMessageEffectsSource.includes("command_result"), true);
+  for (const legacyType of [
+    "tool_start",
+    "tool_finish",
+    "command_result",
+    "session_status",
+    "stream_delta",
+  ]) {
+    assert.equal(socketMessageEffectsSource.includes(`type === "${legacyType}"`), false);
+  }
   assert.equal(socketMessageEffectsSource.includes("command: /"), false);
   assert.equal(socketMessageEffectsSource.includes('event_kind: "interaction' + '.created"'), false);
   assert.equal(socketMessageEffectsSource.includes("approval.requested"), true);
@@ -2304,7 +2310,7 @@ async function main() {
     "utf8",
   );
   assert.equal(sessionTransportControllerSource.includes("shouldReconnectSocket"), true);
-  assert.equal(sessionTransportControllerSource.includes("appendSessionTransportEvent"), true);
+  assert.equal(sessionTransportControllerSource.includes("applySessionTransportEvent"), true);
   assert.equal(sessionTransportControllerSource.includes("/events?after_seq"), false);
   assert.equal(appSource.includes("createSessionTransportHandle"), true);
   assert.equal(appSource.includes("sessionTransportRef"), false);
@@ -2335,7 +2341,7 @@ async function main() {
   assert.equal(appSource.includes("const executeSocketEffects = createSocketEffectExecutor"), false);
   assert.equal(appSource.includes("function handleSocketMessage"), false);
   assert.equal(appSource.includes("deriveSocketMessageEffects"), false);
-  assert.equal(appSource.includes("appendSessionTransportEvent"), false);
+  assert.equal(appSource.includes("applySessionTransportEvent"), false);
   assert.equal(appSource.includes("transportEvents.length"), false);
   assert.equal(appSource.includes('nextTransport.reloadState === "reload_required"'), false);
   assert.equal(appSource.includes("for (const action of effects.actions"), false);
@@ -2356,7 +2362,7 @@ async function main() {
   assert.equal(socketMessageControllerSource.includes("function handleMessage"), true);
   assert.equal(socketMessageControllerSource.includes("import React"), false);
   assert.equal(socketEffectExecutorSource.includes("export function createSocketEffectExecutor"), true);
-  assert.equal(socketEffectExecutorSource.includes("appendSessionTransportEvent"), true);
+  assert.equal(socketEffectExecutorSource.includes("applySessionTransportEvent"), true);
   assert.equal(socketEffectExecutorSource.includes("recover(currentSessionId, nextTransport)"), true);
   assert.equal(socketEffectExecutorSource.includes("executeLoaderRequest"), true);
   assert.equal(socketEffectExecutorSource.includes("import React"), false);
