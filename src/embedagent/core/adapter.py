@@ -344,13 +344,7 @@ class AgentCoreAdapter(CoreInterface):
             "permission_policy": kwargs.get("permission_policy"),
             "event_handler": self._on_adapter_event,
         }
-        for key in (
-            "summary_store",
-            "project_memory_store",
-            "context_manager",
-            "memory_maintenance",
-            "maintenance_interval",
-        ):
+        for key in ("context_manager",):
             if key in kwargs and kwargs.get(key) is not None:
                 adapter_kwargs[key] = kwargs.get(key)
         self._adapter = AdapterClass(**adapter_kwargs)

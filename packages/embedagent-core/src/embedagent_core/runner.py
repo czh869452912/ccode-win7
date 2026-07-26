@@ -10,7 +10,6 @@ from embedagent_core.api import (
     AgentObserver,
     AgentPorts,
     AgentResult,
-    AgentRuntimeServices,
     AgentSessionView,
     CancelToken,
     InteractionReply,
@@ -55,16 +54,7 @@ class AgentRuntime(object):
         )
         self._host_lease_state = threading.local()
 
-    def _services(self) -> AgentRuntimeServices:
-        services = self.ports.runtime_services
-        if services is None:
-            return AgentRuntimeServices()
-        if not isinstance(services, AgentRuntimeServices):
-            raise TypeError("runtime services must be AgentRuntimeServices")
-        return services
-
     def build_engine(self) -> QueryEngine:
-        self._services()
         return QueryEngine(
             client=self.ports.model,
             tools=self.ports.tools,

@@ -80,17 +80,6 @@ AgentInput = Union[UserTurn, InteractionReply]
 
 
 @dataclass(frozen=True)
-class AgentRuntimeServices:
-    summary_store: Any = None
-    project_memory_store: Any = None
-    memory_maintenance: Any = None
-    maintenance_interval: int = 4
-    intelligence_broker: Any = None
-    tool_commit: Any = None
-    workspace_profile: Any = None
-
-
-@dataclass(frozen=True)
 class AgentPorts:
     model: ModelClient
     tools: ToolRuntimePort
@@ -99,7 +88,6 @@ class AgentPorts:
     permissions: PermissionPolicy
     restore_policy: Optional[SessionRestorePolicyPort] = None
     session_projection: Optional[SessionProjectionPort] = None
-    runtime_services: Optional[AgentRuntimeServices] = None
     extension_manager: Optional[ExtensionManager] = None
 
 
@@ -164,11 +152,6 @@ class Agent(object):
         for port_name in ("model", "tools", "session_log", "context", "permissions"):
             if getattr(ports, port_name) is None:
                 raise ValueError("agent port %s is required" % port_name)
-        if ports.runtime_services is not None and not isinstance(
-            ports.runtime_services,
-            AgentRuntimeServices,
-        ):
-            raise TypeError("runtime services must be AgentRuntimeServices")
         runtime_definition = definition if definition is not None else RuntimeDefinition()
         if ports.extension_manager is not None and not isinstance(
             ports.extension_manager,

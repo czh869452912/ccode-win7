@@ -331,17 +331,6 @@ def test_agent_create_rejects_invalid_binding_types(base_ports):
     with pytest.raises(TypeError, match="^definition must be RuntimeDefinition$"):
         Agent.create(base_ports, object())
 
-    invalid_services = AgentPorts(
-        model=base_ports.model,
-        tools=base_ports.tools,
-        session_log=base_ports.session_log,
-        context=base_ports.context,
-        permissions=base_ports.permissions,
-        runtime_services=object(),
-    )
-    with pytest.raises(TypeError, match="^runtime services must be AgentRuntimeServices$"):
-        Agent.create(invalid_services)
-
     invalid_manager = AgentPorts(
         model=base_ports.model,
         tools=base_ports.tools,

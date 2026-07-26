@@ -663,3 +663,25 @@ def test_tools_module_docs_keep_workspace_recipes_workflow_neutral():
     assert (
         "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workspace_recipes.py" in text
     )
+
+
+def test_runtime_service_bag_is_deleted():
+    core_root = ROOT / "packages/embedagent-core/src/embedagent_core"
+    source = "\n".join(path.read_text(encoding="utf-8") for path in core_root.rglob("*.py"))
+    assert "AgentRuntimeServices" not in source
+
+
+def test_query_engine_has_no_hosted_service_constructor_parameters():
+    source = (ROOT / "packages/embedagent-core/src/embedagent_core/query_engine.py").read_text(
+        encoding="utf-8"
+    )
+    constructor = source.split("def __init__", 1)[1].split(") -> None", 1)[0]
+    for name in (
+        "summary_store",
+        "project_memory_store",
+        "memory_maintenance",
+        "intelligence_broker",
+        "tool_commit",
+        "workspace_profile",
+    ):
+        assert name not in constructor
