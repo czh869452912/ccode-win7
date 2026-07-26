@@ -64,6 +64,7 @@ from embedagent_host.runtime.services import (
 )
 from embedagent_host.runtime.session_projection import SessionProjectionService
 from embedagent_host.runtime.session_maintenance import HostedSessionMaintenance
+from embedagent_host.runtime.session_event_protocol import SessionEventHandler
 from embedagent_host.runtime.skill_index import build_skill_index
 from embedagent_host.runtime.slash_commands import (
     SlashCommandRegistry,
@@ -73,8 +74,6 @@ from embedagent_host.runtime.slash_commands import (
 from embedagent_host.runtime.tools import ToolRuntime
 from embedagent_host.runtime.transcript_store import TranscriptStore
 from embedagent_host.runtime.workspace_profile import build_workspace_profile_message
-
-EventHandler = Callable[[str, str, Dict[str, Any]], None]
 
 
 class _WorkspaceProfilePort(object):
@@ -225,7 +224,7 @@ class InProcessAdapter(object):
         context_manager: Optional[ContextManager] = None,
         memory_maintenance: Optional[MemoryMaintenance] = None,
         maintenance_interval: int = 4,
-        event_handler: Optional[EventHandler] = None,
+        event_handler: Optional[SessionEventHandler] = None,
         agent_application_id: str = "",
         agent_application: Optional[Any] = None,
         agent_application_registry: Optional[Any] = None,
@@ -836,7 +835,7 @@ class InProcessAdapter(object):
     def create_session(
         self,
         mode: str = "",
-        event_handler: Optional[EventHandler] = None,
+        event_handler: Optional[SessionEventHandler] = None,
     ) -> Dict[str, Any]:
         current_mode = self._mode_runtime_policy.require_mode(
             mode or self._mode_runtime_policy.default_mode()
@@ -879,7 +878,7 @@ class InProcessAdapter(object):
         self,
         reference: str,
         mode: str = "",
-        event_handler: Optional[EventHandler] = None,
+        event_handler: Optional[SessionEventHandler] = None,
     ) -> Dict[str, Any]:
         transcript_path = self.summary_store.resolve_transcript_path(reference)
         events = self.transcript_store.load_events_from_reference(transcript_path)
@@ -1156,7 +1155,7 @@ class InProcessAdapter(object):
         wait: bool = True,
         permission_resolver: Optional[PermissionResolver] = None,
         user_input_resolver: Optional[UserInputResolver] = None,
-        event_handler: Optional[EventHandler] = None,
+        event_handler: Optional[SessionEventHandler] = None,
     ) -> Dict[str, Any]:
         state = self._require_session(session_id)
         with state.lock:
@@ -1373,7 +1372,7 @@ class InProcessAdapter(object):
         stream: bool,
         permission_resolver: Optional[PermissionResolver],
         user_input_resolver: Optional[UserInputResolver],
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         interaction_resolution: Optional[Dict[str, Any]] = None,
         resume_pending: bool = False,
         stop_event: Optional[threading.Event] = None,
@@ -1743,7 +1742,7 @@ class InProcessAdapter(object):
 
     def _emit(
         self,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         event_name: str,
         session_id: str,
         payload: Dict[str, Any],
@@ -1757,7 +1756,7 @@ class InProcessAdapter(object):
 
     def _emit_with_snapshot(
         self,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         event_name: str,
         state: ManagedSession,
         payload: Dict[str, Any],
@@ -1772,7 +1771,7 @@ class InProcessAdapter(object):
 
     def _notify_status(
         self,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         state: ManagedSession,
     ) -> None:
         self._event_emitter.notify_status(

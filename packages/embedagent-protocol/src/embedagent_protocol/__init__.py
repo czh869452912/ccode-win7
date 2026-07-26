@@ -41,6 +41,10 @@ from embedagent_protocol.app_protocol import (
 from embedagent_protocol.app_protocol import (
     WorkflowPackageDescriptor as WorkflowPackageDescriptor,
 )
+from embedagent_protocol.session_events import FailureRecord as FailureRecord
+from embedagent_protocol.session_events import (
+    SessionEventEnvelope as SessionEventEnvelope,
+)
 
 
 @dataclass

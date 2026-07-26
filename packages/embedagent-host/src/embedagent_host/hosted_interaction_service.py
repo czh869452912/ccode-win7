@@ -10,9 +10,9 @@ from typing import Any, Callable, Dict, Optional
 from embedagent_core.interaction import UserInputRequest, UserInputResponse
 from embedagent_core.permissions import PermissionRequest
 
+from embedagent_host.runtime.session_event_protocol import SessionEventHandler
 from embedagent_host.runtime.session_runtime import ManagedSession
 
-EventHandler = Callable[[str, str, Dict[str, Any]], None]
 UserInputResolver = Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]
 _INTERACTION_ID_DETAIL_KEY = "_interaction_id"
 _PERMISSION_DECISIONS = set(["accept", "acceptForSession", "decline", "cancel"])
@@ -205,10 +205,10 @@ class HostedInteractionService(object):
         require_session: Callable[[str], ManagedSession],
         run_turn: Callable[..., None],
         get_session_snapshot: Callable[[str], Dict[str, Any]],
-        notify_status: Callable[[Optional[EventHandler], ManagedSession], None],
-        default_event_handler: Callable[[], Optional[EventHandler]],
+        notify_status: Callable[[Optional[SessionEventHandler], ManagedSession], None],
+        default_event_handler: Callable[[], Optional[SessionEventHandler]],
         emit_event: Optional[
-            Callable[[Optional[EventHandler], str, str, Dict[str, Any]], None]
+            Callable[[Optional[SessionEventHandler], str, str, Dict[str, Any]], None]
         ] = None,
     ) -> None:
         self._require_session = require_session

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-EventHandler = Optional[Callable[[str, str, Dict[str, object]], None]]
+from embedagent_host.runtime.session_event_protocol import SessionEventHandler
 
 
 @dataclass
@@ -16,11 +16,13 @@ class HostedSessionHost(object):
     def load_session_summary(self, reference: str) -> Dict[str, object]:
         return self.adapter.summary_store.load_summary(reference)
 
-    def create_session(self, mode: str, event_handler: EventHandler = None) -> Dict[str, object]:
+    def create_session(
+        self, mode: str, event_handler: Optional[SessionEventHandler] = None
+    ) -> Dict[str, object]:
         return self.adapter.create_session(mode, event_handler=event_handler)
 
     def resume_session(
-        self, reference: str, mode: str, event_handler: EventHandler = None
+        self, reference: str, mode: str, event_handler: Optional[SessionEventHandler] = None
     ) -> Dict[str, object]:
         return self.adapter.resume_session(reference, mode, event_handler=event_handler)
 
@@ -32,7 +34,7 @@ class HostedSessionHost(object):
         wait: bool,
         permission_resolver=None,
         user_input_resolver=None,
-        event_handler: EventHandler = None,
+        event_handler: Optional[SessionEventHandler] = None,
     ) -> None:
         self.adapter.submit_user_message(
             session_id=session_id,

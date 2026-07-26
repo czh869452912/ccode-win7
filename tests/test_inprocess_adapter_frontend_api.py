@@ -28,6 +28,33 @@ def _product_adapter(*args, **kwargs):
     return InProcessAdapter(*args, **kwargs)
 
 
+def _capture_events(events):
+    def capture(envelope):
+        events.append((envelope.event_kind, envelope.payload))
+
+    return capture
+
+
+def _capture_full_events(events):
+    def capture(envelope):
+        events.append(
+            (
+                envelope.event_kind,
+                envelope.session_id,
+                dict(envelope.payload),
+            )
+        )
+
+    return capture
+
+
+def _capture_event_kinds(events):
+    def capture(envelope):
+        events.append(envelope.event_kind)
+
+    return capture
+
+
 def _make_workspace():
     root = os.path.join(
         os.path.dirname(__file__),
@@ -757,7 +784,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         payload = self.adapter.get_session_bootstrap(str(self.snapshot.get("session_id") or ""))
         self.assertIn("snapshot", payload)
@@ -792,7 +819,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         history = adapter.build_session_history(session_id)
         self.assertEqual(history["integrity"]["status"], "healthy")
@@ -864,7 +891,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         payload = adapter.build_session_history(session_id)
         self.assertEqual(len(payload["turns"]), 1)
@@ -894,7 +921,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         history = adapter.build_session_history(session_id)
         self.assertIn(history["history_source"], ("session_state", "transcript_restore"))
@@ -928,7 +955,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         refreshed = adapter.get_session_snapshot(session_id)
         self.assertIn("context_analysis", refreshed)
@@ -1034,7 +1061,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         refreshed = adapter.get_session_snapshot(session_id)
 
@@ -1101,7 +1128,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         refreshed = adapter.get_session_snapshot(session_id)
         self.assertIn("workspace_intelligence", refreshed)
@@ -1144,7 +1171,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         refreshed = adapter.get_session_snapshot(session_id)
         self.assertIn("workspace_intelligence", refreshed)
@@ -1170,9 +1197,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=_capture_events(events),
         )
         refreshed = adapter.get_session_snapshot(session_id)
         self.assertIn("last_transition_reason", refreshed)
@@ -1186,7 +1211,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("compact_retry", [item.get("kind") for item in turn["transitions"]])
         bootstrap = adapter.get_session_bootstrap(session_id)
         self.assertNotIn("replay", bootstrap)
-        self.assertIn("compact_retry", [item[0] for item in events])
+        self.assertIn("compact.retry", [item[0] for item in events])
 
     def test_session_snapshot_includes_last_transition_message(self):
         adapter = _product_adapter(
@@ -1203,7 +1228,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         refreshed = adapter.get_session_snapshot(session_id)
         self.assertEqual(refreshed["last_transition_reason"], "max_turns")
@@ -1230,7 +1255,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         refreshed = adapter.get_session_snapshot(session_id)
         summary_path = adapter.summary_store.resolve_summary_path(
@@ -1261,7 +1286,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         payload = adapter.build_session_history(session_id)
         self.assertEqual(len(payload["turns"]), 1)
@@ -1286,7 +1311,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             text="请继续",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         payload = adapter.build_session_history(session_id)
         self.assertEqual(len(payload["turns"]), 1)
@@ -1321,7 +1346,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             text="写文件",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         refreshed = adapter.get_session_snapshot(session_id)
         self.assertEqual(refreshed["status"], "waiting_permission")
@@ -1368,7 +1393,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         payload = adapter.build_session_history(session_id)
         self.assertEqual(len(payload["turns"]), 1)
@@ -1398,7 +1423,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         refreshed = adapter.get_session_snapshot(session_id)
         self.assertEqual(refreshed["last_transition_reason"], "guard_stop")
@@ -1435,13 +1460,13 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=_capture_events(events),
         )
 
-        finished = [payload for event_name, payload in events if event_name == "session_finished"]
-        turn_end = [payload for event_name, payload in events if event_name == "turn_end"]
+        finished = [payload for event_name, payload in events if event_name == "session.finished"]
+        turn_end = [
+            payload for event_name, payload in events if event_name == "transition.recorded"
+        ]
         self.assertEqual(len(finished), 1)
         self.assertEqual(len(turn_end), 1)
         for payload in (finished[0], turn_end[0]):
@@ -1464,7 +1489,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             text="创建三个项目文件",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
 
         refreshed = adapter.get_session_snapshot(session_id)
@@ -1498,7 +1523,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=False,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         time.sleep(0.2)
         adapter.cancel_session(session_id)
@@ -1540,7 +1565,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=False,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         time.sleep(0.05)
         cancelling = adapter.cancel_session(session_id)
@@ -1572,7 +1597,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             text="请继续",
             stream=False,
             wait=False,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         deadline = time.time() + 3.0
         waiting = {}
@@ -1606,7 +1631,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             text="写文件",
             stream=False,
             wait=False,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         deadline = time.time() + 3.0
         waiting = {}
@@ -1638,7 +1663,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             text="写文件",
             stream=False,
             wait=False,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         deadline = time.time() + 3.0
         waiting = {}
@@ -1656,7 +1681,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             text="继续",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
 
         self.assertEqual(refreshed.get("status"), "idle")
@@ -1684,7 +1709,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         summary_path = adapter.summary_store.resolve_summary_path(session_id)
         if os.path.isfile(summary_path):
@@ -1707,7 +1732,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             text="写文件",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         restored = adapter.resume_session(session_id, "build")
         self.assertEqual(restored["status"], "waiting_permission")
@@ -1732,7 +1757,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         summary_path = adapter.summary_store.resolve_summary_path(session_id)
         if os.path.isfile(summary_path):
@@ -1758,7 +1783,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         restored = adapter.resume_session(session_id, "build")
 
@@ -1785,7 +1810,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         refreshed = adapter.get_session_snapshot(session_id)
 
@@ -1967,7 +1992,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                 "selected_mode": "debug",
                 "selected_option_text": "切到 debug 模式继续排查",
             },
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         refreshed = adapter.get_session_snapshot(session_id)
         self.assertEqual(refreshed["restore_stop_reason"], "")
@@ -1989,7 +2014,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         transcript_path = adapter.summary_store.resolve_transcript_path(session_id)
         if os.path.isfile(transcript_path):
@@ -2008,9 +2033,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         events = []
         cancelled = {"done": False}
 
-        def handle(event_name, current_session_id, payload):
-            events.append((event_name, payload))
-            if event_name == "tool_started" and not cancelled["done"]:
+        def handle(envelope):
+            events.append((envelope.event_kind, envelope.payload))
+            if envelope.event_kind == "tool.started" and not cancelled["done"]:
                 cancelled["done"] = True
                 adapter.cancel_session(session_id)
 
@@ -2025,7 +2050,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         final_snapshot = adapter.get_session_snapshot(session_id)
         self.assertEqual(final_snapshot.get("last_transition_reason"), "aborted")
         tool_finished = [
-            payload for event_name, payload in events if event_name == "tool_finished"
+            payload for event_name, payload in events if event_name == "tool.finished"
         ][-1]
         self.assertFalse(tool_finished.get("success"))
         self.assertEqual((tool_finished.get("data") or {}).get("error_kind"), "interrupted")
@@ -2040,12 +2065,10 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=_capture_events(events),
         )
         command_events = [
-            payload for event_name, payload in events if event_name == "command_result"
+            payload for event_name, payload in events if event_name == "command.result"
         ]
         self.assertEqual(command_events[0].get("command_name"), "recipes")
         self.assertIn("Workspace Recipes", command_events[0].get("message") or "")
@@ -2060,12 +2083,10 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             text="/clear",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: emitted.append(
-                (event_name, current_session_id, payload)
-            ),
+            event_handler=_capture_full_events(emitted),
         )
         command_payloads = [
-            payload for event_name, _, payload in emitted if event_name == "command_result"
+            payload for event_name, _, payload in emitted if event_name == "command.result"
         ]
 
         self.assertTrue(command_payloads)
@@ -2112,24 +2133,22 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=_capture_events(events),
         )
         event_names = [event_name for event_name, _ in events]
-        self.assertIn("tool_started", event_names)
-        self.assertIn("tool_finished", event_names)
-        self.assertIn("turn_start", event_names)
-        self.assertIn("turn_end", event_names)
-        turn_start = [payload for event_name, payload in events if event_name == "turn_start"][0]
-        tool_started = [payload for event_name, payload in events if event_name == "tool_started"][
+        self.assertIn("tool.started", event_names)
+        self.assertIn("tool.finished", event_names)
+        self.assertIn("turn.started", event_names)
+        self.assertIn("transition.recorded", event_names)
+        turn_start = [payload for event_name, payload in events if event_name == "turn.started"][0]
+        tool_started = [payload for event_name, payload in events if event_name == "tool.started"][
             0
         ]
         tool_finished = [
-            payload for event_name, payload in events if event_name == "tool_finished"
+            payload for event_name, payload in events if event_name == "tool.finished"
         ][0]
         command_events = [
-            payload for event_name, payload in events if event_name == "command_result"
+            payload for event_name, payload in events if event_name == "command.result"
         ]
         self.assertEqual(command_events[0].get("command_name"), "run")
         self.assertTrue(command_events[0].get("success"))
@@ -2139,7 +2158,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(tool_finished.get("turn_id"), turn_start.get("turn_id"))
         self.assertTrue(str(tool_started.get("step_id") or "").strip())
         self.assertEqual(tool_finished.get("step_id"), tool_started.get("step_id"))
-        turn_end = [payload for event_name, payload in events if event_name == "turn_end"][0]
+        turn_end = [
+            payload for event_name, payload in events if event_name == "transition.recorded"
+        ][0]
         self.assertEqual(turn_end["outcome"]["kind"], "completed")
         self.assertEqual(turn_end["outcome"]["reason"], "completed")
         self.assertEqual(turn_end["outcome"]["exit_code"], 0)
@@ -2169,7 +2190,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                 "text": "/run custom.build",
                 "stream": False,
                 "wait": True,
-                "event_handler": lambda event_name, current_session_id, payload: None,
+                "event_handler": lambda envelope: None,
             },
         )
         worker.start()
@@ -2237,7 +2258,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                 "text": "/run custom.build",
                 "stream": False,
                 "wait": True,
-                "event_handler": lambda event_name, current_session_id, payload: None,
+                "event_handler": lambda envelope: None,
             },
         )
         worker.start()
@@ -2313,11 +2334,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=_capture_events(events),
         )
-        tool_finish = [payload for event_name, payload in events if event_name == "tool_finished"][
+        tool_finish = [payload for event_name, payload in events if event_name == "tool.finished"][
             0
         ]
         self.assertEqual(tool_finish.get("data", {}).get("recipe_id"), "cmake.build.default")
@@ -2344,14 +2363,12 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=_capture_events(events),
         )
         statuses = [
             item[1].get("session_snapshot", {}).get("status")
             for item in events
-            if item[0] == "session_status"
+            if item[0] == "session.status"
         ]
         self.assertIn("running", statuses)
         self.assertIn("idle", statuses)
@@ -2370,12 +2387,10 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=_capture_events(events),
         )
-        tool_start = [payload for event_name, payload in events if event_name == "tool_started"][0]
-        tool_finish = [payload for event_name, payload in events if event_name == "tool_finished"][
+        tool_start = [payload for event_name, payload in events if event_name == "tool.started"][0]
+        tool_finish = [payload for event_name, payload in events if event_name == "tool.finished"][
             0
         ]
         self.assertEqual(tool_start.get("call_id"), "call-read-demo")
@@ -2400,20 +2415,18 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             text="edit missing file",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=_capture_events(events),
         )
 
         tool_finished = [
             payload
             for event_name, payload in events
-            if event_name == "tool_finished" and payload.get("call_id") == "call-edit-missing"
+            if event_name == "tool.finished" and payload.get("call_id") == "call-edit-missing"
         ]
         self.assertEqual(len(tool_finished), 1)
         self.assertFalse(tool_finished[0].get("success"))
         self.assertIn("不存在", str(tool_finished[0].get("error") or ""))
-        self.assertNotIn("session_error", [event_name for event_name, _ in events])
+        self.assertNotIn("session.error", [event_name for event_name, _ in events])
 
     def test_adapter_step_events_use_engine_step_id(self):
         adapter = _product_adapter(
@@ -2429,13 +2442,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=_capture_events(events),
         )
-        step_start = [payload for event_name, payload in events if event_name == "step_start"][0]
-        tool_start = [payload for event_name, payload in events if event_name == "tool_started"][0]
-        step_end = [payload for event_name, payload in events if event_name == "step_end"][0]
+        step_start = [payload for event_name, payload in events if event_name == "step.started"][0]
+        tool_start = [payload for event_name, payload in events if event_name == "tool.started"][0]
+        step_end = [payload for event_name, payload in events if event_name == "step.finished"][0]
         session_state = adapter._sessions[str(snapshot.get("session_id") or "")].session
         engine_step_id = session_state.turns[-1].steps[0].step_id
 
@@ -2463,11 +2474,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                 "selected_mode": "debug",
                 "selected_option_text": "切到 debug 模式继续排查",
             },
-            event_handler=lambda event_name, session_id, payload: events.append(event_name),
+            event_handler=_capture_event_kinds(events),
         )
         final_snapshot = adapter.get_session_snapshot(str(snapshot.get("session_id") or ""))
         self.assertEqual(final_snapshot["current_mode"], "debug")
-        self.assertIn("user_input_required", events)
+        self.assertIn("user-input.requested", events)
 
     def test_interaction_response_waits_for_live_submit_release(self):
         adapter = _product_adapter(
@@ -2481,17 +2492,17 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         response_done = threading.Event()
         response_started = threading.Event()
 
-        def on_event(event_name, current_session_id, payload):
-            if event_name != "user_input_required" or response_started.is_set():
+        def on_event(envelope):
+            if envelope.event_kind != "user-input.requested" or response_started.is_set():
                 return
             response_started.set()
-            ticket = payload.get("user_input") or {}
+            ticket = envelope.payload.get("user_input") or {}
             interaction_id = str(ticket.get("interaction_id") or "")
 
             def respond():
                 try:
                     adapter.respond_to_interaction(
-                        current_session_id,
+                        envelope.session_id,
                         interaction_id,
                         {"answers": {"answer": "切到 debug 模式继续排查"}},
                     )
@@ -2534,9 +2545,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         session_id = str(snapshot.get("session_id") or "")
         events = []
         self.assertIsInstance(adapter.interaction_service, HostedInteractionService)
-        adapter.event_handler = lambda event_name, current_session_id, payload: events.append(
-            (event_name, payload)
-        )
+        adapter.event_handler = _capture_events(events)
 
         adapter.submit_user_message(
             session_id=session_id,
@@ -2544,9 +2553,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=_capture_events(events),
         )
         waiting = adapter.get_session_snapshot(session_id)
         interaction_id = str((waiting.get("pending_interaction") or {}).get("interaction_id") or "")
@@ -2563,7 +2570,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         tool_finished = [
             payload
             for event_name, payload in events
-            if event_name == "tool_finished" and payload.get("tool_name") == "ask_user"
+            if event_name == "tool.finished" and payload.get("tool_name") == "ask_user"
         ]
         self.assertGreaterEqual(len(tool_finished), 1)
         self.assertEqual(tool_finished[-1].get("call_id"), "call-ask")
@@ -2579,9 +2586,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             client=DelayedResumeAskUserClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=lambda event_name, current_session_id, payload: events.append(
-                (event_name, current_session_id, dict(payload))
-            ),
+            event_handler=_capture_full_events(events),
         )
         snapshot = adapter.create_session("spec")
         session_id = str(snapshot.get("session_id") or "")
@@ -2590,7 +2595,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             text="请继续",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         waiting = adapter.get_session_snapshot(session_id)
         interaction_id = str((waiting.get("pending_interaction") or {}).get("interaction_id") or "")
@@ -2605,7 +2610,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
         self.assertEqual(response["status"], "accepted")
         self.assertLess(elapsed, 0.15)
-        resolved_events = [item for item in events if item[0] == "user_input_resolved"]
+        resolved_events = [item for item in events if item[0] == "user-input.resolved"]
         self.assertEqual(len(resolved_events), 1)
         self.assertEqual(resolved_events[0][2].get("interaction_id"), interaction_id)
         self.assertEqual(resolved_events[0][2].get("status"), "accepted")
@@ -2614,15 +2619,15 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(final_snapshot["status"], "idle")
         deadline = time.time() + 1.0
         while time.time() < deadline and not any(
-            item[0] == "interaction_resume_finished" for item in events
+            item[0] == "interaction.resume.finished" for item in events
         ):
             time.sleep(0.01)
-        lifecycle_events = [item for item in events if item[0].startswith("interaction_resume_")]
+        lifecycle_events = [item for item in events if item[0].startswith("interaction.resume.")]
         self.assertEqual(
             [item[0] for item in lifecycle_events],
             [
-                "interaction_resume_started",
-                "interaction_resume_finished",
+                "interaction.resume.started",
+                "interaction.resume.finished",
             ],
         )
         for _, _, diagnostic in lifecycle_events:
@@ -2644,7 +2649,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             text="请继续",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
 
         waiting = adapter.get_session_snapshot(session_id)
@@ -2684,7 +2689,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             text="请继续",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
 
         state = adapter._sessions[session_id]
@@ -2744,7 +2749,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                 "text": "/run custom.build",
                 "stream": False,
                 "wait": True,
-                "event_handler": lambda event_name, current_session_id, payload: None,
+                "event_handler": lambda envelope: None,
             },
         )
         worker.start()
@@ -2807,7 +2812,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                 "text": "/run custom.build",
                 "stream": False,
                 "wait": True,
-                "event_handler": lambda event_name, current_session_id, payload: None,
+                "event_handler": lambda envelope: None,
             },
         )
         worker.start()
@@ -2859,7 +2864,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                 "text": "/run custom.build",
                 "stream": False,
                 "wait": True,
-                "event_handler": lambda event_name, current_session_id, payload: None,
+                "event_handler": lambda envelope: None,
             },
         )
         worker.start()
@@ -2895,7 +2900,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             text="请继续",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         waiting = adapter.get_session_snapshot(session_id)
         interaction_id = str((waiting.get("pending_interaction") or {}).get("interaction_id") or "")
@@ -2921,7 +2926,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             text="请继续",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
 
         with self.assertRaises(ValueError) as raised:
@@ -2956,7 +2961,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                 "text": "/run custom.build",
                 "stream": False,
                 "wait": True,
-                "event_handler": lambda event_name, current_session_id, payload: None,
+                "event_handler": lambda envelope: None,
             },
         )
         worker.start()
@@ -3006,7 +3011,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                 "text": "/run custom.build",
                 "stream": False,
                 "wait": True,
-                "event_handler": lambda event_name, current_session_id, payload: None,
+                "event_handler": lambda envelope: None,
             },
         )
         worker.start()
@@ -3047,7 +3052,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             text="写两个文件",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         waiting = adapter.get_session_snapshot(session_id)
         pending = waiting.get("pending_interaction") or {}
@@ -3087,17 +3092,17 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=_capture_events(events),
         )
         event_names = [event_name for event_name, _ in events]
-        self.assertIn("turn_start", event_names)
-        self.assertIn("turn_end", event_names)
-        turn_start = [payload for event_name, payload in events if event_name == "turn_start"][0]
-        turn_end = [payload for event_name, payload in events if event_name == "turn_end"][0]
+        self.assertIn("turn.started", event_names)
+        self.assertIn("transition.recorded", event_names)
+        turn_start = [payload for event_name, payload in events if event_name == "turn.started"][0]
+        turn_end = [
+            payload for event_name, payload in events if event_name == "transition.recorded"
+        ][0]
         command_events = [
-            payload for event_name, payload in events if event_name == "command_result"
+            payload for event_name, payload in events if event_name == "command.result"
         ]
         self.assertEqual(len(command_events), 1)
         self.assertEqual(command_events[0].get("command_name"), "help")
@@ -3116,7 +3121,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
 
         reloaded = _product_adapter(
@@ -3145,7 +3150,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         snapshot = self.adapter.get_session_snapshot(session_id)
         self.assertTrue(snapshot["has_active_plan"])
@@ -3207,12 +3212,10 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=_capture_events(events),
         )
         command_events = [
-            payload for event_name, payload in events if event_name == "command_result"
+            payload for event_name, payload in events if event_name == "command.result"
         ]
         self.assertEqual(command_events[0].get("command_name"), "review")
         review = command_events[0].get("data", {}).get("review", {})
@@ -3282,12 +3285,10 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=_capture_events(events),
         )
         command_events = [
-            payload for event_name, payload in events if event_name == "command_result"
+            payload for event_name, payload in events if event_name == "command.result"
         ]
         review = command_events[0].get("data", {}).get("review", {})
         findings = review.get("findings") or []

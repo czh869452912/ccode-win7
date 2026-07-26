@@ -16,6 +16,7 @@ from embedagent_protocol import CommandResult, PlanSnapshot
 
 from embedagent_host.runtime.prompts import expand_prompt_invocation
 from embedagent_host.runtime.review_command import ReviewCommandService
+from embedagent_host.runtime.session_event_protocol import SessionEventHandler
 from embedagent_host.runtime.session_runtime import ManagedSession
 from embedagent_host.runtime.skills import expand_skill_invocation
 from embedagent_host.runtime.slash_command_service import SlashCommandService
@@ -26,7 +27,6 @@ from embedagent_host.runtime.slash_commands import (
     resource_command_specs,
 )
 
-EventHandler = Callable[[str, str, Dict[str, Any]], None]
 PermissionResolver = Callable[[Dict[str, Any]], bool]
 
 
@@ -54,11 +54,11 @@ class HostedCommandService(object):
         list_tasks: Callable[..., Dict[str, Any]],
         get_permission_context: Callable[[str], Any],
         history_loader: Callable[[str], Dict[str, Any]],
-        emit: Callable[[Optional[EventHandler], str, str, Dict[str, Any]], None],
+        emit: Callable[[Optional[SessionEventHandler], str, str, Dict[str, Any]], None],
         emit_with_snapshot: Callable[
-            [Optional[EventHandler], str, ManagedSession, Dict[str, Any]], None
+            [Optional[SessionEventHandler], str, ManagedSession, Dict[str, Any]], None
         ],
-        notify_status: Callable[[Optional[EventHandler], ManagedSession], None],
+        notify_status: Callable[[Optional[SessionEventHandler], ManagedSession], None],
         persist_state: Callable[[ManagedSession], None],
         refresh_workflow_state: Callable[[ManagedSession], None],
         tool_event_metadata: Callable[[str], Dict[str, Any]],
@@ -112,7 +112,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         text: str,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         parsed = parse_slash_command(text)
@@ -159,7 +159,7 @@ class HostedCommandService(object):
 
     def emit_command_result(
         self,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         state: ManagedSession,
         result: CommandResult,
     ) -> None:
@@ -191,7 +191,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
     ) -> Dict[str, Any]:
         resources = self.tools.local_resources()
         expanded_text, error = expand_skill_invocation(
@@ -215,7 +215,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
     ) -> Dict[str, Any]:
         resources = self.tools.local_resources()
         expanded_text, error = expand_prompt_invocation(
@@ -239,7 +239,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         resources = self.tools.local_resources()
@@ -268,7 +268,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         if not parsed.args:
@@ -308,7 +308,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         sessions = self._list_sessions(limit=10)
@@ -347,7 +347,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         reference = parsed.args[0] if parsed.args else "latest"
@@ -372,7 +372,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         payload = self._get_workspace_snapshot()
@@ -405,7 +405,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         payload = self._list_workspace_recipes()
@@ -441,7 +441,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         action = parsed.args[0] if parsed.args else "list"
@@ -484,7 +484,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         if not parsed.args:
@@ -556,7 +556,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         self.emit_command_result(
@@ -575,7 +575,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         payload = self._list_tasks(session_id=state.session.session_id)
@@ -605,7 +605,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         observation = self.tools.execute("git_diff", {"path": ".", "scope": "working"})
@@ -636,7 +636,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         context = self._get_permission_context(state.session.session_id)
@@ -672,7 +672,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         current = self.plan_store.load(state.session.session_id)
@@ -729,7 +729,7 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         history = self._history_loader(state.session.session_id)
@@ -756,7 +756,7 @@ class HostedCommandService(object):
         tool_name: str,
         arguments: Dict[str, Any],
         permission_resolver: Optional[PermissionResolver],
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
     ) -> Observation:
         action = Action(
             name=tool_name,
@@ -972,7 +972,7 @@ class HostedCommandService(object):
 
     def _emit_plan_updated(
         self,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         state: ManagedSession,
         plan: PlanSnapshot,
     ) -> None:

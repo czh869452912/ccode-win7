@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Dict, Optional
 
-EventHandler = Callable[[str, str, Dict[str, Any]], None]
+from embedagent_host.runtime.session_event_protocol import SessionEventEncoder, SessionEventHandler
 
 logger = logging.getLogger(__name__)
 
@@ -12,10 +12,11 @@ class EventEmitter(object):
     """Broadcasts live session events to registered handlers."""
 
     def __init__(self) -> None:
-        self._handlers = {}  # type: Dict[str, List[EventHandler]]
-        self._global_handlers = []  # type: List[EventHandler]
+        self._handlers = {}  # type: Dict[str, List[SessionEventHandler]]
+        self._global_handlers = []  # type: List[SessionEventHandler]
+        self._encoder = SessionEventEncoder()
 
-    def add_handler(self, event_type: Optional[str], handler: EventHandler) -> None:
+    def add_handler(self, event_type: Optional[str], handler: SessionEventHandler) -> None:
         if event_type is None:
             if handler not in self._global_handlers:
                 self._global_handlers.append(handler)
@@ -24,7 +25,7 @@ class EventEmitter(object):
             if handler not in handlers:
                 handlers.append(handler)
 
-    def remove_handler(self, event_type: Optional[str], handler: EventHandler) -> None:
+    def remove_handler(self, event_type: Optional[str], handler: SessionEventHandler) -> None:
         if event_type is None:
             if handler in self._global_handlers:
                 self._global_handlers.remove(handler)
@@ -35,25 +36,26 @@ class EventEmitter(object):
 
     def emit(
         self,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         event_name: str,
         session_id: str,
         payload: Dict[str, Any],
     ) -> None:
         handlers = []
+        envelope = self._encoder.encode(session_id, event_name, payload)
         if event_handler is not None:
             handlers.append(event_handler)
         handlers.extend(self._global_handlers)
         handlers.extend(self._handlers.get(event_name, []))
         for handler in handlers:
             try:
-                handler(event_name, session_id, payload)
+                handler(envelope)
             except (RuntimeError, ValueError, TypeError, OSError):
                 logger.exception("Event handler failed for %s", event_name)
 
     def emit_with_snapshot(
         self,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         event_name: str,
         session_id: str,
         payload: Dict[str, Any],
@@ -68,7 +70,7 @@ class EventEmitter(object):
 
     def notify_status(
         self,
-        event_handler: Optional[EventHandler],
+        event_handler: Optional[SessionEventHandler],
         session_id: str,
         snapshot_provider: Callable[[], Dict[str, Any]],
     ) -> None:
@@ -80,4 +82,4 @@ class EventEmitter(object):
         except (RuntimeError, ValueError, TypeError, OSError):
             logger.exception("Failed to get session snapshot for status notification")
             return
-        handler("session_status", session_id, {"session_snapshot": snapshot})
+        self.emit(handler, "session_status", session_id, {"session_snapshot": snapshot})
