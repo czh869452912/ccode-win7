@@ -79,6 +79,23 @@ def _permission_policy_enables_auto_approve(node):
     return False
 
 
+def test_generic_host_tools_do_not_encode_legacy_workflow_states():
+    source = _read(
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/tools/runtime.py"
+    )
+    metadata_source = source.split("class ToolRuntime", 1)[0]
+    visibility_lines = [
+        line.strip()
+        for line in metadata_source.splitlines()
+        if '"workflow_visibility"' in line
+    ]
+    assert visibility_lines
+    assert set(visibility_lines) == {'"workflow_visibility": [],'}
+
+    fallback_source = source.split("def _build_default_metadata", 1)[1]
+    assert '"workflow_visibility": [],' in fallback_source
+
+
 def _source_files_under(*relative_roots, **kwargs):
     suffixes = kwargs.get("suffixes", SOURCE_SUFFIXES)
     files = []

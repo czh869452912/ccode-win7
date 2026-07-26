@@ -122,11 +122,17 @@ def test_register_tool_defaults_extension_presentation_metadata(tmp_path):
     )
 
     entry = runtime.tool_catalog_entry("minimal_echo")
+    schemas = runtime.schemas_for(
+        "build",
+        workflow_state="custom-review-state",
+        tool_names=["minimal_echo"],
+    )
     observation = runtime.execute("minimal_echo", {"message": "hello"})
 
     assert entry["permission_category"] == "read"
     assert entry["mode_visibility"] == ["explore", "spec", "build", "debug", "verify"]
-    assert entry["workflow_visibility"] == ["chat", "plan", "review", "command"]
+    assert entry["workflow_visibility"] == []
+    assert schema_names(schemas) == ["minimal_echo"]
     assert entry["user_label"] == "minimal_echo"
     assert entry["progress_renderer_key"] == "default"
     assert entry["result_renderer_key"] == "default"

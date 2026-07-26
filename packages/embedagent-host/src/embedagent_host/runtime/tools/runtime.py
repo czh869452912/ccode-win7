@@ -74,7 +74,7 @@ _DEFAULT_TOOL_METADATA = {
     "read_file": {
         "permission_category": "read",
         "mode_visibility": ["explore", "spec", "build", "debug", "verify"],
-        "workflow_visibility": ["chat", "plan", "review", "command"],
+        "workflow_visibility": [],
         "user_label": "Read File",
         "progress_renderer_key": "file",
         "result_renderer_key": "file",
@@ -91,7 +91,7 @@ _DEFAULT_TOOL_METADATA = {
     "write_file": {
         "permission_category": "workspace_write",
         "mode_visibility": ["spec", "build", "debug"],
-        "workflow_visibility": ["chat", "plan", "command"],
+        "workflow_visibility": [],
         "user_label": "Write File",
         "progress_renderer_key": "file_write",
         "result_renderer_key": "file_write",
@@ -110,7 +110,7 @@ _DEFAULT_TOOL_METADATA = {
     "edit_file": {
         "permission_category": "workspace_write",
         "mode_visibility": ["build", "debug"],
-        "workflow_visibility": ["chat", "command"],
+        "workflow_visibility": [],
         "user_label": "Edit File",
         "progress_renderer_key": "file_edit",
         "result_renderer_key": "file_edit",
@@ -129,7 +129,7 @@ _DEFAULT_TOOL_METADATA = {
     "bash": {
         "permission_category": "shell_exec",
         "mode_visibility": ["build", "debug", "verify"],
-        "workflow_visibility": ["chat", "plan", "review", "command"],
+        "workflow_visibility": [],
         "user_label": "Bash",
         "progress_renderer_key": "command",
         "result_renderer_key": "command",
@@ -146,7 +146,7 @@ _DEFAULT_TOOL_METADATA = {
     "git_status": {
         "permission_category": "read",
         "mode_visibility": ["explore", "build", "debug"],
-        "workflow_visibility": ["chat", "review", "command"],
+        "workflow_visibility": [],
         "user_label": "Git Status",
         "progress_renderer_key": "git",
         "result_renderer_key": "git",
@@ -162,7 +162,7 @@ _DEFAULT_TOOL_METADATA = {
     "git_diff": {
         "permission_category": "read",
         "mode_visibility": ["explore", "build", "debug"],
-        "workflow_visibility": ["chat", "review", "command"],
+        "workflow_visibility": [],
         "user_label": "Git Diff",
         "progress_renderer_key": "git",
         "result_renderer_key": "git",
@@ -178,7 +178,7 @@ _DEFAULT_TOOL_METADATA = {
     "git_log": {
         "permission_category": "read",
         "mode_visibility": ["explore", "build", "debug"],
-        "workflow_visibility": ["chat", "review", "command"],
+        "workflow_visibility": [],
         "user_label": "Git Log",
         "progress_renderer_key": "git",
         "result_renderer_key": "git",
@@ -194,7 +194,7 @@ _DEFAULT_TOOL_METADATA = {
     "list_dir": {
         "permission_category": "read",
         "mode_visibility": ["build", "debug", "explore", "spec", "verify"],
-        "workflow_visibility": ["chat", "plan", "review", "command"],
+        "workflow_visibility": [],
         "user_label": "List Dir",
         "progress_renderer_key": "list",
         "result_renderer_key": "list",
@@ -210,7 +210,7 @@ _DEFAULT_TOOL_METADATA = {
     "glob_files": {
         "permission_category": "read",
         "mode_visibility": ["build", "debug", "explore", "spec", "verify"],
-        "workflow_visibility": ["chat", "plan", "review", "command"],
+        "workflow_visibility": [],
         "user_label": "Glob Files",
         "progress_renderer_key": "search",
         "result_renderer_key": "search",
@@ -227,7 +227,7 @@ _DEFAULT_TOOL_METADATA = {
     "grep_text": {
         "permission_category": "read",
         "mode_visibility": ["build", "debug", "explore", "spec", "verify"],
-        "workflow_visibility": ["chat", "plan", "review", "command"],
+        "workflow_visibility": [],
         "user_label": "Grep Text",
         "progress_renderer_key": "search",
         "result_renderer_key": "search",
@@ -244,7 +244,7 @@ _DEFAULT_TOOL_METADATA = {
     "ask_user": {
         "permission_category": "read",
         "mode_visibility": ["explore", "spec", "build", "debug", "verify"],
-        "workflow_visibility": ["chat", "plan", "review", "command"],
+        "workflow_visibility": [],
         "user_label": "Ask User",
         "progress_renderer_key": "interaction",
         "result_renderer_key": "interaction",
@@ -260,7 +260,7 @@ _DEFAULT_TOOL_METADATA = {
     "author_local_capability": {
         "permission_category": "workspace_write",
         "mode_visibility": ["build", "debug"],
-        "workflow_visibility": ["chat", "plan", "command"],
+        "workflow_visibility": [],
         "user_label": "Author Local Capability",
         "progress_renderer_key": "file_write",
         "result_renderer_key": "file_write",
@@ -449,7 +449,7 @@ class ToolRuntime(ToolRuntimePort):
     def schemas_for(
         self,
         mode_name: str,
-        workflow_state: str = "chat",
+        workflow_state: str = "",
         tool_names: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         if tool_names is None:
@@ -623,7 +623,7 @@ class ToolRuntime(ToolRuntimePort):
         return {
             "permission_category": "read",
             "mode_visibility": ["explore", "spec", "build", "debug", "verify"],
-            "workflow_visibility": ["chat", "plan", "review", "command"],
+            "workflow_visibility": [],
             "user_label": name,
             "progress_renderer_key": "default",
             "result_renderer_key": "default",

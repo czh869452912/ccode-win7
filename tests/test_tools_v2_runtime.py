@@ -56,6 +56,20 @@ class ToolsV2RuntimeTests(unittest.TestCase):
         ]
         self.assertEqual(names, ["read_file", "list_dir", "write_file", "edit_file"])
 
+    def test_workflow_neutral_tools_accept_arbitrary_workflow_state(self):
+        from embedagent_host.runtime.tools import ToolRuntime
+
+        runtime = ToolRuntime(self.workspace)
+        names = [
+            item["function"]["name"]
+            for item in runtime.schemas_for(
+                "build",
+                workflow_state="custom-review-state",
+                tool_names=["read_file", "write_file", "ask_user"],
+            )
+        ]
+        self.assertEqual(names, ["read_file", "write_file", "ask_user"])
+
     def test_explicit_verify_tool_names_preserve_workflow_visibility_filter(self):
         from embedagent_host.runtime.tools import ToolRuntime
 
