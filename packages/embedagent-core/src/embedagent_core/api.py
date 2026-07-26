@@ -17,7 +17,11 @@ from embedagent_core.policies import (
     NeutralModeRuntimePolicy,
     WritePathPolicy,
 )
-from embedagent_core.ports import ContextAssemblerPort, SessionRestorePolicyPort
+from embedagent_core.ports import (
+    ContextAssemblerPort,
+    SessionProjectionPort,
+    SessionRestorePolicyPort,
+)
 from embedagent_core.session import PendingInteraction
 from embedagent_core.session_log import SessionLogPort, normalize_session_id
 from embedagent_core.tool_contracts import ToolRuntimePort
@@ -94,6 +98,7 @@ class AgentPorts:
     context: ContextAssemblerPort
     permissions: PermissionPolicy
     restore_policy: Optional[SessionRestorePolicyPort] = None
+    session_projection: Optional[SessionProjectionPort] = None
     runtime_services: Optional[AgentRuntimeServices] = None
     extension_manager: Optional[ExtensionManager] = None
 

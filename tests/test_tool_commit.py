@@ -6,6 +6,7 @@ from embedagent_core.session import Action, Observation, Session
 from embedagent_host.runtime.projection_db import ProjectionDb
 from embedagent_host.runtime.tool_commit import ToolCommitCoordinator
 from embedagent_host.runtime.tool_result_store import ToolResultStore
+from embedagent_host.runtime.tools import ToolRuntime
 from embedagent_host.runtime.transcript_store import TranscriptStore
 
 
@@ -39,6 +40,35 @@ class TestToolCommitCoordinator(unittest.TestCase):
         self.assertIn("content_stored_path", committed.data)
         self.assertIn("content_preview", committed.data)
         self.assertEqual(len(self.session.content_replacements), 1)
+
+    def test_tool_runtime_commits_with_supplied_session_log(self):
+        runtime = ToolRuntime(self.workspace)
+        action = Action("read_file", {"path": "src/demo.c"}, "call-runtime")
+        observation = Observation(
+            "read_file",
+            True,
+            None,
+            {"path": "src/demo.c", "content": "y" * 5000},
+        )
+
+        committed = runtime.commit_observation(
+            self.transcript,
+            self.session,
+            action,
+            observation,
+            current_mode="explore",
+            turn_id="t-1",
+            step_id="s-1",
+            message_id="m-tool",
+            parent_message_id="m-user",
+        )
+
+        self.assertIn("content_stored_path", committed.data)
+        events = self.transcript.load_events(self.session.session_id)
+        self.assertEqual(
+            [item["type"] for item in events],
+            ["tool_result", "content_replacement"],
+        )
 
 
 if __name__ == "__main__":

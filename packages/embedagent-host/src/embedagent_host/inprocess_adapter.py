@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from embedagent_core import Agent, AgentPorts, InteractionReply, RuntimeDefinition, UserTurn
-from embedagent_core.api import AgentRuntimeServices
 from embedagent_core.capabilities import (
     app_capability_payload,
     command_capability_descriptors,
@@ -64,6 +63,7 @@ from embedagent_host.runtime.services import (
     WorkspaceFileService,
 )
 from embedagent_host.runtime.session_projection import SessionProjectionService
+from embedagent_host.runtime.session_maintenance import HostedSessionMaintenance
 from embedagent_host.runtime.skill_index import build_skill_index
 from embedagent_host.runtime.slash_commands import (
     SlashCommandRegistry,
@@ -71,9 +71,7 @@ from embedagent_host.runtime.slash_commands import (
     resource_command_specs,
 )
 from embedagent_host.runtime.tools import ToolRuntime
-from embedagent_host.runtime.tool_commit import ToolCommitCoordinator
 from embedagent_host.runtime.transcript_store import TranscriptStore
-from embedagent_host.runtime.workspace_intelligence import WorkspaceIntelligenceBroker
 from embedagent_host.runtime.workspace_profile import build_workspace_profile_message
 
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
@@ -246,25 +244,16 @@ class InProcessAdapter(object):
         self.permission_policy = permission_policy or PermissionPolicy(auto_approve_all=True)
         self.summary_store = summary_store or SessionSummaryStore(self.tools.workspace)
         self.project_memory_store = project_memory_store or ProjectMemoryStore(self.tools.workspace)
-        self.context_manager = context_manager or ContextManager(
-            project_memory=self.project_memory_store
-        )
+        self.context_manager = context_manager
         self.memory_maintenance = memory_maintenance or MemoryMaintenance(
             summary_store=self.summary_store,
             project_memory_store=self.project_memory_store,
             tool_result_store=self.tools.tool_result_store,
         )
-        self.intelligence_broker = WorkspaceIntelligenceBroker()
-        self.maintenance_interval = maintenance_interval if maintenance_interval > 0 else 1
         self.event_handler = event_handler
         self.plan_store = PlanStore(self.tools.workspace)
         self.command_registry = SlashCommandRegistry()
         self.transcript_store = TranscriptStore(self.tools.workspace)
-        self.tool_commit = ToolCommitCoordinator(
-            self.tools.tool_result_store,
-            getattr(self.tools, "projection_db", None),
-            self.transcript_store,
-        )
         self.session_restorer = SessionRestorer()
         self.snapshot_projector = SessionSnapshotProjector()
         self.agent_application_registry = (
@@ -277,6 +266,23 @@ class InProcessAdapter(object):
         )
         self.workspace_profile = _WorkspaceProfilePort(
             getattr(self.agent_application, "workspace_profile_detectors", ()),
+        )
+        if self.context_manager is None:
+            self.context_manager = ContextManager(
+                project_memory=self.project_memory_store,
+                workspace=self.tools.workspace,
+                workspace_profile=self.workspace_profile,
+            )
+        else:
+            self.context_manager.bind_host_context(
+                self.tools.workspace,
+                self.workspace_profile,
+            )
+        self.session_maintenance = HostedSessionMaintenance(
+            summary_store=self.summary_store,
+            project_memory_store=self.project_memory_store,
+            memory_maintenance=self.memory_maintenance,
+            maintenance_interval=maintenance_interval,
         )
         self._agent_profile = self.agent_application.profile
         self.runtime_definition = getattr(self.agent_application, "runtime_definition", None)
@@ -441,15 +447,6 @@ class InProcessAdapter(object):
             extensions["local_resources"] = {"state": resource_state}
 
     def _build_agent(self) -> Agent:
-        runtime_services = AgentRuntimeServices(
-            summary_store=self.summary_store,
-            project_memory_store=self.project_memory_store,
-            memory_maintenance=self.memory_maintenance,
-            maintenance_interval=self.maintenance_interval,
-            intelligence_broker=self.intelligence_broker,
-            tool_commit=self.tool_commit,
-            workspace_profile=self.workspace_profile,
-        )
         ports = AgentPorts(
             model=self.client,
             tools=self.tools,
@@ -457,7 +454,7 @@ class InProcessAdapter(object):
             context=self.context_manager,
             permissions=self.permission_policy,
             restore_policy=self.restore_policy,
-            runtime_services=runtime_services,
+            session_projection=self.session_maintenance,
             extension_manager=self.extension_manager,
         )
         definition = self.runtime_definition

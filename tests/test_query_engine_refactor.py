@@ -691,7 +691,6 @@ class LockCheckingContextManager(ContextManager):
         mode_name=None,
         tools=None,
         workflow_state="chat",
-        intelligence_broker=None,
         force_compact=False,
     ):
         if not self._lock.held():
@@ -701,7 +700,6 @@ class LockCheckingContextManager(ContextManager):
             mode_name=mode_name,
             tools=tools,
             workflow_state=workflow_state,
-            intelligence_broker=intelligence_broker,
             force_compact=force_compact,
         )
 
@@ -2116,13 +2114,14 @@ class TestQueryEngineRefactor(unittest.TestCase):
             ),
         )
         session.add_compact_boundary("Earlier work summary", 1, "build", {"test": True})
-        manager = ContextManager()
+        manager = ContextManager(
+            intelligence_broker=WorkspaceIntelligenceBroker(),
+        )
         result = manager.build_messages(
             session,
             "build",
             tools=self.tools,
             workflow_state="chat",
-            intelligence_broker=WorkspaceIntelligenceBroker(),
         )
         rendered = "\n".join(str(item.get("content") or "") for item in result.messages)
         self.assertIn("Earlier work summary", result.summary_message)
@@ -3051,21 +3050,20 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
 
     def test_tool_commit_failure_falls_back_to_replayable_tool_result(self):
-        class FailingToolCommit(object):
-            persists_transcript = True
-
-            def commit(self, *args, **kwargs):
-                del args, kwargs
-                raise OSError("commit unavailable")
+        def failing_commit(*args, **kwargs):
+            del args, kwargs
+            raise OSError("commit unavailable")
 
         session = Session()
         transcript_store = TranscriptStore(self.workspace)
+        original_commit = self.tools.commit_observation
+        self.tools.commit_observation = failing_commit
+        self.addCleanup(setattr, self.tools, "commit_observation", original_commit)
         engine = QueryEngine(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
             transcript_store=transcript_store,
-            tool_commit=FailingToolCommit(),
         )
 
         result = engine.submit_user_turn(
@@ -3474,13 +3472,14 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         session.turns[-1].message_end_index = len(session.messages) - 1
         rendered = (
-            ContextManager()
+            ContextManager(
+                intelligence_broker=WorkspaceIntelligenceBroker(),
+            )
             .build_messages(
                 session,
                 "build",
                 tools=self.tools,
                 workflow_state="chat",
-                intelligence_broker=WorkspaceIntelligenceBroker(),
             )
             .messages
         )
@@ -3552,12 +3551,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
             },
         )
         restored = SessionRestorer().restore(transcript_store.load_events(session_id))
-        result = ContextManager().build_messages(
+        result = ContextManager(
+            intelligence_broker=WorkspaceIntelligenceBroker(),
+        ).build_messages(
             restored.session,
             "build",
             tools=self.tools,
             workflow_state="chat",
-            intelligence_broker=WorkspaceIntelligenceBroker(),
         )
         rendered = "\n".join(str(item.get("content") or "") for item in result.messages)
         self.assertIn(
@@ -3616,12 +3616,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(result.transition.reason, "completed")
 
         restored = SessionRestorer().restore(transcript_store.load_events(session.session_id))
-        built = ContextManager().build_messages(
+        built = ContextManager(
+            intelligence_broker=WorkspaceIntelligenceBroker(),
+        ).build_messages(
             restored.session,
             "build",
             tools=self.tools,
             workflow_state="chat",
-            intelligence_broker=WorkspaceIntelligenceBroker(),
         )
         rendered = "\n".join(str(item.get("content") or "") for item in built.messages)
         self.assertIn(

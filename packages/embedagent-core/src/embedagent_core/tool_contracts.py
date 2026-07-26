@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Protocol
 
-from embedagent_core.session import Observation
+from embedagent_core.session import Action, Observation, Session
+from embedagent_core.session_log import SessionLogPort
 
 
 class ToolError(Exception):
@@ -204,6 +205,21 @@ class ToolRuntimePort(Protocol):
         name: str,
         arguments: Dict[str, Any],
         stop_event: Any,
+    ) -> Observation:
+        raise NotImplementedError
+
+    def commit_observation(
+        self,
+        session_log: SessionLogPort,
+        session: Session,
+        action: Action,
+        observation: Observation,
+        current_mode: str,
+        turn_id: str = "",
+        step_id: str = "",
+        message_id: str = "",
+        parent_message_id: str = "",
+        finished_at: str = "",
     ) -> Observation:
         raise NotImplementedError
 

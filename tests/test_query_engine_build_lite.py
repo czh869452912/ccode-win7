@@ -112,9 +112,10 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
             client=client or DoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            context_manager=ContextManager(project_memory=project_memory),
-            project_memory_store=project_memory,
-            intelligence_broker=WorkspaceIntelligenceBroker(),
+            context_manager=ContextManager(
+                project_memory=project_memory,
+                intelligence_broker=WorkspaceIntelligenceBroker(),
+            ),
             extension_manager=default_extensions.extension_manager,
             mode_tool_policy=ProductModeToolPolicy(),
             write_path_policy=ProductWritePathPolicy(),

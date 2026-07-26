@@ -64,25 +64,19 @@ class AgentRuntime(object):
         return services
 
     def build_engine(self) -> QueryEngine:
-        services = self._services()
+        self._services()
         return QueryEngine(
             client=self.ports.model,
             tools=self.ports.tools,
             max_turns=self.definition.max_turns,
             permission_policy=self.ports.permissions,
             context_manager=self.ports.context,
-            summary_store=services.summary_store,
-            project_memory_store=services.project_memory_store,
-            memory_maintenance=services.memory_maintenance,
-            maintenance_interval=services.maintenance_interval,
-            intelligence_broker=services.intelligence_broker,
+            session_projection=self.ports.session_projection,
             transcript_store=self.ports.session_log,
             extension_manager=self.extension_manager,
             mode_tool_policy=self.definition.mode_tool_policy,
             write_path_policy=self.definition.write_path_policy,
             mode_runtime_policy=self.definition.mode_runtime_policy,
-            tool_commit=services.tool_commit,
-            workspace_profile=services.workspace_profile,
         )
 
     @contextmanager

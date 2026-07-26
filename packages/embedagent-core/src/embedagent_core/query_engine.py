@@ -38,17 +38,9 @@ from embedagent_core.policies import (
 )
 from embedagent_core.ports import (
     ContextAssemblerPort,
-    EmptyWorkspaceProfile,
-    MemoryMaintenancePort,
     NoopContextAssembler,
-    NoopMemoryMaintenance,
-    NoopProjectMemoryStore,
-    NoopSessionSummaryStore,
-    NoopToolCommitCoordinator,
-    ProjectMemoryStorePort,
-    SessionSummaryStorePort,
-    ToolCommitCoordinatorPort,
-    WorkspaceProfilePort,
+    NoopSessionProjection,
+    SessionProjectionPort,
 )
 from embedagent_core.prompt_assembly_service import PromptAssemblyService
 from embedagent_core.session import (
@@ -93,11 +85,7 @@ class QueryEngine(object):
         max_turns: Optional[int] = None,
         permission_policy: Optional[PermissionPolicy] = None,
         context_manager: Optional[ContextAssemblerPort] = None,
-        summary_store: Optional[SessionSummaryStorePort] = None,
-        project_memory_store: Optional[ProjectMemoryStorePort] = None,
-        memory_maintenance: Optional[MemoryMaintenancePort] = None,
-        maintenance_interval: int = 4,
-        intelligence_broker: Optional[Any] = None,
+        session_projection: Optional[SessionProjectionPort] = None,
         max_parallel_tools: int = 3,
         transcript_store: Optional[SessionLogPort] = None,
         tracer: Optional[ExecutionTracer] = None,
@@ -106,20 +94,14 @@ class QueryEngine(object):
         mode_tool_policy: Optional[ModeToolPolicy] = None,
         write_path_policy: Optional[WritePathPolicy] = None,
         mode_runtime_policy: Optional[ModeRuntimePolicy] = None,
-        tool_commit: Optional[ToolCommitCoordinatorPort] = None,
-        workspace_profile: Optional[WorkspaceProfilePort] = None,
     ) -> None:
         self.client = client
         self.tools = tools
         self.max_turns = max_turns
         self.permission_policy = permission_policy or PermissionPolicy()
-        self.project_memory_store = project_memory_store or NoopProjectMemoryStore()
         self.context_manager = context_manager or NoopContextAssembler()
+        self.session_projection = session_projection or NoopSessionProjection()
         self._compaction_journal = CompactionJournal()
-        self.summary_store = summary_store or NoopSessionSummaryStore()
-        self.memory_maintenance = memory_maintenance or NoopMemoryMaintenance()
-        self.maintenance_interval = maintenance_interval if maintenance_interval > 0 else 1
-        self.intelligence_broker = intelligence_broker
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.transcript_store = transcript_store or InMemorySessionLog()
         self.tracer = tracer
@@ -166,9 +148,6 @@ class QueryEngine(object):
         self._last_turn_snapshot = None  # type: Optional[TurnSnapshot]
         self._durable_message_ids = {}  # type: Dict[str, set]
         self.kernel = AgentKernel(lifecycle=self.lifecycle)
-        self.tool_commit = tool_commit or NoopToolCommitCoordinator()
-        self.workspace_profile = workspace_profile or EmptyWorkspaceProfile()
-        self._maintenance_counter = 0
         self._agent_loop = AgentLoop(
             max_turns=self.max_turns,
             max_parallel_tools=self.max_parallel_tools,
@@ -188,7 +167,6 @@ class QueryEngine(object):
             call_provider_operation=self._call_provider_operation,
             should_retry_with_compact=self._should_retry_with_compact,
             maybe_record_compact_boundary=self._maybe_record_compact_boundary,
-            maybe_maintain_memory=self._maybe_maintain_memory,
             classify_assistant_turn=self.classify_assistant_turn,
             tool_presentation_snapshot=self._tool_presentation_snapshot,
             action_service=self._action_service,
@@ -872,11 +850,13 @@ class QueryEngine(object):
             return current_mode
         with self._session_guard():
             initial_messages = []
-            profile_text = self.workspace_profile.build_message(
-                self.tools.workspace, session.session_id
-            )
-            if str(profile_text or "").strip():
-                initial_messages.append(session.add_system_message(profile_text))
+            for initial_text in self.context_manager.initial_system_messages(
+                session,
+                current_mode,
+                workflow_state,
+            ):
+                if str(initial_text or "").strip():
+                    initial_messages.append(session.add_system_message(initial_text))
             system_prompt = self._build_system_prompt(current_mode)
             if str(system_prompt or "").strip():
                 initial_messages.append(session.add_system_message(system_prompt))
@@ -1165,7 +1145,8 @@ class QueryEngine(object):
             turn_id = session.turns[-1].turn_id if session.turns else ""
             commit_succeeded = False
             try:
-                committed = self.tool_commit.commit(
+                committed = self.tools.commit_observation(
+                    self.transcript_store,
                     session,
                     action,
                     observation,
@@ -1185,7 +1166,7 @@ class QueryEngine(object):
                     exc,
                 )
                 committed = self._fallback_committed_observation(observation, exc)
-            if bool(getattr(self.tool_commit, "persists_transcript", False)) and commit_succeeded:
+            if commit_succeeded:
                 self._durable_message_ids_for(session).add(tool_message_id)
             else:
                 self._append_transcript_event(
@@ -1664,7 +1645,6 @@ class QueryEngine(object):
                 mode_name,
                 tools=self.tools,
                 workflow_state=workflow_state,
-                intelligence_broker=self.intelligence_broker,
                 force_compact=force_compact,
             )
         if isinstance(build, ContextAssemblyResult):
@@ -1976,20 +1956,14 @@ class QueryEngine(object):
         self, session: Session, current_mode: str, assembly: Optional[ContextAssemblyResult] = None
     ) -> None:
         with self._session_guard():
-            summary_ref = None
             try:
-                summary_ref = self.summary_store.persist(session, current_mode, assembly)
+                self.session_projection.refresh(session, current_mode, assembly)
             except (OSError, ValueError, TypeError) as exc:
-                _LOG.warning("session summary persist failed: %s", exc)
-            try:
-                self.project_memory_store.refresh(session, current_mode, summary_ref)
-            except (OSError, ValueError, TypeError) as exc:
-                _LOG.warning("project memory refresh failed: %s", exc)
+                _LOG.warning("session projection refresh failed: %s", exc)
             try:
                 session.trim_old_observations(30)
             except (ValueError, TypeError) as exc:
                 _LOG.warning("session trim failed: %s", exc)
-        self._maybe_maintain_memory()
 
     def _maybe_record_compact_boundary(
         self, session: Session, current_mode: str, assembly: ContextAssemblyResult
@@ -2058,16 +2032,6 @@ class QueryEngine(object):
                     compaction_payloads["compacted_history"],
                 )
             return True
-
-    def _maybe_maintain_memory(self, force: bool = False) -> None:
-        self._maintenance_counter += 1
-        if not force and self._maintenance_counter < self.maintenance_interval:
-            return
-        self._maintenance_counter = 0
-        try:
-            self.memory_maintenance.run()
-        except (RuntimeError, ValueError, TypeError) as exc:
-            _LOG.warning("memory maintenance failed: %s", exc)
 
     def _failure_observation(
         self,

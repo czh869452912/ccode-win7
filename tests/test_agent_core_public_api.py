@@ -88,10 +88,10 @@ class WhitespaceModeRuntimePolicy(object):
         return str(fallback_mode or ""), str(user_text or ""), False
 
 
-class WhitespaceWorkspaceProfile(object):
-    def build_message(self, workspace, session_id):
-        del workspace, session_id
-        return " \n"
+class WhitespaceWorkspaceProfile(NoopContextAssembler):
+    def initial_system_messages(self, session, mode_name, workflow_state=""):
+        del session, mode_name, workflow_state
+        return [" \n"]
 
 
 class CountingExtension(object):
@@ -138,7 +138,6 @@ class RecordingContext(NoopContextAssembler):
         mode_name,
         tools=None,
         workflow_state="",
-        intelligence_broker=None,
         force_compact=False,
     ):
         self.workflow_states.append(workflow_state)
@@ -147,7 +146,6 @@ class RecordingContext(NoopContextAssembler):
             mode_name,
             tools=tools,
             workflow_state=workflow_state,
-            intelligence_broker=intelligence_broker,
             force_compact=force_compact,
         )
 
@@ -159,6 +157,14 @@ class RecordingRestorePolicy(object):
     def trusted_event_count(self, session_id):
         self.session_ids.append(session_id)
         return 0
+
+
+class RecordingSessionProjection(object):
+    def __init__(self):
+        self.calls = []
+
+    def refresh(self, session, current_mode, assembly=None):
+        self.calls.append((session.session_id, current_mode, assembly))
 
 
 class BuildCountingAgentRuntime(AgentRuntime):
@@ -628,6 +634,17 @@ def test_agent_uses_focused_restore_policy(base_ports):
     assert policy.session_ids == ["restore-policy-session"]
 
 
+def test_agent_uses_focused_session_projection(base_ports):
+    from embedagent_core import Agent
+
+    projection = RecordingSessionProjection()
+    ports = dataclasses.replace(base_ports, session_projection=projection)
+    Agent.create(ports).open("projection-session").submit(UserTurn("hello", stream=False))
+
+    assert len(projection.calls) == 1
+    assert projection.calls[0][0:2] == ("projection-session", "")
+
+
 def test_runtime_definition_policy_defaults_are_isolated():
     from embedagent_core import RuntimeDefinition
 
@@ -795,7 +812,7 @@ def test_initialize_session_skips_whitespace_profile_and_mode_messages():
         tools=NoopToolRuntime(),
         transcript_store=session_log,
         mode_runtime_policy=WhitespaceModeRuntimePolicy(),
-        workspace_profile=WhitespaceWorkspaceProfile(),
+        context_manager=WhitespaceWorkspaceProfile(),
     )
     session = Session()
 

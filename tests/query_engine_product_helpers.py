@@ -7,7 +7,6 @@ from embedagent_core.query_engine import QueryEngine as CoreQueryEngine
 from embedagent_host.runtime.agent_applications import build_agent_application
 from embedagent_host.runtime.context import ContextManager
 from embedagent_host.runtime.project_memory import ProjectMemoryStore
-from embedagent_host.runtime.tool_commit import ToolCommitCoordinator
 from embedagent_host.runtime.transcript_store import TranscriptStore
 from embedagent_host.runtime.workspace_intelligence import WorkspaceIntelligenceBroker
 
@@ -82,13 +81,6 @@ def build_product_query_engine(
     workspace = str(workspace or getattr(tools, "workspace", "") or ".")
     project_memory = project_memory_store or ProjectMemoryStore(workspace)
     transcript_store = kwargs.pop("transcript_store", None) or TranscriptStore(workspace)
-    tool_commit = kwargs.pop("tool_commit", None)
-    if tool_commit is None:
-        tool_commit = ToolCommitCoordinator(
-            tools.tool_result_store,
-            getattr(tools, "projection_db", None),
-            transcript_store,
-        )
     manager = extension_manager
     if manager is None:
         manager = build_product_agent_application(tools).extension_manager
@@ -97,14 +89,16 @@ def build_product_query_engine(
         tools=tools,
         permission_policy=permission_policy
         or PermissionPolicy(auto_approve_all=True, workspace=workspace),
-        context_manager=context_manager or ContextManager(project_memory=project_memory),
-        project_memory_store=project_memory,
-        intelligence_broker=intelligence_broker or WorkspaceIntelligenceBroker(),
+        context_manager=context_manager
+        or ContextManager(
+            project_memory=project_memory,
+            workspace=workspace,
+            intelligence_broker=intelligence_broker or WorkspaceIntelligenceBroker(),
+        ),
         transcript_store=transcript_store,
         extension_manager=manager,
         mode_tool_policy=kwargs.pop("mode_tool_policy", ProductModeToolPolicy()),
         write_path_policy=kwargs.pop("write_path_policy", ProductWritePathPolicy()),
         mode_runtime_policy=kwargs.pop("mode_runtime_policy", ProductModeRuntimePolicy()),
-        tool_commit=tool_commit,
         **kwargs,
     )

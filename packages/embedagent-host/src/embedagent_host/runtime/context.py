@@ -712,6 +712,9 @@ class ContextManager(object):
         reducers: Optional[ReducerRegistry] = None,
         project_memory: Optional[ProjectMemoryStore] = None,
         token_estimator: Optional[TokenEstimator] = None,
+        workspace: str = "",
+        intelligence_broker: Optional[WorkspaceIntelligenceBroker] = None,
+        workspace_profile: Optional[Any] = None,
     ) -> None:
         self.config = config or ContextConfig()
         self.reducers = reducers or ReducerRegistry()
@@ -720,6 +723,35 @@ class ContextManager(object):
             self.config.estimated_chars_per_token
         )
         self.context_usage_estimator = ContextUsageEstimator(self.config.estimated_chars_per_token)
+        self.workspace = str(workspace or "")
+        self.intelligence_broker = intelligence_broker or WorkspaceIntelligenceBroker()
+        self.workspace_profile = workspace_profile
+
+    def bind_host_context(
+        self,
+        workspace: str,
+        workspace_profile: Optional[Any],
+        intelligence_broker: Optional[WorkspaceIntelligenceBroker] = None,
+    ) -> None:
+        self.workspace = str(workspace or "")
+        self.workspace_profile = workspace_profile
+        if intelligence_broker is not None:
+            self.intelligence_broker = intelligence_broker
+
+    def initial_system_messages(
+        self,
+        session: Session,
+        mode_name: str,
+        workflow_state: str = "",
+    ) -> List[str]:
+        del mode_name, workflow_state
+        if self.workspace_profile is None:
+            return []
+        message = self.workspace_profile.build_message(
+            self.workspace,
+            session.session_id,
+        )
+        return [str(message or "")] if str(message or "").strip() else []
 
     def build_messages(
         self,
@@ -727,7 +759,6 @@ class ContextManager(object):
         mode_name: Optional[str] = None,
         tools: Optional[Any] = None,
         workflow_state: str = "",
-        intelligence_broker: Optional[WorkspaceIntelligenceBroker] = None,
         force_compact: bool = False,
         compact_trigger: str = "",
     ) -> ContextBuildResult:
@@ -753,8 +784,8 @@ class ContextManager(object):
         )
         intelligence_message = ""
         intelligence_sections = []
-        if intelligence_broker is not None and tools is not None:
-            intelligence_message = intelligence_broker.render_system_message(
+        if self.intelligence_broker is not None and tools is not None:
+            intelligence_message = self.intelligence_broker.render_system_message(
                 session,
                 resolved_mode,
                 tools,
@@ -926,7 +957,6 @@ class ContextManager(object):
                         mode_name=resolved_mode,
                         tools=tools,
                         workflow_state=workflow_state,
-                        intelligence_broker=intelligence_broker,
                         force_compact=True,
                         compact_trigger="auto_threshold",
                     )

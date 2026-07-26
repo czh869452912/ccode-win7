@@ -54,7 +54,6 @@ class AgentLoop(object):
         call_provider_operation: Optional[Callable[..., Any]] = None,
         should_retry_with_compact: Optional[Callable[..., Any]] = None,
         maybe_record_compact_boundary: Optional[Callable[..., Any]] = None,
-        maybe_maintain_memory: Optional[Callable[..., Any]] = None,
         classify_assistant_turn: Optional[Callable[..., Any]] = None,
         tool_presentation_snapshot: Optional[Callable[..., Any]] = None,
         action_service: Optional[Any] = None,
@@ -83,7 +82,6 @@ class AgentLoop(object):
         self._call_provider_operation = call_provider_operation
         self._should_retry_with_compact = should_retry_with_compact
         self._maybe_record_compact_boundary = maybe_record_compact_boundary
-        self._maybe_maintain_memory = maybe_maintain_memory
         self._classify_assistant_turn = classify_assistant_turn
         self._tool_presentation_snapshot = tool_presentation_snapshot
         self._action_service = action_service
@@ -153,7 +151,6 @@ class AgentLoop(object):
             "_call_provider_operation",
             "_should_retry_with_compact",
             "_maybe_record_compact_boundary",
-            "_maybe_maintain_memory",
             "_tool_presentation_snapshot",
             "_action_service",
             "_record_tool_observation",
@@ -288,7 +285,6 @@ class AgentLoop(object):
                         )
                 if on_context_result is not None:
                     on_context_result(assembly)
-                self._persist_summary(session, current_mode, assembly)
                 tool_schemas = self._extension_host.schemas_for_active_tools(
                     current_mode, workflow_state
                 )
@@ -456,7 +452,6 @@ class AgentLoop(object):
                 self._persist_summary(session, current_mode, assembly)
                 if not compact_boundary_recorded:
                     self._maybe_record_compact_boundary(session, current_mode, assembly)
-                self._maybe_maintain_memory(True)
                 if on_step_finish is not None:
                     on_step_finish(step_index, reply, transition.reason)
                 return QueryTurnResult(final_text, session, transition, turns_used)

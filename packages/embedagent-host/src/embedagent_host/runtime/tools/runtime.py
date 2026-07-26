@@ -10,9 +10,9 @@ from embedagent_core.capabilities import (
 )
 from embedagent_core.permissions import OFFICIAL_PERMISSION_CATEGORIES
 from embedagent_host.runtime.projection_db import ProjectionDb
-from embedagent_core.session import Observation
+from embedagent_core.session import Action, Observation, Session
+from embedagent_core.session_log import SessionLogPort
 from embedagent_host.runtime.strategies.tool_cache import ToolResultCache
-from embedagent_core.session import Action
 from embedagent_core.tool_contracts import (
     ToolCatalogEntry,
     ToolContextPolicy,
@@ -22,6 +22,7 @@ from embedagent_core.tool_contracts import (
     ToolPresentation,
     ToolRuntimePort,
 )
+from embedagent_host.runtime.tool_commit import ToolCommitCoordinator
 from embedagent_host.runtime.tool_result_store import ToolResultStore
 from embedagent_host.runtime.tools import (
     authoring_ops,
@@ -323,6 +324,35 @@ class ToolRuntime(ToolRuntimePort):
 
     def path_resolver(self):
         return self._ctx
+
+    def commit_observation(
+        self,
+        session_log: SessionLogPort,
+        session: Session,
+        action: Action,
+        observation: Observation,
+        current_mode: str,
+        turn_id: str = "",
+        step_id: str = "",
+        message_id: str = "",
+        parent_message_id: str = "",
+        finished_at: str = "",
+    ) -> Observation:
+        return ToolCommitCoordinator(
+            self.tool_result_store,
+            self.projection_db,
+            session_log,
+        ).commit(
+            session,
+            action,
+            observation,
+            current_mode,
+            turn_id=turn_id,
+            step_id=step_id,
+            message_id=message_id,
+            parent_message_id=parent_message_id,
+            finished_at=finished_at,
+        )
 
     def register_tool(
         self,

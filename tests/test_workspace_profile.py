@@ -6,6 +6,7 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent_core.session import Session
 from embedagent_host.runtime.workspace_profile import (
     build_workspace_profile_message,
     profile_workspace,
@@ -87,8 +88,12 @@ class WorkspaceProfileTests(unittest.TestCase):
             agent_application_registry=product_agent_application_registry(),
         )
 
+        initial_messages = adapter.context_manager.initial_system_messages(
+            Session(session_id="session"), "build"
+        )
         message = adapter.workspace_profile.build_message(self.workspace, session_id="session")
 
+        self.assertTrue(any("已探测代码/工程目录：native" in item for item in initial_messages))
         self.assertIn("已探测代码/工程目录：native", message)
 
     def test_profile_only_application_does_not_inherit_c_cpp_workspace_detector(self):
