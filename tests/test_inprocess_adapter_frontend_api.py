@@ -2793,13 +2793,13 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
         state = adapter._sessions[session_id]
-        original_resume = state.agent_session._host_resume_command_interaction
+        original_resume = state.hosted_session.resume_command_interaction
 
         def delayed_resume(*args, **kwargs):
             time.sleep(0.25)
             return original_resume(*args, **kwargs)
 
-        state.agent_session._host_resume_command_interaction = delayed_resume
+        state.hosted_session.resume_command_interaction = delayed_resume
         worker = threading.Thread(
             target=adapter.submit_user_message,
             kwargs={

@@ -79,7 +79,8 @@ def test_hosted_command_permissions_use_the_core_action_pipeline_once():
 
     assert "build_payload_from_history" in command_source
     assert "build_payload_from_session" not in review_source
-    assert "_host_submit_command_turn" in command_source
+    assert "HostedCommandTurn" in command_source
+    assert "._host_" not in command_source
     assert "_record_pending_permission" not in command_source
     assert "_record_command_pending_permission" not in adapter_source
     assert "permission_pending_handler=self._build_permission_pending_result" in query_source

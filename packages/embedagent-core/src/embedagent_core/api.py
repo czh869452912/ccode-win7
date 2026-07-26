@@ -211,33 +211,3 @@ class AgentSession(object):
             )
         finally:
             self._submit_lock.release()
-
-    def _host_initialize_session(
-        self,
-        session: Any,
-        current_mode: str,
-        workflow_state: str,
-    ) -> str:
-        return self._runtime.host_initialize_session(
-            self.session_id,
-            session,
-            current_mode,
-            workflow_state,
-        )
-
-    def _host_apply_mode(self, session: Any, mode: str, workflow_state: str) -> str:
-        return self._runtime.host_apply_mode(
-            self.session_id,
-            session,
-            mode,
-            workflow_state,
-        )
-
-    def _host_record_command_result(self, session: Any, **kwargs: Any) -> None:
-        self._runtime.host_record_command_result(self.session_id, session, **kwargs)
-
-    def _host_submit_command_turn(self, **kwargs: Any) -> Any:
-        return self._runtime.host_submit_command_turn(self.session_id, **kwargs)
-
-    def _host_resume_command_interaction(self, **kwargs: Any) -> Any:
-        return self._runtime.host_resume_command_interaction(self.session_id, **kwargs)

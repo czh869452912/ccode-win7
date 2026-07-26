@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 
 from embedagent_core import AgentResult, AgentSession, InteractionReply, UserTurn
+from embedagent_core.hosting import HostedSessionController
 from embedagent_core.model import ModelClient
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.runner import SessionRecoveryRequired
@@ -114,6 +115,7 @@ def test_managed_session_uses_agent_session_handle():
         ROOT / "packages/embedagent-host/src/embedagent_host/runtime/session_runtime.py"
     ).read_text(encoding="utf-8")
     assert "agent_session" in text
+    assert "hosted_session" in text
     assert "engine: Any" not in text
 
 
@@ -124,6 +126,8 @@ def test_created_and_resumed_sessions_hold_agent_session_handles(tmp_path):
 
     assert isinstance(state.agent_session, AgentSession)
     assert state.agent_session.session_id == created["session_id"]
+    assert isinstance(state.hosted_session, HostedSessionController)
+    assert state.hosted_session.session_id == created["session_id"]
 
     resumed_adapter = _adapter(tmp_path)
     resumed_adapter.resume_session(created["session_id"], "build")
@@ -131,6 +135,9 @@ def test_created_and_resumed_sessions_hold_agent_session_handles(tmp_path):
 
     assert isinstance(resumed_state.agent_session, AgentSession)
     assert resumed_state.agent_session.session_id == created["session_id"]
+
+    assert isinstance(resumed_state.hosted_session, HostedSessionController)
+    assert resumed_state.hosted_session.session_id == created["session_id"]
 
 
 def test_all_host_session_handles_share_one_runtime_and_extension_manager(tmp_path):

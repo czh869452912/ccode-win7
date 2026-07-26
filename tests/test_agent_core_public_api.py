@@ -200,6 +200,12 @@ def test_standalone_agent_core_public_symbols_are_available():
     assert all(symbol is not None for symbol in public_symbols)
 
 
+def test_hosting_controller_is_not_exported_from_core_root():
+    import embedagent_core
+
+    assert not hasattr(embedagent_core, "HostedSessionController")
+
+
 def test_agent_facade_submits_and_restores_multiple_turns(base_ports):
     from embedagent_core import Agent
 

@@ -114,6 +114,12 @@ def _source_files_under(*relative_roots, **kwargs):
     return files
 
 
+def test_host_does_not_call_private_agent_session_methods():
+    host_root = ROOT / "packages/embedagent-host/src/embedagent_host"
+    source = "\n".join(path.read_text(encoding="utf-8") for path in host_root.rglob("*.py"))
+    assert "._host_" not in source
+
+
 def test_no_timeline_replay_snapshot_contract_in_active_source():
     forbidden = (
         "timeline" + "_replay_status",

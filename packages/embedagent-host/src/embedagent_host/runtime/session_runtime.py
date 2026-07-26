@@ -17,6 +17,7 @@ class ManagedSession(object):
     session: Session
     current_mode: str
     agent_session: Any = None
+    hosted_session: Any = None
     status: str = "idle"
     workflow_state: str = ""
     active_plan_ref: str = ""

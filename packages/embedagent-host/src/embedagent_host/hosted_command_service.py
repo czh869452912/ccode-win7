@@ -5,6 +5,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+from embedagent_core.hosting import (
+    HostedCommandRecord,
+    HostedCommandResume,
+    HostedCommandTurn,
+)
 from embedagent_core.permissions import PermissionRequest
 from embedagent_core.session import Action, AssistantReply, LoopTransition, Observation, TurnOutcome
 from embedagent_protocol import CommandResult, PlanSnapshot
@@ -158,16 +163,18 @@ class HostedCommandService(object):
         state: ManagedSession,
         result: CommandResult,
     ) -> None:
-        state.agent_session._host_record_command_result(
+        state.hosted_session.record_command_result(
             state.session,
-            user_text=state.current_command_text,
-            command_name=result.command_name,
-            success=result.success,
-            message=result.message,
-            data=result.data if isinstance(result.data, dict) else {},
-            turn_id=result.turn_id or state.current_command_turn_id,
-            step_id=result.step_id or state.current_command_step_id,
-            step_index=result.step_index or state.current_command_step_index,
+            HostedCommandRecord(
+                user_text=state.current_command_text,
+                command_name=result.command_name,
+                success=result.success,
+                message=result.message,
+                data=result.data if isinstance(result.data, dict) else {},
+                turn_id=result.turn_id or state.current_command_turn_id,
+                step_id=result.step_id or state.current_command_step_id,
+                step_index=result.step_index or state.current_command_step_index,
+            ),
         )
         payload = {
             "command_name": result.command_name,
@@ -848,20 +855,24 @@ class HostedCommandService(object):
                 state.pending_event = threading.Event()
             return None
 
-        result, observation = state.agent_session._host_submit_command_turn(
-            user_text=command_text,
-            action=action,
-            initial_mode=state.current_mode,
-            workflow_state=state.workflow_state,
-            session=state.session,
-            turn_id=turn_id,
-            stop_event=state.stop_event,
-            on_tool_start=on_tool_start,
-            on_tool_finish=on_tool_finish,
-            on_step_start=on_step_start,
-            on_step_finish=on_step_finish,
-            permission_handler=permission_handler,
-            user_input_handler=None,
+        result, observation = state.hosted_session.submit_command(
+            HostedCommandTurn(
+                arguments={
+                    "user_text": command_text,
+                    "action": action,
+                    "initial_mode": state.current_mode,
+                    "workflow_state": state.workflow_state,
+                    "session": state.session,
+                    "turn_id": turn_id,
+                    "stop_event": state.stop_event,
+                    "on_tool_start": on_tool_start,
+                    "on_tool_finish": on_tool_finish,
+                    "on_step_start": on_step_start,
+                    "on_step_finish": on_step_finish,
+                    "permission_handler": permission_handler,
+                    "user_input_handler": None,
+                }
+            )
         )
         state.session = result.session
         if (
@@ -898,19 +909,23 @@ class HostedCommandService(object):
                 state.pending_response = None
                 state.pending_resolution_claim_id = ""
                 state.status = "running"
-            resumed = state.agent_session._host_resume_command_interaction(
-                session=state.session,
-                initial_mode=state.current_mode,
-                interaction_resolution={"approved": approved},
-                workflow_state=state.workflow_state,
-                stream=False,
-                stop_event=state.stop_event,
-                on_tool_start=on_tool_start,
-                on_tool_finish=on_tool_finish,
-                on_step_start=on_step_start,
-                on_step_finish=on_step_finish,
-                permission_handler=permission_handler,
-                user_input_handler=None,
+            resumed = state.hosted_session.resume_command_interaction(
+                HostedCommandResume(
+                    arguments={
+                        "session": state.session,
+                        "initial_mode": state.current_mode,
+                        "interaction_resolution": {"approved": approved},
+                        "workflow_state": state.workflow_state,
+                        "stream": False,
+                        "stop_event": state.stop_event,
+                        "on_tool_start": on_tool_start,
+                        "on_tool_finish": on_tool_finish,
+                        "on_step_start": on_step_start,
+                        "on_step_finish": on_step_finish,
+                        "permission_handler": permission_handler,
+                        "user_input_handler": None,
+                    }
+                )
             )
             state.session = resumed.session
             result = resumed

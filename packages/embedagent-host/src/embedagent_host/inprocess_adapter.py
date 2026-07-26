@@ -29,6 +29,7 @@ from embedagent_core.profile_runtime import (
 from embedagent_host.runtime.context import ContextManager
 from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
 from embedagent_core.interaction import UserInputRequest, UserInputResponse
+from embedagent_core.hosting import HostedSessionController
 from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
 from embedagent_host.runtime.memory_maintenance import MemoryMaintenance
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
@@ -854,6 +855,7 @@ class InProcessAdapter(object):
         )["slug"]
         session = Session()
         plan = self.plan_store.load(session.session_id)
+        agent_session = self.agent.open(session.session_id)
         state = ManagedSession(
             session=session,
             current_mode=current_mode,
@@ -861,9 +863,10 @@ class InProcessAdapter(object):
             workflow_state=(
                 "plan" if plan is not None else str(self.runtime_definition.workflow_state or "")
             ),
-            agent_session=self.agent.open(session.session_id),
+            agent_session=agent_session,
+            hosted_session=HostedSessionController(agent_session),
         )
-        state.current_mode = state.agent_session._host_initialize_session(
+        state.current_mode = state.hosted_session.initialize(
             session,
             current_mode,
             state.workflow_state,
@@ -902,11 +905,13 @@ class InProcessAdapter(object):
             summary_ref = self.summary_store.persist(session, current_mode)
         except (OSError, ValueError, TypeError):
             summary_ref = ""
+        agent_session = self.agent.open(session.session_id)
         state = ManagedSession(
             session=session,
             current_mode=current_mode,
             workflow_state=str(self.runtime_definition.workflow_state or ""),
-            agent_session=self.agent.open(session.session_id),
+            agent_session=agent_session,
+            hosted_session=HostedSessionController(agent_session),
             summary_ref=summary_ref,
             updated_at=_utc_now(),
             resume_summary=None,
@@ -923,7 +928,7 @@ class InProcessAdapter(object):
             turn_experience=restored.turn_experience.to_dict(),
             runtime_config=restored.runtime_config.to_dict(),
         )
-        state.current_mode = state.agent_session._host_initialize_session(
+        state.current_mode = state.hosted_session.initialize(
             session,
             current_mode,
             state.workflow_state,
@@ -1309,7 +1314,7 @@ class InProcessAdapter(object):
         state = self._require_session(session_id)
         current_mode = self._mode_runtime_policy.require_mode(mode)["slug"]
         with state.lock:
-            state.current_mode = state.agent_session._host_apply_mode(
+            state.current_mode = state.hosted_session.apply_mode(
                 state.session,
                 current_mode,
                 state.workflow_state,
