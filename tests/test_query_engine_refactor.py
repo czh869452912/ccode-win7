@@ -3923,7 +3923,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             text="继续",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         waiting = adapter.get_session_snapshot(session_id)
         self.assertEqual(waiting["status"], "waiting_user_input")
@@ -3952,7 +3952,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             text="写文件",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: None,
+            event_handler=lambda envelope: None,
         )
         waiting = adapter.get_session_snapshot(session_id)
         self.assertEqual(waiting["status"], "waiting_permission")

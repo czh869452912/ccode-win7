@@ -268,7 +268,7 @@ def test_sync_post_submit_restore_failure_sets_error_and_emits_session_error(tmp
             "hello",
             stream=False,
             wait=True,
-            event_handler=lambda name, session_id, payload: events.append((name, payload)),
+            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
     except RuntimeError as exc:
         assert str(exc) == "post-submit restore failed"
@@ -278,7 +278,7 @@ def test_sync_post_submit_restore_failure_sets_error_and_emits_session_error(tmp
     assert state.status == "error"
     assert state.active_thread is None
     assert state.last_error == "post-submit restore failed"
-    assert [name for name, payload in events if name == "session_error"] == ["session_error"]
+    assert [name for name, payload in events if name == "session.error"] == ["session.error"]
 
 
 def test_worker_post_submit_restore_failure_clears_thread_and_reports_error(tmp_path):
@@ -297,18 +297,18 @@ def test_worker_post_submit_restore_failure_clears_thread_and_reports_error(tmp_
         "hello",
         stream=False,
         wait=False,
-        event_handler=lambda name, session_id, payload: events.append((name, payload)),
+        event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
     )
     deadline = time.time() + 3.0
     while time.time() < deadline and (
-        state.status != "error" or not any(name == "session_error" for name, payload in events)
+        state.status != "error" or not any(name == "session.error" for name, payload in events)
     ):
         time.sleep(0.02)
 
     assert state.status == "error"
     assert state.active_thread is None
     assert state.last_error == "worker restore failed"
-    assert [name for name, payload in events if name == "session_error"] == ["session_error"]
+    assert [name for name, payload in events if name == "session.error"] == ["session.error"]
 
 
 def test_normal_turn_rebuilds_host_extension_projection(tmp_path):
@@ -456,11 +456,11 @@ def test_permission_wait_emits_final_waiting_status(tmp_path):
         "write",
         stream=False,
         wait=False,
-        event_handler=lambda name, current_session_id, payload: events.append((name, payload)),
+        event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
     )
     deadline = time.time() + 3.0
     while time.time() < deadline and not any(
-        name == "session_status"
+        name == "session.status"
         and (payload.get("session_snapshot") or {}).get("status") == "waiting_permission"
         for name, payload in events
     ):
@@ -469,10 +469,10 @@ def test_permission_wait_emits_final_waiting_status(tmp_path):
     statuses = [
         (payload.get("session_snapshot") or {}).get("status")
         for name, payload in events
-        if name == "session_status"
+        if name == "session.status"
     ]
     assert "waiting_permission" in statuses
-    permission_events = [payload for name, payload in events if name == "permission_required"]
+    permission_events = [payload for name, payload in events if name == "approval.requested"]
     assert len(permission_events) == 1
     assert "session_snapshot" not in permission_events[0]
 
@@ -490,11 +490,11 @@ def test_user_input_wait_emits_final_waiting_status(tmp_path):
         "ask",
         stream=False,
         wait=False,
-        event_handler=lambda name, current_session_id, payload: events.append((name, payload)),
+        event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
     )
     deadline = time.time() + 3.0
     while time.time() < deadline and not any(
-        name == "session_status"
+        name == "session.status"
         and (payload.get("session_snapshot") or {}).get("status") == "waiting_user_input"
         for name, payload in events
     ):
@@ -503,9 +503,9 @@ def test_user_input_wait_emits_final_waiting_status(tmp_path):
     statuses = [
         (payload.get("session_snapshot") or {}).get("status")
         for name, payload in events
-        if name == "session_status"
+        if name == "session.status"
     ]
-    input_events = [payload for name, payload in events if name == "user_input_required"]
+    input_events = [payload for name, payload in events if name == "user-input.requested"]
     assert "waiting_user_input" in statuses
     assert len(input_events) == 1
     assert "session_snapshot" not in input_events[0]

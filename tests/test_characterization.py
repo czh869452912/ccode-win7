@@ -105,24 +105,26 @@ class TestEventEmissionChain(object):
         emitter = EventEmitter()
         called_with = []
 
-        def handler(event_type, session_id, payload):
-            called_with.append((event_type, session_id, payload))
+        def handler(envelope):
+            called_with.append(envelope)
 
         emitter.add_handler("test_event", handler)
         emitter.emit(None, "test_event", "sess-1", {"key": "value"})
 
         assert len(called_with) == 1
-        assert called_with[0] == ("test_event", "sess-1", {"key": "value"})
+        assert called_with[0].event_kind == "test.event"
+        assert called_with[0].session_id == "sess-1"
+        assert called_with[0].payload == {"key": "value"}
 
     def test_handler_exception_isolated(self, fresh_container):
         emitter = EventEmitter()
         second_called = []
 
-        def bad_handler(event_type, session_id, payload):
+        def bad_handler(envelope):
             raise RuntimeError("boom")
 
-        def good_handler(event_type, session_id, payload):
-            second_called.append(True)
+        def good_handler(envelope):
+            second_called.append(envelope)
 
         emitter.add_handler("test_event", bad_handler)
         emitter.add_handler("test_event", good_handler)

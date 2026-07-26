@@ -38,14 +38,14 @@ class TestAgentCoreAdapterShutdown(unittest.TestCase):
         adapter = AgentCoreAdapter("workspace")
         adapter._adapter = runtime
         adapter._frontend = object()
-        adapter._callback_bridge = object()
+        self.assertFalse(hasattr(adapter, "_callback_bridge"))
 
         adapter.shutdown()
 
         self.assertEqual(runtime.cancelled, ["session-a", "session-b"])
         self.assertIsNone(adapter._adapter)
         self.assertIsNone(adapter._frontend)
-        self.assertIsNone(adapter._callback_bridge)
+        self.assertFalse(hasattr(adapter, "_callback_bridge"))
 
     def test_shutdown_swallows_runtime_shutdown_errors(self):
         runtime = _RuntimeAdapterWithFailingShutdown()

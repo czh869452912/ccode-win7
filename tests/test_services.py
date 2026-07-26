@@ -19,22 +19,24 @@ class TestEventEmitter(unittest.TestCase):
     def test_emit_calls_registered_handlers(self):
         calls = []
 
-        def handler(event_type, session_id, payload):
-            calls.append((event_type, session_id, payload))
+        def handler(envelope):
+            calls.append(envelope)
 
         self.emitter.add_handler("test_event", handler)
         self.emitter.emit(None, "test_event", "sess1", {"key": "value"})
         self.assertEqual(len(calls), 1)
-        self.assertEqual(calls[0], ("test_event", "sess1", {"key": "value"}))
+        self.assertEqual(calls[0].event_kind, "test.event")
+        self.assertEqual(calls[0].session_id, "sess1")
+        self.assertEqual(calls[0].payload, {"key": "value"})
 
     def test_handler_exception_isolated(self):
         calls = []
 
-        def bad_handler(event_type, session_id, payload):
+        def bad_handler(envelope):
             raise RuntimeError("boom")
 
-        def good_handler(event_type, session_id, payload):
-            calls.append((event_type, session_id, payload))
+        def good_handler(envelope):
+            calls.append(envelope)
 
         self.emitter.add_handler("test_event", bad_handler)
         self.emitter.add_handler("test_event", good_handler)
@@ -44,8 +46,8 @@ class TestEventEmitter(unittest.TestCase):
     def test_add_remove_handler(self):
         calls = []
 
-        def handler(event_type, session_id, payload):
-            calls.append((event_type, session_id, payload))
+        def handler(envelope):
+            calls.append(envelope)
 
         self.emitter.add_handler("test_event", handler)
         self.emitter.emit(None, "test_event", "sess1", {"key": "value"})
@@ -58,8 +60,8 @@ class TestEventEmitter(unittest.TestCase):
     def test_global_handler(self):
         calls = []
 
-        def handler(event_type, session_id, payload):
-            calls.append((event_type, session_id, payload))
+        def handler(envelope):
+            calls.append(envelope)
 
         self.emitter.add_handler(None, handler)
         self.emitter.emit(None, "any_event", "sess1", {"key": "value"})

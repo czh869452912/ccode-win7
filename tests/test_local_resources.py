@@ -284,9 +284,7 @@ class TestLocalResources(unittest.TestCase):
             text="/skill:code-review focus on ownership",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
 
         self.assertTrue(client.messages)
@@ -296,7 +294,7 @@ class TestLocalResources(unittest.TestCase):
             if item.get("role") == "user" and "<skill name=" in str(item.get("content") or "")
         ]
         command_results = [
-            payload for event_name, payload in events if event_name == "command_result"
+            payload for event_name, payload in events if event_name == "command.result"
         ]
         self.assertEqual(command_results, [])
         self.assertEqual(len(user_messages), 1)
@@ -323,9 +321,7 @@ class TestLocalResources(unittest.TestCase):
             text="/prompt:triage focus on startup",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
 
         self.assertTrue(client.messages)
@@ -335,7 +331,7 @@ class TestLocalResources(unittest.TestCase):
             if item.get("role") == "user" and "<prompt name=" in str(item.get("content") or "")
         ]
         command_results = [
-            payload for event_name, payload in events if event_name == "command_result"
+            payload for event_name, payload in events if event_name == "command.result"
         ]
         self.assertEqual(command_results, [])
         self.assertEqual(len(user_messages), 1)
@@ -631,13 +627,11 @@ class TestLocalResources(unittest.TestCase):
             text="/resources reload",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
 
         command_results = [
-            payload for event_name, payload in events if event_name == "command_result"
+            payload for event_name, payload in events if event_name == "command.result"
         ]
         self.assertEqual(len(command_results), 1)
         self.assertEqual(command_results[0]["command_name"], "resources")
@@ -778,12 +772,10 @@ class TestLocalResources(unittest.TestCase):
             text="/help",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
         command_results = [
-            payload for event_name, payload in events if event_name == "command_result"
+            payload for event_name, payload in events if event_name == "command.result"
         ]
         capabilities = adapter.capability_snapshot()
         command_names = [
@@ -825,12 +817,10 @@ class TestLocalResources(unittest.TestCase):
             text="/help",
             stream=False,
             wait=True,
-            event_handler=lambda event_name, current_session_id, payload: events.append(
-                (event_name, payload)
-            ),
+            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
         command_results = [
-            payload for event_name, payload in events if event_name == "command_result"
+            payload for event_name, payload in events if event_name == "command.result"
         ]
         capabilities = adapter.capability_snapshot()
         command_names = [

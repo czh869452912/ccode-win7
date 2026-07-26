@@ -332,9 +332,10 @@ class DynamicToolExtension(object):
     extension_id = "dynamic_tools"
     builtin_extension = False
 
-    def __init__(self, active=True, tool_name="dynamic_echo"):
+    def __init__(self, active=True, tool_name="dynamic_echo", workflow_state="chat"):
         self.active = active
         self.tool_name = tool_name
+        self.workflow_state = workflow_state
 
     def extension_capabilities(self):
         from embedagent_core.extensions import ExtensionCapability
@@ -353,7 +354,7 @@ class DynamicToolExtension(object):
         )
 
     def allowed_tool_names(self, mode_name, workflow_state="chat"):
-        if self.active and mode_name == "build" and workflow_state == "chat":
+        if self.active and mode_name == "build" and workflow_state == self.workflow_state:
             return {self.tool_name}
         return set()
 
@@ -730,7 +731,7 @@ def test_inprocess_adapter_catalog_includes_active_extension_tool(tmp_path):
     from embedagent_host.inprocess_adapter import InProcessAdapter
 
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
-    adapter.extension_manager.register(DynamicToolExtension(active=True))
+    adapter.extension_manager.register(DynamicToolExtension(active=True, workflow_state=""))
 
     catalog = adapter.get_tool_catalog()
     entry = [item for item in catalog if item.get("name") == "dynamic_echo"][0]
