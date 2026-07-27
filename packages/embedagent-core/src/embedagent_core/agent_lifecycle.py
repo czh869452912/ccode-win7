@@ -21,9 +21,11 @@ class AgentLifecycleJournal(object):
         self,
         append_event: Callable[[Session, str, Dict[str, Any], int], None],
         session_guard: Callable[[], Any],
+        commit_transition: Optional[Callable[[Session, Dict[str, Any]], Any]] = None,
     ) -> None:
         self._append_event = append_event
         self._session_guard = session_guard
+        self._commit_transition = commit_transition
 
     def append_transcript_event(
         self,
@@ -462,6 +464,10 @@ class AgentLifecycleJournal(object):
                     turn_id,
                     step_id,
                 )
+                session.pending_interaction = transition.pending_interaction
+                if session.turns:
+                    session.turns[-1].pending_interaction = transition.pending_interaction
+
             self.emit_operation_started(
                 session,
                 savepoint_id,
@@ -471,19 +477,23 @@ class AgentLifecycleJournal(object):
                 parent_operation_id="step:%s" % step_id if step_id else "",
                 metadata={"transition_reason": transition.reason},
             )
-            self.append_transcript_event(
-                session,
-                "loop_transition",
-                {
-                    "turn_id": turn_id,
-                    "step_id": step_id,
-                    "reason": transition.reason,
-                    "message": transition.message,
-                    "next_mode": transition.next_mode,
-                    "turns_used": transition.turns_used,
-                    "metadata": dict(transition.metadata),
-                },
-            )
+            transition_payload = {
+                "turn_id": turn_id,
+                "step_id": step_id,
+                "reason": transition.reason,
+                "message": transition.message,
+                "next_mode": transition.next_mode,
+                "turns_used": transition.turns_used,
+                "metadata": dict(transition.metadata),
+            }
+            if self._commit_transition is None:
+                self.append_transcript_event(
+                    session,
+                    "loop_transition",
+                    transition_payload,
+                )
+            else:
+                self._commit_transition(session, transition_payload)
             self.emit_operation_finished(
                 session,
                 savepoint_id,
@@ -518,4 +528,5 @@ class AgentLifecycleJournal(object):
                         message=transition.message,
                         turns_used=transition.turns_used,
                     )
-            session.record_transition(transition)
+            if self._commit_transition is None:
+                session.record_transition(transition)

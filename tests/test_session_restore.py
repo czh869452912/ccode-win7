@@ -7,6 +7,7 @@ from itertools import count
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent_core.session import Session
+from embedagent_core.session_reducer import SessionReducer, SessionReducerContext
 from embedagent_core.session_restore import SessionRestorer
 from embedagent_host.runtime.context import ContextManager
 from embedagent_host.runtime.transcript_store import TranscriptStore
@@ -411,21 +412,27 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_seen_compacted_parent_remains_a_valid_ledger_anchor(self):
         session = Session(session_id="sess-compacted-parent")
-        seen_message_ids = {"m-compacted"}
+        context = SessionReducerContext(seen_message_ids={"m-compacted"})
 
-        error = SessionRestorer()._apply_message(
+        SessionReducer().apply(
             session,
+            context,
             {
-                "role": "system",
-                "content": "continued after compacted history",
-                "message_id": "m-next",
-                "parent_message_id": "m-compacted",
+                "schema_version": 2,
+                "session_id": "sess-compacted-parent",
+                "event_id": "event-next",
+                "seq": 1,
+                "ts": "2026-07-27T00:00:00Z",
+                "type": "system",
+                "payload": {
+                    "role": "system",
+                    "content": "continued after compacted history",
+                    "message_id": "m-next",
+                    "parent_message_id": "m-compacted",
+                },
             },
-            set(),
-            seen_message_ids,
         )
 
-        self.assertEqual(error, "")
         self.assertEqual(session.messages[-1].parent_message_id, "m-compacted")
 
     def test_best_effort_does_not_trust_message_id_from_skipped_record(self):

@@ -42,6 +42,7 @@ class AgentLoop(object):
         session_guard: Optional[Callable[[], Any]] = None,
         append_transcript_event: Optional[Callable[..., Any]] = None,
         append_message_event: Optional[Callable[..., Any]] = None,
+        commit_session_event: Optional[Callable[..., Any]] = None,
         emit_operation_started: Optional[Callable[..., Any]] = None,
         emit_lifecycle_event: Optional[Callable[..., Any]] = None,
         emit_step_finished: Optional[Callable[..., Any]] = None,
@@ -70,6 +71,7 @@ class AgentLoop(object):
         self._session_guard = session_guard
         self._append_transcript_event = append_transcript_event
         self._append_message_event = append_message_event
+        self._commit_session_event = commit_session_event
         self._emit_operation_started = emit_operation_started
         self._emit_lifecycle_event = emit_lifecycle_event
         self._emit_step_finished = emit_step_finished
@@ -139,6 +141,7 @@ class AgentLoop(object):
             "_session_guard",
             "_append_transcript_event",
             "_append_message_event",
+            "_commit_session_event",
             "_emit_operation_started",
             "_emit_lifecycle_event",
             "_emit_step_finished",
@@ -227,7 +230,7 @@ class AgentLoop(object):
             step_index = turn_index
             step_id = "s-" + uuid.uuid4().hex[:12]
             with self._session_guard():
-                self._append_transcript_event(
+                self._commit_session_event(
                     session,
                     "step_started",
                     {
@@ -236,7 +239,6 @@ class AgentLoop(object):
                         "step_index": step_index,
                     },
                 )
-                session.begin_step(step_id=step_id)
                 self._emit_operation_started(
                     session,
                     "step:%s" % step_id,
@@ -352,13 +354,6 @@ class AgentLoop(object):
                         "reasoning_content": reply.reasoning_content,
                         "finish_reason": reply.finish_reason,
                     },
-                )
-                session.add_assistant_reply(
-                    reply,
-                    message_id=assistant_message_id,
-                    parent_message_id=parent_message_id,
-                    turn_id=session.turns[-1].turn_id if session.turns else "",
-                    step_id=step_id,
                 )
                 for action in reply.actions:
                     presentation = self._tool_presentation_snapshot(action.name)

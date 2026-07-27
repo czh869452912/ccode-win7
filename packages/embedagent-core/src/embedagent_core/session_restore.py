@@ -11,15 +11,17 @@ from embedagent_core.recovery_state import RecoveryState, RecoveryStateReducer
 from embedagent_core.runtime_config import RuntimeConfigReducer, RuntimeConfigState
 from embedagent_core.session import (
     Action,
-    AssistantReply,
-    LoopTransition,
     Observation,
     PendingInteraction,
     Session,
     ToolPresentationSnapshot,
-    TranscriptMessage,
 )
 from embedagent_core.session_operation_log import OperationLogReducer, OperationLogState
+from embedagent_core.session_reducer import (
+    SessionReduceError,
+    SessionReducer,
+    SessionReducerContext,
+)
 from embedagent_core.turn_experience import TurnExperienceReducer, TurnExperienceState
 
 _LOG = logging.getLogger(__name__)
@@ -34,6 +36,7 @@ class SessionRestoreResult:
     stop_reason: str = ""
     skipped_count: int = 0
     skip_reasons: List[Dict[str, Any]] = field(default_factory=list)
+    reduction_context: SessionReducerContext = field(default_factory=SessionReducerContext)
     operation_state: OperationLogState = field(default_factory=OperationLogState)
     compaction_state: CompactionState = field(default_factory=CompactionState)
     recovery_state: RecoveryState = field(default_factory=RecoveryState)
@@ -54,13 +57,13 @@ class SessionRestorer(object):
         started_at = str(events[0].get("ts") or "")
         session = Session(session_id=session_id, started_at=started_at or Session().started_at)
         current_mode = ""
-        seen_turn_ids = set()
-        seen_message_ids = set()
-        seen_tool_call_ids = set()
-        seen_step_ids = set()
-        seen_interaction_ids = set()
-        seen_boundary_ids = set()
-        seen_compacted_history_ids = set()
+        reducer = SessionReducer()
+        reduction_context = SessionReducerContext()
+        seen_message_ids = reduction_context.seen_message_ids
+        seen_tool_call_ids = reduction_context.seen_tool_call_ids
+        seen_interaction_ids = reduction_context.seen_interaction_ids
+        seen_boundary_ids = reduction_context.seen_boundary_ids
+        seen_compacted_history_ids = reduction_context.seen_compacted_history_ids
         consumed_event_count = len(events)
         stop_reason = ""
         skipped_count = 0
@@ -96,55 +99,31 @@ class SessionRestorer(object):
         for index, event in enumerate(events):
             event_type = str(event.get("type") or "")
             payload = dict(event.get("payload") or {})
-            if event_type == "session_meta":
-                current_mode = str(payload.get("current_mode") or current_mode)
-                if payload.get("started_at"):
-                    session.started_at = str(payload["started_at"])
-                continue
-            # Schema v2 normalized message types
-            if event_type in ("user", "assistant", "system", "tool"):
-                message_error = self._apply_message(
-                    session, payload, seen_turn_ids, seen_message_ids
-                )
-                if message_error:
-                    if _maybe_skip(message_error):
+            if event_type in (
+                "session_meta",
+                "message",
+                "user",
+                "assistant",
+                "system",
+                "tool",
+                "step_started",
+                "loop_transition",
+            ):
+                try:
+                    reducer_event = dict(event)
+                    reducer_event.setdefault("schema_version", 2)
+                    reducer_event.setdefault("session_id", session.session_id)
+                    reducer.apply(session, reduction_context, reducer_event)
+                except SessionReduceError as exc:
+                    if _maybe_skip(exc.reason):
                         continue
                     break
-                continue
-            if event_type == "message":
-                message_error = self._apply_message(
-                    session, payload, seen_turn_ids, seen_message_ids
-                )
-                if message_error:
-                    if _maybe_skip(message_error):
-                        continue
-                    break
+                current_mode = reduction_context.current_mode
                 continue
             # Skip lifecycle events that do not carry restore-relevant state
             if event_type in ("tool_use", "command_execution", "interaction"):
                 continue
             if event_type in ("operation_started", "operation_finished", "operation_interrupted"):
-                continue
-            if event_type == "step_started":
-                if not session.turns:
-                    if _maybe_skip("step_started_without_turn"):
-                        continue
-                    break
-                if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
-                    if _maybe_skip("step_started_turn_mismatch"):
-                        continue
-                    break
-                step_id = str(payload.get("step_id") or "").strip()
-                if step_id and step_id in seen_step_ids:
-                    if _maybe_skip("duplicate_step_id"):
-                        continue
-                    break
-                session.begin_step(
-                    reasoning=str(payload.get("reasoning") or ""),
-                    step_id=step_id,
-                )
-                if step_id:
-                    seen_step_ids.add(step_id)
                 continue
             if event_type == "tool_call":
                 if session.current_step() is None:
@@ -358,27 +337,6 @@ class SessionRestorer(object):
                 session.record_compacted_history(checkpoint)
                 seen_compacted_history_ids.add(checkpoint_id)
                 continue
-            if event_type == "loop_transition":
-                if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
-                    if _maybe_skip("loop_transition_turn_mismatch"):
-                        continue
-                    break
-                if not self._matches_current_step(session, str(payload.get("step_id") or "")):
-                    if _maybe_skip("loop_transition_step_mismatch"):
-                        continue
-                    break
-                pending = session.pending_interaction
-                transition = LoopTransition(
-                    reason=str(payload.get("reason") or ""),
-                    message=str(payload.get("message") or ""),
-                    pending_interaction=pending,
-                    next_mode=str(payload.get("next_mode") or ""),
-                    turns_used=int(payload.get("turns_used") or 0),
-                    metadata=dict(payload.get("metadata") or {}),
-                )
-                session.record_transition(transition)
-                if transition.next_mode:
-                    current_mode = transition.next_mode
         consumed_events = events[:consumed_event_count]
         operation_state = OperationLogReducer().reduce(consumed_events)
         compaction_state = CompactionStateReducer().reduce(consumed_events)
@@ -393,6 +351,7 @@ class SessionRestorer(object):
             stop_reason=stop_reason,
             skipped_count=skipped_count,
             skip_reasons=skip_reasons,
+            reduction_context=reduction_context,
             operation_state=operation_state,
             compaction_state=compaction_state,
             recovery_state=recovery_state,
@@ -418,106 +377,6 @@ class SessionRestorer(object):
         non_skippable = {"empty_transcript"}
         return error_reason not in non_skippable
 
-    def _apply_message(
-        self, session: Session, payload: Dict[str, Any], seen_turn_ids: set, seen_message_ids: set
-    ) -> str:
-        role = str(payload.get("role") or "")
-        message_id = str(payload.get("message_id") or "").strip()
-        parent_message_id = str(payload.get("parent_message_id") or "").strip()
-        if (
-            parent_message_id
-            and parent_message_id not in seen_message_ids
-            and self._message_index(session, parent_message_id) < 0
-        ):
-            return "message_parent_missing"
-        if message_id:
-            if message_id in seen_message_ids:
-                return "duplicate_message_id"
-        if role == "system":
-            session.add_system_message(
-                str(payload.get("content") or ""),
-                message_id=message_id,
-                parent_message_id=parent_message_id,
-                turn_id=str(payload.get("turn_id") or ""),
-                step_id=str(payload.get("step_id") or ""),
-                kind=str(payload.get("kind") or "message"),
-                metadata=dict(payload.get("metadata") or {}),
-                replaced_by_refs=list(payload.get("replaced_by_refs") or []),
-            )
-            if message_id:
-                seen_message_ids.add(message_id)
-            return ""
-        if role == "user":
-            turn_id = str(payload.get("turn_id") or "").strip()
-            if turn_id:
-                if turn_id in seen_turn_ids:
-                    return "duplicate_turn_id"
-            session.add_user_message(
-                str(payload.get("content") or ""),
-                turn_id=turn_id,
-                message_id=message_id,
-                parent_message_id=parent_message_id,
-            )
-            if turn_id:
-                seen_turn_ids.add(turn_id)
-            if message_id:
-                seen_message_ids.add(message_id)
-            return ""
-        if role == "assistant":
-            if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
-                return "assistant_message_turn_mismatch"
-            if not self._matches_message_step(session, str(payload.get("step_id") or "")):
-                return "assistant_message_step_mismatch"
-            reply = AssistantReply(
-                content=str(payload.get("content") or ""),
-                actions=[
-                    Action(
-                        name=str(item.get("name") or ""),
-                        arguments=dict(item.get("arguments") or {}),
-                        call_id=str(item.get("call_id") or ""),
-                    )
-                    for item in payload.get("actions") or []
-                ],
-                finish_reason=str(payload.get("finish_reason") or ""),
-                reasoning_content=str(payload.get("reasoning_content") or ""),
-                usage=dict((payload.get("metadata") or {}).get("usage") or {}),
-            )
-            session.add_assistant_reply(
-                reply,
-                message_id=message_id,
-                parent_message_id=parent_message_id,
-                turn_id=str(payload.get("turn_id") or ""),
-                step_id=str(payload.get("step_id") or ""),
-            )
-            if message_id:
-                seen_message_ids.add(message_id)
-            return ""
-        if role == "tool":
-            if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
-                return "tool_message_turn_mismatch"
-            if not self._matches_message_step(session, str(payload.get("step_id") or "")):
-                return "tool_message_step_mismatch"
-            message = TranscriptMessage(
-                role="tool",
-                content=str(payload.get("content") or ""),
-                name=str(payload.get("tool_name") or ""),
-                tool_call_id=str(payload.get("tool_call_id") or ""),
-                message_id=message_id,
-                parent_message_id=parent_message_id,
-                turn_id=str(payload.get("turn_id") or ""),
-                step_id=str(payload.get("step_id") or ""),
-                kind=str(payload.get("kind") or "tool_result"),
-                metadata=dict(payload.get("metadata") or {}),
-                replaced_by_refs=list(payload.get("replaced_by_refs") or []),
-            )
-            session.messages.append(message)
-            if session.turns:
-                session.turns[-1].message_end_index = len(session.messages) - 1
-            if message_id:
-                seen_message_ids.add(message_id)
-            return ""
-        return "unknown_message_role"
-
     def _matches_current_turn(self, session: Session, turn_id: str) -> bool:
         expected = str(turn_id or "").strip()
         if not expected:
@@ -527,15 +386,6 @@ class SessionRestorer(object):
         return str(session.turns[-1].turn_id or "") == expected
 
     def _matches_current_step(self, session: Session, step_id: str) -> bool:
-        expected = str(step_id or "").strip()
-        if not expected:
-            return True
-        step = session.current_step()
-        if step is None:
-            return False
-        return str(step.step_id or "") == expected
-
-    def _matches_message_step(self, session: Session, step_id: str) -> bool:
         expected = str(step_id or "").strip()
         if not expected:
             return True

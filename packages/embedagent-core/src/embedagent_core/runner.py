@@ -27,6 +27,7 @@ from embedagent_core.session import (
     QueryTurnResult,
     Session,
 )
+from embedagent_core.session_reducer import SessionReducerContext
 from embedagent_core.session_restore import SessionRestorer
 
 
@@ -54,7 +55,9 @@ class AgentRuntime(object):
         )
         self._host_lease_state = threading.local()
 
-    def build_engine(self) -> QueryEngine:
+    def build_engine(
+        self, reduction_context: Optional[SessionReducerContext] = None
+    ) -> QueryEngine:
         return QueryEngine(
             client=self.ports.model,
             tools=self.ports.tools,
@@ -67,6 +70,7 @@ class AgentRuntime(object):
             mode_tool_policy=self.definition.mode_tool_policy,
             write_path_policy=self.definition.write_path_policy,
             mode_runtime_policy=self.definition.mode_runtime_policy,
+            reduction_context=reduction_context,
         )
 
     @contextmanager
@@ -291,11 +295,13 @@ def run_agent(
                 raise SessionRecoveryRequired(session_id, restored.stop_reason)
             session = restored.session
             current_mode = restored.current_mode
+            reduction_context = restored.reduction_context
         else:
             session = Session(session_id=session_id)
             current_mode = runtime.definition.default_mode
+            reduction_context = SessionReducerContext(current_mode=current_mode)
 
-        engine = runtime.build_engine()
+        engine = runtime.build_engine(reduction_context=reduction_context)
         input_value = request.input
         workflow_state = str(
             getattr(input_value, "workflow_state", "") or runtime.definition.workflow_state or ""

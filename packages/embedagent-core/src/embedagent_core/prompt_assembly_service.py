@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional
+import uuid
+from typing import Any, Callable, Dict, List
 
 
 class PromptAssemblyService(object):
@@ -26,29 +27,40 @@ class PromptAssemblyService(object):
                 return False
         return True
 
-    def append_workflow_prompt_messages(
+    def workflow_prompt_event_payloads(
         self,
         workflow_prompt: Any,
         existing_messages: Any,
-        add_system_message: Callable[..., Any],
-        on_message: Optional[Callable[[Any], None]] = None,
-    ) -> bool:
+    ) -> List[Dict[str, Any]]:
         if not self.should_append_workflow_prompt(workflow_prompt, existing_messages):
-            return False
+            return []
+        existing = list(existing_messages or [])
+        parent_message_id = str(getattr(existing[-1], "message_id", "") if existing else "")
+        turn_id = str(getattr(existing[-1], "turn_id", "") if existing else "")
+        step_id = str(getattr(existing[-1], "step_id", "") if existing else "")
+        payloads = []
         for index, content in enumerate(list(getattr(workflow_prompt, "prompt_units", []) or [])):
-            workflow_message = add_system_message(
-                content,
-                kind="workflow_prompt",
-                metadata={
-                    "mode_name": str(workflow_prompt.mode_name or ""),
-                    "discipline_label": str(workflow_prompt.discipline_label or ""),
-                    "pack_name": str(workflow_prompt.pack_name or ""),
-                    "unit_index": index,
-                },
+            message_id = "m-" + uuid.uuid4().hex[:12]
+            payloads.append(
+                {
+                    "role": "system",
+                    "content": str(content or ""),
+                    "message_id": message_id,
+                    "parent_message_id": parent_message_id,
+                    "turn_id": turn_id,
+                    "step_id": step_id,
+                    "kind": "workflow_prompt",
+                    "metadata": {
+                        "mode_name": str(workflow_prompt.mode_name or ""),
+                        "discipline_label": str(workflow_prompt.discipline_label or ""),
+                        "pack_name": str(workflow_prompt.pack_name or ""),
+                        "unit_index": index,
+                    },
+                    "replaced_by_refs": [],
+                }
             )
-            if on_message is not None:
-                on_message(workflow_message)
-        return True
+            parent_message_id = message_id
+        return payloads
 
     def append_for_session(
         self,
@@ -56,15 +68,13 @@ class PromptAssemblyService(object):
         session: Any,
         append_message_event: Callable[[Dict[str, Any]], None],
     ) -> bool:
-        def on_message(message: Any) -> None:
-            append_message_event(self.message_event_payload(message))
-
-        return self.append_workflow_prompt_messages(
+        payloads = self.workflow_prompt_event_payloads(
             workflow_prompt,
             getattr(session, "messages", []),
-            session.add_system_message,
-            on_message=on_message,
         )
+        for payload in payloads:
+            append_message_event(payload)
+        return bool(payloads)
 
     def append_described_workflow_prompt(
         self,
@@ -84,16 +94,3 @@ class PromptAssemblyService(object):
             session=session,
         )
         return self.append_for_session(workflow_prompt, session, append_message_event)
-
-    def message_event_payload(self, message: Any) -> Dict[str, Any]:
-        return {
-            "role": message.role,
-            "content": message.content,
-            "message_id": message.message_id,
-            "parent_message_id": message.parent_message_id,
-            "turn_id": message.turn_id,
-            "step_id": message.step_id,
-            "kind": message.kind,
-            "metadata": dict(message.metadata),
-            "replaced_by_refs": list(message.replaced_by_refs),
-        }

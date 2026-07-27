@@ -56,6 +56,11 @@ from embedagent_core.session import (
     ToolPresentationSnapshot,
 )
 from embedagent_core.session_log import InMemorySessionLog, SessionLogPort
+from embedagent_core.session_journal import EventIntent, SessionJournal
+from embedagent_core.session_reducer import (
+    SessionReducer,
+    SessionReducerContext,
+)
 from embedagent_core.tool_contracts import ToolRuntimePort
 from embedagent_core.turn_snapshot import TurnSnapshot
 from embedagent_core.turn_snapshot_service import TurnSnapshotService
@@ -94,6 +99,7 @@ class QueryEngine(object):
         mode_tool_policy: Optional[ModeToolPolicy] = None,
         write_path_policy: Optional[WritePathPolicy] = None,
         mode_runtime_policy: Optional[ModeRuntimePolicy] = None,
+        reduction_context: Optional[SessionReducerContext] = None,
     ) -> None:
         self.client = client
         self.tools = tools
@@ -104,6 +110,9 @@ class QueryEngine(object):
         self._compaction_journal = CompactionJournal()
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.transcript_store = transcript_store or InMemorySessionLog()
+        self._session_reducer = SessionReducer()
+        self._journal = SessionJournal(self.transcript_store, self._session_reducer)
+        self._reduction_context = reduction_context or SessionReducerContext()
         self.tracer = tracer
         self._runtime_config_provider = runtime_config_provider
         self._mode_tool_policy = mode_tool_policy or EmptyModeToolPolicy()
@@ -124,6 +133,7 @@ class QueryEngine(object):
         self.lifecycle = AgentLifecycleJournal(
             append_event=self._append_transcript_event,
             session_guard=self._session_guard,
+            commit_transition=self._commit_transition_event,
         )
         self._action_service = AgentToolActionService(
             tools=self.tools,
@@ -155,6 +165,7 @@ class QueryEngine(object):
             session_guard=self._session_guard,
             append_transcript_event=self._append_transcript_event,
             append_message_event=self._append_message_event,
+            commit_session_event=self._commit_session_event,
             emit_operation_started=self._emit_operation_started,
             emit_lifecycle_event=self._emit_lifecycle_event,
             emit_step_finished=self._emit_step_finished,
@@ -234,6 +245,43 @@ class QueryEngine(object):
             message_id = str(event_payload.get("message_id") or "")
             if message_id:
                 durable_ids.add(message_id)
+
+    def _commit_session_event(
+        self,
+        session: Session,
+        event_type: str,
+        payload: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        event_payload = dict(payload or {})
+        message_event_types = ("message", "user", "assistant", "system", "tool")
+        durable_ids = set()
+        if event_type in message_event_types:
+            durable_ids = self._durable_message_ids_for(session)
+            parent_message_id = str(event_payload.get("parent_message_id") or "")
+            if parent_message_id and parent_message_id not in durable_ids:
+                event_payload["parent_message_id"] = self._durable_parent_message_id(
+                    session,
+                    parent_message_id,
+                    durable_ids,
+                )
+        result = self._journal.commit(
+            session,
+            self._reduction_context,
+            (EventIntent(event_type, event_payload),),
+        )
+        stored = result.events[-1]
+        if event_type in message_event_types:
+            message_id = str(event_payload.get("message_id") or "")
+            if message_id:
+                durable_ids.add(message_id)
+        return stored
+
+    def _commit_transition_event(
+        self,
+        session: Session,
+        payload: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        return self._commit_session_event(session, "loop_transition", payload)
 
     def _emit_lifecycle_event(
         self, session: Session, event_type: str, payload: Dict[str, Any]
@@ -596,7 +644,7 @@ class QueryEngine(object):
 
     def _append_message_event(self, session: Session, payload: Dict[str, Any]) -> None:
         event_type = str(payload.get("role") or "message")
-        self._append_transcript_event(session, event_type, payload)
+        self._commit_session_event(session, event_type, payload)
 
     def _durable_message_ids_for(self, session: Session) -> set:
         session_id = str(session.session_id or "")
@@ -744,7 +792,10 @@ class QueryEngine(object):
                         ),
                     )
                     emitted_steps.add(step_key)
-                self._append_message_event(session, self._message_event_payload(message))
+                payload = self._message_event_payload(message)
+                self._append_transcript_event(
+                    session, str(payload.get("role") or "message"), payload
+                )
             for boundary in list(getattr(session, "compact_boundaries", []) or []):
                 boundary_metadata = dict(getattr(boundary, "metadata", {}) or {})
                 self._append_transcript_event(
@@ -826,10 +877,31 @@ class QueryEngine(object):
         )
         return str(mode.get("slug") or mode_name or self._mode_runtime_policy.default_mode())
 
+    def _system_message_event_payload(
+        self,
+        session: Session,
+        content: str,
+        kind: str = "message",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        current_step = session.current_step()
+        return {
+            "role": "system",
+            "content": str(content or ""),
+            "message_id": "m-" + uuid.uuid4().hex[:12],
+            "parent_message_id": session.last_message_id(),
+            "turn_id": session.turns[-1].turn_id if session.turns else "",
+            "step_id": current_step.step_id if current_step is not None else "",
+            "kind": str(kind or "message"),
+            "metadata": dict(metadata or {}),
+            "replaced_by_refs": [],
+        }
+
     def initialize_session(
         self, session: Session, initial_mode: str, workflow_state: str = "", user_text: str = ""
     ) -> str:
         current_mode = self._require_mode_slug(initial_mode)
+        self._reduction_context.current_mode = current_mode
         self._ensure_extension_tools_registered(
             session,
             current_mode,
@@ -849,18 +921,7 @@ class QueryEngine(object):
                 )
             return current_mode
         with self._session_guard():
-            initial_messages = []
-            for initial_text in self.context_manager.initial_system_messages(
-                session,
-                current_mode,
-                workflow_state,
-            ):
-                if str(initial_text or "").strip():
-                    initial_messages.append(session.add_system_message(initial_text))
-            system_prompt = self._build_system_prompt(current_mode)
-            if str(system_prompt or "").strip():
-                initial_messages.append(session.add_system_message(system_prompt))
-            self._append_transcript_event(
+            self._commit_session_event(
                 session,
                 "session_meta",
                 {
@@ -869,20 +930,21 @@ class QueryEngine(object):
                     "workspace": self.tools.workspace,
                 },
             )
-            for message in initial_messages:
+            for initial_text in self.context_manager.initial_system_messages(
+                session,
+                current_mode,
+                workflow_state,
+            ):
+                if str(initial_text or "").strip():
+                    self._append_message_event(
+                        session,
+                        self._system_message_event_payload(session, initial_text),
+                    )
+            system_prompt = self._build_system_prompt(current_mode)
+            if str(system_prompt or "").strip():
                 self._append_message_event(
                     session,
-                    {
-                        "role": message.role,
-                        "content": message.content,
-                        "message_id": message.message_id,
-                        "parent_message_id": message.parent_message_id,
-                        "turn_id": message.turn_id,
-                        "step_id": message.step_id,
-                        "kind": message.kind,
-                        "metadata": dict(message.metadata),
-                        "replaced_by_refs": list(message.replaced_by_refs),
-                    },
+                    self._system_message_event_payload(session, system_prompt),
                 )
             self._prompt_assembly.append_described_workflow_prompt(
                 self.extension_host,
@@ -898,23 +960,13 @@ class QueryEngine(object):
         self, session: Session, next_mode: str, workflow_state: str = "", user_text: str = ""
     ) -> str:
         current_mode = self._require_mode_slug(next_mode)
+        self._reduction_context.current_mode = current_mode
         with self._session_guard():
             mode_prompt = self._build_system_prompt(current_mode)
             if str(mode_prompt or "").strip():
-                mode_message = session.add_system_message(mode_prompt)
                 self._append_message_event(
                     session,
-                    {
-                        "role": mode_message.role,
-                        "content": mode_message.content,
-                        "message_id": mode_message.message_id,
-                        "parent_message_id": mode_message.parent_message_id,
-                        "turn_id": mode_message.turn_id,
-                        "step_id": mode_message.step_id,
-                        "kind": mode_message.kind,
-                        "metadata": dict(mode_message.metadata),
-                        "replaced_by_refs": list(mode_message.replaced_by_refs),
-                    },
+                    self._system_message_event_payload(session, mode_prompt),
                 )
             self._prompt_assembly.append_described_workflow_prompt(
                 self.extension_host,
@@ -946,23 +998,15 @@ class QueryEngine(object):
             if command_turn_id and (
                 not session.turns or str(session.turns[-1].turn_id or "") != command_turn_id
             ):
-                turn = session.add_user_message(
-                    user_text or ("/%s" % command_name),
-                    turn_id=command_turn_id,
-                )
-                user_message = session.messages[turn.message_end_index]
                 self._append_message_event(
                     session,
                     {
-                        "role": user_message.role,
-                        "content": user_message.content,
-                        "message_id": user_message.message_id,
-                        "parent_message_id": user_message.parent_message_id,
-                        "turn_id": user_message.turn_id,
-                        "step_id": user_message.step_id,
-                        "kind": user_message.kind,
-                        "metadata": dict(user_message.metadata),
-                        "replaced_by_refs": list(user_message.replaced_by_refs),
+                        "role": "user",
+                        "content": user_text or ("/%s" % command_name),
+                        "message_id": "m-" + uuid.uuid4().hex[:12],
+                        "parent_message_id": session.last_message_id(),
+                        "turn_id": command_turn_id,
+                        "step_id": "",
                     },
                 )
             transition = LoopTransition(
@@ -999,12 +1043,6 @@ class QueryEngine(object):
                     "step_id": "",
                 },
             )
-            session.add_user_message(
-                user_text,
-                turn_id=turn_id,
-                message_id=message_id,
-                parent_message_id=parent_message_id,
-            )
 
     def _finish_mode_switch_turn(
         self,
@@ -1017,15 +1055,15 @@ class QueryEngine(object):
         message_text = "已切换到 `%s` 模式。" % applied_mode
         reply = AssistantReply(content=message_text, actions=[], finish_reason="mode_changed")
         with self._session_guard():
-            step = session.begin_step()
-            step_id = step.step_id
-            self._append_transcript_event(
+            step_id = "s-" + uuid.uuid4().hex[:12]
+            step_index = len(session.turns[-1].steps) + 1 if session.turns else 1
+            self._commit_session_event(
                 session,
                 "step_started",
                 {
                     "turn_id": turn_id,
                     "step_id": step_id,
-                    "step_index": step.step_index,
+                    "step_index": step_index,
                 },
             )
             self._emit_operation_started(
@@ -1034,7 +1072,7 @@ class QueryEngine(object):
                 "agent_step",
                 turn_id=turn_id,
                 step_id=step_id,
-                metadata={"step_index": step.step_index},
+                metadata={"step_index": step_index},
             )
             message_id = "m-" + uuid.uuid4().hex[:12]
             parent_message_id = session.last_message_id()
@@ -1051,13 +1089,6 @@ class QueryEngine(object):
                     "reasoning_content": "",
                     "finish_reason": reply.finish_reason,
                 },
-            )
-            session.add_assistant_reply(
-                reply,
-                message_id=message_id,
-                parent_message_id=parent_message_id,
-                turn_id=turn_id,
-                step_id=step_id,
             )
         transition = LoopTransition(
             reason="mode_changed",
@@ -1410,29 +1441,31 @@ class QueryEngine(object):
             session, command_turn_id, current_mode, workflow_state, "command"
         )
         with self._session_guard():
-            if user_text:
+            if not session.turns or session.turns[-1].turn_id != command_turn_id:
                 message_id = "m-" + uuid.uuid4().hex[:12]
                 parent_message_id = session.last_message_id()
                 self._append_message_event(
                     session,
                     {
                         "role": "user",
-                        "content": user_text,
+                        "content": user_text or ("/%s" % action.name),
                         "message_id": message_id,
                         "parent_message_id": parent_message_id,
                         "turn_id": command_turn_id,
                         "step_id": "",
                     },
                 )
-                session.add_user_message(
-                    user_text,
-                    turn_id=command_turn_id,
-                    message_id=message_id,
-                    parent_message_id=parent_message_id,
-                )
-            step = session.begin_step()
-            step_id = step.step_id
-            step_index = step.step_index
+            step_id = "s-" + uuid.uuid4().hex[:12]
+            step_index = len(session.turns[-1].steps) + 1
+            self._commit_session_event(
+                session,
+                "step_started",
+                {
+                    "turn_id": command_turn_id,
+                    "step_id": step_id,
+                    "step_index": step_index,
+                },
+            )
             self._emit_operation_started(
                 session,
                 "step:%s" % step_id,
@@ -1781,20 +1814,9 @@ class QueryEngine(object):
                 with self._session_guard():
                     mode_prompt = self._build_system_prompt(selected_mode)
                     if str(mode_prompt or "").strip():
-                        mode_message = session.add_system_message(mode_prompt)
                         self._append_message_event(
                             session,
-                            {
-                                "role": mode_message.role,
-                                "content": mode_message.content,
-                                "message_id": mode_message.message_id,
-                                "parent_message_id": mode_message.parent_message_id,
-                                "turn_id": mode_message.turn_id,
-                                "step_id": mode_message.step_id,
-                                "kind": mode_message.kind,
-                                "metadata": dict(mode_message.metadata),
-                                "replaced_by_refs": list(mode_message.replaced_by_refs),
-                            },
+                            self._system_message_event_payload(session, mode_prompt),
                         )
                     self._prompt_assembly.append_described_workflow_prompt(
                         self.extension_host,
