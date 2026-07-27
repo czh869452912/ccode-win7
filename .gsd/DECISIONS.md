@@ -2,7 +2,7 @@
 
 ## 2026-07-27: Minimal Agent Core Convergence Shape
 
-**Status:** Selected; written design pending review
+**Status:** Approved
 
 Adopt a deep public `AgentSession` facade over a deliberately limited internal
 effect/reducer kernel.
