@@ -3424,3 +3424,10 @@ def test_gui_composer_state_is_thread_scoped_not_global_draft():
     assert "draftsByKey" in composer_text
     assert "draftKeyForSession" in composer_text
     assert 'draft: ""' not in store_text
+
+
+def test_session_reducer_is_closed_internal_dispatch():
+    source = _read(CORE_SOURCE / "session_reducer.py")
+    core_root_source = _read(CORE_SOURCE / "__init__.py")
+    assert "def register" not in source
+    assert "SessionReducer" not in core_root_source
