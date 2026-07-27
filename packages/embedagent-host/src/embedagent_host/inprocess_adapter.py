@@ -456,7 +456,7 @@ class InProcessAdapter(object):
             session_projection=self.session_maintenance,
             extension_manager=self.extension_manager,
         )
-        definition = self.runtime_definition
+        definition = replace(self.runtime_definition, extensions=())
         return Agent.create(ports, definition)
 
     def _remembered_categories_for_session(self, session: Session) -> List[str]:

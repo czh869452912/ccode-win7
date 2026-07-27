@@ -158,6 +158,10 @@ class Agent(object):
             ExtensionManager,
         ):
             raise TypeError("extension manager must be ExtensionManager")
+        if ports.extension_manager is not None and runtime_definition.extensions:
+            raise ValueError(
+                "extension_manager and RuntimeDefinition.extensions are mutually exclusive"
+            )
         return cls(AgentRuntime(ports, runtime_definition))
 
     def open(self, session_id: str = "") -> "AgentSession":

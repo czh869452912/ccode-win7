@@ -66,10 +66,10 @@ class TestPublicImports(object):
 
         assert InProcessAdapter is not None
 
-    def test_import_query_engine(self):
-        from embedagent_core.query_engine import QueryEngine
+    def test_query_engine_is_not_a_public_core_symbol(self):
+        import embedagent_core
 
-        assert QueryEngine is not None
+        assert not hasattr(embedagent_core, "QueryEngine")
 
     def test_import_modes(self):
         from embedagent.modes import (
@@ -194,47 +194,6 @@ class TestInProcessAdapterBoundaries(object):
         from embedagent_host.inprocess_adapter import InProcessAdapter
 
         assert not hasattr(InProcessAdapter, "_review_events_from_session")
-
-
-class TestQueryEngineBoundaries(object):
-    """Verify QueryEngine construction boundaries."""
-
-    def test_can_instantiate_with_minimal_args(self, fresh_container):
-        from embedagent_core.query_engine import QueryEngine
-        from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
-        from embedagent_host.runtime.tools import ToolRuntime
-
-        client = MagicMock(spec=OpenAICompatibleClient)
-        tools = MagicMock(spec=ToolRuntime)
-        tools.workspace = "/tmp/test_workspace"
-        tools.tool_result_store = MagicMock()
-        tools.projection_db = MagicMock()
-        engine = QueryEngine(client=client, tools=tools)
-        assert engine is not None
-
-    def test_has_run_method(self):
-        from embedagent_core.query_engine import QueryEngine
-
-        assert hasattr(QueryEngine, "run")
-        assert callable(QueryEngine.run)
-
-    def test_has_stop_method(self):
-        from embedagent_core.query_engine import QueryEngine
-
-        assert hasattr(QueryEngine, "stop")
-        assert callable(QueryEngine.stop)
-
-    def test_has_submit_user_turn_method(self):
-        from embedagent_core.query_engine import QueryEngine
-
-        assert hasattr(QueryEngine, "submit_user_turn")
-        assert callable(QueryEngine.submit_user_turn)
-
-    def test_workflow_prompt_assembly_lives_outside_query_engine(self):
-        from embedagent_core.query_engine import QueryEngine
-
-        assert not hasattr(QueryEngine, "_append_workflow_prompt_messages")
-        assert not hasattr(QueryEngine, "_should_inject_workflow_prompt")
 
 
 class TestModesBoundaries(object):

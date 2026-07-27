@@ -343,6 +343,27 @@ def test_agent_create_rejects_invalid_binding_types(base_ports):
         Agent.create(invalid_manager)
 
 
+def test_agent_create_rejects_two_extension_assembly_sources(base_ports):
+    from embedagent_core import Agent
+    from embedagent_core.extensions import ExtensionManager
+
+    manager = ExtensionManager()
+    ports = AgentPorts(
+        model=base_ports.model,
+        tools=base_ports.tools,
+        session_log=base_ports.session_log,
+        context=base_ports.context,
+        permissions=base_ports.permissions,
+        extension_manager=manager,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="^extension_manager and RuntimeDefinition.extensions are mutually exclusive$",
+    ):
+        Agent.create(ports, RuntimeDefinition(extensions=(object(),)))
+
+
 def test_message_ledger_reanchors_ephemeral_parent_to_durable_ancestor(base_ports):
     session_log = base_ports.session_log
     session_log.append_event("session-parent", "session_meta", {"current_mode": ""})
