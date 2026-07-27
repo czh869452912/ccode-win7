@@ -49,7 +49,7 @@ class SessionLogPort(Protocol):
         event_id: str = "",
         ts: str = "",
         schema_version: int = 2,
-    ) -> Any:
+    ) -> Dict[str, Any]:
         raise NotImplementedError
 
     def transcript_exists(self, session_id: str) -> bool:
