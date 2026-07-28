@@ -600,10 +600,10 @@ def test_query_engine_executes_active_extension_tool(tmp_path):
 
 
 def test_agent_tool_action_service_executes_active_dynamic_tool(tmp_path):
+    from embedagent_core.agent_effects import ExecuteToolBatchEffect, ToolBatchCompleted
     from embedagent_core.agent_extension_host import AgentExtensionHost
-    from embedagent_core.agent_tool_action_service import AgentToolActionService
+    from embedagent_core.agent_tool_action_service import AgentToolActionService, InteractionFactory
     from embedagent_core.permissions import PermissionPolicy
-    from embedagent_core.query_engine import QueryEngine
 
     runtime = ToolRuntime(str(tmp_path))
     policy = PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path))
@@ -619,33 +619,30 @@ def test_agent_tool_action_service_executes_active_dynamic_tool(tmp_path):
         permission_policy=policy,
         extension_host=host,
         app_config_provider=lambda: None,
-        failure_observation_factory=QueryEngine(
-            client=ToolCallingClient(Action("dynamic_echo", {"message": "hi"}, "call-client")),
-            tools=runtime,
-            permission_policy=policy,
-        )._failure_observation,
+        interaction_factory=InteractionFactory(),
     )
 
-    observation, current_mode, suspended = service.execute_action(
+    result = service.execute(
+        ExecuteToolBatchEffect(
+            "tools-1",
+            (Action("dynamic_echo", {"message": "hello"}, "call-dynamic"),),
+            "build",
+            "chat",
+        ),
         session,
-        Action("dynamic_echo", {"message": "hello"}, "call-dynamic"),
-        "build",
-        "chat",
-        permission_handler=None,
-        user_input_handler=None,
     )
 
-    assert suspended is None
-    assert current_mode == "build"
+    assert isinstance(result, ToolBatchCompleted)
+    observation = result.observations[0]
     assert observation.success is True
     assert observation.data["echo"] == "hello"
 
 
 def test_agent_tool_action_service_dispatches_extension_owned_tool(tmp_path):
+    from embedagent_core.agent_effects import ExecuteToolBatchEffect, ToolBatchCompleted
     from embedagent_core.agent_extension_host import AgentExtensionHost
-    from embedagent_core.agent_tool_action_service import AgentToolActionService
+    from embedagent_core.agent_tool_action_service import AgentToolActionService, InteractionFactory
     from embedagent_core.permissions import PermissionPolicy
-    from embedagent_core.query_engine import QueryEngine
 
     runtime = ToolRuntime(str(tmp_path))
     policy = PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path))
@@ -659,24 +656,21 @@ def test_agent_tool_action_service_dispatches_extension_owned_tool(tmp_path):
         permission_policy=policy,
         extension_host=host,
         app_config_provider=lambda: None,
-        failure_observation_factory=QueryEngine(
-            client=ToolCallingClient(Action("owned_status", {}, "call-client")),
-            tools=runtime,
-            permission_policy=policy,
-        )._failure_observation,
+        interaction_factory=InteractionFactory(),
     )
 
-    observation, current_mode, suspended = service.execute_action(
+    result = service.execute(
+        ExecuteToolBatchEffect(
+            "tools-1",
+            (Action("owned_status", {}, "call-owned"),),
+            "build",
+            "chat",
+        ),
         Session(),
-        Action("owned_status", {}, "call-owned"),
-        "build",
-        "chat",
-        permission_handler=None,
-        user_input_handler=None,
     )
 
-    assert suspended is None
-    assert current_mode == "build"
+    assert isinstance(result, ToolBatchCompleted)
+    observation = result.observations[0]
     assert observation.success is True
     assert observation.tool_name == "owned_status"
     assert observation.data["owned"] is True

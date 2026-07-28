@@ -857,8 +857,9 @@ class DynamicServiceBoundaryExtension(object):
 
 
 def test_agent_tool_action_service_runs_dynamic_tools_through_extension_hooks(tmp_path):
+    from embedagent_core.agent_effects import ExecuteToolBatchEffect, ToolBatchCompleted
     from embedagent_core.agent_extension_host import AgentExtensionHost
-    from embedagent_core.agent_tool_action_service import AgentToolActionService
+    from embedagent_core.agent_tool_action_service import AgentToolActionService, InteractionFactory
     from embedagent_core.permissions import PermissionPolicy
     from embedagent_core.session import Session
     from embedagent_host.runtime.tools import ToolRuntime
@@ -879,37 +880,34 @@ def test_agent_tool_action_service_runs_dynamic_tools_through_extension_hooks(tm
         {"url": "https://intranet.example/original"},
     )
 
-    def failure_observation(tool_name, error, error_kind, retryable, source, guidance, data=None):
-        del retryable, source, guidance
-        payload = dict(data or {})
-        payload["error_kind"] = error_kind
-        return Observation(tool_name, False, error, payload)
-
     service = AgentToolActionService(
         tools=runtime,
         permission_policy=policy,
         extension_host=host,
         app_config_provider=lambda: None,
-        failure_observation_factory=failure_observation,
+        interaction_factory=InteractionFactory(),
     )
-    observation, current_mode, suspended = service.execute_action(
-        session,
-        Action(
-            "service_intranet_fetch",
-            {"url": "https://intranet.example/original"},
-            "call-service",
+    result = service.execute(
+        ExecuteToolBatchEffect(
+            "tools-1",
+            (
+                Action(
+                    "service_intranet_fetch",
+                    {"url": "https://intranet.example/original"},
+                    "call-service",
+                ),
+            ),
+            "build",
+            "chat",
         ),
-        "build",
-        "chat",
-        permission_handler=None,
-        user_input_handler=None,
+        session,
     )
+    assert isinstance(result, ToolBatchCompleted)
+    observation = result.observations[0]
 
     assert direct.success is True
     assert direct.data["url"] == "https://intranet.example/original"
     assert direct.data.get("patched_by_extension_host") is None
-    assert suspended is None
-    assert current_mode == "build"
     assert observation.success is True
     assert observation.data == {
         "patched_by_extension_host": True,

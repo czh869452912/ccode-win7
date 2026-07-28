@@ -74,6 +74,7 @@ class InteractionSuspended:
     effect_id: str
     pending: PendingInteraction
     events: Tuple[EventIntent, ...] = field(default_factory=tuple)
+    commit_tokens: Tuple[Any, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)

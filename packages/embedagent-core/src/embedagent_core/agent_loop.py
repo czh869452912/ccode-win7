@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import threading
 import uuid
 from typing import Any, Callable, Optional
@@ -7,7 +8,10 @@ from typing import Any, Callable, Optional
 from embedagent_core.agent_effects import (
     AssembleContextEffect,
     EffectFailed,
+    ExecuteToolBatchEffect,
+    InteractionSuspended,
     ProviderCompleted,
+    ToolBatchCompleted,
 )
 from embedagent_core.agent_kernel import AgentKernel, KernelCursor
 from embedagent_core.agent_loop_continuation import (
@@ -35,6 +39,8 @@ from embedagent_core.session import (
     Session,
 )
 from embedagent_core.tool_execution import StreamingToolExecutor, partition_tool_actions
+
+_LOG = logging.getLogger(__name__)
 
 
 class AgentLoop(object):
@@ -171,6 +177,72 @@ class AgentLoop(object):
                     event.event_type,
                     dict(event.payload),
                 )
+
+    def _execute_action_effect(
+        self,
+        session: Session,
+        action: Action,
+        current_mode: str,
+        workflow_state: str,
+        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]],
+        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
+        precomputed_observation: Optional[Observation] = None,
+        stop_event: Optional[threading.Event] = None,
+    ):
+        result = self._action_service.execute(
+            ExecuteToolBatchEffect(
+                "tools:%s" % action.call_id,
+                (action,),
+                current_mode,
+                workflow_state,
+            ),
+            session,
+            permission_handler=permission_handler,
+            user_input_handler=user_input_handler,
+            precomputed_observations=(precomputed_observation,),
+            stop_event=stop_event,
+        )
+        if isinstance(result, InteractionSuspended):
+            self._commit_effect_events(session, result.events)
+            self._finalize_tool_tokens(result.commit_tokens)
+            pending = session.pending_interaction or result.pending
+            reason = "permission_wait" if pending.kind == "permission" else "user_input_wait"
+            request_payload = dict(pending.request_payload or {})
+            details = dict(
+                request_payload.get("permission") or request_payload.get("request") or {}
+            )
+            transition = LoopTransition(
+                reason=reason,
+                message=str(details.get("reason") or details.get("question") or ""),
+                pending_interaction=pending,
+                next_mode=current_mode,
+            )
+            self._record_transition(session, transition)
+            return (
+                None,
+                current_mode,
+                QueryTurnResult(
+                    "",
+                    session,
+                    transition,
+                    pending_interaction=pending,
+                ),
+            )
+        if not isinstance(result, ToolBatchCompleted):
+            raise TypeError("unsupported tool effect result")
+        self._commit_effect_events(session, result.events)
+        self._finalize_tool_tokens(result.commit_tokens)
+        observation = result.observations[0]
+        next_mode = current_mode
+        if isinstance(observation.data, dict) and observation.data.get("mode_changed"):
+            next_mode = str(observation.data.get("selected_mode") or current_mode)
+        return observation, next_mode, None
+
+    def _finalize_tool_tokens(self, commit_tokens: Any) -> None:
+        try:
+            self._action_service.finalize(tuple(commit_tokens or ()))
+        except (OSError, ValueError, TypeError) as exc:
+            _LOG.warning("tool result projection finalization failed: %s", exc)
 
     def run(
         self,
@@ -488,6 +560,18 @@ class AgentLoop(object):
                 if discard_remaining_batches:
                     for action in batch.actions:
                         observation = self._discarded_observation(action.name)
+                        observation, current_mode, suspended = self._execute_action_effect(
+                            session,
+                            action,
+                            current_mode,
+                            workflow_state,
+                            permission_handler,
+                            user_input_handler,
+                            precomputed_observation=observation,
+                            stop_event=stop_event,
+                        )
+                        if suspended is not None:
+                            return suspended
                         self._record_tool_observation(
                             session,
                             action,
@@ -521,33 +605,24 @@ class AgentLoop(object):
                             },
                         )
                         interrupted = bool(stop_event is not None and stop_event.is_set())
-                        suspended = None
-                        if interrupted:
-                            observation = self._interrupted_observation(action.name)
-                        else:
-                            observation, current_mode, suspended = (
-                                self._action_service.execute_action(
-                                    session,
-                                    action,
-                                    current_mode,
-                                    workflow_state,
-                                    permission_handler,
-                                    user_input_handler,
-                                    stop_event=stop_event,
-                                )
-                            )
-                            if suspended is not None:
-                                self._persist_summary(session, current_mode, assembly)
-                                if on_step_finish is not None:
-                                    on_step_finish(step_index, reply, suspended.transition.reason)
-                                return suspended
-                            if (
-                                stop_event is not None
-                                and stop_event.is_set()
-                                and not self._is_interrupted_observation(observation)
-                            ):
-                                interrupted = True
-                                observation = self._interrupted_observation(action.name)
+                        precomputed_observation = (
+                            self._interrupted_observation(action.name) if interrupted else None
+                        )
+                        observation, current_mode, suspended = self._execute_action_effect(
+                            session,
+                            action,
+                            current_mode,
+                            workflow_state,
+                            permission_handler,
+                            user_input_handler,
+                            precomputed_observation=precomputed_observation,
+                            stop_event=stop_event,
+                        )
+                        if suspended is not None:
+                            self._persist_summary(session, current_mode, assembly)
+                            if on_step_finish is not None:
+                                on_step_finish(step_index, reply, suspended.transition.reason)
+                            return suspended
                         self._emit_lifecycle_event(
                             session,
                             "command_execution",
@@ -631,33 +706,28 @@ class AgentLoop(object):
                             and isinstance(update.observation.data, dict)
                             and update.observation.data.get("error_kind") == "discarded"
                         ):
-                            observation = update.observation
+                            precomputed_observation = update.observation
                         else:
-                            observation = self._interrupted_observation(update.action.name)
+                            precomputed_observation = self._interrupted_observation(
+                                update.action.name
+                            )
                     else:
-                        observation, current_mode, suspended = self._action_service.execute_action(
-                            session,
-                            update.action,
-                            current_mode,
-                            workflow_state,
-                            permission_handler,
-                            user_input_handler,
-                            update.observation,
-                            stop_event=stop_event,
-                        )
-                        if suspended is not None:
-                            self._persist_summary(session, current_mode, assembly)
-                            if on_step_finish is not None:
-                                on_step_finish(step_index, reply, suspended.transition.reason)
-                            return suspended
-                        if (
-                            stop_event is not None
-                            and stop_event.is_set()
-                            and not self._is_interrupted_observation(observation)
-                        ):
-                            batch_interrupted = True
-                            executor.discard()
-                            observation = self._interrupted_observation(update.action.name)
+                        precomputed_observation = update.observation
+                    observation, current_mode, suspended = self._execute_action_effect(
+                        session,
+                        update.action,
+                        current_mode,
+                        workflow_state,
+                        permission_handler,
+                        user_input_handler,
+                        precomputed_observation=precomputed_observation,
+                        stop_event=stop_event,
+                    )
+                    if suspended is not None:
+                        self._persist_summary(session, current_mode, assembly)
+                        if on_step_finish is not None:
+                            on_step_finish(step_index, reply, suspended.transition.reason)
+                        return suspended
                     self._emit_lifecycle_event(
                         session,
                         "command_execution",

@@ -230,6 +230,7 @@ class AgentKernel(object):
                 self._loop_transition(cursor, outcome),
             ),
             outcome=outcome,
+            post_commit_tokens=result.commit_tokens,
         )
 
     def _accept_failure(self, cursor: KernelCursor, result: EffectFailed) -> KernelStep:

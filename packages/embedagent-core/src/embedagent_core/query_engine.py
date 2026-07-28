@@ -2,17 +2,23 @@ from __future__ import annotations  # noqa: I001
 
 import logging
 import threading
-import time
 import uuid
-from copy import deepcopy
 from typing import Any, Callable, Dict, Optional, Tuple
 
-from embedagent_core.agent_effects import AssembleContextEffect
+from embedagent_core.agent_effects import (
+    AssembleContextEffect,
+    ExecuteToolBatchEffect,
+    InteractionSuspended,
+    ToolBatchCompleted,
+)
 from embedagent_core.agent_extension_host import AgentExtensionHost
 from embedagent_core.agent_kernel import AgentKernel
 from embedagent_core.agent_lifecycle import AgentLifecycleJournal
 from embedagent_core.agent_loop import AgentLoop
-from embedagent_core.agent_tool_action_service import AgentToolActionService
+from embedagent_core.agent_tool_action_service import (
+    AgentToolActionService,
+    InteractionFactory,
+)
 from embedagent_core.compaction_journal import CompactionJournal
 from embedagent_core.context_window import ContextWindowState
 from embedagent_core.extensions import (
@@ -61,7 +67,7 @@ from embedagent_core.session_reducer import (
     SessionReducer,
     SessionReducerContext,
 )
-from embedagent_core.tool_contracts import PreparedToolObservation, ToolRuntimePort
+from embedagent_core.tool_contracts import ToolRuntimePort
 from embedagent_core.turn_snapshot import TurnSnapshot
 from embedagent_core.turn_snapshot_service import TurnSnapshotService
 
@@ -125,14 +131,8 @@ class QueryEngine(object):
             permission_policy=self.permission_policy,
             extension_host=self.extension_host,
             app_config_provider=lambda: getattr(self.tools, "app_config", None),
-            failure_observation_factory=self._failure_observation,
+            interaction_factory=InteractionFactory(),
             write_path_policy=self._write_path_policy,
-            permission_pending_handler=self._build_permission_pending_result,
-            permission_rejected_handler=self._record_permission_rejection,
-            user_input_pending_handler=self._build_user_input_pending_result,
-            user_input_response_handler=self._build_user_input_observation,
-            lifecycle=self.lifecycle,
-            event_committer=self._commit_event_intent,
         )
         self._prompt_assembly = PromptAssemblyService()
         self._provider_steps = ProviderStepService(
@@ -909,20 +909,6 @@ class QueryEngine(object):
         self._persist_summary(session, applied_mode)
         return QueryTurnResult(message_text, session, transition, turns_used=1)
 
-    def _interaction_checkpoint_payload(
-        self,
-        session: Session,
-        action: Action,
-        pending: PendingInteraction,
-        request_data: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        return self.kernel.interaction_checkpoint_payload(
-            session,
-            action,
-            pending,
-            request_data=dict(request_data or {}),
-        )
-
     def _interrupted_observation(self, tool_name: str) -> Observation:
         return Observation(
             tool_name=tool_name,
@@ -955,79 +941,6 @@ class QueryEngine(object):
             and str(observation.data.get("error_kind") or "") == "interrupted"
         )
 
-    def _commit_tool_observation(
-        self,
-        session: Session,
-        action: Action,
-        observation: Observation,
-        turn_id: str,
-        step_id: str,
-        finished_at: str = "",
-    ) -> Observation:
-        tool_message_id = "m-" + uuid.uuid4().hex[:12]
-        parent_message_id = session.last_message_id()
-        completed_at = finished_at or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        try:
-            prepared = self.tools.materialize_observation(
-                session.session_id,
-                action,
-                observation,
-            )
-        except (OSError, ValueError, TypeError) as exc:
-            _LOG.warning(
-                "tool result materialization failed for %s/%s; using inline fallback: %s",
-                action.name,
-                action.call_id,
-                exc,
-            )
-            prepared = PreparedToolObservation(
-                observation=self._fallback_committed_observation(observation, exc),
-            )
-        committed = prepared.observation
-        replacements = [dict(item) for item in prepared.replacements if isinstance(item, dict)]
-        replaced_by_refs = [
-            str(item.get("stored_path") or "")
-            for item in replacements
-            if str(item.get("stored_path") or "")
-        ]
-        self._commit_session_event(
-            session,
-            "tool_result",
-            {
-                "turn_id": turn_id,
-                "step_id": step_id,
-                "call_id": action.call_id,
-                "tool_name": action.name,
-                "arguments": dict(action.arguments),
-                "message_id": tool_message_id,
-                "parent_message_id": parent_message_id,
-                "finished_at": completed_at,
-                "replaced_by_refs": replaced_by_refs,
-                "observation": committed.to_dict(),
-            },
-        )
-        if replacements:
-            self._commit_session_event(
-                session,
-                "content_replacement",
-                {
-                    "message_id": tool_message_id,
-                    "tool_call_id": action.call_id,
-                    "tool_name": action.name,
-                    "replacements": replacements,
-                },
-            )
-        try:
-            self.tools.finalize_observation(prepared.commit_token)
-        except (OSError, ValueError, TypeError) as exc:
-            _LOG.warning(
-                "tool result projection finalization failed for %s/%s: %s",
-                action.name,
-                action.call_id,
-                exc,
-            )
-        return committed
-
     def _record_tool_observation(
         self,
         session: Session,
@@ -1038,73 +951,11 @@ class QueryEngine(object):
         step_id: str,
         on_tool_finish: Optional[Callable[[Action, Observation], None]],
     ) -> Observation:
-        with self._session_guard():
-            finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            turn_id = session.turns[-1].turn_id if session.turns else ""
-            committed = self._commit_tool_observation(
-                session,
-                action,
-                observation,
-                turn_id=turn_id,
-                step_id=step_id,
-                finished_at=finished_at,
-            )
-            operation_result = {
-                "success": committed.success,
-                "error": committed.error,
-                "error_kind": (
-                    committed.data.get("error_kind") if isinstance(committed.data, dict) else ""
-                ),
-            }
-            if self._is_interrupted_observation(committed) or (
-                isinstance(committed.data, dict)
-                and str(committed.data.get("error_kind") or "") == "discarded"
-            ):
-                self._emit_operation_interrupted(
-                    session,
-                    "tool:%s" % action.call_id,
-                    kind="tool_call",
-                    turn_id=turn_id,
-                    step_id=step_id,
-                    tool_call_id=action.call_id,
-                    reason=str(operation_result.get("error_kind") or "tool_interrupted"),
-                    finished_at=finished_at,
-                    result=operation_result,
-                )
-            else:
-                self._emit_operation_finished(
-                    session,
-                    "tool:%s" % action.call_id,
-                    kind="tool_call",
-                    turn_id=turn_id,
-                    step_id=step_id,
-                    tool_call_id=action.call_id,
-                    finished_at=finished_at,
-                    result=operation_result,
-                )
+        del step_id
         self._persist_summary(session, current_mode, assembly)
         if on_tool_finish is not None:
-            on_tool_finish(action, committed)
-        return committed
-
-    def _fallback_committed_observation(
-        self,
-        observation: Observation,
-        exc: Exception,
-    ) -> Observation:
-        data = deepcopy(observation.data)
-        if isinstance(data, dict):
-            warnings = data.get("tool_result_commit_warnings")
-            if not isinstance(warnings, list):
-                warnings = []
-            warnings.append({"error": str(exc)})
-            data["tool_result_commit_warnings"] = warnings[:8]
-        return Observation(
-            observation.tool_name,
-            observation.success,
-            observation.error,
-            data,
-        )
+            on_tool_finish(action, observation)
+        return observation
 
     def submit_user_turn(
         self,
@@ -1365,49 +1216,48 @@ class QueryEngine(object):
         interrupted = bool(stop_event is not None and stop_event.is_set())
         if on_tool_start is not None:
             on_tool_start(action)
-        if interrupted:
-            observation = self._interrupted_observation(action.name)
-            result = QueryTurnResult(
-                "",
-                session,
-                LoopTransition(
-                    reason="aborted",
-                    message="tool execution interrupted",
-                    next_mode=current_mode,
-                    turns_used=1,
-                ),
-                turns_used=1,
-            )
-            committed = self._record_tool_observation(
-                session,
-                action,
-                observation,
+        precomputed_observation = (
+            self._interrupted_observation(action.name) if interrupted else None
+        )
+        tool_result = self._action_service.execute(
+            ExecuteToolBatchEffect(
+                "tools:%s" % action.call_id,
+                (action,),
                 current_mode,
-                assembly,
-                step_id,
-                on_tool_finish,
-            )
-            self._record_transition(session, result.transition)
-            self._persist_summary(session, current_mode, assembly)
-            if on_step_finish is not None:
-                on_step_finish(step_index, reply, "aborted")
-            turn_frame.finish(result.transition)
-            return result, committed
-        observation, current_mode, suspended = self._action_service.execute_action(
+                workflow_state,
+            ),
             session,
-            action,
-            current_mode,
-            workflow_state,
-            permission_handler,
-            user_input_handler,
+            permission_handler=permission_handler,
+            user_input_handler=user_input_handler,
+            precomputed_observations=(precomputed_observation,),
             stop_event=stop_event,
         )
-        if suspended is not None:
+        with self._session_guard():
+            for event in tool_result.events:
+                self._commit_session_event(session, event.event_type, dict(event.payload))
+        self._action_service.finalize(tuple(tool_result.commit_tokens or ()))
+        if isinstance(tool_result, InteractionSuspended):
+            pending = session.pending_interaction or tool_result.pending
+            reason = "permission_wait" if pending.kind == "permission" else "user_input_wait"
+            transition = LoopTransition(
+                reason=reason,
+                pending_interaction=pending,
+                next_mode=current_mode,
+                turns_used=1,
+            )
+            self._record_transition(session, transition)
+            result = QueryTurnResult("", session, transition, pending_interaction=pending)
             self._persist_summary(session, current_mode, assembly)
             if on_step_finish is not None:
-                on_step_finish(step_index, reply, suspended.transition.reason)
-            turn_frame.finish(suspended.transition)
-            return suspended, None
+                on_step_finish(step_index, reply, transition.reason)
+            turn_frame.finish(transition)
+            return result, None
+        if not isinstance(tool_result, ToolBatchCompleted):
+            raise TypeError("unsupported tool effect result")
+        observation = tool_result.observations[0]
+        current_mode = self._apply_tool_selected_mode(
+            session, current_mode, workflow_state, observation
+        )
         committed = self._record_tool_observation(
             session,
             action,
@@ -1417,6 +1267,22 @@ class QueryEngine(object):
             step_id,
             on_tool_finish,
         )
+        if interrupted:
+            transition = LoopTransition(
+                reason="aborted",
+                message="tool execution interrupted",
+                next_mode=current_mode,
+                turns_used=1,
+            )
+            self._record_transition(session, transition)
+            self._persist_summary(session, current_mode, assembly)
+            if on_step_finish is not None:
+                on_step_finish(step_index, reply, "aborted")
+            turn_frame.finish(transition)
+            return (
+                QueryTurnResult("", session, transition, turns_used=1),
+                committed,
+            )
         transition = LoopTransition(
             reason="completed", message="command finished", next_mode=current_mode, turns_used=1
         )
@@ -1510,139 +1376,36 @@ class QueryEngine(object):
             return "final_message"
         return "empty_noop"
 
-    def _record_permission_rejection(self, session: Session, action: Action) -> None:
-        self._emit_lifecycle_event(
-            session,
-            "interaction",
-            {
-                "role": "interaction",
-                "tool_name": action.name,
-                "call_id": action.call_id,
-                "message_id": "m-reject-" + uuid.uuid4().hex[:12],
-                "parent_message_id": session.last_message_id(),
-                "turn_id": session.turns[-1].turn_id if session.turns else "",
-                "step_id": session.current_step().step_id if session.current_step() else "",
-                "status": "rejected",
-                "reason": "permission_denied",
-            },
-        )
-
-    def _interaction_id_from_request_details(self, details: dict) -> str:
-        return str((details or {}).get("_interaction_id") or "").strip()
-
-    def _public_interaction_details(self, details: dict) -> dict:
-        payload = dict(details or {})
-        payload.pop("_interaction_id", None)
-        return payload
-
-    def _build_permission_pending_result(
+    def _apply_tool_selected_mode(
         self,
         session: Session,
-        action: Action,
-        request: PermissionRequest,
         current_mode: str,
-    ) -> QueryTurnResult:
-        permission_payload = {
-            "tool_name": request.tool_name,
-            "category": request.category,
-            "reason": request.reason,
-            "details": self._public_interaction_details(request.details),
-        }
-        intent, transition = self.kernel.record_pending_permission(
-            session,
-            action,
-            permission_payload,
-            current_mode,
-            interaction_id=self._interaction_id_from_request_details(request.details),
+        workflow_state: str,
+        observation: Observation,
+    ) -> str:
+        if not isinstance(observation.data, dict) or not observation.data.get("mode_changed"):
+            return current_mode
+        selected_mode = self._require_mode_slug(
+            str(observation.data.get("selected_mode") or current_mode)
         )
+        if selected_mode == current_mode:
+            return current_mode
         with self._session_guard():
-            self._commit_session_event(session, intent.event_type, intent.payload)
-        self._record_transition(session, transition)
-        pending = session.pending_interaction
-        return QueryTurnResult("", session, transition, pending_interaction=pending)
-
-    def _build_user_input_pending_result(
-        self,
-        session: Session,
-        action: Action,
-        request: UserInputRequest,
-        current_mode: str,
-    ) -> QueryTurnResult:
-        request_payload = {
-            "tool_name": request.tool_name,
-            "question": request.question,
-            "options": [
-                {"index": item.index, "text": item.text, "mode": item.mode}
-                for item in request.options
-            ],
-            "details": self._public_interaction_details(request.details),
-        }
-        intent, transition = self.kernel.record_pending_user_input(
-            session,
-            action,
-            request.tool_name,
-            request_payload,
-            request.question,
-            current_mode,
-            interaction_id=self._interaction_id_from_request_details(request.details),
-        )
-        with self._session_guard():
-            self._commit_session_event(session, intent.event_type, intent.payload)
-        self._record_transition(session, transition)
-        pending = session.pending_interaction
-        return QueryTurnResult("", session, transition, pending_interaction=pending)
-
-    def _build_user_input_observation(
-        self,
-        session: Session,
-        current_mode: str,
-        request: UserInputRequest,
-        response: UserInputResponse,
-        workflow_state: str = "",
-        tool_name: str = "ask_user",
-    ) -> Tuple[Observation, str]:
-        request_tool_name = tool_name or request.tool_name or "ask_user"
-        selected_mode = str(response.selected_mode or "").strip()
-        if not selected_mode and request_tool_name == "propose_mode_switch":
-            selected_mode = str(request.details.get("target_mode") or "").strip()
-        next_mode = current_mode
-        mode_changed = False
-        if selected_mode:
-            selected_mode = self._require_mode_slug(selected_mode)
-            if selected_mode != current_mode:
-                next_mode = selected_mode
-                mode_changed = True
-                with self._session_guard():
-                    mode_prompt = self._build_system_prompt(selected_mode)
-                    if str(mode_prompt or "").strip():
-                        self._append_message_event(
-                            session,
-                            self._system_message_event_payload(session, mode_prompt),
-                        )
-                    self._prompt_assembly.append_described_workflow_prompt(
-                        self.extension_host,
-                        session,
-                        selected_mode,
-                        workflow_state,
-                        lambda payload: self._append_message_event(session, payload),
-                        force=True,
-                    )
-        return (
-            Observation(
-                request_tool_name,
-                True,
-                None,
-                {
-                    "question": request.question,
-                    "answer": str(response.answer or "").strip(),
-                    "selected_index": response.selected_index,
-                    "selected_option_text": response.selected_option_text,
-                    "selected_mode": selected_mode,
-                    "mode_changed": mode_changed,
-                },
-            ),
-            next_mode,
-        )
+            mode_prompt = self._build_system_prompt(selected_mode)
+            if str(mode_prompt or "").strip():
+                self._append_message_event(
+                    session,
+                    self._system_message_event_payload(session, mode_prompt),
+                )
+            self._prompt_assembly.append_described_workflow_prompt(
+                self.extension_host,
+                session,
+                selected_mode,
+                workflow_state,
+                lambda payload: self._append_message_event(session, payload),
+                force=True,
+            )
+        return selected_mode
 
     def _resume_interaction(
         self,
@@ -1678,28 +1441,16 @@ class QueryEngine(object):
         )
         if on_tool_start is not None:
             on_tool_start(action)
+        permission_callback = None
+        user_input_callback = None
         if pending.kind == "permission":
             approved = bool(resolution.get("approved"))
-            if approved:
-                observation, current_mode, suspended = self._action_service.execute_action(
-                    session,
-                    action,
-                    current_mode,
-                    workflow_state,
-                    permission_handler=lambda request: True,
-                    user_input_handler=None,
-                )
-                if suspended is not None:
-                    raise RuntimeError("permission resume unexpectedly re-suspended")
-            else:
-                observation = self._failure_observation(
-                    action.name,
-                    "操作未获批准，已跳过执行。",
-                    "permission_denied",
-                    False,
-                    "user_confirmation",
-                    "等待用户批准，或改为不需要该权限的方案。",
-                )
+
+            def resolved_permission(request):
+                del request
+                return approved
+
+            permission_callback = resolved_permission
         else:
             response = UserInputResponse(
                 answer=str(resolution.get("answer") or ""),
@@ -1707,44 +1458,35 @@ class QueryEngine(object):
                 selected_mode=str(resolution.get("selected_mode") or ""),
                 selected_option_text=str(resolution.get("selected_option_text") or ""),
             )
-            observation, current_mode, suspended = self._action_service.execute_action(
-                session,
-                action,
+
+            def resolved_user_input(request):
+                del request
+                return response
+
+            user_input_callback = resolved_user_input
+        tool_result = self._action_service.execute(
+            ExecuteToolBatchEffect(
+                "tools:%s" % action.call_id,
+                (action,),
                 current_mode,
                 workflow_state,
-                permission_handler=None,
-                user_input_handler=lambda request: response,
-            )
-            if suspended is not None:
-                raise RuntimeError("user input resume unexpectedly re-suspended")
+            ),
+            session,
+            permission_handler=permission_callback,
+            user_input_handler=user_input_callback,
+        )
+        if isinstance(tool_result, InteractionSuspended):
+            raise RuntimeError("interaction resume unexpectedly re-suspended")
+        if not isinstance(tool_result, ToolBatchCompleted):
+            raise TypeError("unsupported tool effect result")
         with self._session_guard():
-            finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            observation = self._commit_tool_observation(
-                session,
-                action,
-                observation,
-                turn_id=turn_id,
-                step_id=step_id,
-                finished_at=finished_at,
-            )
-            self._emit_operation_finished(
-                session,
-                "tool:%s" % action.call_id,
-                kind="tool_call",
-                turn_id=turn_id,
-                step_id=step_id,
-                tool_call_id=action.call_id,
-                finished_at=finished_at,
-                result={
-                    "success": observation.success,
-                    "error": observation.error,
-                    "error_kind": (
-                        observation.data.get("error_kind")
-                        if isinstance(observation.data, dict)
-                        else ""
-                    ),
-                },
-            )
+            for event in tool_result.events:
+                self._commit_session_event(session, event.event_type, dict(event.payload))
+        self._action_service.finalize(tuple(tool_result.commit_tokens or ()))
+        observation = tool_result.observations[0]
+        current_mode = self._apply_tool_selected_mode(
+            session, current_mode, workflow_state, observation
+        )
         if on_tool_finish is not None:
             on_tool_finish(action, observation)
         return current_mode
@@ -1818,26 +1560,6 @@ class QueryEngine(object):
                 compaction_payloads["compacted_history"],
             )
             return True
-
-    def _failure_observation(
-        self,
-        tool_name: str,
-        error: str,
-        error_kind: str,
-        retryable: bool,
-        blocked_by: str,
-        suggested_next_step: str,
-        extra_data: Optional[Dict[str, Any]] = None,
-    ) -> Observation:
-        data = {
-            "error_kind": error_kind,
-            "retryable": retryable,
-            "blocked_by": blocked_by,
-            "suggested_next_step": suggested_next_step,
-        }
-        if extra_data:
-            data.update(extra_data)
-        return Observation(tool_name, False, error, data)
 
 
 def to_loop_result(result: QueryTurnResult) -> LoopResult:

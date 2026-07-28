@@ -674,12 +674,12 @@ class SpyActionService(object):
     def execute_parallel_tool_action(self, *args, **kwargs):
         return self.delegate.execute_parallel_tool_action(*args, **kwargs)
 
-    def apply_extension_tool_result_patch(self, *args, **kwargs):
-        return self.delegate.apply_extension_tool_result_patch(*args, **kwargs)
+    def execute(self, effect, *args, **kwargs):
+        self.executed.extend(action.name for action in effect.actions)
+        return self.delegate.execute(effect, *args, **kwargs)
 
-    def execute_action(self, session, action, *args, **kwargs):
-        self.executed.append(action.name)
-        return self.delegate.execute_action(session, action, *args, **kwargs)
+    def finalize(self, commit_tokens):
+        return self.delegate.finalize(commit_tokens)
 
 
 class LockCheckingContextManager(ContextManager):
@@ -894,8 +894,12 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertNotIn("content_stored_path", result.data)
 
     def test_agent_tool_action_service_rejects_inactive_tool(self):
+        from embedagent_core.agent_effects import ExecuteToolBatchEffect, ToolBatchCompleted
         from embedagent_core.agent_extension_host import AgentExtensionHost
-        from embedagent_core.agent_tool_action_service import AgentToolActionService
+        from embedagent_core.agent_tool_action_service import (
+            AgentToolActionService,
+            InteractionFactory,
+        )
         from embedagent_core.extensions import ExtensionManager
 
         class EmptyModeToolPolicy(object):
@@ -910,35 +914,34 @@ class TestQueryEngineRefactor(unittest.TestCase):
             permission_policy=policy,
             mode_tool_policy=EmptyModeToolPolicy(),
         )
-        engine = QueryEngine(
-            client=FakeClient(),
-            tools=self.tools,
-            permission_policy=policy,
-        )
         service = AgentToolActionService(
             tools=self.tools,
             permission_policy=policy,
             extension_host=host,
             app_config_provider=lambda: None,
-            failure_observation_factory=engine._failure_observation,
+            interaction_factory=InteractionFactory(),
         )
 
-        observation, current_mode, suspended = service.execute_action(
+        result = service.execute(
+            ExecuteToolBatchEffect(
+                "tools-1",
+                (Action("read_file", {"path": "missing.txt"}, "call-read"),),
+                "build",
+                "chat",
+            ),
             Session(),
-            Action("read_file", {"path": "missing.txt"}, "call-read"),
-            "build",
-            "chat",
-            permission_handler=None,
-            user_input_handler=None,
         )
 
-        self.assertEqual(current_mode, "build")
-        self.assertIsNone(suspended)
+        self.assertIsInstance(result, ToolBatchCompleted)
+        observation = result.observations[0]
         self.assertFalse(observation.success)
         self.assertEqual(observation.data["error_kind"], "mode_tool_blocked")
 
     def test_parallel_interactive_action_requires_serial_action_execution(self):
-        from embedagent_core.agent_tool_action_service import AgentToolActionService
+        from embedagent_core.agent_tool_action_service import (
+            AgentToolActionService,
+            InteractionFactory,
+        )
 
         policy = PermissionPolicy(auto_approve_all=True, workspace=self.workspace)
         engine = QueryEngine(
@@ -951,7 +954,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             permission_policy=policy,
             extension_host=engine.extension_host,
             app_config_provider=lambda: None,
-            failure_observation_factory=engine._failure_observation,
+            interaction_factory=InteractionFactory(),
         )
 
         observation = service.execute_parallel_tool_action(
@@ -3284,7 +3287,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(pending_starts[0]["metadata"]["kind"], "user_input")
         self.assertEqual(pending_starts[0]["metadata"]["tool_name"], "ask_user")
 
-    def test_query_engine_permission_wait_uses_kernel_pending_boundary(self):
+    def test_query_engine_permission_wait_commits_factory_pending_event(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         engine = QueryEngine(
@@ -3292,8 +3295,6 @@ class TestQueryEngineRefactor(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
         )
-        spy_kernel = SpyKernel(delegate=engine.kernel)
-        engine.kernel = spy_kernel
 
         result = engine.submit_user_turn(
             user_text="写文件",
@@ -3304,13 +3305,20 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
 
         self.assertEqual(result.transition.reason, "permission_wait")
-        self.assertEqual(len(spy_kernel.pending_permissions), 1)
-        self.assertEqual(spy_kernel.pending_permissions[0]["tool_name"], "write_file")
+        pending_events = [
+            event
+            for event in engine.transcript_store.load_events(session.session_id)
+            if event["type"] == "pending_interaction"
+        ]
+        self.assertEqual(len(pending_events), 1)
+        self.assertEqual(pending_events[0]["payload"]["kind"], "permission")
+        self.assertEqual(pending_events[0]["payload"]["tool_name"], "write_file")
         self.assertEqual(
-            spy_kernel.pending_permissions[0]["permission_payload"]["tool_name"], "write_file"
+            pending_events[0]["payload"]["request_payload"]["permission"]["category"],
+            "workspace_write",
         )
 
-    def test_query_engine_user_input_wait_uses_kernel_pending_boundary(self):
+    def test_query_engine_user_input_wait_commits_factory_pending_event(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
         engine = QueryEngine(
@@ -3318,8 +3326,6 @@ class TestQueryEngineRefactor(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        spy_kernel = SpyKernel(delegate=engine.kernel)
-        engine.kernel = spy_kernel
 
         result = engine.submit_user_turn(
             user_text="继续",
@@ -3331,10 +3337,16 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertTrue(result.pending_interaction.created_at)
 
         self.assertEqual(result.transition.reason, "user_input_wait")
-        self.assertEqual(len(spy_kernel.pending_user_inputs), 1)
-        self.assertEqual(spy_kernel.pending_user_inputs[0]["tool_name"], "ask_user")
+        pending_events = [
+            event
+            for event in engine.transcript_store.load_events(session.session_id)
+            if event["type"] == "pending_interaction"
+        ]
+        self.assertEqual(len(pending_events), 1)
+        self.assertEqual(pending_events[0]["payload"]["kind"], "user_input")
+        self.assertEqual(pending_events[0]["payload"]["tool_name"], "ask_user")
         self.assertEqual(
-            spy_kernel.pending_user_inputs[0]["request_payload"]["question"], "下一步怎么做？"
+            pending_events[0]["payload"]["request_payload"]["request"]["question"], "下一步怎么做？"
         )
 
     def test_agent_kernel_returns_pending_intent_without_mutating_session(self):
