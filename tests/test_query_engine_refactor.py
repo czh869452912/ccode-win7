@@ -1656,16 +1656,12 @@ class TestQueryEngineRefactor(unittest.TestCase):
     def test_provider_request_consumes_turn_snapshot_and_records_safe_metadata(self):
         transcript_store = TranscriptStore(self.workspace)
         client = SnapshotInspectingClient()
-        engine = QueryEngine(
-            client=client,
-            tools=self.tools,
-            permission_policy=PermissionPolicy(
-                auto_approve_all=True,
-                workspace=self.workspace,
-            ),
-            transcript_store=transcript_store,
-            max_turns=1,
-            runtime_config_provider=lambda session: {
+        session = Session()
+        transcript_store.append_event(
+            session.session_id,
+            "runtime_configured",
+            {
+                "reason": "test",
                 "model_profile": {
                     "name": "reduced-local-model",
                     "source_type": "configured",
@@ -1679,7 +1675,16 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 },
             },
         )
-        session = Session()
+        engine = QueryEngine(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+            max_turns=1,
+        )
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
 
         result = engine.submit_user_turn(

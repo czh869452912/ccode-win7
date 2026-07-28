@@ -34,7 +34,7 @@ def _stable_names(names: Optional[List[str]]) -> List[str]:
     return sorted(result)
 
 
-@dataclass
+@dataclass(frozen=True)
 class TurnSnapshot:
     snapshot_id: str
     session_id: str
@@ -54,22 +54,46 @@ class TurnSnapshot:
     created_at: str = field(default_factory=_utc_now)
 
     def __post_init__(self) -> None:
-        self.snapshot_id = str(self.snapshot_id or "").strip() or ("ts-" + uuid.uuid4().hex[:12])
-        self.session_id = str(self.session_id or "").strip()
-        self.turn_id = str(self.turn_id or "").strip()
-        self.step_id = str(self.step_id or "").strip()
-        self.mode_name = str(self.mode_name or "").strip()
-        self.workflow_state = str(self.workflow_state or "").strip()
-        self.messages = _copy_list(self.messages)
-        self.tool_schemas = _copy_list(self.tool_schemas)
-        self.active_tool_names = _stable_names(self.active_tool_names)
-        self.model_profile = _copy_dict(self.model_profile)
-        self.resource_revision = _copy_dict(self.resource_revision)
-        self.prompt_units = _safe_prompt_units(self.prompt_units)
-        self.runtime_environment = _copy_dict(self.runtime_environment)
-        self.capabilities = _copy_dict(self.capabilities)
-        self.context_stats = _copy_dict(self.context_stats)
-        self.created_at = str(self.created_at or "").strip() or _utc_now()
+        object.__setattr__(
+            self,
+            "snapshot_id",
+            str(self.snapshot_id or "").strip() or ("ts-" + uuid.uuid4().hex[:12]),
+        )
+        object.__setattr__(self, "session_id", str(self.session_id or "").strip())
+        object.__setattr__(self, "turn_id", str(self.turn_id or "").strip())
+        object.__setattr__(self, "step_id", str(self.step_id or "").strip())
+        object.__setattr__(self, "mode_name", str(self.mode_name or "").strip())
+        object.__setattr__(
+            self,
+            "workflow_state",
+            str(self.workflow_state or "").strip(),
+        )
+        object.__setattr__(self, "messages", _copy_list(self.messages))
+        object.__setattr__(self, "tool_schemas", _copy_list(self.tool_schemas))
+        object.__setattr__(
+            self,
+            "active_tool_names",
+            _stable_names(self.active_tool_names),
+        )
+        object.__setattr__(self, "model_profile", _copy_dict(self.model_profile))
+        object.__setattr__(
+            self,
+            "resource_revision",
+            _copy_dict(self.resource_revision),
+        )
+        object.__setattr__(self, "prompt_units", _safe_prompt_units(self.prompt_units))
+        object.__setattr__(
+            self,
+            "runtime_environment",
+            _copy_dict(self.runtime_environment),
+        )
+        object.__setattr__(self, "capabilities", _copy_dict(self.capabilities))
+        object.__setattr__(self, "context_stats", _copy_dict(self.context_stats))
+        object.__setattr__(
+            self,
+            "created_at",
+            str(self.created_at or "").strip() or _utc_now(),
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         return {

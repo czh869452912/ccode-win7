@@ -7,6 +7,7 @@ import uuid
 from copy import deepcopy
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from embedagent_core.agent_effects import AssembleContextEffect
 from embedagent_core.agent_extension_host import AgentExtensionHost
 from embedagent_core.agent_kernel import AgentKernel
 from embedagent_core.agent_lifecycle import AgentLifecycleJournal
@@ -23,9 +24,8 @@ from embedagent_core.interaction import (
     UserInputRequest,
     UserInputResponse,
 )
-from embedagent_core.model import ModelClient, ModelClientError
+from embedagent_core.model import ModelClient
 from embedagent_core.strategies.execution_tracer import ExecutionTracer, TraceEventType
-from embedagent_core.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 from embedagent_core.policies import (
     DenyWritePathPolicy,
@@ -42,6 +42,7 @@ from embedagent_core.ports import (
     SessionProjectionPort,
 )
 from embedagent_core.prompt_assembly_service import PromptAssemblyService
+from embedagent_core.provider_step_service import ProviderStepService
 from embedagent_core.session import (
     Action,
     AssistantReply,
@@ -65,19 +66,6 @@ from embedagent_core.turn_snapshot import TurnSnapshot
 from embedagent_core.turn_snapshot_service import TurnSnapshotService
 
 _LOG = logging.getLogger(__name__)
-_RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}
-_LLM_MAX_RETRIES = 3
-_LLM_RETRY_BASE_DELAY = 1.0
-_COMPACT_RETRY_ERROR_MARKERS = (
-    "context length",
-    "maximum context",
-    "prompt is too long",
-    "prompt too long",
-    "max tokens",
-    "too many tokens",
-    "上下文",
-    "超出上下文",
-)
 _OPERATION_RUNTIME_ERRORS = (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError)
 
 
@@ -94,7 +82,6 @@ class QueryEngine(object):
         transcript_store: Optional[SessionLogPort] = None,
         tracer: Optional[ExecutionTracer] = None,
         extension_manager: Optional[ExtensionManager] = None,
-        runtime_config_provider: Optional[Callable[[Session], Dict[str, Any]]] = None,
         mode_tool_policy: Optional[ModeToolPolicy] = None,
         write_path_policy: Optional[WritePathPolicy] = None,
         mode_runtime_policy: Optional[ModeRuntimePolicy] = None,
@@ -113,7 +100,6 @@ class QueryEngine(object):
         self._journal = SessionJournal(self.transcript_store, self._session_reducer)
         self._reduction_context = reduction_context or SessionReducerContext()
         self.tracer = tracer
-        self._runtime_config_provider = runtime_config_provider
         self._mode_tool_policy = mode_tool_policy or EmptyModeToolPolicy()
         self._write_path_policy = write_path_policy or DenyWritePathPolicy()
         self._mode_runtime_policy = mode_runtime_policy or NeutralModeRuntimePolicy()
@@ -148,20 +134,23 @@ class QueryEngine(object):
             lifecycle=self.lifecycle,
             event_committer=self._commit_event_intent,
         )
-        self._llm_wrapper = LLMClientRetryWrapper(
-            client=client,
-            max_retries=_LLM_MAX_RETRIES,
-            base_delay=_LLM_RETRY_BASE_DELAY,
-        )
-        self._turn_snapshots = TurnSnapshotService()
         self._prompt_assembly = PromptAssemblyService()
-        self._last_turn_snapshot = None  # type: Optional[TurnSnapshot]
+        self._provider_steps = ProviderStepService(
+            context_assembler=self.context_manager,
+            extension_host=self.extension_host,
+            snapshot_service=TurnSnapshotService(),
+            tools=self.tools,
+            client=self.client,
+            session_log=self.transcript_store,
+        )
         self._durable_message_ids = {}  # type: Dict[str, set]
         self.kernel = AgentKernel(lifecycle=self.lifecycle)
         self._agent_loop = AgentLoop(
             max_turns=self.max_turns,
             max_parallel_tools=self.max_parallel_tools,
             tool_capabilities=getattr(self.tools, "tool_capabilities", None),
+            kernel=self.kernel,
+            provider_steps=self._provider_steps,
             session_guard=self._session_guard,
             append_transcript_event=self._append_transcript_event,
             append_message_event=self._append_message_event,
@@ -171,12 +160,7 @@ class QueryEngine(object):
             emit_step_finished=self._emit_step_finished,
             turn_id=self._turn_id,
             record_transition=self._record_transition,
-            build_context_operation=self._build_context_operation,
-            record_context_snapshot_operation=self._record_context_snapshot_operation,
             persist_summary=self._persist_summary,
-            extension_host=self.extension_host,
-            call_provider_operation=self._call_provider_operation,
-            should_retry_with_compact=self._should_retry_with_compact,
             maybe_record_compact_boundary=self._maybe_record_compact_boundary,
             classify_assistant_turn=self.classify_assistant_turn,
             tool_presentation_snapshot=self._tool_presentation_snapshot,
@@ -214,7 +198,7 @@ class QueryEngine(object):
         self._internal_stop_event.set()
 
     def last_turn_snapshot(self) -> Optional[TurnSnapshot]:
-        return self._last_turn_snapshot
+        return self._provider_steps.last_snapshot()
 
     def _session_guard(self):
         return self._session_lock
@@ -369,60 +353,6 @@ class QueryEngine(object):
     def _turn_id(self, session: Session) -> str:
         return self.lifecycle.turn_id(session)
 
-    def _context_operation_metadata(
-        self, mode_name: str, workflow_state: str, force_compact: bool
-    ) -> Dict[str, Any]:
-        return self.lifecycle.context_operation_metadata(mode_name, workflow_state, force_compact)
-
-    def _context_operation_result(self, assembly: ContextAssemblyResult) -> Dict[str, Any]:
-        return self.lifecycle.context_operation_result(assembly)
-
-    def _context_snapshot_payload(
-        self, current_mode: str, assembly: ContextAssemblyResult
-    ) -> Dict[str, Any]:
-        return self.lifecycle.context_snapshot_payload(current_mode, assembly)
-
-    def _record_context_snapshot_operation(
-        self,
-        session: Session,
-        current_mode: str,
-        workflow_state: str,
-        turn_id: str,
-        step_id: str,
-        operation_id: str,
-        assembly: ContextAssemblyResult,
-    ) -> None:
-        snapshot = self._context_snapshot_payload(current_mode, assembly)
-        self._emit_operation_started(
-            session,
-            operation_id,
-            "context_snapshot",
-            turn_id=turn_id,
-            step_id=step_id,
-            parent_operation_id="context:%s" % step_id if step_id else "",
-            metadata={
-                "mode_name": current_mode,
-                "workflow_state": workflow_state,
-            },
-        )
-        self._commit_session_event(session, "context_snapshot", snapshot)
-        self._emit_operation_finished(
-            session,
-            operation_id,
-            kind="context_snapshot",
-            turn_id=turn_id,
-            step_id=step_id,
-            result=snapshot,
-        )
-
-    def _provider_operation_result(self, reply: AssistantReply) -> Dict[str, Any]:
-        return {
-            "finish_reason": reply.finish_reason,
-            "action_count": len(reply.actions),
-            "content_length": len(reply.content or ""),
-            "reasoning_length": len(reply.reasoning_content or ""),
-        }
-
     def _emit_turn_started(
         self,
         session: Session,
@@ -515,139 +445,6 @@ class QueryEngine(object):
             message=message,
             turns_used=turns_used,
         )
-
-    def _build_context_operation(
-        self,
-        session: Session,
-        current_mode: str,
-        workflow_state: str,
-        force_compact: bool,
-        turn_id: str,
-        step_id: str,
-        operation_id: str,
-    ) -> ContextAssemblyResult:
-        self._emit_operation_started(
-            session,
-            operation_id,
-            "context_assembly",
-            turn_id=turn_id,
-            step_id=step_id,
-            parent_operation_id="step:%s" % step_id if step_id else "",
-            metadata=self._context_operation_metadata(current_mode, workflow_state, force_compact),
-        )
-        try:
-            assembly = self._build_context(
-                session, current_mode, workflow_state, force_compact=force_compact
-            )
-        except _OPERATION_RUNTIME_ERRORS as exc:
-            self._emit_operation_interrupted(
-                session,
-                operation_id,
-                kind="context_assembly",
-                turn_id=turn_id,
-                step_id=step_id,
-                reason="context_assembly_error",
-                result={"error": str(exc)},
-            )
-            raise
-        self._emit_operation_finished(
-            session,
-            operation_id,
-            kind="context_assembly",
-            turn_id=turn_id,
-            step_id=step_id,
-            result=self._context_operation_result(assembly),
-        )
-        return assembly
-
-    def _call_provider_operation(
-        self,
-        session: Session,
-        operation_id: str,
-        turn_id: str,
-        step_id: str,
-        current_mode: str,
-        workflow_state: str,
-        messages: list,
-        tool_schemas: list,
-        stream: bool,
-        on_text_delta: Optional[Callable[[str], None]],
-        on_reasoning_delta: Optional[Callable[[str], None]],
-    ) -> AssistantReply:
-        snapshot = self._turn_snapshots.build_provider_snapshot(
-            session=session,
-            turn_id=turn_id,
-            step_id=step_id,
-            mode_name=current_mode,
-            workflow_state=workflow_state,
-            messages=messages,
-            tool_schemas=tool_schemas,
-            tools=self.tools,
-            client=self.client,
-            transcript_store=self.transcript_store,
-            runtime_config_provider=self._runtime_config_provider,
-        )
-        self._last_turn_snapshot = snapshot
-        snapshot_metadata = self._turn_snapshots.metadata(snapshot)
-        self._emit_operation_started(
-            session,
-            operation_id,
-            "provider_request",
-            turn_id=turn_id,
-            step_id=step_id,
-            parent_operation_id="step:%s" % step_id if step_id else "",
-            retryable=True,
-            metadata={
-                "mode_name": current_mode,
-                "workflow_state": workflow_state,
-                "message_count": len(snapshot.messages),
-                "tool_schema_count": len(snapshot.tool_schemas),
-                "stream": bool(stream),
-                "turn_snapshot": snapshot_metadata,
-            },
-        )
-        try:
-            reply = self._call_llm_with_retry(
-                snapshot.messages,
-                snapshot.tool_schemas,
-                stream,
-                on_text_delta,
-                on_reasoning_delta,
-            )
-        except ModelClientError as exc:
-            self._emit_operation_interrupted(
-                session,
-                operation_id,
-                kind="provider_request",
-                turn_id=turn_id,
-                step_id=step_id,
-                reason="model_client_error",
-                result={"error": str(exc)},
-            )
-            raise
-        except _OPERATION_RUNTIME_ERRORS as exc:
-            self._emit_operation_interrupted(
-                session,
-                operation_id,
-                kind="provider_request",
-                turn_id=turn_id,
-                step_id=step_id,
-                reason="provider_request_error",
-                result={"error": str(exc)},
-            )
-            raise
-        self._emit_operation_finished(
-            session,
-            operation_id,
-            kind="provider_request",
-            turn_id=turn_id,
-            step_id=step_id,
-            result=dict(
-                self._provider_operation_result(reply),
-                turn_snapshot=snapshot_metadata,
-            ),
-        )
-        return reply
 
     def _append_message_event(self, session: Session, payload: Dict[str, Any]) -> None:
         event_type = str(payload.get("role") or "message")
@@ -1533,15 +1330,35 @@ class QueryEngine(object):
             )
         if on_step_start is not None:
             on_step_start(step_id, step_index)
-        assembly = self._build_context_operation(
+        context_operation_id = "context:%s:1" % step_id
+        self._emit_operation_started(
             session,
-            current_mode,
-            workflow_state,
-            False,
-            command_turn_id,
-            step_id,
-            "context:%s:1" % step_id,
+            context_operation_id,
+            "context_assembly",
+            turn_id=command_turn_id,
+            step_id=step_id,
+            parent_operation_id="step:%s" % step_id,
+            metadata={
+                "mode_name": current_mode,
+                "workflow_state": workflow_state,
+                "force_compact": False,
+            },
         )
+        with self._session_guard():
+            context_result = self._provider_steps.assemble_context(
+                AssembleContextEffect(
+                    context_operation_id,
+                    command_turn_id,
+                    step_id,
+                    current_mode,
+                    workflow_state,
+                ),
+                session,
+            )
+        with self._session_guard():
+            for event in context_result.events:
+                self._commit_session_event(session, event.event_type, dict(event.payload))
+        assembly = context_result.assembly
         if on_context_result is not None:
             on_context_result(assembly)
         reply = AssistantReply(content="", actions=[action], finish_reason="tool_calls")
@@ -1692,54 +1509,6 @@ class QueryEngine(object):
         if str(reply.content or "").strip():
             return "final_message"
         return "empty_noop"
-
-    def _build_context(
-        self, session: Session, mode_name: str, workflow_state: str, force_compact: bool = False
-    ) -> ContextAssemblyResult:
-        with self._session_guard():
-            build = self.context_manager.build_messages(
-                session,
-                mode_name,
-                tools=self.tools,
-                workflow_state=workflow_state,
-                force_compact=force_compact,
-            )
-        if isinstance(build, ContextAssemblyResult):
-            assembly = build
-        else:
-            assembly = ContextAssemblyResult(
-                messages=build.messages,
-                used_chars=build.used_chars,
-                approx_tokens=build.approx_tokens,
-                compacted=build.compacted,
-                summarized_turns=build.summarized_turns,
-                recent_turns=build.recent_turns,
-                policy=build.policy,
-                budget=build.budget,
-                stats=build.stats,
-                summary_message=getattr(build, "summary_message", ""),
-                intelligence_sections=getattr(build, "intelligence_sections", []),
-                analysis=getattr(build, "analysis", {}),
-                replacements=getattr(build, "replacements", []),
-                pipeline_steps=getattr(build, "pipeline_steps", []),
-                plan=getattr(build, "plan", None),
-            )
-        return self.extension_host.apply_context_patch(
-            session,
-            mode_name,
-            workflow_state,
-            assembly,
-            force_compact=force_compact,
-        )
-
-    def _should_retry_with_compact(self, exc: ModelClientError) -> bool:
-        text = str(exc or "").lower()
-        if not text:
-            return False
-        for marker in _COMPACT_RETRY_ERROR_MARKERS:
-            if marker in text:
-                return True
-        return False
 
     def _record_permission_rejection(self, session: Session, action: Action) -> None:
         self._emit_lifecycle_event(
@@ -1979,22 +1748,6 @@ class QueryEngine(object):
         if on_tool_finish is not None:
             on_tool_finish(action, observation)
         return current_mode
-
-    def _call_llm_with_retry(
-        self,
-        messages: list,
-        tool_schemas: list,
-        stream: bool,
-        on_text_delta: Optional[Callable[[str], None]],
-        on_reasoning_delta: Optional[Callable[[str], None]],
-    ) -> AssistantReply:
-        return self._llm_wrapper.call_with_retry(
-            messages=messages,
-            tools=tool_schemas,
-            stream=stream,
-            on_text_delta=on_text_delta,
-            on_reasoning_delta=on_reasoning_delta,
-        )
 
     def _persist_summary(
         self, session: Session, current_mode: str, assembly: Optional[ContextAssemblyResult] = None

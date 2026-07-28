@@ -24,6 +24,7 @@ from embedagent_core.session import (
     Session,
 )
 from embedagent_core.session_journal import EventIntent
+from embedagent_core.turn_snapshot_service import safe_turn_snapshot_metadata
 
 
 @dataclass(frozen=True)
@@ -116,7 +117,7 @@ class AgentKernel(object):
         )
         return KernelStep(
             cursor=cursor,
-            events=(self._operation_started(cursor, "context"),),
+            events=(self._operation_started(cursor, "context_assembly"),),
             effect=self._context_effect(cursor),
         )
 
@@ -149,14 +150,17 @@ class AgentKernel(object):
             cursor=next_cursor,
             events=result.events
             + (
-                self._operation_finished(cursor, "context"),
-                self._operation_started(next_cursor, "provider"),
+                self._operation_started(
+                    next_cursor,
+                    "provider_request",
+                    metadata=self._provider_operation_metadata(result.snapshot, cursor.stream),
+                ),
             ),
             effect=RequestProviderEffect(effect_id, result.snapshot, cursor.stream),
         )
 
     def _accept_provider(self, cursor: KernelCursor, result: ProviderCompleted) -> KernelStep:
-        events = result.events + (self._operation_finished(cursor, "provider"),)
+        events = result.events
         if not result.reply.actions:
             outcome = LoopTransition(
                 "completed",
@@ -204,7 +208,7 @@ class AgentKernel(object):
             events=result.events
             + (
                 self._operation_finished(cursor, "tools"),
-                self._operation_started(next_cursor, "context"),
+                self._operation_started(next_cursor, "context_assembly"),
             ),
             effect=self._context_effect(next_cursor),
             post_commit_tokens=result.commit_tokens,
@@ -229,7 +233,6 @@ class AgentKernel(object):
         )
 
     def _accept_failure(self, cursor: KernelCursor, result: EffectFailed) -> KernelStep:
-        interrupted = self._operation_interrupted(cursor, result)
         if result.error_kind == "context_limit" and not cursor.compact_retry_used:
             effect_id = self._effect_id(
                 "context-compact",
@@ -246,8 +249,7 @@ class AgentKernel(object):
             )
             return KernelStep(
                 cursor=next_cursor,
-                events=result.events
-                + (interrupted, self._operation_started(next_cursor, "context")),
+                events=result.events + (self._operation_started(next_cursor, "context_assembly"),),
                 effect=self._context_effect(next_cursor, force_compact=True),
             )
 
@@ -261,7 +263,7 @@ class AgentKernel(object):
         )
         return KernelStep(
             cursor=replace(cursor, phase="failed", expected_effect_id=""),
-            events=result.events + (interrupted, self._loop_transition(cursor, outcome)),
+            events=result.events + (self._loop_transition(cursor, outcome),),
             outcome=outcome,
         )
 
@@ -277,7 +279,12 @@ class AgentKernel(object):
             force_compact=force_compact,
         )
 
-    def _operation_started(self, cursor: KernelCursor, kind: str) -> EventIntent:
+    def _operation_started(
+        self,
+        cursor: KernelCursor,
+        kind: str,
+        metadata: Optional[dict] = None,
+    ) -> EventIntent:
         return EventIntent(
             "operation_started",
             {
@@ -285,8 +292,9 @@ class AgentKernel(object):
                 "kind": kind,
                 "turn_id": cursor.turn_id,
                 "step_id": cursor.step_id,
-                "retryable": kind in ("context", "provider"),
-                "metadata": {"source": cursor.source} if cursor.source else {},
+                "retryable": kind
+                in ("context", "provider", "context_assembly", "provider_request"),
+                "metadata": dict(metadata or ({"source": cursor.source} if cursor.source else {})),
             },
         )
 
@@ -299,20 +307,6 @@ class AgentKernel(object):
                 "turn_id": cursor.turn_id,
                 "step_id": cursor.step_id,
                 "result": {},
-            },
-        )
-
-    def _operation_interrupted(self, cursor: KernelCursor, result: EffectFailed) -> EventIntent:
-        return EventIntent(
-            "operation_interrupted",
-            {
-                "operation_id": cursor.expected_effect_id,
-                "kind": cursor.phase,
-                "turn_id": cursor.turn_id,
-                "step_id": cursor.step_id,
-                "reason": result.error_kind,
-                "retryable": bool(result.retryable),
-                "result": {"message": result.message},
             },
         )
 
@@ -329,6 +323,16 @@ class AgentKernel(object):
                 "metadata": dict(transition.metadata),
             },
         )
+
+    def _provider_operation_metadata(self, snapshot: Any, stream: bool) -> dict:
+        return {
+            "mode_name": snapshot.mode_name,
+            "workflow_state": snapshot.workflow_state,
+            "message_count": len(snapshot.messages),
+            "tool_schema_count": len(snapshot.tool_schemas),
+            "stream": bool(stream),
+            "turn_snapshot": safe_turn_snapshot_metadata(snapshot),
+        }
 
     def _effect_id(self, kind: str, turn_id: str, step_index: int, provider_attempt: int) -> str:
         return "%s:%s:%d:%d" % (

@@ -64,7 +64,7 @@ def test_kernel_plans_context_before_provider():
     assert step.effect.turn_id == "t-1"
     assert step.effect.mode_name == "debug"
     assert step.events[0].event_type == "operation_started"
-    assert step.events[0].payload["kind"] == "context"
+    assert step.events[0].payload["kind"] == "context_assembly"
 
 
 def test_kernel_advances_context_to_provider_and_provider_to_tools():

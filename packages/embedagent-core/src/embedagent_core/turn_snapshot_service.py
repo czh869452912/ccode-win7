@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from embedagent_core.capabilities import (
     CapabilityRegistry,
@@ -23,6 +23,30 @@ def _has_meaningful_resource_revision(value: Dict[str, Any]) -> bool:
     return False
 
 
+def safe_turn_snapshot_metadata(snapshot: TurnSnapshot) -> Dict[str, Any]:
+    capabilities = dict(snapshot.capabilities or {})
+    names = []
+    for item in list(capabilities.get("descriptors") or []):
+        if not isinstance(item, dict) or str(item.get("kind") or "") != "tool":
+            continue
+        name = str(item.get("name") or "").strip()
+        if name:
+            names.append(name)
+    return {
+        "snapshot_id": snapshot.snapshot_id,
+        "mode_name": snapshot.mode_name,
+        "workflow_state": snapshot.workflow_state,
+        "message_count": len(snapshot.messages or []),
+        "tool_schema_count": len(snapshot.tool_schemas or []),
+        "active_tool_names": list(snapshot.active_tool_names or []),
+        "registered_tool_names": sorted(set(names)),
+        "model_profile": dict(snapshot.model_profile or {}),
+        "resource_revision": dict(snapshot.resource_revision or {}),
+        "prompt_units": [dict(item) for item in list(snapshot.prompt_units or [])],
+        "capability_counts": dict(capabilities.get("counts") or {}),
+    }
+
+
 class TurnSnapshotService(object):
     def __init__(self, builder: Optional[TurnSnapshotBuilder] = None) -> None:
         self._builder = builder or TurnSnapshotBuilder()
@@ -42,15 +66,10 @@ class TurnSnapshotService(object):
         tools: Any,
         client: Any,
         transcript_store: Any,
-        runtime_config_provider: Optional[Callable[[Any], Dict[str, Any]]] = None,
     ) -> TurnSnapshot:
         active_tool_names = self.active_tool_names_from_schemas(tool_schemas)
         capabilities = self.capability_snapshot_for_provider(tools, client, active_tool_names)
-        runtime_config = self.runtime_config_snapshot(
-            session,
-            transcript_store,
-            runtime_config_provider=runtime_config_provider,
-        )
+        runtime_config = self.runtime_config_snapshot(session, transcript_store)
         return self.build(
             session_id=session.session_id,
             turn_id=turn_id,
@@ -103,13 +122,7 @@ class TurnSnapshotService(object):
         self,
         session: Any,
         transcript_store: Any,
-        runtime_config_provider: Optional[Callable[[Any], Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
-        if callable(runtime_config_provider):
-            try:
-                return dict(runtime_config_provider(session) or {})
-            except (OSError, RuntimeError, ValueError, TypeError):
-                return {}
         try:
             events = transcript_store.load_events(session.session_id)
         except (OSError, ValueError, TypeError):
@@ -202,29 +215,4 @@ class TurnSnapshotService(object):
         }
 
     def metadata(self, snapshot: TurnSnapshot) -> Dict[str, Any]:
-        capabilities = dict(snapshot.capabilities or {})
-        return {
-            "snapshot_id": snapshot.snapshot_id,
-            "mode_name": snapshot.mode_name,
-            "workflow_state": snapshot.workflow_state,
-            "message_count": len(snapshot.messages or []),
-            "tool_schema_count": len(snapshot.tool_schemas or []),
-            "active_tool_names": list(snapshot.active_tool_names or []),
-            "registered_tool_names": self.registered_tool_names_from_capabilities(capabilities),
-            "model_profile": dict(snapshot.model_profile or {}),
-            "resource_revision": dict(snapshot.resource_revision or {}),
-            "prompt_units": [dict(item) for item in list(snapshot.prompt_units or [])],
-            "capability_counts": dict(capabilities.get("counts") or {}),
-        }
-
-    def registered_tool_names_from_capabilities(self, capabilities: Dict[str, Any]) -> List[str]:
-        names = []
-        for item in list(capabilities.get("descriptors") or []):
-            if not isinstance(item, dict):
-                continue
-            if str(item.get("kind") or "") != "tool":
-                continue
-            name = str(item.get("name") or "").strip()
-            if name:
-                names.append(name)
-        return sorted(set(names))
+        return safe_turn_snapshot_metadata(snapshot)

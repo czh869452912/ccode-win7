@@ -4,6 +4,12 @@ import threading
 import uuid
 from typing import Any, Callable, Optional
 
+from embedagent_core.agent_effects import (
+    AssembleContextEffect,
+    EffectFailed,
+    ProviderCompleted,
+)
+from embedagent_core.agent_kernel import AgentKernel, KernelCursor
 from embedagent_core.agent_loop_continuation import (
     CONTINUATION_ABORT,
     CONTINUATION_COMPACT_THEN_CONTINUE,
@@ -18,6 +24,7 @@ from embedagent_core.guard import ProgressGuard
 from embedagent_core.interaction import UserInputRequest, UserInputResponse
 from embedagent_core.model import ModelClientError
 from embedagent_core.permissions import PermissionRequest
+from embedagent_core.provider_step_service import ProviderObserver, ProviderStepService
 from embedagent_core.session import (
     Action,
     AssistantReply,
@@ -39,6 +46,8 @@ class AgentLoop(object):
         max_parallel_tools: int = 3,
         tool_capabilities: Optional[dict] = None,
         continuation_policy: Optional[AgentLoopContinuationPolicy] = None,
+        kernel: Optional[AgentKernel] = None,
+        provider_steps: Optional[ProviderStepService] = None,
         session_guard: Optional[Callable[[], Any]] = None,
         append_transcript_event: Optional[Callable[..., Any]] = None,
         append_message_event: Optional[Callable[..., Any]] = None,
@@ -48,12 +57,7 @@ class AgentLoop(object):
         emit_step_finished: Optional[Callable[..., Any]] = None,
         turn_id: Optional[Callable[..., Any]] = None,
         record_transition: Optional[Callable[..., Any]] = None,
-        build_context_operation: Optional[Callable[..., Any]] = None,
-        record_context_snapshot_operation: Optional[Callable[..., Any]] = None,
         persist_summary: Optional[Callable[..., Any]] = None,
-        extension_host: Optional[Any] = None,
-        call_provider_operation: Optional[Callable[..., Any]] = None,
-        should_retry_with_compact: Optional[Callable[..., Any]] = None,
         maybe_record_compact_boundary: Optional[Callable[..., Any]] = None,
         classify_assistant_turn: Optional[Callable[..., Any]] = None,
         tool_presentation_snapshot: Optional[Callable[..., Any]] = None,
@@ -68,6 +72,8 @@ class AgentLoop(object):
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.tool_capabilities = tool_capabilities or {}
         self.continuation_policy = continuation_policy or DefaultAgentLoopContinuationPolicy()
+        self._kernel = kernel
+        self._provider_steps = provider_steps
         self._session_guard = session_guard
         self._append_transcript_event = append_transcript_event
         self._append_message_event = append_message_event
@@ -77,12 +83,7 @@ class AgentLoop(object):
         self._emit_step_finished = emit_step_finished
         self._turn_id = turn_id
         self._record_transition = record_transition
-        self._build_context_operation = build_context_operation
-        self._record_context_snapshot_operation = record_context_snapshot_operation
         self._persist_summary = persist_summary
-        self._extension_host = extension_host
-        self._call_provider_operation = call_provider_operation
-        self._should_retry_with_compact = should_retry_with_compact
         self._maybe_record_compact_boundary = maybe_record_compact_boundary
         self._classify_assistant_turn = classify_assistant_turn
         self._tool_presentation_snapshot = tool_presentation_snapshot
@@ -138,6 +139,8 @@ class AgentLoop(object):
 
     def _ensure_configured(self) -> None:
         required = (
+            "_kernel",
+            "_provider_steps",
             "_session_guard",
             "_append_transcript_event",
             "_append_message_event",
@@ -147,12 +150,7 @@ class AgentLoop(object):
             "_emit_step_finished",
             "_turn_id",
             "_record_transition",
-            "_build_context_operation",
-            "_record_context_snapshot_operation",
             "_persist_summary",
-            "_extension_host",
-            "_call_provider_operation",
-            "_should_retry_with_compact",
             "_maybe_record_compact_boundary",
             "_tool_presentation_snapshot",
             "_action_service",
@@ -164,6 +162,15 @@ class AgentLoop(object):
         missing = [name for name in required if getattr(self, name) is None]
         if missing:
             raise RuntimeError("AgentLoop is missing dependencies: %s" % ", ".join(missing))
+
+    def _commit_effect_events(self, session: Session, events: Any) -> None:
+        with self._session_guard():
+            for event in tuple(events or ()):
+                self._commit_session_event(
+                    session,
+                    event.event_type,
+                    dict(event.payload),
+                )
 
     def run(
         self,
@@ -251,63 +258,78 @@ class AgentLoop(object):
                 on_step_start(step_id, step_index)
             force_compact = force_compact_next_step
             force_compact_next_step = False
-            compact_retry_used = False
             compact_boundary_recorded = False
             operation_attempt = 0
+            next_context_effect = None
+            next_context_cursor = None
             while True:
                 operation_attempt += 1
                 turn_id = self._turn_id(session)
                 context_operation_id = "context:%s:%s" % (step_id, operation_attempt)
-                provider_operation_id = "provider:%s:%s" % (step_id, operation_attempt)
-                assembly = self._build_context_operation(
-                    session,
-                    current_mode,
-                    workflow_state,
-                    force_compact,
-                    turn_id,
-                    step_id,
-                    context_operation_id,
-                )
-                with self._session_guard():
-                    self._record_context_snapshot_operation(
-                        session,
-                        current_mode,
-                        workflow_state,
+                if next_context_effect is None:
+                    context_effect = AssembleContextEffect(
+                        context_operation_id,
                         turn_id,
                         step_id,
-                        "context_snapshot:%s:%s" % (step_id, operation_attempt),
-                        assembly,
+                        current_mode,
+                        workflow_state,
+                        force_compact=force_compact,
                     )
-                    for replacement in assembly.replacements:
-                        self._commit_session_event(
-                            session,
-                            "content_replacement",
-                            dict(replacement),
-                        )
+                    context_cursor = KernelCursor(
+                        phase="context",
+                        expected_effect_id=context_operation_id,
+                        step_index=step_index,
+                        provider_attempt=max(0, operation_attempt - 1),
+                        compact_retry_used=False,
+                        turn_id=turn_id,
+                        step_id=step_id,
+                        mode_name=current_mode,
+                        workflow_state=workflow_state,
+                        stream=stream,
+                    )
+                    self._emit_operation_started(
+                        session,
+                        context_operation_id,
+                        "context_assembly",
+                        turn_id,
+                        step_id,
+                        parent_operation_id="step:%s" % step_id if step_id else "",
+                        metadata={
+                            "mode_name": current_mode,
+                            "workflow_state": workflow_state,
+                            "force_compact": bool(force_compact),
+                        },
+                    )
+                else:
+                    context_effect = next_context_effect
+                    context_cursor = next_context_cursor
+                    next_context_effect = None
+                    next_context_cursor = None
+                with self._session_guard():
+                    context_result = self._provider_steps.assemble_context(
+                        context_effect,
+                        session,
+                    )
+                assembly = context_result.assembly
+                provider_step = self._kernel.accept(context_cursor, context_result)
+                self._commit_effect_events(session, provider_step.events)
                 if on_context_result is not None:
                     on_context_result(assembly)
-                tool_schemas = self._extension_host.schemas_for_active_tools(
-                    current_mode, workflow_state
+                provider_result = self._provider_steps.request_provider(
+                    provider_step.effect,
+                    ProviderObserver(on_text_delta, on_reasoning_delta),
                 )
-                try:
-                    reply = self._call_provider_operation(
-                        session,
-                        provider_operation_id,
-                        turn_id,
-                        step_id,
-                        current_mode,
-                        workflow_state,
-                        assembly.messages,
-                        tool_schemas,
-                        stream,
-                        on_text_delta,
-                        on_reasoning_delta,
-                    )
+                if isinstance(provider_result, ProviderCompleted):
+                    self._commit_effect_events(session, provider_result.events)
+                    reply = provider_result.reply
                     break
-                except ModelClientError as exc:
-                    if compact_retry_used or not self._should_retry_with_compact(exc):
-                        raise
-                    compact_retry_used = True
+                if isinstance(provider_result, EffectFailed):
+                    retry_step = self._kernel.accept(provider_step.cursor, provider_result)
+                    self._commit_effect_events(session, retry_step.events)
+                    if not isinstance(retry_step.effect, AssembleContextEffect):
+                        raise ModelClientError(provider_result.message)
+                    next_context_effect = retry_step.effect
+                    next_context_cursor = retry_step.cursor
                     force_compact = True
                     if "reactive_compact_retry" not in assembly.pipeline_steps:
                         assembly.pipeline_steps.insert(0, "reactive_compact_retry")
@@ -317,19 +339,20 @@ class AgentLoop(object):
                     )
                     transition = LoopTransition(
                         reason="compact_retry",
-                        message=str(exc),
+                        message=provider_result.message,
                         next_mode=current_mode,
                         turns_used=turns_used,
                         metadata={
                             "source_mode": current_mode,
                             "retry_mode": "compact",
-                            "error": str(exc),
+                            "error": provider_result.message,
                             "approx_tokens_before": assembly.approx_tokens,
                             "pipeline_steps": list(assembly.pipeline_steps),
                         },
                     )
                     self._record_transition(session, transition)
                     continue
+                raise TypeError("unsupported provider effect result")
             with self._session_guard():
                 assistant_message_id = "m-" + uuid.uuid4().hex[:12]
                 parent_message_id = session.last_message_id()

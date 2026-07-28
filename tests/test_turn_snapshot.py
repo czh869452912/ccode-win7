@@ -1,5 +1,7 @@
 import json
+from dataclasses import FrozenInstanceError
 
+import pytest
 from embedagent_core.turn_snapshot import TurnSnapshotBuilder
 
 
@@ -53,10 +55,29 @@ def test_turn_snapshot_to_dict_is_json_serializable_and_provider_safe():
 
     payload = snapshot.to_dict()
     json.dumps(payload, sort_keys=True)
-
-    assert payload["session_id"] == "sess-1"
     assert payload["mode_name"] == "verify"
     assert payload["workflow_state"] == "review"
     assert payload["messages"] == [{"role": "system", "content": "safe"}]
     assert payload["tool_schemas"] == []
     assert payload["model_profile"] == {"name": "default-model"}
+
+    assert payload["session_id"] == "sess-1"
+
+
+def test_turn_snapshot_is_frozen_and_detached():
+    messages = [{"role": "user", "content": "before"}]
+    snapshot = TurnSnapshotBuilder().build(
+        session_id="session-1",
+        turn_id="turn-1",
+        step_id="step-1",
+        mode_name="build",
+        workflow_state="",
+        messages=messages,
+        tool_schemas=[],
+    )
+
+    messages[0]["content"] = "after"
+
+    assert snapshot.messages[0]["content"] == "before"
+    with pytest.raises(FrozenInstanceError):
+        snapshot.mode_name = "verify"
