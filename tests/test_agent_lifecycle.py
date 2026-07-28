@@ -47,7 +47,7 @@ class TestAgentLifecycleJournal(unittest.TestCase):
         self.assertEqual(events[1]["payload"]["reason"], "completed")
         self.assertEqual(events[2]["payload"]["kind"], "save_point")
         self.assertEqual(events[3]["payload"]["kind"], "agent_step")
-        self.assertEqual(session.turns[-1].transitions[-1].reason, "completed")
+        self.assertEqual(session.turns[-1].transitions, [])
 
     def test_records_pending_transition_lifecycle_events(self):
         session = Session(session_id="sess-pending")

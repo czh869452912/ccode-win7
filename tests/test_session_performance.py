@@ -7,9 +7,9 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent_core.session_restore import SessionRestorer
 from embedagent_host.runtime.session_history import SessionHistoryAssembler
 from embedagent_host.runtime.transcript_store import TranscriptStore
+from session_journal_test_helpers import restore_trusted_events
 
 _COUNTER = count(1)
 
@@ -40,7 +40,6 @@ class TestSessionPerformance(unittest.TestCase):
     def setUp(self):
         self.workspace = _make_workspace("session-perf")
         self.store = TranscriptStore(self.workspace)
-        self.restorer = SessionRestorer()
         self.assembler = SessionHistoryAssembler()
 
     def tearDown(self):
@@ -203,7 +202,7 @@ class TestSessionPerformance(unittest.TestCase):
         events = self._generate_events(1000, session_id)
 
         start = time.time()
-        result = self.restorer.restore(events, best_effort=True)
+        result = restore_trusted_events(events)
         elapsed_ms = (time.time() - start) * 1000
 
         per_hundred_ms = elapsed_ms / (len(events) / 100)
@@ -218,7 +217,7 @@ class TestSessionPerformance(unittest.TestCase):
     def test_activity_history_performance_1000_events(self):
         session_id = "sess-perf-1000"
         events = self._generate_events(1000, session_id)
-        result = self.restorer.restore(events, best_effort=True)
+        result = restore_trusted_events(events)
 
         start = time.time()
         history = self.assembler.build(result.session, "restored", "healthy")
@@ -241,7 +240,7 @@ class TestSessionPerformance(unittest.TestCase):
 
         # Measure memory before
         # Note: This is a coarse check; real memory profiling would use tracemalloc
-        result = self.restorer.restore(events, best_effort=True)
+        result = restore_trusted_events(events)
 
         # Session should have reasonable number of turns
         self.assertTrue(len(result.session.turns) <= 125)  # 500 / 4 = 125 turns

@@ -27,8 +27,8 @@ from embedagent_core.session import (
     QueryTurnResult,
     Session,
 )
-from embedagent_core.session_reducer import SessionReducerContext
-from embedagent_core.session_restore import SessionRestorer
+from embedagent_core.session_journal import SessionJournal
+from embedagent_core.session_reducer import SessionReducer, SessionReducerContext
 
 
 @dataclass(frozen=True)
@@ -281,17 +281,13 @@ def run_agent(
     session_log = runtime.ports.session_log
     with session_log.acquire_lease(session_id):
         if session_log.transcript_exists(session_id):
-            events = session_log.load_events(session_id)
             restore_policy = runtime.ports.restore_policy or StrictSessionRestorePolicy()
-            best_effort_history_count = max(
-                0, int(restore_policy.trusted_event_count(session_id) or 0)
-            )
-            restored = SessionRestorer().restore(
-                events,
-                best_effort=best_effort_history_count > 0,
-                best_effort_event_count=best_effort_history_count,
-            )
-            if restored.stop_reason or restored.consumed_event_count != len(events):
+            journal = SessionJournal(session_log, SessionReducer())
+            restored = journal.restore(session_id, restore_policy)
+            if (
+                restored.stop_reason
+                or restored.consumed_event_count != restored.transcript_event_count
+            ):
                 raise SessionRecoveryRequired(session_id, restored.stop_reason)
             session = restored.session
             current_mode = restored.current_mode

@@ -587,65 +587,10 @@ class Session:
         ]
         self.content_replacements.append(dict(payload))
 
-    def record_context_snapshot(self, payload: Dict[str, Any]) -> None:
-        self.latest_context_snapshot = dict(payload or {})
-
-    def add_compact_boundary(
-        self,
-        summary_text: str,
-        compacted_turn_count: int,
-        mode_name: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
-        boundary_id: str = "",
-        created_at: str = "",
-        preserved_head_message_id: str = "",
-        preserved_tail_message_id: str = "",
-    ) -> CompactBoundary:
-        boundary = CompactBoundary(
-            boundary_id=boundary_id or ("cb-" + uuid.uuid4().hex[:12]),
-            summary_text=summary_text,
-            compacted_turn_count=max(0, int(compacted_turn_count)),
-            created_at=created_at or _utc_now(),
-            mode_name=mode_name,
-            preserved_head_message_id=str(preserved_head_message_id or ""),
-            preserved_tail_message_id=str(preserved_tail_message_id or ""),
-            metadata=dict(metadata or {}),
-        )
-        self.compact_boundaries.append(boundary)
-        if self.turns:
-            self.turns[-1].compact_boundaries.append(boundary)
-        self.add_system_message(
-            summary_text,
-            turn_id=self.turns[-1].turn_id if self.turns else "",
-            step_id=self._current_step_id(),
-            kind="compact_boundary",
-            metadata={
-                "boundary_id": boundary.boundary_id,
-                "compacted_turn_count": boundary.compacted_turn_count,
-                "mode_name": boundary.mode_name,
-                "preserved_head_message_id": boundary.preserved_head_message_id,
-                "preserved_tail_message_id": boundary.preserved_tail_message_id,
-            },
-        )
-        if self.turns:
-            self.turns[-1].message_end_index = len(self.messages) - 1
-        return boundary
-
     def latest_compact_boundary(self) -> Optional[CompactBoundary]:
         if not self.compact_boundaries:
             return None
         return self.compact_boundaries[-1]
-
-    def record_compacted_history(self, checkpoint: CompactedHistoryCheckpoint) -> None:
-        checkpoint_id = str(getattr(checkpoint, "checkpoint_id", "") or "").strip()
-        if not checkpoint_id:
-            return
-        self.compacted_history = [
-            item
-            for item in self.compacted_history
-            if str(getattr(item, "checkpoint_id", "") or "") != checkpoint_id
-        ]
-        self.compacted_history.append(checkpoint)
 
     def latest_compacted_history(self) -> Optional[CompactedHistoryCheckpoint]:
         if not self.compacted_history:

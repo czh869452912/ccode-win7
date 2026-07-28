@@ -261,7 +261,7 @@ def test_sync_post_submit_restore_failure_sets_error_and_emits_session_error(tmp
         del args, kwargs
         raise RuntimeError("post-submit restore failed")
 
-    adapter.session_restorer.restore = fail_restore
+    adapter.session_journal.restore = fail_restore
     try:
         adapter.submit_user_message(
             created["session_id"],
@@ -291,7 +291,7 @@ def test_worker_post_submit_restore_failure_clears_thread_and_reports_error(tmp_
         del args, kwargs
         raise RuntimeError("worker restore failed")
 
-    adapter.session_restorer.restore = fail_restore
+    adapter.session_journal.restore = fail_restore
     adapter.submit_user_message(
         created["session_id"],
         "hello",

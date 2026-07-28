@@ -16,7 +16,6 @@ from embedagent_core.model import ModelClientError
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.session import Action, AssistantReply, Observation, PendingInteraction, Session
 from embedagent_core.session_journal import EventIntent
-from embedagent_core.session_restore import SessionRestorer
 from embedagent_core.tool_contracts import PreparedToolObservation
 from embedagent_core.tool_execution import partition_tool_actions
 from embedagent_host.inprocess_adapter import InProcessAdapter
@@ -33,6 +32,7 @@ from embedagent_host.runtime.workspace_intelligence import (
 )
 from query_engine_product_helpers import build_product_agent_application
 from query_engine_product_helpers import build_product_query_engine as QueryEngine
+from session_journal_test_helpers import apply_session_event, restore_events
 
 from embedagent.config import AppConfig
 
@@ -2115,7 +2115,17 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 },
             ),
         )
-        session.add_compact_boundary("Earlier work summary", 1, "build", {"test": True})
+        apply_session_event(
+            session,
+            "compact_boundary",
+            {
+                "boundary_id": "cb-context-manager",
+                "summary_text": "Earlier work summary",
+                "compacted_turn_count": 1,
+                "mode_name": "build",
+                "metadata": {"test": True},
+            },
+        )
         manager = ContextManager(
             intelligence_broker=WorkspaceIntelligenceBroker(),
         )
@@ -2954,7 +2964,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(history_payload["token_counts"], compact_payload["token_counts"])
         self.assertEqual(history_payload["message_counts"], compact_payload["message_counts"])
 
-        restored = SessionRestorer().restore(events)
+        restored = restore_events(events)
         restored_boundary = restored.session.latest_compact_boundary()
         self.assertIsNotNone(restored_boundary)
         self.assertEqual(restored_boundary.summary_text, boundary.summary_text)
@@ -3076,7 +3086,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         events = transcript_store.load_events(session.session_id)
         tool_results = [item for item in events if item["type"] == "tool_result"]
-        restored = SessionRestorer().restore(events)
+        restored = restore_events(events)
 
         self.assertEqual(result.transition.reason, "completed")
         self.assertEqual(len(tool_results), 1)
@@ -3460,7 +3470,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         tool_results = [item for item in events if item["type"] == "tool_result"]
         self.assertTrue(any(item["payload"].get("call_id") == "write-1" for item in tool_results))
 
-        restored = SessionRestorer().restore(events)
+        restored = restore_events(events)
         self.assertIsNone(restored.session.pending_interaction)
         first_step = restored.session.turns[-1].steps[0]
         self.assertEqual(first_step.tool_calls[0].call_id, "write-1")
@@ -3555,7 +3565,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             "workflow_patch_test",
         )
 
-        restored = SessionRestorer().restore(events)
+        restored = restore_events(events)
         self.assertEqual(restored.session.workflow_state["workflow"]["id"], "patch-test")
         self.assertEqual(
             restored.session.workflow_state["extensions"]["last_workflow_patch"]["source"],
@@ -3673,7 +3683,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 ],
             },
         )
-        restored = SessionRestorer().restore(transcript_store.load_events(session_id))
+        restored = restore_events(transcript_store.load_events(session_id))
         result = ContextManager(
             intelligence_broker=WorkspaceIntelligenceBroker(),
         ).build_messages(
@@ -3738,7 +3748,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         self.assertEqual(result.transition.reason, "completed")
 
-        restored = SessionRestorer().restore(transcript_store.load_events(session.session_id))
+        restored = restore_events(transcript_store.load_events(session.session_id))
         built = ContextManager(
             intelligence_broker=WorkspaceIntelligenceBroker(),
         ).build_messages(

@@ -7,7 +7,7 @@ from embedagent_core.session_reducer import (
     SessionReducer,
     SessionReducerContext,
 )
-from embedagent_core.session_restore import SessionRestorer
+from session_journal_test_helpers import restore_events
 
 
 def event(event_type, payload, seq=1):
@@ -141,7 +141,7 @@ def test_conversation_events_match_restored_projection():
 
     for item in events:
         reducer.apply(live, context, item)
-    restored = SessionRestorer().restore(events).session
+    restored = restore_events(events).session
 
     assert [item.to_api_dict() for item in live.messages] == [
         item.to_api_dict() for item in restored.messages
@@ -256,7 +256,7 @@ def test_tool_events_match_restored_materialization_projection():
 
     for item in events:
         reducer.apply(live, context, item)
-    restored = SessionRestorer().restore(events).session
+    restored = restore_events(events).session
 
     live_record = live._find_tool_call("call-1")
     restored_record = restored._find_tool_call("call-1")
@@ -335,7 +335,7 @@ def test_interaction_and_workflow_events_match_restored_projection():
 
     for item in events:
         reducer.apply(live, context, item)
-    restored = SessionRestorer().restore(events).session
+    restored = restore_events(events).session
 
     assert live.pending_interaction is None
     assert restored.pending_interaction is None
@@ -402,3 +402,116 @@ def test_pending_interaction_request_payload_is_deep_copied():
 
     assert session.pending_interaction is not None
     assert session.pending_interaction.request_payload["permission"]["details"]["path"] == ("a.txt")
+
+
+def test_context_and_compaction_events_are_reduced_once_with_stable_anchors():
+    events = [
+        event(
+            "user",
+            {
+                "role": "user",
+                "content": "continue",
+                "message_id": "message-head",
+                "parent_message_id": "",
+                "turn_id": "turn-1",
+                "step_id": "",
+            },
+            seq=1,
+        ),
+        event(
+            "step_started",
+            {"turn_id": "turn-1", "step_id": "step-1", "step_index": 1},
+            seq=2,
+        ),
+        event(
+            "assistant",
+            {
+                "role": "assistant",
+                "content": "working",
+                "message_id": "message-tail",
+                "parent_message_id": "message-head",
+                "turn_id": "turn-1",
+                "step_id": "step-1",
+                "actions": [],
+                "finish_reason": "stop",
+            },
+            seq=3,
+        ),
+        event(
+            "context_snapshot",
+            {
+                "mode_name": "build",
+                "pipeline_steps": ["select_recent"],
+                "analysis": {"top_hot_files": [{"path": "src/main.c"}]},
+            },
+            seq=4,
+        ),
+        event(
+            "compact_boundary",
+            {
+                "boundary_id": "boundary-1",
+                "summary_text": "Earlier work summary",
+                "compacted_turn_count": 1,
+                "created_at": "2026-07-27T00:00:04Z",
+                "mode_name": "build",
+                "preserved_head_message_id": "message-head",
+                "preserved_tail_message_id": "message-tail",
+                "trigger": "budget",
+                "phase": "post_context",
+                "context_window_generation": 1,
+                "metadata": {"source": "test"},
+            },
+            seq=5,
+        ),
+        event(
+            "compacted_history",
+            {
+                "checkpoint_id": "checkpoint-1",
+                "boundary_id": "boundary-1",
+                "summary_text": "Earlier work summary",
+                "first_kept_message_id": "message-head",
+                "replacement_messages": [
+                    {
+                        "role": "system",
+                        "content": "Earlier work summary",
+                        "kind": "compacted_history",
+                    }
+                ],
+                "created_at": "2026-07-27T00:00:05Z",
+            },
+            seq=6,
+        ),
+    ]
+    session = Session(session_id="session-1")
+    context = SessionReducerContext()
+    reducer = SessionReducer()
+
+    for item in events:
+        reducer.apply(session, context, item)
+
+    assert session.latest_context_snapshot["mode_name"] == "build"
+    assert session.latest_context_snapshot["analysis"]["top_hot_files"][0]["path"] == ("src/main.c")
+    assert len(session.compact_boundaries) == 1
+    assert len(session.turns[-1].compact_boundaries) == 1
+    summary_messages = [item for item in session.messages if item.kind == "compact_boundary"]
+    assert len(summary_messages) == 1
+    assert summary_messages[0].content == "Earlier work summary"
+    assert summary_messages[0].metadata["boundary_id"] == "boundary-1"
+    assert session.latest_compact_boundary().preserved_head_message_id == "message-head"
+    assert session.latest_compact_boundary().preserved_tail_message_id == "message-tail"
+    assert len(session.compacted_history) == 1
+    checkpoint = session.latest_compacted_history()
+    assert checkpoint is not None
+    assert checkpoint.boundary_id == "boundary-1"
+    assert checkpoint.first_kept_message_id == "message-head"
+
+
+def test_context_snapshot_payload_is_deep_copied():
+    session = Session(session_id="session-1")
+    context = SessionReducerContext()
+    payload = {"analysis": {"top_hot_files": [{"path": "src/main.c"}]}}
+
+    SessionReducer().apply(session, context, event("context_snapshot", payload))
+    payload["analysis"]["top_hot_files"][0]["path"] = "changed.c"
+
+    assert session.latest_context_snapshot["analysis"]["top_hot_files"][0]["path"] == ("src/main.c")

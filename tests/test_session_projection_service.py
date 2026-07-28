@@ -108,17 +108,19 @@ def test_refresh_ignores_events_after_a_partial_restore_boundary():
 
 
 def test_restore_result_contains_all_durable_read_models():
-    from embedagent_core.session_restore import SessionRestorer
+    from session_journal_test_helpers import restore_events
 
-    result = SessionRestorer().restore(
+    result = restore_events(
         [
             {
+                "schema_version": 2,
                 "session_id": "session-1",
                 "type": "session_meta",
                 "ts": "2026-01-01T00:00:00Z",
                 "payload": {"current_mode": "build"},
             },
             {
+                "schema_version": 2,
                 "session_id": "session-1",
                 "type": "runtime_configured",
                 "payload": {

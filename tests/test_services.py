@@ -114,7 +114,8 @@ class TestSessionLifecycleManager(unittest.TestCase):
             "summary_store": self.summary_store,
             "plan_store": self.plan_store,
             "project_memory": self.project_memory,
-            "session_restorer": self.session_restorer,
+            "session_journal": self.session_journal,
+            "restore_policy": self.restore_policy,
             "transcript_store": self.transcript_store,
         }
 
@@ -122,7 +123,8 @@ class TestSessionLifecycleManager(unittest.TestCase):
         self.summary_store = MagicMock()
         self.plan_store = MagicMock()
         self.project_memory = MagicMock()
-        self.session_restorer = MagicMock()
+        self.session_journal = MagicMock()
+        self.restore_policy = MagicMock()
         self.transcript_store = MagicMock()
         self.manager = SessionLifecycleManager(
             **self._manager_kwargs(),
@@ -198,17 +200,23 @@ class TestSessionLifecycleManager(unittest.TestCase):
         self.assertEqual(state.current_mode, "explore")
         self.assertEqual(state.workflow_state, "")
 
-    def test_restore_uses_explicit_transcript_reference_loader(self):
+    def test_restore_resolves_reference_before_journal_restore(self):
         self.summary_store.resolve_transcript_path.return_value = "transcript-reference"
-        self.transcript_store.load_events_from_reference.side_effect = RuntimeError("stop")
+        self.transcript_store.session_id_for_reference.return_value = "session-one"
+        self.session_journal.restore.side_effect = RuntimeError("stop")
 
         with self.assertRaisesRegex(RuntimeError, "^stop$"):
             self.manager.restore_session_state("latest")
 
-        self.transcript_store.load_events_from_reference.assert_called_once_with(
+        self.transcript_store.session_id_for_reference.assert_called_once_with(
             "transcript-reference"
         )
+        self.session_journal.restore.assert_called_once_with(
+            "session-one",
+            self.restore_policy,
+        )
         self.transcript_store.load_events.assert_not_called()
+        self.transcript_store.load_events_from_reference.assert_not_called()
 
     def test_persist_state_saves_summary(self):
         from embedagent_core.session import Session

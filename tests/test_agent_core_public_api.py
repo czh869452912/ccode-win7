@@ -16,8 +16,8 @@ from embedagent_core.query_engine import QueryEngine
 from embedagent_core.runner import AgentRequest, AgentRuntime, run_agent
 from embedagent_core.session import Action, AssistantReply, PendingInteraction, Session
 from embedagent_core.session_log import InMemorySessionLog
-from embedagent_core.session_restore import SessionRestorer
 from embedagent_core.turn_snapshot import TurnSnapshot
+from session_journal_test_helpers import restore_events
 
 
 class FakeModel(ModelClient):
@@ -377,7 +377,7 @@ def test_message_ledger_reanchors_ephemeral_parent_to_durable_ancestor(base_port
             "parent_message_id": "",
         },
     )
-    session = SessionRestorer().restore(session_log.load_events("session-parent")).session
+    session = restore_events(session_log.load_events("session-parent")).session
     ephemeral = session.add_system_message("ephemeral")
     session.add_user_message("hello", turn_id="t-parent")
     user_message = session.messages[-1]
@@ -409,7 +409,7 @@ def test_message_ledger_preserves_known_cross_turn_parent(base_ports):
             "turn_id": "t-first",
         },
     )
-    session = SessionRestorer().restore(session_log.load_events("session-cross-turn")).session
+    session = restore_events(session_log.load_events("session-cross-turn")).session
     message = session.add_system_message("next", parent_message_id="m-first")
     engine = QueryEngine(
         client=base_ports.model,

@@ -9,6 +9,32 @@ CORE_SOURCE = ROOT / "packages/embedagent-core/src/embedagent_core"
 PROTOCOL_SOURCE = ROOT / "packages/embedagent-protocol/src/embedagent_protocol"
 SOURCE_SUFFIXES = (".py", ".js", ".jsx")
 
+SESSION_MUTATORS = {
+    "add_system_message",
+    "add_user_message",
+    "begin_step",
+    "record_tool_call",
+    "add_assistant_reply",
+    "add_observation",
+    "record_transition",
+    "resolve_pending_interaction",
+    "record_content_replacement",
+    "record_context_snapshot",
+    "add_compact_boundary",
+    "record_compacted_history",
+}
+SESSION_MUTABLE_FIELDS = {
+    "messages",
+    "turns",
+    "pending_interaction",
+    "workflow_state",
+    "context_snapshots",
+    "latest_context_snapshot",
+    "compact_boundaries",
+    "content_replacements",
+    "compacted_history",
+}
+
 ACTIVE_SOURCE_FILES = [
     PROTOCOL_SOURCE / "__init__.py",
     ROOT / "packages/embedagent-host/src/embedagent_host/runtime/session_projector.py",
@@ -112,6 +138,49 @@ def _source_files_under(*relative_roots, **kwargs):
             if path.suffix in suffixes:
                 files.append(path)
     return files
+
+
+def _assignment_targets(node):
+    if isinstance(node, (ast.Tuple, ast.List)):
+        for element in node.elts:
+            for target in _assignment_targets(element):
+                yield target
+        return
+    yield node
+
+
+def test_session_reducer_is_the_only_core_session_state_writer():
+    offenders = []
+    for path in CORE_SOURCE.rglob("*.py"):
+        if path.name == "session_reducer.py":
+            continue
+        tree = ast.parse(_read(path), filename=str(path))
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in SESSION_MUTATORS
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "session"
+            ):
+                offenders.append("%s:%d calls %s" % (_relative(path), node.lineno, node.func.attr))
+            assignment_nodes = []
+            if isinstance(node, ast.Assign):
+                assignment_nodes = list(node.targets)
+            elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+                assignment_nodes = [node.target]
+            for assignment in assignment_nodes:
+                for target in _assignment_targets(assignment):
+                    if (
+                        isinstance(target, ast.Attribute)
+                        and target.attr in SESSION_MUTABLE_FIELDS
+                        and isinstance(target.value, ast.Name)
+                        and target.value.id == "session"
+                    ):
+                        offenders.append(
+                            "%s:%d assigns %s" % (_relative(path), node.lineno, target.attr)
+                        )
+    assert offenders == []
 
 
 def test_host_does_not_call_private_agent_session_methods():

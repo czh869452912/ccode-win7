@@ -339,6 +339,7 @@ class TestTranscriptStore(unittest.TestCase):
             store.load_events_from_reference(transcript_path)[0]["payload"]["content"],
             "one",
         )
+        self.assertEqual(store.session_id_for_reference(transcript_path), "session-one")
 
     def test_transcript_reference_must_stay_inside_sessions_root(self):
         store = TranscriptStore(self.workspace)

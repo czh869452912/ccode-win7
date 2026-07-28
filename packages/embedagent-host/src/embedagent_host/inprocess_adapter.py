@@ -53,7 +53,8 @@ from embedagent_core.session import (
 from embedagent_host.runtime.session_bootstrap_service import SessionBootstrapService
 from embedagent_core.session_operation_log import operation_diagnostics
 from embedagent_host.runtime.session_projector import SessionSnapshotProjector
-from embedagent_core.session_restore import SessionRestorer
+from embedagent_core.session_journal import SessionJournal
+from embedagent_core.session_reducer import SessionReducer
 from embedagent_host.runtime.session_restore_policy import ManagedSessionRestorePolicy
 from embedagent_host.runtime.session_runtime import ManagedSession
 from embedagent_host.runtime.session_store import SessionSummaryStore
@@ -253,7 +254,7 @@ class InProcessAdapter(object):
         self.plan_store = PlanStore(self.tools.workspace)
         self.command_registry = SlashCommandRegistry()
         self.transcript_store = TranscriptStore(self.tools.workspace)
-        self.session_restorer = SessionRestorer()
+        self.session_journal = SessionJournal(self.transcript_store, SessionReducer())
         self.snapshot_projector = SessionSnapshotProjector()
         self.agent_application_registry = (
             agent_application_registry or base_agent_application_registry()
@@ -323,7 +324,8 @@ class InProcessAdapter(object):
             summary_store=self.summary_store,
             plan_store=self.plan_store,
             project_memory=self.project_memory_store,
-            session_restorer=self.session_restorer,
+            session_journal=self.session_journal,
+            restore_policy=self.restore_policy,
             transcript_store=self.transcript_store,
             mode_resolver=self._mode_runtime_policy.require_mode,
             default_mode=self._mode_runtime_policy.default_mode(),
@@ -881,8 +883,8 @@ class InProcessAdapter(object):
         event_handler: Optional[SessionEventHandler] = None,
     ) -> Dict[str, Any]:
         transcript_path = self.summary_store.resolve_transcript_path(reference)
-        events = self.transcript_store.load_events_from_reference(transcript_path)
-        restored = self.session_restorer.restore(events)
+        session_id = self.transcript_store.session_id_for_reference(transcript_path)
+        restored = self.session_journal.restore(session_id, self.restore_policy)
         current_mode = self._mode_runtime_policy.require_mode(
             mode or restored.current_mode or self._mode_runtime_policy.default_mode()
         )["slug"]
@@ -1625,13 +1627,11 @@ class InProcessAdapter(object):
                     observer=observer,
                     cancel=stop_event or state.stop_event,
                 )
-            events = self.transcript_store.load_events(session_id)
-            restored = self.session_restorer.restore(
-                events,
-                best_effort=state.best_effort_restore_event_count > 0,
-                best_effort_event_count=state.best_effort_restore_event_count,
-            )
-            if restored.stop_reason or restored.consumed_event_count != len(events):
+            restored = self.session_journal.restore(session_id, self.restore_policy)
+            if (
+                restored.stop_reason
+                or restored.consumed_event_count != restored.transcript_event_count
+            ):
                 raise RuntimeError(
                     "host could not restore completed agent turn: %s"
                     % str(restored.stop_reason or "incomplete_transcript")

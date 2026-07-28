@@ -7,8 +7,8 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent_core.session_restore import SessionRestorer
 from embedagent_host.runtime.transcript_store import TranscriptStore
+from session_journal_test_helpers import restore_events, restore_trusted_events
 
 _COUNTER = count(1)
 
@@ -33,7 +33,6 @@ class TestSessionFaultInjection(unittest.TestCase):
     def setUp(self):
         self.workspace = _make_workspace("session-fault")
         self.store = TranscriptStore(self.workspace)
-        self.restorer = SessionRestorer()
 
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
@@ -121,7 +120,7 @@ class TestSessionFaultInjection(unittest.TestCase):
             },
         ]
 
-        result = self.restorer.restore(events, best_effort=True)
+        result = restore_trusted_events(events)
 
         # Should have processed events 1, 2, and 4; skipped 3
         self.assertTrue(result.consumed_event_count >= 3)
@@ -168,7 +167,7 @@ class TestSessionFaultInjection(unittest.TestCase):
             },
         ]
 
-        result = self.restorer.restore(events, best_effort=True)
+        result = restore_trusted_events(events)
         self.assertEqual(result.skipped_count, 1)
         # Note: duplicate turn_id is detected by _apply_message
 
@@ -228,7 +227,7 @@ class TestSessionFaultInjection(unittest.TestCase):
             },
         ]
 
-        result = self.restorer.restore(events, best_effort=True)
+        result = restore_trusted_events(events)
 
         # Should skip the assistant message with bad parent
         self.assertEqual(result.skipped_count, 1)
@@ -312,7 +311,7 @@ class TestSessionFaultInjection(unittest.TestCase):
             },
         ]
 
-        result = self.restorer.restore(events, best_effort=True)
+        result = restore_trusted_events(events)
 
         # Should skip stale interaction
         self.assertEqual(result.skipped_count, 1)
@@ -321,7 +320,7 @@ class TestSessionFaultInjection(unittest.TestCase):
     def test_restore_empty_events_raises(self):
         """Even best_effort should raise on empty events."""
         with self.assertRaises(ValueError):
-            self.restorer.restore([], best_effort=True)
+            restore_events([])
 
     def test_strict_mode_fails_fast(self):
         """Strict mode should stop at first error."""
@@ -379,7 +378,7 @@ class TestSessionFaultInjection(unittest.TestCase):
             },
         ]
 
-        result = self.restorer.restore(events, best_effort=False)
+        result = restore_events(events)
 
         self.assertEqual(result.consumed_event_count, 2)  # Stopped before bad event
         self.assertEqual(result.skipped_count, 0)

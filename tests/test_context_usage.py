@@ -1,5 +1,6 @@
 from embedagent_core.session import AssistantReply, Session
 from embedagent_host.runtime.context_usage import ContextUsageEstimator
+from session_journal_test_helpers import apply_session_event
 
 
 def _session_with_usage():
@@ -36,7 +37,17 @@ def test_context_usage_prefers_valid_assistant_usage_and_estimates_trailing_mess
 
 def test_context_usage_ignores_stale_usage_before_latest_compaction():
     session = _session_with_usage()
-    session.add_compact_boundary("summary", 1, "build", {})
+    apply_session_event(
+        session,
+        "compact_boundary",
+        {
+            "boundary_id": "cb-stale-usage",
+            "summary_text": "summary",
+            "compacted_turn_count": 1,
+            "mode_name": "build",
+            "metadata": {},
+        },
+    )
 
     estimate = ContextUsageEstimator(chars_per_token=4.0).estimate_session(
         session,

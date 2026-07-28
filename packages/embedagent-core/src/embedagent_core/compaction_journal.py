@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 
 from embedagent_core.compactor import DeterministicCompactor
 from embedagent_core.context_window import ContextWindowState
-from embedagent_core.session import ContextAssemblyResult
+from embedagent_core.session import CompactBoundary, ContextAssemblyResult
 
 
 class CompactionJournal(object):
@@ -12,6 +12,24 @@ class CompactionJournal(object):
 
     def __init__(self, compactor: DeterministicCompactor = None) -> None:
         self._compactor = compactor or DeterministicCompactor()
+
+    def new_boundary(
+        self,
+        summary_text: str,
+        compacted_turn_count: int,
+        mode_name: str,
+        metadata: Dict[str, Any],
+        preserved_head_message_id: str,
+        preserved_tail_message_id: str,
+    ) -> CompactBoundary:
+        return CompactBoundary(
+            summary_text=str(summary_text or ""),
+            compacted_turn_count=max(0, int(compacted_turn_count or 0)),
+            mode_name=str(mode_name or ""),
+            preserved_head_message_id=str(preserved_head_message_id or ""),
+            preserved_tail_message_id=str(preserved_tail_message_id or ""),
+            metadata=dict(metadata or {}),
+        )
 
     def token_counts(self, assembly: ContextAssemblyResult) -> Dict[str, int]:
         stats = getattr(assembly, "stats", None)

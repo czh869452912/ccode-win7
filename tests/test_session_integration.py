@@ -12,9 +12,9 @@ from embedagent_core.session import (
     Observation,
     Session,
 )
-from embedagent_core.session_restore import SessionRestorer
 from embedagent_host.runtime.session_history import SessionHistoryAssembler
 from embedagent_host.runtime.transcript_store import TranscriptStore
+from session_journal_test_helpers import restore_trusted_events
 
 _COUNTER = count(1)
 
@@ -37,7 +37,6 @@ class TestSessionIntegration(unittest.TestCase):
     def setUp(self):
         self.workspace = _make_workspace("session-integration")
         self.store = TranscriptStore(self.workspace)
-        self.restorer = SessionRestorer()
         self.assembler = SessionHistoryAssembler()
 
     def tearDown(self):
@@ -150,7 +149,7 @@ class TestSessionIntegration(unittest.TestCase):
         session_id = self._build_schema_v2_transcript()
         events = self.store.load_events(session_id)
 
-        result = self.restorer.restore(events, best_effort=True)
+        result = restore_trusted_events(events)
 
         self.assertIsNotNone(result.session)
         self.assertEqual(result.transcript_event_count, len(events))
@@ -161,7 +160,7 @@ class TestSessionIntegration(unittest.TestCase):
     def test_activity_history_from_restored_session(self):
         session_id = self._build_schema_v2_transcript()
         events = self.store.load_events(session_id)
-        result = self.restorer.restore(events, best_effort=True)
+        result = restore_trusted_events(events)
 
         history = self.assembler.build(
             result.session,
@@ -193,7 +192,7 @@ class TestSessionIntegration(unittest.TestCase):
         events = self.store.load_events(session_id)
 
         # Restore with best_effort
-        result = self.restorer.restore(events, best_effort=True)
+        result = restore_trusted_events(events)
 
         # Should have processed valid events, skipped bad one if it loaded
         self.assertTrue(result.consumed_event_count >= 5)

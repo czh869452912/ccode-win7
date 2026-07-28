@@ -7,7 +7,6 @@ from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent_core.compacted_history import CompactedHistoryCheckpoint
 from embedagent_core.session import AssistantReply, Observation, Session
 from embedagent_host.runtime.context import (
     ContextConfig,
@@ -16,6 +15,7 @@ from embedagent_host.runtime.context import (
     make_context_config,
 )
 from embedagent_workflow_cpp.extension import CHarnessWorkflowExtension
+from session_journal_test_helpers import apply_session_event
 
 from embedagent.config import AppConfig
 
@@ -293,19 +293,21 @@ class TestContextCompactionSignal(unittest.TestCase):
             message_id="m-old-assistant",
         )
         session.add_user_message("new user", turn_id="turn-new", message_id="m-new-user")
-        session.record_compacted_history(
-            CompactedHistoryCheckpoint(
-                checkpoint_id="ch-ctx",
-                summary_text="Old work was compacted.",
-                first_kept_message_id="m-new-user",
-                replacement_messages=[
+        apply_session_event(
+            session,
+            "compacted_history",
+            {
+                "checkpoint_id": "ch-ctx",
+                "summary_text": "Old work was compacted.",
+                "first_kept_message_id": "m-new-user",
+                "replacement_messages": [
                     {
                         "role": "system",
                         "content": "Compacted history summary:\nOld work was compacted.",
                         "kind": "compacted_history_summary",
                     }
                 ],
-            )
+            },
         )
 
         result = manager.build_messages(session, mode_name="build")
@@ -377,8 +379,20 @@ class TestContextCompactionSignal(unittest.TestCase):
                 usage={"prompt_tokens": 950, "completion_tokens": 10, "total_tokens": 960},
             )
         )
-        boundary = session.add_compact_boundary("summary", 1, "build", {})
-        boundary.preserved_tail_message_id = session.messages[-1].message_id
+        preserved_message_id = session.messages[-1].message_id
+        apply_session_event(
+            session,
+            "compact_boundary",
+            {
+                "boundary_id": "cb-stale-usage",
+                "summary_text": "summary",
+                "compacted_turn_count": 1,
+                "mode_name": "build",
+                "preserved_head_message_id": preserved_message_id,
+                "preserved_tail_message_id": preserved_message_id,
+                "metadata": {},
+            },
+        )
 
         result = manager.build_messages(session, mode_name="build")
 

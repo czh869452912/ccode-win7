@@ -12,7 +12,6 @@ from embedagent_core.agent_kernel import AgentKernel
 from embedagent_core.agent_lifecycle import AgentLifecycleJournal
 from embedagent_core.agent_loop import AgentLoop
 from embedagent_core.agent_tool_action_service import AgentToolActionService
-from embedagent_core.compacted_history import CompactedHistoryReducer
 from embedagent_core.compaction_journal import CompactionJournal
 from embedagent_core.context_window import ContextWindowState
 from embedagent_core.extensions import (
@@ -406,8 +405,7 @@ class QueryEngine(object):
                 "workflow_state": workflow_state,
             },
         )
-        session.record_context_snapshot(snapshot)
-        self._append_transcript_event(session, "context_snapshot", snapshot)
+        self._commit_session_event(session, "context_snapshot", snapshot)
         self._emit_operation_finished(
             session,
             operation_id,
@@ -2038,13 +2036,13 @@ class QueryEngine(object):
             if callable(plan_metadata):
                 metadata.update(dict(plan_metadata()))
             metadata = window_state.extend_metadata(metadata)
-            boundary = session.add_compact_boundary(
+            boundary = self._compaction_journal.new_boundary(
                 assembly.summary_message,
                 compacted_turn_count,
                 current_mode,
                 metadata,
-                preserved_head_message_id=preserved_head_message_id,
-                preserved_tail_message_id=preserved_tail_message_id,
+                preserved_head_message_id,
+                preserved_tail_message_id,
             )
             plan_payload = {}
             plan_payload_fields = getattr(plan, "to_boundary_payload_fields", None)
@@ -2056,27 +2054,16 @@ class QueryEngine(object):
                 window_state,
                 plan_payload,
             )
-            self._append_transcript_event(
+            self._commit_session_event(
                 session,
                 "compact_boundary",
                 compaction_payloads["compact_boundary"],
             )
-            compacted_history_state = CompactedHistoryReducer().reduce(
-                [
-                    {
-                        "type": "compacted_history",
-                        "payload": compaction_payloads["compacted_history"],
-                    }
-                ]
+            self._commit_session_event(
+                session,
+                "compacted_history",
+                compaction_payloads["compacted_history"],
             )
-            checkpoint = compacted_history_state.latest_checkpoint
-            if checkpoint is not None:
-                session.record_compacted_history(checkpoint)
-                self._append_transcript_event(
-                    session,
-                    "compacted_history",
-                    compaction_payloads["compacted_history"],
-                )
             return True
 
     def _failure_observation(

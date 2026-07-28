@@ -5,9 +5,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Set
 
+from embedagent_core.compacted_history import CompactedHistoryReducer
 from embedagent_core.session import (
     Action,
     AssistantReply,
+    CompactBoundary,
     LoopTransition,
     Observation,
     PendingInteraction,
@@ -45,6 +47,7 @@ class SessionReducer(object):
             "command_execution",
             "interaction",
             "runtime_configured",
+            "resource_discovered",
             "resource_reloaded",
             "recovery_marker",
         )
@@ -66,6 +69,9 @@ class SessionReducer(object):
             "pending_interaction": self._apply_pending_interaction,
             "pending_resolution": self._apply_pending_resolution,
             "workflow_patch": self._apply_workflow_patch,
+            "context_snapshot": self._apply_context_snapshot,
+            "compact_boundary": self._apply_compact_boundary,
+            "compacted_history": self._apply_compacted_history,
         }
 
     def apply(
@@ -84,6 +90,9 @@ class SessionReducer(object):
         handler = self._handlers.get(event_type)
         if handler is None:
             raise SessionReduceError("unknown_event_type")
+        if event_type == "compacted_history":
+            handler(session, context, dict(event.get("payload") or {}), event)
+            return
         handler(session, context, dict(event.get("payload") or {}))
 
     def _apply_session_meta(
@@ -396,6 +405,117 @@ class SessionReducer(object):
         if isinstance(metadata, dict) and metadata:
             extensions = session.workflow_state.setdefault("extensions", {})
             extensions["last_workflow_patch"] = deepcopy(dict(metadata))
+
+    def _apply_context_snapshot(
+        self,
+        session: Session,
+        context: SessionReducerContext,
+        payload: Dict[str, Any],
+    ) -> None:
+        del context
+        session.latest_context_snapshot = deepcopy(payload)
+
+    def _apply_compact_boundary(
+        self,
+        session: Session,
+        context: SessionReducerContext,
+        payload: Dict[str, Any],
+    ) -> None:
+        if not self._is_valid_compact_boundary(session, payload):
+            raise SessionReduceError("compact_boundary_invalid_preserved_segment")
+        boundary_id = str(payload.get("boundary_id") or "").strip()
+        if boundary_id and boundary_id in context.seen_boundary_ids:
+            raise SessionReduceError("duplicate_compact_boundary_id")
+        boundary_metadata = deepcopy(dict(payload.get("metadata") or {}))
+        for metadata_key in ("trigger", "phase", "context_window_generation"):
+            if payload.get(metadata_key) is not None:
+                boundary_metadata[metadata_key] = deepcopy(payload.get(metadata_key))
+        boundary = CompactBoundary(
+            boundary_id=boundary_id,
+            summary_text=str(payload.get("summary_text") or ""),
+            compacted_turn_count=max(0, int(payload.get("compacted_turn_count") or 0)),
+            created_at=str(payload.get("created_at") or ""),
+            mode_name=str(payload.get("mode_name") or ""),
+            preserved_head_message_id=str(payload.get("preserved_head_message_id") or ""),
+            preserved_tail_message_id=str(payload.get("preserved_tail_message_id") or ""),
+            metadata=boundary_metadata,
+        )
+        session.compact_boundaries.append(boundary)
+        if session.turns:
+            session.turns[-1].compact_boundaries.append(boundary)
+        summary_message_id = "m-compact-%s" % boundary.boundary_id
+        current_step = session.current_step()
+        summary_message = TranscriptMessage(
+            role="system",
+            content=boundary.summary_text,
+            message_id=summary_message_id,
+            parent_message_id=session.last_message_id(),
+            turn_id=session.turns[-1].turn_id if session.turns else "",
+            step_id=str(current_step.step_id or "") if current_step is not None else "",
+            kind="compact_boundary",
+            metadata={
+                "boundary_id": boundary.boundary_id,
+                "compacted_turn_count": boundary.compacted_turn_count,
+                "mode_name": boundary.mode_name,
+                "preserved_head_message_id": boundary.preserved_head_message_id,
+                "preserved_tail_message_id": boundary.preserved_tail_message_id,
+            },
+        )
+        session.messages.append(summary_message)
+        context.seen_message_ids.add(summary_message_id)
+        if session.turns:
+            session.turns[-1].message_end_index = len(session.messages) - 1
+        if boundary_id:
+            context.seen_boundary_ids.add(boundary_id)
+
+    def _apply_compacted_history(
+        self,
+        session: Session,
+        context: SessionReducerContext,
+        payload: Dict[str, Any],
+        event: Dict[str, Any],
+    ) -> None:
+        compacted_event = dict(event)
+        compacted_event["payload"] = deepcopy(payload)
+        checkpoint = CompactedHistoryReducer().reduce([compacted_event]).latest_checkpoint
+        if checkpoint is None:
+            raise SessionReduceError("compacted_history_invalid")
+        if not self._is_valid_compacted_history(session, checkpoint):
+            raise SessionReduceError("compacted_history_invalid_anchor")
+        checkpoint_id = str(checkpoint.checkpoint_id or "")
+        if checkpoint_id in context.seen_compacted_history_ids:
+            raise SessionReduceError("duplicate_compacted_history_id")
+        session.compacted_history.append(checkpoint)
+        context.seen_compacted_history_ids.add(checkpoint_id)
+
+    def _is_valid_compact_boundary(self, session: Session, payload: Dict[str, Any]) -> bool:
+        head_id = str(payload.get("preserved_head_message_id") or "").strip()
+        tail_id = str(payload.get("preserved_tail_message_id") or "").strip()
+        if not head_id and not tail_id:
+            return True
+        if not head_id or not tail_id:
+            return False
+        head_index = self._message_index(session, head_id)
+        tail_index = self._message_index(session, tail_id)
+        return head_index >= 0 and tail_index >= 0 and head_index <= tail_index
+
+    def _is_valid_compacted_history(self, session: Session, checkpoint: Any) -> bool:
+        if not str(getattr(checkpoint, "checkpoint_id", "") or "").strip():
+            return False
+        replacement_messages = list(getattr(checkpoint, "replacement_messages", []) or [])
+        if not replacement_messages:
+            return False
+        first_kept_message_id = str(getattr(checkpoint, "first_kept_message_id", "") or "").strip()
+        if first_kept_message_id and self._message_index(session, first_kept_message_id) < 0:
+            return False
+        for message in replacement_messages:
+            if not isinstance(message, dict):
+                return False
+            role = str(message.get("role") or "").strip()
+            content = str(message.get("content") or "").strip()
+            if role not in ("system", "user", "assistant") or not content:
+                return False
+        return True
 
     def _matches_current_turn(self, session: Session, turn_id: str) -> bool:
         expected = str(turn_id or "").strip()

@@ -330,7 +330,7 @@ def test_transcript_store_has_no_schema_v1_compatibility_path():
         ROOT / "tests/test_session_integration.py",
         ROOT / "tests/test_diff_engine.py",
         ROOT / "tests/test_agent_lifecycle.py",
-        ROOT / "tests/test_session_restore.py",
+        ROOT / "tests/test_session_reducer_restore.py",
         ROOT / "tests/test_session_fault_injection.py",
     )
     forbidden_tokens = (

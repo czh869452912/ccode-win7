@@ -4,9 +4,10 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+from embedagent_core.ports import SessionRestorePolicyPort
 from embedagent_core.session import Session
+from embedagent_core.session_journal import SessionJournal
 from embedagent_core.session_operation_log import operation_diagnostics
-from embedagent_core.session_restore import SessionRestorer
 
 from embedagent_host.runtime.plan_store import PlanStore
 from embedagent_host.runtime.project_memory import ProjectMemoryStore
@@ -30,7 +31,8 @@ class SessionLifecycleManager(object):
         summary_store: SessionSummaryStore,
         plan_store: PlanStore,
         project_memory: ProjectMemoryStore,
-        session_restorer: SessionRestorer,
+        session_journal: SessionJournal,
+        restore_policy: SessionRestorePolicyPort,
         transcript_store: TranscriptStore,
         mode_resolver: Callable[[str], Dict[str, Any]],
         default_mode: str,
@@ -40,7 +42,8 @@ class SessionLifecycleManager(object):
         self.summary_store = summary_store
         self.plan_store = plan_store
         self.project_memory = project_memory
-        self.session_restorer = session_restorer
+        self.session_journal = session_journal
+        self.restore_policy = restore_policy
         self.transcript_store = transcript_store
         if not callable(mode_resolver):
             raise TypeError("mode_resolver must be callable")
@@ -82,8 +85,8 @@ class SessionLifecycleManager(object):
         mode: str = "",
     ) -> ManagedSession:
         transcript_path = self.summary_store.resolve_transcript_path(reference)
-        events = self.transcript_store.load_events_from_reference(transcript_path)
-        restored = self.session_restorer.restore(events)
+        session_id = self.transcript_store.session_id_for_reference(transcript_path)
+        restored = self.session_journal.restore(session_id, self.restore_policy)
         current_mode = self._resolve_mode(mode or restored.current_mode)
         session = restored.session
         summary_ref = ""

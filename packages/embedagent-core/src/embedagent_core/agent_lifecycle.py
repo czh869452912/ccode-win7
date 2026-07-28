@@ -466,14 +466,3 @@ class AgentLifecycleJournal(object):
                         message=transition.message,
                         turns_used=transition.turns_used,
                     )
-            if self._commit_transition is None:
-                session.record_transition(
-                    LoopTransition(
-                        reason=transition.reason,
-                        message=transition.message,
-                        pending_interaction=session.pending_interaction,
-                        next_mode=transition.next_mode,
-                        turns_used=transition.turns_used,
-                        metadata=dict(transition.metadata),
-                    )
-                )

@@ -142,6 +142,11 @@ class TranscriptStore(object):
             raise ValueError("transcript reference is invalid")
         return path
 
+    def session_id_for_reference(self, reference: str) -> str:
+        path = self.resolve_transcript_reference(reference)
+        session_dir_name = os.path.basename(os.path.dirname(path))
+        return normalize_session_id(session_dir_name)
+
     def append_event(
         self,
         session_id: str,

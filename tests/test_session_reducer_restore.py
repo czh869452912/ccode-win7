@@ -8,9 +8,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent_core.session import Session
 from embedagent_core.session_reducer import SessionReducer, SessionReducerContext
-from embedagent_core.session_restore import SessionRestorer
 from embedagent_host.runtime.context import ContextManager
 from embedagent_host.runtime.transcript_store import TranscriptStore
+from session_journal_test_helpers import restore_events, restore_trusted_events
 
 _COUNTER = count(1)
 
@@ -29,7 +29,7 @@ def _make_workspace(name):
     return root
 
 
-class TestSessionRestorer(unittest.TestCase):
+class TestSessionJournalRestore(unittest.TestCase):
     def setUp(self):
         self.workspace = _make_workspace("session-restore")
         self.store = TranscriptStore(self.workspace)
@@ -88,7 +88,7 @@ class TestSessionRestorer(unittest.TestCase):
             }
         ]
 
-        result = SessionRestorer().restore(events)
+        result = restore_events(events)
 
         self.assertEqual(result.current_mode, "")
 
@@ -174,7 +174,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(result.current_mode, "build")
         self.assertEqual(len(result.session.turns), 1)
         self.assertEqual(result.session.turns[0].turn_id, "t-1")
@@ -185,41 +185,43 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(result.stop_reason, "")
 
     def test_restore_preserves_assistant_usage_metadata(self):
-        events = [
+        session_id = "sess-assistant-usage"
+        self.store.append_event(
+            session_id,
+            "message",
             {
-                "type": "message",
-                "payload": {
-                    "role": "user",
-                    "content": "hello",
-                    "message_id": "m-user",
-                    "turn_id": "t-1",
+                "role": "user",
+                "content": "hello",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "step_started",
+            {"turn_id": "t-1", "step_id": "s-1", "step_index": 1},
+        )
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "assistant",
+                "content": "world",
+                "message_id": "m-assistant",
+                "parent_message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "metadata": {
+                    "usage": {
+                        "prompt_tokens": 100,
+                        "completion_tokens": 20,
+                        "total_tokens": 120,
+                    }
                 },
             },
-            {
-                "type": "step_started",
-                "payload": {"turn_id": "t-1", "step_id": "s-1", "step_index": 1},
-            },
-            {
-                "type": "message",
-                "payload": {
-                    "role": "assistant",
-                    "content": "world",
-                    "message_id": "m-assistant",
-                    "parent_message_id": "m-user",
-                    "turn_id": "t-1",
-                    "step_id": "s-1",
-                    "metadata": {
-                        "usage": {
-                            "prompt_tokens": 100,
-                            "completion_tokens": 20,
-                            "total_tokens": 120,
-                        }
-                    },
-                },
-            },
-        ]
+        )
 
-        result = SessionRestorer().restore(events)
+        result = restore_events(self.store.load_events(session_id))
         assistant = [message for message in result.session.messages if message.role == "assistant"][
             0
         ]
@@ -265,7 +267,7 @@ class TestSessionRestorer(unittest.TestCase):
             },
         )
 
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
 
         self.assertEqual(result.stop_reason, "")
         self.assertEqual(result.consumed_event_count, 4)
@@ -341,7 +343,7 @@ class TestSessionRestorer(unittest.TestCase):
                 },
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(result.stop_reason, "")
         self.assertEqual(
             [item.parent_message_id for item in result.session.messages],
@@ -385,7 +387,7 @@ class TestSessionRestorer(unittest.TestCase):
                 },
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         record = result.session.turns[0].steps[0].tool_calls[0]
         self.assertEqual(record.presentation.tool_label, "Read File")
         self.assertEqual(record.presentation.permission_category, "read")
@@ -405,7 +407,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "",
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(result.stop_reason, "message_parent_missing")
         self.assertEqual(result.consumed_event_count, 1)
         self.assertEqual(result.session.messages, [])
@@ -459,10 +461,7 @@ class TestSessionRestorer(unittest.TestCase):
             },
         )
 
-        result = SessionRestorer().restore(
-            self.store.load_events(session_id),
-            best_effort=True,
-        )
+        result = restore_trusted_events(self.store.load_events(session_id))
 
         self.assertEqual(result.session.messages, [])
         self.assertEqual(
@@ -512,7 +511,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertIsNotNone(result.session.pending_interaction)
         self.assertEqual(result.session.pending_interaction.kind, "user_input")
         self.assertEqual(result.session.turns[-1].pending_interaction.interaction_id, "pi-1")
@@ -546,7 +545,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "request_payload": {"permission": {"reason": "需要写入"}},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertIsNone(result.session.pending_interaction)
         self.assertEqual(result.stop_reason, "interaction_expired")
 
@@ -580,7 +579,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "request_payload": {"permission": {"reason": "需要写入"}},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertIsNone(result.session.pending_interaction)
         self.assertEqual(result.stop_reason, "interaction_expired")
 
@@ -590,7 +589,7 @@ class TestSessionRestorer(unittest.TestCase):
         path = self.store.resolve_transcript_path(session_id)
         with open(path, "a", encoding="utf-8") as handle:
             handle.write("{oops")
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(result.current_mode, "build")
         self.assertEqual(result.session.session_id, session_id)
 
@@ -640,7 +639,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(len(result.session.turns), 1)
         self.assertEqual(len(result.session.turns[0].steps), 1)
         self.assertEqual(result.session.turns[0].steps[0].tool_calls, [])
@@ -686,7 +685,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(len(result.session.turns), 1)
         self.assertIsNone(result.session.pending_interaction)
         self.assertEqual(result.session.turns[0].pending_interaction, None)
@@ -711,7 +710,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(result.session.turns, [])
 
     def test_restore_stops_at_tool_call_without_active_step(self):
@@ -753,7 +752,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(len(result.session.turns), 1)
         self.assertEqual(result.session.turns[0].steps, [])
         self.assertEqual(result.session.turns[0].transitions, [])
@@ -800,7 +799,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(len(result.session.turns), 1)
         self.assertEqual(len(result.session.turns[0].steps), 1)
         self.assertEqual(result.session.turns[0].steps[0].step_id, "s-1")
@@ -837,7 +836,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(len(result.session.turns), 1)
         self.assertEqual(result.session.turns[0].turn_id, "t-1")
         self.assertEqual(len(result.session.turns[0].steps), 1)
@@ -901,7 +900,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(result.session.compact_boundaries, [])
         self.assertEqual(result.session.turns[0].transitions, [])
 
@@ -977,7 +976,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(result.session.compact_boundaries, [])
         self.assertEqual(result.session.turns[0].transitions, [])
 
@@ -1053,7 +1052,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(len(result.session.compact_boundaries), 1)
         self.assertEqual(result.session.compact_boundaries[0].boundary_id, "cb-dup")
         self.assertEqual(
@@ -1119,7 +1118,7 @@ class TestSessionRestorer(unittest.TestCase):
             },
         )
 
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         compaction = result.compaction_state.to_dict()
 
         self.assertEqual(compaction["boundary_count"], 1)
@@ -1154,7 +1153,7 @@ class TestSessionRestorer(unittest.TestCase):
             }
         )
 
-        result = SessionRestorer().restore(events)
+        result = restore_events(events)
 
         checkpoint = result.session.latest_compacted_history()
         self.assertIsNotNone(checkpoint)
@@ -1184,7 +1183,7 @@ class TestSessionRestorer(unittest.TestCase):
             }
         )
 
-        result = SessionRestorer().restore(events, best_effort=True)
+        result = restore_trusted_events(events)
 
         self.assertIsNone(result.session.latest_compacted_history())
         self.assertEqual(result.skipped_count, 1)
@@ -1221,7 +1220,7 @@ class TestSessionRestorer(unittest.TestCase):
             }
         )
 
-        result = SessionRestorer().restore(events, best_effort=True)
+        result = restore_trusted_events(events)
 
         self.assertEqual(len(result.session.compacted_history), 1)
         self.assertEqual(result.skipped_count, 1)
@@ -1269,7 +1268,7 @@ class TestSessionRestorer(unittest.TestCase):
             }
         )
 
-        restored = SessionRestorer().restore(events)
+        restored = restore_events(events)
         result = ContextManager().build_messages(restored.session, mode_name="build")
         contents = [item.get("content") for item in result.messages]
 
@@ -1301,7 +1300,7 @@ class TestSessionRestorer(unittest.TestCase):
             },
         )
 
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         recovery = result.recovery_state.to_dict()
 
         self.assertEqual(recovery["marker_count"], 1)
@@ -1352,7 +1351,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(len(result.session.turns), 1)
         self.assertEqual(result.session.turns[0].assistant_message, "")
         self.assertEqual(result.session.turns[0].transitions, [])
@@ -1385,7 +1384,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "finish_reason": "stop",
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(result.stop_reason, "assistant_message_step_mismatch")
         self.assertEqual(len(result.session.turns), 1)
         self.assertEqual(result.session.turns[0].assistant_message, "")
@@ -1435,7 +1434,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(len(result.session.turns), 1)
         self.assertEqual([item.role for item in result.session.messages], ["user"])
         self.assertEqual(result.session.turns[0].transitions, [])
@@ -1468,7 +1467,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "kind": "tool_result",
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(result.stop_reason, "tool_message_step_mismatch")
         self.assertEqual(len(result.session.turns), 1)
         self.assertEqual([item.role for item in result.session.messages], ["user"])
@@ -1512,7 +1511,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(len(result.session.turns), 1)
         self.assertEqual(result.session.turns[0].turn_id, "t-1")
         self.assertEqual(result.session.turns[0].user_message, "first")
@@ -1556,7 +1555,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(len(result.session.turns), 1)
         self.assertEqual(result.session.turns[0].turn_id, "t-dup")
         self.assertEqual(result.session.turns[0].user_message, "first")
@@ -1616,7 +1615,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(len(result.session.turns), 1)
         self.assertEqual(len(result.session.turns[0].steps), 1)
         self.assertEqual(len(result.session.turns[0].steps[0].tool_calls), 1)
@@ -1681,7 +1680,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(len(result.session.turns), 2)
         self.assertEqual(len(result.session.turns[0].steps), 1)
         self.assertEqual(result.session.turns[0].steps[0].step_id, "s-dup")
@@ -1742,7 +1741,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertIsNotNone(result.session.pending_interaction)
         self.assertEqual(result.session.pending_interaction.interaction_id, "pi-dup")
         self.assertEqual(
@@ -1804,7 +1803,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertIsNotNone(result.session.pending_interaction)
         self.assertEqual(result.session.pending_interaction.interaction_id, "pi-1")
         self.assertEqual(result.session.turns[0].transitions, [])
@@ -1863,7 +1862,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertIsNotNone(result.session.pending_interaction)
         self.assertEqual(result.session.pending_interaction.interaction_id, "pi-1")
         self.assertEqual(result.session.turns[0].transitions, [])
@@ -1922,7 +1921,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertIsNotNone(result.session.pending_interaction)
         self.assertEqual(result.session.pending_interaction.interaction_id, "pi-1")
         self.assertEqual(result.session.turns[0].transitions, [])
@@ -1981,7 +1980,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertIsNotNone(result.session.pending_interaction)
         self.assertEqual(result.session.pending_interaction.tool_name, "ask_user")
         self.assertEqual(result.session.turns[0].transitions, [])
@@ -2046,7 +2045,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         step = result.session.turns[0].steps[0]
         self.assertEqual(len(step.tool_calls), 1)
         self.assertEqual(step.tool_calls[0].tool_name, "read_file")
@@ -2113,7 +2112,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         step = result.session.turns[0].steps[0]
         self.assertEqual(len(step.tool_calls), 1)
         self.assertEqual(step.tool_calls[0].arguments, {"path": "src/demo.c"})
@@ -2180,7 +2179,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         step = result.session.turns[0].steps[0]
         self.assertEqual(len(step.tool_calls), 1)
         self.assertEqual(step.tool_calls[0].status, "started")
@@ -2231,7 +2230,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(result.session.content_replacements, [])
         self.assertEqual(result.session.turns[0].transitions, [])
 
@@ -2295,7 +2294,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "metadata": {},
             },
         )
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
         self.assertEqual(result.session.content_replacements, [])
         self.assertEqual(result.session.turns[0].transitions, [])
 
@@ -2315,7 +2314,7 @@ class TestSessionRestorer(unittest.TestCase):
         )
         # Corrupt the 3rd event (step_started) with wrong turn_id
         events[2]["payload"]["turn_id"] = "t-bad"
-        result = SessionRestorer().restore(events, best_effort=True)
+        result = restore_trusted_events(events)
         self.assertEqual(result.transcript_event_count, 4)
         self.assertEqual(result.consumed_event_count, 4)
         self.assertEqual(result.skipped_count, 1)
@@ -2383,7 +2382,7 @@ class TestSessionRestorer(unittest.TestCase):
         )
         # Corrupt event 3 (step_started) with wrong turn_id
         events[2]["payload"]["turn_id"] = "t-bad"
-        result = SessionRestorer().restore(events, best_effort=True)
+        result = restore_trusted_events(events)
         self.assertEqual(result.skipped_count, 2)
         self.assertEqual(len(result.session.turns), 3)
         self.assertEqual(result.session.turns[0].turn_id, "t-1")
@@ -2429,7 +2428,7 @@ class TestSessionRestorer(unittest.TestCase):
                 },
             }
         )
-        result = SessionRestorer().restore(events, best_effort=True)
+        result = restore_trusted_events(events)
         self.assertEqual(result.skipped_count, 1)
         self.assertIn("message_parent_missing", result.skip_reasons[0]["reason"])
         self.assertEqual(len(result.session.turns), 2)
@@ -2451,7 +2450,7 @@ class TestSessionRestorer(unittest.TestCase):
         )
         # Corrupt the 3rd event (step_started) with wrong turn_id
         events[2]["payload"]["turn_id"] = "t-bad"
-        result = SessionRestorer().restore(events, best_effort=False)
+        result = restore_events(events)
         self.assertEqual(result.consumed_event_count, 2)
         self.assertEqual(result.skipped_count, 0)
         self.assertNotEqual(result.stop_reason, "")
@@ -2459,7 +2458,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_best_effort_empty_events_raises(self):
         with self.assertRaises(ValueError):
-            SessionRestorer().restore([], best_effort=True)
+            restore_events([])
 
     def test_best_effort_duplicate_step_id_skipped(self):
         events = self._build_valid_transcript()
@@ -2517,7 +2516,7 @@ class TestSessionRestorer(unittest.TestCase):
                 },
             }
         )
-        result = SessionRestorer().restore(events, best_effort=True)
+        result = restore_trusted_events(events)
         self.assertEqual(result.skipped_count, 1)
         self.assertIn("duplicate_step_id", result.skip_reasons[0]["reason"])
         self.assertEqual(len(result.session.turns), 1)
@@ -2610,7 +2609,7 @@ class TestSessionRestorer(unittest.TestCase):
         )
         # Corrupt event 3 (step_started) with wrong turn_id
         events[2]["payload"]["turn_id"] = "t-bad"
-        result = SessionRestorer().restore(events, best_effort=True)
+        result = restore_trusted_events(events)
         self.assertEqual(len(result.skip_reasons), 3)
         for reason in result.skip_reasons:
             self.assertIn("index", reason)

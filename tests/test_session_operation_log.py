@@ -7,8 +7,8 @@ from itertools import count
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent_core.session_operation_log import OperationLogReducer
-from embedagent_core.session_restore import SessionRestorer
 from embedagent_host.runtime.transcript_store import TranscriptStore
+from session_journal_test_helpers import restore_events
 
 _COUNTER = count(1)
 
@@ -275,7 +275,7 @@ class TestOperationLogRestoreIntegration(unittest.TestCase):
             schema_version=2,
         )
 
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
 
         step_record = result.operation_state.operations["step:s-1"]
         tool_record = result.operation_state.operations["tool:call-read"]
@@ -314,7 +314,7 @@ class TestOperationLogRestoreIntegration(unittest.TestCase):
             },
         )
 
-        result = SessionRestorer().restore(self.store.load_events(session_id))
+        result = restore_events(self.store.load_events(session_id))
 
         self.assertEqual(result.operation_state.operations, {})
 
