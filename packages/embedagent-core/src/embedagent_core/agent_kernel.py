@@ -1,5 +1,20 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field, replace
+from typing import Any, Optional, Tuple
+
+from embedagent_core.agent_effects import (
+    AgentEffect,
+    AgentEffectResult,
+    AssembleContextEffect,
+    ContextAssembled,
+    EffectFailed,
+    ExecuteToolBatchEffect,
+    InteractionSuspended,
+    ProviderCompleted,
+    RequestProviderEffect,
+    ToolBatchCompleted,
+)
 from embedagent_core.agent_lifecycle import AgentLifecycleJournal
 from embedagent_core.session import (
     Action,
@@ -9,6 +24,30 @@ from embedagent_core.session import (
     Session,
 )
 from embedagent_core.session_journal import EventIntent
+
+
+@dataclass(frozen=True)
+class KernelCursor:
+    phase: str
+    expected_effect_id: str
+    step_index: int
+    provider_attempt: int
+    compact_retry_used: bool
+    turn_id: str = ""
+    step_id: str = ""
+    mode_name: str = ""
+    workflow_state: str = ""
+    source: str = ""
+    stream: bool = False
+
+
+@dataclass(frozen=True)
+class KernelStep:
+    cursor: KernelCursor
+    events: Tuple[EventIntent, ...]
+    effect: Optional[AgentEffect] = None
+    outcome: Optional[LoopTransition] = None
+    post_commit_tokens: Tuple[Any, ...] = field(default_factory=tuple)
 
 
 class AgentTurnFrame(object):
@@ -51,8 +90,253 @@ class AgentTurnFrame(object):
 class AgentKernel(object):
     """Internal lifecycle kernel behind the QueryEngine session facade."""
 
-    def __init__(self, lifecycle: AgentLifecycleJournal) -> None:
+    def __init__(self, lifecycle: Optional[AgentLifecycleJournal] = None) -> None:
         self.lifecycle = lifecycle
+
+    def start(
+        self,
+        turn_id: str,
+        mode_name: str,
+        workflow_state: str,
+        source: str,
+        stream: bool = False,
+    ) -> KernelStep:
+        cursor = KernelCursor(
+            phase="context",
+            expected_effect_id=self._effect_id("context", turn_id, 1, 0),
+            step_index=1,
+            provider_attempt=0,
+            compact_retry_used=False,
+            turn_id=turn_id,
+            step_id="step-1",
+            mode_name=mode_name,
+            workflow_state=workflow_state,
+            source=source,
+            stream=stream,
+        )
+        return KernelStep(
+            cursor=cursor,
+            events=(self._operation_started(cursor, "context"),),
+            effect=self._context_effect(cursor),
+        )
+
+    def accept(self, cursor: KernelCursor, result: AgentEffectResult) -> KernelStep:
+        if result.effect_id != cursor.expected_effect_id:
+            raise ValueError("effect_result_mismatch")
+
+        if isinstance(result, ContextAssembled):
+            return self._accept_context(cursor, result)
+        if isinstance(result, ProviderCompleted):
+            return self._accept_provider(cursor, result)
+        if isinstance(result, ToolBatchCompleted):
+            return self._accept_tools(cursor, result)
+        if isinstance(result, InteractionSuspended):
+            return self._accept_interaction(cursor, result)
+        if isinstance(result, EffectFailed):
+            return self._accept_failure(cursor, result)
+        raise TypeError("unsupported_agent_effect_result")
+
+    def _accept_context(self, cursor: KernelCursor, result: ContextAssembled) -> KernelStep:
+        attempt = cursor.provider_attempt + 1
+        effect_id = self._effect_id("provider", cursor.turn_id, cursor.step_index, attempt)
+        next_cursor = replace(
+            cursor,
+            phase="provider",
+            expected_effect_id=effect_id,
+            provider_attempt=attempt,
+        )
+        return KernelStep(
+            cursor=next_cursor,
+            events=result.events
+            + (
+                self._operation_finished(cursor, "context"),
+                self._operation_started(next_cursor, "provider"),
+            ),
+            effect=RequestProviderEffect(effect_id, result.snapshot, cursor.stream),
+        )
+
+    def _accept_provider(self, cursor: KernelCursor, result: ProviderCompleted) -> KernelStep:
+        events = result.events + (self._operation_finished(cursor, "provider"),)
+        if not result.reply.actions:
+            outcome = LoopTransition(
+                "completed",
+                result.reply.content,
+                next_mode=cursor.mode_name,
+                turns_used=cursor.step_index,
+            )
+            return KernelStep(
+                cursor=replace(cursor, phase="complete", expected_effect_id=""),
+                events=events + (self._loop_transition(cursor, outcome),),
+                outcome=outcome,
+            )
+
+        effect_id = self._effect_id(
+            "tools", cursor.turn_id, cursor.step_index, cursor.provider_attempt
+        )
+        next_cursor = replace(
+            cursor,
+            phase="tools",
+            expected_effect_id=effect_id,
+        )
+        return KernelStep(
+            cursor=next_cursor,
+            events=events + (self._operation_started(next_cursor, "tools"),),
+            effect=ExecuteToolBatchEffect(
+                effect_id,
+                tuple(result.reply.actions),
+                cursor.mode_name,
+                cursor.workflow_state,
+            ),
+        )
+
+    def _accept_tools(self, cursor: KernelCursor, result: ToolBatchCompleted) -> KernelStep:
+        next_index = cursor.step_index + 1
+        effect_id = self._effect_id("context", cursor.turn_id, next_index, cursor.provider_attempt)
+        next_cursor = replace(
+            cursor,
+            phase="context",
+            expected_effect_id=effect_id,
+            step_index=next_index,
+            step_id="step-%d" % next_index,
+        )
+        return KernelStep(
+            cursor=next_cursor,
+            events=result.events
+            + (
+                self._operation_finished(cursor, "tools"),
+                self._operation_started(next_cursor, "context"),
+            ),
+            effect=self._context_effect(next_cursor),
+            post_commit_tokens=result.commit_tokens,
+        )
+
+    def _accept_interaction(self, cursor: KernelCursor, result: InteractionSuspended) -> KernelStep:
+        reason = "permission_wait" if result.pending.kind == "permission" else "user_input_wait"
+        outcome = LoopTransition(
+            reason,
+            pending_interaction=result.pending,
+            next_mode=cursor.mode_name,
+            turns_used=cursor.step_index,
+        )
+        return KernelStep(
+            cursor=replace(cursor, phase="suspended", expected_effect_id=""),
+            events=result.events
+            + (
+                self._operation_finished(cursor, cursor.phase),
+                self._loop_transition(cursor, outcome),
+            ),
+            outcome=outcome,
+        )
+
+    def _accept_failure(self, cursor: KernelCursor, result: EffectFailed) -> KernelStep:
+        interrupted = self._operation_interrupted(cursor, result)
+        if result.error_kind == "context_limit" and not cursor.compact_retry_used:
+            effect_id = self._effect_id(
+                "context-compact",
+                cursor.turn_id,
+                cursor.step_index,
+                cursor.provider_attempt,
+            )
+            next_cursor = replace(
+                cursor,
+                phase="context",
+                expected_effect_id=effect_id,
+                compact_retry_used=True,
+                step_id=cursor.step_id or ("step-%d" % cursor.step_index),
+            )
+            return KernelStep(
+                cursor=next_cursor,
+                events=result.events
+                + (interrupted, self._operation_started(next_cursor, "context")),
+                effect=self._context_effect(next_cursor, force_compact=True),
+            )
+
+        reason = "aborted" if result.error_kind == "cancelled" else "guard_stop"
+        outcome = LoopTransition(
+            reason,
+            result.message,
+            next_mode=cursor.mode_name,
+            turns_used=cursor.step_index,
+            metadata={"error_kind": result.error_kind},
+        )
+        return KernelStep(
+            cursor=replace(cursor, phase="failed", expected_effect_id=""),
+            events=result.events + (interrupted, self._loop_transition(cursor, outcome)),
+            outcome=outcome,
+        )
+
+    def _context_effect(
+        self, cursor: KernelCursor, force_compact: bool = False
+    ) -> AssembleContextEffect:
+        return AssembleContextEffect(
+            cursor.expected_effect_id,
+            cursor.turn_id,
+            cursor.step_id or ("step-%d" % cursor.step_index),
+            cursor.mode_name,
+            cursor.workflow_state,
+            force_compact=force_compact,
+        )
+
+    def _operation_started(self, cursor: KernelCursor, kind: str) -> EventIntent:
+        return EventIntent(
+            "operation_started",
+            {
+                "operation_id": cursor.expected_effect_id,
+                "kind": kind,
+                "turn_id": cursor.turn_id,
+                "step_id": cursor.step_id,
+                "retryable": kind in ("context", "provider"),
+                "metadata": {"source": cursor.source} if cursor.source else {},
+            },
+        )
+
+    def _operation_finished(self, cursor: KernelCursor, kind: str) -> EventIntent:
+        return EventIntent(
+            "operation_finished",
+            {
+                "operation_id": cursor.expected_effect_id,
+                "kind": kind,
+                "turn_id": cursor.turn_id,
+                "step_id": cursor.step_id,
+                "result": {},
+            },
+        )
+
+    def _operation_interrupted(self, cursor: KernelCursor, result: EffectFailed) -> EventIntent:
+        return EventIntent(
+            "operation_interrupted",
+            {
+                "operation_id": cursor.expected_effect_id,
+                "kind": cursor.phase,
+                "turn_id": cursor.turn_id,
+                "step_id": cursor.step_id,
+                "reason": result.error_kind,
+                "retryable": bool(result.retryable),
+                "result": {"message": result.message},
+            },
+        )
+
+    def _loop_transition(self, cursor: KernelCursor, transition: LoopTransition) -> EventIntent:
+        return EventIntent(
+            "loop_transition",
+            {
+                "turn_id": cursor.turn_id,
+                "step_id": cursor.step_id,
+                "reason": transition.reason,
+                "message": transition.message,
+                "next_mode": transition.next_mode,
+                "turns_used": transition.turns_used,
+                "metadata": dict(transition.metadata),
+            },
+        )
+
+    def _effect_id(self, kind: str, turn_id: str, step_index: int, provider_attempt: int) -> str:
+        return "%s:%s:%d:%d" % (
+            kind,
+            turn_id or "turn",
+            step_index,
+            provider_attempt,
+        )
 
     def begin_turn(
         self,
@@ -62,6 +346,8 @@ class AgentKernel(object):
         workflow_state: str,
         source: str,
     ) -> AgentTurnFrame:
+        if self.lifecycle is None:
+            raise RuntimeError("agent_lifecycle_not_configured")
         self.lifecycle.emit_turn_started(
             session,
             turn_id,
