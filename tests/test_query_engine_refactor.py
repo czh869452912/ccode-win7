@@ -16,6 +16,7 @@ from embedagent_core.model import ModelClientError
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.session import Action, AssistantReply, Observation, Session
 from embedagent_core.session_restore import SessionRestorer
+from embedagent_core.tool_contracts import PreparedToolObservation
 from embedagent_core.tool_execution import partition_tool_actions
 from embedagent_host.inprocess_adapter import InProcessAdapter
 from embedagent_host.runtime.context import ContextManager
@@ -3050,15 +3051,15 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
 
     def test_tool_commit_failure_falls_back_to_replayable_tool_result(self):
-        def failing_commit(*args, **kwargs):
+        def failing_materialize(*args, **kwargs):
             del args, kwargs
             raise OSError("commit unavailable")
 
         session = Session()
         transcript_store = TranscriptStore(self.workspace)
-        original_commit = self.tools.commit_observation
-        self.tools.commit_observation = failing_commit
-        self.addCleanup(setattr, self.tools, "commit_observation", original_commit)
+        original_materialize = self.tools.materialize_observation
+        self.tools.materialize_observation = failing_materialize
+        self.addCleanup(setattr, self.tools, "materialize_observation", original_materialize)
         engine = QueryEngine(
             client=ToolClient(),
             tools=self.tools,
@@ -3080,6 +3081,61 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(len(tool_results), 1)
         self.assertEqual(restored.stop_reason, "")
         self.assertEqual(restored.consumed_event_count, len(events))
+
+    def test_tool_projection_finalizes_after_durable_observation_events(self):
+        session = Session()
+        transcript_store = TranscriptStore(self.workspace)
+        finalized_event_types = []
+        original_materialize = self.tools.materialize_observation
+        original_finalize = self.tools.finalize_observation
+
+        def materialize(session_id, action, observation):
+            self.assertEqual(session_id, session.session_id)
+            return PreparedToolObservation(
+                observation=observation,
+                replacements=[
+                    {
+                        "field_name": "content",
+                        "stored_path": "tool-results/call-read-demo/content.txt",
+                        "replacement_text": "stored",
+                    }
+                ],
+                commit_token={"projection": "ready"},
+            )
+
+        def finalize(commit_token):
+            self.assertEqual(commit_token, {"projection": "ready"})
+            finalized_event_types.append(
+                [item["type"] for item in transcript_store.load_events(session.session_id)]
+            )
+
+        self.tools.materialize_observation = materialize
+        self.tools.finalize_observation = finalize
+        self.addCleanup(setattr, self.tools, "materialize_observation", original_materialize)
+        self.addCleanup(setattr, self.tools, "finalize_observation", original_finalize)
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+
+        result = engine.submit_user_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertEqual(len(finalized_event_types), 1)
+        event_types_at_finalize = finalized_event_types[0]
+        self.assertIn("tool_result", event_types_at_finalize)
+        self.assertIn("content_replacement", event_types_at_finalize)
+        self.assertLess(
+            event_types_at_finalize.index("tool_result"),
+            event_types_at_finalize.index("content_replacement"),
+        )
 
     def test_query_engine_on_step_start_receives_engine_step_id(self):
         transcript_store = TranscriptStore(self.workspace)

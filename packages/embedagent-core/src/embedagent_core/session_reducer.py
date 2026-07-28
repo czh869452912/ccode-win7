@@ -7,7 +7,9 @@ from embedagent_core.session import (
     Action,
     AssistantReply,
     LoopTransition,
+    Observation,
     Session,
+    ToolPresentationSnapshot,
     TranscriptMessage,
 )
 
@@ -55,6 +57,9 @@ class SessionReducer(object):
             "tool": self._apply_message,
             "step_started": self._apply_step_started,
             "loop_transition": self._apply_loop_transition,
+            "tool_call": self._apply_tool_call,
+            "tool_result": self._apply_tool_result,
+            "content_replacement": self._apply_content_replacement,
         }
 
     def apply(
@@ -228,6 +233,98 @@ class SessionReducer(object):
         if transition.next_mode:
             context.current_mode = transition.next_mode
 
+    def _apply_tool_call(
+        self,
+        session: Session,
+        context: SessionReducerContext,
+        payload: Dict[str, Any],
+    ) -> None:
+        if session.current_step() is None:
+            raise SessionReduceError("tool_call_without_active_step")
+        if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+            raise SessionReduceError("tool_call_turn_mismatch")
+        if not self._matches_current_step(session, str(payload.get("step_id") or "")):
+            raise SessionReduceError("tool_call_step_mismatch")
+        call_id = str(payload.get("call_id") or "").strip()
+        if not call_id or call_id in context.seen_tool_call_ids:
+            raise SessionReduceError("duplicate_tool_call_id")
+        action = Action(
+            name=str(payload.get("tool_name") or ""),
+            arguments=dict(payload.get("arguments") or {}),
+            call_id=call_id,
+        )
+        presentation = ToolPresentationSnapshot.from_dict(payload.get("presentation"))
+        record = session._find_tool_call(call_id)
+        if record is None:
+            session.record_tool_call(action, presentation=presentation)
+        else:
+            record.presentation = presentation
+        context.seen_tool_call_ids.add(call_id)
+
+    def _apply_tool_result(
+        self,
+        session: Session,
+        context: SessionReducerContext,
+        payload: Dict[str, Any],
+    ) -> None:
+        if payload.get("status"):
+            return
+        call_id = str(payload.get("call_id") or "")
+        record = session._find_tool_call(call_id) if call_id else None
+        if record is None:
+            raise SessionReduceError("tool_result_missing_tool_call")
+        parent_message_id = str(payload.get("parent_message_id") or "").strip()
+        if (
+            parent_message_id
+            and parent_message_id not in context.seen_message_ids
+            and self._message_index(session, parent_message_id) < 0
+        ):
+            raise SessionReduceError("message_parent_missing")
+        message_id = str(payload.get("message_id") or "").strip()
+        if message_id and message_id in context.seen_message_ids:
+            raise SessionReduceError("duplicate_message_id")
+        if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+            raise SessionReduceError("tool_result_turn_mismatch")
+        if not self._matches_current_step(session, str(payload.get("step_id") or "")):
+            raise SessionReduceError("tool_result_step_mismatch")
+        if not self._matches_tool_result_record(record, payload):
+            raise SessionReduceError("tool_result_identity_mismatch")
+        action = Action(
+            name=str(payload.get("tool_name") or ""),
+            arguments=dict(payload.get("arguments") or {}),
+            call_id=call_id,
+        )
+        observation_payload = dict(payload.get("observation") or {})
+        observation = Observation(
+            tool_name=str(payload.get("tool_name") or ""),
+            success=bool(observation_payload.get("success")),
+            error=observation_payload.get("error"),
+            data=observation_payload.get("data"),
+        )
+        session.add_observation(
+            action,
+            observation,
+            message_id=message_id,
+            parent_message_id=parent_message_id,
+            turn_id=str(payload.get("turn_id") or ""),
+            step_id=str(payload.get("step_id") or ""),
+            finished_at=str(payload.get("finished_at") or ""),
+            replaced_by_refs=list(payload.get("replaced_by_refs") or []),
+        )
+        if message_id:
+            context.seen_message_ids.add(message_id)
+
+    def _apply_content_replacement(
+        self,
+        session: Session,
+        context: SessionReducerContext,
+        payload: Dict[str, Any],
+    ) -> None:
+        del context
+        if not self._is_valid_content_replacement(session, payload):
+            raise SessionReduceError("content_replacement_target_mismatch")
+        session.record_content_replacement(dict(payload))
+
     def _matches_current_turn(self, session: Session, turn_id: str) -> bool:
         expected = str(turn_id or "").strip()
         if not expected:
@@ -253,3 +350,33 @@ class SessionReducer(object):
             if str(getattr(message, "message_id", "") or "") == target:
                 return index
         return -1
+
+    def _matches_tool_result_record(self, record: Any, payload: Dict[str, Any]) -> bool:
+        tool_name = str(payload.get("tool_name") or "").strip()
+        if tool_name and tool_name != str(getattr(record, "tool_name", "") or ""):
+            return False
+        if "arguments" in payload:
+            arguments = payload.get("arguments")
+            if isinstance(arguments, dict):
+                if dict(arguments) != dict(getattr(record, "arguments", {}) or {}):
+                    return False
+        return True
+
+    def _is_valid_content_replacement(self, session: Session, payload: Dict[str, Any]) -> bool:
+        message_id = str(payload.get("message_id") or "").strip()
+        if not message_id:
+            return False
+        target = None
+        for message in session.messages:
+            if str(getattr(message, "message_id", "") or "") == message_id:
+                target = message
+                break
+        if target is None or str(getattr(target, "role", "") or "") != "tool":
+            return False
+        tool_call_id = str(payload.get("tool_call_id") or "").strip()
+        if tool_call_id and tool_call_id != str(getattr(target, "tool_call_id", "") or ""):
+            return False
+        tool_name = str(payload.get("tool_name") or "").strip()
+        if tool_name and tool_name != str(getattr(target, "name", "") or ""):
+            return False
+        return True

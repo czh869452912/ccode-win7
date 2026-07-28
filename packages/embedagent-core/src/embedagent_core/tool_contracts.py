@@ -3,8 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Protocol
 
-from embedagent_core.session import Action, Observation, Session
-from embedagent_core.session_log import SessionLogPort
+from embedagent_core.session import Action, Observation
 
 
 class ToolError(Exception):
@@ -182,6 +181,13 @@ class ToolCatalogEntry:
         }
 
 
+@dataclass(frozen=True)
+class PreparedToolObservation:
+    observation: Observation
+    replacements: List[Dict[str, Any]] = field(default_factory=list)
+    commit_token: Any = None
+
+
 class WorkspacePathResolver(Protocol):
     def resolve_path(self, path: str, allow_missing: bool = False) -> str:
         raise NotImplementedError
@@ -208,19 +214,18 @@ class ToolRuntimePort(Protocol):
     ) -> Observation:
         raise NotImplementedError
 
-    def commit_observation(
+    def materialize_observation(
         self,
-        session_log: SessionLogPort,
-        session: Session,
+        session_id: str,
         action: Action,
         observation: Observation,
-        current_mode: str,
-        turn_id: str = "",
-        step_id: str = "",
-        message_id: str = "",
-        parent_message_id: str = "",
-        finished_at: str = "",
-    ) -> Observation:
+    ) -> PreparedToolObservation:
+        raise NotImplementedError
+
+    def finalize_observation(
+        self,
+        commit_token: Any,
+    ) -> None:
         raise NotImplementedError
 
     def catalog_entry(self, tool_name: str) -> Optional[ToolCatalogEntry]:

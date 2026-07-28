@@ -2,7 +2,7 @@ import shutil
 import tempfile
 import unittest
 
-from embedagent_core.session import Action, Observation, Session
+from embedagent_core.session import Action, Observation
 from embedagent_host.runtime.projection_db import ProjectionDb
 from embedagent_host.runtime.tool_commit import ToolCommitCoordinator
 from embedagent_host.runtime.tool_result_store import ToolResultStore
@@ -17,10 +17,7 @@ class TestToolCommitCoordinator(unittest.TestCase):
         self.store = ToolResultStore(self.workspace)
         self.db = ProjectionDb(self.workspace + "/.embedagent/memory/projections.sqlite3")
         self.transcript = TranscriptStore(self.workspace)
-        self.coordinator = ToolCommitCoordinator(self.store, self.db, self.transcript)
-        self.session = Session()
-        self.session.add_user_message("inspect file", turn_id="t-1", message_id="m-user")
-        self.session.begin_step(step_id="s-1")
+        self.coordinator = ToolCommitCoordinator(self.store, self.db)
 
     def test_large_content_creates_stored_path_and_replacement_record(self):
         action = Action("read_file", {"path": "src/demo.c"}, "call-1")
@@ -30,18 +27,23 @@ class TestToolCommitCoordinator(unittest.TestCase):
             None,
             {"path": "src/demo.c", "content": "x" * 5000},
         )
-        committed = self.coordinator.commit(
-            self.session,
+        prepared = self.coordinator.materialize(
+            "session-1",
             action,
             observation,
-            current_mode="explore",
         )
-        self.assertTrue(committed.success)
-        self.assertIn("content_stored_path", committed.data)
-        self.assertIn("content_preview", committed.data)
-        self.assertEqual(len(self.session.content_replacements), 1)
+        self.assertTrue(prepared.observation.success)
+        self.assertIn("content_stored_path", prepared.observation.data)
+        self.assertIn("content_preview", prepared.observation.data)
+        self.assertEqual(len(prepared.replacements), 1)
+        self.assertFalse(self.transcript.transcript_exists("session-1"))
+        self.assertEqual(self.db.list_tool_results(), [])
 
-    def test_tool_runtime_commits_with_supplied_session_log(self):
+        self.coordinator.finalize(prepared.commit_token)
+
+        self.assertEqual(len(self.db.list_tool_results()), 1)
+
+    def test_tool_runtime_materializes_then_finalizes_projection(self):
         runtime = ToolRuntime(self.workspace)
         action = Action("read_file", {"path": "src/demo.c"}, "call-runtime")
         observation = Observation(
@@ -51,24 +53,17 @@ class TestToolCommitCoordinator(unittest.TestCase):
             {"path": "src/demo.c", "content": "y" * 5000},
         )
 
-        committed = runtime.commit_observation(
-            self.transcript,
-            self.session,
+        prepared = runtime.materialize_observation(
+            "session-runtime",
             action,
             observation,
-            current_mode="explore",
-            turn_id="t-1",
-            step_id="s-1",
-            message_id="m-tool",
-            parent_message_id="m-user",
         )
 
-        self.assertIn("content_stored_path", committed.data)
-        events = self.transcript.load_events(self.session.session_id)
-        self.assertEqual(
-            [item["type"] for item in events],
-            ["tool_result", "content_replacement"],
-        )
+        self.assertIn("content_stored_path", prepared.observation.data)
+        self.assertFalse(self.transcript.transcript_exists("session-runtime"))
+        self.assertEqual(runtime.projection_db.list_tool_results(), [])
+        runtime.finalize_observation(prepared.commit_token)
+        self.assertEqual(len(runtime.projection_db.list_tool_results()), 1)
 
 
 if __name__ == "__main__":

@@ -279,8 +279,7 @@ class AgentLoop(object):
                         assembly,
                     )
                     for replacement in assembly.replacements:
-                        session.record_content_replacement(dict(replacement))
-                        self._append_transcript_event(
+                        self._commit_session_event(
                             session,
                             "content_replacement",
                             dict(replacement),
@@ -357,7 +356,7 @@ class AgentLoop(object):
                 )
                 for action in reply.actions:
                     presentation = self._tool_presentation_snapshot(action.name)
-                    self._append_transcript_event(
+                    self._commit_session_event(
                         session,
                         "tool_call",
                         {
@@ -384,9 +383,6 @@ class AgentLoop(object):
                             "presentation": presentation.to_dict(),
                         },
                     )
-                    record = session._find_tool_call(action.call_id)
-                    if record is not None:
-                        record.presentation = presentation
             final_text = reply.content
             turns_used = step_index
             assistant_turn_kind = self._classify_reply(reply, session)

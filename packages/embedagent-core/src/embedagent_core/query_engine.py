@@ -61,7 +61,7 @@ from embedagent_core.session_reducer import (
     SessionReducer,
     SessionReducerContext,
 )
-from embedagent_core.tool_contracts import ToolRuntimePort
+from embedagent_core.tool_contracts import PreparedToolObservation, ToolRuntimePort
 from embedagent_core.turn_snapshot import TurnSnapshot
 from embedagent_core.turn_snapshot_service import TurnSnapshotService
 
@@ -253,7 +253,7 @@ class QueryEngine(object):
         payload: Dict[str, Any],
     ) -> Dict[str, Any]:
         event_payload = dict(payload or {})
-        message_event_types = ("message", "user", "assistant", "system", "tool")
+        message_event_types = ("message", "user", "assistant", "system", "tool", "tool_result")
         durable_ids = set()
         if event_type in message_event_types:
             durable_ids = self._durable_message_ids_for(session)
@@ -1151,6 +1151,79 @@ class QueryEngine(object):
             and str(observation.data.get("error_kind") or "") == "interrupted"
         )
 
+    def _commit_tool_observation(
+        self,
+        session: Session,
+        action: Action,
+        observation: Observation,
+        turn_id: str,
+        step_id: str,
+        finished_at: str = "",
+    ) -> Observation:
+        tool_message_id = "m-" + uuid.uuid4().hex[:12]
+        parent_message_id = session.last_message_id()
+        completed_at = finished_at or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        try:
+            prepared = self.tools.materialize_observation(
+                session.session_id,
+                action,
+                observation,
+            )
+        except (OSError, ValueError, TypeError) as exc:
+            _LOG.warning(
+                "tool result materialization failed for %s/%s; using inline fallback: %s",
+                action.name,
+                action.call_id,
+                exc,
+            )
+            prepared = PreparedToolObservation(
+                observation=self._fallback_committed_observation(observation, exc),
+            )
+        committed = prepared.observation
+        replacements = [dict(item) for item in prepared.replacements if isinstance(item, dict)]
+        replaced_by_refs = [
+            str(item.get("stored_path") or "")
+            for item in replacements
+            if str(item.get("stored_path") or "")
+        ]
+        self._commit_session_event(
+            session,
+            "tool_result",
+            {
+                "turn_id": turn_id,
+                "step_id": step_id,
+                "call_id": action.call_id,
+                "tool_name": action.name,
+                "arguments": dict(action.arguments),
+                "message_id": tool_message_id,
+                "parent_message_id": parent_message_id,
+                "finished_at": completed_at,
+                "replaced_by_refs": replaced_by_refs,
+                "observation": committed.to_dict(),
+            },
+        )
+        if replacements:
+            self._commit_session_event(
+                session,
+                "content_replacement",
+                {
+                    "message_id": tool_message_id,
+                    "tool_call_id": action.call_id,
+                    "tool_name": action.name,
+                    "replacements": replacements,
+                },
+            )
+        try:
+            self.tools.finalize_observation(prepared.commit_token)
+        except (OSError, ValueError, TypeError) as exc:
+            _LOG.warning(
+                "tool result projection finalization failed for %s/%s: %s",
+                action.name,
+                action.call_id,
+                exc,
+            )
+        return committed
+
     def _record_tool_observation(
         self,
         session: Session,
@@ -1162,63 +1235,12 @@ class QueryEngine(object):
         on_tool_finish: Optional[Callable[[Action, Observation], None]],
     ) -> Observation:
         with self._session_guard():
-            tool_message_id = "m-" + uuid.uuid4().hex[:12]
-            parent_message_id = session.last_message_id()
-            durable_ids = self._durable_message_ids_for(session)
-            ledger_parent_message_id = parent_message_id
-            if parent_message_id and parent_message_id not in durable_ids:
-                ledger_parent_message_id = self._durable_parent_message_id(
-                    session,
-                    parent_message_id,
-                    durable_ids,
-                )
             finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             turn_id = session.turns[-1].turn_id if session.turns else ""
-            commit_succeeded = False
-            try:
-                committed = self.tools.commit_observation(
-                    self.transcript_store,
-                    session,
-                    action,
-                    observation,
-                    current_mode,
-                    turn_id=turn_id,
-                    step_id=step_id,
-                    message_id=tool_message_id,
-                    parent_message_id=ledger_parent_message_id,
-                    finished_at=finished_at,
-                )
-                commit_succeeded = True
-            except (OSError, ValueError, TypeError) as exc:
-                _LOG.warning(
-                    "tool commit failed for %s/%s; falling back to in-memory pairing: %s",
-                    action.name,
-                    action.call_id,
-                    exc,
-                )
-                committed = self._fallback_committed_observation(observation, exc)
-            if commit_succeeded:
-                self._durable_message_ids_for(session).add(tool_message_id)
-            else:
-                self._append_transcript_event(
-                    session,
-                    "tool_result",
-                    {
-                        "turn_id": turn_id,
-                        "step_id": step_id,
-                        "call_id": action.call_id,
-                        "tool_name": action.name,
-                        "message_id": tool_message_id,
-                        "parent_message_id": ledger_parent_message_id,
-                        "finished_at": finished_at,
-                        "observation": committed.to_dict(),
-                    },
-                )
-            session.add_observation(
+            committed = self._commit_tool_observation(
+                session,
                 action,
-                committed,
-                message_id=tool_message_id,
-                parent_message_id=parent_message_id,
+                observation,
                 turn_id=turn_id,
                 step_id=step_id,
                 finished_at=finished_at,
@@ -1475,7 +1497,7 @@ class QueryEngine(object):
                 metadata={"step_index": step_index},
             )
             presentation = self._tool_presentation_snapshot(action.name)
-            self._append_transcript_event(
+            self._commit_session_event(
                 session,
                 "tool_call",
                 {
@@ -1502,11 +1524,6 @@ class QueryEngine(object):
                     "presentation": presentation.to_dict(),
                 },
             )
-            record = session._find_tool_call(action.call_id)
-            if record is None:
-                session.record_tool_call(action, presentation)
-            else:
-                record.presentation = presentation
         if on_step_start is not None:
             on_step_start(step_id, step_index)
         assembly = self._build_context_operation(
@@ -1909,29 +1926,11 @@ class QueryEngine(object):
             if suspended is not None:
                 raise RuntimeError("user input resume unexpectedly re-suspended")
         with self._session_guard():
-            tool_message_id = "m-" + uuid.uuid4().hex[:12]
-            parent_message_id = session.last_message_id()
             finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            self._append_transcript_event(
+            observation = self._commit_tool_observation(
                 session,
-                "tool_result",
-                {
-                    "turn_id": turn_id,
-                    "step_id": step_id,
-                    "call_id": action.call_id,
-                    "tool_name": action.name,
-                    "arguments": dict(action.arguments),
-                    "message_id": tool_message_id,
-                    "parent_message_id": parent_message_id,
-                    "finished_at": finished_at,
-                    "observation": observation.to_dict(),
-                },
-            )
-            session.add_observation(
                 action,
                 observation,
-                message_id=tool_message_id,
-                parent_message_id=parent_message_id,
                 turn_id=turn_id,
                 step_id=step_id,
                 finished_at=finished_at,

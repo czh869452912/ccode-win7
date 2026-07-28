@@ -150,3 +150,122 @@ def test_conversation_events_match_restored_projection():
     assert live.turns[-1].steps[-1].step_id == restored.turns[-1].steps[-1].step_id
     assert live.turns[-1].transitions[-1].reason == "completed"
     assert context.current_mode == "verify"
+
+
+def test_tool_events_match_restored_materialization_projection():
+    events = [
+        event("session_meta", {"current_mode": "build"}, seq=1),
+        event(
+            "user",
+            {
+                "role": "user",
+                "content": "read it",
+                "message_id": "message-user",
+                "parent_message_id": "",
+                "turn_id": "turn-1",
+                "step_id": "",
+            },
+            seq=2,
+        ),
+        event(
+            "step_started",
+            {"turn_id": "turn-1", "step_id": "step-1", "step_index": 1},
+            seq=3,
+        ),
+        event(
+            "assistant",
+            {
+                "role": "assistant",
+                "content": "",
+                "message_id": "message-assistant",
+                "parent_message_id": "message-user",
+                "turn_id": "turn-1",
+                "step_id": "step-1",
+                "actions": [
+                    {
+                        "name": "read_file",
+                        "arguments": {"path": "a.txt"},
+                        "call_id": "call-1",
+                    }
+                ],
+                "finish_reason": "tool_calls",
+            },
+            seq=4,
+        ),
+        event(
+            "tool_call",
+            {
+                "turn_id": "turn-1",
+                "step_id": "step-1",
+                "call_id": "call-1",
+                "tool_name": "read_file",
+                "arguments": {"path": "a.txt"},
+                "presentation": {
+                    "tool_label": "Read File",
+                    "permission_category": "read",
+                    "supports_diff_preview": False,
+                    "progress_renderer_key": "read-progress",
+                    "result_renderer_key": "read-result",
+                },
+            },
+            seq=5,
+        ),
+        event(
+            "tool_result",
+            {
+                "turn_id": "turn-1",
+                "step_id": "step-1",
+                "call_id": "call-1",
+                "tool_name": "read_file",
+                "arguments": {"path": "a.txt"},
+                "message_id": "message-tool",
+                "parent_message_id": "message-assistant",
+                "finished_at": "2026-07-27T00:00:01Z",
+                "replaced_by_refs": ["stored-content-1"],
+                "observation": {
+                    "success": True,
+                    "error": None,
+                    "data": {
+                        "content": "preview",
+                        "content_stored_path": "stored-content-1",
+                    },
+                },
+            },
+            seq=6,
+        ),
+        event(
+            "content_replacement",
+            {
+                "message_id": "message-tool",
+                "tool_call_id": "call-1",
+                "tool_name": "read_file",
+                "replacements": [
+                    {
+                        "field_name": "content",
+                        "stored_path": "stored-content-1",
+                        "replacement_text": "stored",
+                    }
+                ],
+            },
+            seq=7,
+        ),
+    ]
+    live = Session(session_id="session-1")
+    context = SessionReducerContext()
+    reducer = SessionReducer()
+
+    for item in events:
+        reducer.apply(live, context, item)
+    restored = SessionRestorer().restore(events).session
+
+    live_record = live._find_tool_call("call-1")
+    restored_record = restored._find_tool_call("call-1")
+    assert live_record is not None
+    assert restored_record is not None
+    assert live_record.presentation.to_dict() == restored_record.presentation.to_dict()
+    assert live_record.presentation.tool_label == "Read File"
+    assert live.messages[-1].replaced_by_refs == ["stored-content-1"]
+    assert [item.to_api_dict() for item in live.messages] == [
+        item.to_api_dict() for item in restored.messages
+    ]
+    assert live.content_replacements == restored.content_replacements

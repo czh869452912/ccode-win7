@@ -6,18 +6,16 @@ import time
 from copy import deepcopy
 from typing import Any, Dict, Optional
 
-from embedagent_core.session import Observation, Session
+from embedagent_core.session import Observation
+from embedagent_core.tool_contracts import PreparedToolObservation
 
 _LOG = logging.getLogger(__name__)
 
 
 class ToolCommitCoordinator(object):
-    persists_transcript = True
-
-    def __init__(self, tool_result_store, projection_db, transcript_store) -> None:
+    def __init__(self, tool_result_store, projection_db) -> None:
         self._tool_result_store = tool_result_store
         self._projection_db = projection_db
-        self._transcript_store = transcript_store
         self._lock = threading.Lock()
         self._inline_text_limit = 1600
 
@@ -52,7 +50,7 @@ class ToolCommitCoordinator(object):
 
     def _materialize_text(
         self,
-        session: Session,
+        session_id: str,
         action,
         data: Dict[str, Any],
         field_name: str,
@@ -62,7 +60,7 @@ class ToolCommitCoordinator(object):
             return None
         try:
             stored = self._tool_result_store.write_text(
-                session.session_id,
+                session_id,
                 action.call_id,
                 field_name,
                 value,
@@ -91,19 +89,12 @@ class ToolCommitCoordinator(object):
             ),
         }
 
-    def commit(
+    def materialize(
         self,
-        session: Session,
+        session_id: str,
         action,
         raw_observation: Observation,
-        current_mode: str,
-        turn_id: str = "",
-        step_id: str = "",
-        message_id: str = "",
-        parent_message_id: str = "",
-        finished_at: str = "",
-    ) -> Observation:
-        del current_mode
+    ) -> PreparedToolObservation:
         projection_updates = []  # type: List[Dict[str, Any]]
         with self._lock:
             data = (
@@ -111,83 +102,51 @@ class ToolCommitCoordinator(object):
                 if isinstance(raw_observation.data, dict)
                 else raw_observation.data
             )
-            committed = Observation(
+            observation = Observation(
                 raw_observation.tool_name,
                 raw_observation.success,
                 raw_observation.error,
                 data,
             )
             replacements = []  # type: List[Dict[str, str]]
-            if isinstance(committed.data, dict):
+            if isinstance(observation.data, dict):
                 for field_name in ("content", "stdout", "stderr", "diff"):
                     item = self._materialize_text(
-                        session,
+                        session_id,
                         action,
-                        committed.data,
+                        observation.data,
                         field_name,
                     )
                     if item is not None:
                         replacements.append(item)
-            finished_at = finished_at or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            self._transcript_store.append_event(
-                session.session_id,
-                "tool_result",
-                {
-                    "turn_id": turn_id or (session.turns[-1].turn_id if session.turns else ""),
-                    "step_id": step_id
-                    or (
-                        session.current_step().step_id if session.current_step() is not None else ""
-                    ),
-                    "call_id": action.call_id,
-                    "tool_name": action.name,
-                    "message_id": message_id,
-                    "parent_message_id": parent_message_id,
-                    "finished_at": finished_at,
-                    "observation": committed.to_dict(),
-                },
-            )
-            if replacements:
-                payload = {
-                    "message_id": message_id,
-                    "tool_call_id": action.call_id,
-                    "tool_name": action.name,
-                    "replacements": replacements,
-                }
-                try:
-                    self._transcript_store.append_event(
-                        session.session_id,
-                        "content_replacement",
-                        payload,
-                    )
-                    session.record_content_replacement(payload)
-                except (OSError, RuntimeError, ValueError, TypeError) as exc:
-                    _LOG.warning(
-                        "content replacement persistence failed for %s/%s: %s",
-                        action.name,
-                        action.call_id,
-                        exc,
-                    )
-                else:
-                    for item in replacements:
-                        preview = committed.data.get(item["field_name"] + "_preview", "")
-                        projection_updates.append(
-                            {
-                                "session_id": session.session_id,
-                                "tool_call_id": action.call_id,
-                                "message_id": message_id,
-                                "tool_name": action.name,
-                                "field_name": item["field_name"],
-                                "stored_path": item["stored_path"],
-                                "preview_text": preview,
-                                "byte_count": len(preview.encode("utf-8")),
-                                "line_count": preview.count("\n") + (1 if preview else 0),
-                                "content_kind": "text",
-                                "created_at": finished_at,
-                            }
-                        )
-        for payload in projection_updates:
+            finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            for item in replacements:
+                preview = observation.data.get(item["field_name"] + "_preview", "")
+                projection_updates.append(
+                    {
+                        "session_id": session_id,
+                        "tool_call_id": action.call_id,
+                        "message_id": "",
+                        "tool_name": action.name,
+                        "field_name": item["field_name"],
+                        "stored_path": item["stored_path"],
+                        "preview_text": preview,
+                        "byte_count": len(preview.encode("utf-8")),
+                        "line_count": preview.count("\n") + (1 if preview else 0),
+                        "content_kind": "text",
+                        "created_at": finished_at,
+                    }
+                )
+        return PreparedToolObservation(
+            observation=observation,
+            replacements=replacements,
+            commit_token={"projection_updates": projection_updates},
+        )
+
+    def finalize(self, commit_token: Any) -> None:
+        token = commit_token if isinstance(commit_token, dict) else {}
+        for payload in list(token.get("projection_updates") or []):
             try:
                 self._projection_db.upsert_tool_result_projection(**payload)
             except (OSError, ValueError, TypeError):
                 pass
-        return committed

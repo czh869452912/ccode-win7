@@ -10,11 +10,8 @@ from embedagent_core.compaction_state import CompactionState, CompactionStateRed
 from embedagent_core.recovery_state import RecoveryState, RecoveryStateReducer
 from embedagent_core.runtime_config import RuntimeConfigReducer, RuntimeConfigState
 from embedagent_core.session import (
-    Action,
-    Observation,
     PendingInteraction,
     Session,
-    ToolPresentationSnapshot,
 )
 from embedagent_core.session_operation_log import OperationLogReducer, OperationLogState
 from embedagent_core.session_reducer import (
@@ -59,8 +56,6 @@ class SessionRestorer(object):
         current_mode = ""
         reducer = SessionReducer()
         reduction_context = SessionReducerContext()
-        seen_message_ids = reduction_context.seen_message_ids
-        seen_tool_call_ids = reduction_context.seen_tool_call_ids
         seen_interaction_ids = reduction_context.seen_interaction_ids
         seen_boundary_ids = reduction_context.seen_boundary_ids
         seen_compacted_history_ids = reduction_context.seen_compacted_history_ids
@@ -107,6 +102,9 @@ class SessionRestorer(object):
                 "system",
                 "tool",
                 "step_started",
+                "tool_call",
+                "tool_result",
+                "content_replacement",
                 "loop_transition",
             ):
                 try:
@@ -124,96 +122,6 @@ class SessionRestorer(object):
             if event_type in ("tool_use", "command_execution", "interaction"):
                 continue
             if event_type in ("operation_started", "operation_finished", "operation_interrupted"):
-                continue
-            if event_type == "tool_call":
-                if session.current_step() is None:
-                    if _maybe_skip("tool_call_without_active_step"):
-                        continue
-                    break
-                if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
-                    if _maybe_skip("tool_call_turn_mismatch"):
-                        continue
-                    break
-                if not self._matches_current_step(session, str(payload.get("step_id") or "")):
-                    if _maybe_skip("tool_call_step_mismatch"):
-                        continue
-                    break
-                call_id = str(payload.get("call_id") or "").strip()
-                if not call_id or call_id in seen_tool_call_ids:
-                    if _maybe_skip("duplicate_tool_call_id"):
-                        continue
-                    break
-                action = Action(
-                    name=str(payload.get("tool_name") or ""),
-                    arguments=dict(payload.get("arguments") or {}),
-                    call_id=call_id,
-                )
-                presentation = ToolPresentationSnapshot.from_dict(payload.get("presentation"))
-                if session._find_tool_call(action.call_id) is None:
-                    session.record_tool_call(action, presentation=presentation)
-                    seen_tool_call_ids.add(call_id)
-                continue
-            if event_type == "tool_result":
-                # Skip lifecycle tool_result events (they have status field)
-                if payload.get("status"):
-                    continue
-                call_id = str(payload.get("call_id") or "")
-                record = session._find_tool_call(call_id) if call_id else None
-                if record is None:
-                    if _maybe_skip("tool_result_missing_tool_call"):
-                        continue
-                    break
-                parent_message_id = str(payload.get("parent_message_id") or "").strip()
-                if (
-                    parent_message_id
-                    and parent_message_id not in seen_message_ids
-                    and self._message_index(session, parent_message_id) < 0
-                ):
-                    if _maybe_skip("message_parent_missing"):
-                        continue
-                    break
-                message_id = str(payload.get("message_id") or "").strip()
-                if message_id:
-                    if message_id in seen_message_ids:
-                        if _maybe_skip("duplicate_message_id"):
-                            continue
-                        break
-                if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
-                    if _maybe_skip("tool_result_turn_mismatch"):
-                        continue
-                    break
-                if not self._matches_current_step(session, str(payload.get("step_id") or "")):
-                    if _maybe_skip("tool_result_step_mismatch"):
-                        continue
-                    break
-                if not self._matches_tool_result_record(record, payload):
-                    if _maybe_skip("tool_result_identity_mismatch"):
-                        continue
-                    break
-                action = Action(
-                    name=str(payload.get("tool_name") or ""),
-                    arguments=dict(payload.get("arguments") or {}),
-                    call_id=call_id,
-                )
-                observation_payload = dict(payload.get("observation") or {})
-                observation = Observation(
-                    tool_name=str(payload.get("tool_name") or ""),
-                    success=bool(observation_payload.get("success")),
-                    error=observation_payload.get("error"),
-                    data=observation_payload.get("data"),
-                )
-                session.add_observation(
-                    action,
-                    observation,
-                    message_id=str(payload.get("message_id") or ""),
-                    parent_message_id=parent_message_id,
-                    turn_id=str(payload.get("turn_id") or ""),
-                    step_id=str(payload.get("step_id") or ""),
-                    finished_at=str(payload.get("finished_at") or ""),
-                    replaced_by_refs=list(payload.get("replaced_by_refs") or []),
-                )
-                if message_id:
-                    seen_message_ids.add(message_id)
                 continue
             if event_type == "pending_interaction":
                 if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
@@ -271,13 +179,6 @@ class SessionRestorer(object):
                         continue
                     break
                 session.resolve_pending_interaction(dict(payload.get("resolution_payload") or {}))
-                continue
-            if event_type == "content_replacement":
-                if not self._is_valid_content_replacement(session, payload):
-                    if _maybe_skip("content_replacement_target_mismatch"):
-                        continue
-                    break
-                session.record_content_replacement(dict(payload))
                 continue
             if event_type == "context_snapshot":
                 session.record_context_snapshot(dict(payload))
@@ -462,33 +363,3 @@ class SessionRestorer(object):
         if created.tzinfo is None:
             created = created.replace(tzinfo=timezone.utc)
         return (now - created).total_seconds() > float(max_age_seconds)
-
-    def _matches_tool_result_record(self, record: Any, payload: Dict[str, Any]) -> bool:
-        tool_name = str(payload.get("tool_name") or "").strip()
-        if tool_name and tool_name != str(getattr(record, "tool_name", "") or ""):
-            return False
-        if "arguments" in payload:
-            arguments = payload.get("arguments")
-            if isinstance(arguments, dict):
-                if dict(arguments) != dict(getattr(record, "arguments", {}) or {}):
-                    return False
-        return True
-
-    def _is_valid_content_replacement(self, session: Session, payload: Dict[str, Any]) -> bool:
-        message_id = str(payload.get("message_id") or "").strip()
-        if not message_id:
-            return False
-        target = None
-        for message in session.messages:
-            if str(getattr(message, "message_id", "") or "") == message_id:
-                target = message
-                break
-        if target is None or str(getattr(target, "role", "") or "") != "tool":
-            return False
-        tool_call_id = str(payload.get("tool_call_id") or "").strip()
-        if tool_call_id and tool_call_id != str(getattr(target, "tool_call_id", "") or ""):
-            return False
-        tool_name = str(payload.get("tool_name") or "").strip()
-        if tool_name and tool_name != str(getattr(target, "name", "") or ""):
-            return False
-        return True
