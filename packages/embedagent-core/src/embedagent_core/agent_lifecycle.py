@@ -4,12 +4,12 @@ import logging
 from typing import Any, Callable, Dict, Optional
 
 from embedagent_core.session import (
-    Action,
     ContextAssemblyResult,
     LoopTransition,
     PendingInteraction,
     Session,
 )
+from embedagent_core.session_journal import EventIntent
 
 _LOG = logging.getLogger(__name__)
 
@@ -160,64 +160,21 @@ class AgentLifecycleJournal(object):
             "context_plan": self._context_plan_payload(assembly),
         }
 
-    def _context_plan_payload(self, assembly: ContextAssemblyResult) -> Dict[str, Any]:
-        plan = getattr(assembly, "plan", None)
-        if plan is None:
-            return {}
-        to_metadata = getattr(plan, "to_boundary_metadata", None)
-        if callable(to_metadata):
-            return dict(to_metadata())
-        return {}
-
-    def workflow_patch_snapshot(self, session: Session) -> Dict[str, Dict[str, Any]]:
-        workflow_root = getattr(session, "workflow_state", {}) or {}
-        workflow = {}
-        metadata = {}
-        if isinstance(workflow_root, dict):
-            workflow = dict(workflow_root.get("workflow") or {})
-            extensions = workflow_root.get("extensions") or {}
-            if isinstance(extensions, dict):
-                metadata = dict(extensions.get("last_workflow_patch") or {})
-        return {"workflow": workflow, "metadata": metadata}
-
-    def workflow_patch_payload(
+    def persist_workflow_patch_intent(
         self,
         session: Session,
-        current_mode: str,
-        workflow_state: str,
-        action: Action,
-    ) -> Dict[str, Any]:
-        snapshot = self.workflow_patch_snapshot(session)
-        turn_id = session.turns[-1].turn_id if session.turns else ""
-        step_id = session.current_step().step_id if session.current_step() is not None else ""
-        return {
-            "turn_id": turn_id,
-            "step_id": step_id,
-            "tool_call_id": action.call_id,
-            "mode_name": current_mode,
-            "workflow_state_name": workflow_state,
-            "workflow": dict(snapshot.get("workflow") or {}),
-            "metadata": dict(snapshot.get("metadata") or {}),
-        }
-
-    def workflow_patch_changed(
-        self,
-        before: Dict[str, Dict[str, Any]],
-        payload: Dict[str, Any],
-    ) -> bool:
-        before_workflow = dict((before or {}).get("workflow") or {})
-        before_metadata = dict((before or {}).get("metadata") or {})
-        workflow = dict(payload.get("workflow") or {})
-        metadata = dict(payload.get("metadata") or {})
-        return bool(workflow or metadata) and (
-            workflow != before_workflow or metadata != before_metadata
-        )
-
-    def persist_workflow_patch(self, session: Session, payload: Dict[str, Any]) -> None:
+        intent: EventIntent,
+        event_committer: Callable[[Session, EventIntent], Any],
+    ) -> None:
+        """Persist one workflow patch through the canonical journal committer."""
+        payload = dict(intent.payload)
         turn_id = str(payload.get("turn_id") or "")
         step_id = str(payload.get("step_id") or "")
         tool_call_id = str(payload.get("tool_call_id") or "")
-        operation_id = "workflow_patch:%s:%s" % (step_id or "session", tool_call_id or "patch")
+        operation_id = "workflow_patch:%s:%s" % (
+            step_id or "session",
+            tool_call_id or "patch",
+        )
         self.emit_operation_started(
             session,
             operation_id,
@@ -225,13 +182,13 @@ class AgentLifecycleJournal(object):
             turn_id=turn_id,
             step_id=step_id,
             tool_call_id=tool_call_id,
-            parent_operation_id="tool:%s" % tool_call_id if tool_call_id else "",
+            parent_operation_id=("tool:%s" % tool_call_id if tool_call_id else ""),
             metadata={
                 "mode_name": str(payload.get("mode_name") or ""),
                 "workflow_state_name": str(payload.get("workflow_state_name") or ""),
             },
         )
-        self.append_transcript_event(session, "workflow_patch", dict(payload), schema_version=2)
+        event_committer(session, intent)
         self.emit_operation_finished(
             session,
             operation_id,
@@ -245,17 +202,14 @@ class AgentLifecycleJournal(object):
             },
         )
 
-    def capture_workflow_patch_if_changed(
-        self,
-        session: Session,
-        action: Action,
-        current_mode: str,
-        workflow_state: str,
-        before: Dict[str, Dict[str, Any]],
-    ) -> None:
-        payload = self.workflow_patch_payload(session, current_mode, workflow_state, action)
-        if self.workflow_patch_changed(before, payload):
-            self.persist_workflow_patch(session, payload)
+    def _context_plan_payload(self, assembly: ContextAssemblyResult) -> Dict[str, Any]:
+        plan = getattr(assembly, "plan", None)
+        if plan is None:
+            return {}
+        to_metadata = getattr(plan, "to_boundary_metadata", None)
+        if callable(to_metadata):
+            return dict(to_metadata())
+        return {}
 
     def emit_turn_started(
         self,
@@ -446,28 +400,12 @@ class AgentLifecycleJournal(object):
                 "metadata": dict(transition.metadata),
             }
             if transition.pending_interaction is not None:
-                self.append_transcript_event(
-                    session,
-                    "pending_interaction",
-                    {
-                        "turn_id": turn_id,
-                        "step_id": step_id,
-                        "kind": transition.pending_interaction.kind,
-                        "tool_name": transition.pending_interaction.tool_name,
-                        "interaction_id": transition.pending_interaction.interaction_id,
-                        "request_payload": dict(transition.pending_interaction.request_payload),
-                    },
-                )
                 self.emit_pending_started(
                     session,
                     transition.pending_interaction,
                     turn_id,
                     step_id,
                 )
-                session.pending_interaction = transition.pending_interaction
-                if session.turns:
-                    session.turns[-1].pending_interaction = transition.pending_interaction
-
             self.emit_operation_started(
                 session,
                 savepoint_id,
@@ -529,4 +467,13 @@ class AgentLifecycleJournal(object):
                         turns_used=transition.turns_used,
                     )
             if self._commit_transition is None:
-                session.record_transition(transition)
+                session.record_transition(
+                    LoopTransition(
+                        reason=transition.reason,
+                        message=transition.message,
+                        pending_interaction=session.pending_interaction,
+                        next_mode=transition.next_mode,
+                        turns_used=transition.turns_used,
+                        metadata=dict(transition.metadata),
+                    )
+                )

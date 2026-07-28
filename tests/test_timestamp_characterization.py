@@ -3,8 +3,15 @@
 import re
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 # Import modules to test
-from embedagent_core.session import _utc_now
+from embedagent_core.session import Session, _utc_now
+from embedagent_core.session_reducer import (
+    SessionReduceError,
+    SessionReducer,
+    SessionReducerContext,
+)
 from embedagent_host.inprocess_adapter import _utc_now as adapter_utc_now
 from embedagent_host.runtime.plan_store import _utc_now as plan_utc_now
 from embedagent_host.runtime.project_memory import _utc_now as memory_utc_now
@@ -39,20 +46,51 @@ class TestTimestampFormat:
             ), f"{helper.__module__} produced invalid format: {result}"
 
 
-class TestSessionRestoreBehavior:
-    """Verify session restore age check behavior."""
+def _pending_interaction_event(created_at):
+    return {
+        "schema_version": 2,
+        "session_id": "session-age",
+        "event_id": "event-pending",
+        "seq": 1,
+        "ts": created_at,
+        "type": "pending_interaction",
+        "payload": {
+            "turn_id": "turn-age",
+            "step_id": "step-age",
+            "kind": "permission",
+            "tool_name": "write_file",
+            "interaction_id": "interaction-age",
+            "request_payload": {"path": "src/main.c"},
+            "created_at": created_at,
+        },
+    }
+
+
+def _session_with_active_step():
+    session = Session(session_id="session-age")
+    session.add_user_message("continue", turn_id="turn-age")
+    session.begin_step(step_id="step-age")
+    return session
+
+
+class TestSessionReducerBehavior:
+    """Verify pending-interaction age reduction behavior."""
 
     def test_old_session_is_older_than(self):
-        # Import the function under test
-        from embedagent_core.session_restore import SessionRestorer
-
-        restore = SessionRestorer()
         old_time = datetime.now(timezone.utc) - timedelta(hours=1)
-        assert restore._interaction_is_stale(old_time.isoformat(), 300) is True
+        with pytest.raises(SessionReduceError, match="^interaction_expired$"):
+            SessionReducer().apply(
+                _session_with_active_step(),
+                SessionReducerContext(),
+                _pending_interaction_event(old_time.isoformat()),
+            )
 
     def test_recent_session_is_not_older_than(self):
-        from embedagent_core.session_restore import SessionRestorer
-
-        restore = SessionRestorer()
         recent_time = datetime.now(timezone.utc) - timedelta(seconds=10)
-        assert restore._interaction_is_stale(recent_time.isoformat(), 300) is False
+        session = _session_with_active_step()
+        SessionReducer().apply(
+            session,
+            SessionReducerContext(),
+            _pending_interaction_event(recent_time.isoformat()),
+        )
+        assert session.pending_interaction is not None

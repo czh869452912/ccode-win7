@@ -8,6 +8,7 @@ from embedagent_core.session import (
     PendingInteraction,
     Session,
 )
+from embedagent_core.session_journal import EventIntent
 
 
 class AgentTurnFrame(object):
@@ -127,8 +128,24 @@ class AgentKernel(object):
             pending,
             current_mode,
         )
-        self.lifecycle.record_transition(session, transition)
-        return pending, transition
+        turn_id = session.turns[-1].turn_id if session.turns else ""
+        step = session.current_step()
+        step_id = step.step_id if step is not None else ""
+        return (
+            EventIntent(
+                "pending_interaction",
+                {
+                    "turn_id": turn_id,
+                    "step_id": step_id,
+                    "interaction_id": pending.interaction_id,
+                    "kind": pending.kind,
+                    "tool_name": pending.tool_name,
+                    "request_payload": dict(pending.request_payload),
+                    "created_at": pending.created_at,
+                },
+            ),
+            transition,
+        )
 
     def record_pending_user_input(
         self,
@@ -160,19 +177,34 @@ class AgentKernel(object):
             pending,
             current_mode,
         )
-        self.lifecycle.record_transition(session, transition)
-        return pending, transition
+        turn_id = session.turns[-1].turn_id if session.turns else ""
+        step = session.current_step()
+        step_id = step.step_id if step is not None else ""
+        return (
+            EventIntent(
+                "pending_interaction",
+                {
+                    "turn_id": turn_id,
+                    "step_id": step_id,
+                    "interaction_id": pending.interaction_id,
+                    "kind": pending.kind,
+                    "tool_name": pending.tool_name,
+                    "request_payload": dict(pending.request_payload),
+                    "created_at": pending.created_at,
+                },
+            ),
+            transition,
+        )
 
     def resolve_pending_interaction(
         self,
         session: Session,
         pending: PendingInteraction,
         resolution: dict,
-    ) -> None:
+    ) -> EventIntent:
         turn_id = session.turns[-1].turn_id if session.turns else ""
         step_id = session.current_step().step_id if session.current_step() is not None else ""
-        self.lifecycle.append_transcript_event(
-            session,
+        return EventIntent(
             "pending_resolution",
             {
                 "turn_id": turn_id,
@@ -183,11 +215,3 @@ class AgentKernel(object):
                 "resolution_payload": dict(resolution or {}),
             },
         )
-        self.lifecycle.emit_pending_finished(
-            session,
-            pending,
-            turn_id,
-            step_id,
-            "resolved",
-        )
-        session.resolve_pending_interaction(resolution)

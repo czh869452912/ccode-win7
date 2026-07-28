@@ -758,7 +758,7 @@ def test_agent_extension_host_applies_context_and_tool_result_workflow_patch(tmp
     )
 
     patched = host.apply_context_patch(session, "build", "chat", assembly, force_compact=False)
-    observation = host.apply_tool_result_patch(
+    tool_patch = host.apply_tool_result_patch(
         session,
         Action("read_file", {"path": "a.txt"}, "call-read"),
         "build",
@@ -767,9 +767,11 @@ def test_agent_extension_host_applies_context_and_tool_result_workflow_patch(tmp
     )
 
     assert patched.messages[-1]["content"] == "extension context"
-    assert observation.success is True
-    assert session.workflow_state["workflow"]["task_summary"]["total"] == 1
-    assert session.workflow_state["extensions"]["last_workflow_patch"]["source"] == "test"
+    assert tool_patch.observation.success is True
+    assert tool_patch.workflow_patch is not None
+    assert tool_patch.workflow_patch.workflow["task_summary"]["total"] == 1
+    assert tool_patch.workflow_patch.metadata["source"] == "test"
+    assert session.workflow_state == {}
 
 
 class DynamicServiceBoundaryExtension(object):

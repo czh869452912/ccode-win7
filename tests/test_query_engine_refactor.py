@@ -14,7 +14,8 @@ from embedagent_core.extensions import ExtensionManager, ToolResultPatch, Workfl
 from embedagent_core.interaction import UserInputResponse
 from embedagent_core.model import ModelClientError
 from embedagent_core.permissions import PermissionPolicy
-from embedagent_core.session import Action, AssistantReply, Observation, Session
+from embedagent_core.session import Action, AssistantReply, Observation, PendingInteraction, Session
+from embedagent_core.session_journal import EventIntent
 from embedagent_core.session_restore import SessionRestorer
 from embedagent_core.tool_contracts import PreparedToolObservation
 from embedagent_core.tool_execution import partition_tool_actions
@@ -3312,6 +3313,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             session=session,
             user_input_handler=None,
         )
+        self.assertTrue(result.pending_interaction.created_at)
 
         self.assertEqual(result.transition.reason, "user_input_wait")
         self.assertEqual(len(spy_kernel.pending_user_inputs), 1)
@@ -3319,6 +3321,71 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(
             spy_kernel.pending_user_inputs[0]["request_payload"]["question"], "下一步怎么做？"
         )
+
+    def test_agent_kernel_returns_pending_intent_without_mutating_session(self):
+        session = Session()
+        session.add_user_message("write", turn_id="turn-1", message_id="message-user")
+        session.begin_step(step_id="step-1")
+        engine = QueryEngine(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        action = Action("write_file", {"path": "a.txt"}, "call-1")
+
+        intent, transition = engine.kernel.record_pending_permission(
+            session,
+            action,
+            {
+                "tool_name": "write_file",
+                "category": "workspace_write",
+                "reason": "confirm",
+                "details": {},
+            },
+            "build",
+            interaction_id="interaction-1",
+        )
+
+        self.assertIsInstance(intent, EventIntent)
+        self.assertEqual(intent.event_type, "pending_interaction")
+        self.assertEqual(intent.payload["interaction_id"], "interaction-1")
+        self.assertEqual(intent.payload["turn_id"], "turn-1")
+        self.assertEqual(intent.payload["step_id"], "step-1")
+        self.assertEqual(transition.reason, "permission_wait")
+        self.assertEqual(intent.payload["created_at"], transition.pending_interaction.created_at)
+        self.assertIsNone(session.pending_interaction)
+        self.assertIsNone(session.turns[-1].pending_interaction)
+
+    def test_agent_kernel_returns_resolution_intent_without_mutating_session(self):
+        session = Session()
+        session.add_user_message("write", turn_id="turn-1", message_id="message-user")
+        session.begin_step(step_id="step-1")
+        pending = PendingInteraction(
+            interaction_id="interaction-1",
+            kind="permission",
+            tool_name="write_file",
+            request_payload={"permission": {"category": "workspace_write"}},
+        )
+        session.pending_interaction = pending
+        session.turns[-1].pending_interaction = pending
+        engine = QueryEngine(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+
+        intent = engine.kernel.resolve_pending_interaction(
+            session,
+            pending,
+            {"approved": True},
+        )
+
+        self.assertIsInstance(intent, EventIntent)
+        self.assertEqual(intent.event_type, "pending_resolution")
+        self.assertEqual(intent.payload["interaction_id"], "interaction-1")
+        self.assertEqual(intent.payload["resolution_payload"], {"approved": True})
+        self.assertIs(session.pending_interaction, pending)
+        self.assertEqual(pending.status, "pending")
 
     def test_query_engine_resume_uses_kernel_pending_resolution_boundary(self):
         session = Session()

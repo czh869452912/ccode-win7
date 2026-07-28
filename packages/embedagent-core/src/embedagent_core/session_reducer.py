@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Dict, Set
 
 from embedagent_core.session import (
@@ -8,6 +10,7 @@ from embedagent_core.session import (
     AssistantReply,
     LoopTransition,
     Observation,
+    PendingInteraction,
     Session,
     ToolPresentationSnapshot,
     TranscriptMessage,
@@ -60,6 +63,9 @@ class SessionReducer(object):
             "tool_call": self._apply_tool_call,
             "tool_result": self._apply_tool_result,
             "content_replacement": self._apply_content_replacement,
+            "pending_interaction": self._apply_pending_interaction,
+            "pending_resolution": self._apply_pending_resolution,
+            "workflow_patch": self._apply_workflow_patch,
         }
 
     def apply(
@@ -325,6 +331,72 @@ class SessionReducer(object):
             raise SessionReduceError("content_replacement_target_mismatch")
         session.record_content_replacement(dict(payload))
 
+    def _apply_pending_interaction(
+        self,
+        session: Session,
+        context: SessionReducerContext,
+        payload: Dict[str, Any],
+    ) -> None:
+        if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+            raise SessionReduceError("pending_interaction_turn_mismatch")
+        if not self._matches_current_step(session, str(payload.get("step_id") or "")):
+            raise SessionReduceError("pending_interaction_step_mismatch")
+        interaction_id = str(payload.get("interaction_id") or "").strip()
+        if not interaction_id:
+            raise SessionReduceError("interaction_expired")
+        interaction_created_at = str(payload.get("created_at") or "").strip()
+        if interaction_created_at and self._interaction_is_stale(
+            interaction_created_at,
+            max_age_seconds=300,
+        ):
+            raise SessionReduceError("interaction_expired")
+        if interaction_id in context.seen_interaction_ids:
+            raise SessionReduceError("duplicate_pending_interaction_id")
+        pending = PendingInteraction(
+            interaction_id=interaction_id,
+            kind=str(payload.get("kind") or ""),
+            tool_name=str(payload.get("tool_name") or ""),
+            request_payload=deepcopy(dict(payload.get("request_payload") or {})),
+            created_at=interaction_created_at or "",
+        )
+        session.pending_interaction = pending
+        if session.turns:
+            session.turns[-1].pending_interaction = pending
+        context.seen_interaction_ids.add(interaction_id)
+
+    def _apply_pending_resolution(
+        self,
+        session: Session,
+        context: SessionReducerContext,
+        payload: Dict[str, Any],
+    ) -> None:
+        del context
+        pending = session.pending_interaction
+        if pending is None:
+            raise SessionReduceError("pending_resolution_without_pending")
+        if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+            raise SessionReduceError("pending_resolution_turn_mismatch")
+        if not self._matches_current_step(session, str(payload.get("step_id") or "")):
+            raise SessionReduceError("pending_resolution_step_mismatch")
+        if not self._matches_pending_interaction(pending, payload):
+            raise SessionReduceError("pending_resolution_identity_mismatch")
+        session.resolve_pending_interaction(deepcopy(dict(payload.get("resolution_payload") or {})))
+
+    def _apply_workflow_patch(
+        self,
+        session: Session,
+        context: SessionReducerContext,
+        payload: Dict[str, Any],
+    ) -> None:
+        del context
+        workflow = payload.get("workflow") or {}
+        metadata = payload.get("metadata") or {}
+        if isinstance(workflow, dict) and workflow:
+            session.workflow_state["workflow"] = deepcopy(dict(workflow))
+        if isinstance(metadata, dict) and metadata:
+            extensions = session.workflow_state.setdefault("extensions", {})
+            extensions["last_workflow_patch"] = deepcopy(dict(metadata))
+
     def _matches_current_turn(self, session: Session, turn_id: str) -> bool:
         expected = str(turn_id or "").strip()
         if not expected:
@@ -380,3 +452,32 @@ class SessionReducer(object):
         if tool_name and tool_name != str(getattr(target, "name", "") or ""):
             return False
         return True
+
+    def _matches_pending_interaction(
+        self,
+        pending: PendingInteraction,
+        payload: Dict[str, Any],
+    ) -> bool:
+        interaction_id = str(payload.get("interaction_id") or "").strip()
+        if interaction_id and interaction_id != str(pending.interaction_id or ""):
+            return False
+        tool_name = str(payload.get("tool_name") or "").strip()
+        if tool_name and tool_name != str(pending.tool_name or ""):
+            return False
+        kind = str(payload.get("kind") or "").strip()
+        if kind and kind != str(pending.kind or ""):
+            return False
+        return True
+
+    def _interaction_is_stale(self, created_at: str, max_age_seconds: int) -> bool:
+        value = str(created_at or "").strip()
+        if not value:
+            return True
+        try:
+            created = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return True
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        return (now - created).total_seconds() > float(max_age_seconds)

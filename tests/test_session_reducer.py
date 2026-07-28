@@ -269,3 +269,136 @@ def test_tool_events_match_restored_materialization_projection():
         item.to_api_dict() for item in restored.messages
     ]
     assert live.content_replacements == restored.content_replacements
+
+
+def test_interaction_and_workflow_events_match_restored_projection():
+    events = [
+        event("session_meta", {"current_mode": "build"}, seq=1),
+        event(
+            "user",
+            {
+                "role": "user",
+                "content": "continue",
+                "message_id": "message-user",
+                "parent_message_id": "",
+                "turn_id": "turn-1",
+                "step_id": "",
+            },
+            seq=2,
+        ),
+        event(
+            "step_started",
+            {"turn_id": "turn-1", "step_id": "step-1", "step_index": 1},
+            seq=3,
+        ),
+        event(
+            "pending_interaction",
+            {
+                "turn_id": "turn-1",
+                "step_id": "step-1",
+                "interaction_id": "interaction-1",
+                "kind": "permission",
+                "tool_name": "write_file",
+                "request_payload": {
+                    "permission": {"category": "workspace_write"},
+                },
+            },
+            seq=4,
+        ),
+        event(
+            "pending_resolution",
+            {
+                "turn_id": "turn-1",
+                "step_id": "step-1",
+                "interaction_id": "interaction-1",
+                "kind": "permission",
+                "tool_name": "write_file",
+                "resolution_payload": {"approved": True},
+            },
+            seq=5,
+        ),
+        event(
+            "workflow_patch",
+            {
+                "turn_id": "turn-1",
+                "step_id": "step-1",
+                "tool_call_id": "call-1",
+                "workflow": {"phase": "verify"},
+                "metadata": {"source": "test"},
+            },
+            seq=6,
+        ),
+    ]
+    live = Session(session_id="session-1")
+    context = SessionReducerContext()
+    reducer = SessionReducer()
+
+    for item in events:
+        reducer.apply(live, context, item)
+    restored = SessionRestorer().restore(events).session
+
+    assert live.pending_interaction is None
+    assert restored.pending_interaction is None
+    assert live.turns[-1].pending_interaction is None
+    assert live.workflow_state["workflow"] == {"phase": "verify"}
+    assert live.workflow_state["extensions"]["last_workflow_patch"] == {"source": "test"}
+    assert live.workflow_state == restored.workflow_state
+    assert context.seen_interaction_ids == {"interaction-1"}
+
+
+def test_pending_interaction_request_payload_is_deep_copied():
+    session = Session(session_id="session-1")
+    context = SessionReducerContext()
+    reducer = SessionReducer()
+    reducer.apply(
+        session,
+        context,
+        event(
+            "user",
+            {
+                "role": "user",
+                "content": "continue",
+                "message_id": "message-user",
+                "parent_message_id": "",
+                "turn_id": "turn-1",
+                "step_id": "",
+            },
+            seq=1,
+        ),
+    )
+    reducer.apply(
+        session,
+        context,
+        event(
+            "step_started",
+            {"turn_id": "turn-1", "step_id": "step-1", "step_index": 1},
+            seq=2,
+        ),
+    )
+    request_payload = {
+        "permission": {
+            "category": "workspace_write",
+            "details": {"path": "a.txt"},
+        }
+    }
+    reducer.apply(
+        session,
+        context,
+        event(
+            "pending_interaction",
+            {
+                "turn_id": "turn-1",
+                "step_id": "step-1",
+                "interaction_id": "interaction-1",
+                "kind": "permission",
+                "tool_name": "write_file",
+                "request_payload": request_payload,
+            },
+            seq=3,
+        ),
+    )
+
+    request_payload["permission"]["details"]["path"] = "changed.txt"
+
+    assert session.pending_interaction is not None
+    assert session.pending_interaction.request_payload["permission"]["details"]["path"] == ("a.txt")

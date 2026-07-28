@@ -147,6 +147,7 @@ class QueryEngine(object):
             user_input_pending_handler=self._build_user_input_pending_result,
             user_input_response_handler=self._build_user_input_observation,
             lifecycle=self.lifecycle,
+            event_committer=self._commit_event_intent,
         )
         self._llm_wrapper = LLMClientRetryWrapper(
             client=client,
@@ -275,6 +276,14 @@ class QueryEngine(object):
             if message_id:
                 durable_ids.add(message_id)
         return stored
+
+    def _commit_event_intent(
+        self,
+        session: Session,
+        intent: EventIntent,
+    ) -> Dict[str, Any]:
+        with self._session_guard():
+            return self._commit_session_event(session, intent.event_type, dict(intent.payload))
 
     def _commit_transition_event(
         self,
@@ -1772,13 +1781,17 @@ class QueryEngine(object):
             "reason": request.reason,
             "details": self._public_interaction_details(request.details),
         }
-        pending, transition = self.kernel.record_pending_permission(
+        intent, transition = self.kernel.record_pending_permission(
             session,
             action,
             permission_payload,
             current_mode,
             interaction_id=self._interaction_id_from_request_details(request.details),
         )
+        with self._session_guard():
+            self._commit_session_event(session, intent.event_type, intent.payload)
+        self._record_transition(session, transition)
+        pending = session.pending_interaction
         return QueryTurnResult("", session, transition, pending_interaction=pending)
 
     def _build_user_input_pending_result(
@@ -1797,7 +1810,7 @@ class QueryEngine(object):
             ],
             "details": self._public_interaction_details(request.details),
         }
-        pending, transition = self.kernel.record_pending_user_input(
+        intent, transition = self.kernel.record_pending_user_input(
             session,
             action,
             request.tool_name,
@@ -1806,6 +1819,10 @@ class QueryEngine(object):
             current_mode,
             interaction_id=self._interaction_id_from_request_details(request.details),
         )
+        with self._session_guard():
+            self._commit_session_event(session, intent.event_type, intent.payload)
+        self._record_transition(session, transition)
+        pending = session.pending_interaction
         return QueryTurnResult("", session, transition, pending_interaction=pending)
 
     def _build_user_input_observation(
@@ -1873,7 +1890,15 @@ class QueryEngine(object):
         with self._session_guard():
             turn_id = session.turns[-1].turn_id if session.turns else ""
             step_id = session.current_step().step_id if session.current_step() is not None else ""
-            self.kernel.resolve_pending_interaction(session, pending, resolution)
+            intent = self.kernel.resolve_pending_interaction(session, pending, resolution)
+            self._commit_session_event(session, intent.event_type, intent.payload)
+            self.lifecycle.emit_pending_finished(
+                session,
+                pending,
+                turn_id,
+                step_id,
+                "resolved",
+            )
         action_payload = (
             pending.request_payload.get("action")
             if isinstance(pending.request_payload, dict)

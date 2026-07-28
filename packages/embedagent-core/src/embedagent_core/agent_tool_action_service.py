@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import threading
+from copy import deepcopy
 from typing import Any, Callable, Optional, Tuple
 
 from embedagent_core.agent_extension_host import AgentExtensionHost
@@ -14,6 +15,7 @@ from embedagent_core.interaction import (
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 from embedagent_core.policies import DenyWritePathPolicy, WritePathPolicy
 from embedagent_core.session import Action, Observation, QueryTurnResult, Session
+from embedagent_core.session_journal import EventIntent
 from embedagent_core.tool_contracts import ToolError, ToolRuntimePort
 
 
@@ -42,6 +44,7 @@ class AgentToolActionService(object):
             ]
         ] = None,
         lifecycle: Optional[AgentLifecycleJournal] = None,
+        event_committer: Optional[Callable[[Session, EventIntent], Any]] = None,
     ) -> None:
         self.tools = tools
         self.permission_policy = permission_policy
@@ -54,6 +57,7 @@ class AgentToolActionService(object):
         self._user_input_pending_handler = user_input_pending_handler
         self._user_input_response_handler = user_input_response_handler
         self.lifecycle = lifecycle
+        self._event_committer = event_committer
 
     def is_extension_blocked_observation(self, observation: Optional[Observation]) -> bool:
         if observation is None or not isinstance(observation.data, dict):
@@ -130,13 +134,20 @@ class AgentToolActionService(object):
         workflow_state: str,
         observation: Observation,
     ) -> Observation:
-        return self.extension_host.apply_tool_result_patch(
+        patch = self.extension_host.apply_tool_result_patch(
             session,
             action,
             current_mode,
             workflow_state,
             observation,
         )
+        if patch.workflow_patch is not None:
+            intent = self._workflow_patch_intent(
+                session, action, current_mode, workflow_state, patch.workflow_patch
+            )
+            if intent is not None:
+                self._commit_workflow_patch_event(session, intent)
+        return patch.observation if patch.observation is not None else observation
 
     def execute_action(
         self,
@@ -149,7 +160,6 @@ class AgentToolActionService(object):
         precomputed_observation: Optional[Observation] = None,
         stop_event: Optional[threading.Event] = None,
     ) -> Tuple[Observation, str, Optional[QueryTurnResult]]:
-        before_workflow = self._workflow_patch_snapshot(session)
         result = self._execute_action_inner(
             session,
             action,
@@ -159,13 +169,6 @@ class AgentToolActionService(object):
             user_input_handler,
             precomputed_observation=precomputed_observation,
             stop_event=stop_event,
-        )
-        self._capture_workflow_patch_if_changed(
-            session,
-            action,
-            current_mode,
-            workflow_state,
-            before_workflow,
         )
         return result
 
@@ -325,27 +328,48 @@ class AgentToolActionService(object):
         )
         return observation, current_mode, None
 
-    def _workflow_patch_snapshot(self, session: Session) -> Any:
-        if self.lifecycle is None:
-            return None
-        return self.lifecycle.workflow_patch_snapshot(session)
-
-    def _capture_workflow_patch_if_changed(
+    def _workflow_patch_intent(
         self,
         session: Session,
         action: Action,
         current_mode: str,
         workflow_state: str,
-        before_workflow: Any,
+        workflow_patch: Any,
+    ) -> Optional[EventIntent]:
+        workflow = deepcopy(dict(getattr(workflow_patch, "workflow", {}) or {}))
+        metadata = deepcopy(dict(getattr(workflow_patch, "metadata", {}) or {}))
+        if not workflow and not metadata:
+            return None
+        turn_id = session.turns[-1].turn_id if session.turns else ""
+        step = session.current_step()
+        step_id = step.step_id if step is not None else ""
+        return EventIntent(
+            "workflow_patch",
+            {
+                "turn_id": turn_id,
+                "step_id": step_id,
+                "tool_call_id": action.call_id,
+                "mode_name": current_mode,
+                "workflow_state_name": workflow_state,
+                "workflow": workflow,
+                "metadata": metadata,
+            },
+        )
+
+    def _commit_workflow_patch_event(
+        self,
+        session: Session,
+        intent: EventIntent,
     ) -> None:
+        if self._event_committer is None:
+            raise RuntimeError("workflow patch event committer is not configured")
         if self.lifecycle is None:
+            self._event_committer(session, intent)
             return
-        self.lifecycle.capture_workflow_patch_if_changed(
+        self.lifecycle.persist_workflow_patch_intent(
             session,
-            action,
-            current_mode,
-            workflow_state,
-            before_workflow,
+            intent,
+            self._event_committer,
         )
 
     def _execute_interactive_action(

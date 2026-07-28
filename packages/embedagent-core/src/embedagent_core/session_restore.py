@@ -2,17 +2,13 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from embedagent_core.compacted_history import CompactedHistoryReducer
 from embedagent_core.compaction_state import CompactionState, CompactionStateReducer
 from embedagent_core.recovery_state import RecoveryState, RecoveryStateReducer
 from embedagent_core.runtime_config import RuntimeConfigReducer, RuntimeConfigState
-from embedagent_core.session import (
-    PendingInteraction,
-    Session,
-)
+from embedagent_core.session import Session
 from embedagent_core.session_operation_log import OperationLogReducer, OperationLogState
 from embedagent_core.session_reducer import (
     SessionReduceError,
@@ -56,7 +52,6 @@ class SessionRestorer(object):
         current_mode = ""
         reducer = SessionReducer()
         reduction_context = SessionReducerContext()
-        seen_interaction_ids = reduction_context.seen_interaction_ids
         seen_boundary_ids = reduction_context.seen_boundary_ids
         seen_compacted_history_ids = reduction_context.seen_compacted_history_ids
         consumed_event_count = len(events)
@@ -106,6 +101,9 @@ class SessionRestorer(object):
                 "tool_result",
                 "content_replacement",
                 "loop_transition",
+                "pending_interaction",
+                "pending_resolution",
+                "workflow_patch",
             ):
                 try:
                     reducer_event = dict(event)
@@ -123,74 +121,8 @@ class SessionRestorer(object):
                 continue
             if event_type in ("operation_started", "operation_finished", "operation_interrupted"):
                 continue
-            if event_type == "pending_interaction":
-                if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
-                    if _maybe_skip("pending_interaction_turn_mismatch"):
-                        continue
-                    break
-                if not self._matches_current_step(session, str(payload.get("step_id") or "")):
-                    if _maybe_skip("pending_interaction_step_mismatch"):
-                        continue
-                    break
-                interaction_id = str(payload.get("interaction_id") or "").strip()
-                if not interaction_id:
-                    if _maybe_skip("interaction_expired"):
-                        continue
-                    break
-                interaction_created_at = str(payload.get("created_at") or "").strip()
-                if interaction_created_at and self._interaction_is_stale(
-                    interaction_created_at, max_age_seconds=300
-                ):
-                    if _maybe_skip("interaction_expired"):
-                        continue
-                    break
-                if interaction_id and interaction_id in seen_interaction_ids:
-                    if _maybe_skip("duplicate_pending_interaction_id"):
-                        continue
-                    break
-                pending = PendingInteraction(
-                    interaction_id=interaction_id,
-                    kind=str(payload.get("kind") or ""),
-                    tool_name=str(payload.get("tool_name") or ""),
-                    request_payload=dict(payload.get("request_payload") or {}),
-                    created_at=interaction_created_at or "",
-                )
-                session.pending_interaction = pending
-                if session.turns:
-                    session.turns[-1].pending_interaction = pending
-                if interaction_id:
-                    seen_interaction_ids.add(interaction_id)
-                continue
-            if event_type == "pending_resolution":
-                if session.pending_interaction is None:
-                    if _maybe_skip("pending_resolution_without_pending"):
-                        continue
-                    break
-                if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
-                    if _maybe_skip("pending_resolution_turn_mismatch"):
-                        continue
-                    break
-                if not self._matches_current_step(session, str(payload.get("step_id") or "")):
-                    if _maybe_skip("pending_resolution_step_mismatch"):
-                        continue
-                    break
-                if not self._matches_pending_interaction(session.pending_interaction, payload):
-                    if _maybe_skip("pending_resolution_identity_mismatch"):
-                        continue
-                    break
-                session.resolve_pending_interaction(dict(payload.get("resolution_payload") or {}))
-                continue
             if event_type == "context_snapshot":
                 session.record_context_snapshot(dict(payload))
-                continue
-            if event_type == "workflow_patch":
-                workflow = payload.get("workflow") or {}
-                metadata = payload.get("metadata") or {}
-                if isinstance(workflow, dict) and workflow:
-                    session.workflow_state["workflow"] = dict(workflow)
-                if isinstance(metadata, dict) and metadata:
-                    extensions = session.workflow_state.setdefault("extensions", {})
-                    extensions["last_workflow_patch"] = dict(metadata)
                 continue
             if event_type == "compact_boundary":
                 if not self._is_valid_compact_boundary(session, payload):
@@ -336,30 +268,3 @@ class SessionRestorer(object):
             if str(getattr(message, "message_id", "") or "") == target:
                 return index
         return -1
-
-    def _matches_pending_interaction(
-        self, pending: PendingInteraction, payload: Dict[str, Any]
-    ) -> bool:
-        interaction_id = str(payload.get("interaction_id") or "").strip()
-        if interaction_id and interaction_id != str(pending.interaction_id or ""):
-            return False
-        tool_name = str(payload.get("tool_name") or "").strip()
-        if tool_name and tool_name != str(pending.tool_name or ""):
-            return False
-        kind = str(payload.get("kind") or "").strip()
-        if kind and kind != str(pending.kind or ""):
-            return False
-        return True
-
-    def _interaction_is_stale(self, created_at: str, max_age_seconds: int) -> bool:
-        value = str(created_at or "").strip()
-        if not value:
-            return True
-        try:
-            created = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            return True
-        now = datetime.now(timezone.utc).replace(microsecond=0)
-        if created.tzinfo is None:
-            created = created.replace(tzinfo=timezone.utc)
-        return (now - created).total_seconds() > float(max_age_seconds)

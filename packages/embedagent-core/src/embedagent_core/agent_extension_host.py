@@ -7,6 +7,7 @@ from embedagent_core.extensions import (
     ExtensionManager,
     SessionView,
     ToolRegistrationEvent,
+    ToolResultPatch,
     WorkflowEvent,
 )
 from embedagent_core.interaction import ask_user_schema, propose_mode_switch_schema
@@ -186,22 +187,17 @@ class AgentExtensionHost(object):
         current_mode: str,
         workflow_state: str,
         observation: Observation,
-    ) -> Observation:
+    ) -> ToolResultPatch:
         event = self.workflow_event(session, current_mode, workflow_state)
         event.tool_name = action.name
         event.tool_arguments = dict(action.arguments)
         event.observation = observation
         patch = self.manager.after_tool_result(event, self.context_for(session))
-        if patch.workflow_patch is not None:
-            workflow_patch = patch.workflow_patch
-            if workflow_patch.workflow:
-                session.workflow_state["workflow"] = dict(workflow_patch.workflow)
-            if workflow_patch.metadata:
-                extensions = session.workflow_state.setdefault("extensions", {})
-                extensions["last_workflow_patch"] = dict(workflow_patch.metadata)
-        if patch.observation is not None:
-            return patch.observation
-        return observation
+        return ToolResultPatch(
+            observation=patch.observation if patch.observation is not None else observation,
+            workflow_patch=patch.workflow_patch,
+            metadata=dict(patch.metadata or {}),
+        )
 
     def handle_tool_call(
         self,
