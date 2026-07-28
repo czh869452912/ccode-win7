@@ -43,8 +43,11 @@ def _doctor(profile):
         encoding="utf-8",
         errors="replace",
     )
-    assert result.returncode == 0, result.stderr
-    return json.loads(result.stdout)
+    report = json.loads(result.stdout)
+    assert report["command_status"] in ("READY", "NOT_READY")
+    expected_returncode = 0 if report["command_status"] == "READY" else 1
+    assert result.returncode == expected_returncode, result.stderr
+    return report
 
 
 def test_release_config_declares_identity_evidence_and_distribution_contract():
