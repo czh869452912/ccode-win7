@@ -1,5 +1,4 @@
 import pytest
-from embedagent_core.session import Session
 from embedagent_host.hosted_interaction_service import (
     HostedInteractionService,
     HostedPendingInteraction,
@@ -41,7 +40,7 @@ def test_user_input_response_matches_option_value():
 
 
 def test_pending_interaction_claim_rejects_duplicate_resolution():
-    state = ManagedSession(Session(session_id="sess-1"), current_mode="build")
+    state = ManagedSession(session_id="sess-1", current_mode="build")
     ticket = HostedPendingInteraction(
         interaction_id="ask-1",
         kind="user_input",

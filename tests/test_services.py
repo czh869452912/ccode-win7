@@ -2,10 +2,12 @@ import os
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent_core.hosting import HostedSessionProjection
 from embedagent_host.runtime.services.event_emitter import EventEmitter
 from embedagent_host.runtime.services.session_lifecycle import SessionLifecycleManager
 from embedagent_host.runtime.services.workspace_file_service import WorkspaceFileService
@@ -113,19 +115,37 @@ class TestSessionLifecycleManager(unittest.TestCase):
             "session_store": self.summary_store,
             "summary_store": self.summary_store,
             "plan_store": self.plan_store,
-            "project_memory": self.project_memory,
-            "session_journal": self.session_journal,
-            "restore_policy": self.restore_policy,
             "transcript_store": self.transcript_store,
+            "session_opener": self.session_opener,
         }
 
     def setUp(self):
         self.summary_store = MagicMock()
         self.plan_store = MagicMock()
-        self.project_memory = MagicMock()
-        self.session_journal = MagicMock()
-        self.restore_policy = MagicMock()
         self.transcript_store = MagicMock()
+        self.controllers = {}
+
+        def open_session(requested):
+            session_id = str(requested or "session-new")
+            agent_session = SimpleNamespace(session_id=session_id)
+            controller = MagicMock()
+
+            def projection(mode="explore"):
+                return HostedSessionProjection(
+                    session_id,
+                    mode,
+                    "idle",
+                    None,
+                    snapshot={"session_id": session_id, "current_mode": mode},
+                    history={"session_id": session_id, "turns": []},
+                )
+
+            controller.snapshot.return_value = projection()
+            controller.initialize.side_effect = lambda mode, workflow_state: projection(mode)
+            self.controllers[session_id] = controller
+            return agent_session, controller
+
+        self.session_opener = open_session
         self.manager = SessionLifecycleManager(
             **self._manager_kwargs(),
             mode_resolver=lambda name: {"slug": name} if name in ("explore", "build") else {},
@@ -196,37 +216,31 @@ class TestSessionLifecycleManager(unittest.TestCase):
     def test_create_session_state_returns_managed_session(self):
         self.plan_store.load.return_value = None
         state = self.manager.create_session_state(mode="explore")
-        self.assertIsNotNone(state.session)
+        self.assertEqual(state.session_id, "session-new")
         self.assertEqual(state.current_mode, "explore")
         self.assertEqual(state.workflow_state, "")
 
-    def test_restore_resolves_reference_before_journal_restore(self):
+    def test_restore_resolves_reference_before_controller_restore(self):
         self.summary_store.resolve_transcript_path.return_value = "transcript-reference"
         self.transcript_store.session_id_for_reference.return_value = "session-one"
-        self.session_journal.restore.side_effect = RuntimeError("stop")
-
-        with self.assertRaisesRegex(RuntimeError, "^stop$"):
-            self.manager.restore_session_state("latest")
+        self.manager.restore_session_state("latest")
+        controller = self.controllers["session-one"]
 
         self.transcript_store.session_id_for_reference.assert_called_once_with(
             "transcript-reference"
         )
-        self.session_journal.restore.assert_called_once_with(
-            "session-one",
-            self.restore_policy,
-        )
+        controller.snapshot.assert_called_once_with()
+        controller.initialize.assert_called_once_with("explore", "")
         self.transcript_store.load_events.assert_not_called()
         self.transcript_store.load_events_from_reference.assert_not_called()
 
     def test_persist_state_saves_summary(self):
-        from embedagent_core.session import Session
         from embedagent_host.runtime.session_runtime import ManagedSession
 
-        session = Session()
-        state = ManagedSession(session=session, current_mode="explore")
-        self.summary_store.persist.return_value = "ref123"
-        result = self.manager.persist_state(session, "explore", state)
-        self.summary_store.persist.assert_called_once_with(session, "explore")
+        state = ManagedSession(session_id="session-one", current_mode="explore")
+        self.summary_store.load_summary.return_value = {"summary_ref": "ref123"}
+        result = self.manager.persist_state(state)
+        self.summary_store.load_summary.assert_called_once_with("session-one")
         self.assertEqual(result, "ref123")
 
 
@@ -236,30 +250,40 @@ class TestHarnessWorkflowExtensionRefresh(unittest.TestCase):
         self.extension = CHarnessWorkflowExtension(harness_runner=self.harness_runner)
 
     def test_refresh_task_graph_updates_snapshot(self):
-        from embedagent_core.session import Session
         from embedagent_host.runtime.session_runtime import ManagedSession
 
-        session = Session()
-        state = ManagedSession(session=session, current_mode="explore")
-        graph = MagicMock()
-        graph.current_phase = "phase1"
-        graph.discipline = "disc1"
-        graph.render_summary.return_value = "summary"
-        graph.to_items.return_value = []
-        context = MagicMock()
-        context.current_phase = "phase1"
-        context.discipline_label = "disc1"
-        context.task_summary = "summary"
-        context.task_items = []
-
-        self.harness_runner.update_task_graph.return_value = graph
-        self.harness_runner.describe_mode.return_value = context
+        state = ManagedSession(
+            session_id="session-one",
+            current_mode="explore",
+            projection={
+                "workflow_state": {
+                    "workflow": {
+                        "summary": "summary",
+                        "items": [],
+                        "metadata": {
+                            "current_phase": "phase1",
+                            "discipline_profile": "disc1",
+                        },
+                    }
+                }
+            },
+        )
 
         mock_task_store = MagicMock()
         self.extension.refresh_managed_session(
             state,
             "/tmp/workspace",
             task_store_module=mock_task_store,
+        )
+        mock_task_store.save_task_snapshot.assert_called_once_with(
+            "/tmp/workspace",
+            "session-one",
+            "explore",
+            "",
+            "disc1",
+            "phase1",
+            "summary",
+            [],
         )
 
         mock_task_store.save_task_snapshot.assert_called_once()

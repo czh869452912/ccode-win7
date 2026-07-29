@@ -17,7 +17,7 @@ from embedagent_protocol import CommandResult, PlanSnapshot
 from embedagent_host.runtime.prompts import expand_prompt_invocation
 from embedagent_host.runtime.review_command import ReviewCommandService
 from embedagent_host.runtime.session_event_protocol import SessionEventHandler
-from embedagent_host.runtime.session_runtime import ManagedSession
+from embedagent_host.runtime.session_runtime import ManagedSession, apply_hosted_projection
 from embedagent_host.runtime.skills import expand_skill_invocation
 from embedagent_host.runtime.slash_command_service import SlashCommandService
 from embedagent_host.runtime.slash_commands import (
@@ -32,6 +32,17 @@ PermissionResolver = Callable[[Dict[str, Any]], bool]
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _observation_from_payload(payload: Optional[Dict[str, Any]]) -> Optional[Observation]:
+    if not isinstance(payload, dict):
+        return None
+    return Observation(
+        tool_name=str(payload.get("tool_name") or ""),
+        success=bool(payload.get("success")),
+        error=payload.get("error"),
+        data=payload.get("data"),
+    )
 
 
 class HostedCommandService(object):
@@ -163,8 +174,7 @@ class HostedCommandService(object):
         state: ManagedSession,
         result: CommandResult,
     ) -> None:
-        state.hosted_session.record_command_result(
-            state.session,
+        hosted_projection = state.hosted_session.record_command_result(
             HostedCommandRecord(
                 user_text=state.current_command_text,
                 command_name=result.command_name,
@@ -176,6 +186,10 @@ class HostedCommandService(object):
                 step_index=result.step_index or state.current_command_step_index,
             ),
         )
+        with state.lock:
+            apply_hosted_projection(state, hosted_projection)
+        self._refresh_workflow_state(state)
+
         payload = {
             "command_name": result.command_name,
             "success": result.success,
@@ -288,7 +302,7 @@ class HostedCommandService(object):
         if parsed.raw_args:
             parts = parsed.raw_args.split(None, 1)
             remainder = str(parts[1] or "").strip() if len(parts) > 1 else ""
-        snapshot = self._set_session_mode(state.session.session_id, target_mode)
+        snapshot = self._set_session_mode(state.session_id, target_mode)
         message = "已切换到 `%s` 模式。" % target_mode
         if remainder:
             message += " 继续处理后续消息。"
@@ -447,7 +461,7 @@ class HostedCommandService(object):
         action = parsed.args[0] if parsed.args else "list"
         if str(action or "").strip().lower() == "reload":
             payload = self._reload_resources(
-                session_id=state.session.session_id,
+                session_id=state.session_id,
                 reason="command",
             )
         else:
@@ -455,7 +469,7 @@ class HostedCommandService(object):
             payload = (
                 lookup()
                 if callable(lookup)
-                else self._reload_resources(session_id=state.session.session_id, reason="command")
+                else self._reload_resources(session_id=state.session_id, reason="command")
             )
         counts = dict(payload.get("counts") or {})
         result_data = dict(payload)
@@ -578,7 +592,7 @@ class HostedCommandService(object):
         event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
-        payload = self._list_tasks(session_id=state.session.session_id)
+        payload = self._list_tasks(session_id=state.session_id)
         lines = ["## Session Tasks", ""]
         tasks = payload.get("tasks") or []
         if not tasks:
@@ -639,7 +653,7 @@ class HostedCommandService(object):
         event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
-        context = self._get_permission_context(state.session.session_id)
+        context = self._get_permission_context(state.session_id)
         lines = [
             "## Permission Context",
             "",
@@ -675,11 +689,11 @@ class HostedCommandService(object):
         event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
-        current = self.plan_store.load(state.session.session_id)
+        current = self.plan_store.load(state.session_id)
         if parsed.raw_args:
             summary = parsed.raw_args.splitlines()[0][:120]
             current = self.plan_store.save(
-                state.session.session_id,
+                state.session_id,
                 title="Current Plan",
                 content=parsed.raw_args,
                 workflow_state="plan",
@@ -703,7 +717,7 @@ class HostedCommandService(object):
             return {"handled": True, "continue_with_text": ""}
         if current is None:
             current = self.plan_store.save(
-                state.session.session_id,
+                state.session_id,
                 title="Current Plan",
                 content="## Summary\n\n- \n\n## Steps\n\n1. \n\n## Tests\n\n- \n\n## Assumptions\n\n- ",
                 workflow_state="plan",
@@ -732,7 +746,7 @@ class HostedCommandService(object):
         event_handler: Optional[SessionEventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
-        history = self._history_loader(state.session.session_id)
+        history = self._history_loader(state.session_id)
         review = self.review_command.build_payload_from_history(history, limit=400)
         lines = self.review_command.markdown_lines(review)
         self.emit_command_result(
@@ -779,7 +793,7 @@ class HostedCommandService(object):
             self._emit(
                 event_handler,
                 "step_start",
-                state.session.session_id,
+                state.session_id,
                 {"turn_id": turn_id, "step_id": step_id, "step_index": step_index},
             )
 
@@ -787,7 +801,7 @@ class HostedCommandService(object):
             self._emit(
                 event_handler,
                 "step_end",
-                state.session.session_id,
+                state.session_id,
                 {
                     "turn_id": turn_id,
                     "step_id": current_step["step_id"],
@@ -808,7 +822,7 @@ class HostedCommandService(object):
                 "step_index": current_step["step_index"],
             }
             payload.update(self._tool_event_metadata(start_action.name))
-            self._emit(event_handler, "tool_started", state.session.session_id, payload)
+            self._emit(event_handler, "tool_started", state.session_id, payload)
 
         def on_tool_finish(finished_action: Action, observation: Observation) -> None:
             payload = {
@@ -855,14 +869,13 @@ class HostedCommandService(object):
                 state.pending_event = threading.Event()
             return None
 
-        result, observation = state.hosted_session.submit_command(
+        result = state.hosted_session.submit_command(
             HostedCommandTurn(
                 arguments={
                     "user_text": command_text,
                     "action": action,
                     "initial_mode": state.current_mode,
                     "workflow_state": state.workflow_state,
-                    "session": state.session,
                     "turn_id": turn_id,
                     "stop_event": state.stop_event,
                     "on_tool_start": on_tool_start,
@@ -874,9 +887,11 @@ class HostedCommandService(object):
                 }
             )
         )
-        state.session = result.session
+        with state.lock:
+            apply_hosted_projection(state, result.projection)
+        observation = _observation_from_payload(result.observation)
         if (
-            result.transition.reason in ("permission_wait", "user_input_wait")
+            result.termination_reason in ("permission_wait", "user_input_wait")
             and permission_resolver is None
         ):
             with state.lock:
@@ -912,7 +927,6 @@ class HostedCommandService(object):
             resumed = state.hosted_session.resume_command_interaction(
                 HostedCommandResume(
                     arguments={
-                        "session": state.session,
                         "initial_mode": state.current_mode,
                         "interaction_resolution": {"approved": approved},
                         "workflow_state": state.workflow_state,
@@ -927,20 +941,20 @@ class HostedCommandService(object):
                     }
                 )
             )
-            state.session = resumed.session
             result = resumed
+            with state.lock:
+                apply_hosted_projection(state, result.projection)
             self._clear_pending_interaction(state)
-            if state.session.turns and state.session.turns[-1].observations:
-                observation = state.session.turns[-1].observations[-1]
-            else:
+            observation = _observation_from_payload(result.observation)
+            if observation is None:
                 observation = Observation(
                     tool_name=tool_name,
                     success=False,
                     error="用户拒绝执行该 recipe。",
                     data={"error_kind": "permission_denied"},
                 )
-        if result.transition.next_mode:
-            state.current_mode = result.transition.next_mode
+        if result.next_mode:
+            state.current_mode = result.next_mode
         self._refresh_workflow_state(state)
         with state.lock:
             state.status = "idle"
@@ -950,20 +964,20 @@ class HostedCommandService(object):
         self._emit(
             event_handler,
             "turn_end",
-            state.session.session_id,
+            state.session_id,
             {
                 "turn_id": turn_id,
                 "final_text": "",
                 "outcome": TurnOutcome.from_transition(
                     LoopTransition(
-                        reason=result.transition.reason,
-                        message=result.transition.message or "",
+                        reason=result.termination_reason,
+                        message=result.termination_message,
                     )
                 ).to_dict(),
-                "termination_reason": result.transition.reason,
+                "termination_reason": result.termination_reason,
                 "turns_used": result.turns_used,
                 "max_turns": self.max_turns,
-                "error": result.transition.message or "",
+                "error": result.termination_message,
             },
         )
         self._persist_state(state)

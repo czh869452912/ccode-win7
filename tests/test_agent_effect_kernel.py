@@ -102,6 +102,51 @@ def test_kernel_advances_context_to_provider_and_provider_to_tools():
     assert tool_step.effect.actions == tuple(reply.actions)
 
 
+def test_kernel_cancellation_closes_unexecuted_tool_operations():
+    kernel = AgentKernel()
+    context_step = kernel.start("t-1", "debug", "", "user")
+    provider_step = kernel.accept(
+        context_step.cursor,
+        ContextAssembled(context_step.effect.effect_id, _assembly(), _snapshot()),
+    )
+    tool_step = kernel.accept(
+        provider_step.cursor,
+        ProviderCompleted(
+            provider_step.effect.effect_id,
+            AssistantReply(
+                "",
+                actions=[
+                    Action("read_file", {"path": "README.md"}, "call-1"),
+                    Action("read_file", {"path": "AGENTS.md"}, "call-2"),
+                ],
+                finish_reason="tool_calls",
+            ),
+        ),
+    )
+
+    cancelled = kernel.accept(
+        tool_step.cursor,
+        EffectFailed(
+            tool_step.effect.effect_id,
+            "cancelled",
+            "stop_event set",
+            retryable=False,
+        ),
+    )
+
+    interrupted_ids = [
+        event.payload.get("operation_id")
+        for event in cancelled.events
+        if event.event_type == "operation_interrupted"
+    ]
+    assert interrupted_ids == [
+        tool_step.effect.effect_id,
+        "tool:call-1",
+        "tool:call-2",
+        "step:step-t-1-1",
+    ]
+
+
 def test_kernel_carries_tool_commit_tokens_only_after_result_acceptance():
     kernel = AgentKernel()
     context_step = kernel.start("t-1", "debug", "", "user")

@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
-from embedagent_core.session import Action, Observation, Session
+from embedagent_core.session import Action, Observation
 
 from embedagent_host.runtime.persistence_sanitize import sanitize_jsonable
 from embedagent_host.runtime.projection_db import ProjectionDb
@@ -96,7 +96,7 @@ class SessionSummaryStore(object):
 
     def persist(
         self,
-        session: Session,
+        session: Any,
         current_mode: str,
         context_result: Optional[Any] = None,
     ) -> str:
@@ -487,29 +487,6 @@ class SessionSummaryStore(object):
                 lines.append("最近工件：%s" % ", ".join(refs[:4]))
         return _truncate_text("\n".join(lines), char_limit)
 
-    def create_resumed_session(
-        self,
-        summary: Dict[str, Any],
-        mode_name: Optional[str] = None,
-        config: Optional[Any] = None,
-    ) -> Session:
-        current_mode = str(mode_name or summary.get("current_mode") or "build")
-        session = Session(
-            session_id=str(summary.get("session_id") or Session().session_id),
-            started_at=str(summary.get("started_at") or _utc_now()),
-        )
-        resume_message = self.build_resume_message(summary)
-        if resume_message:
-            session.add_system_message(resume_message)
-        session.add_system_message(
-            self.workspace_profile_builder(self.workspace, session.session_id)
-        )
-        if self.system_prompt_builder is not None:
-            session.add_system_message(
-                self.system_prompt_builder(current_mode, config, self.workspace)
-            )
-        return session
-
     def _read_json(self, path: str) -> Optional[Dict[str, Any]]:
         if not os.path.isfile(path):
             return None
@@ -579,7 +556,7 @@ class SessionSummaryStore(object):
 
     def _build_payload(
         self,
-        session: Session,
+        session: Any,
         current_mode: str,
         context_result: Optional[Any],
     ) -> Dict[str, Any]:
@@ -725,31 +702,31 @@ class SessionSummaryStore(object):
             parts.append(_truncate_text(snapshot["error"], 80))
         return ", ".join([item for item in parts if item])
 
-    def _first_user_message(self, session: Session) -> str:
+    def _first_user_message(self, session: Any) -> str:
         for turn in session.turns:
             if turn.user_message:
                 return _truncate_text(turn.user_message, 240)
         return ""
 
-    def _last_user_message(self, session: Session) -> str:
+    def _last_user_message(self, session: Any) -> str:
         for turn in reversed(session.turns):
             if turn.user_message:
                 return _truncate_text(turn.user_message, 240)
         return ""
 
-    def _last_assistant_message(self, session: Session) -> str:
+    def _last_assistant_message(self, session: Any) -> str:
         for turn in reversed(session.turns):
             if turn.assistant_message:
                 return _truncate_text(turn.assistant_message, 240)
         return ""
 
-    def _all_observations(self, session: Session) -> List[Observation]:
+    def _all_observations(self, session: Any) -> List[Observation]:
         observations = []
         for turn in session.turns:
             observations.extend(turn.observations)
         return observations
 
-    def _transition_payload(self, session: Session) -> Dict[str, Any]:
+    def _transition_payload(self, session: Any) -> Dict[str, Any]:
         reasons = []
         messages = []
         recent_items = []
@@ -778,7 +755,7 @@ class SessionSummaryStore(object):
             "compact_retry_count": compact_retry_count,
         }
 
-    def _collect_recent_actions(self, session: Session) -> List[Dict[str, Any]]:
+    def _collect_recent_actions(self, session: Any) -> List[Dict[str, Any]]:
         items = []
         for turn in session.turns:
             for index, action in enumerate(turn.actions):
@@ -839,7 +816,7 @@ class SessionSummaryStore(object):
                 break
         return result
 
-    def _collect_mode_history(self, session: Session, current_mode: str) -> List[str]:
+    def _collect_mode_history(self, session: Any, current_mode: str) -> List[str]:
         history = []
         seen = set()
         for message in session.messages:

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import threading
+import uuid
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, Optional
 
 from embedagent_core.api import (
@@ -25,8 +26,10 @@ from embedagent_core.session import (
     QueryTurnResult,
     Session,
 )
-from embedagent_core.session_journal import SessionJournal
+from embedagent_core.session_journal import EventIntent, SessionJournal
+from embedagent_core.session_operation_log import operation_diagnostics
 from embedagent_core.session_reducer import SessionReducerContext
+from embedagent_core.session_view import session_read_view
 
 
 @dataclass(frozen=True)
@@ -40,6 +43,14 @@ class SessionTransactionState:
     session: Session
     current_mode: str
     reduction_context: SessionReducerContext
+    restore_stop_reason: str = ""
+    restore_consumed_event_count: int = 0
+    restore_transcript_event_count: int = 0
+    operation_diagnostics: Dict[str, Any] = field(default_factory=dict)
+    runtime_config: Dict[str, Any] = field(default_factory=dict)
+    compaction_state: Dict[str, Any] = field(default_factory=dict)
+    recovery_state: Dict[str, Any] = field(default_factory=dict)
+    turn_experience: Dict[str, Any] = field(default_factory=dict)
 
 
 class SessionRecoveryRequired(RuntimeError):
@@ -96,67 +107,149 @@ class SessionTransaction(object):
     def initialize_host(
         self,
         session_id: str,
-        session: Session,
         current_mode: str,
         workflow_state: str,
-    ) -> str:
-        return self._host_dispatch(
-            session_id,
-            session,
-            current_mode,
-            self._dispatcher.initialize_session,
-            session,
-            current_mode,
-            workflow_state=workflow_state,
-        )
+    ) -> Any:
+        def initialize(state: SessionTransactionState) -> Any:
+            previous_mode = state.current_mode
+            mode = self._dispatcher.initialize_session(
+                state.session,
+                current_mode,
+                workflow_state=workflow_state,
+            )
+            if state.restore_transcript_event_count and mode != previous_mode:
+                self._commit_host_mode(state, mode)
+            if state.restore_transcript_event_count:
+                event_count = len(self._session_log.load_events(state.session.session_id))
+                self._journal.commit(
+                    state.session,
+                    state.reduction_context,
+                    (
+                        EventIntent(
+                            "recovery_marker",
+                            {
+                                "marker_id": "recovery-" + uuid.uuid4().hex,
+                                "reason": "resume",
+                                "status": "clean",
+                                "current_mode": mode,
+                                "trusted_event_count": event_count,
+                                "transcript_event_count": event_count,
+                                "stop_reason": "",
+                                "skipped_count": 0,
+                                "skip_reasons": [],
+                                "operation_summary": dict(state.operation_diagnostics),
+                                "compaction_summary": dict(state.compaction_state),
+                                "runtime_summary": dict(state.runtime_config),
+                                "metadata": {"source": "HostedSessionController.initialize"},
+                            },
+                        ),
+                    ),
+                )
+            return self._project_hosted(state, mode)
+
+        return self._host_transaction(session_id, initialize)
 
     def apply_host_mode(
         self,
         session_id: str,
-        session: Session,
         mode: str,
         workflow_state: str,
-    ) -> str:
-        return self._host_dispatch(
-            session_id,
-            session,
-            mode,
-            self._dispatcher.apply_mode,
-            session,
-            mode,
-            workflow_state=workflow_state,
-        )
+    ) -> Any:
+        def apply(state: SessionTransactionState) -> Any:
+            applied = self._dispatcher.apply_mode(
+                state.session,
+                mode,
+                workflow_state=workflow_state,
+            )
+            if applied != state.current_mode:
+                self._commit_host_mode(state, applied)
+            return self._project_hosted(state, applied)
 
-    def record_host_command(self, session_id: str, session: Session, **kwargs: Any) -> None:
-        self._host_dispatch(
-            session_id,
-            session,
-            "",
-            self._dispatcher.record_command_result,
-            session,
-            **kwargs,
-        )
+        return self._host_transaction(session_id, apply)
+
+    def record_host_command(self, session_id: str, **kwargs: Any) -> Any:
+        def record(state: SessionTransactionState) -> Any:
+            self._dispatcher.record_command_result(state.session, **kwargs)
+            return self._project_hosted(state, state.reduction_context.current_mode)
+
+        return self._host_transaction(session_id, record)
 
     def submit_host_command(self, session_id: str, **kwargs: Any) -> Any:
-        session = kwargs.get("session")
-        mode = str(kwargs.get("initial_mode") or "")
-        return self._host_dispatch(
-            session_id,
-            session,
-            mode,
-            self._dispatcher.submit_command_turn,
-            **kwargs,
-        )
+        def submit(state: SessionTransactionState) -> Any:
+            arguments = dict(kwargs)
+            arguments.pop("session", None)
+            arguments["session"] = state.session
+            arguments.setdefault("initial_mode", state.current_mode)
+            result, observation = self._dispatcher.submit_command_turn(**arguments)
+            return self._project_host_command(state, result, observation)
+
+        return self._host_transaction(session_id, submit)
 
     def resume_host_command(self, session_id: str, **kwargs: Any) -> Any:
-        session = kwargs.get("session")
-        mode = str(kwargs.get("initial_mode") or "")
-        return self._host_dispatch(
+        def resume(state: SessionTransactionState) -> Any:
+            arguments = dict(kwargs)
+            arguments.pop("session", None)
+            arguments["session"] = state.session
+            arguments.setdefault("initial_mode", state.current_mode)
+            result = self._dispatcher.resume_interaction(**arguments)
+            observation = None
+            if result.session.turns and result.session.turns[-1].observations:
+                observation = result.session.turns[-1].observations[-1]
+            return self._project_host_command(state, result, observation)
+
+        return self._host_transaction(session_id, resume)
+
+    def update_host_resource_prompt(self, session_id: str, **kwargs: Any) -> Any:
+        def update(state: SessionTransactionState) -> Any:
+            content = str(kwargs.get("content") or "")
+            previous = None
+            for message in reversed(state.session.messages):
+                if (
+                    str(getattr(message, "role", "") or "") == "system"
+                    and str(getattr(message, "kind", "") or "") == "local_skills_prompt"
+                    and not bool(getattr(message, "archived", False))
+                ):
+                    previous = message
+                    break
+            if previous is not None and str(previous.content or "") == content:
+                return self._project_hosted(state, state.current_mode)
+            parent_message_id = ""
+            for message in reversed(state.session.messages):
+                if not bool(getattr(message, "archived", False)) and message is not previous:
+                    parent_message_id = str(getattr(message, "message_id", "") or "")
+                    break
+            self._journal.commit(
+                state.session,
+                state.reduction_context,
+                (
+                    EventIntent(
+                        "message",
+                        {
+                            "role": "system",
+                            "content": content,
+                            "message_id": "m-" + uuid.uuid4().hex[:12] if content else "",
+                            "parent_message_id": parent_message_id,
+                            "turn_id": "",
+                            "step_id": "",
+                            "kind": "local_skills_prompt",
+                            "metadata": {
+                                "reason": str(kwargs.get("reason") or ""),
+                                "resource_revision": int(kwargs.get("revision") or 0),
+                            },
+                            "replace_kind": True,
+                            "remove_only": not bool(content),
+                        },
+                    ),
+                ),
+            )
+            return self._project_hosted(state, state.current_mode)
+
+        return self._host_transaction(session_id, update)
+
+    def snapshot_host(self, session_id: str) -> Any:
+        return self._host_transaction(
             session_id,
-            session,
-            mode,
-            self._dispatcher.resume_interaction,
-            **kwargs,
+            lambda state: self._project_hosted(state, state.current_mode),
         )
 
     @contextmanager
@@ -197,6 +290,14 @@ class SessionTransaction(object):
             restored.session,
             restored.current_mode,
             restored.reduction_context,
+            restore_stop_reason=str(restored.stop_reason or ""),
+            restore_consumed_event_count=int(restored.consumed_event_count or 0),
+            restore_transcript_event_count=int(restored.transcript_event_count or 0),
+            operation_diagnostics=operation_diagnostics(restored.operation_state),
+            runtime_config=_state_dict(restored.runtime_config),
+            compaction_state=_state_dict(restored.compaction_state),
+            recovery_state=_state_dict(restored.recovery_state),
+            turn_experience=_state_dict(restored.turn_experience),
         )
 
     def _has_incomplete_side_effect(self, operation_state: Any, session: Session) -> bool:
@@ -285,13 +386,104 @@ class SessionTransaction(object):
             termination_message=str(result.transition.message or ""),
         )
 
-    def _host_dispatch(self, session_id, bound_session, current_mode, callback, *args, **kwargs):
-        if not isinstance(bound_session, Session):
-            raise TypeError("host session must be Session")
-        context = SessionReducerContext(current_mode=str(current_mode or ""))
+    def _host_transaction(self, session_id: str, callback: Any) -> Any:
         with self._lease(session_id):
-            with self._event_committer.bind(context):
-                return callback(*args, **kwargs)
+            state = self._restore_or_create(session_id)
+            with self._event_committer.bind(state.reduction_context):
+                return callback(state)
+
+    def _commit_host_mode(self, state: SessionTransactionState, mode: str) -> None:
+        self._journal.commit(
+            state.session,
+            state.reduction_context,
+            (
+                EventIntent(
+                    "session_meta",
+                    {
+                        "current_mode": str(mode or ""),
+                        "started_at": state.session.started_at,
+                    },
+                ),
+            ),
+        )
+
+    def _project_hosted(self, state: SessionTransactionState, current_mode: str) -> Any:
+        from embedagent_core.hosting import HostedSessionProjection
+
+        view = session_read_view(state.session)
+        pending = _project_interaction(state.session.pending_interaction)
+        status = "idle"
+        if pending is not None and pending.kind == "permission":
+            status = "waiting_permission"
+        elif pending is not None and pending.kind == "user_input":
+            status = "waiting_user_input"
+        event_count = len(self._session_log.load_events(state.session.session_id))
+        snapshot = {
+            "session_id": view.session_id,
+            "current_mode": str(current_mode or state.reduction_context.current_mode or ""),
+            "status": status,
+            "started_at": view.started_at,
+            "workflow_state": _json_safe(view.workflow_state),
+            "message_count": len(view.messages),
+            "turn_count": len(view.turns),
+            "compact_boundary_count": len(view.compact_boundaries),
+            "pending_interaction": _json_safe(view.pending_interaction),
+            "restore_stop_reason": state.restore_stop_reason,
+            "restore_consumed_event_count": event_count,
+            "restore_transcript_event_count": event_count,
+            "operation_diagnostics": _json_safe(state.operation_diagnostics),
+            "runtime_config": _json_safe(state.runtime_config),
+            "compaction_state": _json_safe(state.compaction_state),
+            "recovery_state": _json_safe(state.recovery_state),
+            "turn_experience": _json_safe(state.turn_experience),
+        }
+        history = {
+            "session_id": view.session_id,
+            "messages": _json_safe(view.messages),
+            "turns": _json_safe(view.turns),
+            "workflow_state": _json_safe(view.workflow_state),
+            "compact_boundaries": _json_safe(view.compact_boundaries),
+            "current_interaction": _json_safe(view.pending_interaction),
+        }
+        return HostedSessionProjection(
+            session_id=view.session_id,
+            current_mode=str(snapshot["current_mode"]),
+            status=status,
+            pending_interaction=pending,
+            snapshot=snapshot,
+            history=history,
+        )
+
+    def _project_host_command(
+        self,
+        state: SessionTransactionState,
+        result: QueryTurnResult,
+        observation: Optional[Observation],
+    ) -> Any:
+        from embedagent_core.hosting import HostedCommandResult
+
+        next_mode = str(
+            result.transition.next_mode
+            or state.reduction_context.current_mode
+            or state.current_mode
+        )
+        return HostedCommandResult(
+            projection=self._project_hosted(state, next_mode),
+            termination_reason=str(result.transition.reason or ""),
+            termination_message=str(result.transition.message or ""),
+            next_mode=next_mode,
+            turns_used=int(result.turns_used or 0),
+            observation=(
+                {
+                    "tool_name": str(observation.tool_name or ""),
+                    "success": bool(observation.success),
+                    "error": observation.error,
+                    "data": _json_safe(observation.data),
+                }
+                if observation is not None
+                else None
+            ),
+        )
 
 
 def _project_interaction(pending: Any) -> Optional[AgentInteractionRequest]:
@@ -313,6 +505,14 @@ def _json_safe(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_json_safe(item) for item in value]
     return str(value)
+
+
+def _state_dict(value: Any) -> Dict[str, Any]:
+    to_dict = getattr(value, "to_dict", None)
+    if callable(to_dict):
+        payload = to_dict()
+        return dict(payload) if isinstance(payload, dict) else {}
+    return {}
 
 
 def _emit(observer: AgentObserver, event_type: str, payload: Dict[str, Any]) -> None:

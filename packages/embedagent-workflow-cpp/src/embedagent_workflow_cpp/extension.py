@@ -3,7 +3,12 @@ from __future__ import annotations
 import re
 from typing import Any, List, Optional, Set
 
-from embedagent_core.extensions import ExtensionCapability, ToolRegistrationResult, WorkflowPrompt
+from embedagent_core.extensions import (
+    ExtensionCapability,
+    ToolRegistrationResult,
+    WorkflowPatch,
+    WorkflowPrompt,
+)
 from embedagent_core.session import Observation
 
 from embedagent_workflow_cpp import task_store
@@ -142,14 +147,40 @@ class CHarnessWorkflowExtension(object):
         user_text: str,
         current_mode: str,
         workflow_state: str = "",
-    ) -> None:
-        if not self.should_inject_workflow(user_text, current_mode):
-            return
-        graph = self.graph_state.ensure_empty(session)
+    ) -> Optional[WorkflowPatch]:
+        graph = self.graph_state.get(session)
+        session_workflow = dict(getattr(session, "workflow_state", {}) or {}).get("workflow")
+        has_existing_workflow = isinstance(session_workflow, dict) and bool(session_workflow)
+        should_initialize = self.should_inject_workflow(user_text, current_mode)
+        if graph is None:
+            if not should_initialize and not has_existing_workflow:
+                return None
+            graph = self.graph_state.ensure_empty(session)
+        if graph.is_empty() and should_initialize:
+            graph = self.graph_state.from_user_request(session, user_text, current_mode)
+        if graph.is_empty() and not has_existing_workflow:
+            return None
+        discipline_override = self._discipline_override(current_mode, workflow_state)
+        graph = self.harness_runner.update_task_graph(
+            graph,
+            current_mode,
+            observations=[],
+            discipline_override=discipline_override,
+        )
+        self.graph_state.set(session, graph)
+        context = None
         if not graph.is_empty():
-            return
-        graph = self.graph_state.from_user_request(session, user_text, current_mode)
-        self._sync_workflow_state(session, graph=graph)
+            context = self._describe_context(
+                current_mode,
+                workflow_state=workflow_state,
+                current_phase=str(getattr(graph, "current_phase", "") or ""),
+                observations=[],
+            )
+        return self._workflow_patch(
+            graph,
+            context=context,
+            reason="initialize_workflow_state",
+        )
 
     def sync_session_workflow(
         self,
@@ -157,10 +188,10 @@ class CHarnessWorkflowExtension(object):
         current_mode: str,
         workflow_state: str = "",
         observations: Optional[List[Any]] = None,
-    ) -> None:
+    ) -> Optional[WorkflowPatch]:
         graph = self.graph_state.get(session)
         if graph is None:
-            return
+            return None
         context = None
         if not graph.is_empty():
             context = self._describe_context(
@@ -169,7 +200,11 @@ class CHarnessWorkflowExtension(object):
                 current_phase=str(getattr(graph, "current_phase", "") or ""),
                 observations=observations or [],
             )
-        self._sync_workflow_state(session, graph=graph, context=context)
+        return self._workflow_patch(
+            graph,
+            context=context,
+            reason="sync_session_workflow",
+        )
 
     def refresh_managed_session(
         self,
@@ -178,45 +213,15 @@ class CHarnessWorkflowExtension(object):
         observations: Optional[List[Any]] = None,
         task_store_module: Any = None,
     ) -> None:
-        observations = list(observations or [])
-        discipline_override = self._discipline_override(
-            managed_session.current_mode,
-            managed_session.workflow_state,
-        )
-        graph = self.graph_state.get(managed_session.session)
-        graph = self.harness_runner.update_task_graph(
-            graph,
-            managed_session.current_mode,
-            observations=observations,
-            discipline_override=discipline_override,
-        )
-        self.graph_state.set(managed_session.session, graph)
-        context = self._describe_context(
-            managed_session.current_mode,
-            workflow_state=managed_session.workflow_state,
-            current_phase=str(getattr(graph, "current_phase", "") or ""),
-            observations=[],
-        )
+        del observations
         store = task_store_module or task_store
-        if context is None:
-            self._sync_workflow_state(managed_session.session, graph=graph)
-            store.save_task_snapshot(
-                workspace,
-                managed_session.session.session_id,
-                managed_session.current_mode,
-                managed_session.workflow_state,
-                "",
-                "",
-                "",
-                [],
-            )
-            return
-        self._sync_workflow_state(managed_session.session, graph=graph, context=context)
-        workflow = managed_session.session.workflow_state.get("workflow") or {}
+        projection = dict(getattr(managed_session, "projection", {}) or {})
+        workflow_state = dict(projection.get("workflow_state") or {})
+        workflow = dict(workflow_state.get("workflow") or {})
         metadata = workflow.get("metadata") or {}
         store.save_task_snapshot(
             workspace,
-            managed_session.session.session_id,
+            managed_session.session_id,
             managed_session.current_mode,
             managed_session.workflow_state,
             str(metadata.get("discipline_profile") or ""),
@@ -393,19 +398,20 @@ class CHarnessWorkflowExtension(object):
             return "full_spec_tdd"
         return None
 
-    def _sync_workflow_state(
+    def _workflow_patch(
         self,
-        session: Any,
-        graph: Any = None,
+        graph: Any,
         context: Any = None,
-    ) -> None:
+        reason: str = "",
+    ) -> Optional[WorkflowPatch]:
         if graph is None:
-            graph = self.graph_state.get(session)
-        if graph is None:
-            return
-        session.workflow_state["workflow"] = build_c_harness_workflow_projection(
-            graph,
-            context=context,
+            return None
+        return WorkflowPatch(
+            workflow=build_c_harness_workflow_projection(graph, context=context),
+            metadata={
+                "source": "embedagent_workflow_cpp",
+                "reason": str(reason or ""),
+            },
         )
 
 

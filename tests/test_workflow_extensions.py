@@ -376,20 +376,28 @@ def test_snapshot_projector_prefers_generic_workflow_state():
     from embedagent_host.runtime.session_projector import SessionSnapshotProjector
     from embedagent_host.runtime.session_runtime import ManagedSession
 
-    session = Session()
-    session.workflow_state["workflow"] = {
-        "id": "fake_workflow",
-        "label": "Fake Workflow",
-        "state": "active",
-        "summary": "workflow summary",
-        "items": [{"id": "task-1", "content": "workflow task", "status": "in_progress"}],
-        "activity": "workflow activity",
-        "metadata": {
-            "current_phase": "workflow:phase",
-            "discipline_profile": "workflow:discipline",
+    state = ManagedSession(
+        session_id="session-workflow-projection",
+        current_mode="build",
+        projection={
+            "workflow_state": {
+                "workflow": {
+                    "id": "fake_workflow",
+                    "label": "Fake Workflow",
+                    "state": "active",
+                    "summary": "workflow summary",
+                    "items": [
+                        {"id": "task-1", "content": "workflow task", "status": "in_progress"}
+                    ],
+                    "activity": "workflow activity",
+                    "metadata": {
+                        "current_phase": "workflow:phase",
+                        "discipline_profile": "workflow:discipline",
+                    },
+                }
+            }
         },
-    }
-    state = ManagedSession(session=session, current_mode="build")
+    )
 
     snapshot = SessionSnapshotProjector().build_snapshot(state, summary={}, runtime={})
 

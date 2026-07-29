@@ -124,10 +124,12 @@ class TestPermissionPolicy(unittest.TestCase):
         policy = PermissionPolicy(auto_approve_all=False, workspace="D:\\workspace")
         session = Session()
         policy.set_remembered_categories_provider(
-            lambda selected: ["workspace_write", "workspace_write"] if selected is session else []
+            lambda selected: (
+                ["workspace_write", "workspace_write"] if selected == session.session_id else []
+            )
         )
 
-        remembered = policy.remembered_categories_for(session)
+        remembered = policy.remembered_categories_for(session.session_id)
 
         self.assertEqual(remembered, ["workspace_write"])
 

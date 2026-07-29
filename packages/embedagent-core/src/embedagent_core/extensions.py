@@ -803,8 +803,8 @@ class ExtensionManager(object):
         user_text: str,
         current_mode: str,
         workflow_state: str = "",
-    ) -> None:
-        self._dispatch_event(
+    ) -> Optional[WorkflowPatch]:
+        dispatch = self._dispatch_event(
             "extension.initialize_workflow_state",
             {
                 "session": session,
@@ -816,6 +816,19 @@ class ExtensionManager(object):
             event_name="initialize_workflow_state",
             metadata={"current_mode": current_mode, "workflow_state": workflow_state},
         )
+        merged = WorkflowPatch()
+        found = False
+        for item in dispatch.reducer_results:
+            patch = item.get("value")
+            workflow = getattr(patch, "workflow", None)
+            metadata = getattr(patch, "metadata", None)
+            if isinstance(workflow, dict) and workflow:
+                merged.workflow = dict(workflow)
+                found = True
+            if isinstance(metadata, dict) and metadata:
+                merged.metadata.update(dict(metadata))
+                found = True
+        return merged if found else None
 
     def allowed_tool_names(
         self,

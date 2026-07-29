@@ -1,10 +1,29 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from embedagent_core.api import AgentSession
-from embedagent_core.session import Session
+from embedagent_core.api import AgentInteractionRequest, AgentSession
+
+
+@dataclass(frozen=True)
+class HostedSessionProjection:
+    session_id: str
+    current_mode: str
+    status: str
+    pending_interaction: Optional[AgentInteractionRequest]
+    snapshot: Dict[str, Any] = field(default_factory=dict)
+    history: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class HostedCommandResult:
+    projection: HostedSessionProjection
+    termination_reason: str
+    termination_message: str
+    next_mode: str
+    turns_used: int
+    observation: Optional[Dict[str, Any]] = None
 
 
 @dataclass(frozen=True)
@@ -25,6 +44,13 @@ class HostedCommandTurn:
 
 
 @dataclass(frozen=True)
+class HostedResourcePrompt:
+    content: str
+    reason: str = ""
+    revision: int = 0
+
+
+@dataclass(frozen=True)
 class HostedCommandResume:
     arguments: Dict[str, Any]
 
@@ -38,30 +64,26 @@ class HostedSessionController(object):
         self._runtime = agent_session._runtime
         self.session_id = agent_session.session_id
 
-    def initialize(self, session: Session, mode: str, workflow_state: str) -> str:
+    def initialize(self, mode: str, workflow_state: str) -> HostedSessionProjection:
         return self._runtime.transaction.initialize_host(
             self.session_id,
-            session,
             mode,
             workflow_state,
         )
 
-    def apply_mode(self, session: Session, mode: str, workflow_state: str) -> str:
+    def apply_mode(self, mode: str, workflow_state: str) -> HostedSessionProjection:
         return self._runtime.transaction.apply_host_mode(
             self.session_id,
-            session,
             mode,
             workflow_state,
         )
 
     def record_command_result(
         self,
-        session: Session,
         record: HostedCommandRecord,
-    ) -> None:
-        self._runtime.transaction.record_host_command(
+    ) -> HostedSessionProjection:
+        return self._runtime.transaction.record_host_command(
             self.session_id,
-            session,
             user_text=record.user_text,
             command_name=record.command_name,
             success=record.success,
@@ -72,12 +94,23 @@ class HostedSessionController(object):
             step_index=record.step_index,
         )
 
-    def submit_command(self, request: HostedCommandTurn) -> Any:
+    def submit_command(self, request: HostedCommandTurn) -> HostedCommandResult:
         return self._runtime.transaction.submit_host_command(
             self.session_id, **dict(request.arguments)
         )
 
-    def resume_command_interaction(self, request: HostedCommandResume) -> Any:
+    def resume_command_interaction(self, request: HostedCommandResume) -> HostedCommandResult:
         return self._runtime.transaction.resume_host_command(
             self.session_id, **dict(request.arguments)
+        )
+
+    def snapshot(self) -> HostedSessionProjection:
+        return self._runtime.transaction.snapshot_host(self.session_id)
+
+    def update_resource_prompt(self, prompt: HostedResourcePrompt) -> HostedSessionProjection:
+        return self._runtime.transaction.update_host_resource_prompt(
+            self.session_id,
+            content=prompt.content,
+            reason=prompt.reason,
+            revision=prompt.revision,
         )

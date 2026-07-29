@@ -430,7 +430,9 @@ class AgentToolActionService(object):
             return self._complete_action(session, action, observation)
         decision = self.permission_policy.evaluate(
             runtime_action,
-            remembered_categories=self.permission_policy.remembered_categories_for(session),
+            remembered_categories=self.permission_policy.remembered_categories_for(
+                session.session_id
+            ),
         )
         if decision.outcome == "deny":
             rejection_event = self._permission_rejection_event(session, action)

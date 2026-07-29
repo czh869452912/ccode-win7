@@ -229,7 +229,7 @@ class HostedInteractionService(object):
         self._emit_event(
             self._default_event_handler(),
             event_name,
-            state.session.session_id,
+            state.session_id,
             {
                 "interaction_id": ticket.interaction_id,
                 "request_id": ticket.interaction_id,
@@ -252,7 +252,7 @@ class HostedInteractionService(object):
         self._emit_event(
             self._default_event_handler(),
             "interaction_resume_%s" % phase,
-            state.session.session_id,
+            state.session_id,
             {
                 "interaction_id": ticket.interaction_id,
                 "turn_id": ticket.turn_id,
@@ -276,7 +276,7 @@ class HostedInteractionService(object):
         ticket = HostedPendingInteraction(
             interaction_id=permission_id,
             kind="permission",
-            session_id=state.session.session_id,
+            session_id=state.session_id,
             tool_name=request.tool_name,
             payload={
                 "category": request.category,
@@ -308,7 +308,7 @@ class HostedInteractionService(object):
         ticket = HostedPendingInteraction(
             interaction_id=request_id,
             kind="user_input",
-            session_id=state.session.session_id,
+            session_id=state.session_id,
             tool_name=request.tool_name,
             payload=_questions_for_request(request),
             turn_id=turn_id,
@@ -333,11 +333,16 @@ class HostedInteractionService(object):
             state.updated_at = _utc_now()
 
     def rebuild_pending_ticket_from_core(self, state: ManagedSession, pending: Any) -> bool:
-        interaction_id = str(getattr(pending, "interaction_id", "") or "").strip()
-        kind = str(getattr(pending, "kind", "") or "").strip()
+        def value(name: str, default: Any = "") -> Any:
+            if isinstance(pending, dict):
+                return pending.get(name, default)
+            return getattr(pending, name, default)
+
+        interaction_id = str(value("interaction_id") or "").strip()
+        kind = str(value("kind") or "").strip()
         if not interaction_id:
             return False
-        request_payload = dict(getattr(pending, "request_payload", {}) or {})
+        request_payload = dict(value("request_payload", {}) or {})
         if kind == "permission":
             permission_payload = dict(request_payload.get("permission") or {})
             payload = {
@@ -355,10 +360,10 @@ class HostedInteractionService(object):
         ticket = HostedPendingInteraction(
             interaction_id=interaction_id,
             kind=kind,
-            session_id=state.session.session_id,
-            tool_name=str(getattr(pending, "tool_name", "") or ""),
+            session_id=state.session_id,
+            tool_name=str(value("tool_name") or ""),
             payload=payload,
-            created_at=str(getattr(pending, "created_at", "") or _utc_now()),
+            created_at=str(value("created_at") or _utc_now()),
         )
         with state.lock:
             state.pending_interaction = ticket
@@ -459,7 +464,7 @@ class HostedInteractionService(object):
         self, state: ManagedSession, ticket: HostedPendingInteraction
     ) -> Dict[str, Any]:
         return {
-            "session_id": state.session.session_id,
+            "session_id": state.session_id,
             "interaction_id": ticket.interaction_id,
             "status": "accepted",
             "snapshot": None,
@@ -545,7 +550,7 @@ class HostedInteractionService(object):
                 "ticket": ticket,
                 "interaction_resolution": dict(interaction_resolution or {}),
             },
-            name="embedagent-session-resume-%s" % state.session.session_id[:8],
+            name="embedagent-session-resume-%s" % state.session_id[:8],
         )
         worker.daemon = True
         with state.lock:

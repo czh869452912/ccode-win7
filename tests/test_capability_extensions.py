@@ -940,15 +940,14 @@ def test_workflow_patch_exposes_only_current_read_model_fields():
 
 
 def test_session_snapshot_projects_extension_state_and_diagnostics():
-    from embedagent_core.session import Session
     from embedagent_host.runtime.session_projector import SessionSnapshotProjector
     from embedagent_host.runtime.session_runtime import ManagedSession
 
-    session = Session()
-    session.workflow_state["extensions"] = {
-        "sample": {"state": {"enabled": True}},
-    }
-    state = ManagedSession(session=session, current_mode="build")
+    state = ManagedSession(
+        session_id="session-extension-projection",
+        current_mode="build",
+        projection={"workflow_state": {"extensions": {"sample": {"state": {"enabled": True}}}}},
+    )
 
     snapshot = SessionSnapshotProjector().build_snapshot(
         state,

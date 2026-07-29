@@ -3,11 +3,24 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, Optional
 
 from embedagent_core.session import (
-    PendingInteraction,
-    Session,
-    ToolCallRecord,
     ToolPresentationSnapshot,
 )
+
+
+class _Record(dict):
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(name)
+
+
+def _as_record(value: Any) -> Any:
+    if isinstance(value, dict):
+        return _Record((str(key), _as_record(item)) for key, item in value.items())
+    if isinstance(value, list):
+        return [_as_record(item) for item in value]
+    return value
 
 
 def _display_transition_reason(reason: str) -> str:
@@ -43,13 +56,14 @@ class SessionHistoryAssembler(object):
 
     def build(
         self,
-        session: Session,
+        history: Dict[str, Any],
         history_source: str,
         integrity_status: str,
         restore_stop_reason: str = "",
         consumed_event_count: int = 0,
         transcript_event_count: int = 0,
     ) -> Dict[str, Any]:
+        session = _as_record(history)
         runtime = self._runtime_snapshot_lookup() if callable(self._runtime_snapshot_lookup) else {}
         turns = []
         activities = []
@@ -164,7 +178,9 @@ class SessionHistoryAssembler(object):
             "history_source": str(history_source or ""),
             "turns": turns,
             "activities": activities,
-            "current_interaction": self._serialize_pending_interaction(session.pending_interaction),
+            "current_interaction": self._serialize_pending_interaction(
+                getattr(session, "current_interaction", None)
+            ),
             "integrity": {
                 "status": str(integrity_status or "healthy"),
                 "restore_stop_reason": str(restore_stop_reason or ""),
@@ -173,9 +189,7 @@ class SessionHistoryAssembler(object):
             },
         }
 
-    def _serialize_tool_call(
-        self, record: ToolCallRecord, runtime: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _serialize_tool_call(self, record: Any, runtime: Dict[str, Any]) -> Dict[str, Any]:
         presentation = self._resolve_tool_presentation(record)
         observation = record.observation
         return {
@@ -195,12 +209,21 @@ class SessionHistoryAssembler(object):
             "fallback_warnings": list(runtime.get("fallback_warnings") or []),
         }
 
-    def _resolve_tool_presentation(self, record: ToolCallRecord) -> Dict[str, Any]:
+    def _resolve_tool_presentation(self, record: Any) -> Dict[str, Any]:
         snapshot = (
             record.presentation
             if isinstance(record.presentation, ToolPresentationSnapshot)
             else ToolPresentationSnapshot()
         )
+        raw_snapshot = getattr(record, "presentation", None)
+        if isinstance(raw_snapshot, dict):
+            snapshot = ToolPresentationSnapshot(
+                tool_label=str(raw_snapshot.get("tool_label") or ""),
+                permission_category=str(raw_snapshot.get("permission_category") or ""),
+                supports_diff_preview=bool(raw_snapshot.get("supports_diff_preview")),
+                progress_renderer_key=str(raw_snapshot.get("progress_renderer_key") or "default"),
+                result_renderer_key=str(raw_snapshot.get("result_renderer_key") or "default"),
+            )
         catalog_entry = {}
         if callable(self._tool_catalog_lookup):
             item = self._tool_catalog_lookup(record.tool_name) or {}
@@ -248,7 +271,7 @@ class SessionHistoryAssembler(object):
         kind = _transition_kind(str(getattr(transition, "reason", "") or ""))
         metadata = dict(getattr(transition, "metadata", {}) or {})
         pending = getattr(transition, "pending_interaction", None)
-        if isinstance(pending, PendingInteraction):
+        if pending is not None:
             metadata.setdefault("interaction_id", str(pending.interaction_id or ""))
             if pending.kind == "permission":
                 metadata.setdefault(
@@ -267,9 +290,7 @@ class SessionHistoryAssembler(object):
             "metadata": metadata,
         }
 
-    def _serialize_pending_interaction(
-        self, pending: Optional[PendingInteraction]
-    ) -> Optional[Dict[str, Any]]:
+    def _serialize_pending_interaction(self, pending: Optional[Any]) -> Optional[Dict[str, Any]]:
         if pending is None:
             return None
         return {
@@ -282,7 +303,7 @@ class SessionHistoryAssembler(object):
             "resolution_payload": dict(pending.resolution_payload or {}),
         }
 
-    def _tool_status(self, record: ToolCallRecord) -> str:
+    def _tool_status(self, record: Any) -> str:
         if record.observation is not None:
             return "success" if record.observation.success else "error"
         if str(record.status or "") in ("pending", "started"):
@@ -291,7 +312,7 @@ class SessionHistoryAssembler(object):
 
     def _turn_status(self, turn: Any) -> str:
         pending = getattr(turn, "pending_interaction", None)
-        if isinstance(pending, PendingInteraction):
+        if pending is not None:
             if pending.kind == "permission":
                 return "waiting_permission"
             if pending.kind == "user_input":
@@ -316,12 +337,12 @@ class SessionHistoryAssembler(object):
         step_transition: Optional[Any],
         turn_index: int,
         step_index: int,
-        session: Session,
+        session: Any,
     ) -> str:
         turn = session.turns[turn_index]
         is_last_step = step_index == len(turn.steps) - 1
         pending = getattr(turn, "pending_interaction", None)
-        if is_last_step and isinstance(pending, PendingInteraction):
+        if is_last_step and pending is not None:
             if pending.kind == "permission":
                 return "permission_wait"
             if pending.kind == "user_input":
@@ -339,7 +360,7 @@ class SessionHistoryAssembler(object):
         self,
         turn_index: int,
         step_index: int,
-        session: Session,
+        session: Any,
     ) -> list:
         turn = session.turns[turn_index]
         step = turn.steps[step_index]

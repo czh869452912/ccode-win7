@@ -14,12 +14,7 @@ from embedagent_host.runtime.transcript_store import TranscriptStore
 
 
 class SessionProjectionService(object):
-    """Build read models from the durable transcript and the live session handle.
-
-    The live ``Session`` remains the execution aggregate.  This service owns the
-    read-side reducer refresh and the frontend projections so adapter methods do
-    not each decide which durable fields to reload or how to label their source.
-    """
+    """Build Host read models from durable events and frozen Core projections."""
 
     def __init__(
         self,
@@ -40,7 +35,7 @@ class SessionProjectionService(object):
     def refresh(self, state: Any) -> bool:
         """Refresh reducer-backed read models from the trusted transcript prefix."""
         try:
-            events = self._transcript_store.load_events(state.session.session_id)
+            events = self._transcript_store.load_events(state.session_id)
         except (OSError, ValueError, TypeError):
             return False
         events = self._trusted_events(state, events)
@@ -94,7 +89,7 @@ class SessionProjectionService(object):
             if str(state.restore_stop_reason or "").strip():
                 integrity_status = "partial"
         return assembler.build(
-            state.session,
+            state.history,
             history_source=history_source,
             integrity_status=integrity_status,
             restore_stop_reason=str(state.restore_stop_reason or ""),

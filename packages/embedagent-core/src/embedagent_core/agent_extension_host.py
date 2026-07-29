@@ -9,6 +9,7 @@ from embedagent_core.extensions import (
     ToolRegistrationEvent,
     ToolResultPatch,
     WorkflowEvent,
+    WorkflowPatch,
 )
 from embedagent_core.interaction import ask_user_schema, propose_mode_switch_schema
 from embedagent_core.policies import EmptyModeToolPolicy, ModeToolPolicy
@@ -82,8 +83,8 @@ class AgentExtensionHost(object):
         user_text: str,
         current_mode: str,
         workflow_state: str = "",
-    ) -> None:
-        self.manager.initialize_workflow_state(
+    ) -> Optional[WorkflowPatch]:
+        return self.manager.initialize_workflow_state(
             session,
             user_text=user_text,
             current_mode=current_mode,

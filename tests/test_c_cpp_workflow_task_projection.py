@@ -85,7 +85,7 @@ class HarnessTaskProjectionTests(unittest.TestCase):
             payload["path"],
             ".embedagent/memory/sessions/%s/task-graph.json" % session_id,
         )
-        workflow = state.session.workflow_state.get("workflow") or {}
+        workflow = (state.projection.get("workflow_state") or {}).get("workflow") or {}
         self.assertEqual(len(workflow.get("items") or []), payload["count"])
         self.assertTrue(os.path.isfile(task_store.task_snapshot_path(self.workspace, session_id)))
         self.assertFalse(
@@ -101,7 +101,7 @@ class HarnessTaskProjectionTests(unittest.TestCase):
             )
         )
 
-    def test_mode_change_refreshes_projected_task_track(self):
+    def test_mode_change_does_not_synthesize_task_track_without_explicit_work(self):
         snapshot = self.adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
 
@@ -109,18 +109,8 @@ class HarnessTaskProjectionTests(unittest.TestCase):
         payload = self.adapter.list_tasks(session_id=session_id)
         state = self.adapter._sessions[session_id]
 
-        self.assertEqual(
-            [item["content"] for item in payload["tasks"]],
-            [
-                "verify:select_recipe",
-                "verify:execute",
-                "verify:summarize",
-            ],
-        )
-        self.assertEqual(
-            [item["content"] for item in state.session.workflow_state["workflow"]["items"]],
-            [item["content"] for item in payload["tasks"]],
-        )
+        self.assertEqual(payload["tasks"], [])
+        self.assertEqual((state.projection.get("workflow_state") or {}).get("workflow"), None)
 
 
 if __name__ == "__main__":

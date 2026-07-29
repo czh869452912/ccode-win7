@@ -254,6 +254,42 @@ class SessionInputDispatcher(object):
     ) -> Dict[str, Any]:
         return self._event_committer.commit(session, event_type, payload)
 
+    def _commit_extension_workflow_patch(
+        self,
+        session: Session,
+        user_text: str,
+        current_mode: str,
+        workflow_state: str,
+        turn_id: str = "",
+    ) -> None:
+        with self._session_guard():
+            patch = self.extension_host.initialize_workflow_state(
+                session,
+                user_text=user_text,
+                current_mode=current_mode,
+                workflow_state=workflow_state,
+            )
+            if patch is None:
+                return
+            workflow = dict(getattr(patch, "workflow", {}) or {})
+            metadata = dict(getattr(patch, "metadata", {}) or {})
+            if not workflow and not metadata:
+                return
+            step = session.current_step()
+            self._commit_session_event(
+                session,
+                "workflow_patch",
+                {
+                    "turn_id": str(turn_id or self._turn_id(session) or ""),
+                    "step_id": str(step.step_id if step is not None else ""),
+                    "tool_call_id": "",
+                    "mode_name": current_mode,
+                    "workflow_state_name": workflow_state,
+                    "workflow": workflow,
+                    "metadata": metadata,
+                },
+            )
+
     def _emit_operation_started(
         self,
         session: Session,
@@ -540,6 +576,13 @@ class SessionInputDispatcher(object):
                 lambda payload: self._append_message_event(session, payload),
                 user_text=user_text,
             )
+        self._commit_extension_workflow_patch(
+            session,
+            user_text,
+            current_mode,
+            workflow_state,
+            turn_id=self._turn_id(session),
+        )
         return current_mode
 
     def _record_transition(self, session: Session, transition: LoopTransition) -> None:
@@ -738,14 +781,15 @@ class SessionInputDispatcher(object):
             session, current_mode, workflow_state=workflow_state, user_text=initialization_user_text
         )
 
-        self.extension_host.initialize_workflow_state(
+        turn_id = getattr(session, "current_turn_id", "") or "t-" + uuid.uuid4().hex[:12]
+        self._commit_extension_workflow_patch(
             session,
-            user_text=user_text,
-            current_mode=current_mode,
-            workflow_state=workflow_state,
+            user_text,
+            current_mode,
+            workflow_state,
+            turn_id=turn_id,
         )
 
-        turn_id = getattr(session, "current_turn_id", "") or "t-" + uuid.uuid4().hex[:12]
         session_id = getattr(session, "session_id", "") or ""
         turn_frame = self.kernel.begin_turn(session, turn_id, current_mode, workflow_state, "user")
 
@@ -763,12 +807,6 @@ class SessionInputDispatcher(object):
                 current_mode,
                 workflow_state=workflow_state,
                 user_text=user_text,
-            )
-            self.extension_host.initialize_workflow_state(
-                session,
-                user_text=user_text,
-                current_mode=current_mode,
-                workflow_state=workflow_state,
             )
         visible_user_text = original_user_text if mode_switched and not user_text else user_text
         if visible_user_text:

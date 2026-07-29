@@ -2,16 +2,10 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
-
-from embedagent_core.ports import SessionRestorePolicyPort
-from embedagent_core.session import Session
-from embedagent_core.session_journal import SessionJournal
-from embedagent_core.session_operation_log import operation_diagnostics
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from embedagent_host.runtime.plan_store import PlanStore
-from embedagent_host.runtime.project_memory import ProjectMemoryStore
-from embedagent_host.runtime.session_runtime import ManagedSession
+from embedagent_host.runtime.session_runtime import ManagedSession, apply_hosted_projection
 from embedagent_host.runtime.session_store import SessionSummaryStore
 from embedagent_host.runtime.transcript_store import TranscriptStore
 
@@ -30,10 +24,8 @@ class SessionLifecycleManager(object):
         session_store: SessionSummaryStore,
         summary_store: SessionSummaryStore,
         plan_store: PlanStore,
-        project_memory: ProjectMemoryStore,
-        session_journal: SessionJournal,
-        restore_policy: SessionRestorePolicyPort,
         transcript_store: TranscriptStore,
+        session_opener: Callable[[str], Tuple[Any, Any]],
         mode_resolver: Callable[[str], Dict[str, Any]],
         default_mode: str,
         default_workflow_state: str = "",
@@ -41,10 +33,10 @@ class SessionLifecycleManager(object):
         self.session_store = session_store
         self.summary_store = summary_store
         self.plan_store = plan_store
-        self.project_memory = project_memory
-        self.session_journal = session_journal
-        self.restore_policy = restore_policy
         self.transcript_store = transcript_store
+        if not callable(session_opener):
+            raise TypeError("session_opener must be callable")
+        self.session_opener = session_opener
         if not callable(mode_resolver):
             raise TypeError("mode_resolver must be callable")
         requested_default = str(default_mode or "").strip()
@@ -69,14 +61,19 @@ class SessionLifecycleManager(object):
 
     def create_session_state(self, mode: str = "") -> ManagedSession:
         current_mode = self._resolve_mode(mode)
-        session = Session()
-        plan = self.plan_store.load(session.session_id)
+        agent_session, hosted_session = self.session_opener("")
+        plan = self.plan_store.load(agent_session.session_id)
+        workflow_state = "plan" if plan is not None else self.default_workflow_state
+        projection = hosted_session.initialize(current_mode, workflow_state)
         state = ManagedSession(
-            session=session,
+            session_id=agent_session.session_id,
             current_mode=current_mode,
             active_plan_ref=plan.path if plan is not None else "",
-            workflow_state=("plan" if plan is not None else self.default_workflow_state),
+            workflow_state=workflow_state,
+            agent_session=agent_session,
+            hosted_session=hosted_session,
         )
+        apply_hosted_projection(state, projection)
         return state
 
     def restore_session_state(
@@ -86,44 +83,36 @@ class SessionLifecycleManager(object):
     ) -> ManagedSession:
         transcript_path = self.summary_store.resolve_transcript_path(reference)
         session_id = self.transcript_store.session_id_for_reference(transcript_path)
-        restored = self.session_journal.restore(session_id, self.restore_policy)
-        current_mode = self._resolve_mode(mode or restored.current_mode)
-        session = restored.session
-        summary_ref = ""
+        agent_session, hosted_session = self.session_opener(session_id)
+        projection = hosted_session.snapshot()
+        current_mode = self._resolve_mode(mode or projection.current_mode)
+        projection = hosted_session.initialize(current_mode, self.default_workflow_state)
+        summary = None
         try:
-            summary_ref = self.summary_store.persist(session, current_mode)
-        except (OSError, ValueError, TypeError):
-            summary_ref = ""
+            summary = self.summary_store.load_summary(session_id)
+        except ValueError:
+            summary = None
         state = ManagedSession(
-            session=session,
+            session_id=session_id,
             current_mode=current_mode,
-            summary_ref=summary_ref,
+            agent_session=agent_session,
+            hosted_session=hosted_session,
+            workflow_state=self.default_workflow_state,
+            summary_ref=str((summary or {}).get("summary_ref") or ""),
             updated_at=_utc_now(),
             resume_summary=None,
-            last_assistant_message=self._last_assistant_from_session(session),
-            restore_stop_reason=str(restored.stop_reason or ""),
-            restore_consumed_event_count=int(restored.consumed_event_count or 0),
-            restore_transcript_event_count=int(restored.transcript_event_count or 0),
-            operation_diagnostics=operation_diagnostics(restored.operation_state),
-            runtime_config=restored.runtime_config.to_dict(),
-            compaction_state=restored.compaction_state.to_dict(),
-            recovery_state=restored.recovery_state.to_dict(),
-            turn_experience=restored.turn_experience.to_dict(),
         )
-        if session.pending_interaction is not None:
-            if session.pending_interaction.kind == "permission":
-                interaction_id = str(session.pending_interaction.interaction_id or "").strip()
-                if interaction_id:
-                    state.status = "waiting_permission"
-                else:
-                    state.status = "idle"
-            elif session.pending_interaction.kind == "user_input":
-                interaction_id = str(session.pending_interaction.interaction_id or "").strip()
-                if interaction_id:
-                    state.status = "waiting_user_input"
-                else:
-                    state.status = "idle"
-        plan = self.plan_store.load(session.session_id)
+        apply_hosted_projection(state, projection)
+        state.restore_stop_reason = str(projection.snapshot.get("restore_stop_reason") or "")
+        state.restore_consumed_event_count = int(
+            projection.snapshot.get("restore_consumed_event_count") or 0
+        )
+        state.restore_transcript_event_count = int(
+            projection.snapshot.get("restore_transcript_event_count") or 0
+        )
+        state.status = projection.status
+        state.last_assistant_message = self._last_assistant_from_history(state.history)
+        plan = self.plan_store.load(session_id)
         if plan is not None:
             state.active_plan_ref = plan.path
             state.workflow_state = "plan"
@@ -148,31 +137,31 @@ class SessionLifecycleManager(object):
     def fork_session(self, session_id: str, title: str = "") -> Dict[str, Any]:
         return self.summary_store.fork_session(session_id, title=title)
 
-    def persist_state(self, session: Session, current_mode: str, state: ManagedSession) -> str:
+    def persist_state(self, state: ManagedSession) -> str:
+        summary = None
         try:
-            summary_ref = self.summary_store.persist(session, current_mode)
-        except (OSError, ValueError, TypeError):
-            summary_ref = ""
-        else:
-            try:
-                self.project_memory.refresh(session, current_mode, summary_ref)
-            except (OSError, ValueError, TypeError):
-                pass
+            summary = self.summary_store.load_summary(state.session_id)
+        except ValueError:
+            summary = None
+        summary_ref = str((summary or {}).get("summary_ref") or state.summary_ref or "")
         with state.lock:
-            state.summary_ref = summary_ref or state.summary_ref
+            state.summary_ref = summary_ref
             state.updated_at = _utc_now()
         return summary_ref
 
-    def _last_assistant_from_session(self, session: Session) -> str:
-        for turn in reversed(session.turns):
-            if turn.assistant_message:
-                return str(turn.assistant_message)
+    def _last_assistant_from_history(self, history: Dict[str, Any]) -> str:
+        for turn in reversed(list(history.get("turns") or [])):
+            if not isinstance(turn, dict):
+                continue
+            assistant = str(turn.get("assistant_message") or "")
+            if assistant:
+                return assistant
         return ""
 
     def read_summary_for_state(self, state: ManagedSession) -> Optional[Dict[str, Any]]:
-        if state.summary_ref or state.session.turns:
+        if state.summary_ref or list(state.history.get("turns") or []):
             try:
-                summary = self.summary_store.load_summary(state.session.session_id)
+                summary = self.summary_store.load_summary(state.session_id)
             except ValueError:
                 summary = None
             if summary is not None:

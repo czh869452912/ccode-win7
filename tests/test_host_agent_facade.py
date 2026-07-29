@@ -1,10 +1,16 @@
 from __future__ import unicode_literals
 
 import time
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 
+import pytest
 from embedagent_core import AgentResult, AgentSession, InteractionReply, UserTurn
-from embedagent_core.hosting import HostedSessionController
+from embedagent_core.hosting import (
+    HostedCommandRecord,
+    HostedSessionController,
+    HostedSessionProjection,
+)
 from embedagent_core.model import ModelClient
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.runner import SessionRecoveryRequired
@@ -100,6 +106,11 @@ def _adapter(tmp_path):
     )
 
 
+def _extensions(state):
+    workflow_state = dict(state.projection.get("workflow_state") or {})
+    return dict(workflow_state.get("extensions") or {})
+
+
 def test_host_constructs_agent_facade_not_query_engine():
     text = (ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py").read_text(
         encoding="utf-8"
@@ -141,6 +152,28 @@ def test_created_and_resumed_sessions_hold_agent_session_handles(tmp_path):
     assert resumed_state.hosted_session.session_id == created["session_id"]
 
 
+def test_hosted_controller_operations_use_session_id_and_return_frozen_projection(tmp_path):
+    adapter = _adapter(tmp_path)
+    agent_session = adapter.agent.open("hosted-contract")
+    controller = HostedSessionController(agent_session)
+
+    initialized = controller.initialize(mode="build", workflow_state="")
+    changed = controller.apply_mode(mode="debug", workflow_state="")
+    recorded = controller.record_command_result(
+        HostedCommandRecord("/verify", "verify", True, "ok")
+    )
+    snapshot = controller.snapshot()
+
+    assert isinstance(initialized, HostedSessionProjection)
+    assert isinstance(changed, HostedSessionProjection)
+    assert isinstance(recorded, HostedSessionProjection)
+    assert snapshot.session_id == agent_session.session_id
+    assert snapshot.current_mode == "debug"
+    assert snapshot.history["session_id"] == agent_session.session_id
+    with pytest.raises(FrozenInstanceError):
+        snapshot.current_mode = "build"
+
+
 def test_host_binds_focused_restore_and_permission_memory_owners(tmp_path):
     adapter = _adapter(tmp_path)
     session_id = adapter.create_session("build")["session_id"]
@@ -149,7 +182,9 @@ def test_host_binds_focused_restore_and_permission_memory_owners(tmp_path):
 
     assert isinstance(adapter.restore_policy, ManagedSessionRestorePolicy)
     assert adapter.agent._runtime.ports.restore_policy is adapter.restore_policy
-    assert adapter.permission_policy.remembered_categories_for(state.session) == ["workspace_write"]
+    assert adapter.permission_policy.remembered_categories_for(state.session_id) == [
+        "workspace_write"
+    ]
 
 
 def test_all_host_session_handles_share_one_runtime_and_extension_manager(tmp_path):
@@ -251,17 +286,17 @@ def test_agent_result_exposes_generic_turn_completion_fields(tmp_path):
     assert result.termination_message == result.outcome["message"]
 
 
-def test_sync_post_submit_restore_failure_sets_error_and_emits_session_error(tmp_path):
+def test_sync_post_submit_projection_failure_sets_error_and_emits_session_error(tmp_path):
     adapter = _adapter(tmp_path)
     created = adapter.create_session("build")
     state = adapter._require_session(created["session_id"])
     events = []
 
-    def fail_restore(*args, **kwargs):
+    def fail_projection(*args, **kwargs):
         del args, kwargs
-        raise RuntimeError("post-submit restore failed")
+        raise RuntimeError("post-submit projection failed")
 
-    adapter.session_journal.restore = fail_restore
+    state.hosted_session.snapshot = fail_projection
     try:
         adapter.submit_user_message(
             created["session_id"],
@@ -271,27 +306,27 @@ def test_sync_post_submit_restore_failure_sets_error_and_emits_session_error(tmp
             event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
     except RuntimeError as exc:
-        assert str(exc) == "post-submit restore failed"
+        assert str(exc) == "post-submit projection failed"
     else:
-        raise AssertionError("synchronous restore failure must propagate")
+        raise AssertionError("synchronous projection failure must propagate")
 
     assert state.status == "error"
     assert state.active_thread is None
-    assert state.last_error == "post-submit restore failed"
+    assert state.last_error == "post-submit projection failed"
     assert [name for name, payload in events if name == "session.error"] == ["session.error"]
 
 
-def test_worker_post_submit_restore_failure_clears_thread_and_reports_error(tmp_path):
+def test_worker_post_submit_projection_failure_clears_thread_and_reports_error(tmp_path):
     adapter = _adapter(tmp_path)
     created = adapter.create_session("build")
     state = adapter._require_session(created["session_id"])
     events = []
 
-    def fail_restore(*args, **kwargs):
+    def fail_projection(*args, **kwargs):
         del args, kwargs
-        raise RuntimeError("worker restore failed")
+        raise RuntimeError("worker projection failed")
 
-    adapter.session_journal.restore = fail_restore
+    state.hosted_session.snapshot = fail_projection
     adapter.submit_user_message(
         created["session_id"],
         "hello",
@@ -307,7 +342,7 @@ def test_worker_post_submit_restore_failure_clears_thread_and_reports_error(tmp_
 
     assert state.status == "error"
     assert state.active_thread is None
-    assert state.last_error == "worker restore failed"
+    assert state.last_error == "worker projection failed"
     assert [name for name, payload in events if name == "session.error"] == ["session.error"]
 
 
@@ -315,10 +350,10 @@ def test_normal_turn_rebuilds_host_extension_projection(tmp_path):
     adapter = _adapter(tmp_path)
     created = adapter.create_session("build")
     state = adapter._require_session(created["session_id"])
-    before = dict(state.session.workflow_state.get("extensions") or {})
+    before = _extensions(state)
 
     adapter.submit_user_message(created["session_id"], "hello", stream=False, wait=True)
-    after = dict(state.session.workflow_state.get("extensions") or {})
+    after = _extensions(state)
 
     assert "project_extensions" in before
     assert "local_resources" in before
@@ -333,10 +368,10 @@ def test_resumed_turn_rebuilds_resource_projection_from_runtime_config(tmp_path)
     resumed_adapter = _adapter(tmp_path)
     resumed_adapter.resume_session(session_id, "build")
     state = resumed_adapter._require_session(session_id)
-    before = dict(state.session.workflow_state.get("extensions") or {})
+    before = _extensions(state)
 
     resumed_adapter.submit_user_message(session_id, "hello", stream=False, wait=True)
-    after = dict(state.session.workflow_state.get("extensions") or {})
+    after = _extensions(state)
 
     assert "local_resources" in before
     assert after["local_resources"] == before["local_resources"]
@@ -351,7 +386,7 @@ def test_interaction_resume_rebuilds_host_extension_projection(tmp_path):
     created = adapter.create_session("build")
     session_id = created["session_id"]
     state = adapter._require_session(session_id)
-    before = dict(state.session.workflow_state.get("extensions") or {})
+    before = _extensions(state)
     adapter.submit_user_message(session_id, "write", stream=False, wait=False)
     deadline = time.time() + 3.0
     snapshot = adapter.get_session_snapshot(session_id)
@@ -362,13 +397,13 @@ def test_interaction_resume_rebuilds_host_extension_projection(tmp_path):
 
     adapter.respond_to_interaction(session_id, interaction_id, {"decision": "accept"})
     _wait_for_session_settled(adapter, session_id)
-    after = dict(state.session.workflow_state.get("extensions") or {})
+    after = _extensions(state)
 
     assert after["project_extensions"] == before["project_extensions"]
     assert after["local_resources"] == before["local_resources"]
 
 
-def test_host_recovery_skips_only_previously_confirmed_bad_history(tmp_path):
+def test_host_restore_rejects_malformed_history_without_exposing_mutable_state(tmp_path):
     adapter = _adapter(tmp_path)
     session_id = "session-bounded-recovery"
     adapter.transcript_store.append_event(
@@ -386,33 +421,9 @@ def test_host_recovery_skips_only_previously_confirmed_bad_history(tmp_path):
             "parent_message_id": "m-never-existed",
         },
     )
-    adapter.resume_session(session_id, "build")
-
-    adapter.submit_user_message(session_id, "first", stream=False, wait=True)
-    adapter.submit_user_message(session_id, "second", stream=False, wait=True)
-    state = adapter._require_session(session_id)
-    trusted_history_count = state.best_effort_restore_event_count
-    adapter.transcript_store.append_event(
-        session_id,
-        "message",
-        {
-            "role": "system",
-            "content": "new corruption",
-            "message_id": "m-new-bad",
-            "parent_message_id": "m-still-missing",
-        },
-    )
-
-    try:
-        adapter.submit_user_message(session_id, "third", stream=False, wait=True)
-    except SessionRecoveryRequired:
-        pass
-    else:
-        raise AssertionError("new corruption after the trusted history must fail closed")
-
-    assert trusted_history_count > 0
-    assert state.best_effort_restore_event_count == trusted_history_count
-    assert state.status == "error"
+    with pytest.raises(SessionRecoveryRequired):
+        adapter.resume_session(session_id, "build")
+    assert session_id not in adapter._sessions
 
 
 def test_resource_projection_uses_current_shared_catalog_without_cross_session_rollback(
@@ -434,8 +445,8 @@ def test_resource_projection_uses_current_shared_catalog_without_cross_session_r
     adapter.submit_user_message(second, "second", stream=False, wait=True)
     first_state = adapter._require_session(first)
     second_state = adapter._require_session(second)
-    first_resources = first_state.session.workflow_state["extensions"]["local_resources"]["state"]
-    second_resources = second_state.session.workflow_state["extensions"]["local_resources"]["state"]
+    first_resources = _extensions(first_state)["local_resources"]["state"]
+    second_resources = _extensions(second_state)["local_resources"]["state"]
     actual = adapter.tools.local_resources()
 
     assert actual["counts"]["skills"] == 0

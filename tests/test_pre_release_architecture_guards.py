@@ -64,6 +64,15 @@ def _is_true_literal(node):
     return isinstance(node, ast.Constant) and node.value is True
 
 
+def _dotted_name(node):
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        prefix = _dotted_name(node.value)
+        return (prefix + "." if prefix else "") + node.attr
+    return ""
+
+
 def _target_name(node):
     if isinstance(node, ast.Name):
         return node.id
@@ -185,8 +194,49 @@ def test_session_reducer_is_the_only_core_session_state_writer():
 
 def test_host_does_not_call_private_agent_session_methods():
     host_root = ROOT / "packages/embedagent-host/src/embedagent_host"
-    source = "\n".join(path.read_text(encoding="utf-8") for path in host_root.rglob("*.py"))
-    assert "._host_" not in source
+    offenders = []
+    for path in host_root.rglob("*.py"):
+        tree = ast.parse(_read(path), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                module = str(node.module or "")
+                for alias in node.names:
+                    qualified = module + "." + alias.name
+                    if qualified in (
+                        "embedagent_core.session.Session",
+                        "embedagent_core.session_restore.SessionRestorer",
+                    ):
+                        offenders.append(
+                            "%s:%d imports %s" % (_relative(path), node.lineno, qualified)
+                        )
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name in (
+                        "embedagent_core.session",
+                        "embedagent_core.session_restore",
+                    ):
+                        offenders.append(
+                            "%s:%d imports %s module" % (_relative(path), node.lineno, alias.name)
+                        )
+            if isinstance(node, ast.Attribute):
+                dotted = _dotted_name(node)
+                if dotted.endswith("agent_session._runtime") or dotted.endswith(
+                    "agent_session._submit_lock"
+                ):
+                    offenders.append("%s:%d accesses %s" % (_relative(path), node.lineno, dotted))
+            if isinstance(node, ast.Call):
+                dotted = _dotted_name(node.func)
+                if ".agent_session._runtime._" in ("." + dotted):
+                    offenders.append(
+                        "%s:%d calls private AgentRuntime member %s"
+                        % (_relative(path), node.lineno, dotted)
+                    )
+                if isinstance(node.func, ast.Attribute) and node.func.attr.startswith("_host_"):
+                    offenders.append(
+                        "%s:%d calls private hosted method %s"
+                        % (_relative(path), node.lineno, node.func.attr)
+                    )
+    assert offenders == []
 
 
 def test_no_timeline_replay_snapshot_contract_in_active_source():

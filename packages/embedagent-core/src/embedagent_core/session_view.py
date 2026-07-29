@@ -123,7 +123,11 @@ def session_read_view(session: Session) -> SessionReadView:
     return SessionReadView(
         session_id=str(session.session_id or ""),
         started_at=str(session.started_at or ""),
-        messages=tuple(_message_record(item) for item in list(session.messages or [])),
+        messages=tuple(
+            _message_record(item)
+            for item in list(session.messages or [])
+            if not bool(getattr(item, "archived", False))
+        ),
         turns=tuple(_turn_record(item) for item in list(session.turns or [])),
         workflow_state=_freeze(session.workflow_state or {}),
         compact_boundaries=tuple(

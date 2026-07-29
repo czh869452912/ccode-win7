@@ -37,6 +37,7 @@ class KernelCursor:
     turn_id: str = ""
     step_id: str = ""
     mode_name: str = ""
+    tool_call_ids: Tuple[str, ...] = field(default_factory=tuple)
     workflow_state: str = ""
     source: str = ""
     stream: bool = False
@@ -195,6 +196,7 @@ class AgentKernel(object):
         )
         next_cursor = replace(
             cursor,
+            tool_call_ids=tuple(action.call_id for action in result.reply.actions),
             phase="tools",
             expected_effect_id=effect_id,
         )
@@ -224,6 +226,7 @@ class AgentKernel(object):
             step_index=next_index,
             step_id=self._step_id(cursor.turn_id, next_index),
             mode_name=next_mode,
+            tool_call_ids=(),
         )
         return KernelStep(
             cursor=next_cursor,
@@ -315,6 +318,7 @@ class AgentKernel(object):
         return KernelStep(
             cursor=replace(cursor, phase="failed", expected_effect_id=""),
             events=result.events
+            + self._unclosed_failure_operations(cursor, result, reason)
             + (self._step_finished(cursor, reason, interrupted=reason == "aborted"),)
             + self._transition_events(cursor, outcome),
             outcome=outcome,
@@ -380,6 +384,63 @@ class AgentKernel(object):
                 },
             },
         )
+
+    def _unclosed_failure_operations(
+        self,
+        cursor: KernelCursor,
+        result: EffectFailed,
+        reason: str,
+    ) -> Tuple[EventIntent, ...]:
+        closed_ids = set()
+        for event in result.events:
+            if event.event_type not in ("operation_finished", "operation_interrupted"):
+                continue
+            operation_id = str(event.payload.get("operation_id") or "")
+            if operation_id:
+                closed_ids.add(operation_id)
+
+        events = []
+        effect_id = str(cursor.expected_effect_id or "")
+        if effect_id and effect_id not in closed_ids:
+            kind = {
+                "context": "context_assembly",
+                "provider": "provider_request",
+                "tools": "tools",
+            }.get(cursor.phase, cursor.phase)
+            events.append(
+                EventIntent(
+                    "operation_interrupted",
+                    {
+                        "operation_id": effect_id,
+                        "kind": kind,
+                        "turn_id": cursor.turn_id,
+                        "step_id": cursor.step_id,
+                        "reason": reason,
+                        "result": {"error_kind": result.error_kind},
+                    },
+                )
+            )
+
+        if cursor.phase == "tools":
+            for call_id in cursor.tool_call_ids:
+                operation_id = "tool:%s" % call_id
+                if operation_id in closed_ids:
+                    continue
+                events.append(
+                    EventIntent(
+                        "operation_interrupted",
+                        {
+                            "operation_id": operation_id,
+                            "kind": "tool_call",
+                            "turn_id": cursor.turn_id,
+                            "step_id": cursor.step_id,
+                            "tool_call_id": call_id,
+                            "reason": reason,
+                            "result": {"error_kind": result.error_kind},
+                        },
+                    )
+                )
+        return tuple(events)
 
     def _assistant_events(
         self,

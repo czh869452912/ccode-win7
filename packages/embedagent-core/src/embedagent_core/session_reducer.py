@@ -112,6 +112,16 @@ class SessionReducer(object):
         payload: Dict[str, Any],
     ) -> None:
         role = str(payload.get("role") or "")
+        kind = str(payload.get("kind") or "message")
+        if role == "system" and bool(payload.get("replace_kind")):
+            for message in session.messages:
+                if (
+                    str(getattr(message, "role", "") or "") == role
+                    and str(getattr(message, "kind", "") or "") == kind
+                ):
+                    message.archived = True
+            if bool(payload.get("remove_only")):
+                return
         message_id = str(payload.get("message_id") or "").strip()
         parent_message_id = str(payload.get("parent_message_id") or "").strip()
         if (
@@ -129,7 +139,7 @@ class SessionReducer(object):
                 parent_message_id=parent_message_id,
                 turn_id=str(payload.get("turn_id") or ""),
                 step_id=str(payload.get("step_id") or ""),
-                kind=str(payload.get("kind") or "message"),
+                kind=kind,
                 metadata=dict(payload.get("metadata") or {}),
                 replaced_by_refs=list(payload.get("replaced_by_refs") or []),
             )

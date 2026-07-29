@@ -4,7 +4,6 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent_core.session import Session
 from embedagent_host.runtime.session_runtime import ManagedSession
 
 from embedagent.core.adapter import _session_snapshot_from_dict
@@ -89,7 +88,7 @@ class GuiProtocolProjectionTests(unittest.TestCase):
         self.assertEqual(snapshot.workflow_state, "")
 
     def test_managed_session_defaults_to_empty_workflow_state(self):
-        managed = ManagedSession(session=Session(), current_mode="")
+        managed = ManagedSession(session_id="sess-managed", current_mode="")
 
         self.assertEqual(managed.workflow_state, "")
 

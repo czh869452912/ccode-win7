@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+import copy
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Set
-
-from embedagent_core.session import Session
 
 
 def _utc_now() -> str:
@@ -14,8 +13,10 @@ def _utc_now() -> str:
 
 @dataclass
 class ManagedSession(object):
-    session: Session
+    session_id: str
     current_mode: str
+    projection: Dict[str, Any] = field(default_factory=dict)
+    history: Dict[str, Any] = field(default_factory=dict)
     agent_session: Any = None
     hosted_session: Any = None
     status: str = "idle"
@@ -50,3 +51,22 @@ class ManagedSession(object):
     remembered_permission_categories: Set[str] = field(default_factory=set)
     stop_event: threading.Event = field(default_factory=threading.Event, repr=False)
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
+
+
+def apply_hosted_projection(state: ManagedSession, hosted: Any) -> None:
+    snapshot = copy.deepcopy(dict(getattr(hosted, "snapshot", {}) or {}))
+    history = copy.deepcopy(dict(getattr(hosted, "history", {}) or {}))
+    state.session_id = str(getattr(hosted, "session_id", "") or state.session_id)
+    state.current_mode = str(getattr(hosted, "current_mode", "") or state.current_mode)
+    state.projection = snapshot
+    state.history = history
+    for name in (
+        "operation_diagnostics",
+        "runtime_config",
+        "compaction_state",
+        "recovery_state",
+        "turn_experience",
+    ):
+        value = snapshot.get(name)
+        if isinstance(value, dict):
+            setattr(state, name, copy.deepcopy(value))

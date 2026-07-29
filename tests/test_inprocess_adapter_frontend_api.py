@@ -11,10 +11,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent_core.model import ModelClientError
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
+from embedagent_core.runner import SessionRecoveryRequired
 from embedagent_core.session import Action, AssistantReply, Observation
 from embedagent_host.hosted_command_service import HostedCommandService
 from embedagent_host.hosted_interaction_service import HostedInteractionService
 from embedagent_host.inprocess_adapter import InProcessAdapter, _should_emit_context_compacted
+from embedagent_host.runtime.session_runtime import apply_hosted_projection
 from embedagent_host.runtime.tools import ToolDefinition, ToolRuntime
 from embedagent_protocol import PermissionContext
 
@@ -46,6 +48,95 @@ def _capture_full_events(events):
         )
 
     return capture
+
+
+def _refresh_hosted_state(state):
+    projection = state.hosted_session.snapshot()
+    with state.lock:
+        apply_hosted_projection(state, projection)
+    return projection
+
+
+def _append_test_step(adapter, session_id, turn_id, step_id, user_text):
+    adapter.transcript_store.append_event(
+        session_id,
+        "message",
+        {
+            "role": "user",
+            "content": user_text,
+            "message_id": "message-" + turn_id,
+            "turn_id": turn_id,
+            "step_id": "",
+        },
+    )
+    adapter.transcript_store.append_event(
+        session_id,
+        "step_started",
+        {"turn_id": turn_id, "step_id": step_id, "step_index": 1},
+    )
+
+
+def _append_test_observation(adapter, session_id, turn_id, step_id, action, observation):
+    adapter.transcript_store.append_event(
+        session_id,
+        "tool_call",
+        {
+            "turn_id": turn_id,
+            "step_id": step_id,
+            "call_id": action.call_id,
+            "tool_name": action.name,
+            "arguments": dict(action.arguments),
+        },
+    )
+    adapter.transcript_store.append_event(
+        session_id,
+        "tool_result",
+        {
+            "turn_id": turn_id,
+            "step_id": step_id,
+            "call_id": action.call_id,
+            "tool_name": action.name,
+            "arguments": dict(action.arguments),
+            "observation": {
+                "success": bool(observation.success),
+                "error": observation.error,
+                "data": observation.data,
+            },
+            "message_id": "result-" + action.call_id,
+        },
+    )
+
+
+def _append_test_workflow_patch(adapter, session_id):
+    workflow = {
+        "id": "c_harness",
+        "label": "C Harness",
+        "state": "active",
+        "summary": "Build the project",
+        "activity": "Implementing",
+        "items": [
+            {
+                "id": "task-1",
+                "title": "Build the project",
+                "status": "in_progress",
+            }
+        ],
+        "metadata": {
+            "current_phase": "build",
+            "discipline_profile": "implementation",
+        },
+    }
+    adapter.transcript_store.append_event(
+        session_id,
+        "workflow_patch",
+        {
+            "mode_name": "build",
+            "workflow_state_name": "",
+            "workflow": workflow,
+            "metadata": {},
+        },
+    )
+    return workflow
 
 
 def _capture_event_kinds(events):
@@ -602,16 +693,10 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
     def test_session_snapshot_projects_task_fields_from_workflow_state(self):
         session_id = str(self.snapshot.get("session_id") or "")
-        # First submit explicit work to generate task graph
-        self.adapter.submit_user_message(
-            session_id=session_id,
-            text="build the project",
-            stream=False,
-            wait=True,
-        )
-
+        _append_test_workflow_patch(self.adapter, session_id)
         state = self.adapter._sessions[session_id]
-        workflow = state.session.workflow_state.get("workflow") or {}
+        _refresh_hosted_state(state)
+        workflow = (state.projection.get("workflow_state") or {}).get("workflow") or {}
         metadata = workflow.get("metadata") or {}
         self.assertTrue(workflow)
         expected_phase = metadata.get("current_phase")
@@ -639,15 +724,10 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
     def test_session_snapshot_uses_synced_workflow_without_describing_harness(self):
         session_id = str(self.snapshot.get("session_id") or "")
-        self.adapter.submit_user_message(
-            session_id=session_id,
-            text="build the project",
-            stream=False,
-            wait=True,
-        )
-
+        _append_test_workflow_patch(self.adapter, session_id)
         state = self.adapter._sessions[session_id]
-        workflow = state.session.workflow_state.get("workflow") or {}
+        _refresh_hosted_state(state)
+        workflow = (state.projection.get("workflow_state") or {}).get("workflow") or {}
         metadata = workflow.get("metadata") or {}
         expected_phase = metadata.get("current_phase")
 
@@ -756,14 +836,14 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         from embedagent_host.runtime.session_projector import SessionSnapshotProjector
 
         state = self.adapter._sessions[self.snapshot["session_id"]]
-        before_messages = list(state.session.messages)
+        before_history = json.loads(json.dumps(state.history))
         runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
         runtime = runtime_lookup() if callable(runtime_lookup) else {}
         summary = self.adapter._read_summary_for_state(state)
 
         projected = SessionSnapshotProjector().build_snapshot(state, summary, runtime)
 
-        self.assertEqual(before_messages, state.session.messages)
+        self.assertEqual(before_history, state.history)
         self.assertEqual(projected["session_id"], self.snapshot["session_id"])
         self.assertIn("task_items", projected)
         self.assertIn("current_phase", projected)
@@ -869,13 +949,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                 "resolution_payload": {"answer": "继续"},
             },
         )
-        history = adapter.build_session_history(session_id)
-        self.assertEqual(history["integrity"]["status"], "partial")
-        self.assertEqual(
-            history["integrity"]["restore_stop_reason"], "pending_resolution_identity_mismatch"
-        )
-        self.assertTrue(history["turns"])
-        self.assertEqual(history["history_source"], "transcript_restore")
+        with self.assertRaises(SessionRecoveryRequired):
+            adapter.build_session_history(session_id)
+        self.assertNotIn(session_id, adapter._sessions)
 
     def test_session_history_splits_single_turn_into_multiple_agent_steps(self):
         adapter = _product_adapter(
@@ -1859,8 +1935,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
         state = adapter._require_session(session_id)
-        state.session.add_user_message("run recipe", turn_id="turn-live")
-        state.session.begin_step(step_id="step-live")
+        _append_test_step(adapter, session_id, "turn-live", "step-live", "run recipe")
+        _refresh_hosted_state(state)
         request = PermissionRequest(
             tool_name="run_recipe",
             category="toolchain_exec",
@@ -1878,7 +1954,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
         self.assertTrue(ticket.permission_id)
         self.assertEqual(request.details.get("_interaction_id"), ticket.permission_id)
-        self.assertIsNone(state.session.pending_interaction)
+        self.assertIsNone(state.projection.get("pending_interaction"))
         payload = adapter.build_session_history(session_id)
         turn = payload["turns"][0]
         self.assertEqual(turn["status"], "completed")
@@ -1934,11 +2010,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             },
         )
 
-        restored = adapter.resume_session(session_id, "spec")
-        self.assertEqual(restored["status"], "waiting_user_input")
-        self.assertEqual(restored["restore_stop_reason"], "pending_resolution_identity_mismatch")
-        self.assertEqual(restored["restore_consumed_event_count"], 4)
-        self.assertEqual(restored["restore_transcript_event_count"], 5)
+        with self.assertRaises(SessionRecoveryRequired):
+            adapter.resume_session(session_id, "spec")
+        self.assertNotIn(session_id, adapter._sessions)
 
     def test_new_turn_clears_restore_stop_reason_before_fresh_ask_user(self):
         adapter = _product_adapter(
@@ -1977,25 +2051,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             },
         )
 
-        restored = adapter.resume_session(session_id, "spec")
-        self.assertEqual(restored["restore_stop_reason"], "interaction_expired")
-
-        adapter.submit_user_message(
-            session_id=session_id,
-            text="请继续",
-            stream=False,
-            wait=True,
-            permission_resolver=lambda ticket: True,
-            user_input_resolver=lambda ticket: {
-                "answer": "切到 debug 模式继续排查",
-                "selected_index": 1,
-                "selected_mode": "debug",
-                "selected_option_text": "切到 debug 模式继续排查",
-            },
-            event_handler=lambda envelope: None,
-        )
-        refreshed = adapter.get_session_snapshot(session_id)
-        self.assertEqual(refreshed["restore_stop_reason"], "")
+        with self.assertRaises(SessionRecoveryRequired):
+            adapter.resume_session(session_id, "spec")
+        self.assertNotIn(session_id, adapter._sessions)
 
     def test_adapter_does_not_expose_timeline_event_reload_api(self):
         self.assertFalse(hasattr(self.adapter, "load_session_events_after"))
@@ -2350,10 +2408,10 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         # No harness state pre-generated on session creation
         self.assertEqual(self.adapter.list_tasks(session_id=first_session_id)["count"], 0)
         self.assertEqual(self.adapter.list_tasks(session_id=second_session_id)["count"], 0)
-        # set_session_mode triggers harness refresh for the target session
+        # A mode switch does not synthesize workflow tasks without explicit work.
         self.adapter.set_session_mode(second_session_id, "verify")
         self.assertEqual(self.adapter.list_tasks(session_id=first_session_id)["count"], 0)
-        self.assertEqual(self.adapter.list_tasks(session_id=second_session_id)["count"], 3)
+        self.assertEqual(self.adapter.list_tasks(session_id=second_session_id)["count"], 0)
 
     def test_session_status_events_cover_running_and_idle(self):
         events = []
@@ -2447,8 +2505,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         step_start = [payload for event_name, payload in events if event_name == "step.started"][0]
         tool_start = [payload for event_name, payload in events if event_name == "tool.started"][0]
         step_end = [payload for event_name, payload in events if event_name == "step.finished"][0]
-        session_state = adapter._sessions[str(snapshot.get("session_id") or "")].session
-        engine_step_id = session_state.turns[-1].steps[0].step_id
+        state = adapter._sessions[str(snapshot.get("session_id") or "")]
+        engine_step_id = state.history["turns"][-1]["steps"][0]["step_id"]
 
         self.assertEqual(step_start.get("step_id"), engine_step_id)
         self.assertEqual(tool_start.get("step_id"), engine_step_id)
@@ -2655,14 +2713,13 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         waiting = adapter.get_session_snapshot(session_id)
         snapshot_interaction = waiting.get("pending_interaction") or {}
         state = adapter._sessions[session_id]
-        with state.lock:
-            session_pending = state.session.pending_interaction
+        session_pending = state.projection.get("pending_interaction")
 
         self.assertEqual(waiting["status"], "waiting_user_input")
         self.assertIsNotNone(session_pending)
-        self.assertEqual(session_pending.kind, "user_input")
+        self.assertEqual(session_pending.get("kind"), "user_input")
         self.assertEqual(
-            session_pending.interaction_id,
+            session_pending.get("interaction_id"),
             snapshot_interaction.get("interaction_id"),
         )
         self.assertEqual(snapshot_interaction.get("kind"), "user_input")
@@ -3025,13 +3082,12 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         snapshot_interaction = waiting.get("pending_interaction") or {}
         permission_id = str(snapshot_interaction.get("interaction_id") or "")
         state = adapter._sessions[session_id]
-        with state.lock:
-            session_pending = state.session.pending_interaction
+        session_pending = state.projection.get("pending_interaction")
         try:
             self.assertEqual(waiting["status"], "waiting_permission")
             self.assertIsNotNone(session_pending)
-            self.assertEqual(session_pending.kind, "permission")
-            self.assertEqual(session_pending.interaction_id, permission_id)
+            self.assertEqual(session_pending.get("kind"), "permission")
+            self.assertEqual(session_pending.get("interaction_id"), permission_id)
         finally:
             if permission_id:
                 adapter.respond_to_interaction(session_id, permission_id, {"decision": "accept"})
@@ -3182,10 +3238,14 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         session_id = str(self.snapshot.get("session_id") or "")
         state = self.adapter._sessions[session_id]
         action = Action("run_recipe", {"recipe_id": "cmake.build.default"}, "call-build-1")
-        state.session.add_user_message("build failed", turn_id="turn-review-build")
-        state.session.begin_step(step_id="step-review-build")
-        state.session.record_tool_call(action)
-        state.session.add_observation(
+        _append_test_step(
+            self.adapter, session_id, "turn-review-build", "step-review-build", "build failed"
+        )
+        _append_test_observation(
+            self.adapter,
+            session_id,
+            "turn-review-build",
+            "step-review-build",
             action,
             Observation(
                 "run_recipe",
@@ -3205,6 +3265,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                 },
             ),
         )
+        _refresh_hosted_state(state)
         events = []
         self.adapter.submit_user_message(
             session_id=session_id,
@@ -3234,11 +3295,15 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
     def test_slash_review_emits_findings_from_official_verify_path(self):
         session_id = str(self.snapshot.get("session_id") or "")
         state = self.adapter._sessions[session_id]
-        state.session.add_user_message("verify failed", turn_id="turn-review-verify")
-        state.session.begin_step(step_id="step-review-verify")
+        _append_test_step(
+            self.adapter, session_id, "turn-review-verify", "step-review-verify", "verify failed"
+        )
         test_action = Action("run_recipe", {"recipe_id": "cmake.test.default"}, "call-run-verify-1")
-        state.session.record_tool_call(test_action)
-        state.session.add_observation(
+        _append_test_observation(
+            self.adapter,
+            session_id,
+            "turn-review-verify",
+            "step-review-verify",
             test_action,
             Observation(
                 "run_recipe",
@@ -3262,8 +3327,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             ),
         )
         quality_action = Action("report_quality_v2", {}, "call-quality-verify-1")
-        state.session.record_tool_call(quality_action)
-        state.session.add_observation(
+        _append_test_observation(
+            self.adapter,
+            session_id,
+            "turn-review-verify",
+            "step-review-verify",
             quality_action,
             Observation(
                 "report_quality_v2",
@@ -3279,6 +3347,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             ),
         )
         events = []
+        _refresh_hosted_state(state)
         self.adapter.submit_user_message(
             session_id=session_id,
             text="/review",

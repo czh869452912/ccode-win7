@@ -46,6 +46,10 @@ def _write_text(path, content):
         handle.write(content)
 
 
+def _managed_messages(state):
+    return [dict(item) for item in list(state.history.get("messages") or [])]
+
+
 class FakeClient(object):
     def generate(self, messages, tools=None):
         del messages, tools
@@ -656,22 +660,23 @@ class TestLocalResources(unittest.TestCase):
 
         snapshot = adapter.create_session("build")
         state = adapter._require_session(str(snapshot.get("session_id") or ""))
+        messages = _managed_messages(state)
         skill_prompts = [
             message
-            for message in state.session.messages
-            if message.role == "system" and message.kind == "local_skills_prompt"
+            for message in messages
+            if message.get("role") == "system" and message.get("kind") == "local_skills_prompt"
         ]
         system_prompt_text = "\n\n".join(
-            message.content
-            for message in state.session.messages
-            if message.role == "system" and message.kind != "local_skills_prompt"
+            str(message.get("content") or "")
+            for message in messages
+            if message.get("role") == "system" and message.get("kind") != "local_skills_prompt"
         )
 
         self.assertEqual(len(skill_prompts), 1)
-        self.assertIn("<name>code-review</name>", skill_prompts[0].content)
+        self.assertIn("<name>code-review</name>", skill_prompts[0].get("content"))
         self.assertNotIn("<name>code-review</name>", system_prompt_text)
         self.assertEqual(
-            "\n\n".join(message.content for message in state.session.messages).count(
+            "\n\n".join(str(message.get("content") or "") for message in messages).count(
                 "<name>code-review</name>"
             ),
             1,
@@ -687,7 +692,9 @@ class TestLocalResources(unittest.TestCase):
         session_id = str(snapshot.get("session_id") or "")
         state = adapter._require_session(session_id)
         initial_system = "\n\n".join(
-            message.content for message in state.session.messages if message.role == "system"
+            str(message.get("content") or "")
+            for message in _managed_messages(state)
+            if message.get("role") == "system"
         )
         self.assertNotIn("code-review", initial_system)
 
@@ -701,17 +708,18 @@ class TestLocalResources(unittest.TestCase):
         )
         adapter.reload_resources(session_id=session_id, reason="test")
 
+        messages = _managed_messages(state)
         skill_prompts = [
             message
-            for message in state.session.messages
-            if message.role == "system" and message.kind == "local_skills_prompt"
+            for message in messages
+            if message.get("role") == "system" and message.get("kind") == "local_skills_prompt"
         ]
         events = adapter.transcript_store.load_events(session_id)
         message_events = [item for item in events if item["type"] == "message"]
 
         self.assertEqual(len(skill_prompts), 1)
-        self.assertIn("<name>code-review</name>", skill_prompts[0].content)
-        self.assertEqual(skill_prompts[0].metadata["reason"], "test")
+        self.assertIn("<name>code-review</name>", skill_prompts[0].get("content"))
+        self.assertEqual((skill_prompts[0].get("metadata") or {})["reason"], "test")
         self.assertTrue(
             any(
                 str((item.get("payload") or {}).get("kind") or "") == "local_skills_prompt"
@@ -728,16 +736,17 @@ class TestLocalResources(unittest.TestCase):
             "# Code Review\n",
         )
         adapter.reload_resources(session_id=session_id, reason="test-second")
+        messages = _managed_messages(state)
         skill_prompts = [
             message
-            for message in state.session.messages
-            if message.role == "system" and message.kind == "local_skills_prompt"
+            for message in messages
+            if message.get("role") == "system" and message.get("kind") == "local_skills_prompt"
         ]
 
         self.assertEqual(len(skill_prompts), 1)
-        self.assertIn("<name>code-review-v2</name>", skill_prompts[0].content)
-        self.assertNotIn("<name>code-review</name>", skill_prompts[0].content)
-        self.assertEqual(skill_prompts[0].metadata["reason"], "test-second")
+        self.assertIn("<name>code-review-v2</name>", skill_prompts[0].get("content"))
+        self.assertNotIn("<name>code-review</name>", skill_prompts[0].get("content"))
+        self.assertEqual((skill_prompts[0].get("metadata") or {})["reason"], "test-second")
 
     def test_help_and_capability_snapshot_include_visible_skill_commands(self):
         _write_text(

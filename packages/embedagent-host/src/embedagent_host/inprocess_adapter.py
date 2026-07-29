@@ -29,7 +29,7 @@ from embedagent_core.profile_runtime import (
 from embedagent_host.runtime.context import ContextManager
 from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
 from embedagent_core.interaction import UserInputRequest, UserInputResponse
-from embedagent_core.hosting import HostedSessionController
+from embedagent_core.hosting import HostedResourcePrompt, HostedSessionController
 from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
 from embedagent_host.runtime.memory_maintenance import MemoryMaintenance
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
@@ -47,16 +47,12 @@ from embedagent_core.session import (
     AssistantReply,
     LoopTransition,
     Observation,
-    Session,
     TurnOutcome,
 )
 from embedagent_host.runtime.session_bootstrap_service import SessionBootstrapService
-from embedagent_core.session_operation_log import operation_diagnostics
 from embedagent_host.runtime.session_projector import SessionSnapshotProjector
-from embedagent_core.session_journal import SessionJournal
-from embedagent_core.session_reducer import SessionReducer
 from embedagent_host.runtime.session_restore_policy import ManagedSessionRestorePolicy
-from embedagent_host.runtime.session_runtime import ManagedSession
+from embedagent_host.runtime.session_runtime import ManagedSession, apply_hosted_projection
 from embedagent_host.runtime.session_store import SessionSummaryStore
 from embedagent_host.runtime.services import (
     EventEmitter,
@@ -254,7 +250,6 @@ class InProcessAdapter(object):
         self.plan_store = PlanStore(self.tools.workspace)
         self.command_registry = SlashCommandRegistry()
         self.transcript_store = TranscriptStore(self.tools.workspace)
-        self.session_journal = SessionJournal(self.transcript_store, SessionReducer())
         self.snapshot_projector = SessionSnapshotProjector()
         self.agent_application_registry = (
             agent_application_registry or base_agent_application_registry()
@@ -319,14 +314,17 @@ class InProcessAdapter(object):
             self.tools.workspace,
             getattr(self.tools, "_ctx", None),
         )
+
+        def open_hosted_session(session_id: str):
+            agent_session = self.agent.open(session_id)
+            return agent_session, HostedSessionController(agent_session)
+
         self._session_lifecycle = SessionLifecycleManager(
             session_store=self.summary_store,
             summary_store=self.summary_store,
             plan_store=self.plan_store,
-            project_memory=self.project_memory_store,
-            session_journal=self.session_journal,
-            restore_policy=self.restore_policy,
             transcript_store=self.transcript_store,
+            session_opener=open_hosted_session,
             mode_resolver=self._mode_runtime_policy.require_mode,
             default_mode=self._mode_runtime_policy.default_mode(),
             default_workflow_state=str(self.runtime_definition.workflow_state or ""),
@@ -436,7 +434,8 @@ class InProcessAdapter(object):
         }
 
     def _rebuild_host_session_projection(self, state: ManagedSession) -> None:
-        extensions = state.session.workflow_state.setdefault("extensions", {})
+        workflow_state = state.projection.setdefault("workflow_state", {})
+        extensions = workflow_state.setdefault("extensions", {})
         extensions["project_extensions"] = self._project_extension_snapshot_state()
         resource_payload = self.tools.local_resources()
         if isinstance(resource_payload, dict):
@@ -446,6 +445,7 @@ class InProcessAdapter(object):
                 "diagnostics": list(resource_payload.get("diagnostics") or []),
             }
             extensions["local_resources"] = {"state": resource_state}
+        state.history["workflow_state"] = copy.deepcopy(workflow_state)
 
     def _build_agent(self) -> Agent:
         ports = AgentPorts(
@@ -461,9 +461,9 @@ class InProcessAdapter(object):
         definition = replace(self.runtime_definition, extensions=())
         return Agent.create(ports, definition)
 
-    def _remembered_categories_for_session(self, session: Session) -> List[str]:
+    def _remembered_categories_for_session(self, session_id: str) -> List[str]:
         with self._lock:
-            state = self._sessions.get(session.session_id)
+            state = self._sessions.get(str(session_id or ""))
         if state is None:
             return []
         with state.lock:
@@ -608,7 +608,7 @@ class InProcessAdapter(object):
         resource_payload: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.transcript_store.append_event(
-            state.session.session_id,
+            state.session_id,
             "runtime_configured",
             self._runtime_config_payload(
                 reason,
@@ -619,61 +619,6 @@ class InProcessAdapter(object):
 
     def _refresh_reducer_state(self, state: ManagedSession) -> None:
         self.session_projection.refresh(state)
-
-    def _runtime_summary_for_recovery(self, runtime_config: Dict[str, Any]) -> Dict[str, Any]:
-        resource_revision = runtime_config.get("resource_revision")
-        if not isinstance(resource_revision, dict):
-            resource_revision = {}
-        model_profile = runtime_config.get("model_profile")
-        if not isinstance(model_profile, dict):
-            model_profile = {}
-        return {
-            "active_tool_count": len(list(runtime_config.get("active_tool_names") or [])),
-            "resource_revision": int(resource_revision.get("revision") or 0),
-            "model_profile_name": str(model_profile.get("name") or ""),
-        }
-
-    def _append_recovery_marker(
-        self,
-        state: ManagedSession,
-        restored: Any,
-        current_mode: str,
-        runtime_config: Dict[str, Any],
-    ) -> None:
-        consumed = int(getattr(restored, "consumed_event_count", 0) or 0)
-        total = int(getattr(restored, "transcript_event_count", 0) or 0)
-        stop_reason = str(getattr(restored, "stop_reason", "") or "")
-        status = "clean" if not stop_reason and consumed == total else "partial"
-        operation_summary = operation_diagnostics(restored.operation_state)
-        compaction_summary = restored.compaction_state.to_dict()
-        self.transcript_store.append_event(
-            state.session.session_id,
-            "recovery_marker",
-            {
-                "marker_id": "recovery-%s" % uuid.uuid4().hex,
-                "created_at": _utc_now(),
-                "reason": "resume",
-                "status": status,
-                "current_mode": current_mode,
-                "trusted_event_count": consumed,
-                "transcript_event_count": total,
-                "stop_reason": stop_reason,
-                "skipped_count": int(getattr(restored, "skipped_count", 0) or 0),
-                "skip_reasons": list(getattr(restored, "skip_reasons", []) or []),
-                "operation_summary": {
-                    "total_count": int(operation_summary.get("total_count") or 0),
-                    "started_count": int(operation_summary.get("started_count") or 0),
-                    "finished_count": int(operation_summary.get("finished_count") or 0),
-                    "interrupted_count": int(operation_summary.get("interrupted_count") or 0),
-                },
-                "compaction_summary": {
-                    "boundary_count": int(compaction_summary.get("boundary_count") or 0),
-                    "latest_boundary_id": str(compaction_summary.get("latest_boundary_id") or ""),
-                },
-                "runtime_summary": self._runtime_summary_for_recovery(runtime_config),
-                "metadata": {"source": "resume_session"},
-            },
-        )
 
     def _tool_permission_category(self, tool_name: str) -> str:
         lookup = getattr(self.tools, "tool_catalog_entry", None)
@@ -760,12 +705,12 @@ class InProcessAdapter(object):
             state = self._ensure_session_active(session_ref)
             event_payload = self._resource_event_payload(payload)
             self.transcript_store.append_event(
-                state.session.session_id,
+                state.session_id,
                 "resource_discovered",
                 event_payload,
             )
             self.transcript_store.append_event(
-                state.session.session_id,
+                state.session_id,
                 "resource_reloaded",
                 event_payload,
             )
@@ -774,65 +719,28 @@ class InProcessAdapter(object):
                 normalized_reason,
                 resource_payload=payload,
             )
-            with state.lock:
-                self._rebuild_host_session_projection(state)
-                self._refresh_local_skills_prompt_locked(
-                    state,
-                    payload,
-                    normalized_reason,
+            prompt = build_skill_index(payload).prompt_text()
+            hosted_projection = state.hosted_session.update_resource_prompt(
+                HostedResourcePrompt(
+                    content=("## Local Skills\n" + prompt) if prompt else "",
+                    reason=normalized_reason,
+                    revision=int((payload.get("counts") or {}).get("skills") or 0),
                 )
+            )
+            with state.lock:
+                apply_hosted_projection(state, hosted_projection)
+                self._rebuild_host_session_projection(state)
                 self._refresh_reducer_state(state)
                 state.updated_at = _utc_now()
         return dict(payload or {})
 
-    def _refresh_local_skills_prompt_locked(
-        self,
-        state: ManagedSession,
-        payload: Dict[str, Any],
-        reason: str,
-    ) -> None:
-        prompt = build_skill_index(payload).prompt_text()
-        state.session.messages = [
-            message
-            for message in state.session.messages
-            if not (message.role == "system" and message.kind == "local_skills_prompt")
-        ]
-        if not prompt:
-            return
-        message = state.session.add_system_message(
-            "## Local Skills\n" + prompt,
-            kind="local_skills_prompt",
-            metadata={
-                "reason": str(reason or ""),
-                "resource_revision": int((payload.get("counts") or {}).get("skills") or 0),
-            },
-        )
-        self._append_transcript_message_event(state.session.session_id, message)
-
-    def _append_transcript_message_event(self, session_id: str, message: Any) -> None:
-        self.transcript_store.append_event(
-            session_id,
-            "message",
-            {
-                "role": message.role,
-                "content": message.content,
-                "message_id": message.message_id,
-                "parent_message_id": message.parent_message_id,
-                "turn_id": message.turn_id,
-                "step_id": message.step_id,
-                "kind": message.kind,
-                "metadata": dict(message.metadata),
-                "replaced_by_refs": list(message.replaced_by_refs),
-            },
-        )
-
     def _refresh_application_state(self, state: ManagedSession) -> None:
-        observations = state.session.turns[-1].observations if state.session.turns else []
         self.agent_application.refresh_managed_session(
             state,
             self.tools.workspace,
-            observations=observations,
+            observations=[],
         )
+        self._rebuild_host_session_projection(state)
 
     def create_session(
         self,
@@ -842,36 +750,19 @@ class InProcessAdapter(object):
         current_mode = self._mode_runtime_policy.require_mode(
             mode or self._mode_runtime_policy.default_mode()
         )["slug"]
-        session = Session()
-        plan = self.plan_store.load(session.session_id)
-        agent_session = self.agent.open(session.session_id)
-        state = ManagedSession(
-            session=session,
-            current_mode=current_mode,
-            active_plan_ref=plan.path if plan is not None else "",
-            workflow_state=(
-                "plan" if plan is not None else str(self.runtime_definition.workflow_state or "")
-            ),
-            agent_session=agent_session,
-            hosted_session=HostedSessionController(agent_session),
-        )
-        state.current_mode = state.hosted_session.initialize(
-            session,
-            current_mode,
-            state.workflow_state,
-        )
+        state = self._session_lifecycle.create_session_state(current_mode)
         with self._lock:
-            self._sessions[session.session_id] = state
+            self._sessions[state.session_id] = state
         with state.lock:
             self._rebuild_host_session_projection(state)
             state.updated_at = _utc_now()
-        self.reload_resources(session_id=session.session_id, reason="session_start")
+        self.reload_resources(session_id=state.session_id, reason="session_start")
         with state.lock:
             self._refresh_reducer_state(state)
         self._persist_state(state)
-        snapshot = self.get_session_snapshot(session.session_id)
+        snapshot = self.get_session_snapshot(state.session_id)
         self._emit(
-            event_handler, "session_created", session.session_id, {"session_snapshot": snapshot}
+            event_handler, "session_created", state.session_id, {"session_snapshot": snapshot}
         )
         self._notify_status(event_handler, state)
         return snapshot
@@ -882,74 +773,32 @@ class InProcessAdapter(object):
         mode: str = "",
         event_handler: Optional[SessionEventHandler] = None,
     ) -> Dict[str, Any]:
-        transcript_path = self.summary_store.resolve_transcript_path(reference)
-        session_id = self.transcript_store.session_id_for_reference(transcript_path)
-        restored = self.session_journal.restore(session_id, self.restore_policy)
-        current_mode = self._mode_runtime_policy.require_mode(
-            mode or restored.current_mode or self._mode_runtime_policy.default_mode()
-        )["slug"]
-        session = restored.session
-        summary_ref = ""
-        try:
-            summary_ref = self.summary_store.persist(session, current_mode)
-        except (OSError, ValueError, TypeError):
-            summary_ref = ""
-        agent_session = self.agent.open(session.session_id)
-        state = ManagedSession(
-            session=session,
-            current_mode=current_mode,
-            workflow_state=str(self.runtime_definition.workflow_state or ""),
-            agent_session=agent_session,
-            hosted_session=HostedSessionController(agent_session),
-            summary_ref=summary_ref,
-            updated_at=_utc_now(),
-            resume_summary=None,
-            last_assistant_message=self._last_assistant_from_session(session),
-            restore_stop_reason=str(restored.stop_reason or ""),
-            restore_consumed_event_count=int(restored.consumed_event_count or 0),
-            restore_transcript_event_count=int(restored.transcript_event_count or 0),
-            best_effort_restore_event_count=(
-                int(restored.transcript_event_count or 0) if restored.stop_reason else 0
-            ),
-            operation_diagnostics=operation_diagnostics(restored.operation_state),
-            compaction_state=restored.compaction_state.to_dict(),
-            recovery_state=restored.recovery_state.to_dict(),
-            turn_experience=restored.turn_experience.to_dict(),
-            runtime_config=restored.runtime_config.to_dict(),
-        )
-        state.current_mode = state.hosted_session.initialize(
-            session,
-            current_mode,
-            state.workflow_state,
-        )
-        if session.pending_interaction is not None:
+        state = self._session_lifecycle.restore_session_state(reference, mode)
+        pending = state.history.get("current_interaction")
+        if isinstance(pending, dict):
             rebuilt = self.interaction_service.rebuild_pending_ticket_from_core(
                 state,
-                session.pending_interaction,
+                pending,
             )
-            if rebuilt and session.pending_interaction.kind == "permission":
+            pending_kind = str(pending.get("kind") or "")
+            if rebuilt and pending_kind == "permission":
                 state.status = "waiting_permission"
-            elif rebuilt and session.pending_interaction.kind == "user_input":
+            elif rebuilt and pending_kind == "user_input":
                 state.status = "waiting_user_input"
             else:
                 state.status = "idle"
-        plan = self.plan_store.load(session.session_id)
-        if plan is not None:
-            state.active_plan_ref = plan.path
-            state.workflow_state = "plan"
         self._refresh_application_state(state)
         with self._lock:
-            self._sessions[session.session_id] = state
+            self._sessions[state.session_id] = state
         with state.lock:
             self._rebuild_host_session_projection(state)
-            self._append_recovery_marker(state, restored, current_mode, state.runtime_config)
             self._refresh_reducer_state(state)
             state.updated_at = _utc_now()
-        snapshot = self.get_session_snapshot(session.session_id)
+        snapshot = self.get_session_snapshot(state.session_id)
         self._emit(
             event_handler,
             "session_resumed",
-            session.session_id,
+            state.session_id,
             {"session_snapshot": snapshot, "resume_ref": snapshot.get("summary_ref")},
         )
         self._notify_status(event_handler, state)
@@ -1048,7 +897,7 @@ class InProcessAdapter(object):
 
     def get_session_bootstrap(self, reference: str, mode: str = "") -> Dict[str, Any]:
         state = self._ensure_session_active(reference, mode)
-        return self._bootstrap_service.build(state.session.session_id)
+        return self._bootstrap_service.build(state.session_id)
 
     def _history_unavailable_reason(self, exc: Exception) -> str:
         message = str(exc or "").strip().lower()
@@ -1069,7 +918,7 @@ class InProcessAdapter(object):
         with self._lock:
             state = self._sessions.get(session_id)
         if state is not None:
-            session_workflow = getattr(state.session, "workflow_state", {}) or {}
+            session_workflow = dict(state.projection.get("workflow_state") or {})
             workflow = {}
             if isinstance(session_workflow, dict):
                 workflow = dict(session_workflow.get("workflow") or {})
@@ -1085,13 +934,13 @@ class InProcessAdapter(object):
 
     def get_session_plan(self, session_id: str) -> Optional[PlanSnapshot]:
         state = self._ensure_session_active(session_id)
-        return self.plan_store.load(state.session.session_id)
+        return self.plan_store.load(state.session_id)
 
     def get_permission_context(self, session_id: str) -> PermissionContext:
         state = self._ensure_session_active(session_id)
         remembered = sorted(state.remembered_permission_categories)
         context = self.permission_policy.build_context_view(
-            session_id=state.session.session_id,
+            session_id=state.session_id,
             remembered_categories=remembered,
         )
         return PermissionContext(
@@ -1302,12 +1151,13 @@ class InProcessAdapter(object):
     def set_session_mode(self, session_id: str, mode: str) -> Dict[str, Any]:
         state = self._require_session(session_id)
         current_mode = self._mode_runtime_policy.require_mode(mode)["slug"]
+        hosted_projection = state.hosted_session.apply_mode(
+            current_mode,
+            state.workflow_state,
+        )
         with state.lock:
-            state.current_mode = state.hosted_session.apply_mode(
-                state.session,
-                current_mode,
-                state.workflow_state,
-            )
+            apply_hosted_projection(state, hosted_projection)
+            self._rebuild_host_session_projection(state)
             self._refresh_application_state(state)
         self._persist_state(state)
         snapshot = self.get_session_snapshot(session_id)
@@ -1381,10 +1231,12 @@ class InProcessAdapter(object):
         turn_id: str = "",
         emit_turn_start: bool = True,
     ) -> None:
-        session_id = state.session.session_id
+        session_id = state.session_id
         turn_id = turn_id or ("t-" + uuid.uuid4().hex[:12])
-        core_pending = state.session.pending_interaction
-        pending_interaction_id = str(getattr(core_pending, "interaction_id", "") or "")
+        core_pending = state.projection.get("pending_interaction")
+        pending_interaction_id = (
+            str(core_pending.get("interaction_id") or "") if isinstance(core_pending, dict) else ""
+        )
         if not pending_interaction_id:
             pending_interaction_id = str(
                 getattr(state.pending_interaction, "interaction_id", "") or ""
@@ -1627,17 +1479,10 @@ class InProcessAdapter(object):
                     observer=observer,
                     cancel=stop_event or state.stop_event,
                 )
-            restored = self.session_journal.restore(session_id, self.restore_policy)
-            if (
-                restored.stop_reason
-                or restored.consumed_event_count != restored.transcript_event_count
-            ):
-                raise RuntimeError(
-                    "host could not restore completed agent turn: %s"
-                    % str(restored.stop_reason or "incomplete_transcript")
-                )
-            state.session = restored.session
-            self._rebuild_host_session_projection(state)
+            hosted_projection = state.hosted_session.snapshot()
+            with state.lock:
+                apply_hosted_projection(state, hosted_projection)
+                self._rebuild_host_session_projection(state)
         except (OSError, RuntimeError, ValueError, TypeError) as exc:
             set_thinking(False, "session_error")
             with state.lock:
@@ -1725,10 +1570,7 @@ class InProcessAdapter(object):
         return
 
     def _persist_state(self, state: ManagedSession) -> None:
-        self._session_lifecycle.persist_state(state.session, state.current_mode, state)
-
-    def _last_assistant_from_session(self, session: Session) -> str:
-        return self._session_lifecycle._last_assistant_from_session(session)
+        self._session_lifecycle.persist_state(state)
 
     def _read_summary_for_state(self, state: ManagedSession) -> Optional[Dict[str, Any]]:
         return self._session_lifecycle.read_summary_for_state(state)
@@ -1764,9 +1606,9 @@ class InProcessAdapter(object):
         self._event_emitter.emit_with_snapshot(
             event_handler or self.event_handler,
             event_name,
-            state.session.session_id,
+            state.session_id,
             payload,
-            lambda: self.get_session_snapshot(state.session.session_id),
+            lambda: self.get_session_snapshot(state.session_id),
         )
 
     def _notify_status(
@@ -1776,8 +1618,8 @@ class InProcessAdapter(object):
     ) -> None:
         self._event_emitter.notify_status(
             event_handler or self.event_handler,
-            state.session.session_id,
-            lambda: self.get_session_snapshot(state.session.session_id),
+            state.session_id,
+            lambda: self.get_session_snapshot(state.session_id),
         )
 
     def _resolve_workspace_candidate(self, path: str, allow_missing: bool) -> str:

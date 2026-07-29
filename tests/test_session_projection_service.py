@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from embedagent_core.session import AssistantReply, Session
+from embedagent_core.session_view import session_read_view
 from embedagent_host.runtime.session_projection import SessionProjectionService
 
 
@@ -13,9 +14,32 @@ class _TranscriptStore(object):
         return list(self.events)
 
 
+def _plain(value):
+    if isinstance(value, dict):
+        return {str(key): _plain(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_plain(item) for item in value]
+    return value
+
+
 def _state(session):
+    view = session_read_view(session)
     return SimpleNamespace(
-        session=session,
+        session_id=view.session_id,
+        projection={
+            "session_id": view.session_id,
+            "started_at": view.started_at,
+            "workflow_state": _plain(view.workflow_state),
+            "compact_boundary_count": len(view.compact_boundaries),
+        },
+        history={
+            "session_id": view.session_id,
+            "messages": _plain(view.messages),
+            "turns": _plain(view.turns),
+            "workflow_state": _plain(view.workflow_state),
+            "compact_boundaries": _plain(view.compact_boundaries),
+            "current_interaction": _plain(view.pending_interaction),
+        },
         restore_transcript_event_count=0,
         restore_stop_reason="",
         restore_consumed_event_count=0,
