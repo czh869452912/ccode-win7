@@ -53,7 +53,12 @@ def test_smoke_scenarios_cover_independent_and_composed_stacks():
     assert "AgentPorts(" in core_probe
     assert "InMemorySessionLog" in core_probe
     assert ".submit(UserTurn(" in core_probe
-    assert "result.final_text == 'done'" in core_probe
+    assert "materialize_observation" in core_probe
+    assert "commit_observation" not in core_probe
+    assert "AgentInteractionRequest" in core_probe
+    assert "InteractionReply" in core_probe
+    assert "waiting.pending_interaction" in core_probe
+    assert "resumed.final_text == 'done'" in core_probe
     assert smoke.SCENARIOS[2]["distribution"] == "embedagent-host"
     assert smoke.SCENARIOS[2]["distributions"] == (
         "embedagent-core",
@@ -480,14 +485,59 @@ class UserTurn(object):
         self.stream = stream
 
 
+class InteractionReply(object):
+    def __init__(self, interaction_id, value, stream=True):
+        self.interaction_id = interaction_id
+        self.value = value
+        self.stream = stream
+
+
+class AgentInteractionRequest(object):
+    def __init__(self, interaction_id, kind, tool_name, request_payload=None):
+        self.interaction_id = interaction_id
+        self.kind = kind
+        self.tool_name = tool_name
+        self.request_payload = request_payload or {}
+
+
+class Action(object):
+    def __init__(self, name, arguments, call_id):
+        self.name = name
+        self.arguments = arguments
+        self.call_id = call_id
+
+
+class PreparedToolObservation(object):
+    def __init__(self, observation, commit_token=None):
+        self.observation = observation
+        self.commit_token = commit_token
+
+
 class _AgentResult(object):
-    final_text = "done"
+    def __init__(self, final_text, pending_interaction=None):
+        self.final_text = final_text
+        self.pending_interaction = pending_interaction
 
 
 class _AgentSession(object):
+    def __init__(self):
+        self.calls = 0
+
     def submit(self, turn):
-        del turn
-        return _AgentResult()
+        self.calls += 1
+        if self.calls == 1:
+            return _AgentResult(
+                "",
+                AgentInteractionRequest(
+                    "interaction-1",
+                    "user_input",
+                    "ask_user",
+                    {"question": "Proceed?"},
+                ),
+            )
+        if not isinstance(turn, InteractionReply):
+            raise TypeError("expected interaction reply")
+        return _AgentResult("done")
 
 
 class Agent(object):
@@ -521,7 +571,7 @@ class InMemorySessionLog(object):
 
 
 def _publish_module(name, symbol_name, symbol):
-    module = types.ModuleType(name)
+    module = sys.modules.get(name) or types.ModuleType(name)
     setattr(module, symbol_name, symbol)
     sys.modules[name] = module
 
@@ -529,7 +579,11 @@ def _publish_module(name, symbol_name, symbol):
 _publish_module(__name__ + ".permissions", "PermissionPolicy", PermissionPolicy)
 _publish_module(__name__ + ".ports", "NoopContextAssembler", NoopContextAssembler)
 _publish_module(__name__ + ".session", "AssistantReply", AssistantReply)
+_publish_module(__name__ + ".session", "Action", Action)
 _publish_module(__name__ + ".session_log", "InMemorySessionLog", InMemorySessionLog)
+_publish_module(
+    __name__ + ".tool_contracts", "PreparedToolObservation", PreparedToolObservation
+)
 """
     _write_installable_wheel(
         dist_dir,

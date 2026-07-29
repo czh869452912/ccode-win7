@@ -13,7 +13,7 @@ from embedagent_core.model import ModelClient, ModelClientError
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.ports import NoopContextAssembler
 from embedagent_core.runner import AgentRequest, AgentRuntime, run_agent
-from embedagent_core.session import Action, AssistantReply, Observation, PendingInteraction
+from embedagent_core.session import Action, AssistantReply, Observation
 from embedagent_core.session_log import InMemorySessionLog
 from embedagent_core.tool_contracts import PreparedToolObservation
 from embedagent_core.turn_snapshot import TurnSnapshot
@@ -263,6 +263,7 @@ def base_runtime(base_ports):
 def test_standalone_agent_core_public_symbols_are_available():
     from embedagent_core import (
         Agent,
+        AgentInteractionRequest,
         AgentModeDescriptor,
         AgentObserver,
         AgentPorts,
@@ -278,6 +279,7 @@ def test_standalone_agent_core_public_symbols_are_available():
 
     public_symbols = (
         Agent,
+        AgentInteractionRequest,
         AgentModeDescriptor,
         AgentObserver,
         AgentPorts,
@@ -324,6 +326,9 @@ def test_agent_session_resumes_interaction_through_public_api(base_ports):
     waiting = session.submit(UserTurn("ask", stream=False))
     assert waiting.termination_reason == "user_input_wait"
     assert waiting.pending_interaction is not None
+    from embedagent_core import AgentInteractionRequest
+
+    assert isinstance(waiting.pending_interaction, AgentInteractionRequest)
 
     resumed = session.submit(
         InteractionReply(
@@ -796,12 +801,15 @@ def test_agent_session_view_copies_nested_workflow_state():
     assert view.workflow_state["workflow"]["tasks"][0]["id"] == "task-1"
 
 
-def test_agent_result_copies_pending_interaction_and_turn_snapshot():
-    from embedagent_core import AgentResult, AgentSessionView
+def test_agent_result_uses_frozen_public_interaction_request():
+    from embedagent_core import AgentInteractionRequest, AgentResult, AgentSessionView
 
-    pending = PendingInteraction(
+    source = {"choices": [{"id": "approve"}]}
+    pending = AgentInteractionRequest(
         interaction_id="interaction-1",
-        request_payload={"choices": [{"id": "approve"}]},
+        kind="permission",
+        tool_name="write_file",
+        request_payload=source,
     )
     snapshot = TurnSnapshot(
         snapshot_id="snapshot-1",
@@ -820,12 +828,24 @@ def test_agent_result_copies_pending_interaction_and_turn_snapshot():
         snapshot,
     )
 
-    pending.request_payload["choices"][0]["id"] = "changed"
+    source["choices"][0]["id"] = "changed"
     snapshot.messages[0]["content"]["text"] = "changed"
 
     assert result.pending_interaction is not None
     assert result.pending_interaction.request_payload["choices"][0]["id"] == "approve"
     assert result.turn_snapshot.messages[0]["content"]["text"] == "original"
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        result.pending_interaction.kind = "changed"
+
+
+def test_agent_interaction_request_copies_nested_payload():
+    from embedagent_core import AgentInteractionRequest
+
+    source = {"options": [{"value": "yes"}]}
+    request = AgentInteractionRequest("interaction-1", "user_input", "ask_user", source)
+    source["options"][0]["value"] = "no"
+
+    assert request.request_payload["options"][0]["value"] == "yes"
 
 
 def test_agent_result_copies_session_view():

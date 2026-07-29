@@ -22,7 +22,6 @@ from embedagent_core.ports import (
     SessionProjectionPort,
     SessionRestorePolicyPort,
 )
-from embedagent_core.session import PendingInteraction
 from embedagent_core.session_log import SessionLogPort, normalize_session_id
 from embedagent_core.tool_contracts import ToolRuntimePort
 
@@ -116,11 +115,22 @@ class AgentSessionView:
 
 
 @dataclass(frozen=True)
+class AgentInteractionRequest:
+    interaction_id: str
+    kind: str
+    tool_name: str
+    request_payload: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "request_payload", deepcopy(self.request_payload))
+
+
+@dataclass(frozen=True)
 class AgentResult:
     final_text: str
     session: AgentSessionView
     termination_reason: str
-    pending_interaction: Optional[PendingInteraction]
+    pending_interaction: Optional[AgentInteractionRequest]
     turn_snapshot: Optional[Any]
     outcome: Dict[str, Any] = field(default_factory=dict)
     turns_used: int = 0

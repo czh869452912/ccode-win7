@@ -7,6 +7,7 @@ from typing import Any, Dict, Iterator, Optional
 
 from embedagent_core.api import (
     AgentInput,
+    AgentInteractionRequest,
     AgentObserver,
     AgentResult,
     AgentSessionView,
@@ -277,7 +278,7 @@ class SessionTransaction(object):
                 turn_count=len(result.session.turns),
             ),
             termination_reason=result.transition.reason,
-            pending_interaction=pending,
+            pending_interaction=_project_interaction(pending),
             turn_snapshot=self._dispatcher.last_turn_snapshot(),
             outcome=_json_safe(result.outcome.to_dict()),
             turns_used=int(result.turns_used or 0),
@@ -291,6 +292,17 @@ class SessionTransaction(object):
         with self._lease(session_id):
             with self._event_committer.bind(context):
                 return callback(*args, **kwargs)
+
+
+def _project_interaction(pending: Any) -> Optional[AgentInteractionRequest]:
+    if pending is None:
+        return None
+    return AgentInteractionRequest(
+        interaction_id=str(getattr(pending, "interaction_id", "") or ""),
+        kind=str(getattr(pending, "kind", "") or ""),
+        tool_name=str(getattr(pending, "tool_name", "") or ""),
+        request_payload=dict(getattr(pending, "request_payload", {}) or {}),
+    )
 
 
 def _json_safe(value: Any) -> Any:

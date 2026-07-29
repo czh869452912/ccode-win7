@@ -2,6 +2,7 @@
 
 from embedagent_core.api import (
     Agent,
+    AgentInteractionRequest,
     AgentObserver,
     AgentPorts,
     AgentResult,
@@ -18,6 +19,7 @@ __version__ = "0.1.0"
 
 __all__ = [
     "Agent",
+    "AgentInteractionRequest",
     "AgentModeDescriptor",
     "AgentObserver",
     "AgentPorts",
