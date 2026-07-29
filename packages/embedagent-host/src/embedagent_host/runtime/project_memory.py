@@ -9,7 +9,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from embedagent_core.session import Observation, Session
+from embedagent_core.session import Observation
+from embedagent_core.session_view import SessionReadView
 
 from embedagent_host.runtime.persistence_sanitize import sanitize_jsonable
 from embedagent_host.runtime.projection_db import ProjectionDb
@@ -94,7 +95,7 @@ class ProjectMemoryStore(object):
 
     def refresh(
         self,
-        session: Session,
+        session: SessionReadView,
         current_mode: str,
         session_summary_ref: Optional[str] = None,
     ) -> None:
@@ -224,7 +225,7 @@ class ProjectMemoryStore(object):
     def _update_profile(
         self,
         profile: Dict[str, Any],
-        session: Session,
+        session: SessionReadView,
         current_mode: str,
         session_summary_ref: Optional[str],
     ) -> None:
@@ -243,7 +244,9 @@ class ProjectMemoryStore(object):
         if not profile.get("constraints"):
             profile["constraints"] = self._read_constraints()
 
-    def _iter_events(self, session: Session) -> List[Tuple[str, str, Dict[str, Any], Observation]]:
+    def _iter_events(
+        self, session: SessionReadView
+    ) -> List[Tuple[str, str, Dict[str, Any], Observation]]:
         items = []
         for turn in session.turns:
             for index, action in enumerate(turn.actions):

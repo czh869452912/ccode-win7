@@ -13,6 +13,7 @@ from embedagent_core.extensions import (
 from embedagent_core.interaction import ask_user_schema, propose_mode_switch_schema
 from embedagent_core.policies import EmptyModeToolPolicy, ModeToolPolicy
 from embedagent_core.session import Action, ContextAssemblyResult, Observation, Session
+from embedagent_core.session_view import SessionReadView
 from embedagent_core.tool_contracts import ToolRuntimePort
 
 
@@ -31,7 +32,7 @@ class AgentExtensionHost(object):
         self.permission_policy = permission_policy
         self._mode_tool_policy = mode_tool_policy or EmptyModeToolPolicy()
 
-    def context_for(self, session: Session) -> ExtensionContext:
+    def context_for(self, session: Any) -> ExtensionContext:
         runtime_snapshot = {}
         runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
         if callable(runtime_lookup):
@@ -45,7 +46,7 @@ class AgentExtensionHost(object):
         )
 
     def workflow_event(
-        self, session: Session, current_mode: str, workflow_state_name: str, **metadata: Any
+        self, session: Any, current_mode: str, workflow_state_name: str, **metadata: Any
     ) -> WorkflowEvent:
         turn_id = session.turns[-1].turn_id if session.turns else ""
         step = session.current_step()
@@ -142,7 +143,7 @@ class AgentExtensionHost(object):
 
     def apply_context_patch(
         self,
-        session: Session,
+        session: SessionReadView,
         mode_name: str,
         workflow_state: str,
         assembly: ContextAssemblyResult,

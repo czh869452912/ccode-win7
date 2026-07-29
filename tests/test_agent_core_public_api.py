@@ -195,6 +195,7 @@ class ContextReducerRegistrarExtension(object):
 class RecordingContext(NoopContextAssembler):
     def __init__(self):
         self.workflow_states = []
+        self.session_types = []
 
     def build_messages(
         self,
@@ -205,6 +206,7 @@ class RecordingContext(NoopContextAssembler):
         force_compact=False,
     ):
         self.workflow_states.append(workflow_state)
+        self.session_types.append(type(session))
         return super(RecordingContext, self).build_messages(
             session,
             mode_name,
@@ -228,7 +230,7 @@ class RecordingSessionProjection(object):
         self.calls = []
 
     def refresh(self, session, current_mode, assembly=None):
-        self.calls.append((session.session_id, current_mode, assembly))
+        self.calls.append((session, current_mode, assembly))
 
 
 class RecordingObserver(object):
@@ -730,6 +732,9 @@ def test_user_turn_carries_explicit_workflow_state(base_ports):
     )
 
     assert context.workflow_states == ["custom"]
+    from embedagent_core.session_view import SessionReadView
+
+    assert context.session_types == [SessionReadView]
 
 
 def test_runtime_definition_owns_optional_turn_fuse():
@@ -761,7 +766,10 @@ def test_agent_uses_focused_session_projection(base_ports):
     Agent.create(ports).open("projection-session").submit(UserTurn("hello", stream=False))
 
     assert len(projection.calls) == 1
-    assert projection.calls[0][0:2] == ("projection-session", "")
+    from embedagent_core.session_view import SessionReadView
+
+    assert isinstance(projection.calls[0][0], SessionReadView)
+    assert (projection.calls[0][0].session_id, projection.calls[0][1]) == ("projection-session", "")
 
 
 def test_runtime_definition_policy_defaults_are_isolated():

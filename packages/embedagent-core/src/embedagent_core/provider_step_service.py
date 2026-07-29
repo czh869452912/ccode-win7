@@ -18,6 +18,7 @@ from embedagent_core.ports import ContextAssemblerPort
 from embedagent_core.session import AssistantReply, ContextAssemblyResult, Session
 from embedagent_core.session_journal import EventIntent
 from embedagent_core.session_log import SessionLogPort
+from embedagent_core.session_view import session_read_view
 from embedagent_core.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 from embedagent_core.turn_snapshot import TurnSnapshot
 from embedagent_core.turn_snapshot_service import TurnSnapshotService
@@ -73,8 +74,9 @@ class ProviderStepService(object):
         return getattr(self._thread_state, "last_snapshot", None)
 
     def assemble_context(self, effect: AssembleContextEffect, session: Session) -> ContextAssembled:
+        read_view = session_read_view(session)
         assembly = self._context_assembler.build_messages(
-            session,
+            read_view,
             effect.mode_name,
             tools=self._tools,
             workflow_state=effect.workflow_state,
@@ -82,7 +84,7 @@ class ProviderStepService(object):
         )
         assembly = self._normalize_assembly(assembly)
         assembly = self._extension_host.apply_context_patch(
-            session,
+            read_view,
             effect.mode_name,
             effect.workflow_state,
             assembly,

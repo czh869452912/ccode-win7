@@ -5,7 +5,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from embedagent_core.session import Observation, Session
+from embedagent_core.session import Observation
+from embedagent_core.session_view import SessionReadView
 
 from embedagent_host.runtime.project_memory import ProjectMemoryStore
 from embedagent_host.runtime.tool_evidence import (
@@ -33,7 +34,7 @@ class WorkspaceIntelligenceProvider(object):
 
     def collect(
         self,
-        session: Session,
+        session: SessionReadView,
         mode_name: str,
         tools: Any,
         project_memory: Optional[ProjectMemoryStore] = None,
@@ -46,7 +47,7 @@ class WorkingSetProvider(WorkspaceIntelligenceProvider):
 
     def collect(
         self,
-        session: Session,
+        session: SessionReadView,
         mode_name: str,
         tools: Any,
         project_memory: Optional[ProjectMemoryStore] = None,
@@ -87,7 +88,7 @@ class ProjectMemoryProvider(WorkspaceIntelligenceProvider):
 
     def collect(
         self,
-        session: Session,
+        session: SessionReadView,
         mode_name: str,
         tools: Any,
         project_memory: Optional[ProjectMemoryStore] = None,
@@ -113,7 +114,7 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
 
     def collect(
         self,
-        session: Session,
+        session: SessionReadView,
         mode_name: str,
         tools: Any,
         project_memory: Optional[ProjectMemoryStore] = None,
@@ -207,7 +208,7 @@ class CtagsProvider(WorkspaceIntelligenceProvider):
 
     def collect(
         self,
-        session: Session,
+        session: SessionReadView,
         mode_name: str,
         tools: Any,
         project_memory: Optional[ProjectMemoryStore] = None,
@@ -269,7 +270,7 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
 
     def collect(
         self,
-        session: Session,
+        session: SessionReadView,
         mode_name: str,
         tools: Any,
         project_memory: Optional[ProjectMemoryStore] = None,
@@ -406,7 +407,7 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
 class GitStateProvider(WorkspaceIntelligenceProvider):
     name = "git"
 
-    def _latest_git_status(self, session: Session) -> Optional[Observation]:
+    def _latest_git_status(self, session: SessionReadView) -> Optional[Observation]:
         for turn in reversed(list(getattr(session, "turns", []) or [])):
             for observation in reversed(list(getattr(turn, "observations", []) or [])):
                 if getattr(observation, "tool_name", "") != "git_status":
@@ -419,7 +420,7 @@ class GitStateProvider(WorkspaceIntelligenceProvider):
 
     def collect(
         self,
-        session: Session,
+        session: SessionReadView,
         mode_name: str,
         tools: Any,
         project_memory: Optional[ProjectMemoryStore] = None,
@@ -448,7 +449,9 @@ class GitStateProvider(WorkspaceIntelligenceProvider):
 
 
 class LlspBackend(object):
-    def collect(self, workspace: str, session: Session, mode_name: str) -> List[Dict[str, Any]]:
+    def collect(
+        self, workspace: str, session: SessionReadView, mode_name: str
+    ) -> List[Dict[str, Any]]:
         return []
 
 
@@ -458,7 +461,9 @@ class LlspFileBackend(LlspBackend):
             "\\", "/"
         )
 
-    def collect(self, workspace: str, session: Session, mode_name: str) -> List[Dict[str, Any]]:
+    def collect(
+        self, workspace: str, session: SessionReadView, mode_name: str
+    ) -> List[Dict[str, Any]]:
         candidate = os.path.join(os.path.realpath(workspace), *self.relative_path.split("/"))
         if not os.path.isfile(candidate):
             return []
@@ -535,7 +540,7 @@ class LlspProvider(WorkspaceIntelligenceProvider):
 
     def collect(
         self,
-        session: Session,
+        session: SessionReadView,
         mode_name: str,
         tools: Any,
         project_memory: Optional[ProjectMemoryStore] = None,
@@ -619,7 +624,7 @@ class WorkspaceIntelligenceBroker(object):
 
     def collect(
         self,
-        session: Session,
+        session: SessionReadView,
         mode_name: str,
         tools: Any,
         project_memory: Optional[ProjectMemoryStore] = None,
@@ -633,7 +638,7 @@ class WorkspaceIntelligenceBroker(object):
 
     def render_system_message(
         self,
-        session: Session,
+        session: SessionReadView,
         mode_name: str,
         tools: Any,
         project_memory: Optional[ProjectMemoryStore] = None,
@@ -679,7 +684,7 @@ class WorkspaceIntelligenceBroker(object):
         return filtered
 
 
-def _all_observations(session: Session) -> List[Observation]:
+def _all_observations(session: SessionReadView) -> List[Observation]:
     observations = []
     for turn in session.turns:
         observations.extend(turn.observations)
@@ -804,7 +809,7 @@ def _load_ctags_entries(path: str, limit: int = 5) -> List[Dict[str, str]]:
     return entries
 
 
-def _focus_paths_from_session(session: Session) -> List[str]:
+def _focus_paths_from_session(session: SessionReadView) -> List[str]:
     seen = set()
     paths = []
     for observation in reversed(_all_observations(session)):
@@ -829,7 +834,7 @@ def _focus_paths_from_session(session: Session) -> List[str]:
     return paths[:8]
 
 
-def _working_set_paths_from_session(session: Session) -> List[str]:
+def _working_set_paths_from_session(session: SessionReadView) -> List[str]:
     seen = set()
     paths = []
     for observation in reversed(_all_observations(session)):

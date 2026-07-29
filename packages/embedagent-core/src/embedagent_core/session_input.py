@@ -58,6 +58,7 @@ from embedagent_core.session_journal import EventIntent, SessionJournal
 from embedagent_core.session_reducer import (
     SessionReducerContext,
 )
+from embedagent_core.session_view import session_read_view
 from embedagent_core.tool_contracts import ToolRuntimePort
 from embedagent_core.turn_snapshot import TurnSnapshot
 
@@ -494,7 +495,7 @@ class SessionInputDispatcher(object):
                 },
             )
             for initial_text in self.context_manager.initial_system_messages(
-                session,
+                session_read_view(session),
                 current_mode,
                 workflow_state,
             ):
@@ -1261,7 +1262,7 @@ class SessionInputDispatcher(object):
     ) -> None:
         with self._session_guard():
             try:
-                self.session_projection.refresh(session, current_mode, assembly)
+                self.session_projection.refresh(session_read_view(session), current_mode, assembly)
             except (OSError, ValueError, TypeError) as exc:
                 _LOG.warning("session projection refresh failed: %s", exc)
             try:

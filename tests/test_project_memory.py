@@ -10,6 +10,7 @@ from unittest import mock
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent_core.session import Action, AssistantReply, Observation, Session
+from embedagent_core.session_view import session_read_view
 from embedagent_host.runtime import project_memory
 from embedagent_host.runtime.project_memory import ProjectMemoryStore, _atomic_write_json
 
@@ -104,7 +105,7 @@ class ProjectMemoryStoreConcurrencyTests(unittest.TestCase):
             ),
         )
 
-        store.refresh(session, "build")
+        store.refresh(session_read_view(session), "build")
 
         with open(store.recipes_path, "r", encoding="utf-8") as handle:
             recipes = json.load(handle)

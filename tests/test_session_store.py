@@ -9,6 +9,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent_core.session import Action, AssistantReply, Observation, Session
+from embedagent_core.session_view import session_read_view
 from embedagent_host.runtime.project_memory import ProjectMemoryStore
 from embedagent_host.runtime.session_store import SessionSummaryStore
 from embedagent_host.runtime.transcript_store import TranscriptStore
@@ -174,7 +175,11 @@ class TestProjectMemoryStore(unittest.TestCase):
         def worker():
             try:
                 for _ in range(10):
-                    store.refresh(session, "build", ".embedagent/memory/sessions/demo/summary.json")
+                    store.refresh(
+                        session_read_view(session),
+                        "build",
+                        ".embedagent/memory/sessions/demo/summary.json",
+                    )
             except Exception as exc:
                 failures.append(exc)
 
@@ -224,7 +229,9 @@ class TestProjectMemoryStore(unittest.TestCase):
         )
         session.add_observation(action, observation)
 
-        store.refresh(session, "build", ".embedagent/memory/sessions/demo/summary.json")
+        store.refresh(
+            session_read_view(session), "build", ".embedagent/memory/sessions/demo/summary.json"
+        )
 
         with open(
             os.path.join(

@@ -8,6 +8,7 @@ from unittest import mock
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent_core.session import AssistantReply, Observation, Session
+from embedagent_core.session_view import session_read_view
 from embedagent_host.runtime.context import (
     ContextConfig,
     ContextManager,
@@ -261,7 +262,7 @@ class TestContextCompactionSignal(unittest.TestCase):
         session.add_user_message("second turn", turn_id="turn-2")
         session.add_system_message("assistant two", turn_id="turn-2")
         with mock.patch.object(manager, "_measure_messages", return_value=100):
-            result = manager.build_messages(session, mode_name="build")
+            result = manager.build_messages(session_read_view(session), mode_name="build")
         self.assertFalse(result.compacted)
 
     def test_build_messages_returns_explicit_context_plan(self):
@@ -273,7 +274,7 @@ class TestContextCompactionSignal(unittest.TestCase):
             AssistantReply(content="world", actions=[], finish_reason="stop")
         )
 
-        result = manager.build_messages(session, mode_name="build")
+        result = manager.build_messages(session_read_view(session), mode_name="build")
 
         self.assertTrue(hasattr(result, "plan"))
         self.assertEqual(result.plan.mode_name, result.policy.mode_name)
@@ -310,7 +311,7 @@ class TestContextCompactionSignal(unittest.TestCase):
             },
         )
 
-        result = manager.build_messages(session, mode_name="build")
+        result = manager.build_messages(session_read_view(session), mode_name="build")
         contents = [item.get("content") for item in result.messages]
 
         self.assertIn("Compacted history summary:\nOld work was compacted.", contents)
@@ -351,7 +352,7 @@ class TestContextCompactionSignal(unittest.TestCase):
                 )
             )
 
-        result = manager.build_messages(session, mode_name="build")
+        result = manager.build_messages(session_read_view(session), mode_name="build")
 
         self.assertEqual(result.policy.mode_name, "compact")
         self.assertIn("auto_compact_threshold", result.pipeline_steps)
@@ -394,7 +395,7 @@ class TestContextCompactionSignal(unittest.TestCase):
             },
         )
 
-        result = manager.build_messages(session, mode_name="build")
+        result = manager.build_messages(session_read_view(session), mode_name="build")
 
         self.assertNotIn("auto_compact_threshold", result.pipeline_steps)
         self.assertEqual(result.context_usage.source, "unknown_after_compaction")

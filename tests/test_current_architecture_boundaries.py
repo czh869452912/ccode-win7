@@ -84,6 +84,29 @@ def test_session_transaction_stays_transport_and_projection_only():
         assert mutator not in source
 
 
+def test_host_read_ports_use_session_view_without_importing_mutable_session():
+    read_modules = (
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/context.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/project_memory.py",
+        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/workspace_intelligence.py",
+    )
+    for path in read_modules:
+        imported = _imported_modules(path)
+        assert "embedagent_core.session_view" in imported
+        assert (
+            "embedagent_core.session" not in imported
+            or "Session"
+            not in _read(path).split("from embedagent_core.session import", 1)[-1].split("\n", 1)[0]
+        )
+
+
+def test_internal_session_read_view_is_not_a_root_sdk_symbol():
+    import embedagent_core
+
+    assert not hasattr(embedagent_core, "SessionReadView")
+    assert not hasattr(embedagent_core, "session_read_view")
+
+
 def test_c_cpp_workflow_package_replaces_embedagent_harness_package():
     old_package = ROOT / "src" / "embedagent" / "harness"
     new_package = ROOT / "packages" / "embedagent-workflow-cpp" / "src" / "embedagent_workflow_cpp"

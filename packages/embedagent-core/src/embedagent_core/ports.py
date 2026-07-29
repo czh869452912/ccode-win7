@@ -2,20 +2,21 @@ from __future__ import annotations
 
 from typing import Any, List, Optional, Protocol
 
-from embedagent_core.session import ContextAssemblyResult, Session
+from embedagent_core.session import ContextAssemblyResult
+from embedagent_core.session_view import SessionReadView
 
 
 class ContextAssemblerPort(Protocol):
     reducers: Any
 
     def initial_system_messages(
-        self, session: Session, mode_name: str, workflow_state: str = ""
+        self, session: SessionReadView, mode_name: str, workflow_state: str = ""
     ) -> List[str]:
         raise NotImplementedError
 
     def build_messages(
         self,
-        session: Session,
+        session: SessionReadView,
         mode_name: str,
         tools: Any = None,
         workflow_state: str = "",
@@ -38,7 +39,7 @@ class StrictSessionRestorePolicy(object):
 class SessionProjectionPort(Protocol):
     def refresh(
         self,
-        session: Session,
+        session: SessionReadView,
         current_mode: str,
         assembly: Optional[ContextAssemblyResult] = None,
     ) -> None:
@@ -49,14 +50,14 @@ class NoopContextAssembler(object):
     reducers = {}
 
     def initial_system_messages(
-        self, session: Session, mode_name: str, workflow_state: str = ""
+        self, session: SessionReadView, mode_name: str, workflow_state: str = ""
     ) -> List[str]:
         del session, mode_name, workflow_state
         return []
 
     def build_messages(
         self,
-        session: Session,
+        session: SessionReadView,
         mode_name: str,
         tools: Any = None,
         workflow_state: str = "",
@@ -80,7 +81,7 @@ class NoopContextAssembler(object):
 class NoopSessionProjection(object):
     def refresh(
         self,
-        session: Session,
+        session: SessionReadView,
         current_mode: str,
         assembly: Optional[ContextAssemblyResult] = None,
     ) -> None:

@@ -6,7 +6,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from embedagent_core.session import Action, Message, Observation, Session, Turn
+from embedagent_core.session import Action, Observation
+from embedagent_core.session_view import SessionReadView
 
 from embedagent_host.runtime.context_usage import ContextUsageEstimator
 from embedagent_host.runtime.project_memory import ProjectMemoryStore
@@ -740,7 +741,7 @@ class ContextManager(object):
 
     def initial_system_messages(
         self,
-        session: Session,
+        session: SessionReadView,
         mode_name: str,
         workflow_state: str = "",
     ) -> List[str]:
@@ -755,7 +756,7 @@ class ContextManager(object):
 
     def build_messages(
         self,
-        session: Session,
+        session: SessionReadView,
         mode_name: Optional[str] = None,
         tools: Optional[Any] = None,
         workflow_state: str = "",
@@ -1012,7 +1013,7 @@ class ContextManager(object):
             return False
         return input_tokens >= int(max_input_tokens * ratio)
 
-    def _latest_compacted_history(self, session: Session) -> Any:
+    def _latest_compacted_history(self, session: SessionReadView) -> Any:
         latest = getattr(session, "latest_compacted_history", None)
         if not callable(latest):
             return None
@@ -1023,7 +1024,9 @@ class ContextManager(object):
             return None
         return checkpoint
 
-    def _turns_after_first_kept(self, session: Session, first_kept_message_id: str) -> List[Turn]:
+    def _turns_after_first_kept(
+        self, session: SessionReadView, first_kept_message_id: str
+    ) -> List[Any]:
         target = str(first_kept_message_id or "").strip()
         if not target:
             return []
@@ -1043,8 +1046,8 @@ class ContextManager(object):
 
     def _build_candidate(
         self,
-        session: Session,
-        visible_turns: List[Turn],
+        session: SessionReadView,
+        visible_turns: List[Any],
         boundary_summary: str,
         policy: ContextPolicy,
         recent_turns: int,
@@ -1148,7 +1151,7 @@ class ContextManager(object):
         values.update(self.config.mode_overrides.get(mode_name) or {})
         return ContextPolicy(mode_name=mode_name, **values)
 
-    def _latest_system_message(self, session: Session) -> Optional[Message]:
+    def _latest_system_message(self, session: SessionReadView) -> Optional[Any]:
         for message in reversed(session.messages):
             if self._is_mode_system_message(message):
                 return message
@@ -1157,14 +1160,14 @@ class ContextManager(object):
                 return message
         return None
 
-    def _detect_mode_name(self, session: Session) -> Optional[str]:
+    def _detect_mode_name(self, session: SessionReadView) -> Optional[str]:
         latest_system = self._latest_system_message(session)
         if latest_system is None:
             return None
         match = _MODE_RE.search(latest_system.content)
         return match.group(1) if match else None
 
-    def _is_mode_system_message(self, message: Message) -> bool:
+    def _is_mode_system_message(self, message: Any) -> bool:
         if message.role != "system":
             return False
         if _MODE_PROMPT_PREFIX not in message.content:
@@ -1173,8 +1176,8 @@ class ContextManager(object):
 
     def _auxiliary_system_messages(
         self,
-        session: Session,
-        latest_system: Optional[Message],
+        session: SessionReadView,
+        latest_system: Optional[Any],
         policy: ContextPolicy,
     ) -> List[Dict[str, Any]]:
         result = []
@@ -1199,7 +1202,7 @@ class ContextManager(object):
         return {"role": "system", "content": content}
 
     def _build_summary_message(
-        self, turns: List[Turn], policy: ContextPolicy, base_summary_text: str = ""
+        self, turns: List[Any], policy: ContextPolicy, base_summary_text: str = ""
     ) -> Tuple[Optional[Dict[str, Any]], int, str]:
         if not turns and not base_summary_text:
             return None, 0, ""
@@ -1244,7 +1247,11 @@ class ContextManager(object):
         return {"role": "system", "content": summary_text}, summarized_observations, summary_text
 
     def _build_recent_messages(
-        self, session: Session, visible_turns: List[Turn], recent_turns: int, policy: ContextPolicy
+        self,
+        session: SessionReadView,
+        visible_turns: List[Any],
+        recent_turns: int,
+        policy: ContextPolicy,
     ) -> Tuple[List[Dict[str, Any]], int, List[Dict[str, Any]]]:
         turns = visible_turns[-recent_turns:]
         if not turns:
@@ -1387,13 +1394,13 @@ class ContextManager(object):
             ),
         }
 
-    def _compact_system_message(self, message: Message, policy: ContextPolicy) -> Dict[str, Any]:
+    def _compact_system_message(self, message: Any, policy: ContextPolicy) -> Dict[str, Any]:
         return {
             "role": "system",
             "content": _truncate_text(message.content, policy.recent_message_chars),
         }
 
-    def _compact_message(self, message: Message, policy: ContextPolicy) -> Dict[str, Any]:
+    def _compact_message(self, message: Any, policy: ContextPolicy) -> Dict[str, Any]:
         payload = {"role": message.role}
         if message.name:
             payload["name"] = message.name
@@ -1421,7 +1428,7 @@ class ContextManager(object):
 
     def _compact_tool_message_with_replacements(
         self,
-        message: Message,
+        message: Any,
         policy: ContextPolicy,
         seen_reads: set,
         seen_searches: set,
@@ -1643,7 +1650,7 @@ class ContextManager(object):
                     return index
         return None
 
-    def _analyze_context(self, session: Session) -> Dict[str, Any]:
+    def _analyze_context(self, session: SessionReadView) -> Dict[str, Any]:
         tool_request_tokens = 0
         tool_result_tokens = 0
         duplicate_file_read_tokens = 0
@@ -1690,7 +1697,9 @@ class ContextManager(object):
             "resume_replay_hits": 1 if session.latest_compact_boundary() is not None else 0,
         }
 
-    def _analysis_with_context_usage(self, session: Session, usage_estimate: Any) -> Dict[str, Any]:
+    def _analysis_with_context_usage(
+        self, session: SessionReadView, usage_estimate: Any
+    ) -> Dict[str, Any]:
         analysis = self._analyze_context(session)
         if hasattr(usage_estimate, "to_dict"):
             analysis["context_usage"] = usage_estimate.to_dict()
