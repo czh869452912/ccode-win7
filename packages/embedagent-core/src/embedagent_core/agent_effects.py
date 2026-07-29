@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Tuple, Union
+from typing import Any, Dict, Tuple, Union
 
 from embedagent_core.session import (
     Action,
@@ -29,6 +29,8 @@ class RequestProviderEffect:
     effect_id: str
     snapshot: TurnSnapshot
     stream: bool
+    deferred_events: Tuple[EventIntent, ...] = field(default_factory=tuple)
+    compaction_generation: int = 0
 
 
 @dataclass(frozen=True)
@@ -52,6 +54,8 @@ class ContextAssembled:
     assembly: ContextAssemblyResult
     snapshot: TurnSnapshot
     events: Tuple[EventIntent, ...] = field(default_factory=tuple)
+    deferred_events: Tuple[EventIntent, ...] = field(default_factory=tuple)
+    compaction_generation: int = 0
 
 
 @dataclass(frozen=True)
@@ -59,6 +63,8 @@ class ProviderCompleted:
     effect_id: str
     reply: AssistantReply
     events: Tuple[EventIntent, ...] = field(default_factory=tuple)
+    tool_presentations: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)
+    parent_message_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -84,6 +90,8 @@ class EffectFailed:
     message: str
     retryable: bool = False
     events: Tuple[EventIntent, ...] = field(default_factory=tuple)
+    commit_tokens: Tuple[Any, ...] = field(default_factory=tuple)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 AgentEffectResult = Union[

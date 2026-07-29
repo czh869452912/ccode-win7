@@ -83,7 +83,8 @@ def test_hosted_command_permissions_use_the_core_action_pipeline_once():
     assert "._host_" not in command_source
     assert "_record_pending_permission" not in command_source
     assert "_record_command_pending_permission" not in adapter_source
-    assert "permission_pending_handler=self._build_permission_pending_result" in query_source
-    assert "self._permission_pending_handler(" in action_source
+    assert "permission_pending_handler" not in query_source
+    assert "permission_pending_handler" not in action_source
+    assert "self._interaction_factory.permission_request(" in action_source
     assert "_host_record_pending_permission" not in api_source
     assert "host_record_pending_permission" not in runner_source

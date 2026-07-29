@@ -84,7 +84,7 @@ class TestServiceDelegation(object):
         adapter = self._make_adapter(fresh_container, tmp_path)
         assert not hasattr(adapter, "_harness_sync")
 
-    def test_query_engine_has_strategies(self, fresh_container):
+    def test_provider_step_service_owns_retry_strategy(self, fresh_container):
         client = MagicMock(spec=OpenAICompatibleClient)
         tools = MagicMock(spec=ToolRuntime)
         tools.workspace = "/tmp/test_workspace"
@@ -92,8 +92,8 @@ class TestServiceDelegation(object):
         tools.projection_db = MagicMock()
         engine = QueryEngine(client=client, tools=tools)
 
-        assert hasattr(engine, "_llm_wrapper")
-        assert isinstance(engine._llm_wrapper, LLMClientRetryWrapper)
+        assert not hasattr(engine, "_llm_wrapper")
+        assert isinstance(engine._provider_steps._provider, LLMClientRetryWrapper)
         assert not hasattr(engine, "_compaction")
         assert not hasattr(engine, "_turn_orchestrator")
 

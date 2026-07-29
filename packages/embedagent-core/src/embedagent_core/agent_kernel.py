@@ -101,15 +101,17 @@ class AgentKernel(object):
         workflow_state: str,
         source: str,
         stream: bool = False,
+        step_index: int = 1,
     ) -> KernelStep:
+        step_index = max(1, int(step_index or 1))
         cursor = KernelCursor(
             phase="context",
-            expected_effect_id=self._effect_id("context", turn_id, 1, 0),
-            step_index=1,
+            expected_effect_id=self._effect_id("context", turn_id, step_index, 0),
+            step_index=step_index,
             provider_attempt=0,
             compact_retry_used=False,
             turn_id=turn_id,
-            step_id="step-1",
+            step_id=self._step_id(turn_id, step_index),
             mode_name=mode_name,
             workflow_state=workflow_state,
             source=source,
@@ -117,7 +119,7 @@ class AgentKernel(object):
         )
         return KernelStep(
             cursor=cursor,
-            events=(self._operation_started(cursor, "context_assembly"),),
+            events=self._step_started_events(cursor),
             effect=self._context_effect(cursor),
         )
 
@@ -156,21 +158,35 @@ class AgentKernel(object):
                     metadata=self._provider_operation_metadata(result.snapshot, cursor.stream),
                 ),
             ),
-            effect=RequestProviderEffect(effect_id, result.snapshot, cursor.stream),
+            effect=RequestProviderEffect(
+                effect_id,
+                result.snapshot,
+                cursor.stream,
+                deferred_events=result.deferred_events,
+                compaction_generation=result.compaction_generation,
+            ),
         )
 
     def _accept_provider(self, cursor: KernelCursor, result: ProviderCompleted) -> KernelStep:
-        events = result.events
+        events = result.events + self._assistant_events(cursor, result)
         if not result.reply.actions:
+            empty = not str(result.reply.content or "").strip()
             outcome = LoopTransition(
-                "completed",
-                result.reply.content,
+                "guard_stop" if empty else "completed",
+                (
+                    "provider returned empty assistant response without tool calls"
+                    if empty
+                    else result.reply.content
+                ),
                 next_mode=cursor.mode_name,
                 turns_used=cursor.step_index,
+                metadata={"empty_response": True} if empty else {},
             )
             return KernelStep(
                 cursor=replace(cursor, phase="complete", expected_effect_id=""),
-                events=events + (self._loop_transition(cursor, outcome),),
+                events=events
+                + (self._step_finished(cursor, outcome.reason),)
+                + self._transition_events(cursor, outcome),
                 outcome=outcome,
             )
 
@@ -184,7 +200,7 @@ class AgentKernel(object):
         )
         return KernelStep(
             cursor=next_cursor,
-            events=events + (self._operation_started(next_cursor, "tools"),),
+            events=events + self._tool_started_events(next_cursor, result),
             effect=ExecuteToolBatchEffect(
                 effect_id,
                 tuple(result.reply.actions),
@@ -194,6 +210,11 @@ class AgentKernel(object):
         )
 
     def _accept_tools(self, cursor: KernelCursor, result: ToolBatchCompleted) -> KernelStep:
+        next_mode = cursor.mode_name
+        for observation in result.observations:
+            data = observation.data if isinstance(observation.data, dict) else {}
+            if data.get("mode_changed") and str(data.get("selected_mode") or "").strip():
+                next_mode = str(data.get("selected_mode") or "").strip()
         next_index = cursor.step_index + 1
         effect_id = self._effect_id("context", cursor.turn_id, next_index, cursor.provider_attempt)
         next_cursor = replace(
@@ -201,15 +222,17 @@ class AgentKernel(object):
             phase="context",
             expected_effect_id=effect_id,
             step_index=next_index,
-            step_id="step-%d" % next_index,
+            step_id=self._step_id(cursor.turn_id, next_index),
+            mode_name=next_mode,
         )
         return KernelStep(
             cursor=next_cursor,
             events=result.events
             + (
                 self._operation_finished(cursor, "tools"),
-                self._operation_started(next_cursor, "context_assembly"),
-            ),
+                self._step_finished(cursor, "tool_calls"),
+            )
+            + self._step_started_events(next_cursor),
             effect=self._context_effect(next_cursor),
             post_commit_tokens=result.commit_tokens,
         )
@@ -226,9 +249,10 @@ class AgentKernel(object):
             cursor=replace(cursor, phase="suspended", expected_effect_id=""),
             events=result.events
             + (
+                self._step_finished(cursor, reason),
                 self._operation_finished(cursor, cursor.phase),
-                self._loop_transition(cursor, outcome),
-            ),
+            )
+            + self._transition_events(cursor, outcome),
             outcome=outcome,
             post_commit_tokens=result.commit_tokens,
         )
@@ -248,24 +272,53 @@ class AgentKernel(object):
                 compact_retry_used=True,
                 step_id=cursor.step_id or ("step-%d" % cursor.step_index),
             )
+            retry = LoopTransition(
+                "compact_retry",
+                result.message,
+                next_mode=cursor.mode_name,
+                turns_used=cursor.step_index,
+                metadata={
+                    "source_mode": cursor.mode_name,
+                    "retry_mode": "compact",
+                    "error": result.message,
+                },
+            )
             return KernelStep(
                 cursor=next_cursor,
-                events=result.events + (self._operation_started(next_cursor, "context_assembly"),),
+                events=result.events
+                + (
+                    self._loop_transition(cursor, retry),
+                    self._operation_started(
+                        next_cursor,
+                        "context_assembly",
+                        metadata=self._context_operation_metadata(next_cursor, True),
+                    ),
+                ),
+                post_commit_tokens=result.commit_tokens,
                 effect=self._context_effect(next_cursor, force_compact=True),
             )
 
-        reason = "aborted" if result.error_kind == "cancelled" else "guard_stop"
+        reason = {
+            "cancelled": "aborted",
+            "safety_limit": "max_turns",
+        }.get(result.error_kind, "guard_stop")
         outcome = LoopTransition(
             reason,
             result.message,
             next_mode=cursor.mode_name,
-            turns_used=cursor.step_index,
-            metadata={"error_kind": result.error_kind},
+            turns_used=int(result.metadata.get("turns_used") or cursor.step_index),
+            metadata={
+                "error_kind": result.error_kind,
+                **dict(result.metadata),
+            },
         )
         return KernelStep(
             cursor=replace(cursor, phase="failed", expected_effect_id=""),
-            events=result.events + (self._loop_transition(cursor, outcome),),
+            events=result.events
+            + (self._step_finished(cursor, reason, interrupted=reason == "aborted"),)
+            + self._transition_events(cursor, outcome),
             outcome=outcome,
+            post_commit_tokens=result.commit_tokens,
         )
 
     def _context_effect(
@@ -279,6 +332,210 @@ class AgentKernel(object):
             cursor.workflow_state,
             force_compact=force_compact,
         )
+
+    def _step_started_events(self, cursor: KernelCursor) -> Tuple[EventIntent, ...]:
+        return (
+            EventIntent(
+                "step_started",
+                {
+                    "turn_id": cursor.turn_id,
+                    "step_id": cursor.step_id,
+                    "step_index": cursor.step_index,
+                },
+            ),
+            EventIntent(
+                "operation_started",
+                {
+                    "operation_id": "step:%s" % cursor.step_id,
+                    "kind": "agent_step",
+                    "turn_id": cursor.turn_id,
+                    "step_id": cursor.step_id,
+                    "metadata": {"step_index": cursor.step_index},
+                },
+            ),
+            self._operation_started(
+                cursor,
+                "context_assembly",
+                metadata=self._context_operation_metadata(cursor, False),
+            ),
+        )
+
+    def _step_finished(
+        self,
+        cursor: KernelCursor,
+        reason: str,
+        interrupted: bool = False,
+    ) -> EventIntent:
+        return EventIntent(
+            "operation_interrupted" if interrupted else "operation_finished",
+            {
+                "operation_id": "step:%s" % cursor.step_id,
+                "kind": "agent_step",
+                "turn_id": cursor.turn_id,
+                "step_id": cursor.step_id,
+                "reason": reason if interrupted else "",
+                "result": {
+                    "reason": reason,
+                    "turns_used": cursor.step_index,
+                },
+            },
+        )
+
+    def _assistant_events(
+        self,
+        cursor: KernelCursor,
+        result: ProviderCompleted,
+    ) -> Tuple[EventIntent, ...]:
+        message_id = "m-assistant-%s-%s-%d" % (
+            cursor.turn_id or "turn",
+            cursor.step_id or "step",
+            cursor.provider_attempt,
+        )
+        actions = [
+            {
+                "name": action.name,
+                "arguments": dict(action.arguments),
+                "call_id": action.call_id,
+            }
+            for action in result.reply.actions
+        ]
+        return (
+            EventIntent(
+                "assistant",
+                {
+                    "role": "assistant",
+                    "content": result.reply.content,
+                    "message_id": message_id,
+                    "parent_message_id": result.parent_message_id,
+                    "turn_id": cursor.turn_id,
+                    "step_id": cursor.step_id,
+                    "actions": actions,
+                    "reasoning_content": result.reply.reasoning_content,
+                    "finish_reason": result.reply.finish_reason,
+                },
+            ),
+        )
+
+    def _tool_started_events(
+        self,
+        cursor: KernelCursor,
+        result: ProviderCompleted,
+    ) -> Tuple[EventIntent, ...]:
+        events = []
+        for index, action in enumerate(result.reply.actions):
+            presentation = (
+                dict(result.tool_presentations[index])
+                if index < len(result.tool_presentations)
+                else {"tool_label": action.name}
+            )
+            events.append(
+                EventIntent(
+                    "tool_call",
+                    {
+                        "turn_id": cursor.turn_id,
+                        "step_id": cursor.step_id,
+                        "call_id": action.call_id,
+                        "tool_name": action.name,
+                        "arguments": dict(action.arguments),
+                        "status": "pending",
+                        "presentation": presentation,
+                    },
+                )
+            )
+            events.append(
+                EventIntent(
+                    "operation_started",
+                    {
+                        "operation_id": "tool:%s" % action.call_id,
+                        "kind": "tool_call",
+                        "turn_id": cursor.turn_id,
+                        "step_id": cursor.step_id,
+                        "tool_call_id": action.call_id,
+                        "parent_operation_id": "step:%s" % cursor.step_id,
+                        "metadata": {
+                            "tool_name": action.name,
+                            "arguments": dict(action.arguments),
+                            "presentation": presentation,
+                        },
+                    },
+                )
+            )
+        events.append(self._operation_started(cursor, "tools"))
+        return tuple(events)
+
+    def _transition_events(
+        self,
+        cursor: KernelCursor,
+        transition: LoopTransition,
+    ) -> Tuple[EventIntent, ...]:
+        savepoint_id = "savepoint:%s:%s:%s" % (
+            cursor.turn_id or "session",
+            cursor.step_id or "turn",
+            transition.reason or "transition",
+        )
+        events = []
+        pending = transition.pending_interaction
+        if pending is not None and pending.interaction_id:
+            request_payload = dict(pending.request_payload or {})
+            details = dict(
+                request_payload.get("permission") or request_payload.get("request") or {}
+            )
+            events.append(
+                EventIntent(
+                    "operation_started",
+                    {
+                        "operation_id": "pending:%s" % pending.interaction_id,
+                        "kind": "pending_interaction",
+                        "turn_id": cursor.turn_id,
+                        "step_id": cursor.step_id,
+                        "parent_operation_id": "step:%s" % cursor.step_id,
+                        "metadata": {
+                            "kind": pending.kind,
+                            "tool_name": pending.tool_name,
+                            "interaction_id": pending.interaction_id,
+                            "category": str(details.get("category") or ""),
+                            "reason": str(details.get("reason") or ""),
+                            "question": str(details.get("question") or ""),
+                        },
+                    },
+                )
+            )
+        events.extend(
+            (
+                EventIntent(
+                    "operation_started",
+                    {
+                        "operation_id": savepoint_id,
+                        "kind": "save_point",
+                        "turn_id": cursor.turn_id,
+                        "step_id": cursor.step_id,
+                        "parent_operation_id": "step:%s" % cursor.step_id,
+                        "metadata": {"transition_reason": transition.reason},
+                    },
+                ),
+                self._loop_transition(cursor, transition),
+                EventIntent(
+                    "operation_finished",
+                    {
+                        "operation_id": savepoint_id,
+                        "kind": "save_point",
+                        "turn_id": cursor.turn_id,
+                        "step_id": cursor.step_id,
+                        "result": {
+                            "reason": transition.reason,
+                            "message": transition.message,
+                            "next_mode": transition.next_mode,
+                            "turns_used": transition.turns_used,
+                            "metadata": dict(transition.metadata),
+                        },
+                    },
+                ),
+            )
+        )
+        return tuple(events)
+
+    def _step_id(self, turn_id: str, step_index: int) -> str:
+        return "step-%s-%d" % (turn_id or "turn", step_index)
 
     def _operation_started(
         self,
@@ -334,6 +591,20 @@ class AgentKernel(object):
             "stream": bool(stream),
             "turn_snapshot": safe_turn_snapshot_metadata(snapshot),
         }
+
+    def _context_operation_metadata(
+        self,
+        cursor: KernelCursor,
+        force_compact: bool,
+    ) -> dict:
+        metadata = {
+            "mode_name": cursor.mode_name,
+            "workflow_state": cursor.workflow_state,
+            "force_compact": bool(force_compact),
+        }
+        if cursor.source:
+            metadata["source"] = cursor.source
+        return metadata
 
     def _effect_id(self, kind: str, turn_id: str, step_index: int, provider_attempt: int) -> str:
         return "%s:%s:%d:%d" % (

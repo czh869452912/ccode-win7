@@ -10,6 +10,8 @@ from embedagent_core.agent_effects import (
     ProviderCompleted,
     RequestProviderEffect,
 )
+from embedagent_core.compaction_journal import CompactionJournal
+from embedagent_core.context_window import ContextWindowState
 from embedagent_core.model import ModelClient, ModelClientError
 from embedagent_core.ports import ContextAssemblerPort
 from embedagent_core.session import AssistantReply, ContextAssemblyResult, Session
@@ -63,6 +65,8 @@ class ProviderStepService(object):
             base_delay=max(0.0, float(retry_base_delay)),
         )
         self._last_snapshot = None  # type: Optional[TurnSnapshot]
+        self._snapshot_parent_message_ids = {}  # type: Dict[str, str]
+        self._compaction_journal = CompactionJournal()
 
     def last_snapshot(self) -> Optional[TurnSnapshot]:
         return self._last_snapshot
@@ -100,11 +104,14 @@ class ProviderStepService(object):
             transcript_store=self._session_log,
         )
         self._last_snapshot = snapshot
+        self._snapshot_parent_message_ids[snapshot.snapshot_id] = session.last_message_id()
         return ContextAssembled(
             effect.effect_id,
             assembly,
             snapshot,
-            events=self._context_events(effect, assembly),
+            events=self._context_events(effect, assembly, session),
+            deferred_events=self._compaction_events(session, effect, assembly),
+            compaction_generation=len(session.compact_boundaries) + 1,
         )
 
     def request_provider(
@@ -128,12 +135,18 @@ class ProviderStepService(object):
                 error_kind,
                 str(exc),
                 retryable=False,
-                events=(self._provider_interrupted_event(effect, error_kind, str(exc)),),
+                events=(self._provider_interrupted_event(effect, error_kind, str(exc)),)
+                + self._provider_failure_deferred_events(
+                    effect,
+                    error_kind,
+                ),
             )
         return ProviderCompleted(
             effect.effect_id,
             reply,
-            events=(self._provider_finished_event(effect, reply),),
+            events=(self._provider_finished_event(effect, reply),) + tuple(effect.deferred_events),
+            tool_presentations=self._tool_presentations(reply),
+            parent_message_id=self._parent_message_id(effect.snapshot),
         )
 
     def _normalize_assembly(self, build: Any) -> ContextAssemblyResult:
@@ -161,6 +174,7 @@ class ProviderStepService(object):
         self,
         effect: AssembleContextEffect,
         assembly: ContextAssemblyResult,
+        session: Session,
     ) -> Tuple[EventIntent, ...]:
         snapshot_operation_id = "context_snapshot:%s" % effect.effect_id
         snapshot_payload = self._context_snapshot_payload(effect.mode_name, assembly)
@@ -203,6 +217,107 @@ class ProviderStepService(object):
         for replacement in list(assembly.replacements or []):
             events.append(EventIntent("content_replacement", dict(replacement)))
         return tuple(events)
+
+    def _compaction_events(
+        self,
+        session: Session,
+        effect: AssembleContextEffect,
+        assembly: ContextAssemblyResult,
+    ) -> Tuple[EventIntent, ...]:
+        if not assembly.compacted or not assembly.summary_message or assembly.summarized_turns <= 0:
+            return ()
+        compacted_turn_count = max(0, len(session.turns) - assembly.recent_turns)
+        latest = session.latest_compact_boundary()
+        if latest is not None and str(latest.metadata.get("step_id") or "") == effect.step_id:
+            return ()
+        if latest is not None and latest.compacted_turn_count == compacted_turn_count:
+            return ()
+        preserved_head, preserved_tail = session.preserved_segment_message_ids(
+            assembly.recent_turns
+        )
+        window_state = ContextWindowState.from_pipeline_steps(
+            list(assembly.pipeline_steps or ()),
+            len(session.compact_boundaries),
+        )
+        metadata = {
+            "approx_tokens": assembly.approx_tokens,
+            "replacements": len(assembly.replacements),
+            "pipeline_steps": list(assembly.pipeline_steps),
+            "step_id": effect.step_id,
+        }
+        plan = getattr(assembly, "plan", None)
+        plan_metadata = getattr(plan, "to_boundary_metadata", None)
+        if callable(plan_metadata):
+            metadata.update(dict(plan_metadata()))
+        metadata = window_state.extend_metadata(metadata)
+        boundary = self._compaction_journal.new_boundary(
+            assembly.summary_message,
+            compacted_turn_count,
+            effect.mode_name,
+            metadata,
+            preserved_head,
+            preserved_tail,
+        )
+        plan_payload = {}
+        plan_payload_fields = getattr(plan, "to_boundary_payload_fields", None)
+        if callable(plan_payload_fields):
+            plan_payload = dict(plan_payload_fields())
+        payloads = self._compaction_journal.build_payloads(
+            boundary,
+            assembly,
+            window_state,
+            plan_payload,
+        )
+        return (
+            EventIntent("compact_boundary", payloads["compact_boundary"]),
+            EventIntent("compacted_history", payloads["compacted_history"]),
+        )
+
+    def _provider_failure_deferred_events(
+        self,
+        effect: RequestProviderEffect,
+        error_kind: str,
+    ) -> Tuple[EventIntent, ...]:
+        if error_kind != "context_limit":
+            return ()
+        return tuple(
+            self._as_reactive_retry_event(
+                event,
+                effect.compaction_generation,
+            )
+            for event in effect.deferred_events
+        )
+
+    def _as_reactive_retry_event(
+        self,
+        event: EventIntent,
+        generation: int,
+    ) -> EventIntent:
+        payload = dict(event.payload)
+        payload["trigger"] = "reactive_retry"
+        payload["phase"] = "provider_retry"
+        if event.event_type == "compact_boundary":
+            payload["context_window_generation"] = max(1, int(generation or 1))
+        metadata = dict(payload.get("metadata") or {})
+        steps = list(metadata.get("pipeline_steps") or [])
+        if "reactive_compact_retry" not in steps:
+            steps.insert(0, "reactive_compact_retry")
+        metadata["pipeline_steps"] = steps
+        if event.event_type == "compact_boundary":
+            metadata.update(
+                {
+                    "trigger": "reactive_retry",
+                    "phase": "provider_retry",
+                    "context_window_generation": max(1, int(generation or 1)),
+                }
+            )
+        payload["metadata"] = metadata
+        return EventIntent(
+            event.event_type,
+            payload,
+            event_id=event.event_id,
+            ts=event.ts,
+        )
 
     def _provider_finished_event(
         self,
@@ -308,3 +423,32 @@ class ProviderStepService(object):
     def _is_context_limit(self, exc: ModelClientError) -> bool:
         message = str(exc or "").lower()
         return any(marker in message for marker in _COMPACT_RETRY_ERROR_MARKERS)
+
+    def _tool_presentations(self, reply: AssistantReply) -> Tuple[Dict[str, Any], ...]:
+        lookup = getattr(self._tools, "tool_catalog_entry", None)
+        presentations = []
+        for action in reply.actions:
+            entry = lookup(action.name) if callable(lookup) else {}
+            entry = entry if isinstance(entry, dict) else {}
+            presentations.append(
+                {
+                    "tool_label": str(entry.get("user_label") or action.name),
+                    "permission_category": str(entry.get("permission_category") or ""),
+                    "supports_diff_preview": bool(entry.get("supports_diff_preview")),
+                    "progress_renderer_key": str(entry.get("progress_renderer_key") or "default"),
+                    "result_renderer_key": str(entry.get("result_renderer_key") or "default"),
+                }
+            )
+        return tuple(presentations)
+
+    def _parent_message_id(self, snapshot: TurnSnapshot) -> str:
+        recorded = self._snapshot_parent_message_ids.pop(snapshot.snapshot_id, "")
+        if recorded:
+            return recorded
+        for message in reversed(tuple(snapshot.messages or ())):
+            if not isinstance(message, dict):
+                continue
+            message_id = str(message.get("message_id") or "").strip()
+            if message_id:
+                return message_id
+        return ""

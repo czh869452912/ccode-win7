@@ -63,8 +63,12 @@ def test_kernel_plans_context_before_provider():
     assert isinstance(step.effect, AssembleContextEffect)
     assert step.effect.turn_id == "t-1"
     assert step.effect.mode_name == "debug"
-    assert step.events[0].event_type == "operation_started"
-    assert step.events[0].payload["kind"] == "context_assembly"
+    assert [event.event_type for event in step.events] == [
+        "step_started",
+        "operation_started",
+        "operation_started",
+    ]
+    assert step.events[-1].payload["kind"] == "context_assembly"
 
 
 def test_kernel_advances_context_to_provider_and_provider_to_tools():
@@ -131,6 +135,28 @@ def test_kernel_carries_tool_commit_tokens_only_after_result_acceptance():
     assert isinstance(next_step.effect, AssembleContextEffect)
 
 
+def test_kernel_turns_empty_provider_reply_into_guard_stop():
+    kernel = AgentKernel()
+    context_step = kernel.start("t-1", "debug", "", "user")
+    provider_step = kernel.accept(
+        context_step.cursor,
+        ContextAssembled(context_step.effect.effect_id, _assembly(), _snapshot()),
+    )
+
+    completed = kernel.accept(
+        provider_step.cursor,
+        ProviderCompleted(
+            provider_step.effect.effect_id,
+            AssistantReply("", actions=[], finish_reason="stop"),
+        ),
+    )
+
+    assert completed.outcome.reason == "guard_stop"
+    assert "empty assistant response" in completed.outcome.message
+    transitions = [event for event in completed.events if event.event_type == "loop_transition"]
+    assert transitions[-1].payload["reason"] == "guard_stop"
+
+
 def test_kernel_owns_single_context_limit_compact_retry():
     cursor = KernelCursor(
         "provider",
@@ -151,6 +177,12 @@ def test_kernel_owns_single_context_limit_compact_retry():
     assert retry.cursor.compact_retry_used is True
     assert isinstance(retry.effect, AssembleContextEffect)
     assert retry.effect.force_compact is True
+    transition = [event for event in retry.events if event.event_type == "loop_transition"][-1]
+    assert transition.payload["reason"] == "compact_retry"
+    assert transition.payload["metadata"]["retry_mode"] == "compact"
+    context_started = retry.events[-1]
+    assert context_started.payload["metadata"]["force_compact"] is True
+    assert context_started.payload["metadata"]["mode_name"] == "debug"
 
 
 def test_effect_types_are_frozen_and_private_to_internal_modules():

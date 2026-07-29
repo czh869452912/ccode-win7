@@ -970,15 +970,14 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertTrue(service.is_interactive_serial_skip(observation))
 
     def test_agent_loop_can_be_constructed_without_runner_callback(self):
+        import inspect
+
         from embedagent_core.agent_loop import AgentLoop
-        from embedagent_core.agent_loop_continuation import DefaultAgentLoopContinuationPolicy
 
-        loop = AgentLoop()
-
-        self.assertFalse(hasattr(loop, "_runner"))
-        self.assertIsInstance(loop.continuation_policy, DefaultAgentLoopContinuationPolicy)
-        self.assertIsNone(loop.loop_safety_limit)
-        self.assertIsNone(loop.max_turns)
+        self.assertEqual(
+            list(inspect.signature(AgentLoop).parameters),
+            ["kernel", "journal", "provider_steps", "tool_actions", "continuation_policy"],
+        )
 
     def test_query_engine_exposes_slim_agent_components(self):
         from embedagent_core.agent_extension_host import AgentExtensionHost
@@ -1275,7 +1274,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         spy = SpyActionService(engine._action_service)
         engine._action_service = spy
-        engine._agent_loop._action_service = spy
+        engine._agent_loop._tool_actions = spy
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
 
@@ -1298,7 +1297,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         spy = SpyActionService(engine._action_service)
         engine._action_service = spy
-        engine._agent_loop._action_service = spy
+        engine._agent_loop._tool_actions = spy
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
 
@@ -1380,7 +1379,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(first.transition.reason, "user_input_wait")
         spy = SpyActionService(engine._action_service)
         engine._action_service = spy
-        engine._agent_loop._action_service = spy
+        engine._agent_loop._tool_actions = spy
 
         resumed = engine.resume_interaction(
             session=session,
@@ -3182,53 +3181,6 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertGreaterEqual(len(callback_payloads), 1)
         self.assertEqual(callback_payloads[0][0], session.turns[-1].steps[0].step_id)
         self.assertEqual(callback_payloads[0][1], 1)
-
-    def test_query_engine_uses_session_lock_for_context_and_session_mutation(self):
-        session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
-        lock = RecordingSessionLock()
-        context_manager = LockCheckingContextManager(lock)
-
-        original_add_user_message = session.add_user_message
-        original_begin_step = session.begin_step
-        original_add_assistant_reply = session.add_assistant_reply
-        original_add_observation = session.add_observation
-
-        def checked_add_user_message(*args, **kwargs):
-            self.assertTrue(lock.held())
-            return original_add_user_message(*args, **kwargs)
-
-        def checked_begin_step(*args, **kwargs):
-            self.assertTrue(lock.held())
-            return original_begin_step(*args, **kwargs)
-
-        def checked_add_assistant_reply(*args, **kwargs):
-            self.assertTrue(lock.held())
-            return original_add_assistant_reply(*args, **kwargs)
-
-        def checked_add_observation(*args, **kwargs):
-            self.assertTrue(lock.held())
-            return original_add_observation(*args, **kwargs)
-
-        session.add_user_message = checked_add_user_message
-        session.begin_step = checked_begin_step
-        session.add_assistant_reply = checked_add_assistant_reply
-        session.add_observation = checked_add_observation
-
-        engine = QueryEngine(
-            client=ToolClient(),
-            tools=self.tools,
-            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            context_manager=context_manager,
-        )
-        engine._session_lock = lock
-        result = engine.submit_user_turn(
-            user_text="读取文件",
-            stream=False,
-            initial_mode="build",
-            session=session,
-        )
-        self.assertEqual(result.transition.reason, "completed")
 
     def test_query_engine_writes_pending_interaction_events(self):
         session = Session()

@@ -15,6 +15,7 @@ from embedagent_core.agent_extension_host import AgentExtensionHost
 from embedagent_core.agent_kernel import AgentKernel
 from embedagent_core.agent_lifecycle import AgentLifecycleJournal
 from embedagent_core.agent_loop import AgentLoop
+from embedagent_core.agent_loop_continuation import DefaultAgentLoopContinuationPolicy
 from embedagent_core.agent_tool_action_service import (
     AgentToolActionService,
     InteractionFactory,
@@ -146,29 +147,11 @@ class QueryEngine(object):
         self._durable_message_ids = {}  # type: Dict[str, set]
         self.kernel = AgentKernel(lifecycle=self.lifecycle)
         self._agent_loop = AgentLoop(
-            max_turns=self.max_turns,
-            max_parallel_tools=self.max_parallel_tools,
-            tool_capabilities=getattr(self.tools, "tool_capabilities", None),
-            kernel=self.kernel,
-            provider_steps=self._provider_steps,
-            session_guard=self._session_guard,
-            append_transcript_event=self._append_transcript_event,
-            append_message_event=self._append_message_event,
-            commit_session_event=self._commit_session_event,
-            emit_operation_started=self._emit_operation_started,
-            emit_lifecycle_event=self._emit_lifecycle_event,
-            emit_step_finished=self._emit_step_finished,
-            turn_id=self._turn_id,
-            record_transition=self._record_transition,
-            persist_summary=self._persist_summary,
-            maybe_record_compact_boundary=self._maybe_record_compact_boundary,
-            classify_assistant_turn=self.classify_assistant_turn,
-            tool_presentation_snapshot=self._tool_presentation_snapshot,
-            action_service=self._action_service,
-            record_tool_observation=self._record_tool_observation,
-            discarded_observation=self._discarded_observation,
-            interrupted_observation=self._interrupted_observation,
-            is_interrupted_observation=self._is_interrupted_observation,
+            self.kernel,
+            self._journal,
+            self._provider_steps,
+            self._action_service,
+            DefaultAgentLoopContinuationPolicy(),
         )
         self._internal_stop_event = threading.Event()
 
@@ -1049,22 +1032,39 @@ class QueryEngine(object):
                     self.tracer.flush()
                 turn_frame.finish(result.transition)
                 return result
+        last_assembly = []
+
+        def capture_context_result(assembly):
+            last_assembly[:] = [assembly]
+            if on_context_result is not None:
+                on_context_result(assembly)
+
         try:
             result = self._agent_loop.run(
                 session=session,
+                reduction_context=self._reduction_context,
+                turn_id=turn_id,
                 current_mode=current_mode,
                 workflow_state=workflow_state,
+                source="user",
                 stream=stream,
-                stop_event=stop_event,
+                cancel=stop_event,
+                max_turns=self.max_turns,
+                max_parallel_tools=self.max_parallel_tools,
                 on_text_delta=on_text_delta,
                 on_reasoning_delta=on_reasoning_delta,
                 on_tool_start=on_tool_start,
                 on_tool_finish=on_tool_finish,
-                on_context_result=on_context_result,
+                on_context_result=capture_context_result,
                 on_step_start=on_step_start,
                 on_step_finish=on_step_finish,
                 permission_handler=permission_handler,
                 user_input_handler=user_input_handler,
+            )
+            self._persist_summary(
+                session,
+                result.transition.next_mode or current_mode,
+                last_assembly[-1] if last_assembly else None,
             )
             if self.tracer is not None:
                 self.tracer.record(
@@ -1343,22 +1343,39 @@ class QueryEngine(object):
             on_tool_start,
             on_tool_finish,
         )
+        last_assembly = []
+
+        def capture_context_result(assembly):
+            last_assembly[:] = [assembly]
+            if on_context_result is not None:
+                on_context_result(assembly)
+
         try:
             result = self._agent_loop.run(
                 session=session,
+                reduction_context=self._reduction_context,
+                turn_id=resume_turn_id,
                 current_mode=current_mode,
                 workflow_state=workflow_state,
+                source="resume",
                 stream=stream,
-                stop_event=stop_event,
+                cancel=stop_event,
+                max_turns=self.max_turns,
+                max_parallel_tools=self.max_parallel_tools,
                 on_text_delta=on_text_delta,
                 on_reasoning_delta=on_reasoning_delta,
                 on_tool_start=on_tool_start,
                 on_tool_finish=on_tool_finish,
-                on_context_result=on_context_result,
+                on_context_result=capture_context_result,
                 on_step_start=on_step_start,
                 on_step_finish=on_step_finish,
                 permission_handler=permission_handler,
                 user_input_handler=user_input_handler,
+            )
+            self._persist_summary(
+                session,
+                result.transition.next_mode or current_mode,
+                last_assembly[-1] if last_assembly else None,
             )
         except BaseException as exc:
             turn_frame.interrupt("resume_error", error=str(exc))

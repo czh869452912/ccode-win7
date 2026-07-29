@@ -29,6 +29,7 @@ from embedagent_core.tool_contracts import (
     ToolError,
     ToolRuntimePort,
 )
+from embedagent_core.tool_execution import StreamingToolExecutor, partition_tool_actions
 
 _LOG = logging.getLogger(__name__)
 
@@ -152,6 +153,8 @@ class AgentToolActionService(object):
         ] = None,
         precomputed_observations: Optional[Tuple[Optional[Observation], ...]] = None,
         stop_event: Optional[threading.Event] = None,
+        on_action_start: Optional[Callable[[Action], None]] = None,
+        max_parallel_tools: int = 3,
     ):
         if not isinstance(effect, ExecuteToolBatchEffect):
             raise TypeError("unsupported tool effect")
@@ -159,8 +162,8 @@ class AgentToolActionService(object):
         events: List[EventIntent] = []
         commit_tokens: List[Any] = []
         precomputed = tuple(precomputed_observations or ())
-        for index, action in enumerate(effect.actions):
-            precomputed_observation = precomputed[index] if index < len(precomputed) else None
+
+        def append_result(action, precomputed_observation=None):
             result = self._execute_action(
                 session,
                 action,
@@ -184,6 +187,98 @@ class AgentToolActionService(object):
             events.extend(action_events)
             if commit_token is not None:
                 commit_tokens.append(commit_token)
+            return None
+
+        if precomputed:
+            for index, action in enumerate(effect.actions):
+                if on_action_start is not None:
+                    on_action_start(action)
+                suspension = append_result(
+                    action,
+                    precomputed[index] if index < len(precomputed) else None,
+                )
+                if suspension is not None:
+                    return suspension
+            return ToolBatchCompleted(
+                effect.effect_id,
+                observations=tuple(observations),
+                events=tuple(events),
+                commit_tokens=tuple(commit_tokens),
+            )
+
+        capability_lookup = getattr(self.tools, "tool_capabilities", None)
+        if not callable(capability_lookup):
+
+            def capability_lookup(tool_name):
+                del tool_name
+                return {}
+
+        discard_remaining = False
+        for batch in partition_tool_actions(list(effect.actions), capability_lookup):
+            if discard_remaining:
+                for action in batch.actions:
+                    suspension = append_result(action, self._discarded_observation(action.name))
+                    if suspension is not None:
+                        return suspension
+                continue
+            if batch.parallel and len(batch.actions) > 1:
+                executor = StreamingToolExecutor(
+                    lambda action: self.execute_parallel_tool_action(
+                        session,
+                        action,
+                        effect.mode_name,
+                        effect.workflow_state,
+                        stop_event,
+                    ),
+                    max_parallel_tools,
+                    cancel_event=stop_event,
+                )
+                batch_interrupted = False
+                batch_discarded = False
+                for update in executor.run_batch(batch):
+                    if update.phase == "start":
+                        if on_action_start is not None:
+                            on_action_start(update.action)
+                        if self._stop_is_set(stop_event):
+                            batch_interrupted = True
+                            executor.discard()
+                        continue
+                    precomputed_observation = update.observation
+                    if batch_interrupted or self._stop_is_set(stop_event):
+                        batch_interrupted = True
+                        if not self._is_discarded(precomputed_observation):
+                            precomputed_observation = self._interrupted_observation(
+                                update.action.name
+                            )
+                    suspension = append_result(update.action, precomputed_observation)
+                    if suspension is not None:
+                        return suspension
+                    if self._is_discarded(observations[-1]):
+                        batch_discarded = True
+                if batch_discarded:
+                    discard_remaining = True
+                continue
+
+            for action in batch.actions:
+                if self._stop_is_set(stop_event):
+                    suspension = append_result(
+                        action,
+                        self._discarded_observation(action.name),
+                    )
+                    discard_remaining = True
+                else:
+                    if on_action_start is not None:
+                        on_action_start(action)
+                    precomputed_observation = (
+                        self._interrupted_observation(action.name)
+                        if self._stop_is_set(stop_event)
+                        else None
+                    )
+                    suspension = append_result(action, precomputed_observation)
+                if suspension is not None:
+                    return suspension
+                if self._is_interrupted(observations[-1]):
+                    discard_remaining = True
         return ToolBatchCompleted(
             effect.effect_id,
             observations=tuple(observations),
@@ -787,3 +882,33 @@ class AgentToolActionService(object):
             observation.error,
             data,
         )
+
+    def _stop_is_set(self, stop_event: Optional[threading.Event]) -> bool:
+        is_set = getattr(stop_event, "is_set", None)
+        return bool(callable(is_set) and is_set())
+
+    def _interrupted_observation(self, tool_name: str) -> Observation:
+        return Observation(
+            tool_name,
+            False,
+            "tool execution interrupted",
+            {"error_kind": "interrupted", "retryable": False},
+        )
+
+    def _discarded_observation(self, tool_name: str) -> Observation:
+        return Observation(
+            tool_name,
+            False,
+            "tool execution discarded",
+            {"error_kind": "discarded", "retryable": False},
+        )
+
+    def _is_interrupted(self, observation: Optional[Observation]) -> bool:
+        if observation is None or not isinstance(observation.data, dict):
+            return False
+        return str(observation.data.get("error_kind") or "") == "interrupted"
+
+    def _is_discarded(self, observation: Optional[Observation]) -> bool:
+        if observation is None or not isinstance(observation.data, dict):
+            return False
+        return str(observation.data.get("error_kind") or "") == "discarded"

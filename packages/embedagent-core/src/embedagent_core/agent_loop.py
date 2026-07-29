@@ -1,32 +1,22 @@
 from __future__ import annotations
 
 import logging
-import threading
-import uuid
-from typing import Any, Callable, Optional
+from dataclasses import replace
+from typing import Any, Callable, Optional, Tuple
 
 from embedagent_core.agent_effects import (
     AssembleContextEffect,
     EffectFailed,
     ExecuteToolBatchEffect,
-    InteractionSuspended,
     ProviderCompleted,
+    RequestProviderEffect,
     ToolBatchCompleted,
 )
-from embedagent_core.agent_kernel import AgentKernel, KernelCursor
-from embedagent_core.agent_loop_continuation import (
-    CONTINUATION_ABORT,
-    CONTINUATION_COMPACT_THEN_CONTINUE,
-    CONTINUATION_CONTINUE,
-    CONTINUATION_STOP,
-    AgentLoopContinuationDecision,
-    AgentLoopContinuationFacts,
-    AgentLoopContinuationPolicy,
-    DefaultAgentLoopContinuationPolicy,
-)
+from embedagent_core.agent_kernel import AgentKernel, KernelStep
+from embedagent_core.agent_loop_continuation import AgentLoopContinuationPolicy
+from embedagent_core.agent_tool_action_service import AgentToolActionService
 from embedagent_core.guard import ProgressGuard
 from embedagent_core.interaction import UserInputRequest, UserInputResponse
-from embedagent_core.model import ModelClientError
 from embedagent_core.permissions import PermissionRequest
 from embedagent_core.provider_step_service import ProviderObserver, ProviderStepService
 from embedagent_core.session import (
@@ -38,798 +28,327 @@ from embedagent_core.session import (
     QueryTurnResult,
     Session,
 )
-from embedagent_core.tool_execution import StreamingToolExecutor, partition_tool_actions
+from embedagent_core.session_journal import SessionJournal
+from embedagent_core.session_reducer import SessionReducerContext
 
 _LOG = logging.getLogger(__name__)
+_OBSERVER_ERRORS = (
+    OSError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+)
 
 
 class AgentLoop(object):
-    """Owns turn-loop orchestration for one session-scoped agent run."""
+    """Commit, execute, and resume the closed Agent Core effect machine."""
 
     def __init__(
         self,
-        max_turns: Optional[int] = None,
-        max_parallel_tools: int = 3,
-        tool_capabilities: Optional[dict] = None,
-        continuation_policy: Optional[AgentLoopContinuationPolicy] = None,
-        kernel: Optional[AgentKernel] = None,
-        provider_steps: Optional[ProviderStepService] = None,
-        session_guard: Optional[Callable[[], Any]] = None,
-        append_transcript_event: Optional[Callable[..., Any]] = None,
-        append_message_event: Optional[Callable[..., Any]] = None,
-        commit_session_event: Optional[Callable[..., Any]] = None,
-        emit_operation_started: Optional[Callable[..., Any]] = None,
-        emit_lifecycle_event: Optional[Callable[..., Any]] = None,
-        emit_step_finished: Optional[Callable[..., Any]] = None,
-        turn_id: Optional[Callable[..., Any]] = None,
-        record_transition: Optional[Callable[..., Any]] = None,
-        persist_summary: Optional[Callable[..., Any]] = None,
-        maybe_record_compact_boundary: Optional[Callable[..., Any]] = None,
-        classify_assistant_turn: Optional[Callable[..., Any]] = None,
-        tool_presentation_snapshot: Optional[Callable[..., Any]] = None,
-        action_service: Optional[Any] = None,
-        record_tool_observation: Optional[Callable[..., Any]] = None,
-        discarded_observation: Optional[Callable[..., Any]] = None,
-        interrupted_observation: Optional[Callable[..., Any]] = None,
-        is_interrupted_observation: Optional[Callable[..., Any]] = None,
+        kernel: AgentKernel,
+        journal: SessionJournal,
+        provider_steps: ProviderStepService,
+        tool_actions: AgentToolActionService,
+        continuation_policy: AgentLoopContinuationPolicy,
     ) -> None:
-        self.loop_safety_limit = self._normalize_safety_limit(max_turns)
-        self.max_turns = self.loop_safety_limit
-        self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
-        self.tool_capabilities = tool_capabilities or {}
-        self.continuation_policy = continuation_policy or DefaultAgentLoopContinuationPolicy()
         self._kernel = kernel
+        self._journal = journal
         self._provider_steps = provider_steps
-        self._session_guard = session_guard
-        self._append_transcript_event = append_transcript_event
-        self._append_message_event = append_message_event
-        self._commit_session_event = commit_session_event
-        self._emit_operation_started = emit_operation_started
-        self._emit_lifecycle_event = emit_lifecycle_event
-        self._emit_step_finished = emit_step_finished
-        self._turn_id = turn_id
-        self._record_transition = record_transition
-        self._persist_summary = persist_summary
-        self._maybe_record_compact_boundary = maybe_record_compact_boundary
-        self._classify_assistant_turn = classify_assistant_turn
-        self._tool_presentation_snapshot = tool_presentation_snapshot
-        self._action_service = action_service
-        self._record_tool_observation = record_tool_observation
-        self._discarded_observation = discarded_observation
-        self._interrupted_observation = interrupted_observation
-        self._is_interrupted_observation = is_interrupted_observation
+        self._tool_actions = tool_actions
+        self._continuation_policy = continuation_policy
 
-    @staticmethod
-    def _normalize_safety_limit(value: Optional[int]) -> Optional[int]:
-        if value is None:
-            return None
-        limit = int(value)
-        if limit <= 0:
-            return None
-        return limit
-
-    def _safety_limit_reached(self, completed_steps: int) -> bool:
-        return (
-            self.loop_safety_limit is not None
-            and int(completed_steps or 0) >= self.loop_safety_limit
-        )
-
-    @staticmethod
-    def _has_visible_content(reply: AssistantReply) -> bool:
-        return bool(str(reply.content or "").strip())
-
-    def _classify_reply(self, reply: AssistantReply, session: Session) -> str:
-        if self._classify_assistant_turn is not None:
-            return str(self._classify_assistant_turn(reply, session))
-        if reply.actions:
-            return "tool_calls"
-        if self._has_visible_content(reply):
-            return "final_message"
-        return "empty_noop"
-
-    def _transition_from_decision(
-        self,
-        decision: AgentLoopContinuationDecision,
-        fallback_reason: str,
-        fallback_message: str,
-        turns_used: int,
-        fallback_next_mode: str = "",
-    ) -> LoopTransition:
-        return LoopTransition(
-            reason=decision.reason or fallback_reason,
-            message=decision.message or fallback_message,
-            next_mode=decision.next_mode or fallback_next_mode,
-            turns_used=turns_used,
-            metadata=dict(decision.metadata or {}),
-        )
-
-    def _ensure_configured(self) -> None:
-        required = (
-            "_kernel",
-            "_provider_steps",
-            "_session_guard",
-            "_append_transcript_event",
-            "_append_message_event",
-            "_commit_session_event",
-            "_emit_operation_started",
-            "_emit_lifecycle_event",
-            "_emit_step_finished",
-            "_turn_id",
-            "_record_transition",
-            "_persist_summary",
-            "_maybe_record_compact_boundary",
-            "_tool_presentation_snapshot",
-            "_action_service",
-            "_record_tool_observation",
-            "_discarded_observation",
-            "_interrupted_observation",
-            "_is_interrupted_observation",
-        )
-        missing = [name for name in required if getattr(self, name) is None]
-        if missing:
-            raise RuntimeError("AgentLoop is missing dependencies: %s" % ", ".join(missing))
-
-    def _commit_effect_events(self, session: Session, events: Any) -> None:
-        with self._session_guard():
-            for event in tuple(events or ()):
-                self._commit_session_event(
-                    session,
-                    event.event_type,
-                    dict(event.payload),
-                )
-
-    def _execute_action_effect(
-        self,
-        session: Session,
-        action: Action,
-        current_mode: str,
-        workflow_state: str,
-        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]],
-        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
-        precomputed_observation: Optional[Observation] = None,
-        stop_event: Optional[threading.Event] = None,
-    ):
-        result = self._action_service.execute(
-            ExecuteToolBatchEffect(
-                "tools:%s" % action.call_id,
-                (action,),
-                current_mode,
-                workflow_state,
-            ),
-            session,
-            permission_handler=permission_handler,
-            user_input_handler=user_input_handler,
-            precomputed_observations=(precomputed_observation,),
-            stop_event=stop_event,
-        )
-        if isinstance(result, InteractionSuspended):
-            self._commit_effect_events(session, result.events)
-            self._finalize_tool_tokens(result.commit_tokens)
-            pending = session.pending_interaction or result.pending
-            reason = "permission_wait" if pending.kind == "permission" else "user_input_wait"
-            request_payload = dict(pending.request_payload or {})
-            details = dict(
-                request_payload.get("permission") or request_payload.get("request") or {}
-            )
-            transition = LoopTransition(
-                reason=reason,
-                message=str(details.get("reason") or details.get("question") or ""),
-                pending_interaction=pending,
-                next_mode=current_mode,
-            )
-            self._record_transition(session, transition)
-            return (
-                None,
-                current_mode,
-                QueryTurnResult(
-                    "",
-                    session,
-                    transition,
-                    pending_interaction=pending,
-                ),
-            )
-        if not isinstance(result, ToolBatchCompleted):
-            raise TypeError("unsupported tool effect result")
-        self._commit_effect_events(session, result.events)
-        self._finalize_tool_tokens(result.commit_tokens)
-        observation = result.observations[0]
-        next_mode = current_mode
-        if isinstance(observation.data, dict) and observation.data.get("mode_changed"):
-            next_mode = str(observation.data.get("selected_mode") or current_mode)
-        return observation, next_mode, None
-
-    def _finalize_tool_tokens(self, commit_tokens: Any) -> None:
-        try:
-            self._action_service.finalize(tuple(commit_tokens or ()))
-        except (OSError, ValueError, TypeError) as exc:
-            _LOG.warning("tool result projection finalization failed: %s", exc)
+    @property
+    def continuation_policy(self) -> AgentLoopContinuationPolicy:
+        return self._continuation_policy
 
     def run(
         self,
         session: Session,
+        reduction_context: SessionReducerContext,
+        turn_id: str,
         current_mode: str,
         workflow_state: str,
-        stream: bool,
-        stop_event: Optional[threading.Event],
-        on_text_delta: Optional[Callable[[str], None]],
-        on_reasoning_delta: Optional[Callable[[str], None]],
-        on_tool_start: Optional[Callable[[Action], None]],
-        on_tool_finish: Optional[Callable[[Action, Observation], None]],
-        on_context_result: Optional[Callable[[ContextAssemblyResult], None]],
-        on_step_start: Optional[Callable[[str, int], None]],
-        on_step_finish: Optional[Callable[[int, AssistantReply, str], None]],
-        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]],
-        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
+        source: str = "user",
+        stream: bool = False,
+        observer: Optional[Any] = None,
+        cancel: Optional[Any] = None,
+        max_turns: Optional[int] = None,
+        max_parallel_tools: int = 3,
+        on_text_delta: Optional[Callable[[str], None]] = None,
+        on_reasoning_delta: Optional[Callable[[str], None]] = None,
+        on_tool_start: Optional[Callable[[Action], None]] = None,
+        on_tool_finish: Optional[Callable[[Action, Observation], None]] = None,
+        on_context_result: Optional[Callable[[ContextAssemblyResult], None]] = None,
+        on_step_start: Optional[Callable[[str, int], None]] = None,
+        on_step_finish: Optional[Callable[[int, AssistantReply, str], None]] = None,
+        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]] = None,
+        user_input_handler: Optional[
+            Callable[[UserInputRequest], Optional[UserInputResponse]]
+        ] = None,
     ) -> QueryTurnResult:
-        self._ensure_configured()
+        step = self._kernel.start(
+            turn_id,
+            current_mode,
+            workflow_state,
+            source,
+            stream=stream,
+            step_index=self._next_step_index(session, turn_id),
+        )
         final_text = ""
-        loop_guard = ProgressGuard()
-        turns_used = 0
-        turn_index = 0
-        force_compact_next_step = False
+        observer_enabled = observer is not None
+        progress_guard = ProgressGuard()
+        pending_context = None
+        pending_tool_notifications = ()  # type: Tuple[Tuple[Action, Observation], ...]
+        pending_step_finish = None
+        last_reply = AssistantReply("")
+
         while True:
-            if stop_event is not None and stop_event.is_set():
-                decision = self.continuation_policy.decide_after_step(
-                    AgentLoopContinuationFacts(
-                        step_index=turn_index,
-                        turns_used=turns_used,
-                        mode_name=current_mode,
-                        workflow_state=workflow_state,
-                        stop_event_set=True,
-                    )
-                )
-                transition = self._transition_from_decision(
-                    decision,
-                    fallback_reason="aborted",
-                    fallback_message="stop_event set",
-                    turns_used=turns_used,
-                )
-                self._record_transition(session, transition)
-                return QueryTurnResult(final_text, session, transition, turns_used)
-            if self._safety_limit_reached(turn_index):
-                decision = self.continuation_policy.decide_after_step(
-                    AgentLoopContinuationFacts(
-                        step_index=turn_index,
-                        turns_used=turns_used,
-                        mode_name=current_mode,
-                        workflow_state=workflow_state,
-                        safety_limit=self.loop_safety_limit,
-                        safety_limit_reached=True,
-                    )
-                )
-                transition = self._transition_from_decision(
-                    decision,
-                    fallback_reason="max_turns",
-                    fallback_message="reached loop safety limit without completion signal",
-                    turns_used=turns_used,
-                )
-                self._record_transition(session, transition)
-                return QueryTurnResult(final_text, session, transition, turns_used)
-            turn_index += 1
-            step_index = turn_index
-            step_id = "s-" + uuid.uuid4().hex[:12]
-            with self._session_guard():
-                self._commit_session_event(
+            committed_events = self._commit(step, session, reduction_context)
+            if observer_enabled:
+                observer_enabled = self._publish_committed(observer, committed_events)
+            if pending_context is not None and on_context_result is not None:
+                on_context_result(pending_context)
+                pending_context = None
+            if pending_tool_notifications and on_tool_finish is not None:
+                for action, observation in pending_tool_notifications:
+                    on_tool_finish(action, observation)
+                pending_tool_notifications = ()
+            if pending_step_finish is not None and on_step_finish is not None:
+                on_step_finish(*pending_step_finish)
+                pending_step_finish = None
+            self._notify_step_starts(committed_events, on_step_start)
+            self._finalize(step.post_commit_tokens)
+
+            if step.outcome is not None:
+                pending = session.pending_interaction or step.outcome.pending_interaction
+                transition = self._transition_with_pending(step.outcome, pending)
+                if on_step_finish is not None and pending_step_finish is None:
+                    on_step_finish(step.cursor.step_index, last_reply, transition.reason)
+                return QueryTurnResult(
+                    final_text,
                     session,
-                    "step_started",
-                    {
-                        "turn_id": session.turns[-1].turn_id if session.turns else "",
-                        "step_id": step_id,
-                        "step_index": step_index,
-                    },
+                    transition,
+                    turns_used=transition.turns_used,
+                    pending_interaction=pending,
                 )
-                self._emit_operation_started(
+            if step.effect is None:
+                raise RuntimeError("agent kernel produced neither effect nor outcome")
+
+            if self._is_cancelled(cancel):
+                effect_result = EffectFailed(
+                    step.effect.effect_id,
+                    "cancelled",
+                    "stop_event set",
+                    retryable=False,
+                )
+            else:
+                effect_result = self._execute_effect(
+                    step.effect,
                     session,
-                    "step:%s" % step_id,
-                    "agent_step",
-                    turn_id=session.turns[-1].turn_id if session.turns else "",
-                    step_id=step_id,
-                    metadata={"step_index": step_index},
+                    observer,
+                    cancel,
+                    on_text_delta,
+                    on_reasoning_delta,
+                    on_tool_start,
+                    permission_handler,
+                    user_input_handler,
+                    max_parallel_tools,
                 )
-            if on_step_start is not None:
-                on_step_start(step_id, step_index)
-            force_compact = force_compact_next_step
-            force_compact_next_step = False
-            compact_boundary_recorded = False
-            operation_attempt = 0
-            next_context_effect = None
-            next_context_cursor = None
-            while True:
-                operation_attempt += 1
-                turn_id = self._turn_id(session)
-                context_operation_id = "context:%s:%s" % (step_id, operation_attempt)
-                if next_context_effect is None:
-                    context_effect = AssembleContextEffect(
-                        context_operation_id,
-                        turn_id,
-                        step_id,
-                        current_mode,
-                        workflow_state,
-                        force_compact=force_compact,
+
+            if hasattr(effect_result, "assembly"):
+                pending_context = effect_result.assembly
+            if isinstance(effect_result, ProviderCompleted):
+                last_reply = effect_result.reply
+                final_text = effect_result.reply.content
+            if isinstance(effect_result, ToolBatchCompleted):
+                pending_tool_notifications = tuple(
+                    zip(tuple(step.effect.actions), effect_result.observations)
+                )
+                for action, observation in pending_tool_notifications:
+                    progress_guard.record(action, observation)
+                if self._tool_result_is_cancelled(effect_result, cancel):
+                    effect_result = EffectFailed(
+                        effect_result.effect_id,
+                        "cancelled",
+                        "tool execution interrupted",
+                        retryable=False,
+                        events=effect_result.events,
+                        commit_tokens=effect_result.commit_tokens,
                     )
-                    context_cursor = KernelCursor(
-                        phase="context",
-                        expected_effect_id=context_operation_id,
-                        step_index=step_index,
-                        provider_attempt=max(0, operation_attempt - 1),
-                        compact_retry_used=False,
-                        turn_id=turn_id,
-                        step_id=step_id,
-                        mode_name=current_mode,
-                        workflow_state=workflow_state,
-                        stream=stream,
+                elif self._guard_should_stop(progress_guard, pending_tool_notifications):
+                    effect_result = EffectFailed(
+                        effect_result.effect_id,
+                        "guard_stop",
+                        progress_guard.stop_reason(),
+                        retryable=False,
+                        events=effect_result.events,
+                        commit_tokens=effect_result.commit_tokens,
                     )
-                    self._emit_operation_started(
-                        session,
-                        context_operation_id,
-                        "context_assembly",
-                        turn_id,
-                        step_id,
-                        parent_operation_id="step:%s" % step_id if step_id else "",
+                elif self._safety_limit_reached_after_tools(step, max_turns):
+                    limit = int(max_turns or 0)
+                    effect_result = EffectFailed(
+                        effect_result.effect_id,
+                        "safety_limit",
+                        "reached loop safety limit without completion signal",
+                        retryable=False,
+                        events=effect_result.events,
+                        commit_tokens=effect_result.commit_tokens,
                         metadata={
-                            "mode_name": current_mode,
-                            "workflow_state": workflow_state,
-                            "force_compact": bool(force_compact),
+                            "loop_safety_limit": limit,
+                            "turns_used": limit,
                         },
                     )
                 else:
-                    context_effect = next_context_effect
-                    context_cursor = next_context_cursor
-                    next_context_effect = None
-                    next_context_cursor = None
-                with self._session_guard():
-                    context_result = self._provider_steps.assemble_context(
-                        context_effect,
-                        session,
+                    pending_step_finish = (
+                        step.cursor.step_index,
+                        last_reply,
+                        "tool_calls",
                     )
-                assembly = context_result.assembly
-                provider_step = self._kernel.accept(context_cursor, context_result)
-                self._commit_effect_events(session, provider_step.events)
-                if on_context_result is not None:
-                    on_context_result(assembly)
-                provider_result = self._provider_steps.request_provider(
-                    provider_step.effect,
-                    ProviderObserver(on_text_delta, on_reasoning_delta),
+
+            step = self._kernel.accept(step.cursor, effect_result)
+
+    def _commit(
+        self,
+        step: KernelStep,
+        session: Session,
+        reduction_context: SessionReducerContext,
+    ) -> Tuple[dict, ...]:
+        if not step.events:
+            return ()
+        committed = self._journal.commit(session, reduction_context, step.events)
+        return tuple(committed.events)
+
+    def _publish_committed(self, observer: Any, events: Tuple[dict, ...]) -> bool:
+        callback = getattr(observer, "on_event", None)
+        if not callable(callback):
+            return False
+        for event in events:
+            try:
+                callback(
+                    str(event.get("type") or ""),
+                    dict(event.get("payload") or {}),
                 )
-                if isinstance(provider_result, ProviderCompleted):
-                    self._commit_effect_events(session, provider_result.events)
-                    reply = provider_result.reply
-                    break
-                if isinstance(provider_result, EffectFailed):
-                    retry_step = self._kernel.accept(provider_step.cursor, provider_result)
-                    self._commit_effect_events(session, retry_step.events)
-                    if not isinstance(retry_step.effect, AssembleContextEffect):
-                        raise ModelClientError(provider_result.message)
-                    next_context_effect = retry_step.effect
-                    next_context_cursor = retry_step.cursor
-                    force_compact = True
-                    if "reactive_compact_retry" not in assembly.pipeline_steps:
-                        assembly.pipeline_steps.insert(0, "reactive_compact_retry")
-                    compact_boundary_recorded = (
-                        self._maybe_record_compact_boundary(session, current_mode, assembly)
-                        or compact_boundary_recorded
-                    )
-                    transition = LoopTransition(
-                        reason="compact_retry",
-                        message=provider_result.message,
-                        next_mode=current_mode,
-                        turns_used=turns_used,
-                        metadata={
-                            "source_mode": current_mode,
-                            "retry_mode": "compact",
-                            "error": provider_result.message,
-                            "approx_tokens_before": assembly.approx_tokens,
-                            "pipeline_steps": list(assembly.pipeline_steps),
-                        },
-                    )
-                    self._record_transition(session, transition)
-                    continue
-                raise TypeError("unsupported provider effect result")
-            with self._session_guard():
-                assistant_message_id = "m-" + uuid.uuid4().hex[:12]
-                parent_message_id = session.last_message_id()
-                self._append_message_event(
-                    session,
-                    {
-                        "role": "assistant",
-                        "content": reply.content,
-                        "message_id": assistant_message_id,
-                        "parent_message_id": parent_message_id,
-                        "turn_id": session.turns[-1].turn_id if session.turns else "",
-                        "step_id": step_id,
-                        "actions": [
-                            {
-                                "name": action.name,
-                                "arguments": dict(action.arguments),
-                                "call_id": action.call_id,
-                            }
-                            for action in reply.actions
-                        ],
-                        "reasoning_content": reply.reasoning_content,
-                        "finish_reason": reply.finish_reason,
-                    },
-                )
-                for action in reply.actions:
-                    presentation = self._tool_presentation_snapshot(action.name)
-                    self._commit_session_event(
-                        session,
-                        "tool_call",
-                        {
-                            "turn_id": session.turns[-1].turn_id if session.turns else "",
-                            "step_id": step_id,
-                            "call_id": action.call_id,
-                            "tool_name": action.name,
-                            "arguments": dict(action.arguments),
-                            "status": "pending",
-                            "presentation": presentation.to_dict(),
-                        },
-                    )
-                    self._emit_operation_started(
-                        session,
-                        "tool:%s" % action.call_id,
-                        "tool_call",
-                        turn_id=session.turns[-1].turn_id if session.turns else "",
-                        step_id=step_id,
-                        tool_call_id=action.call_id,
-                        parent_operation_id="step:%s" % step_id,
-                        metadata={
-                            "tool_name": action.name,
-                            "arguments": dict(action.arguments),
-                            "presentation": presentation.to_dict(),
-                        },
-                    )
-            final_text = reply.content
-            turns_used = step_index
-            assistant_turn_kind = self._classify_reply(reply, session)
-            if assistant_turn_kind == "empty_noop":
-                decision = self.continuation_policy.decide_after_step(
-                    AgentLoopContinuationFacts(
-                        step_index=step_index,
-                        turns_used=turns_used,
-                        mode_name=current_mode,
-                        workflow_state=workflow_state,
-                        guard_stop_reason="provider returned empty assistant response without tool calls",
-                    )
-                )
-                if decision.kind not in (CONTINUATION_STOP, CONTINUATION_ABORT):
-                    raise RuntimeError("Unsupported continuation decision: %s" % decision.kind)
-                transition = self._transition_from_decision(
-                    decision,
-                    fallback_reason="guard_stop",
-                    fallback_message="provider returned empty assistant response without tool calls",
-                    turns_used=turns_used,
-                    fallback_next_mode=current_mode,
-                )
-                transition.metadata.setdefault("finish_reason", reply.finish_reason or "")
-                transition.metadata.setdefault("empty_response", True)
-                self._record_transition(session, transition)
-                self._persist_summary(session, current_mode, assembly)
-                if on_step_finish is not None:
-                    on_step_finish(step_index, reply, transition.reason)
-                return QueryTurnResult(final_text, session, transition, turns_used)
-            completion_signal = assistant_turn_kind == "final_message"
-            if completion_signal:
-                decision = self.continuation_policy.decide_after_step(
-                    AgentLoopContinuationFacts(
-                        step_index=step_index,
-                        turns_used=turns_used,
-                        mode_name=current_mode,
-                        workflow_state=workflow_state,
-                        has_tool_calls=bool(reply.actions),
-                        completion_signal=True,
-                        compacted=bool(compact_boundary_recorded),
-                    )
-                )
-                if decision.kind == CONTINUATION_CONTINUE:
-                    continue
-                if decision.kind == CONTINUATION_COMPACT_THEN_CONTINUE:
-                    force_compact_next_step = True
-                    continue
-                if decision.kind not in (CONTINUATION_STOP, CONTINUATION_ABORT):
-                    raise RuntimeError("Unsupported continuation decision: %s" % decision.kind)
-                transition = self._transition_from_decision(
-                    decision,
-                    fallback_reason="completed",
-                    fallback_message="agent signaled completion",
-                    turns_used=turns_used,
-                    fallback_next_mode=current_mode,
-                )
-                self._record_transition(session, transition)
-                self._persist_summary(session, current_mode, assembly)
-                if not compact_boundary_recorded:
-                    self._maybe_record_compact_boundary(session, current_mode, assembly)
-                if on_step_finish is not None:
-                    on_step_finish(step_index, reply, transition.reason)
-                return QueryTurnResult(final_text, session, transition, turns_used)
-            executor = StreamingToolExecutor(
-                lambda action: self._action_service.execute_parallel_tool_action(
-                    session,
-                    action,
-                    current_mode,
-                    workflow_state,
-                    stop_event,
+            except _OBSERVER_ERRORS as exc:
+                _LOG.warning("agent event observer disabled after failure: %s", exc)
+                return False
+        return True
+
+    def _notify_step_starts(
+        self,
+        events: Tuple[dict, ...],
+        callback: Optional[Callable[[str, int], None]],
+    ) -> None:
+        if callback is None:
+            return
+        for event in events:
+            if str(event.get("type") or "") != "step_started":
+                continue
+            payload = dict(event.get("payload") or {})
+            callback(
+                str(payload.get("step_id") or ""),
+                int(payload.get("step_index") or 0),
+            )
+
+    def _finalize(self, commit_tokens: Tuple[Any, ...]) -> None:
+        if not commit_tokens:
+            return
+        try:
+            self._tool_actions.finalize(tuple(commit_tokens))
+        except (OSError, RuntimeError, ValueError, TypeError) as exc:
+            _LOG.warning("tool result projection finalization failed: %s", exc)
+
+    def _execute_effect(
+        self,
+        effect: Any,
+        session: Session,
+        observer: Optional[Any],
+        cancel: Optional[Any],
+        on_text_delta: Optional[Callable[[str], None]],
+        on_reasoning_delta: Optional[Callable[[str], None]],
+        on_tool_start: Optional[Callable[[Action], None]],
+        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]],
+        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
+        max_parallel_tools: int,
+    ):
+        if isinstance(effect, AssembleContextEffect):
+            return self._provider_steps.assemble_context(effect, session)
+        if isinstance(effect, RequestProviderEffect):
+            return self._provider_steps.request_provider(
+                effect,
+                ProviderObserver(
+                    on_text_delta or self._observer_callback(observer, "on_text_delta"),
+                    on_reasoning_delta or self._observer_callback(observer, "on_reasoning_delta"),
                 ),
-                self.max_parallel_tools,
-                cancel_event=stop_event,
             )
-            discard_remaining_batches = False
-            for batch in partition_tool_actions(
-                reply.actions,
-                self.tool_capabilities,
-            ):
-                if discard_remaining_batches:
-                    for action in batch.actions:
-                        observation = self._discarded_observation(action.name)
-                        observation, current_mode, suspended = self._execute_action_effect(
-                            session,
-                            action,
-                            current_mode,
-                            workflow_state,
-                            permission_handler,
-                            user_input_handler,
-                            precomputed_observation=observation,
-                            stop_event=stop_event,
-                        )
-                        if suspended is not None:
-                            return suspended
-                        self._record_tool_observation(
-                            session,
-                            action,
-                            observation,
-                            current_mode,
-                            assembly,
-                            step_id,
-                            on_tool_finish,
-                        )
-                        loop_guard.record(action, observation)
-                    continue
-                if not batch.parallel:
-                    for action in batch.actions:
-                        if on_tool_start is not None:
-                            on_tool_start(action)
-                        self._emit_lifecycle_event(
-                            session,
-                            "tool_use",
-                            {
-                                "role": "tool_use",
-                                "tool_name": action.name,
-                                "call_id": action.call_id,
-                                "arguments": dict(action.arguments),
-                                "message_id": "m-tool-use-" + uuid.uuid4().hex[:12],
-                                "parent_message_id": session.last_message_id(),
-                                "turn_id": session.turns[-1].turn_id if session.turns else "",
-                                "step_id": (
-                                    session.current_step().step_id if session.current_step() else ""
-                                ),
-                                "status": "started",
-                            },
-                        )
-                        interrupted = bool(stop_event is not None and stop_event.is_set())
-                        precomputed_observation = (
-                            self._interrupted_observation(action.name) if interrupted else None
-                        )
-                        observation, current_mode, suspended = self._execute_action_effect(
-                            session,
-                            action,
-                            current_mode,
-                            workflow_state,
-                            permission_handler,
-                            user_input_handler,
-                            precomputed_observation=precomputed_observation,
-                            stop_event=stop_event,
-                        )
-                        if suspended is not None:
-                            self._persist_summary(session, current_mode, assembly)
-                            if on_step_finish is not None:
-                                on_step_finish(step_index, reply, suspended.transition.reason)
-                            return suspended
-                        self._emit_lifecycle_event(
-                            session,
-                            "command_execution",
-                            {
-                                "role": "command_execution",
-                                "call_id": action.call_id,
-                                "tool_name": action.name,
-                                "output_chunk": str(observation.data) if observation.data else "",
-                                "message_id": "m-cmd-" + uuid.uuid4().hex[:12],
-                                "parent_message_id": session.last_message_id(),
-                                "turn_id": session.turns[-1].turn_id if session.turns else "",
-                                "step_id": (
-                                    session.current_step().step_id if session.current_step() else ""
-                                ),
-                                "status": "updated",
-                            },
-                        )
-                        self._record_tool_observation(
-                            session,
-                            action,
-                            observation,
-                            current_mode,
-                            assembly,
-                            step_id,
-                            on_tool_finish,
-                        )
-                        loop_guard.record(action, observation)
-                        if interrupted:
-                            transition = LoopTransition(
-                                reason="aborted",
-                                message="tool execution interrupted",
-                                turns_used=turns_used,
-                            )
-                            self._record_transition(session, transition)
-                            if on_step_finish is not None:
-                                on_step_finish(step_index, reply, "aborted")
-                            return QueryTurnResult(final_text, session, transition, turns_used)
-                        if loop_guard.should_block(action) or loop_guard.should_stop():
-                            transition = LoopTransition(
-                                reason="guard_stop",
-                                message=loop_guard.stop_reason(),
-                                turns_used=turns_used,
-                            )
-                            self._record_transition(session, transition)
-                            if on_step_finish is not None:
-                                on_step_finish(step_index, reply, "guard_stop")
-                            return QueryTurnResult(final_text, session, transition, turns_used)
-                    continue
-                batch_interrupted = False
-                batch_discarded = False
-                for update in executor.run_batch(batch):
-                    if update.phase == "start":
-                        if on_tool_start is not None:
-                            on_tool_start(update.action)
-                        self._emit_lifecycle_event(
-                            session,
-                            "tool_use",
-                            {
-                                "role": "tool_use",
-                                "tool_name": update.action.name,
-                                "call_id": update.action.call_id,
-                                "arguments": dict(update.action.arguments),
-                                "message_id": "m-tool-use-" + uuid.uuid4().hex[:12],
-                                "parent_message_id": session.last_message_id(),
-                                "turn_id": session.turns[-1].turn_id if session.turns else "",
-                                "step_id": (
-                                    session.current_step().step_id if session.current_step() else ""
-                                ),
-                                "status": "started",
-                            },
-                        )
-                        if stop_event is not None and stop_event.is_set():
-                            batch_interrupted = True
-                            executor.discard()
-                        continue
-                    suspended = None
-                    if batch_interrupted or (stop_event is not None and stop_event.is_set()):
-                        batch_interrupted = True
-                        if (
-                            update.observation is not None
-                            and isinstance(update.observation.data, dict)
-                            and update.observation.data.get("error_kind") == "discarded"
-                        ):
-                            precomputed_observation = update.observation
-                        else:
-                            precomputed_observation = self._interrupted_observation(
-                                update.action.name
-                            )
-                    else:
-                        precomputed_observation = update.observation
-                    observation, current_mode, suspended = self._execute_action_effect(
-                        session,
-                        update.action,
-                        current_mode,
-                        workflow_state,
-                        permission_handler,
-                        user_input_handler,
-                        precomputed_observation=precomputed_observation,
-                        stop_event=stop_event,
-                    )
-                    if suspended is not None:
-                        self._persist_summary(session, current_mode, assembly)
-                        if on_step_finish is not None:
-                            on_step_finish(step_index, reply, suspended.transition.reason)
-                        return suspended
-                    self._emit_lifecycle_event(
-                        session,
-                        "command_execution",
-                        {
-                            "role": "command_execution",
-                            "call_id": update.action.call_id,
-                            "tool_name": update.action.name,
-                            "output_chunk": str(observation.data) if observation.data else "",
-                            "message_id": "m-cmd-" + uuid.uuid4().hex[:12],
-                            "parent_message_id": session.last_message_id(),
-                            "turn_id": session.turns[-1].turn_id if session.turns else "",
-                            "step_id": (
-                                session.current_step().step_id if session.current_step() else ""
-                            ),
-                            "status": "updated",
-                        },
-                    )
-                    if (
-                        isinstance(observation.data, dict)
-                        and observation.data.get("error_kind") == "discarded"
-                    ):
-                        batch_discarded = True
-                    self._record_tool_observation(
-                        session,
-                        update.action,
-                        observation,
-                        current_mode,
-                        assembly,
-                        step_id,
-                        on_tool_finish,
-                    )
-                    loop_guard.record(update.action, observation)
-                    if batch_interrupted:
-                        continue
-                    # Parallel batches defer no-progress checks to the batch boundary.
-                    # Consecutive hard failures can still stop immediately.
-                    if loop_guard.should_stop():
-                        transition = LoopTransition(
-                            reason="guard_stop",
-                            message=loop_guard.stop_reason(),
-                            turns_used=turns_used,
-                        )
-                        self._record_transition(session, transition)
-                        if on_step_finish is not None:
-                            on_step_finish(step_index, reply, "guard_stop")
-                        return QueryTurnResult(final_text, session, transition, turns_used)
-                if batch_interrupted:
-                    transition = LoopTransition(
-                        reason="aborted",
-                        message="tool execution interrupted",
-                        turns_used=turns_used,
-                    )
-                    self._record_transition(session, transition)
-                    if on_step_finish is not None:
-                        on_step_finish(step_index, reply, "aborted")
-                    return QueryTurnResult(final_text, session, transition, turns_used)
-                if not batch_discarded:
-                    for action in batch.actions:
-                        if loop_guard.should_block(action) or loop_guard.should_stop():
-                            transition = LoopTransition(
-                                reason="guard_stop",
-                                message=loop_guard.stop_reason(),
-                                turns_used=turns_used,
-                            )
-                            self._record_transition(session, transition)
-                            if on_step_finish is not None:
-                                on_step_finish(step_index, reply, "guard_stop")
-                            return QueryTurnResult(final_text, session, transition, turns_used)
-                if batch_discarded:
-                    discard_remaining_batches = True
-            if on_step_finish is not None:
-                on_step_finish(step_index, reply, "tool_calls")
-            self._emit_step_finished(
+        if isinstance(effect, ExecuteToolBatchEffect):
+            return self._tool_actions.execute(
+                effect,
                 session,
-                self._turn_id(session),
-                step_id,
-                "tool_calls",
-                turns_used=turns_used,
+                permission_handler=permission_handler,
+                user_input_handler=user_input_handler,
+                stop_event=cancel,
+                on_action_start=on_tool_start,
+                max_parallel_tools=max_parallel_tools,
             )
-            decision = self.continuation_policy.decide_after_step(
-                AgentLoopContinuationFacts(
-                    step_index=step_index,
-                    turns_used=turns_used,
-                    mode_name=current_mode,
-                    workflow_state=workflow_state,
-                    has_tool_calls=bool(reply.actions),
-                    completion_signal=False,
-                    compacted=bool(compact_boundary_recorded),
-                )
-            )
-            if decision.kind == CONTINUATION_CONTINUE:
-                continue
-            if decision.kind == CONTINUATION_COMPACT_THEN_CONTINUE:
-                force_compact_next_step = True
-                continue
-            if decision.kind in (CONTINUATION_STOP, CONTINUATION_ABORT):
-                transition = self._transition_from_decision(
-                    decision,
-                    fallback_reason=decision.reason or "aborted",
-                    fallback_message=decision.message or "",
-                    turns_used=turns_used,
-                )
-                self._record_transition(session, transition)
-                return QueryTurnResult(final_text, session, transition, turns_used)
-            raise RuntimeError("Unsupported continuation decision: %s" % decision.kind)
+        raise TypeError("unsupported agent effect")
+
+    def _observer_callback(self, observer: Optional[Any], name: str):
+        callback = getattr(observer, name, None) if observer is not None else None
+        return callback if callable(callback) else None
+
+    def _is_cancelled(self, cancel: Optional[Any]) -> bool:
+        is_set = getattr(cancel, "is_set", None)
+        return bool(callable(is_set) and is_set())
+
+    def _safety_limit_reached_after_tools(
+        self,
+        step: KernelStep,
+        max_turns: Optional[int],
+    ) -> bool:
+        if max_turns is None:
+            return False
+        limit = int(max_turns or 0)
+        return limit > 0 and step.cursor.step_index >= limit
+
+    def _tool_result_is_cancelled(
+        self,
+        result: ToolBatchCompleted,
+        cancel: Optional[Any],
+    ) -> bool:
+        if self._is_cancelled(cancel):
+            return True
+        for observation in result.observations:
+            if (
+                isinstance(observation.data, dict)
+                and str(observation.data.get("error_kind") or "") == "interrupted"
+            ):
+                return True
+        return False
+
+    def _guard_should_stop(
+        self,
+        guard: ProgressGuard,
+        pairs: Tuple[Tuple[Action, Observation], ...],
+    ) -> bool:
+        if guard.should_stop():
+            return True
+        return any(guard.should_block(action) for action, observation in pairs)
+
+    def _transition_with_pending(
+        self,
+        transition: LoopTransition,
+        pending: Any,
+    ) -> LoopTransition:
+        if transition.pending_interaction is pending:
+            return transition
+        return replace(transition, pending_interaction=pending)
+
+    def _next_step_index(self, session: Session, turn_id: str) -> int:
+        if not session.turns:
+            return 1
+        turn = session.turns[-1]
+        if str(turn.turn_id or "") != str(turn_id or ""):
+            return 1
+        return len(turn.steps) + 1

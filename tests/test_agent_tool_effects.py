@@ -10,6 +10,7 @@ from embedagent_core.agent_tool_action_service import (
     InteractionFactory,
 )
 from embedagent_core.extensions import ToolResultPatch
+from embedagent_core.interaction import UserInputResponse
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.session import Action, Observation, Session
 from embedagent_core.tool_contracts import PreparedToolObservation
@@ -152,3 +153,30 @@ def test_nonzero_bash_is_diagnostic_observation_not_effect_failure():
     assert isinstance(result, ToolBatchCompleted)
     assert result.observations == (diagnostic,)
     assert result.observations[0].data["outcome_class"] == "diagnostic_failure"
+
+
+def test_user_input_mode_selection_is_a_tool_result_without_session_mutation():
+    service = _service()
+    session = _session()
+    initial_messages = list(session.messages)
+    effect = ExecuteToolBatchEffect(
+        "tools-1",
+        (Action("ask_user", {"question": "switch mode?"}, "call-1"),),
+        "",
+        "",
+    )
+
+    result = service.execute(
+        effect,
+        session,
+        user_input_handler=lambda request: UserInputResponse(
+            "yes",
+            selected_mode="debug",
+        ),
+    )
+
+    assert isinstance(result, ToolBatchCompleted)
+    observation = result.observations[0]
+    assert observation.data["selected_mode"] == "debug"
+    assert observation.data["mode_changed"] is True
+    assert session.messages == initial_messages
