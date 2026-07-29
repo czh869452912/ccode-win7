@@ -548,14 +548,14 @@ class ToolCallingClient(object):
         return reply
 
 
-def test_query_engine_dynamic_tool_schema_requires_activation(tmp_path):
+def test_agent_runtime_dynamic_tool_schema_requires_activation(tmp_path):
+    from agent_runtime_test_helpers import build_agent_runtime_dispatcher
     from embedagent_core.permissions import PermissionPolicy
-    from embedagent_core.query_engine import QueryEngine
 
     runtime = ToolRuntime(str(tmp_path))
     session = Session()
     inactive = DynamicToolExtension(active=False)
-    engine = QueryEngine(
+    engine = build_agent_runtime_dispatcher(
         client=ToolCallingClient(Action("dynamic_echo", {"message": "hi"}, "call-1")),
         tools=runtime,
         permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
@@ -571,32 +571,49 @@ def test_query_engine_dynamic_tool_schema_requires_activation(tmp_path):
     assert "dynamic_echo" in active_names
 
 
-def test_query_engine_executes_active_extension_tool(tmp_path):
+def test_agent_session_executes_active_extension_tool(tmp_path):
+    from embedagent_core import Agent, AgentPorts, RuntimeDefinition, UserTurn
     from embedagent_core.permissions import PermissionPolicy
-    from embedagent_core.query_engine import QueryEngine
+    from embedagent_core.ports import NoopContextAssembler
+    from embedagent_core.session_log import InMemorySessionLog
 
     action = Action("dynamic_echo", {"message": "hello"}, "call-dynamic")
     client = ToolCallingClient(action)
-    engine = QueryEngine(
-        client=client,
-        tools=ToolRuntime(str(tmp_path)),
-        permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
-        extension_manager=ExtensionManager([DynamicToolExtension(active=True)]),
-        max_turns=1,
+    session_log = InMemorySessionLog()
+    runtime = ToolRuntime(str(tmp_path))
+    agent = Agent.create(
+        AgentPorts(
+            model=client,
+            tools=runtime,
+            session_log=session_log,
+            context=NoopContextAssembler(),
+            permissions=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=str(tmp_path),
+            ),
+            extension_manager=ExtensionManager([DynamicToolExtension(active=True)]),
+        ),
+        RuntimeDefinition(max_turns=1),
     )
 
-    result = engine.submit_user_turn(
-        "use dynamic",
-        stream=False,
-        initial_mode="build",
-        workflow_state="chat",
+    result = agent.open("dynamic-session").submit(
+        UserTurn(
+            "use dynamic",
+            mode="build",
+            workflow_state="chat",
+            stream=False,
+        )
     )
-    observation = result.session.turns[-1].observations[-1]
+    tool_results = [
+        event["payload"]
+        for event in session_log.load_events("dynamic-session")
+        if event["type"] == "tool_result"
+    ]
 
     assert "dynamic_echo" in client.seen_tool_names
-    assert observation.success is True
-    assert observation.tool_name == "dynamic_echo"
-    assert observation.data["echo"] == "hello"
+    assert result.termination_reason == "max_turns"
+    assert tool_results[0]["observation"]["success"] is True
+    assert tool_results[0]["observation"]["data"]["echo"] == "hello"
 
 
 def test_agent_tool_action_service_executes_active_dynamic_tool(tmp_path):
@@ -693,12 +710,12 @@ class DynamicShellExtension(DynamicToolExtension):
         )
 
 
-def test_query_engine_dynamic_shell_tool_waits_for_permission(tmp_path):
+def test_agent_runtime_dynamic_shell_tool_waits_for_permission(tmp_path):
+    from agent_runtime_test_helpers import build_agent_runtime_dispatcher
     from embedagent_core.permissions import PermissionPolicy
-    from embedagent_core.query_engine import QueryEngine
 
     action = Action("dynamic_shell", {"message": "hello"}, "call-shell")
-    engine = QueryEngine(
+    engine = build_agent_runtime_dispatcher(
         client=ToolCallingClient(action),
         tools=ToolRuntime(str(tmp_path)),
         permission_policy=PermissionPolicy(auto_approve_all=False, workspace=str(tmp_path)),

@@ -6,41 +6,15 @@ future refactoring.
 
 from __future__ import annotations
 
-import inspect
 from unittest.mock import MagicMock
 
 import pytest
-from embedagent_core.query_engine import QueryEngine
 from embedagent_core.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
 from embedagent_host.runtime.services.event_emitter import EventEmitter
 from embedagent_host.runtime.services.session_lifecycle import SessionLifecycleManager
 from embedagent_host.runtime.services.workspace_file_service import WorkspaceFileService
 from embedagent_host.runtime.tools import ToolRuntime
-
-
-class TestInProcessAdapterFacade(object):
-    """Characterization tests for the refactored InProcessAdapter facade."""
-
-    def test_constructor_signature_unchanged(self):
-        """Verify QueryEngine constructor accepts same parameters."""
-        sig = inspect.signature(QueryEngine.__init__)
-        params = list(sig.parameters.keys())
-        assert "client" in params
-        assert "tools" in params
-        assert "max_turns" in params
-        assert "permission_policy" in params
-        assert "context_manager" in params
-
-    def test_query_engine_has_run_method(self):
-        """Verify QueryEngine.run() exists and is callable."""
-        assert hasattr(QueryEngine, "run")
-        assert callable(QueryEngine.run)
-
-    def test_query_engine_has_stop_method(self):
-        """Verify QueryEngine.stop() exists and is callable."""
-        assert hasattr(QueryEngine, "stop")
-        assert callable(QueryEngine.stop)
 
 
 class TestServiceDelegation(object):
@@ -83,19 +57,6 @@ class TestServiceDelegation(object):
     def test_inprocess_adapter_does_not_own_harness_sync(self, fresh_container, tmp_path):
         adapter = self._make_adapter(fresh_container, tmp_path)
         assert not hasattr(adapter, "_harness_sync")
-
-    def test_provider_step_service_owns_retry_strategy(self, fresh_container):
-        client = MagicMock(spec=OpenAICompatibleClient)
-        tools = MagicMock(spec=ToolRuntime)
-        tools.workspace = "/tmp/test_workspace"
-        tools.tool_result_store = MagicMock()
-        tools.projection_db = MagicMock()
-        engine = QueryEngine(client=client, tools=tools)
-
-        assert not hasattr(engine, "_llm_wrapper")
-        assert isinstance(engine._provider_steps._provider, LLMClientRetryWrapper)
-        assert not hasattr(engine, "_compaction")
-        assert not hasattr(engine, "_turn_orchestrator")
 
 
 class TestEventEmissionChain(object):

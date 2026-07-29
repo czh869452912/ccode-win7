@@ -4,6 +4,7 @@ The project does not preserve pre-release compatibility. These tests protect
 current public construction paths and verify that stale aliases remain absent.
 """
 
+import ast
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -33,6 +34,54 @@ def _source_files_under(*relative_roots, **kwargs):
             if path.suffix in suffixes:
                 files.append(path)
     return files
+
+
+def _imported_modules(path):
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            names.add(node.module)
+    return names
+
+
+def test_query_engine_is_deleted_without_core_or_host_import_aliases():
+    assert not (CORE_SOURCE / "query_engine.py").exists()
+    roots = (
+        CORE_SOURCE,
+        ROOT / "packages/embedagent-host/src/embedagent_host",
+    )
+    for root in roots:
+        for python_file in root.rglob("*.py"):
+            assert all("query_engine" not in name for name in _imported_modules(python_file))
+
+
+def test_session_transaction_stays_transport_and_projection_only():
+    transaction = CORE_SOURCE / "session_transaction.py"
+    imported = _imported_modules(transaction)
+    forbidden_imports = (
+        "agent_effects",
+        "agent_extension_host",
+        "agent_tool_action_service",
+        "compaction",
+        "extensions",
+        "provider_step_service",
+    )
+    assert all(not any(token in module for token in forbidden_imports) for module in imported)
+    source = _read(transaction)
+    for mutator in (
+        ".add_system_message(",
+        ".add_user_message(",
+        ".begin_step(",
+        ".record_tool_call(",
+        ".add_assistant_reply(",
+        ".add_observation(",
+        ".record_transition(",
+        ".resolve_pending_interaction(",
+    ):
+        assert mutator not in source
 
 
 def test_c_cpp_workflow_package_replaces_embedagent_harness_package():
@@ -324,7 +373,7 @@ def test_transcript_store_has_no_schema_v1_compatibility_path():
     checked_files = (
         ROOT / "packages/embedagent-host/src/embedagent_host/runtime/transcript_store.py",
         CORE_SOURCE / "agent_lifecycle.py",
-        CORE_SOURCE / "query_engine.py",
+        CORE_SOURCE / "session_input.py",
         CORE_SOURCE / "ports.py",
         ROOT / "tests/test_transcript_store.py",
         ROOT / "tests/test_session_integration.py",
@@ -641,8 +690,8 @@ def test_runtime_service_bag_is_deleted():
     assert "AgentRuntimeServices" not in source
 
 
-def test_query_engine_has_no_hosted_service_constructor_parameters():
-    source = (ROOT / "packages/embedagent-core/src/embedagent_core/query_engine.py").read_text(
+def test_session_input_has_no_hosted_service_constructor_parameters():
+    source = (ROOT / "packages/embedagent-core/src/embedagent_core/session_input.py").read_text(
         encoding="utf-8"
     )
     constructor = source.split("def __init__", 1)[1].split(") -> None", 1)[0]

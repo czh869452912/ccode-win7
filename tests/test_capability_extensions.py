@@ -1,3 +1,4 @@
+from agent_runtime_test_helpers import build_product_agent_runtime_dispatcher
 from embedagent_core.extensions import (
     ContextPatch,
     ExtensionCapability,
@@ -10,7 +11,6 @@ from embedagent_core.extensions import (
     WorkflowEvent,
 )
 from embedagent_core.session import Action, AssistantReply, Observation
-from query_engine_product_helpers import build_product_query_engine
 
 
 def _capabilities_for(extension, *hook_names):
@@ -330,14 +330,14 @@ class ContextInjectingExtension(object):
         return ContextPatch(messages=messages, metadata={"changed": True})
 
 
-def test_query_engine_applies_extension_context_patch(tmp_path):
+def test_agent_runtime_applies_extension_context_patch(tmp_path):
     from embedagent_core.permissions import PermissionPolicy
     from embedagent_host.runtime.tools import ToolRuntime
 
     client = CapturingClient()
     tools = ToolRuntime(str(tmp_path))
     manager = ExtensionManager([ContextInjectingExtension()])
-    engine = build_product_query_engine(
+    engine = build_product_agent_runtime_dispatcher(
         client=client,
         tools=tools,
         workspace=str(tmp_path),
@@ -656,14 +656,14 @@ class PatchingToolResultExtension(object):
         )
 
 
-def test_query_engine_tool_call_hook_can_block_tool_execution(tmp_path):
+def test_agent_runtime_tool_call_hook_can_block_tool_execution(tmp_path):
     from embedagent_core.permissions import PermissionPolicy
     from embedagent_host.runtime.tools import ToolRuntime
 
     target = tmp_path / "blocked.txt"
     target.write_text("blocked", encoding="utf-8")
     action = Action("read_file", {"path": "blocked.txt"}, "call-read")
-    engine = build_product_query_engine(
+    engine = build_product_agent_runtime_dispatcher(
         client=ToolCallingClient(action),
         tools=ToolRuntime(str(tmp_path)),
         workspace=str(tmp_path),
@@ -683,14 +683,14 @@ def test_query_engine_tool_call_hook_can_block_tool_execution(tmp_path):
     assert observation.data["error_kind"] == "extension_blocked"
 
 
-def test_query_engine_tool_result_hook_can_replace_observation(tmp_path):
+def test_agent_runtime_tool_result_hook_can_replace_observation(tmp_path):
     from embedagent_core.permissions import PermissionPolicy
     from embedagent_host.runtime.tools import ToolRuntime
 
     target = tmp_path / "readme.txt"
     target.write_text("hello", encoding="utf-8")
     action = Action("read_file", {"path": "readme.txt"}, "call-read")
-    engine = build_product_query_engine(
+    engine = build_product_agent_runtime_dispatcher(
         client=ToolCallingClient(action),
         tools=ToolRuntime(str(tmp_path)),
         workspace=str(tmp_path),

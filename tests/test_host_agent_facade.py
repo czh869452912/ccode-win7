@@ -163,15 +163,15 @@ def test_all_host_session_handles_share_one_runtime_and_extension_manager(tmp_pa
     assert first_handle._runtime.extension_manager is adapter.extension_manager
 
 
-def test_host_runtime_lease_nesting_tracks_each_session_independently(tmp_path):
+def test_session_transaction_lease_nesting_tracks_each_session_independently(tmp_path):
     adapter = _adapter(tmp_path)
     first = adapter.create_session("build")["session_id"]
     second = adapter.create_session("build")["session_id"]
-    runtime = adapter.agent._runtime
+    transaction = adapter.agent._runtime.transaction
 
-    with runtime._host_lease(first):
-        with runtime._host_lease(second):
-            with runtime._host_lease(first):
+    with transaction._lease(first):
+        with transaction._lease(second):
+            with transaction._lease(first):
                 pass
 
     with adapter.transcript_store.acquire_lease(first):

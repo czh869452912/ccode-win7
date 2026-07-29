@@ -15,7 +15,7 @@ def build_interaction_tools(ctx) -> List[ToolDefinition]:
         return Observation(
             tool_name="ask_user",
             success=False,
-            error="ask_user 由 QueryEngine 交互链路处理，runtime 不直接执行。",
+            error="ask_user 由 AgentSession 交互链路处理，runtime 不直接执行。",
             data={"error_kind": "interaction_only"},
         )
 

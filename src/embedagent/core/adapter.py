@@ -1,6 +1,6 @@
 """
 Agent Core 适配器 - 实现 CoreInterface
-将当前 InProcessAdapter / QueryEngine 主链路包装为协议接口
+将当前 InProcessAdapter / AgentRuntime 主链路包装为协议接口
 """
 
 from __future__ import annotations

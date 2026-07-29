@@ -17,7 +17,7 @@ from embedagent_core.tool_contracts import ToolRuntimePort
 
 
 class AgentExtensionHost(object):
-    """QueryEngine-side boundary for extension hook dispatch."""
+    """Agent runtime boundary for extension hook dispatch."""
 
     def __init__(
         self,

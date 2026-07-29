@@ -1,4 +1,4 @@
-"""Tests for strategy modules extracted from QueryEngine."""
+"""Tests for strategy modules used by the agent runtime."""
 
 from __future__ import annotations
 

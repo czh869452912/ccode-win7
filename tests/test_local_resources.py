@@ -7,9 +7,9 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from agent_runtime_test_helpers import build_agent_runtime_dispatcher
 from embedagent_core.extensions import ResourcesDiscoverResult
 from embedagent_core.permissions import PermissionPolicy
-from embedagent_core.query_engine import QueryEngine
 from embedagent_core.session import AssistantReply
 from embedagent_host.inprocess_adapter import InProcessAdapter
 from embedagent_host.runtime.tools import ToolRuntime
@@ -345,7 +345,7 @@ class TestLocalResources(unittest.TestCase):
         )
         runtime = ToolRuntime(self.workspace)
         runtime.reload_resources(reason="test")
-        engine = QueryEngine(FakeClient(), runtime)
+        engine = build_agent_runtime_dispatcher(FakeClient(), runtime)
         session = engine.submit_user_turn(
             "inspect the change", stream=False, initial_mode="build"
         ).session
@@ -356,7 +356,7 @@ class TestLocalResources(unittest.TestCase):
         self.assertNotIn("# Triage Prompt", system_text)
         self.assertNotIn("Collect logs and summarize the failure.", system_text)
 
-    def test_query_engine_system_prompt_does_not_inline_visible_skills(self):
+    def test_runtime_dispatcher_system_prompt_does_not_inline_visible_skills(self):
         _write_text(
             os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
             "---\n"
@@ -367,7 +367,7 @@ class TestLocalResources(unittest.TestCase):
         )
         runtime = ToolRuntime(self.workspace)
         runtime.reload_resources(reason="test")
-        engine = QueryEngine(FakeClient(), runtime)
+        engine = build_agent_runtime_dispatcher(FakeClient(), runtime)
         session = engine.submit_user_turn(
             "inspect the change", stream=False, initial_mode="build"
         ).session

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, Tuple
 
@@ -64,12 +65,12 @@ class ProviderStepService(object):
             max_retries=max(1, int(retry_max_attempts)),
             base_delay=max(0.0, float(retry_base_delay)),
         )
-        self._last_snapshot = None  # type: Optional[TurnSnapshot]
+        self._thread_state = threading.local()
         self._snapshot_parent_message_ids = {}  # type: Dict[str, str]
         self._compaction_journal = CompactionJournal()
 
     def last_snapshot(self) -> Optional[TurnSnapshot]:
-        return self._last_snapshot
+        return getattr(self._thread_state, "last_snapshot", None)
 
     def assemble_context(self, effect: AssembleContextEffect, session: Session) -> ContextAssembled:
         assembly = self._context_assembler.build_messages(
@@ -103,7 +104,7 @@ class ProviderStepService(object):
             client=self._client,
             transcript_store=self._session_log,
         )
-        self._last_snapshot = snapshot
+        self._thread_state.last_snapshot = snapshot
         self._snapshot_parent_message_ids[snapshot.snapshot_id] = session.last_message_id()
         return ContextAssembled(
             effect.effect_id,

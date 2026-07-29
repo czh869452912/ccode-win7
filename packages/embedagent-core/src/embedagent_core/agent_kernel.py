@@ -89,7 +89,7 @@ class AgentTurnFrame(object):
 
 
 class AgentKernel(object):
-    """Internal lifecycle kernel behind the QueryEngine session facade."""
+    """Internal lifecycle kernel behind the session transaction boundary."""
 
     def __init__(self, lifecycle: Optional[AgentLifecycleJournal] = None) -> None:
         self.lifecycle = lifecycle

@@ -620,9 +620,9 @@ def test_shell_interaction_payloads_use_decision_and_answers_contract():
     assert "category" not in permission_builder.group(0)
 
 
-def test_query_engine_does_not_own_extension_dispatch_boundary():
-    text = _read(CORE_SOURCE / "query_engine.py")
-    assert "AgentExtensionHost(" in text
+def test_session_input_does_not_own_extension_dispatch_boundary():
+    text = _read(CORE_SOURCE / "session_input.py")
+    assert "extension_host: AgentExtensionHost" in text
     forbidden_dispatches = (
         "self.extension_manager.allowed_tool_names(",
         "self.extension_manager.handle_tool_call(",
@@ -634,13 +634,13 @@ def test_query_engine_does_not_own_extension_dispatch_boundary():
     offenders = []
     for token in forbidden_dispatches:
         if token in text:
-            offenders.append("query_engine.py directly dispatches %s" % token)
+            offenders.append("session_input.py directly dispatches %s" % token)
     assert offenders == []
 
 
 def test_public_core_has_no_chat_or_auto_approve_defaults():
     files = [
-        CORE_SOURCE / "query_engine.py",
+        CORE_SOURCE / "session_input.py",
         CORE_SOURCE / "turn_snapshot.py",
         CORE_SOURCE / "ports.py",
         CORE_SOURCE / "extensions.py",
@@ -670,13 +670,13 @@ def test_public_core_has_no_chat_or_auto_approve_defaults():
                         "%s:%s uses an or-chat fallback" % (_relative(path), node.lineno)
                     )
 
-    query_engine = CORE_SOURCE / "query_engine.py"
-    query_tree = ast.parse(_read(query_engine), filename=_relative(query_engine))
+    session_input = CORE_SOURCE / "session_input.py"
+    query_tree = ast.parse(_read(session_input), filename=_relative(session_input))
     for node in ast.walk(query_tree):
         if _permission_policy_enables_auto_approve(node):
             offenders.append(
                 "%s:%s enables PermissionPolicy auto approval"
-                % (_relative(query_engine), node.lineno)
+                % (_relative(session_input), node.lineno)
             )
 
     assert offenders == []

@@ -264,7 +264,7 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "要修改的文件路径，相对于项目根目录。示例：packages/embedagent-core/src/embedagent_core/query_engine.py",
+                        "description": "要修改的文件路径，相对于项目根目录。示例：packages/embedagent-core/src/embedagent_core/session_input.py",
                     },
                     "old_text": {
                         "type": "string",

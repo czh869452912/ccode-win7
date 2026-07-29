@@ -2,6 +2,7 @@ from __future__ import annotations  # noqa: I001
 
 import logging
 import threading
+from contextlib import contextmanager
 import uuid
 from typing import Any, Callable, Dict, Optional, Tuple
 
@@ -15,23 +16,14 @@ from embedagent_core.agent_extension_host import AgentExtensionHost
 from embedagent_core.agent_kernel import AgentKernel
 from embedagent_core.agent_lifecycle import AgentLifecycleJournal
 from embedagent_core.agent_loop import AgentLoop
-from embedagent_core.agent_loop_continuation import DefaultAgentLoopContinuationPolicy
 from embedagent_core.agent_tool_action_service import (
     AgentToolActionService,
-    InteractionFactory,
 )
 from embedagent_core.compaction_journal import CompactionJournal
-from embedagent_core.context_window import ContextWindowState
-from embedagent_core.extensions import (
-    ExtensionContext,
-    ExtensionManager,
-    WorkflowEvent,
-)
 from embedagent_core.interaction import (
     UserInputRequest,
     UserInputResponse,
 )
-from embedagent_core.model import ModelClient
 from embedagent_core.strategies.execution_tracer import ExecutionTracer, TraceEventType
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 from embedagent_core.policies import (
@@ -54,7 +46,6 @@ from embedagent_core.session import (
     Action,
     AssistantReply,
     ContextAssemblyResult,
-    LoopResult,
     LoopTransition,
     Observation,
     PendingInteraction,
@@ -65,22 +56,147 @@ from embedagent_core.session import (
 from embedagent_core.session_log import InMemorySessionLog, SessionLogPort
 from embedagent_core.session_journal import EventIntent, SessionJournal
 from embedagent_core.session_reducer import (
-    SessionReducer,
     SessionReducerContext,
 )
 from embedagent_core.tool_contracts import ToolRuntimePort
 from embedagent_core.turn_snapshot import TurnSnapshot
-from embedagent_core.turn_snapshot_service import TurnSnapshotService
 
 _LOG = logging.getLogger(__name__)
 _OPERATION_RUNTIME_ERRORS = (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError)
 
 
-class QueryEngine(object):
+class SessionEventCommitter(object):
+    """Bind one reducer context while committing events for a session transaction."""
+
+    _MESSAGE_EVENT_TYPES = ("message", "user", "assistant", "system", "tool", "tool_result")
+
+    def __init__(self, session_log: SessionLogPort, journal: SessionJournal) -> None:
+        self._session_log = session_log
+        self._journal = journal
+        self._local = threading.local()
+        self._lock = threading.RLock()
+        self._durable_message_ids = {}  # type: Dict[str, set]
+
+    @contextmanager
+    def bind(self, reduction_context: SessionReducerContext):
+        previous = getattr(self._local, "reduction_context", None)
+        self._local.reduction_context = reduction_context
+        try:
+            yield
+        finally:
+            if previous is None:
+                del self._local.reduction_context
+            else:
+                self._local.reduction_context = previous
+
+    def reduction_context(self) -> SessionReducerContext:
+        context = getattr(self._local, "reduction_context", None)
+        if context is None:
+            raise RuntimeError("session reduction context is not bound")
+        return context
+
+    def guard(self):
+        return self._lock
+
+    def append_raw(
+        self,
+        session: Session,
+        event_type: str,
+        payload: Dict[str, Any],
+        schema_version: int = 2,
+    ) -> None:
+        event_payload, durable_ids = self._prepare_message_payload(session, event_type, payload)
+        self._session_log.append_event(
+            session.session_id,
+            event_type,
+            event_payload,
+            schema_version=schema_version,
+        )
+        self._remember_message_id(event_type, event_payload, durable_ids)
+
+    def commit(
+        self,
+        session: Session,
+        event_type: str,
+        payload: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        event_payload, durable_ids = self._prepare_message_payload(session, event_type, payload)
+        result = self._journal.commit(
+            session,
+            self.reduction_context(),
+            (EventIntent(event_type, event_payload),),
+        )
+        self._remember_message_id(event_type, event_payload, durable_ids)
+        return result.events[-1]
+
+    def _prepare_message_payload(self, session, event_type, payload):
+        event_payload = dict(payload or {})
+        durable_ids = set()
+        if event_type in self._MESSAGE_EVENT_TYPES:
+            durable_ids = self._durable_ids_for(session)
+            parent_message_id = str(event_payload.get("parent_message_id") or "")
+            if parent_message_id and parent_message_id not in durable_ids:
+                event_payload["parent_message_id"] = self._durable_parent_message_id(
+                    session, parent_message_id, durable_ids
+                )
+        return event_payload, durable_ids
+
+    def _remember_message_id(self, event_type, payload, durable_ids):
+        if event_type not in self._MESSAGE_EVENT_TYPES:
+            return
+        message_id = str(payload.get("message_id") or "")
+        if message_id:
+            durable_ids.add(message_id)
+
+    def _durable_ids_for(self, session: Session) -> set:
+        session_id = str(session.session_id or "")
+        cached = self._durable_message_ids.get(session_id)
+        if cached is not None:
+            return cached
+        message_ids = set()
+        if self._session_log.transcript_exists(session_id):
+            for event in self._session_log.load_events(session_id):
+                if str(event.get("type") or "") not in self._MESSAGE_EVENT_TYPES:
+                    continue
+                message_id = str(dict(event.get("payload") or {}).get("message_id") or "")
+                if message_id:
+                    message_ids.add(message_id)
+        self._durable_message_ids[session_id] = message_ids
+        return message_ids
+
+    def _durable_parent_message_id(self, session, parent_message_id, durable_ids):
+        candidate = str(parent_message_id or "")
+        visited = set()
+        while candidate and candidate not in visited:
+            if candidate in durable_ids:
+                return candidate
+            visited.add(candidate)
+            message = next(
+                (
+                    item
+                    for item in session.messages
+                    if str(getattr(item, "message_id", "") or "") == candidate
+                ),
+                None,
+            )
+            if message is None:
+                return ""
+            candidate = str(getattr(message, "parent_message_id", "") or "")
+        return ""
+
+
+class SessionInputDispatcher(object):
     def __init__(
         self,
-        client: ModelClient,
         tools: ToolRuntimePort,
+        event_committer: SessionEventCommitter,
+        lifecycle: AgentLifecycleJournal,
+        kernel: AgentKernel,
+        agent_loop: AgentLoop,
+        provider_steps: ProviderStepService,
+        action_service: AgentToolActionService,
+        extension_host: AgentExtensionHost,
+        prompt_assembly: PromptAssemblyService,
         max_turns: Optional[int] = None,
         permission_policy: Optional[PermissionPolicy] = None,
         context_manager: Optional[ContextAssemblerPort] = None,
@@ -88,13 +204,10 @@ class QueryEngine(object):
         max_parallel_tools: int = 3,
         transcript_store: Optional[SessionLogPort] = None,
         tracer: Optional[ExecutionTracer] = None,
-        extension_manager: Optional[ExtensionManager] = None,
         mode_tool_policy: Optional[ModeToolPolicy] = None,
         write_path_policy: Optional[WritePathPolicy] = None,
         mode_runtime_policy: Optional[ModeRuntimePolicy] = None,
-        reduction_context: Optional[SessionReducerContext] = None,
     ) -> None:
-        self.client = client
         self.tools = tools
         self.max_turns = max_turns
         self.permission_policy = permission_policy or PermissionPolicy()
@@ -103,115 +216,34 @@ class QueryEngine(object):
         self._compaction_journal = CompactionJournal()
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.transcript_store = transcript_store or InMemorySessionLog()
-        self._session_reducer = SessionReducer()
-        self._journal = SessionJournal(self.transcript_store, self._session_reducer)
-        self._reduction_context = reduction_context or SessionReducerContext()
         self.tracer = tracer
         self._mode_tool_policy = mode_tool_policy or EmptyModeToolPolicy()
         self._write_path_policy = write_path_policy or DenyWritePathPolicy()
         self._mode_runtime_policy = mode_runtime_policy or NeutralModeRuntimePolicy()
-        self.extension_host = AgentExtensionHost(
-            manager=extension_manager or ExtensionManager(),
-            tools=self.tools,
-            permission_policy=self.permission_policy,
-            mode_tool_policy=self._mode_tool_policy,
-        )
+        self._event_committer = event_committer
+        self.lifecycle = lifecycle
+        self.kernel = kernel
+        self._agent_loop = agent_loop
+        self._provider_steps = provider_steps
+        self._action_service = action_service
+        self.extension_host = extension_host
         self.extension_manager = self.extension_host.manager
-        self.extension_manager.register_context_reducers(self.context_manager.reducers)
-        category_setter = getattr(self.permission_policy, "set_category_lookup", None)
-        if callable(category_setter):
-            category_setter(self._tool_permission_category)
-        self._session_lock = threading.RLock()
-        self.lifecycle = AgentLifecycleJournal(
-            append_event=self._append_transcript_event,
-            session_guard=self._session_guard,
-            commit_transition=self._commit_transition_event,
-        )
-        self._action_service = AgentToolActionService(
-            tools=self.tools,
-            permission_policy=self.permission_policy,
-            extension_host=self.extension_host,
-            app_config_provider=lambda: getattr(self.tools, "app_config", None),
-            interaction_factory=InteractionFactory(),
-            write_path_policy=self._write_path_policy,
-        )
-        self._prompt_assembly = PromptAssemblyService()
-        self._provider_steps = ProviderStepService(
-            context_assembler=self.context_manager,
-            extension_host=self.extension_host,
-            snapshot_service=TurnSnapshotService(),
-            tools=self.tools,
-            client=self.client,
-            session_log=self.transcript_store,
-        )
-        self._durable_message_ids = {}  # type: Dict[str, set]
-        self.kernel = AgentKernel(lifecycle=self.lifecycle)
-        self._agent_loop = AgentLoop(
-            self.kernel,
-            self._journal,
-            self._provider_steps,
-            self._action_service,
-            DefaultAgentLoopContinuationPolicy(),
-        )
-        self._internal_stop_event = threading.Event()
-
-    def run(
-        self,
-        user_text: str = "",
-        session: Optional[Any] = None,
-        initial_mode: str = "",
-        workflow_state: str = "",
-        stream: bool = True,
-        **kwargs: Any,
-    ) -> QueryTurnResult:
-        """High-level entry point that manages multi-turn execution."""
-        self._internal_stop_event.clear()
-        return self.submit_user_turn(
-            user_text=user_text,
-            stream=stream,
-            initial_mode=initial_mode,
-            workflow_state=workflow_state,
-            session=session,
-            stop_event=self._internal_stop_event,
-            **kwargs,
-        )
-
-    def stop(self) -> None:
-        """Signal the current run() to stop at the earliest opportunity."""
-        self._internal_stop_event.set()
+        self._prompt_assembly = prompt_assembly
 
     def last_turn_snapshot(self) -> Optional[TurnSnapshot]:
         return self._provider_steps.last_snapshot()
 
+    @property
+    def _reduction_context(self) -> SessionReducerContext:
+        return self._event_committer.reduction_context()
+
     def _session_guard(self):
-        return self._session_lock
+        return self._event_committer.guard()
 
     def _append_transcript_event(
         self, session: Session, event_type: str, payload: Dict[str, Any], schema_version: int = 2
     ) -> None:
-        if self.transcript_store is None:
-            return
-        event_payload = dict(payload or {})
-        message_event_types = ("message", "user", "assistant", "system", "tool", "tool_result")
-        if event_type in message_event_types:
-            durable_ids = self._durable_message_ids_for(session)
-            parent_message_id = str(event_payload.get("parent_message_id") or "")
-            if parent_message_id and parent_message_id not in durable_ids:
-                event_payload["parent_message_id"] = self._durable_parent_message_id(
-                    session,
-                    parent_message_id,
-                    durable_ids,
-                )
-        self.transcript_store.append_event(
-            session.session_id,
-            event_type,
-            event_payload,
-            schema_version=schema_version,
-        )
-        if event_type in message_event_types:
-            message_id = str(event_payload.get("message_id") or "")
-            if message_id:
-                durable_ids.add(message_id)
+        self._event_committer.append_raw(session, event_type, payload, schema_version)
 
     def _commit_session_event(
         self,
@@ -219,49 +251,7 @@ class QueryEngine(object):
         event_type: str,
         payload: Dict[str, Any],
     ) -> Dict[str, Any]:
-        event_payload = dict(payload or {})
-        message_event_types = ("message", "user", "assistant", "system", "tool", "tool_result")
-        durable_ids = set()
-        if event_type in message_event_types:
-            durable_ids = self._durable_message_ids_for(session)
-            parent_message_id = str(event_payload.get("parent_message_id") or "")
-            if parent_message_id and parent_message_id not in durable_ids:
-                event_payload["parent_message_id"] = self._durable_parent_message_id(
-                    session,
-                    parent_message_id,
-                    durable_ids,
-                )
-        result = self._journal.commit(
-            session,
-            self._reduction_context,
-            (EventIntent(event_type, event_payload),),
-        )
-        stored = result.events[-1]
-        if event_type in message_event_types:
-            message_id = str(event_payload.get("message_id") or "")
-            if message_id:
-                durable_ids.add(message_id)
-        return stored
-
-    def _commit_event_intent(
-        self,
-        session: Session,
-        intent: EventIntent,
-    ) -> Dict[str, Any]:
-        with self._session_guard():
-            return self._commit_session_event(session, intent.event_type, dict(intent.payload))
-
-    def _commit_transition_event(
-        self,
-        session: Session,
-        payload: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        return self._commit_session_event(session, "loop_transition", payload)
-
-    def _emit_lifecycle_event(
-        self, session: Session, event_type: str, payload: Dict[str, Any]
-    ) -> None:
-        self.lifecycle.emit_lifecycle_event(session, event_type, payload)
+        return self._event_committer.commit(session, event_type, payload)
 
     def _emit_operation_started(
         self,
@@ -287,200 +277,12 @@ class QueryEngine(object):
             metadata=metadata,
         )
 
-    def _emit_operation_finished(
-        self,
-        session: Session,
-        operation_id: str,
-        kind: str = "",
-        turn_id: str = "",
-        step_id: str = "",
-        tool_call_id: str = "",
-        finished_at: str = "",
-        result: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        self.lifecycle.emit_operation_finished(
-            session,
-            operation_id,
-            kind=kind,
-            turn_id=turn_id,
-            step_id=step_id,
-            tool_call_id=tool_call_id,
-            finished_at=finished_at,
-            result=result,
-        )
-
-    def _emit_operation_interrupted(
-        self,
-        session: Session,
-        operation_id: str,
-        kind: str = "",
-        turn_id: str = "",
-        step_id: str = "",
-        tool_call_id: str = "",
-        reason: str = "",
-        finished_at: str = "",
-        result: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        self.lifecycle.emit_operation_interrupted(
-            session,
-            operation_id,
-            kind=kind,
-            turn_id=turn_id,
-            step_id=step_id,
-            tool_call_id=tool_call_id,
-            reason=reason,
-            finished_at=finished_at,
-            result=result,
-        )
-
     def _turn_id(self, session: Session) -> str:
         return self.lifecycle.turn_id(session)
-
-    def _emit_turn_started(
-        self,
-        session: Session,
-        turn_id: str,
-        current_mode: str,
-        workflow_state: str,
-        source: str,
-    ) -> None:
-        self.lifecycle.emit_turn_started(session, turn_id, current_mode, workflow_state, source)
-
-    def _emit_turn_finished(
-        self,
-        session: Session,
-        turn_id: str,
-        transition: LoopTransition,
-        current_mode: str,
-        workflow_state: str,
-    ) -> None:
-        self.lifecycle.emit_turn_finished(
-            session, turn_id, transition, current_mode, workflow_state
-        )
-
-    def _emit_turn_interrupted(
-        self,
-        session: Session,
-        turn_id: str,
-        reason: str,
-        current_mode: str,
-        workflow_state: str,
-        error: str = "",
-    ) -> None:
-        self.lifecycle.emit_turn_interrupted(
-            session, turn_id, reason, current_mode, workflow_state, error=error
-        )
-
-    def _pending_operation_metadata(self, pending: PendingInteraction) -> Dict[str, Any]:
-        return self.lifecycle.pending_operation_metadata(pending)
-
-    def _emit_pending_started(
-        self,
-        session: Session,
-        pending: PendingInteraction,
-        turn_id: str,
-        step_id: str,
-    ) -> None:
-        self.lifecycle.emit_pending_started(session, pending, turn_id, step_id)
-
-    def _emit_pending_finished(
-        self,
-        session: Session,
-        pending: PendingInteraction,
-        turn_id: str,
-        step_id: str,
-        resolution_status: str,
-    ) -> None:
-        self.lifecycle.emit_pending_finished(session, pending, turn_id, step_id, resolution_status)
-
-    def _emit_step_finished(
-        self,
-        session: Session,
-        turn_id: str,
-        step_id: str,
-        reason: str,
-        message: str = "",
-        turns_used: int = 0,
-    ) -> None:
-        self.lifecycle.emit_step_finished(
-            session,
-            turn_id,
-            step_id,
-            reason,
-            message=message,
-            turns_used=turns_used,
-        )
-
-    def _emit_step_interrupted(
-        self,
-        session: Session,
-        turn_id: str,
-        step_id: str,
-        reason: str,
-        message: str = "",
-        turns_used: int = 0,
-    ) -> None:
-        self.lifecycle.emit_step_interrupted(
-            session,
-            turn_id,
-            step_id,
-            reason,
-            message=message,
-            turns_used=turns_used,
-        )
 
     def _append_message_event(self, session: Session, payload: Dict[str, Any]) -> None:
         event_type = str(payload.get("role") or "message")
         self._commit_session_event(session, event_type, payload)
-
-    def _durable_message_ids_for(self, session: Session) -> set:
-        session_id = str(session.session_id or "")
-        cached = self._durable_message_ids.get(session_id)
-        if cached is not None:
-            return cached
-        message_ids = set()
-        if self.transcript_store.transcript_exists(session_id):
-            for event in self.transcript_store.load_events(session_id):
-                event_type = str(event.get("type") or "")
-                if event_type not in (
-                    "message",
-                    "user",
-                    "assistant",
-                    "system",
-                    "tool",
-                    "tool_result",
-                ):
-                    continue
-                message_id = str(dict(event.get("payload") or {}).get("message_id") or "")
-                if message_id:
-                    message_ids.add(message_id)
-        self._durable_message_ids[session_id] = message_ids
-        return message_ids
-
-    def _durable_parent_message_id(
-        self,
-        session: Session,
-        parent_message_id: str,
-        durable_ids: set,
-    ) -> str:
-        candidate = str(parent_message_id or "")
-        visited = set()
-        while candidate and candidate not in visited:
-            if candidate in durable_ids:
-                return candidate
-            visited.add(candidate)
-            message = next(
-                (
-                    item
-                    for item in session.messages
-                    if str(getattr(item, "message_id", "") or "") == candidate
-                ),
-                None,
-            )
-            if message is None:
-                return ""
-            candidate = str(getattr(message, "parent_message_id", "") or "")
-        return ""
 
     def _tool_presentation_snapshot(self, tool_name: str) -> ToolPresentationSnapshot:
         lookup = getattr(self.tools, "tool_catalog_entry", None)
@@ -610,32 +412,6 @@ class QueryEngine(object):
                         "metadata": boundary_metadata,
                     },
                 )
-
-    def _tool_permission_category(self, tool_name: str) -> str:
-        lookup = getattr(self.tools, "tool_catalog_entry", None)
-        if not callable(lookup):
-            return ""
-        entry = lookup(tool_name) or {}
-        if not isinstance(entry, dict):
-            return ""
-        return str(entry.get("permission_category") or "")
-
-    def _extension_context(self, session: Session) -> ExtensionContext:
-        return self.extension_host.context_for(session)
-
-    def _workflow_event(
-        self,
-        session: Session,
-        current_mode: str,
-        workflow_state: str,
-        **metadata: Any,
-    ) -> WorkflowEvent:
-        return self.extension_host.workflow_event(
-            session,
-            current_mode,
-            workflow_state,
-            **metadata,
-        )
 
     def _ensure_extension_tools_registered(
         self,
@@ -904,24 +680,6 @@ class QueryEngine(object):
                 "suggested_next_step": "用户取消了当前会话；如需继续，请恢复会话或重新提交请求。",
                 "synthetic": True,
             },
-        )
-
-    def _discarded_observation(self, tool_name: str) -> Observation:
-        return Observation(
-            tool_name=tool_name,
-            success=False,
-            error="tool execution discarded",
-            data={
-                "error_kind": "discarded",
-                "retryable": False,
-                "synthetic": True,
-            },
-        )
-
-    def _is_interrupted_observation(self, observation: Observation) -> bool:
-        return bool(
-            isinstance(observation.data, dict)
-            and str(observation.data.get("error_kind") or "") == "interrupted"
         )
 
     def _record_tool_observation(
@@ -1383,16 +1141,6 @@ class QueryEngine(object):
         turn_frame.finish(result.transition)
         return result
 
-    def classify_assistant_turn(self, reply, session=None) -> str:
-        """Classify one provider reply for loop continuation decisions."""
-
-        del session
-        if reply.actions:
-            return "tool_calls"
-        if str(reply.content or "").strip():
-            return "final_message"
-        return "empty_noop"
-
     def _apply_tool_selected_mode(
         self,
         session: Session,
@@ -1520,78 +1268,3 @@ class QueryEngine(object):
                 session.trim_old_observations(30)
             except (ValueError, TypeError) as exc:
                 _LOG.warning("session trim failed: %s", exc)
-
-    def _maybe_record_compact_boundary(
-        self, session: Session, current_mode: str, assembly: ContextAssemblyResult
-    ) -> bool:
-        if not assembly.compacted or not assembly.summary_message or assembly.summarized_turns <= 0:
-            return False
-        with self._session_guard():
-            compacted_turn_count = max(0, len(session.turns) - assembly.recent_turns)
-            latest = session.latest_compact_boundary()
-            if latest is not None and latest.compacted_turn_count == compacted_turn_count:
-                return False
-            preserved_head_message_id, preserved_tail_message_id = (
-                session.preserved_segment_message_ids(assembly.recent_turns)
-            )
-            window_state = ContextWindowState.from_pipeline_steps(
-                list(getattr(assembly, "pipeline_steps", []) or []),
-                len(getattr(session, "compact_boundaries", []) or []),
-            )
-            metadata = {
-                "approx_tokens": assembly.approx_tokens,
-                "replacements": len(assembly.replacements),
-                "pipeline_steps": list(assembly.pipeline_steps),
-            }
-            plan = getattr(assembly, "plan", None)
-            plan_metadata = getattr(plan, "to_boundary_metadata", None)
-            if callable(plan_metadata):
-                metadata.update(dict(plan_metadata()))
-            metadata = window_state.extend_metadata(metadata)
-            boundary = self._compaction_journal.new_boundary(
-                assembly.summary_message,
-                compacted_turn_count,
-                current_mode,
-                metadata,
-                preserved_head_message_id,
-                preserved_tail_message_id,
-            )
-            plan_payload = {}
-            plan_payload_fields = getattr(plan, "to_boundary_payload_fields", None)
-            if callable(plan_payload_fields):
-                plan_payload = dict(plan_payload_fields())
-            compaction_payloads = self._compaction_journal.build_payloads(
-                boundary,
-                assembly,
-                window_state,
-                plan_payload,
-            )
-            self._commit_session_event(
-                session,
-                "compact_boundary",
-                compaction_payloads["compact_boundary"],
-            )
-            self._commit_session_event(
-                session,
-                "compacted_history",
-                compaction_payloads["compacted_history"],
-            )
-            return True
-
-
-def to_loop_result(result: QueryTurnResult) -> LoopResult:
-    mapping = {
-        "completed": "completed",
-        "aborted": "cancelled",
-        "guard_stop": "guard",
-        "max_turns": "max_turns",
-        "permission_wait": "completed",
-        "user_input_wait": "completed",
-    }
-    return LoopResult(
-        final_text=result.final_text,
-        session=result.session,
-        termination_reason=mapping.get(result.transition.reason, "error"),
-        error=result.transition.message or None,
-        turns_used=result.turns_used,
-    )

@@ -72,7 +72,7 @@ def test_hosted_command_permissions_use_the_core_action_pipeline_once():
     adapter_source = _read(HOST_SOURCE / "inprocess_adapter.py")
     command_source = _read(HOST_SOURCE / "hosted_command_service.py")
     review_source = _read(HOST_SOURCE / "runtime" / "review_command.py")
-    query_source = _read(CORE_SOURCE / "query_engine.py")
+    session_input_source = _read(CORE_SOURCE / "session_input.py")
     action_source = _read(CORE_SOURCE / "agent_tool_action_service.py")
     api_source = _read(CORE_SOURCE / "api.py")
     runner_source = _read(CORE_SOURCE / "runner.py")
@@ -83,7 +83,7 @@ def test_hosted_command_permissions_use_the_core_action_pipeline_once():
     assert "._host_" not in command_source
     assert "_record_pending_permission" not in command_source
     assert "_record_command_pending_permission" not in adapter_source
-    assert "permission_pending_handler" not in query_source
+    assert "permission_pending_handler" not in session_input_source
     assert "permission_pending_handler" not in action_source
     assert "self._interaction_factory.permission_request(" in action_source
     assert "_host_record_pending_permission" not in api_source

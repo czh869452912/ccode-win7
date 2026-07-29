@@ -39,7 +39,7 @@ class HostedSessionController(object):
         self.session_id = agent_session.session_id
 
     def initialize(self, session: Session, mode: str, workflow_state: str) -> str:
-        return self._runtime.host_initialize_session(
+        return self._runtime.transaction.initialize_host(
             self.session_id,
             session,
             mode,
@@ -47,7 +47,7 @@ class HostedSessionController(object):
         )
 
     def apply_mode(self, session: Session, mode: str, workflow_state: str) -> str:
-        return self._runtime.host_apply_mode(
+        return self._runtime.transaction.apply_host_mode(
             self.session_id,
             session,
             mode,
@@ -59,7 +59,7 @@ class HostedSessionController(object):
         session: Session,
         record: HostedCommandRecord,
     ) -> None:
-        self._runtime.host_record_command_result(
+        self._runtime.transaction.record_host_command(
             self.session_id,
             session,
             user_text=record.user_text,
@@ -73,9 +73,11 @@ class HostedSessionController(object):
         )
 
     def submit_command(self, request: HostedCommandTurn) -> Any:
-        return self._runtime.host_submit_command_turn(self.session_id, **dict(request.arguments))
+        return self._runtime.transaction.submit_host_command(
+            self.session_id, **dict(request.arguments)
+        )
 
     def resume_command_interaction(self, request: HostedCommandResume) -> Any:
-        return self._runtime.host_resume_command_interaction(
+        return self._runtime.transaction.resume_host_command(
             self.session_id, **dict(request.arguments)
         )

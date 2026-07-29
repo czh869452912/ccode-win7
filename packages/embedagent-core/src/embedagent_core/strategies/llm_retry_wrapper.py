@@ -1,6 +1,6 @@
 """LLM client retry wrapper with backoff and circuit-breaker support.
 
-Extracted from QueryEngine to separate retry and backoff concerns.
+Isolated from the agent runtime to separate retry and backoff concerns.
 """
 
 from __future__ import annotations

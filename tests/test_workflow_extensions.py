@@ -4,8 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from agent_runtime_test_helpers import build_product_agent_runtime_dispatcher
 from embedagent_core.session import AssistantReply, Session
-from query_engine_product_helpers import build_product_query_engine
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 CORE_SOURCE = _REPO_ROOT / "packages" / "embedagent-core" / "src" / "embedagent_core"
@@ -138,7 +138,7 @@ class ToolRuntimeBoundaryProbe(object):
 
     def allowed_tool_names(self, mode_name, workflow_state="chat"):
         del mode_name, workflow_state
-        raise AssertionError("QueryEngine should not use runtime harness pack fallback")
+        raise AssertionError("Agent runtime should not use harness pack fallback")
 
 
 def test_fake_workflow_extension_adds_prompt_units_and_active_tools():
@@ -226,13 +226,13 @@ def test_session_import_does_not_eagerly_load_harness_task_graph():
 
 
 def test_c_harness_extension_preserves_build_prompt_behavior(tmp_path):
+    from agent_runtime_test_helpers import build_product_agent_application
     from embedagent_core.permissions import PermissionPolicy
     from embedagent_host.runtime.tools import ToolRuntime
-    from query_engine_product_helpers import build_product_agent_application
 
     tools = ToolRuntime(str(tmp_path))
     default_extensions = build_product_agent_application(tools)
-    engine = build_product_query_engine(
+    engine = build_product_agent_runtime_dispatcher(
         client=DoneClient(),
         tools=tools,
         workspace=str(tmp_path),
@@ -255,13 +255,13 @@ def test_c_harness_extension_preserves_build_prompt_behavior(tmp_path):
 
 
 def test_c_harness_extension_uses_generic_workflow_prompt_kind(tmp_path):
+    from agent_runtime_test_helpers import build_product_agent_application
     from embedagent_core.permissions import PermissionPolicy
     from embedagent_host.runtime.tools import ToolRuntime
-    from query_engine_product_helpers import build_product_agent_application
 
     tools = ToolRuntime(str(tmp_path))
     default_extensions = build_product_agent_application(tools)
-    engine = build_product_query_engine(
+    engine = build_product_agent_runtime_dispatcher(
         client=DoneClient(),
         tools=tools,
         workspace=str(tmp_path),
@@ -351,8 +351,8 @@ def test_c_harness_extension_delegates_workflow_projection_to_builder():
     assert '"id": "c_harness"' not in source
 
 
-def test_query_engine_no_longer_imports_task_graph_directly():
-    source = (CORE_SOURCE / "query_engine.py").read_text(encoding="utf-8")
+def test_session_input_no_longer_imports_task_graph_directly():
+    source = (CORE_SOURCE / "session_input.py").read_text(encoding="utf-8")
 
     assert "from embedagent_workflow_cpp.task_graph import TaskGraph" not in source
     assert "TaskGraph.from_user_request" not in source
@@ -365,8 +365,8 @@ def test_c_harness_extension_no_longer_reads_session_task_graph_directly():
     assert 'getattr(session, "task_graph"' not in source
 
 
-def test_query_engine_no_longer_imports_default_harness_extension_directly():
-    source = (CORE_SOURCE / "query_engine.py").read_text(encoding="utf-8")
+def test_session_input_no_longer_imports_default_harness_extension_directly():
+    source = (CORE_SOURCE / "session_input.py").read_text(encoding="utf-8")
 
     assert "from embedagent_workflow_cpp.extension import CHarnessWorkflowExtension" not in source
     assert "CHarnessWorkflowExtension(" not in source
@@ -528,13 +528,13 @@ def test_inprocess_adapter_gets_default_workflow_from_agent_application():
     assert "build_default_agent_application" not in source
 
 
-def test_query_engine_tool_activation_does_not_use_runtime_harness_pack_fallback():
+def test_agent_runtime_tool_activation_does_not_use_runtime_harness_pack_fallback():
+    from agent_runtime_test_helpers import build_product_agent_application
     from embedagent_core.permissions import PermissionPolicy
-    from query_engine_product_helpers import build_product_agent_application
 
     tools = ToolRuntimeBoundaryProbe()
     default_extensions = build_product_agent_application(tools)
-    engine = build_product_query_engine(
+    engine = build_product_agent_runtime_dispatcher(
         client=DoneClient(),
         tools=tools,
         workspace=".",
@@ -608,9 +608,9 @@ def test_tool_runtime_default_schemas_require_explicit_active_tool_names(tmp_pat
 
 
 def test_tool_runtime_default_schemas_remain_empty_after_c_tools_register(tmp_path):
+    from agent_runtime_test_helpers import build_product_agent_application
     from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
     from embedagent_host.runtime.tools import ToolRuntime
-    from query_engine_product_helpers import build_product_agent_application
 
     runtime = ToolRuntime(str(tmp_path))
     default_set = build_product_agent_application(runtime)
@@ -649,9 +649,9 @@ def test_bare_tool_runtime_does_not_register_default_c_workflow_tools(tmp_path):
 
 
 def test_default_c_workflow_extension_registers_workflow_tools(tmp_path):
+    from agent_runtime_test_helpers import build_product_agent_application
     from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
     from embedagent_host.runtime.tools import ToolRuntime
-    from query_engine_product_helpers import build_product_agent_application
 
     runtime = ToolRuntime(str(tmp_path))
     default_set = build_product_agent_application(runtime)
@@ -684,9 +684,9 @@ def test_default_c_workflow_extension_owns_c_workflow_tool_activation():
 
 
 def test_default_c_workflow_extension_registers_context_reducers(tmp_path):
+    from agent_runtime_test_helpers import build_product_agent_application
     from embedagent_host.runtime.context import ContextManager
     from embedagent_host.runtime.tools import ToolRuntime
-    from query_engine_product_helpers import build_product_agent_application
 
     runtime = ToolRuntime(str(tmp_path))
     context_manager = ContextManager()
@@ -749,9 +749,9 @@ def test_tool_runtime_no_longer_imports_harness_runtime_metadata():
 
 
 def test_default_c_workflow_tool_metadata_survives_package_registration(tmp_path):
+    from agent_runtime_test_helpers import build_product_agent_application
     from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
     from embedagent_host.runtime.tools import ToolRuntime
-    from query_engine_product_helpers import build_product_agent_application
 
     runtime = ToolRuntime(str(tmp_path))
     default_set = build_product_agent_application(runtime)
@@ -935,28 +935,28 @@ def test_inprocess_adapter_session_handle_uses_shared_extension_manager(tmp_path
     assert state.agent_session._runtime.extension_manager is adapter.extension_manager
 
 
-def test_bare_query_engine_uses_empty_extension_host_without_c_harness(tmp_path):
-    from embedagent_core.query_engine import QueryEngine
+def test_bare_agent_runtime_uses_empty_extension_host_without_c_harness(tmp_path):
+    from agent_runtime_test_helpers import build_agent_runtime_dispatcher
     from embedagent_host.runtime.tools import ToolRuntime
 
-    engine = QueryEngine(
-        client=DoneClient(),
+    runtime = build_agent_runtime_dispatcher(
+        DoneClient(),
         tools=ToolRuntime(str(tmp_path)),
         max_turns=1,
     )
 
-    assert engine.extension_manager.diagnostics() == []
-    allowed = engine.extension_host.allowed_tool_names("build", workflow_state="chat")
+    assert runtime.extension_manager.diagnostics() == []
+    allowed = runtime.extension_host.allowed_tool_names("build", workflow_state="chat")
     assert "run_recipe" not in allowed
     assert "task_status" not in allowed
     assert "propose_mode_switch" not in set(
         item["function"]["name"]
-        for item in engine.extension_host.schemas_for_active_tools("build", "chat")
+        for item in runtime.extension_host.schemas_for_active_tools("build", "chat")
     )
 
 
-def test_query_engine_no_longer_dispatches_extension_manager_hooks_directly():
-    source = (CORE_SOURCE / "query_engine.py").read_text(encoding="utf-8")
+def test_session_input_no_longer_dispatches_extension_manager_hooks_directly():
+    source = (CORE_SOURCE / "session_input.py").read_text(encoding="utf-8")
     forbidden = [
         ".should_inject_workflow(",
         ".allowed_tool_names(",

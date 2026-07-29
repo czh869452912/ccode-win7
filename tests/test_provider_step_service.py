@@ -1,3 +1,6 @@
+import concurrent.futures
+import threading
+
 from embedagent_core.agent_effects import (
     AssembleContextEffect,
     ContextAssembled,
@@ -198,3 +201,28 @@ def test_context_limit_is_typed_failure_without_service_retry():
     assert result.error_kind == "context_limit"
     assert result.effect_id == "provider-1"
     assert result.events[-1].event_type == "operation_interrupted"
+
+
+def test_last_snapshot_is_isolated_between_concurrent_session_threads():
+    service = _service(DoneClient())
+    assembled = threading.Barrier(2)
+
+    def build_snapshot(index):
+        result = service.assemble_context(
+            AssembleContextEffect(
+                "context-%d" % index,
+                "turn-%d" % index,
+                "step-%d" % index,
+                "build",
+                "",
+            ),
+            Session(session_id="session-%d" % index),
+        )
+        assembled.wait()
+        return result.snapshot.snapshot_id, service.last_snapshot().snapshot_id
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        snapshots = list(executor.map(build_snapshot, (1, 2)))
+
+    assert snapshots[0][0] == snapshots[0][1]
+    assert snapshots[1][0] == snapshots[1][1]

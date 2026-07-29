@@ -9,6 +9,8 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from agent_runtime_test_helpers import build_product_agent_application
+from agent_runtime_test_helpers import build_product_agent_runtime_dispatcher as RuntimeDispatcher
 from conftest import register_default_c_workflow_tools
 from embedagent_core.extensions import ExtensionManager, ToolResultPatch, WorkflowPatch
 from embedagent_core.interaction import UserInputResponse
@@ -30,8 +32,6 @@ from embedagent_host.runtime.workspace_intelligence import (
     RecipeProvider,
     WorkspaceIntelligenceBroker,
 )
-from query_engine_product_helpers import build_product_agent_application
-from query_engine_product_helpers import build_product_query_engine as QueryEngine
 from session_journal_test_helpers import apply_session_event, restore_events
 
 from embedagent.config import AppConfig
@@ -854,7 +854,7 @@ class CountingToolRuntime(object):
         return getattr(self._base, name)
 
 
-class TestQueryEngineRefactor(unittest.TestCase):
+class TestRuntimeDispatcherRefactor(unittest.TestCase):
     def setUp(self):
         self.workspace = _make_workspace("query-engine")
         os.makedirs(os.path.join(self.workspace, "src"), exist_ok=True)
@@ -944,7 +944,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
 
         policy = PermissionPolicy(auto_approve_all=True, workspace=self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=policy,
@@ -979,28 +979,28 @@ class TestQueryEngineRefactor(unittest.TestCase):
             ["kernel", "journal", "provider_steps", "tool_actions", "continuation_policy"],
         )
 
-    def test_query_engine_exposes_slim_agent_components(self):
+    def test_agent_runtime_exposes_slim_agent_components(self):
         from embedagent_core.agent_extension_host import AgentExtensionHost
         from embedagent_core.agent_loop import AgentLoop
         from embedagent_core.agent_tool_action_service import AgentToolActionService
 
-        engine = QueryEngine(client=FakeClient(), tools=self.tools, max_turns=1)
+        engine = RuntimeDispatcher(client=FakeClient(), tools=self.tools, max_turns=1)
 
         self.assertIsInstance(engine.extension_host, AgentExtensionHost)
         self.assertIsInstance(engine._action_service, AgentToolActionService)
         self.assertIsInstance(engine._agent_loop, AgentLoop)
         self.assertFalse(hasattr(engine._agent_loop, "_runner"))
-        self.assertFalse(hasattr(QueryEngine, "_run_loop_impl"))
-        self.assertFalse(hasattr(QueryEngine, "_execute_parallel_tool_action"))
-        self.assertFalse(hasattr(QueryEngine, "_execute_action"))
-        self.assertFalse(hasattr(QueryEngine, "_apply_extension_tool_result_patch"))
-        self.assertFalse(hasattr(QueryEngine, "_prepare_extension_tool_call"))
-        self.assertFalse(hasattr(QueryEngine, "_is_extension_blocked_observation"))
-        self.assertFalse(hasattr(QueryEngine, "_schemas_for_active_tools"))
-        self.assertFalse(hasattr(QueryEngine, "_allowed_tools_for_mode"))
+        self.assertFalse(hasattr(RuntimeDispatcher, "_run_loop_impl"))
+        self.assertFalse(hasattr(RuntimeDispatcher, "_execute_parallel_tool_action"))
+        self.assertFalse(hasattr(RuntimeDispatcher, "_execute_action"))
+        self.assertFalse(hasattr(RuntimeDispatcher, "_apply_extension_tool_result_patch"))
+        self.assertFalse(hasattr(RuntimeDispatcher, "_prepare_extension_tool_call"))
+        self.assertFalse(hasattr(RuntimeDispatcher, "_is_extension_blocked_observation"))
+        self.assertFalse(hasattr(RuntimeDispatcher, "_schemas_for_active_tools"))
+        self.assertFalse(hasattr(RuntimeDispatcher, "_allowed_tools_for_mode"))
         self.assertIs(engine.extension_manager, engine.extension_host.manager)
 
-    def test_query_engine_does_not_own_compaction_payload_helpers(self):
+    def test_agent_runtime_does_not_own_compaction_payload_helpers(self):
         for helper_name in (
             "_compaction_token_counts",
             "_compaction_message_counts",
@@ -1008,12 +1008,12 @@ class TestQueryEngineRefactor(unittest.TestCase):
             "_compaction_evidence_refs",
             "_compacted_history_payload",
         ):
-            self.assertFalse(hasattr(QueryEngine, helper_name), helper_name)
+            self.assertFalse(hasattr(RuntimeDispatcher, helper_name), helper_name)
 
-    def test_query_engine_guard_stops_empty_provider_reply_without_tool_calls(self):
+    def test_agent_runtime_guard_stops_empty_provider_reply_without_tool_calls(self):
         client = EmptyStopClient()
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1038,10 +1038,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
         transitions = [item for item in events if item["type"] == "loop_transition"]
         self.assertEqual(transitions[-1]["payload"]["reason"], "guard_stop")
 
-    def test_query_engine_continues_after_diagnostic_bash_failures(self):
+    def test_agent_runtime_continues_after_diagnostic_bash_failures(self):
         client = TwoFailingBashThenDoneClient()
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1072,10 +1072,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
         transitions = [item for item in events if item["type"] == "loop_transition"]
         self.assertEqual(transitions[-1]["payload"]["reason"], "completed")
 
-    def test_query_engine_allows_progressive_multi_file_writes(self):
+    def test_agent_runtime_allows_progressive_multi_file_writes(self):
         client = ThreeFileWriteThenDoneClient()
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1098,10 +1098,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.workspace, "src", "main.c")))
         self.assertTrue(os.path.exists(os.path.join(self.workspace, "tests", "test_demo.py")))
 
-    def test_query_engine_allows_distinct_diagnostic_bash_attempts(self):
+    def test_agent_runtime_allows_distinct_diagnostic_bash_attempts(self):
         client = ThreeDistinctBashFailuresThenDoneClient()
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1122,10 +1122,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(client.calls, 4)
         self.assertEqual(len(session.turns[-1].observations), 3)
 
-    def test_query_engine_continues_after_read_diagnostic_failures(self):
+    def test_agent_runtime_continues_after_read_diagnostic_failures(self):
         client = TwoReadDiagnosticsThenDoneClient()
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1155,10 +1155,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
         transitions = [item for item in events if item["type"] == "loop_transition"]
         self.assertEqual(transitions[-1]["payload"]["reason"], "completed")
 
-    def test_query_engine_guard_stops_repeated_parallel_no_progress_actions(self):
+    def test_agent_runtime_guard_stops_repeated_parallel_no_progress_actions(self):
         client = ParallelSuccessfulReadThenDoneClient()
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1179,10 +1179,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(client.calls, 1)
         self.assertEqual(len(session.turns[-1].observations), 3)
 
-    def test_query_engine_handles_natural_language_mode_switch_before_provider(self):
+    def test_agent_runtime_handles_natural_language_mode_switch_before_provider(self):
         client = FakeClient()
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1224,9 +1224,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(len(step_finishes), 1)
         self.assertEqual(step_finishes[0]["payload"]["result"].get("reason"), "mode_changed")
 
-    def test_query_engine_handles_slash_mode_switch_before_provider(self):
+    def test_agent_runtime_handles_slash_mode_switch_before_provider(self):
         client = FakeClient()
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1243,9 +1243,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(result.transition.next_mode, "debug")
         self.assertEqual(client.calls, 0)
 
-    def test_query_engine_slash_mode_with_remainder_uses_target_mode_context(self):
+    def test_agent_runtime_slash_mode_with_remainder_uses_target_mode_context(self):
         client = SnapshotInspectingClient()
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1266,8 +1266,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertNotIn("当前模式：explore", rendered)
         self.assertIn("inspect workspace", rendered)
 
-    def test_query_engine_routes_ask_user_through_action_service(self):
-        engine = QueryEngine(
+    def test_agent_runtime_routes_ask_user_through_action_service(self):
+        engine = RuntimeDispatcher(
             client=AskThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1289,8 +1289,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(result.transition.reason, "user_input_wait")
         self.assertIn("ask_user", spy.executed)
 
-    def test_query_engine_routes_mode_switch_proposal_through_action_service(self):
-        engine = QueryEngine(
+    def test_agent_runtime_routes_mode_switch_proposal_through_action_service(self):
+        engine = RuntimeDispatcher(
             client=ModeSwitchThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1313,7 +1313,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("propose_mode_switch", spy.executed)
 
     def test_mode_switch_proposal_records_own_tool_observation(self):
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ModeSwitchThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1339,7 +1339,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertTrue(observation.data["mode_changed"])
 
     def test_mode_switch_proposal_uses_action_target_when_response_omits_mode(self):
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ModeSwitchThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1361,8 +1361,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(observation.data["selected_mode"], "debug")
         self.assertTrue(observation.data["mode_changed"])
 
-    def test_query_engine_routes_user_input_resume_through_action_service(self):
-        engine = QueryEngine(
+    def test_agent_runtime_routes_user_input_resume_through_action_service(self):
+        engine = RuntimeDispatcher(
             client=AskThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1398,7 +1398,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_default_agent_loop_continues_past_eight_tool_steps(self):
         client = LongToolThenDoneClient(tool_turns=9)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(
@@ -1423,7 +1423,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_explicit_loop_safety_limit_still_stops_after_configured_step_count(self):
         client = LongToolThenDoneClient(tool_turns=2)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=client,
             tools=self.tools,
             max_turns=1,
@@ -1453,7 +1453,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.tools.projection_db.upsert_tool_result_projection = lambda **_: (_ for _ in ()).throw(
             RuntimeError("db down")
         )
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(
@@ -1476,7 +1476,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
     def test_initialize_session_injects_profile_mode_and_harness_once(self):
         transcript_store = TranscriptStore(self.workspace)
         default_extensions = build_product_agent_application(self.tools)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(
@@ -1505,7 +1505,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
     def test_workflow_prompt_dedupe_ignores_non_workflow_prompt_kinds(self):
         transcript_store = TranscriptStore(self.workspace)
         default_extensions = build_product_agent_application(self.tools)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(
@@ -1541,9 +1541,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(len(prompt_messages), 2)
         self.assertEqual(len(workflow_prompt_messages), 1)
 
-    def test_query_engine_writes_tool_presentation_into_tool_call_event(self):
+    def test_agent_runtime_writes_tool_presentation_into_tool_call_event(self):
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(
@@ -1567,9 +1567,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("tool_label", presentation)
         self.assertIn("progress_renderer_key", presentation)
 
-    def test_query_engine_emits_explicit_operation_events_for_tool_execution(self):
+    def test_agent_runtime_emits_explicit_operation_events_for_tool_execution(self):
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(
@@ -1597,9 +1597,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("tool:call-read-demo", started_ids)
         self.assertIn("tool:call-read-demo", finished_ids)
 
-    def test_query_engine_emits_core_runtime_operation_events(self):
+    def test_agent_runtime_emits_core_runtime_operation_events(self):
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(
@@ -1677,7 +1677,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 },
             },
         )
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(
@@ -1759,7 +1759,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             )
         self.tools.reload_resources(reason="test")
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=SnapshotInspectingClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(
@@ -1802,7 +1802,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_resource_reload_updates_only_future_prompt_unit_snapshots(self):
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=SnapshotInspectingClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(
@@ -1865,9 +1865,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertNotIn("Reloaded Secret Body", str(first_metadata))
         self.assertNotIn("Reloaded Secret Body", str(second_metadata))
 
-    def test_query_engine_emits_turn_operation_lifecycle(self):
+    def test_agent_runtime_emits_turn_operation_lifecycle(self):
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(
@@ -1904,8 +1904,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(finished[0]["operation_id"], started[0]["operation_id"])
         self.assertEqual(finished[0]["result"]["transition_reason"], "completed")
 
-    def test_query_engine_user_turn_uses_kernel_turn_frame(self):
-        engine = QueryEngine(
+    def test_agent_runtime_user_turn_uses_kernel_turn_frame(self):
+        engine = RuntimeDispatcher(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1928,8 +1928,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(spy_kernel.finished[0]["reason"], "completed")
         self.assertEqual(spy_kernel.interrupted, [])
 
-    def test_query_engine_command_turn_uses_kernel_turn_frame(self):
-        engine = QueryEngine(
+    def test_agent_runtime_command_turn_uses_kernel_turn_frame(self):
+        engine = RuntimeDispatcher(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1953,10 +1953,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(spy_kernel.finished[0]["reason"], "completed")
         self.assertEqual(spy_kernel.interrupted, [])
 
-    def test_query_engine_resume_turn_uses_kernel_turn_frame(self):
+    def test_agent_runtime_resume_turn_uses_kernel_turn_frame(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=AskThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -1997,7 +1997,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.tools.tool_result_store.write_text = lambda *args, **kwargs: (_ for _ in ()).throw(
             RuntimeError("disk down")
         )
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(
@@ -2026,11 +2026,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(len(tool_results), 1)
         self.assertEqual(tool_results[0]["payload"]["call_id"], "call-read-demo")
 
-    def test_query_engine_accepts_windows_unsafe_tool_call_ids_for_large_results(self):
+    def test_agent_runtime_accepts_windows_unsafe_tool_call_ids_for_large_results(self):
         transcript_store = TranscriptStore(self.workspace)
         with open(os.path.join(self.workspace, "src", "demo.c"), "w", encoding="utf-8") as handle:
             handle.write("int demo(void) {\n%s\n}\n" % ("x" * 2500))
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=UnsafeToolCallIdClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(
@@ -2074,7 +2074,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             step_id="s-old",
         )
         client = InspectingDoneClient()
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(
@@ -2698,10 +2698,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
         evidence = provider.collect(Session(), "build", self.tools, None)
         self.assertEqual(evidence, [])
 
-    def test_query_engine_waits_for_user_input_and_can_resume(self):
+    def test_agent_runtime_waits_for_user_input_and_can_resume(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=AskThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -2736,10 +2736,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
             )
         )
 
-    def test_query_engine_waits_for_permission_and_can_resume(self):
+    def test_agent_runtime_waits_for_permission_and_can_resume(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=WriteThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -2767,7 +2767,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
     def test_permission_wait_payload_contains_execution_checkpoint_fields(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=WriteThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -2789,7 +2789,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
     def test_resume_pending_permission_rechecks_mode_path_policy(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=SpecCodeWriteClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -2819,7 +2819,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             session.turns[-1].observations[-1].data.get("error_kind"), "mode_path_blocked"
         )
 
-    def test_query_engine_retries_with_compact_context_after_context_limit_error(self):
+    def test_agent_runtime_retries_with_compact_context_after_context_limit_error(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         for index in range(5):
@@ -2846,7 +2846,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 ),
             )
         client = CompactRetryClient()
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -2871,7 +2871,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(retry_transition.metadata.get("retry_mode"), "compact")
         self.assertEqual(retry_transition.metadata.get("source_mode"), "build")
 
-    def test_query_engine_persists_compact_boundary_event_for_restore(self):
+    def test_agent_runtime_persists_compact_boundary_event_for_restore(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         for index in range(5):
@@ -2899,7 +2899,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             )
         transcript_store = TranscriptStore(self.workspace)
         client = CompactRetryClient()
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=client,
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3002,11 +3002,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
             restored.compaction_state.to_dict()["compacted_history"]["checkpoint_count"], 1
         )
 
-    def test_query_engine_writes_transcript_for_completed_turn(self):
+    def test_agent_runtime_writes_transcript_for_completed_turn(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3031,11 +3031,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
         loop_transitions = [item for item in events if item["type"] == "loop_transition"]
         self.assertEqual(loop_transitions[-1]["payload"]["reason"], "completed")
 
-    def test_query_engine_persists_message_parent_ids_in_transcript(self):
+    def test_agent_runtime_persists_message_parent_ids_in_transcript(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3078,7 +3078,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         original_materialize = self.tools.materialize_observation
         self.tools.materialize_observation = failing_materialize
         self.addCleanup(setattr, self.tools, "materialize_observation", original_materialize)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3131,7 +3131,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.tools.finalize_observation = finalize
         self.addCleanup(setattr, self.tools, "materialize_observation", original_materialize)
         self.addCleanup(setattr, self.tools, "finalize_observation", original_finalize)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3155,9 +3155,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
             event_types_at_finalize.index("content_replacement"),
         )
 
-    def test_query_engine_on_step_start_receives_engine_step_id(self):
+    def test_agent_runtime_on_step_start_receives_engine_step_id(self):
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3182,11 +3182,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(callback_payloads[0][0], session.turns[-1].steps[0].step_id)
         self.assertEqual(callback_payloads[0][1], 1)
 
-    def test_query_engine_writes_pending_interaction_events(self):
+    def test_agent_runtime_writes_pending_interaction_events(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=AskThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3206,11 +3206,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
         loop_transitions = [item for item in events if item["type"] == "loop_transition"]
         self.assertEqual(loop_transitions[-1]["payload"]["reason"], "user_input_wait")
 
-    def test_query_engine_emits_pending_interaction_operation_lifecycle(self):
+    def test_agent_runtime_emits_pending_interaction_operation_lifecycle(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=AskThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3239,10 +3239,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(pending_starts[0]["metadata"]["kind"], "user_input")
         self.assertEqual(pending_starts[0]["metadata"]["tool_name"], "ask_user")
 
-    def test_query_engine_permission_wait_commits_factory_pending_event(self):
+    def test_agent_runtime_permission_wait_commits_factory_pending_event(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=WriteThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -3270,10 +3270,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
             "workspace_write",
         )
 
-    def test_query_engine_user_input_wait_commits_factory_pending_event(self):
+    def test_agent_runtime_user_input_wait_commits_factory_pending_event(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=AskThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3305,7 +3305,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         session = Session()
         session.add_user_message("write", turn_id="turn-1", message_id="message-user")
         session.begin_step(step_id="step-1")
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3347,7 +3347,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         session.pending_interaction = pending
         session.turns[-1].pending_interaction = pending
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3366,10 +3366,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIs(session.pending_interaction, pending)
         self.assertEqual(pending.status, "pending")
 
-    def test_query_engine_resume_uses_kernel_pending_resolution_boundary(self):
+    def test_agent_runtime_resume_uses_kernel_pending_resolution_boundary(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=WriteThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -3397,11 +3397,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(spy_kernel.resolved_pending[0]["kind"], "permission")
         self.assertEqual(spy_kernel.resolved_pending[0]["resolution"], {"approved": True})
 
-    def test_query_engine_resume_pending_persists_resolution_and_tool_result(self):
+    def test_agent_runtime_resume_pending_persists_resolution_and_tool_result(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=WriteThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
@@ -3445,7 +3445,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(first_step.tool_calls[0].call_id, "write-1")
         self.assertEqual(first_step.tool_calls[0].status, "completed")
 
-    def test_query_engine_persists_content_replacement_and_context_snapshot_events(self):
+    def test_agent_runtime_persists_content_replacement_and_context_snapshot_events(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         session.add_user_message("old user " + ("u" * 400))
@@ -3470,7 +3470,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             ),
         )
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=CompactRetryClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3498,11 +3498,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
             session.latest_context_snapshot["approx_tokens"],
         )
 
-    def test_query_engine_persists_and_restores_workflow_patch_events(self):
+    def test_agent_runtime_persists_and_restores_workflow_patch_events(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3667,7 +3667,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             rendered,
         )
 
-    def test_query_engine_bootstrap_persists_existing_content_replacements(self):
+    def test_agent_runtime_bootstrap_persists_existing_content_replacements(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         session.add_user_message("继续")
@@ -3702,7 +3702,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             }
         )
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3732,7 +3732,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             rendered,
         )
 
-    def test_query_engine_emits_interrupted_tool_result_when_stop_event_is_set_after_tool_start(
+    def test_agent_runtime_emits_interrupted_tool_result_when_stop_event_is_set_after_tool_start(
         self,
     ):
         session = Session()
@@ -3740,7 +3740,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         transcript_store = TranscriptStore(self.workspace)
         stop_event = threading.Event()
         wrapped_tools = CountingToolRuntime(self.tools, slow_first=True)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ToolClient(),
             tools=wrapped_tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3764,11 +3764,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
             tool_results[-1]["payload"]["observation"]["data"].get("error_kind"), "interrupted"
         )
 
-    def test_query_engine_keeps_discarded_parallel_results_out_of_guard_stop(self):
+    def test_agent_runtime_keeps_discarded_parallel_results_out_of_guard_stop(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ParallelReadThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3799,13 +3799,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
         ]
         self.assertGreaterEqual(len(discarded_events), 2)
 
-    def test_query_engine_discards_not_started_parallel_actions_after_cancel(self):
+    def test_agent_runtime_discards_not_started_parallel_actions_after_cancel(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
         stop_event = threading.Event()
         wrapped_tools = CountingToolRuntime(self.tools, slow_first=True)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ParallelSuccessfulReadThenDoneClient(),
             tools=wrapped_tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3836,7 +3836,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             tool_call_ids, ["call-read-demo-a", "call-read-demo-b", "call-read-demo-c"]
         )
 
-    def test_query_engine_discards_queued_parallel_actions_after_cancel_with_higher_parallelism(
+    def test_agent_runtime_discards_queued_parallel_actions_after_cancel_with_higher_parallelism(
         self,
     ):
         session = Session()
@@ -3844,7 +3844,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         transcript_store = TranscriptStore(self.workspace)
         stop_event = threading.Event()
         wrapped_tools = CountingToolRuntime(self.tools, slow_read_calls=2, slow_delay_sec=0.3)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ParallelSuccessfulReadThenDoneClient(),
             tools=wrapped_tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3895,12 +3895,12 @@ class TestQueryEngineRefactor(unittest.TestCase):
             ],
         )
 
-    def test_query_engine_discards_later_batches_after_parallel_discard(self):
+    def test_agent_runtime_discards_later_batches_after_parallel_discard(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
         wrapped_tools = CountingToolRuntime(self.tools, slow_read_calls=2, slow_delay_sec=0.2)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=ParallelReadThenEditClient(),
             tools=wrapped_tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
@@ -3947,7 +3947,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             ],
         )
 
-    def test_query_engine_interrupts_long_running_command_without_waiting_for_completion(self):
+    def test_agent_runtime_interrupts_long_running_command_without_waiting_for_completion(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：debug")
         transcript_store = TranscriptStore(self.workspace)
@@ -3977,7 +3977,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             app_config=AppConfig(allow_system_tool_fallback=True),
         )
         default_extensions = build_product_agent_application(interrupt_tools)
-        engine = QueryEngine(
+        engine = RuntimeDispatcher(
             client=SlowCommandClient(),
             tools=interrupt_tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),

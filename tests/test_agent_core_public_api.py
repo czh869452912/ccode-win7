@@ -8,15 +8,15 @@ import time
 
 import pytest
 from embedagent_core.api import AgentPorts, InteractionReply, RuntimeDefinition, UserTurn
-from embedagent_core.model import ModelClient
+from embedagent_core.interaction import UserInputResponse
+from embedagent_core.model import ModelClient, ModelClientError
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.ports import NoopContextAssembler
-from embedagent_core.query_engine import QueryEngine
 from embedagent_core.runner import AgentRequest, AgentRuntime, run_agent
-from embedagent_core.session import Action, AssistantReply, PendingInteraction, Session
+from embedagent_core.session import Action, AssistantReply, Observation, PendingInteraction
 from embedagent_core.session_log import InMemorySessionLog
+from embedagent_core.tool_contracts import PreparedToolObservation
 from embedagent_core.turn_snapshot import TurnSnapshot
-from session_journal_test_helpers import restore_events
 
 
 class FakeModel(ModelClient):
@@ -65,32 +65,91 @@ class NoopToolRuntime(object):
         del mode, workflow_state, tool_names
         return []
 
+    def materialize_observation(self, session_id, action, observation):
+        del session_id, action
+        return PreparedToolObservation(observation=observation)
 
-class WhitespaceModeRuntimePolicy(object):
-    def default_mode(self):
-        return ""
+    def finalize_observation(self, commit_token):
+        del commit_token
 
-    def require_mode(self, mode_name):
-        return {"slug": str(mode_name or "")}
-
-    def build_system_prompt(
-        self,
-        mode_name,
-        app_config=None,
-        workspace="",
-        local_resources=None,
-    ):
-        del mode_name, app_config, workspace, local_resources
-        return " \n"
-
-    def parse_mode_switch_request(self, user_text, fallback_mode):
-        return str(fallback_mode or ""), str(user_text or ""), False
+    def execute_with_interrupt(self, tool_name, arguments, stop_event):
+        del arguments, stop_event
+        return Observation(
+            tool_name,
+            False,
+            "command failed",
+            {
+                "error_kind": "command_failed",
+                "retryable": False,
+                "outcome_class": "diagnostic_failure",
+            },
+        )
 
 
-class WhitespaceWorkspaceProfile(NoopContextAssembler):
-    def initial_system_messages(self, session, mode_name, workflow_state=""):
-        del session, mode_name, workflow_state
-        return [" \n"]
+class AskThenDoneModel(FakeModel):
+    def generate(self, messages, tools=None):
+        del messages, tools
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        "ask_user",
+                        {"question": "Continue?", "option_1": "Yes"},
+                        "ask-1",
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="done", actions=[], finish_reason="stop")
+
+
+class AlwaysAskModel(FakeModel):
+    def generate(self, messages, tools=None):
+        del messages, tools
+        self.calls += 1
+        return AssistantReply(
+            content="",
+            actions=[Action("ask_user", {"question": "Continue?"}, "ask-%d" % self.calls)],
+            finish_reason="tool_calls",
+        )
+
+
+class FailedToolThenDoneModel(FakeModel):
+    def generate(self, messages, tools=None):
+        del messages, tools
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[Action("missing_tool", {}, "missing-1")],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="recovered", actions=[], finish_reason="stop")
+
+
+class CompactRetryModel(FakeModel):
+    def generate(self, messages, tools=None):
+        del messages, tools
+        self.calls += 1
+        if self.calls == 1:
+            raise ModelClientError("context length exceeded")
+        return AssistantReply(content="compacted", actions=[], finish_reason="stop")
+
+
+class SetCancelToken(object):
+    def is_set(self):
+        return True
+
+
+class AutoInputObserver(object):
+    def on_event(self, event_type, payload):
+        del event_type, payload
+
+    def on_user_input_request(self, request):
+        del request
+        return UserInputResponse(answer="yes")
 
 
 class CountingExtension(object):
@@ -100,6 +159,12 @@ class CountingExtension(object):
     def extension_capabilities(self):
         self.assembly_count += 1
         return []
+
+
+class AllowMissingToolPolicy(object):
+    def allowed_tools_for(self, mode_name, workflow_state=None):
+        del mode_name, workflow_state
+        return {"missing_tool"}
 
 
 class ContextReducerRegistrarExtension(object):
@@ -164,16 +229,6 @@ class RecordingSessionProjection(object):
 
     def refresh(self, session, current_mode, assembly=None):
         self.calls.append((session.session_id, current_mode, assembly))
-
-
-class BuildCountingAgentRuntime(AgentRuntime):
-    def __init__(self, ports, definition):
-        super(BuildCountingAgentRuntime, self).__init__(ports, definition)
-        self.build_count = 0
-
-    def build_engine(self):
-        self.build_count += 1
-        return super(BuildCountingAgentRuntime, self).build_engine()
 
 
 class RecordingObserver(object):
@@ -259,7 +314,118 @@ def test_agent_facade_submits_and_restores_multiple_turns(base_ports):
     assert second.session.turn_count > first.session.turn_count
 
 
+def test_agent_session_resumes_interaction_through_public_api(base_ports):
+    from embedagent_core import Agent
+
+    model = AskThenDoneModel()
+    ports = dataclasses.replace(base_ports, model=model)
+    session = Agent.create(ports).open("session-resume")
+
+    waiting = session.submit(UserTurn("ask", stream=False))
+    assert waiting.termination_reason == "user_input_wait"
+    assert waiting.pending_interaction is not None
+
+    resumed = session.submit(
+        InteractionReply(
+            waiting.pending_interaction.interaction_id,
+            {"answer": "yes"},
+            stream=False,
+        )
+    )
+
+    assert resumed.final_text == "done"
+    assert resumed.termination_reason == "completed"
+    assert model.calls == 2
+
+
+def test_agent_session_honors_pre_cancel_without_provider_call(base_ports):
+    from embedagent_core import Agent
+
+    model = FakeModel()
+    ports = dataclasses.replace(base_ports, model=model)
+
+    result = (
+        Agent.create(ports)
+        .open("session-cancel")
+        .submit(
+            UserTurn("stop", stream=False),
+            cancel=SetCancelToken(),
+        )
+    )
+
+    assert result.termination_reason == "aborted"
+    assert model.calls == 0
+
+
+def test_agent_session_applies_explicit_turn_fuse_after_tool_result(base_ports):
+    from embedagent_core import Agent
+
+    model = AlwaysAskModel()
+    ports = dataclasses.replace(base_ports, model=model)
+    agent = Agent.create(ports, RuntimeDefinition(max_turns=1))
+
+    result = agent.open("session-fuse").submit(
+        UserTurn("loop", stream=False),
+        observer=AutoInputObserver(),
+    )
+
+    assert result.termination_reason == "max_turns"
+    assert result.turns_used == 1
+    assert model.calls == 1
+
+
+def test_agent_session_compacts_and_retries_context_limit(base_ports):
+    from embedagent_core import Agent
+
+    model = CompactRetryModel()
+    ports = dataclasses.replace(base_ports, model=model)
+
+    result = Agent.create(ports).open("session-compact").submit(UserTurn("retry", stream=False))
+
+    assert result.final_text == "compacted"
+    assert result.termination_reason == "completed"
+    assert model.calls == 2
+    transitions = [
+        event["payload"].get("reason")
+        for event in ports.session_log.load_events("session-compact")
+        if event["type"] == "loop_transition"
+    ]
+    assert "compact_retry" in transitions
+
+
+def test_agent_session_keeps_tool_failure_model_visible(base_ports):
+    from embedagent_core import Agent
+
+    model = FailedToolThenDoneModel()
+    ports = dataclasses.replace(
+        base_ports,
+        model=model,
+        permissions=PermissionPolicy(auto_approve_all=True),
+    )
+    definition = RuntimeDefinition(
+        mode_tool_policy=AllowMissingToolPolicy(),
+    )
+
+    result = (
+        Agent.create(ports, definition)
+        .open("session-tool-failure")
+        .submit(UserTurn("use missing", stream=False))
+    )
+
+    assert result.final_text == "recovered"
+    assert result.termination_reason == "completed"
+    assert model.calls == 2
+    tool_results = [
+        event["payload"]
+        for event in ports.session_log.load_events("session-tool-failure")
+        if event["type"] == "tool_result"
+    ]
+    assert tool_results
+    assert tool_results[0]["observation"]["success"] is False
+
+
 def test_agent_open_generates_distinct_session_ids_without_touching_log(base_ports):
+
     from embedagent_core import Agent
 
     agent = Agent.create(base_ports)
@@ -361,67 +527,6 @@ def test_agent_create_rejects_two_extension_assembly_sources(base_ports):
         match="^extension_manager and RuntimeDefinition.extensions are mutually exclusive$",
     ):
         Agent.create(ports, RuntimeDefinition(extensions=(object(),)))
-
-
-def test_message_ledger_reanchors_ephemeral_parent_to_durable_ancestor(base_ports):
-    session_log = base_ports.session_log
-    session_log.append_event("session-parent", "session_meta", {"current_mode": ""})
-    session_log.append_event(
-        "session-parent",
-        "system",
-        {
-            "role": "system",
-            "content": "durable",
-            "message_id": "m-durable",
-            "parent_message_id": "",
-        },
-    )
-    session = restore_events(session_log.load_events("session-parent")).session
-    ephemeral = session.add_system_message("ephemeral")
-    session.add_user_message("hello", turn_id="t-parent")
-    user_message = session.messages[-1]
-    engine = QueryEngine(
-        client=base_ports.model,
-        tools=base_ports.tools,
-        transcript_store=session_log,
-    )
-
-    engine._append_message_event(session, engine._message_event_payload(user_message))
-    recorded = session_log.load_events("session-parent")[-1]["payload"]
-
-    assert ephemeral.parent_message_id == "m-durable"
-    assert user_message.parent_message_id == ephemeral.message_id
-    assert recorded["parent_message_id"] == "m-durable"
-
-
-def test_message_ledger_preserves_known_cross_turn_parent(base_ports):
-    session_log = base_ports.session_log
-    session_log.append_event("session-cross-turn", "session_meta", {"current_mode": ""})
-    session_log.append_event(
-        "session-cross-turn",
-        "user",
-        {
-            "role": "user",
-            "content": "first",
-            "message_id": "m-first",
-            "parent_message_id": "",
-            "turn_id": "t-first",
-        },
-    )
-    session = restore_events(session_log.load_events("session-cross-turn")).session
-    message = session.add_system_message("next", parent_message_id="m-first")
-    engine = QueryEngine(
-        client=base_ports.model,
-        tools=base_ports.tools,
-        transcript_store=session_log,
-    )
-
-    engine._append_message_event(session, engine._message_event_payload(message))
-
-    assert (
-        session_log.load_events("session-cross-turn")[-1]["payload"]["parent_message_id"]
-        == "m-first"
-    )
 
 
 @pytest.mark.parametrize(
@@ -764,71 +869,6 @@ def test_permission_policy_requires_confirmation_for_unknown_tools():
     assert decision.outcome != "allow"
 
 
-def test_query_engine_does_not_auto_approve_by_default():
-    engine = QueryEngine(client=object(), tools=object())
-
-    assert engine.permission_policy.auto_approve_all is False
-
-
-def test_query_engine_default_runtime_is_mode_neutral():
-    engine = QueryEngine(client=object(), tools=NoopToolRuntime())
-
-    assert engine.initialize_session(Session(), "", workflow_state="") == ""
-
-
-def test_initialize_session_skips_empty_profile_and_mode_messages():
-    engine = QueryEngine(client=object(), tools=NoopToolRuntime())
-    session = Session()
-
-    engine.initialize_session(session, "", workflow_state="")
-
-    assert session.messages == []
-
-
-def test_apply_mode_skips_empty_mode_message():
-    engine = QueryEngine(client=object(), tools=NoopToolRuntime())
-    session = Session()
-
-    engine.apply_mode(session, "", workflow_state="")
-
-    assert session.messages == []
-
-
-def test_initialize_session_skips_whitespace_profile_and_mode_messages():
-    session_log = InMemorySessionLog()
-    engine = QueryEngine(
-        client=object(),
-        tools=NoopToolRuntime(),
-        transcript_store=session_log,
-        mode_runtime_policy=WhitespaceModeRuntimePolicy(),
-        context_manager=WhitespaceWorkspaceProfile(),
-    )
-    session = Session()
-
-    engine.initialize_session(session, "", workflow_state="")
-
-    assert session.messages == []
-    assert [
-        event for event in session_log.load_events(session.session_id) if event["type"] == "message"
-    ] == []
-
-
-def test_apply_mode_skips_whitespace_mode_message():
-    session_log = InMemorySessionLog()
-    engine = QueryEngine(
-        client=object(),
-        tools=NoopToolRuntime(),
-        transcript_store=session_log,
-        mode_runtime_policy=WhitespaceModeRuntimePolicy(),
-    )
-    session = Session()
-
-    engine.apply_mode(session, "debug", workflow_state="")
-
-    assert session.messages == []
-    assert session_log.load_events(session.session_id) == []
-
-
 def test_run_agent_executes_user_turn_with_neutral_runtime(base_runtime):
     runtime, session_log = base_runtime
 
@@ -866,7 +906,7 @@ def test_run_agent_rejects_incomplete_trusted_prefix_before_engine_build(base_ru
     from embedagent_core.runner import SessionRecoveryRequired
 
     runtime, session_log = base_runtime
-    guarded_runtime = BuildCountingAgentRuntime(runtime.ports, runtime.definition)
+    guarded_runtime = AgentRuntime(runtime.ports, runtime.definition)
     session_id = "session-invalid"
     session_log.append_event(session_id, "session_meta", {"current_mode": ""})
     session_log.append_event(
@@ -905,7 +945,42 @@ def test_run_agent_rejects_incomplete_trusted_prefix_before_engine_build(base_ru
     assert "duplicate_turn_id" in str(captured.value)
     assert len(session_log.load_events(session_id)) == event_count
     assert runtime.ports.model.calls == 0
-    assert guarded_runtime.build_count == 0
+    assert guarded_runtime.ports.model.calls == 0
+
+
+def test_run_agent_rejects_unfinished_side_effect_without_replaying_tool(base_runtime):
+    from embedagent_core.runner import SessionRecoveryRequired
+
+    runtime, session_log = base_runtime
+    session_id = "session-incomplete-tool"
+    session_log.append_event(session_id, "session_meta", {"current_mode": ""})
+    session_log.append_event(
+        session_id,
+        "operation_started",
+        {
+            "operation_id": "tool:call-write",
+            "kind": "tool_call",
+            "turn_id": "turn-1",
+            "step_id": "step-1",
+            "tool_call_id": "call-write",
+            "retryable": False,
+            "metadata": {
+                "tool_name": "write_file",
+                "arguments": {"path": "result.txt", "content": "changed"},
+            },
+        },
+    )
+    event_count = len(session_log.load_events(session_id))
+
+    with pytest.raises(SessionRecoveryRequired) as captured:
+        run_agent(
+            runtime,
+            AgentRequest(session_id, UserTurn("continue", stream=False)),
+        )
+
+    assert captured.value.stop_reason == "incomplete_side_effect"
+    assert len(session_log.load_events(session_id)) == event_count
+    assert runtime.ports.model.calls == 0
 
 
 def test_run_agent_rejects_mismatched_interaction_without_appending(base_runtime):
@@ -985,15 +1060,15 @@ def test_agent_runtime_reuses_extension_manager_and_assembles_extensions_once():
         RuntimeDefinition(extensions=(extension,)),
     )
 
-    first = runtime.build_engine()
-    second = runtime.build_engine()
-
-    assert first is not second
-    assert first.extension_manager is second.extension_manager
+    assert not hasattr(runtime, "build_engine")
+    assert runtime.transaction is not None
+    assert runtime.loop is not None
+    assert runtime.kernel is not None
+    assert runtime.journal is not None
     assert extension.assembly_count == 1
 
 
-def test_agent_runtime_registers_context_reducers_once_across_concurrent_builds():
+def test_agent_runtime_registers_context_reducers_once_across_concurrent_sessions():
     extension = ContextReducerRegistrarExtension()
     ports = AgentPorts(
         model=FakeModel(),
@@ -1002,15 +1077,21 @@ def test_agent_runtime_registers_context_reducers_once_across_concurrent_builds(
         context=NoopContextAssembler(),
         permissions=PermissionPolicy(),
     )
-    runtime = AgentRuntime(
-        ports,
-        RuntimeDefinition(extensions=(extension,)),
-    )
+    from embedagent_core import Agent
+
+    agent = Agent.create(ports, RuntimeDefinition(extensions=(extension,)))
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        engines = list(executor.map(lambda _index: runtime.build_engine(), range(2)))
+        results = list(
+            executor.map(
+                lambda index: agent.open("parallel-%d" % index).submit(
+                    UserTurn("run", stream=False)
+                ),
+                range(2),
+            )
+        )
 
-    assert len(engines) == 2
+    assert [result.final_text for result in results] == ["done", "done"]
     assert extension.calls == 1
 
 
