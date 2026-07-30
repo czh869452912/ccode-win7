@@ -843,6 +843,10 @@ cleanup stages and is at the release handoff:
 
 - delete or replace transitional session, timeline, GUI reducer, and
   extension-hook layers instead of adapting around them
+- TDD feedback foundation: replace the recursive/full local test path with one
+  audited suite command, separate release and performance execution, and keep
+  complete fixed CI partitions. Architecture-owner directories, slice commands,
+  and large test-module decomposition remain the next test-asset migration.
 - keep validating on real C projects
 - keep tightening offline bundle behavior around the shared runtime contract
 - keep the transcript-backed session-history path as the only official history model

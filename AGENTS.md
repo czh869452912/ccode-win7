@@ -20,14 +20,27 @@ These are the exact commands to use — copy-paste directly.
 # Install dev environment
 uv sync
 
-# Run tests (fast subset — excludes GUI and slow integration tests)
-uv run pytest tests/ -m "not slow and not gui" -v
+# Run one test node or file during the TDD red/green loop
+uv run python scripts/test-suite.py tdd tests/test_agent_effect_kernel.py
+
+# Re-run failures from the fast local partition
+uv run python scripts/test-suite.py failed
+
+# Run the local pre-push partition (no coverage, release, performance, slow, or GUI tests)
+uv run python scripts/test-suite.py pre-push
+
+# Run the complete regular Python partition
+uv run python scripts/test-suite.py full
+
+# Run delivery and performance partitions explicitly
+uv run python scripts/test-suite.py release
+uv run python scripts/test-suite.py performance
+
+# Audit partition collection and forbidden nested pytest execution
+uv run python scripts/test-suite.py audit
 
 # Run harness component tests only (task_graph, phase_engine, mode_runner)
 uv run pytest tests/ -m harness -v
-
-# Run all tests
-uv run pytest tests/ -v
 
 # Check lint (read-only)
 uv run --locked python scripts/lint.py
@@ -60,7 +73,7 @@ frontend-protocol changes, run this gate from the repository root:
 
 ```bash
 uv run pytest tests/test_pre_release_architecture_guards.py tests/test_current_architecture_boundaries.py -v
-uv run pytest tests/ -m "not slow and not gui" -v
+uv run python scripts/test-suite.py full
 uv run --locked python scripts/lint.py
 ```
 

@@ -105,9 +105,15 @@ that sdist path. Curating a prebuilt wheel with source, license, and hash record
 is release hardening, not a completed Phase 2 guarantee. The direct
 build/check/smoke and export scripts remain supported diagnostic and CI gates.
 
-`make ci` runs lint, the fast suite, product import smoke, distribution build,
-wheel inspection, isolated import smoke, and the offline bundle contract tests.
-These local gates do not constitute Win7/WebView2 release evidence.
+`make ci` runs lint, the audited regular, release, and performance Python
+partitions, product import smoke, distribution build, wheel inspection,
+isolated import smoke, and the offline bundle contract tests. These local gates
+do not constitute Win7/WebView2 release evidence.
+
+Local TDD uses exact nodes/files or the pre-push partition without coverage.
+Complete verification is the audited union of regular, release, performance,
+and frontend jobs. Release and performance tests are scheduled separately;
+they are not skipped from CI.
 
 The supported standalone Core SDK is `Agent` / `AgentSession`. A caller binds
 `AgentPorts`, creates an `Agent`, opens the durable transaction handle
@@ -467,7 +473,7 @@ Before merging GUI, Agent Core, permission, extension, workflow-package, or fron
 
 ```bash
 uv run pytest tests/test_pre_release_architecture_guards.py tests/test_current_architecture_boundaries.py -v
-uv run pytest tests/ -m "not slow and not gui" -v
+uv run python scripts/test-suite.py full
 uv run --locked python scripts/lint.py
 ```
 

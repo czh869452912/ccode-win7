@@ -1,10 +1,22 @@
-.PHONY: install test harness lint lint-fix smoke python-distributions-build python-distributions-check python-distributions-smoke offline-bundle-contract ci
+.PHONY: install test test-full test-release test-performance test-audit harness lint lint-fix smoke python-distributions-build python-distributions-check python-distributions-smoke offline-bundle-contract ci
 
 install:
 	uv sync
 
 test:
-	uv run pytest tests/ -m "not slow and not gui" --cov=src/embedagent
+	uv run python scripts/test-suite.py pre-push
+
+test-full:
+	uv run python scripts/test-suite.py full
+
+test-release:
+	uv run python scripts/test-suite.py release
+
+test-performance:
+	uv run python scripts/test-suite.py performance
+
+test-audit:
+	uv run python scripts/test-suite.py audit
 
 harness:
 	uv run pytest tests/ -m harness -v
@@ -32,4 +44,4 @@ python-distributions-smoke: python-distributions-check
 offline-bundle-contract: python-distributions-smoke
 	uv run pytest tests/test_packaging_control_plane.py tests/test_gui_launcher_exe_contract.py -q
 
-ci: lint test smoke offline-bundle-contract
+ci: lint test-audit test-full test-release test-performance smoke offline-bundle-contract

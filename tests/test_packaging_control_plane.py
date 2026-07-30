@@ -517,13 +517,24 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
         ):
             self.assertIn(name, script)
 
-    def test_make_ci_builds_checks_and_smokes_wheels_before_bundle_validation(self):
+    def test_make_ci_runs_complete_test_partitions_before_bundle_validation(self):
         makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
 
+        self.assertIn("test:\n\tuv run python scripts/test-suite.py pre-push", makefile)
+        self.assertIn("test-full:\n\tuv run python scripts/test-suite.py full", makefile)
+        self.assertIn("test-release:\n\tuv run python scripts/test-suite.py release", makefile)
+        self.assertIn(
+            "test-performance:\n\tuv run python scripts/test-suite.py performance", makefile
+        )
+        self.assertIn("test-audit:\n\tuv run python scripts/test-suite.py audit", makefile)
         self.assertIn("python-distributions-check: python-distributions-build", makefile)
         self.assertIn("python-distributions-smoke: python-distributions-check", makefile)
         self.assertIn("offline-bundle-contract: python-distributions-smoke", makefile)
-        self.assertIn("ci: lint test smoke offline-bundle-contract", makefile)
+        self.assertIn(
+            "ci: lint test-audit test-full test-release test-performance smoke "
+            "offline-bundle-contract",
+            makefile,
+        )
 
     def test_ci_workspace_jobs_provision_uv_and_share_offline_build_cache(self):
         workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
