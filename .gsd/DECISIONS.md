@@ -2,7 +2,7 @@
 
 ## 2026-07-27: Minimal Agent Core Convergence Shape
 
-**Status:** Approved
+**Status:** Implemented
 
 Adopt a deep public `AgentSession` facade over a deliberately limited internal
 effect/reducer kernel.
@@ -10,15 +10,15 @@ effect/reducer kernel.
 The public standalone flow remains `Agent.create -> Agent.open ->
 AgentSession.submit`. Internally, `AgentKernel` plans and accepts three closed
 effect families for context assembly, provider requests, and tool batches.
-`AgentLoop` becomes a small commit-execute-resume driver. `SessionJournal`
+`AgentLoop` is a small commit-execute-resume driver. `SessionJournal`
 appends events through `SessionLogPort` before `SessionReducer` applies them to
 live state. The same reducer handlers restore persisted sessions.
 
 Effects remain private and are not extension points. Extensions continue
 through the existing capability, `AgentExtensionHost`, tool runtime, permission,
 and workflow-patch contracts. Host continues through the non-root
-`HostedSessionController` boundary but must stop owning or passing mutable Core
-`Session` objects.
+`HostedSessionController` boundary and consumes frozen projections without
+owning or passing mutable Core `Session` objects.
 
 `AgentPorts.extension_manager` is the hosted shared-manager path and
 `RuntimeDefinition.extensions` is the standalone declarative path. Supplying
@@ -33,3 +33,10 @@ semantics required by the offline hosted product.
 
 The detailed design is recorded in
 `docs/superpowers/specs/2026-07-27-minimal-agent-core-convergence-design.md`.
+
+Implemented on 2026-07-30. `QueryEngine`, `SessionRestorer`,
+`ExecutionTracer`, and `CircuitBreaker` were deleted without compatibility
+aliases; Host mutable Core `Session` ownership was removed; and architecture,
+full Python, six-distribution isolation, lint, and GUI gates passed. Clean
+Windows 7/WebView2 bundle acceptance and real C/C++ project validation remain
+separate external gates.

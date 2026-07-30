@@ -5,132 +5,127 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-26`
+> 最后同步日期：`2026-07-29`
 > 对应代码范围：`packages/embedagent-core/src/embedagent_core/`, `packages/embedagent-host/src/embedagent_host/`
 
 ## 1. Purpose And Scope
 
-本模块文档说明通用 Agent Core 与 hosted product composition 执行主链路，重点覆盖 public `Agent` / `AgentSession`、non-root `HostedSessionController`、focused `AgentPorts`、内部 `QueryEngine` / `AgentLoop` / `AgentToolActionService` / `AgentExtensionHost`，以及 Host 的 `InProcessAdapter`、command/interaction/maintenance services 和 `ManagedSession` 分工。
+本模块文档说明通用 Agent Core 与 hosted product composition 的正式执行主链。公开入口是 `Agent` / `AgentSession` / `AgentPorts`；内部状态主链是 `SessionTransaction`、`SessionJournal`、`SessionReducer`、`AgentKernel` 和 `AgentLoop`；Host 只通过 `HostedSessionController` 获取冻结投影。
+
+`QueryEngine`、`SessionRestorer`、Host 持有 mutable Core `Session`、`ExecutionTracer` 和 `CircuitBreaker` 已删除，且没有兼容别名。
 
 ## 2. Responsibilities
 
-- public standalone `Agent` / `AgentSession` SDK and explicit `AgentPorts`
-- supported non-root `HostedSessionController` Core/Host bridge
-- session-scoped `QueryEngine` facade and transcript/session mutation owner
-- `AgentLoop` Pi-style open turn-loop continuation boundary
-- `AgentToolActionService` non-LLM tool action execution boundary
-- `AgentExtensionHost` extension dispatch and active schema projection boundary
-- hosted `InProcessAdapter` shared `ExtensionManager` ownership
-- hosted command and interaction service boundaries
-- provider snapshot, workflow prompt, and compaction journal helper boundaries
-- default extension assembly and manifest-gated project-local extension loading
-- session runtime host state
+- public standalone `Agent` / durable `AgentSession` SDK and explicit `AgentPorts`
+- `SessionTransaction` lease, restore, input dispatch, and result/host projection
+- `SessionJournal` append-before-apply commit and restore fold
+- `SessionReducer` as the only live/restore state writer
+- `AgentKernel` planning and accepting the three private context, provider, and tool effect families
+- `AgentLoop` commit-execute-resume driver with five required collaborators and one observer boundary
+- `AgentToolActionService` non-LLM action policy and execution
+- `AgentExtensionHost` declared extension dispatch and active schema projection
+- supported non-root `HostedSessionController` frozen Core/Host bridge
+- hosted `InProcessAdapter` shared `ExtensionManager` and session-handle ownership
+- hosted command, interaction, maintenance, projection, and history services
 
-`Agent Core` 的职责是提供 workflow-neutral session engine、extension boundary、permission policy、reducers、turn snapshots 与 capability read models。`embedagent_host` 把 Core、选定 workflow packages、slash command、tool runtime、session state、transcript 与 UI shells 组织成单一正式产品执行主链路，避免并行 owner 或平行 workflow path。
+Agent Core 提供 workflow-neutral execution、session reducer、permission policy、turn snapshot 与 capability read model。Host 注入 provider、tool runtime、context、store 和 selected application；默认 C/C++ 行为继续由独立 workflow package 提供。
 
 ## 3. Code Mapping
 
-- Core 目录：`packages/embedagent-core/src/embedagent_core/`
-- Host 目录：`packages/embedagent-host/src/embedagent_host/`
-- Core public 入口：`packages/embedagent-core/src/embedagent_core/api.py`
-- Core hosted 入口：`packages/embedagent-core/src/embedagent_core/hosting.py`
-- 核心对象：`Agent`、`AgentSession`、`HostedSessionController`、`AgentPorts`、`ContextAssemblerPort`、`SessionProjectionPort`、`SessionRestorePolicyPort`、`ToolRuntimePort`、`QueryEngine`、`AgentLoop`、`AgentToolActionService`、`AgentExtensionHost`、`InProcessAdapter`、`HostedSessionMaintenance`、`ManagedSession`
-- 上游依赖：frontend / core adapter / slash commands
-- 下游影响：harness、tools runtime、session snapshot、transcript
-- 相关测试：`tests/test_query_engine_refactor.py`、`tests/test_inprocess_adapter_frontend_api.py`、`tests/test_gui_backend_api.py`、`tests/test_capability_extensions.py`、`tests/test_dynamic_tool_registration.py`、`tests/test_project_extensions.py`、`tests/test_local_resources.py`、`tests/test_workflow_extensions.py`
-- 相关契约：`docs/overall-solution-architecture.md`、`docs/agent-harness-v2.md`、`docs/frontend-protocol.md`
+- Core public API：`packages/embedagent-core/src/embedagent_core/api.py`
+- runtime assembly / low-level entry：`packages/embedagent-core/src/embedagent_core/runner.py`
+- transaction：`packages/embedagent-core/src/embedagent_core/session_transaction.py`
+- durable journal：`packages/embedagent-core/src/embedagent_core/session_journal.py`
+- closed reducer：`packages/embedagent-core/src/embedagent_core/session_reducer.py`
+- private effects：`packages/embedagent-core/src/embedagent_core/agent_effects.py`
+- kernel / driver：`packages/embedagent-core/src/embedagent_core/agent_kernel.py`, `packages/embedagent-core/src/embedagent_core/agent_loop.py`
+- provider / tool execution：`packages/embedagent-core/src/embedagent_core/provider_step_service.py`, `packages/embedagent-core/src/embedagent_core/agent_tool_action_service.py`
+- extension boundary：`packages/embedagent-core/src/embedagent_core/agent_extension_host.py`, `packages/embedagent-core/src/embedagent_core/extensions.py`
+- frozen read views：`packages/embedagent-core/src/embedagent_core/session_view.py`
+- hosted Core bridge：`packages/embedagent-core/src/embedagent_core/hosting.py`
+- Host runtime：`packages/embedagent-host/src/embedagent_host/inprocess_adapter.py`, `packages/embedagent-host/src/embedagent_host/runtime/session_runtime.py`
+- workflow package：`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`
 
 ## 4. Dependencies And Consumers
 
-上游消费者：
+Core 仅依赖 Python 标准库，并通过 `AgentPorts` 消费 model、tool、log、context、permission、restore、projection 和 extension collaborators。Core 不得导入 Host、Protocol、product、GUI 或 workflow packages。
 
-- `src/embedagent/core/adapter.py`
-- `src/embedagent/frontend/`
-- slash command 路径和 API bridge
-
-下游依赖：
-
-- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`
-- `packages/embedagent-host/src/embedagent_host/runtime/tools/`
-- `packages/embedagent-core/src/embedagent_core/extensions.py`
-- `packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py`
-- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py`
-- `packages/embedagent-host/src/embedagent_host/runtime/project_extensions.py`
-- `packages/embedagent-core/src/embedagent_core/session.py`
-- `packages/embedagent-host/src/embedagent_host/runtime/transcript_store.py`
-- `packages/embedagent-host/src/embedagent_host/runtime/session_projector.py`
+Host 依赖 Core 和 Protocol，提供 generic providers、tools、stores、context、session hosting 与 projections。Product composition 选择 application/workflow package；Host 不得反向导入 product，也不得恢复 mutable Core `Session` ownership。
 
 ## 5. Data / Control Flow
 
-`Agent` / `AgentSession` 是 standalone public facade；`HostedSessionController` 是支持的 non-root Host bridge；`QueryEngine` 保留内部 transcript/session mutation ownership。`AgentLoop` 承担 Pi-style open turn-loop continuation 边界，负责 agent step、context/provider attempt、compact retry、guard-stop、abort 与显式 loop safety-limit 兼容 transition；默认 hosted 路径不再因为 8 个 model/tool cycles 被截断。`AgentToolActionService` 承担非 LLM tool action execution，`AgentExtensionHost` 承担 extension dispatch、dynamic tool registration、active schema projection 与 workflow patching。`TurnSnapshotService` 承担 provider snapshot 元数据组装，`PromptAssemblyService` 承担 workflow prompt append/dedupe，`CompactionJournal` 承担 compact boundary / compacted history payload 组装。`InProcessAdapter` 负责把 CLI/TUI/GUI 的请求接到 session owner 上，并持有 hosted runtime 的 shared `ExtensionManager`；slash command 与 pending interaction glue 分别由 `HostedCommandService` 和 `HostedInteractionService` 承担。扩展对象只有通过 `extension_capabilities()` 返回 `ExtensionCapability` 记录才会参与这些 hook；单纯定义同名方法不会被自动注册。
+`AgentSession.submit` 调用低层 `run_agent`，进入一个 leased `SessionTransaction`。Transaction 从 `SessionJournal` 恢复或创建内部状态，输入策略生成事件/effect，`AgentLoop` 先提交 `KernelStep.events`，再执行一个 closed effect，并把 typed result 交回 `AgentKernel`。实际 canonical event append 成功后，`SessionReducer` 才更新 live state；restore 使用同一 reducer。
+
+`HostedSessionController` 通过同一个 transaction 边界执行 trusted hosted operations，返回冻结 `HostedSessionProjection`。Host 的 `ManagedSession` 只保存 session id、`AgentSession` / controller handles、projection/history、diagnostics 与 worker/UI state。
 
 ```mermaid
 flowchart TD
-    A["Frontend"] --> B["Core Adapter"]
-    B --> C["InProcessAdapter"]
-    C --> D["Session Runtime"]
-    D --> E["QueryEngine"]
-    E --> X["TurnSnapshotService / PromptAssemblyService / CompactionJournal"]
-    E --> F["AgentLoop"]
-    F --> G["AgentToolActionService"]
-    G --> H["AgentExtensionHost"]
-    G --> I["ToolRuntime"]
-    G --> J["PermissionPolicy"]
-    H --> K["ExtensionManager"]
+    A["Frontend / CLI / TUI"] --> B["InProcessAdapter"]
+    B --> C["Agent / AgentSession"]
+    C --> D["SessionTransaction"]
+    D --> E["SessionJournal"]
+    E --> F["SessionLogPort"]
+    E --> G["SessionReducer"]
+    D --> H["AgentKernel"]
+    H --> I["AgentLoop"]
+    I --> E
+    I --> J["ProviderStepService"]
+    I --> K["AgentToolActionService"]
+    J --> L["AgentExtensionHost"]
+    K --> L
+    K --> M["ToolRuntime / PermissionPolicy"]
+    B --> N["HostedSessionController"]
+    N --> D
 ```
 
 关键边界：
 
-- `QueryEngine` 是 session-scoped facade 和 transcript/session mutation owner。
-- `AgentPorts` 只携带 focused model/tool/log/context/restore/projection/permission/extension collaborators；Host workspace intelligence 和 persistence 不得塞回通用 service bag。
-- `HostedSessionController` 可以从 `embedagent_core.hosting` 显式导入，但不从 package root 导出；Host 不得调用 private `AgentSession` 成员。
-- `AgentLoop`、`AgentToolActionService`、`AgentExtensionHost` 是 loop/action/extension dispatch 子边界。
-- `TurnSnapshotService`、`PromptAssemblyService`、`CompactionJournal` 是 snapshot/prompt/compaction helper 子边界。
-- `InProcessAdapter` 不应生成第二套 workflow identity，也不应重新拥有 slash-command 或 pending-interaction helper 逻辑。
-- `HostedCommandService` owns slash-command dispatch and command-result emission; `HostedInteractionService` owns approve/reject/reply/respond glue.
-- hosted product paths 通过 selected `AgentApplication` 安装 bundled/default workflow packages，并通过 `AgentApplication.refresh_managed_session()` 刷新应用拥有的 workflow/session projection；也可通过 `project_extensions.py` 加载 manifest-gated local extensions。
-- workflow-neutral profile runtime policy 与基础工具/写路径常量由 `packages/embedagent-core/src/embedagent_core/profile_runtime.py` 提供；Host 与 workflow packages 只组合或扩展领域 profile，不重复声明 Core 常量。
-- Host 将 live session changes 编码为 `SessionEventEnvelope`；产品 adapter 和 frontend backend 原样转发，不在 Core/GUI 间增加第二套 event translator。
-- selected `AgentApplication.workspace_profile_detectors` 可向 hosted workspace profile 注入专用文件信号；通用 workspace profile 不持有 C/C++ 文件或构建系统常量。
-- base application registry 只持有 profile-only records；hosted product registry 显式组合默认 C/C++ workflow application，构建通用/非 C agent 不会导入默认 C/C++ workflow package。
-- runtime host 负责承载，而不是替代 engine 执行逻辑。
+- `AgentSession` 是 public durable transaction handle，不暴露内部 `Session`。
+- `SessionJournal` 在 actual append 前用 detached state 预检；append 成功后才由 `SessionReducer` 更新 live state。
+- `SessionReducer` 是 live execution 与 restore 的唯一 session mutator。
+- `AgentKernel` 仅拥有 context/provider/tool 三类 private effect state machine。
+- `AgentLoop` 不拥有 callback bag、workflow package policy 或直接 session mutator。
+- `AgentExtensionHost` 集中 declared extension dispatch；不得在 transaction、loop 或 Host facade 重建 hook 分发。
+- Host ports 接收 `SessionReadView`，hosted operations 返回 `HostedSessionProjection`。
+- 默认 C/C++ application 由 product catalog 注入，generic Core/Host 没有 harness constructor fallback。
 
 ## 6. Verification And Tests
 
 推荐回归入口：
 
-- `tests/test_query_engine_refactor.py`
-- `tests/test_query_engine_build_full_spec.py`
-- `tests/test_query_engine_build_lite.py`
-- `tests/test_query_engine_debug_lite.py`
-- `tests/test_inprocess_adapter_frontend_api.py`
-- `tests/test_gui_backend_api.py`
-- `tests/test_capability_extensions.py`
-- `tests/test_dynamic_tool_registration.py`
-- `tests/test_project_extensions.py`
-- `tests/test_local_resources.py`
-- `tests/test_workflow_extensions.py`
+- `tests/test_agent_core_public_api.py`
+- `tests/test_agent_runtime_integration.py`
+- `tests/test_session_journal.py`
+- `tests/test_session_reducer.py`
+- `tests/test_session_reducer_restore.py`
+- `tests/test_agent_effect_kernel.py`
+- `tests/test_agent_loop_driver.py`
+- `tests/test_session_read_view.py`
+- `tests/test_host_agent_facade.py`
+- `tests/test_host_package_composition.py`
+- `tests/test_current_architecture_boundaries.py`
+- `tests/test_pre_release_architecture_guards.py`
 
-当变更影响 step anchor、resume pipeline、bootstrap、extension dispatch、dynamic tools、resource reload、project extension loading、hosted command/interaction services、provider snapshots、compaction payloads 或 adapter/frontend contract 时，应优先重跑这些测试。
+涉及 Core/Host 边界时还必须运行仓库根目录 `AGENTS.md` 中的 pre-merge architecture gate 和六 wheel build/check/smoke gate。
 
 ## 7. Change Triggers
 
 以下变化必须同步更新本文件：
 
-- `QueryEngine` owner 边界变化
-- `AgentLoop`、`AgentToolActionService` 或 `AgentExtensionHost` 职责变化
-- `TurnSnapshotService`、`PromptAssemblyService`、`CompactionJournal` 职责变化
-- `InProcessAdapter` 承担的职责变化
-- `HostedCommandService` 或 `HostedInteractionService` 职责变化
-- default extension assembly 或 project-local extension loading 路径变化
-- `ManagedSession` 或 session runtime host 结构变化
-- turn/step/interactions 的正式主链路变化
-- frontend 到 engine 的桥接边界变化
+- public `Agent` / `AgentSession` contract
+- `SessionTransaction`, `SessionJournal`, or `SessionReducer` ownership
+- private effect families or `AgentKernel` transition rules
+- `AgentLoop`, `ProviderStepService`, `AgentToolActionService`, or `AgentExtensionHost` responsibilities
+- `SessionReadView` / `HostedSessionProjection` contract
+- `ManagedSession` ownership or Host restore/projection flow
+- default application/workflow package assembly
+- turn, step, interaction, compaction, or recovery durable event semantics
 
 ## 8. Related Documents
 
+- `AGENTS.md`
+- `README.md`
 - `docs/overall-solution-architecture.md`
-- `docs/agent-harness-v2.md`
+- `docs/implementation-roadmap.md`
 - `docs/frontend-protocol.md`
-- `docs/references/code-doc-matrix.md`
-- `docs/references/glossary.md`
+- `docs/superpowers/specs/2026-07-27-minimal-agent-core-convergence-design.md`

@@ -169,9 +169,13 @@ The current baseline remains authoritative. `docs/pi-inspired-agent-core-bluepri
 
 The project is still pre-release and has no production user state to preserve. `docs/pre-release-architecture-debt-audit.md` records the closed pre-release debt cleanup baseline and remains the deletion-oriented guardrail: do not add compatibility scaffolding for old internal session, timeline, GUI reducer, or extension-hook shapes when a slice can delete or replace them. Forward compatibility for pre-release internal state is not a goal; preserving Windows 7, offline deployment, Python 3.8, and the default C/C++ workflow remains mandatory.
 
-`Agent` / `AgentSession` are the public standalone Core SDK. `run_agent` is the
-low-level execution primitive, while `QueryEngine` is internal implementation
-and must not be exposed as the Host or third-party integration facade.
+`Agent` / `AgentSession` are the public standalone Core SDK, and
+`AgentSession` is the public durable session transaction handle. `run_agent`
+is the low-level execution primitive. Internal `SessionTransaction` owns the
+leased restore-dispatch-project boundary; `SessionJournal` preflights events,
+appends them through `SessionLogPort`, and only then lets `SessionReducer`
+apply them to live state. Restore folds the same event families through the same
+reducer.
 `SessionLogPort` is the durable log contract; the hosted product's
 `transcript.jsonl` store is one adapter rather than the public abstraction.
 Standalone Core preserves missing mode and workflow values as empty and
@@ -187,12 +191,17 @@ mode, workflow, permission, and write-path policies.
 
 `HostedSessionController` from `embedagent_core.hosting` is the supported
 non-root Core/Host boundary for trusted hosted continuation and inspection.
-It is intentionally absent from the `embedagent_core` package root. Host code
-must not call private `AgentSession` members or construct `QueryEngine`.
+It is intentionally absent from the `embedagent_core` package root. Host
+receives frozen `HostedSessionProjection` values through this controller and
+must not call private `AgentSession` members, import or receive mutable Core
+`Session`, or own restore.
 `AgentPorts` uses focused `ContextAssemblerPort`, `SessionProjectionPort`,
 `SessionRestorePolicyPort`, `ToolRuntimePort`, and permission collaborators;
 hosted workspace intelligence, persistence, and maintenance remain Host-owned.
 Do not reintroduce a general runtime service/callback bag.
+`QueryEngine`, `SessionRestorer`, mutable Host `Session` ownership,
+`ExecutionTracer`, and `CircuitBreaker` are retired and have no compatibility
+aliases.
 
 `SessionEventEnvelope` is the canonical live session event DTO. Host creates
 one envelope with schema version, event id, session id, sequence, event kind,
@@ -235,20 +244,42 @@ Local offline self-extension is an official architecture capability, limited to 
 
 `InProcessAdapter` owns one hosted `Agent` runtime and its shared
 `ExtensionManager`. Every `ManagedSession` stores an `AgentSession` opened from
-that runtime. Frontend tool catalog visibility must use the same manager instead
-of a separate adapter-only harness extension chain. `InProcessAdapter` must not
-import or construct `QueryEngine`.
+that runtime plus frozen projection/history data, never a mutable Core
+`Session`. Frontend tool catalog visibility must use the same manager instead
+of a separate adapter-only harness extension chain.
 
 `ExtensionManager` is also the shared in-process capability boundary for prompt/context hooks, tool-call and tool-result hooks, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Extensions participate only by exposing `extension_capabilities()` records built from `ExtensionCapability`; method-name hooks such as `context`, `register_tools`, `allowed_tool_names`, or `handle_tool_call` are ignored unless explicitly declared in that capability list. Its hook internals dispatch through `AgentEventBus` with source metadata, observer/reducer separation, event-specific merge/stop semantics, and diagnostics; do not add new extension hook merge semantics outside that bus. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are discoverable and reloadable as file resources only. Skills support Agent Skills-style frontmatter and visible skills are summarized through a single lightweight local skill listing prompt unit. Skill bodies expand only through `/skill:<name> [args]`; prompt bodies expand only through `/prompt:<name-or-path> [args]`. Both remain Markdown/resource loading, not code execution. `author_local_capability` may generate those resources and disabled extension skeletons, but it must not reload resources, load Python extension code, or stamp generated recipe JSON with default C/C++ workflow tool names. Project-local Python extensions are loaded only from enabled `.embedagent/extensions/<name>/extension.json` manifests with workspace-bound `extension.py` entrypoints, declared permissions, explicit `api.ExtensionCapability` registrations for any hooks/tools they expose, no dependency installation, no remote registry, and no built-in tool replacement.
 
-`AgentExtensionHost` is the QueryEngine-side extension dispatch boundary. `QueryEngine` must not scatter direct `ExtensionManager` hook calls for prompt injection, context patching, dynamic tool registration, active-tool schema projection, tool-call hooks, tool-result hooks, or extension-owned tool handling.
+`AgentExtensionHost` is the runtime-side extension dispatch boundary.
+`AgentRuntime`, `SessionTransaction`, and `SessionInputDispatcher` must not
+scatter direct `ExtensionManager` hook calls for prompt injection, context
+patching, dynamic tool registration, active-tool schema projection, tool-call
+hooks, tool-result hooks, or extension-owned tool handling.
 `WorkflowPatch` from tool-result hooks carries only the generic `workflow`
 read model plus safe `metadata`; do not reintroduce extension
 `legacy_projection` or parallel workflow projection fields.
 
-Workflow-package prompt units appended by `QueryEngine` must use the generic `workflow_prompt` system message kind. The old harness-specific prompt kind is not active and must not be used for workflow prompt injection or deduplication.
+Workflow-package prompt units appended by `PromptAssemblyService` must use the
+generic `workflow_prompt` system message kind. The old harness-specific prompt
+kind is not active and must not be used for workflow prompt injection or
+deduplication.
 
-`AgentLifecycleJournal` owns durable lifecycle event emission, transition save points, pending interaction lifecycle operation events, context operation payload helpers, and workflow-patch persistence helpers. `AgentKernel` owns turn frames plus pending interaction creation/resolution boundaries. `AgentToolActionService` owns non-LLM tool action execution behind the internal `QueryEngine`: active-tool checks, extension pre/post hooks, `PermissionPolicy` evaluation, path write guards, runtime dispatch, extension-owned tool calls, interactive action handling, resumed action execution, and workflow-patch capture after tool-result hooks. `AgentLoop` owns Pi-style open turn-loop continuation behind `AgentSession`, including agent steps, provider/context attempts, active schema requests through `AgentExtensionHost`, compact retry, guard-stop, abort, and explicit loop safety-limit compatibility transitions. `ProgressGuard` owns evidence-fingerprint based no-progress/runaway detection over action plus observation pairs; it must not collapse distinct files, commands, diagnostics, or successful changes into a generic repeated-tool stop. Ordinary command/build/test failures are diagnostic tool results for the next model turn and must not trigger hard loop termination merely because they are non-zero or non-retryable; guard-stop is for no-progress/runaway protection. `max_turns` remains accepted only as an explicit runtime/test safety fuse; persistent JSON configuration must not set a product loop ceiling, and omitted values mean no fixed turn-count ceiling. `QueryEngine` remains an internal transcript/session mutation owner; do not reintroduce private loop, completion, active-tool, action-execution, snapshot-assembly, workflow-prompt, or compaction-payload forwarding wrappers such as `_run_loop`, `_is_completion_signal`, `_allowed_tools_for_mode`, `_schemas_for_active_tools`, `_execute_action`, `_execute_parallel_tool_action`, `_capability_snapshot_for_provider`, `_prompt_units_for_snapshot`, `_append_workflow_prompt_messages`, `_compaction_token_counts`, or `_compacted_history_payload`.
+`AgentLifecycleJournal` owns lifecycle event intents and transition save points.
+`AgentKernel` plans and accepts only the three private context, provider, and
+tool effect families. `AgentLoop` is the commit-execute-resume driver with five
+required focused collaborators and one observer boundary; it commits
+`KernelStep.events` through `SessionJournal` before executing the next effect.
+`AgentToolActionService` owns non-LLM action policy and execution:
+active-tool checks, extension pre/post hooks, `PermissionPolicy`, path guards,
+runtime dispatch, interaction suspension/resume, and workflow-patch capture.
+`ProgressGuard` owns evidence-fingerprint based no-progress/runaway detection
+over action plus observation pairs; it must not collapse distinct files,
+commands, diagnostics, or successful changes into a generic repeated-tool stop.
+Ordinary command/build/test failures remain diagnostic observations for the
+next model turn. `max_turns` remains only an explicit runtime/test safety fuse;
+omitted values mean no fixed turn-count ceiling. Do not reintroduce a loop
+callback bag, a second live-state writer, or forwarding facades around these
+owners.
 
 `TurnSnapshot` is the explicit frozen provider-request input. `TurnSnapshotService` builds it after context assembly and active tool schema projection, then provider requests consume `snapshot.messages` and `snapshot.tool_schemas`. Snapshot diagnostics may record `snapshot_id`, mode/workflow state, registered tool names, active tool names, credential-free model profile metadata, safe prompt-unit metadata, and capability counts; they must not record full prompt bodies, file contents, raw tool outputs, or API keys.
 
@@ -265,11 +296,10 @@ Workflow-package prompt units appended by `QueryEngine` must use the generic `wo
 `TurnExperienceReducer` is the transcript-backed read model for user-facing turn experience. It reduces safe `tool_result` and `loop_transition` events into completed work, unverified changes, validation failures, blockers, and next steps. Session snapshots and `session_finished` events may expose `turn_experience` for CLI/TUI/GUI display; the projection must not drive loop continuation, validation policy, active tools, permissions, restore behavior, extension loading, or session-history truth.
 
 Default extension assembly is selected by product composition and injected into
-the Host runtime. `QueryEngine` must not import or construct
-`CHarnessWorkflowExtension`; direct internal `QueryEngine` tests that need
-default C/C++ behavior must pass an explicit `ExtensionManager`, while hosts
-must bind the selected manager through `AgentPorts` and use `Agent` /
-`AgentSession`.
+the Host runtime. Core runtime assembly must not import or construct
+`CHarnessWorkflowExtension`; direct Core runtime tests that need default C/C++
+behavior must pass an explicit `ExtensionManager`, while hosts bind the
+selected manager through `AgentPorts` and use `Agent` / `AgentSession`.
 
 `HarnessStateSynchronizer` has been removed. Product adapter paths must refresh harness state through `CHarnessWorkflowExtension.refresh_managed_session()` behind the default harness workflow extension.
 

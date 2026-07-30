@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -18,7 +19,7 @@ class TaskGraphV2Tests(unittest.TestCase):
         extension = CHarnessWorkflowExtension()
         session = Session()
 
-        extension.initialize_workflow_state(
+        patch = extension.initialize_workflow_state(
             session,
             user_text="build the demo program",
             current_mode="build",
@@ -26,23 +27,33 @@ class TaskGraphV2Tests(unittest.TestCase):
         )
 
         self.assertFalse(hasattr(session, "task_graph"))
-        self.assertIn("workflow", session.workflow_state)
-        self.assertIn("summary", session.workflow_state["workflow"])
+        self.assertEqual(session.workflow_state, {})
+        self.assertIsNotNone(patch)
+        self.assertIn("summary", patch.workflow)
 
         managed = ManagedSession(
-            session=session,
+            session_id=session.session_id,
             current_mode="build",
+            projection={
+                "workflow_state": {
+                    "workflow": dict(patch.workflow),
+                }
+            },
             workflow_state="chat",
         )
+        task_store = MagicMock()
         extension.refresh_managed_session(
             managed,
             os.getcwd(),
             observations=[Observation("run_recipe", True, None, {"recipe_id": "unit"})],
+            task_store_module=task_store,
         )
 
-        workflow = session.workflow_state["workflow"]
-        self.assertTrue(workflow["summary"])
-        self.assertTrue(workflow["items"])
+        task_store.save_task_snapshot.assert_called_once()
+        saved = task_store.save_task_snapshot.call_args.args
+        self.assertEqual(saved[1], session.session_id)
+        self.assertTrue(saved[6])
+        self.assertTrue(saved[7])
 
     def test_new_graph_starts_with_single_active_task(self):
         from embedagent_workflow_cpp.task_graph import TaskGraph

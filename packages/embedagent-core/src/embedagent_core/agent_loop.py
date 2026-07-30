@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import replace
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from embedagent_core.agent_effects import (
     AssembleContextEffect,
@@ -16,13 +16,10 @@ from embedagent_core.agent_kernel import AgentKernel, KernelStep
 from embedagent_core.agent_loop_continuation import AgentLoopContinuationPolicy
 from embedagent_core.agent_tool_action_service import AgentToolActionService
 from embedagent_core.guard import ProgressGuard
-from embedagent_core.interaction import UserInputRequest, UserInputResponse
-from embedagent_core.permissions import PermissionRequest
 from embedagent_core.provider_step_service import ProviderObserver, ProviderStepService
 from embedagent_core.session import (
     Action,
     AssistantReply,
-    ContextAssemblyResult,
     LoopTransition,
     Observation,
     QueryTurnResult,
@@ -76,17 +73,6 @@ class AgentLoop(object):
         cancel: Optional[Any] = None,
         max_turns: Optional[int] = None,
         max_parallel_tools: int = 3,
-        on_text_delta: Optional[Callable[[str], None]] = None,
-        on_reasoning_delta: Optional[Callable[[str], None]] = None,
-        on_tool_start: Optional[Callable[[Action], None]] = None,
-        on_tool_finish: Optional[Callable[[Action, Observation], None]] = None,
-        on_context_result: Optional[Callable[[ContextAssemblyResult], None]] = None,
-        on_step_start: Optional[Callable[[str, int], None]] = None,
-        on_step_finish: Optional[Callable[[int, AssistantReply, str], None]] = None,
-        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]] = None,
-        user_input_handler: Optional[
-            Callable[[UserInputRequest], Optional[UserInputResponse]]
-        ] = None,
     ) -> QueryTurnResult:
         step = self._kernel.start(
             turn_id,
@@ -103,6 +89,10 @@ class AgentLoop(object):
         pending_tool_notifications = ()  # type: Tuple[Tuple[Action, Observation], ...]
         pending_step_finish = None
         last_reply = AssistantReply("")
+        on_context_result = self._observer_callback(observer, "on_context_result")
+        on_tool_finish = self._observer_callback(observer, "on_tool_finish")
+        on_step_finish = self._observer_callback(observer, "on_step_finish")
+        on_step_start = self._observer_callback(observer, "on_step_start")
 
         while True:
             committed_events = self._commit(step, session, reduction_context)
@@ -149,11 +139,6 @@ class AgentLoop(object):
                     session,
                     observer,
                     cancel,
-                    on_text_delta,
-                    on_reasoning_delta,
-                    on_tool_start,
-                    permission_handler,
-                    user_input_handler,
                     max_parallel_tools,
                 )
 
@@ -238,7 +223,7 @@ class AgentLoop(object):
     def _notify_step_starts(
         self,
         events: Tuple[dict, ...],
-        callback: Optional[Callable[[str, int], None]],
+        callback: Optional[Any],
     ) -> None:
         if callback is None:
             return
@@ -265,11 +250,6 @@ class AgentLoop(object):
         session: Session,
         observer: Optional[Any],
         cancel: Optional[Any],
-        on_text_delta: Optional[Callable[[str], None]],
-        on_reasoning_delta: Optional[Callable[[str], None]],
-        on_tool_start: Optional[Callable[[Action], None]],
-        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]],
-        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
         max_parallel_tools: int,
     ):
         if isinstance(effect, AssembleContextEffect):
@@ -278,18 +258,18 @@ class AgentLoop(object):
             return self._provider_steps.request_provider(
                 effect,
                 ProviderObserver(
-                    on_text_delta or self._observer_callback(observer, "on_text_delta"),
-                    on_reasoning_delta or self._observer_callback(observer, "on_reasoning_delta"),
+                    self._observer_callback(observer, "on_text_delta"),
+                    self._observer_callback(observer, "on_reasoning_delta"),
                 ),
             )
         if isinstance(effect, ExecuteToolBatchEffect):
             return self._tool_actions.execute(
                 effect,
                 session,
-                permission_handler=permission_handler,
-                user_input_handler=user_input_handler,
+                permission_handler=self._observer_callback(observer, "on_permission_request"),
+                user_input_handler=self._observer_callback(observer, "on_user_input_request"),
                 stop_event=cancel,
-                on_action_start=on_tool_start,
+                on_action_start=self._observer_callback(observer, "on_tool_start"),
                 max_parallel_tools=max_parallel_tools,
             )
         raise TypeError("unsupported agent effect")

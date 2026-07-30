@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-07-26（Phase 7C architecture convergence）
+> 更新日期：2026-07-30（Minimal Agent Core convergence complete）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,35 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-07-30 - Minimal Agent Core Convergence Complete
+
+- `AgentSession` 已成为 public durable session transaction handle；低层
+  `run_agent` 进入单一 `SessionTransaction` lease/restore/dispatch/project
+  路径。
+- `SessionJournal` 在 detached state 上预检 event intents，canonical event
+  append 成功后才由 `SessionReducer` 更新 live state；restore 使用同一组
+  reducer handlers。
+- `AgentKernel` 只规划 context/provider/tool 三类 private effects；
+  `AgentLoop` 是五个 required collaborators 驱动的
+  commit-execute-resume loop，旧 optional callback bag 已删除并由单一
+  observer boundary 取代。
+- `HostedSessionController` 返回 frozen `HostedSessionProjection`；
+  `ManagedSession` 只保留 id、handles、projection/history、diagnostics 和
+  worker/UI state，不再持有 mutable Core `Session` 或 Host restore owner。
+- `QueryEngine`、`SessionRestorer`、`ExecutionTracer` 和 `CircuitBreaker`
+  已从活动源码删除，且 architecture guards 禁止重新引入路径或别名。
+- 默认 C/C++ workflow 仍从 product application catalog 注入；generic Core
+  继续 dependency-free，Host 继续不导入 product/workflow package。
+- 收口门禁已通过：architecture guards 159/159，fast Python 1681 passed
+  / 1 deselected，full Python 1682/1682，Ruff/Black check 通过。
+- 六个 Python wheel 均构建成功，distribution checker 返回 `ok: true`，
+  Core/Protocol/Host/Composition/C++ workflow/product 六种独立或组合 smoke
+  场景全部在 Python 3.8.10 下通过。
+- GUI webapp tests 和 production build 均通过；本轮未修改 webapp source，
+  生产构建没有产生需要提交的静态资产差异。
+- clean Windows 7 SP1 x64/WebView2 109 windowed evidence 和 Phase 8 真实
+  C/C++ 工程验证仍是独立外部事项，不因本轮 Core 架构收敛而关闭。
 
 ### 2026-07-26 - Phase 7C Architecture Convergence
 

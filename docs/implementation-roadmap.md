@@ -28,8 +28,8 @@ Phase 3 has completed the independent-agent/workflow packaging slice:
   package identity and Core runtime-definition factory, and its source tree
   has no Host, Protocol, Composition, or product imports.
 - Product composition selects the C/C++ workflow through an injected
-  `RuntimeDefinition` and application catalog record. The Host adapter does
-  not construct the workflow package or `QueryEngine`.
+  `RuntimeDefinition` and application catalog record. Generic Host remains
+  workflow-neutral and product composition injects the selected package.
 - C++ recipe projection consumes Host-discovered JSON-safe recipe records and
   resource metadata through the extension boundary. Local resource discovery
   remains Host-owned; CMake/Make/Ninja detection and recipe normalization
@@ -123,8 +123,11 @@ product composition and default C/C++ behavior:
 
 - `Agent` / `AgentSession` are now the supported standalone Core SDK; typed
   `UserTurn` and `InteractionReply` inputs share the same public submit path
-- `run_agent` is the low-level execution primitive and `QueryEngine` is internal
-  implementation rather than the public Host/session facade
+- `AgentSession` is the durable transaction handle and `run_agent` is the
+  low-level execution primitive
+- internal `SessionTransaction` owns lease/restore/dispatch/projection;
+  `SessionJournal` appends through `SessionLogPort` before `SessionReducer`
+  applies live state, and restore folds the same reducer
 - `SessionLogPort` is the durable Core contract; the hosted
   `transcript.jsonl` store is one adapter
 - missing mode and workflow values remain empty in standalone Core;
@@ -150,14 +153,16 @@ product composition and default C/C++ behavior:
   contains the first-party independently exported C/C++ workflow package
 - `packages/embedagent-core/src/embedagent_core/extensions.py` now provides the in-process workflow extension boundary
 - the C/C++ harness is wrapped as the default built-in workflow extension
-- `QueryEngine` no longer imports or instantiates `TaskGraph` directly
-- `QueryEngine` no longer imports or constructs the default C harness extension; `src/embedagent/product_catalog.py` composes the default C/C++ `AgentApplicationRecord` with the callable runtime factory from `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py`
+- generic Core runtime assembly imports neither `TaskGraph` nor the default C
+  harness extension; `src/embedagent/product_catalog.py` composes the C/C++
+  application record with the workflow package runtime factory
 - `Session.workflow_state` is the generic workflow-state carrier; `Session.task_graph` has been removed and default C harness graph state is owned behind `CHarnessWorkflowExtension`
 - `SessionSnapshotProjector` and live frontend task APIs now project harness task fields from `Session.workflow_state["workflow"]`
 - the obsolete extracted turn-orchestrator strategy has been removed; `AgentLoop` is the only turn-loop owner and `AgentToolActionService` is the only non-LLM action execution owner
 - `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workflow_projection.py` now owns the C harness to generic workflow payload adapter
 - `InProcessAdapter` no longer constructs `HarnessRunner` directly; managed-session workflow refresh is delegated through the selected `AgentApplication`, and the bundled C/C++ application delegates task-snapshot persistence to the built-in C harness extension
-- `QueryEngine` now asks for schemas using explicit active tool names through `ToolRuntime.schemas_for(...)`, so default harness pack activation is owned by the workflow extension boundary
+- `AgentExtensionHost` and `ProviderStepService` request schemas with explicit
+  active tool names, so harness pack activation stays workflow-owned
 - Agent profile contracts now own hosted scenario mode/base-tool metadata and GUI mode capability projection, while workflow package contracts own scenario-specific workflow tools, package-owned tool names, and packs; the global `embedagent.modes` facade uses the generic base profile, and selected hosted applications provide specialized mode policy; `ToolRuntime.schemas_for(...)` no longer performs implicit mode fallback when active tool names are omitted
 - `CORE_PACK` is the minimal file/search/editing/shell foundation; build/debug/verify packs keep harness-only recipe, quality, evidence, and task-status tools explicit
 - built-in mode `allowed_tools` no longer own default harness workflow tools; recipe, quality, evidence, and task-status tools are activated by the C harness extension
@@ -166,12 +171,18 @@ product composition and default C/C++ behavior:
 - `ExtensionManager` now carries generic diagnostics, resource discovery hooks, context hooks, tool-call/tool-result hooks, and dynamic in-process tool registration through explicit `ExtensionCapability` records returned by `extension_capabilities()`
 - local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` can be refreshed through the runtime, adapter, slash command, and GUI/core API; root workspace recipe listing is workflow-neutral and does not assign default C/C++ tool names, while the bundled C/C++ workflow package owns CMake/Make/Ninja detection plus `list_recipes` / `run_recipe` projection; visible Agent Skills-style Markdown resources are summarized through one lightweight prompt unit, skill bodies expand only through `/skill:<name> [args]`, and prompt bodies expand only through `/prompt:<name-or-path> [args]`
 - manifest-gated project-local Python extensions can be loaded from enabled `.embedagent/extensions/<name>/extension.json` manifests by hosted product paths and are registered into the shared `ExtensionManager`; hooks/tools are active only when declared with `api.ExtensionCapability`
-- `AgentExtensionHost` now centralizes QueryEngine-side extension dispatch, dynamic tool registration, extension-aware active schema projection, context patches, tool-call hooks, tool-result hooks, and extension-owned tool handling
+- `AgentExtensionHost` centralizes runtime extension dispatch, dynamic tool registration, extension-aware active schema projection, context patches, tool-call hooks, tool-result hooks, and extension-owned tool handling
 - `AgentEventBus` now provides the internal source-aware observer/reducer boundary for explicitly declared extension capabilities; method-name hook compatibility is no longer a product path
 - `AgentLifecycleJournal` now owns durable lifecycle operation writes, transition save points, pending interaction lifecycle operation events, and context operation payload helpers
-- `AgentKernel` now owns user/command/resume turn frames and pending interaction create/resolve boundaries behind the session facade
+- `AgentKernel` plans and accepts the three private context, provider, and tool
+  effect families
 - `AgentToolActionService` now owns non-LLM tool action execution, including active-tool checks, extension pre/post hooks, `PermissionPolicy`, pending permission/user-input actions, mode-switch proposals, path write guards, runtime dispatch, extension-owned tool calls, resumed action execution, and workflow-patch capture
-- `AgentLoop` now owns Pi-style open turn-loop continuation behind `QueryEngine`, including agent steps, context/provider attempts, active schema requests through `AgentExtensionHost`, compact retry, tool batch interruption, guard stops, abort, and explicit loop safety-limit compatibility transitions; `ProgressGuard` uses action-plus-observation evidence fingerprints for no-progress/runaway detection instead of repeated tool-name stopping; ordinary command/build/test failures are diagnostic tool results for the next model turn rather than automatic guard-stop conditions; `QueryEngine` no longer owns `_run_loop_impl`, `_run_loop`, `_is_completion_signal`, private active-tool schema wrappers, or action-execution forwarding wrappers, and hosted defaults no longer stop merely because eight model/tool cycles were used
+- `AgentLoop` is the commit-execute-resume driver with five required focused
+  collaborators and one observer boundary; it commits kernel events before
+  effects, handles compact retry/cancel/guard transitions through typed results,
+  and has no optional callback bag
+- `ProgressGuard` uses action-plus-observation evidence fingerprints; ordinary
+  command/build/test failures remain model-visible diagnostic observations
 - `ToolRuntime` construction is now workflow-neutral; the bundled C/C++ workflow package registers recipe, quality, evidence, and task-status tools with metadata through `CHarnessWorkflowExtension.register_tools(...)`
 - C/C++ workflow context reducers have moved out of Core `ReducerRegistry`; harness-owned reducers now cover recipe results, quality reports, failing evidence, and task status through `CHarnessWorkflowExtension.register_context_reducers(...)`
 - workflow prompt descriptors now use generic `WorkflowPrompt` naming and new prompt messages use `workflow_prompt`; old harness prompt names and compatibility aliases are no longer active prompt assembly kinds
@@ -179,6 +190,12 @@ product composition and default C/C++ behavior:
 - `ToolCatalogEntry` now keeps internal execution, presentation, and context-policy facets while preserving the legacy flat catalog payload for protocol/frontend compatibility
 - C/C++ workflow pack definitions now live only under `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/packs.py`; the obsolete tooling-package compatibility export has been removed
 - Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E self-extension authoring loop, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, Phase K recovery state, Phase L pack compatibility cleanup, Phase M core alias cleanup, Phase N agent application manifest/capability projection, and the Pi-style prompt-surface/resource/runtime-state alignment slice are complete
+- minimal Agent Core convergence is complete: `QueryEngine`,
+  `SessionRestorer`, mutable Host `Session` ownership, `ExecutionTracer`,
+  and `CircuitBreaker` are deleted without aliases
+- `ManagedSession` stores ids, handles, frozen projection/history payloads,
+  diagnostics, and Host worker/UI state; hosted continuation returns fresh
+  `HostedSessionProjection` values through `HostedSessionController`
 - the Pi-style enterprise/intranet capability boundary foundation is implemented: runtime tool catalog metadata is the source of truth for permission category, unknown or invalid categories fall back to ask-by-default `other`, `network` and `telemetry` permission categories are recognized by policy/runtime/extension metadata, and `embedagent.telemetry` provides local safe telemetry envelopes while future intranet Git, custom service, provider, organization-local catalog, and sink work stays optional and outside Agent Core
 - stale core compatibility aliases have been removed; current code uses `get_mode_registry()`, `get_command_sanitizer()`, and `get_inprocess_adapter()` directly instead of removed registry, sanitizer, or adapter private aliases
 - `TurnSnapshot` is now the explicit frozen provider-request input; `TurnSnapshotService` builds it after context assembly and active schema projection, then provider requests consume `snapshot.messages` and `snapshot.tool_schemas`
@@ -219,7 +236,8 @@ Recent stabilization work has also completed the GUI session-history single-sour
   and command-owned tool execution; `HostedInteractionService` owns permission
   and user-input response glue; `TurnSnapshotService`,
   `PromptAssemblyService`, and `CompactionJournal` own provider snapshot,
-  workflow prompt, and compaction payload assembly outside `QueryEngine`.
+  workflow prompt, and compaction payload assembly outside
+  `SessionTransaction`.
 
 Recent GUI app-shell work has established the first standalone-app boundary:
 
@@ -547,11 +565,14 @@ Recent GUI app-shell work has established the first standalone-app boundary:
 
 Recent stabilization work has also completed the agent-core ownership cutover:
 
-- `Agent` / `AgentSession` now provide the public session lifecycle, while the internal session-scoped `QueryEngine` owns mutation for each execution
+- `Agent` / `AgentSession` provide the public session lifecycle;
+  `SessionTransaction` owns the leased submit boundary
+- `SessionJournal` and `SessionReducer` are the only durable/live state path
 - frontend/live events now reuse engine-issued `step_id` values end-to-end
 - resumed permission/user-input interactions re-enter the same action pipeline instead of bypassing it
-- `AgentToolActionService` owns workflow-patch capture after tool-result hooks, so `QueryEngine` no longer wraps extension result patching
-- `AgentLoop` asks `AgentExtensionHost` for active schemas directly, so `QueryEngine` no longer exposes private active-tool/schema forwarding methods
+- `AgentToolActionService` owns workflow-patch capture after tool-result hooks
+- `AgentLoop` and `ProviderStepService` use `AgentExtensionHost` directly;
+  no forwarding facade owns active-tool/schema behavior
 - hosted slash-command dispatch now lives in `HostedCommandService`; hosted
   `/review` synthesis remains in `ReviewCommandService` underneath that
   command boundary, while `InProcessAdapter` only bridges sessions and events
@@ -560,7 +581,7 @@ Recent stabilization work has also completed the agent-core ownership cutover:
   the core action pipeline
 - provider snapshot, workflow prompt append/dedupe, and compaction payload
   assembly now live in `TurnSnapshotService`, `PromptAssemblyService`, and
-  `CompactionJournal`, so `QueryEngine` no longer owns those helper details
+  `CompactionJournal`
 - Agent Core boundary extraction is complete: durable session and interaction
   records, model/tool contracts, loop guard primitives, prompt/compaction
   helpers, and host-service policy ports now live in `embedagent_core`, while
@@ -589,7 +610,8 @@ Near-term work should:
 - keep future GUI/Core work on the promoted transcript, unified action,
   explicit capability, and T3-style renderer-state paths closed by the cleanup
   slices
-- preserve the promoted service boundaries around `QueryEngine`,
+- preserve the promoted boundaries around `SessionTransaction`,
+  `SessionJournal`, `SessionReducer`, `AgentKernel`, `AgentLoop`,
   `InProcessAdapter`, GUI backend route registration, and renderer runtime
   state; future slices should delete stale helper paths instead of adding
   compatibility wrappers over them
@@ -628,8 +650,9 @@ The current self-extensible Agent Core baseline remains valid. The next program 
 3. **AgentKernel lifecycle extraction**
    - current implementation status: Phase C is complete
    - `AgentLifecycleJournal` owns durable lifecycle operation writes and save points
-   - `AgentKernel` owns turn frames and pending interaction create/resolve boundaries
-   - `AgentLoop` owns turn-loop orchestration behind public `AgentSession`; `QueryEngine` is internal
+   - `AgentKernel` plans the three closed private effect families
+   - `AgentLoop` is the commit-execute-resume driver behind public
+     `AgentSession`
    - non-LLM action execution remains behind `AgentToolActionService`
 
 4. **Default C/C++ workflow package**
@@ -680,7 +703,8 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - `compacted_history` events now carry a safe checkpoint payload: summary text, first-kept message anchor, replacement messages, trigger/phase metadata, token/message counts, file activity refs, and evidence refs
    - `CompactionStateReducer` projects reducer-backed compaction state from transcript events, including latest boundary, compacted-history checkpoints, and duplicate/malformed diagnostics
    - restore results, managed sessions, protocol snapshots, and session snapshots expose `compaction_state`
-   - `SessionRestorer` validates compacted-history ids, anchors, and replacement-message shape before restoring live session checkpoint state
+   - `SessionJournal.restore` validates and folds compacted-history ids,
+     anchors, and replacement-message shape through `SessionReducer`
    - `ContextManager` can rebuild provider history from the latest valid compacted-history replacement checkpoint plus the newer transcript suffix, while still applying compact-policy shrinking on retry paths
    - projection remains read-only diagnostics/replay state; active context assembly, summary generation, extension loading, tool execution, and permissions remain owned by their existing boundaries
    - `ContextPlan` now provides a minimal explicit read model before provider requests for selected-message counts, recent/summarized turns, token/character summaries, pipeline steps, preserved message ids when available, and replacement refs
@@ -713,7 +737,7 @@ The current self-extensible Agent Core baseline remains valid. The next program 
 14. **Agent application manifest and capability projection**
    - current implementation status: Phase N is complete for the hosted boundary and first built-in multi-application registry
 - `AgentApplicationManifest` records describe application id, label, profile id, workflow package ids, source metadata, and default status
-- `build_agent_application(application_id, tools, registry=...)` is the selected-application loader; the default C/C++ application is one hosted product registry record, not a `QueryEngine` fallback
+- `build_agent_application(application_id, tools, registry=...)` is the selected-application loader; the default C/C++ application is one hosted product registry record, not a Core fallback
 - built-in applications are declared as `AgentApplicationRecord` data with callable profile/runtime factories; the generic loader has no C/C++ branch. The default C/C++ application record/app-shell overlay lives in `src/embedagent/product_catalog.py`, while `component.py` and `profile.py` remain independently exported workflow-package code.
 - base registry ids are `embedagent.generic`, `embedagent.python`, and `embedagent.html`; the product registry in `src/embedagent/product_catalog.py` composes those base records with packaged `embedagent.default_c_cpp`
    - profile-only records remain in the base application registry; workflow-backed built-in records are added by the hosted product registry, so building `embedagent.generic`, `embedagent.python`, or `embedagent.html` through the base registry no longer imports `embedagent_workflow_cpp`
@@ -742,7 +766,9 @@ Remaining cleanup should focus on:
 Near-term decoupling should continue from the new extension boundary:
 
 - default extension configuration has moved behind `AgentApplication`: hosted product paths use the selected scenario application's profile and extension manager, while standalone `Agent` callers supply extension policy explicitly through their bound runtime
-- `QueryEngine` should remain an internal coordinator over `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost`; new extension hook dispatch should not be added directly back to it or exposed as a public integration path
+- `SessionTransaction` stays limited to lease/restore/dispatch/projection;
+  extension dispatch remains in `AgentExtensionHost` and must not be added to
+  transaction, loop, or Host facades
 - keep public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration out of scope; project-local Python extensions stay limited to explicit enabled manifests under `.embedagent/extensions/<name>/`, and future intranet capabilities must use the same explicit hosted boundary discipline
 
 ### 4.4 Documentation Alignment
@@ -783,8 +809,10 @@ After architecture cutover, the highest-value validation is:
 Priority remains highest on:
 
 - public `Agent` / `AgentSession` contracts
-- low-level `run_agent` and internal `QueryEngine`
-- `SessionLogPort` durability and restore
+- low-level `run_agent` and internal `SessionTransaction`
+- `SessionLogPort`, `SessionJournal`, and `SessionReducer` durability and
+  restore
+- closed-effect `AgentKernel` / `AgentLoop`
 - harness
 - runtime
 - permissions

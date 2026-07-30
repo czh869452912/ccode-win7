@@ -24,7 +24,6 @@ from embedagent_core.interaction import (
     UserInputRequest,
     UserInputResponse,
 )
-from embedagent_core.strategies.execution_tracer import ExecutionTracer, TraceEventType
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 from embedagent_core.policies import (
     DenyWritePathPolicy,
@@ -61,6 +60,76 @@ from embedagent_core.session_reducer import (
 from embedagent_core.session_view import session_read_view
 from embedagent_core.tool_contracts import ToolRuntimePort
 from embedagent_core.turn_snapshot import TurnSnapshot
+
+
+class _LoopObserver(object):
+    """Adapt dispatcher callbacks to the single AgentLoop observer boundary."""
+
+    def __init__(
+        self,
+        on_text_delta: Optional[Callable[[str], None]],
+        on_reasoning_delta: Optional[Callable[[str], None]],
+        on_tool_start: Optional[Callable[[Action], None]],
+        on_tool_finish: Optional[Callable[[Action, Observation], None]],
+        on_context_result: Optional[Callable[[ContextAssemblyResult], None]],
+        on_step_start: Optional[Callable[[str, int], None]],
+        on_step_finish: Optional[Callable[[int, AssistantReply, str], None]],
+        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]],
+        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
+    ) -> None:
+        self._on_text_delta = on_text_delta
+        self._on_reasoning_delta = on_reasoning_delta
+        self._on_tool_start = on_tool_start
+        self._on_tool_finish = on_tool_finish
+        self._on_context_result = on_context_result
+        self._on_step_start = on_step_start
+        self._on_step_finish = on_step_finish
+        self._permission_handler = permission_handler
+        self._user_input_handler = user_input_handler
+
+    def on_text_delta(self, text: str) -> None:
+        if self._on_text_delta is not None:
+            self._on_text_delta(text)
+
+    def on_reasoning_delta(self, text: str) -> None:
+        if self._on_reasoning_delta is not None:
+            self._on_reasoning_delta(text)
+
+    def on_tool_start(self, action: Action) -> None:
+        if self._on_tool_start is not None:
+            self._on_tool_start(action)
+
+    def on_tool_finish(self, action: Action, observation: Observation) -> None:
+        if self._on_tool_finish is not None:
+            self._on_tool_finish(action, observation)
+
+    def on_context_result(self, result: ContextAssemblyResult) -> None:
+        if self._on_context_result is not None:
+            self._on_context_result(result)
+
+    def on_step_start(self, step_id: str, step_index: int) -> None:
+        if self._on_step_start is not None:
+            self._on_step_start(step_id, step_index)
+
+    def on_step_finish(
+        self,
+        step_index: int,
+        reply: AssistantReply,
+        termination_reason: str,
+    ) -> None:
+        if self._on_step_finish is not None:
+            self._on_step_finish(step_index, reply, termination_reason)
+
+    def on_permission_request(self, request: PermissionRequest) -> Optional[bool]:
+        if self._permission_handler is None:
+            return None
+        return self._permission_handler(request)
+
+    def on_user_input_request(self, request: UserInputRequest) -> Optional[UserInputResponse]:
+        if self._user_input_handler is None:
+            return None
+        return self._user_input_handler(request)
+
 
 _LOG = logging.getLogger(__name__)
 _OPERATION_RUNTIME_ERRORS = (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError)
@@ -204,7 +273,6 @@ class SessionInputDispatcher(object):
         session_projection: Optional[SessionProjectionPort] = None,
         max_parallel_tools: int = 3,
         transcript_store: Optional[SessionLogPort] = None,
-        tracer: Optional[ExecutionTracer] = None,
         mode_tool_policy: Optional[ModeToolPolicy] = None,
         write_path_policy: Optional[WritePathPolicy] = None,
         mode_runtime_policy: Optional[ModeRuntimePolicy] = None,
@@ -217,7 +285,6 @@ class SessionInputDispatcher(object):
         self._compaction_journal = CompactionJournal()
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.transcript_store = transcript_store or InMemorySessionLog()
-        self.tracer = tracer
         self._mode_tool_policy = mode_tool_policy or EmptyModeToolPolicy()
         self._write_path_policy = write_path_policy or DenyWritePathPolicy()
         self._mode_runtime_policy = mode_runtime_policy or NeutralModeRuntimePolicy()
@@ -790,16 +857,7 @@ class SessionInputDispatcher(object):
             turn_id=turn_id,
         )
 
-        session_id = getattr(session, "session_id", "") or ""
         turn_frame = self.kernel.begin_turn(session, turn_id, current_mode, workflow_state, "user")
-
-        if self.tracer is not None:
-            self.tracer.record(
-                TraceEventType.TURN_START,
-                session_id,
-                turn_id,
-                data={"mode": current_mode, "workflow_state": workflow_state},
-            )
 
         if mode_switched and not session_was_empty:
             current_mode = self.apply_mode(
@@ -819,14 +877,6 @@ class SessionInputDispatcher(object):
                     source_mode,
                     current_mode,
                 )
-                if self.tracer is not None:
-                    self.tracer.record(
-                        TraceEventType.TURN_END,
-                        session_id,
-                        turn_id,
-                        data={"transition_reason": getattr(result.transition, "reason", "")},
-                    )
-                    self.tracer.flush()
                 turn_frame.finish(result.transition)
                 return result
         last_assembly = []
@@ -835,6 +885,18 @@ class SessionInputDispatcher(object):
             last_assembly[:] = [assembly]
             if on_context_result is not None:
                 on_context_result(assembly)
+
+        loop_observer = _LoopObserver(
+            on_text_delta,
+            on_reasoning_delta,
+            on_tool_start,
+            on_tool_finish,
+            capture_context_result,
+            on_step_start,
+            on_step_finish,
+            permission_handler,
+            user_input_handler,
+        )
 
         try:
             result = self._agent_loop.run(
@@ -848,41 +910,17 @@ class SessionInputDispatcher(object):
                 cancel=stop_event,
                 max_turns=self.max_turns,
                 max_parallel_tools=self.max_parallel_tools,
-                on_text_delta=on_text_delta,
-                on_reasoning_delta=on_reasoning_delta,
-                on_tool_start=on_tool_start,
-                on_tool_finish=on_tool_finish,
-                on_context_result=capture_context_result,
-                on_step_start=on_step_start,
-                on_step_finish=on_step_finish,
-                permission_handler=permission_handler,
-                user_input_handler=user_input_handler,
+                observer=loop_observer,
             )
             self._persist_summary(
                 session,
                 result.transition.next_mode or current_mode,
                 last_assembly[-1] if last_assembly else None,
             )
-            if self.tracer is not None:
-                self.tracer.record(
-                    TraceEventType.TURN_END,
-                    session_id,
-                    turn_id,
-                    data={"transition_reason": getattr(result.transition, "reason", "")},
-                )
-                self.tracer.flush()
             turn_frame.finish(result.transition)
             return result
         except BaseException as exc:
             turn_frame.interrupt("turn_error", error=str(exc))
-            if self.tracer is not None:
-                self.tracer.record(
-                    TraceEventType.ERROR,
-                    session_id,
-                    turn_id,
-                    data={"error_type": type(exc).__name__, "error_message": str(exc)},
-                )
-                self.tracer.flush()
             raise
 
     def submit_command_turn(
@@ -1147,6 +1185,18 @@ class SessionInputDispatcher(object):
             if on_context_result is not None:
                 on_context_result(assembly)
 
+        loop_observer = _LoopObserver(
+            on_text_delta,
+            on_reasoning_delta,
+            on_tool_start,
+            on_tool_finish,
+            capture_context_result,
+            on_step_start,
+            on_step_finish,
+            permission_handler,
+            user_input_handler,
+        )
+
         try:
             result = self._agent_loop.run(
                 session=session,
@@ -1159,15 +1209,7 @@ class SessionInputDispatcher(object):
                 cancel=stop_event,
                 max_turns=self.max_turns,
                 max_parallel_tools=self.max_parallel_tools,
-                on_text_delta=on_text_delta,
-                on_reasoning_delta=on_reasoning_delta,
-                on_tool_start=on_tool_start,
-                on_tool_finish=on_tool_finish,
-                on_context_result=capture_context_result,
-                on_step_start=on_step_start,
-                on_step_finish=on_step_finish,
-                permission_handler=permission_handler,
-                user_input_handler=user_input_handler,
+                observer=loop_observer,
             )
             self._persist_summary(
                 session,

@@ -192,6 +192,31 @@ def test_session_reducer_is_the_only_core_session_state_writer():
     assert offenders == []
 
 
+def test_agent_loop_run_uses_one_observer_boundary_without_callback_bag():
+    tree = ast.parse(
+        _read(CORE_SOURCE / "agent_loop.py"),
+        filename=str(CORE_SOURCE / "agent_loop.py"),
+    )
+    run_method = next(
+        node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == "run"
+    )
+    parameter_names = {argument.arg for argument in run_method.args.args}
+    assert parameter_names.isdisjoint(
+        {
+            "on_text_delta",
+            "on_reasoning_delta",
+            "on_tool_start",
+            "on_tool_finish",
+            "on_context_result",
+            "on_step_start",
+            "on_step_finish",
+            "permission_handler",
+            "user_input_handler",
+        }
+    )
+    assert "observer" in parameter_names
+
+
 def test_host_does_not_call_private_agent_session_methods():
     host_root = ROOT / "packages/embedagent-host/src/embedagent_host"
     offenders = []

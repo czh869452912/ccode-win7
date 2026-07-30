@@ -16,7 +16,7 @@ The stable architecture assumptions are:
 
 The product is organized around one main execution spine:
 
-`Frontend -> Agent App Protocol / Core Adapter -> Hosted Runtime -> InProcessAdapter -> Agent / AgentSession -> internal QueryEngine -> AgentKernel -> AgentLoop / AgentLifecycleJournal -> AgentToolActionService -> AgentExtensionHost / ToolRuntime / PermissionPolicy -> Context/Stores`
+`Frontend -> Agent App Protocol / Core Adapter -> Hosted Runtime -> InProcessAdapter -> Agent / AgentSession -> SessionTransaction -> SessionJournal / SessionReducer -> AgentKernel -> AgentLoop -> AgentToolActionService -> AgentExtensionHost / ToolRuntime / PermissionPolicy -> Context/Stores`
 
 ### Distribution Boundaries
 
@@ -502,11 +502,14 @@ packages.
 
 `Agent` / `AgentSession` are the public standalone Core SDK. Callers bind the
 model, tool runtime, durable session log, context assembler, and permission
-policy through `AgentPorts`, then submit typed `UserTurn` or `InteractionReply`
-inputs. `run_agent` is the low-level execution primitive beneath that facade.
-`QueryEngine` is internal implementation, not a supported Host or third-party
-integration boundary. The standalone defaults preserve missing mode and
-workflow values as empty. `AgentPorts.permissions` is required, and the public
+policy through `AgentPorts`, then use the durable transaction handle
+`AgentSession` to submit typed `UserTurn` or `InteractionReply` inputs.
+`run_agent` is the low-level execution primitive beneath that facade.
+`SessionTransaction` owns one leased restore-dispatch-project boundary.
+`SessionJournal` preflights event intents, appends canonical events through
+`SessionLogPort`, and only then applies them through `SessionReducer`; restore
+folds the same closed reducer event families. The standalone defaults preserve
+missing mode and workflow values as empty. `AgentPorts.permissions` is required, and the public
 facade does not synthesize a policy. Standard `PermissionPolicy()` disables
 automatic approval; absent an overriding rule, it allows `read` and returns ask
 for `workspace_write`, `git_write`, `shell_exec`, `toolchain_exec`, `network`,
@@ -607,7 +610,9 @@ tool registration, metadata, packs, workspace-profile detector, context
 reducers, session task snapshots, and workflow projection. It is bundled by the
 hosted product but is not part of the generic Agent Core.
 
-The default C/C++ harness is now entered through the in-process workflow extension boundary. Harness internals remain bundled and enabled by default, but `QueryEngine` must not import concrete harness task classes directly.
+The default C/C++ harness is entered through the in-process workflow extension
+boundary. Harness internals remain bundled and enabled by default, but generic
+Core runtime assembly must not import concrete harness task classes.
 
 `InProcessAdapter` binds the hosted runtime's `ExtensionManager` into one
 `Agent` and opens each managed `AgentSession` from that runtime. Frontend tool
@@ -624,9 +629,10 @@ contracts and contains no hosted runtime service bag.
 
 `HostedSessionController` in `embedagent_core.hosting` is the supported
 non-root Core/Host bridge used by `ManagedSession`. It exposes trusted hosted
-continuation and inspection without making `QueryEngine` public and without
-allowing Host to call private `AgentSession` members. It is intentionally not
-re-exported from the `embedagent_core` package root.
+continuation and inspection as frozen `HostedSessionProjection` values without
+allowing Host to call private `AgentSession` members or receive mutable Core
+`Session`. It is intentionally not re-exported from the `embedagent_core`
+package root.
 
 Hosted adapter behavior that is not Agent Core lives in focused hosted
 services. `HostedCommandService` owns slash-command dispatch, command-result
@@ -645,7 +651,11 @@ specialized workflow can produce the same safe fields with its own tool names.
 
 `ExtensionManager` is now the shared in-process capability boundary. The current default C/C++ harness remains the bundled workflow extension, while the same boundary also carries generic prompt/context hooks, tool-call and tool-result interception, resource discovery contracts, dynamic in-process tool registration, workflow-owned workspace recipe projection, extension diagnostics, and manifest-gated project-local Python extensions. Extension objects are discovered only through `extension_capabilities()` and must return explicit `ExtensionCapability` records for each hook, manifest provider, context reducer registrar, recipe projector, or extension-owned tool handler they expose; method-name hooks are not compatibility contracts. Capability dispatch internals flow through `AgentEventBus`, the source-aware observer/reducer bus introduced and closed out in Phase B. Event-specific reducer semantics cover merge, union, first-result, first-block-wins, sequential argument rewrite, and trusted fail-closed diagnostics. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are official discoverable resources. Visible skills are summarized through one lightweight local skill listing prompt unit, while skill and prompt bodies enter context only through explicit `/skill:<name> [args]` and `/prompt:<name-or-path> [args]` commands. These resources are Markdown/text context, not executable extension code.
 
-`AgentExtensionHost` is the session-engine side of that boundary. It builds extension contexts and workflow events, initializes workflow state, applies prompt/context hooks, registers dynamic tools, computes extension-aware active tool names, requests explicit tool schemas, applies tool-call/tool-result hooks, and handles extension-owned tool calls. `QueryEngine` keeps a compatibility `extension_manager` reference, but extension hook dispatch is centralized in `AgentExtensionHost`.
+`AgentExtensionHost` is the runtime side of that boundary. It builds extension
+contexts and workflow events, initializes workflow state, applies prompt/context
+hooks, registers dynamic tools, computes active tool names, requests explicit
+tool schemas, applies tool-call/tool-result hooks, and handles extension-owned
+tool calls. Core extension dispatch is centralized there.
 
 Tool-result workflow patches expose only the current generic `workflow` read
 model plus safe `metadata`; old extension projection fields are not part of
@@ -653,13 +663,38 @@ the extension boundary.
 
 Workflow-package prompt units are described by the generic `WorkflowPrompt` descriptor and appended as generic `workflow_prompt` system messages. `PromptAssemblyService` owns workflow-prompt append/dedupe mechanics. The old harness-specific prompt kind is no longer active; new Agent Core prompt injection and deduplication use only the generic workflow naming.
 
-`AgentLifecycleJournal` owns durable lifecycle writes for schema v2 operation events, transition save points, pending interaction lifecycle events, context operation payload helpers, and workflow-patch persistence helpers. `AgentKernel` owns turn frames and pending interaction create/resolve boundaries. `AgentToolActionService` owns non-LLM tool action execution: active-tool checks, extension pre/post hooks, permission evaluation, pending permission/user-input action handling, mode-switch proposals, path write guards, runtime dispatch, extension-owned tool calls, resumed action execution, and workflow-patch capture after tool-result hooks. `AgentLoop` owns Pi-style open turn-loop continuation: agent step lifecycle, context/provider attempts, active schema requests through `AgentExtensionHost`, compact retry, tool batch interruption, guard-stop, abort, and explicit loop safety-limit compatibility transitions. Ordinary command/build/test failures are diagnostic tool results for the next model turn, not automatic hard-stop conditions; guard-stop is reserved for provider/protocol no-progress and true runaway protection. The optional safety fuse remains available only as an explicit runtime/test parameter; persistent JSON configuration must not set a product loop ceiling, and hosted defaults do not stop merely because eight model/tool cycles were used. `AgentSession` is the public session facade; internal `QueryEngine` keeps transcript-backed session mutation ownership and must not grow private loop or completion forwarding wrappers.
+`AgentLifecycleJournal` owns lifecycle event intents and transition save points.
+`AgentKernel` plans and accepts the three private context, provider, and tool
+effect families. `AgentLoop` is the mechanical commit-execute-resume driver:
+it commits `KernelStep.events` through `SessionJournal`, publishes committed
+events, executes one closed effect, and resumes the kernel with a typed result.
+Its constructor has five required focused collaborators and its run boundary
+uses one observer rather than the retired callback bag.
+`AgentToolActionService` owns non-LLM action policy and execution: active-tool
+checks, extension pre/post hooks, permission evaluation, interaction
+suspension/resume, path guards, runtime dispatch, extension-owned tools, and
+workflow-patch capture. Ordinary command/build/test failures remain diagnostic
+tool observations for the next model turn; guard-stop is reserved for
+no-progress/runaway protection. The optional safety fuse remains only an
+explicit runtime/test parameter.
 
 `ProgressGuard` owns the turn-loop no-progress/runaway safety check. It fingerprints action intent together with observation evidence, so distinct files, commands, diagnostic outputs, and successful writes are treated as progress even when they use the same tool name. It replaces repeated-tool-name stopping with evidence-aware stopping and remains a guard only; it does not decide validation success, tool activation, permissions, or workflow state.
 
-Explicit user mode-switch requests are routed by `QueryEngine` before provider calls. `/mode <name>` and pure natural-language mode switches become local mode changes with closed lifecycle operations; `/mode <name> <message>` switches first and submits the remainder under the target mode. Model-initiated mode changes remain non-LLM tool actions mediated by `AgentToolActionService` and user confirmation, not autonomous provider policy.
+Explicit user mode-switch requests are routed by `SessionInputDispatcher`
+before provider calls. `/mode <name>` and pure natural-language mode switches
+become local mode changes with closed lifecycle operations; `/mode <name>
+<message>` switches first and submits the remainder under the target mode.
+Model-initiated mode changes remain non-LLM tool actions mediated by
+`AgentToolActionService` and user confirmation, not autonomous provider policy.
 
-`TurnSnapshot` is the explicit frozen input for one provider request. `TurnSnapshotService` builds it after context assembly and active tool schema projection, including credential-free model profile, runtime configuration, resource revision, capability, prompt-unit, and context-stat metadata. `QueryEngine` then calls the provider with `snapshot.messages` and `snapshot.tool_schemas`. Snapshot diagnostics may record safe metadata such as `snapshot_id`, mode/workflow state, registered tool names, active tool names, credential-free model profile metadata, safe prompt-unit metadata, and capability counts; they must not record prompt bodies, file contents, raw tool outputs, or credentials.
+`TurnSnapshot` is the explicit frozen input for one provider request.
+`TurnSnapshotService` builds it after context assembly and active tool schema
+projection; `ProviderStepService` calls the provider with `snapshot.messages`
+and `snapshot.tool_schemas`. Snapshot diagnostics may record safe metadata such
+as `snapshot_id`, mode/workflow state, registered tool names, active tool names,
+credential-free model profile metadata, safe prompt-unit metadata, and
+capability counts; they must not record prompt bodies, file contents, raw tool
+outputs, or credentials.
 
 `WorkflowPackageManifest` is a non-executing read model for workflow package identity, supported modes and workflow states, declared tools, packs, resource scopes, and diagnostics. The bundled C/C++ package exposes its manifest through the extension boundary and derives it from the same package-owned constants that drive tool metadata and pack definitions. Manifest projection is diagnostic/control-plane state only; it does not activate tools, grant permissions, execute tools, or load packages.
 
@@ -669,7 +704,7 @@ Explicit user mode-switch requests are routed by `QueryEngine` before provider c
 
 `ContextManager` owns deterministic context assembly. Core context reducers are workflow-neutral; C/C++ workflow reducers for recipe results, build diagnostics, quality reports, and task status are registered by the bundled workflow extension from harness-owned modules. In addition to reactive compact retry after provider context-limit errors, `ContextManager` may pre-provider rebuild with the internal compact policy when the assembled input approaches `auto_compact_threshold_ratio` and there is older turn history to summarize. That trigger is expressed as a context pipeline step and compact-boundary diagnostic metadata, not as a new public extension API. `ContextWindowState` is a small internal value object that derives safe trigger/phase/window-generation diagnostics from context pipeline steps; it is not a durable history source or policy engine.
 
-`ContextPlan` is the explicit read model for one provider request's assembled context. The current implementation records safe selected-message counts, recent/summarized turn counts, pipeline steps, token/character summaries, preserved message ids when present, and replacement refs; compact-boundary metadata can reuse that plan instead of re-inferring basic counts. `CompactionJournal` builds the safe `compact_boundary` and `compacted_history` transcript payloads from the context assembly, boundary, and window diagnostics. `compacted_history` transcript events record a safe compacted-history checkpoint with summary text, first-kept anchor, replacement messages, trigger/phase metadata, token/message counts, file activity refs, and evidence refs. `SessionRestorer` validates checkpoint ids, anchors, and replacement-message shape before replaying them into live `Session.compacted_history`; `ContextManager` can rebuild provider history from the latest valid replacement checkpoint plus the newer transcript suffix. The transcript remains the audit log. `CompactionStateReducer` includes compacted-history projection for diagnostics, but it remains a replay/read model and must not become the planner, summary generator, extension executor, permission engine, or second session-history source.
+`ContextPlan` is the explicit read model for one provider request's assembled context. The current implementation records safe selected-message counts, recent/summarized turn counts, pipeline steps, token/character summaries, preserved message ids when present, and replacement refs; compact-boundary metadata can reuse that plan instead of re-inferring basic counts. `CompactionJournal` builds the safe `compact_boundary` and `compacted_history` transcript payloads from the context assembly, boundary, and window diagnostics. `compacted_history` transcript events record a safe compacted-history checkpoint with summary text, first-kept anchor, replacement messages, trigger/phase metadata, token/message counts, file activity refs, and evidence refs. `SessionJournal.restore` validates and folds checkpoint ids, anchors, and replacement-message shape through `SessionReducer` into internal live state; `ContextManager` can rebuild provider history from the latest valid replacement checkpoint plus the newer transcript suffix. The transcript remains the audit log. `CompactionStateReducer` includes compacted-history projection for diagnostics, but it remains a replay/read model and must not become the planner, summary generator, extension executor, permission engine, or second session-history source.
 
 `CompactionStateReducer` is the replayable structured compaction read model. It reduces `compact_boundary` transcript events into safe boundary records with preserved message anchors, token/message counts, trigger/phase/window-generation diagnostics, file activity paths, evidence refs, extension-summary flags, and duplicate/malformed diagnostics. It also projects compacted-history checkpoints as diagnostic state. It feeds restore results, `ManagedSession.compaction_state`, protocol snapshots, and session snapshots. It remains diagnostic/replay state and must not become a context selector, summary generator, extension executor, permission engine, or second session-history source.
 
@@ -688,10 +723,16 @@ Managed-session workflow refresh in the product adapter path goes through `Agent
 ### Session Runtime Ownership
 
 - `InProcessAdapter` creates one hosted `Agent` runtime and one shared `ExtensionManager`
-- `ManagedSession` hosts thread/lock/status, durable `Session` references, and a `HostedSessionController` wrapping the `AgentSession` opened from that shared runtime
+- `ManagedSession` stores a session id, `AgentSession` /
+  `HostedSessionController` handles, frozen projection/history payloads,
+  diagnostics, and Host worker/UI state; it never stores mutable Core `Session`
 - user turns and ordinary turn-owned permission/user-input continuations enter through `AgentSession.submit(...)` with `UserTurn` or `InteractionReply`
-- trusted hosted continuation enters through `HostedSessionController`; Host must not call private `AgentSession` members or construct `QueryEngine`
-- `run_agent` and `QueryEngine` remain below the public object facade; `AgentKernel`, `AgentLifecycleJournal`, `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own lifecycle, journal, loop, action, active schema, and extension dispatch internals
+- trusted hosted continuation enters through `HostedSessionController` and
+  returns a fresh frozen projection
+- `run_agent`, `SessionTransaction`, `SessionJournal`, `SessionReducer`,
+  `AgentKernel`, and `AgentLoop` remain below the public object facade
+- `QueryEngine`, `SessionRestorer`, mutable Host `Session`, tracer, and
+  circuit breaker paths are retired without aliases
 - `InProcessAdapter` is a host/bridge layer and must not mint duplicate workflow identities or own slash-command business rules that can live in hosted services such as `ReviewCommandService`
 - Host encodes every live session change once as `SessionEventEnvelope`; `AgentCoreAdapter`, TUI, and GUI backends forward that protocol DTO without a second event mapping layer
 - the GUI renderer consumes live session activity only from the `session_event` branch and applies envelope sequence/dedup/gap checks before reducing timeline or interaction state
@@ -750,8 +791,8 @@ Managed-session workflow refresh in the product adapter path goes through `Agent
   visibility state instead of owning a fixed hint id/order list
 - provider request snapshots and workflow prompt append decisions live behind
   `TurnSnapshotService` and `PromptAssemblyService`; compact payload assembly
-  lives in `CompactionJournal`, keeping `QueryEngine` focused on session
-  mutation and loop orchestration
+  lives in `CompactionJournal`; `SessionTransaction` stays limited to leased
+  restore, input dispatch, and result/host projection
 - `/review` session evidence extraction, finding synthesis, git-diff evidence
   shaping, and markdown rendering live in `ReviewCommandService`; review
   classification consumes structured evidence payload fields rather than
@@ -940,7 +981,9 @@ snapshots and backend-owned live events.
 Additional ownership rules:
 
 - engine-issued `turn_id` / `step_id` / `step_index` are the only official execution anchors
-- resumed permission and user-input interactions must re-enter the same `AgentToolActionService` action pipeline used by first execution; `QueryEngine` must not keep separate `ask_user` or mode-switch execution branches
+- resumed permission and user-input interactions must re-enter the same
+  `AgentToolActionService` action pipeline used by first execution; no
+  transaction/dispatcher compatibility branch may execute them separately
 - snapshot/bootstrap payloads are projected from session truth and do not own side effects
 
 ### Session History Rule

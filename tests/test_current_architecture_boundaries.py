@@ -8,6 +8,8 @@ import ast
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 CORE_SOURCE = ROOT / "packages/embedagent-core/src/embedagent_core"
 
@@ -56,6 +58,19 @@ def test_query_engine_is_deleted_without_core_or_host_import_aliases():
     for root in roots:
         for python_file in root.rglob("*.py"):
             assert all("query_engine" not in name for name in _imported_modules(python_file))
+
+
+@pytest.mark.parametrize(
+    "path",
+    (
+        "packages/embedagent-core/src/embedagent_core/query_engine.py",
+        "packages/embedagent-core/src/embedagent_core/session_restore.py",
+        "packages/embedagent-core/src/embedagent_core/strategies/execution_tracer.py",
+        "packages/embedagent-core/src/embedagent_core/strategies/circuit_breaker.py",
+    ),
+)
+def test_retired_core_runtime_paths_do_not_exist(path):
+    assert not (ROOT / path).exists()
 
 
 def test_session_transaction_stays_transport_and_projection_only():

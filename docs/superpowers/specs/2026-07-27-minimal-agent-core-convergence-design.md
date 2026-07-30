@@ -1,8 +1,10 @@
 # Minimal Agent Core Convergence Design
 
-**Status:** Approved
+**Status:** Implemented
 
 **Date:** 2026-07-27
+
+**Implemented:** 2026-07-30
 
 ## 1. Goal
 
@@ -488,3 +490,33 @@ This program does not include:
 - a public effect API, reducer plugin API, or runtime command bus
 - a wholesale port of Pi's TypeScript implementation
 - clean Windows 7 bundle acceptance, which remains a separate release gate
+
+## 15. Implementation Outcome
+
+The selected design is implemented:
+
+- `AgentSession` is the public durable session transaction handle and
+  `SessionTransaction` owns lease, restore, dispatch, and projection.
+- `SessionJournal` appends canonical events before `SessionReducer` updates
+  live state; restore folds the same event families through the same reducer.
+- `AgentKernel` owns the three private context, provider, and tool effect
+  families. `AgentLoop` has five required collaborators and one observer
+  boundary.
+- Host consumes frozen `HostedSessionProjection` values and no longer imports,
+  stores, or restores mutable Core `Session` objects.
+- `QueryEngine`, `SessionRestorer`, `ExecutionTracer`, and `CircuitBreaker` are
+  deleted without aliases, with architecture guards preventing reintroduction.
+
+Closure verification on Python 3.8.10:
+
+- architecture guards: 159 passed
+- fast Python gate: 1681 passed, 1 deselected
+- full Python gate: 1682 passed
+- Ruff and Black check: passed
+- all six wheels: built successfully; distribution checker returned `ok: true`
+- isolated wheel smoke: all six independent/composed scenarios passed
+- GUI webapp tests and production build: passed
+
+These results close the repository-side minimal Agent Core convergence
+program. They do not claim clean Windows 7/WebView2 bundle acceptance or Phase
+8 real C/C++ project validation; those remain separate external gates.

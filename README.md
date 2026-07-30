@@ -110,12 +110,15 @@ wheel inspection, isolated import smoke, and the offline bundle contract tests.
 These local gates do not constitute Win7/WebView2 release evidence.
 
 The supported standalone Core SDK is `Agent` / `AgentSession`. A caller binds
-`AgentPorts`, creates an `Agent`, opens a session, and submits `UserTurn` or
-`InteractionReply` values. `run_agent` is the lower-level execution primitive;
-`QueryEngine` is an internal implementation detail and is not the public host
-integration contract. `SessionLogPort` is the durable log contract, with
-`transcript.jsonl` provided by the product as one adapter. Missing mode and
-workflow values remain empty in standalone Core. `AgentPorts.permissions` is a
+`AgentPorts`, creates an `Agent`, opens the durable transaction handle
+`AgentSession`, and submits `UserTurn` or `InteractionReply` values.
+`run_agent` is the lower-level execution primitive. Internal
+`SessionTransaction` restores, dispatches, and projects one leased submit;
+`SessionJournal` appends canonical events through `SessionLogPort` before
+`SessionReducer` applies live state, and restore folds the same reducer.
+`transcript.jsonl` is the hosted product adapter for that log contract.
+Missing mode and workflow values remain empty in standalone Core.
+`AgentPorts.permissions` is a
 required caller-supplied policy; the public facade does not create one
 implicitly. Standard `PermissionPolicy()` disables automatic approval, allows
 `read` when no rule overrides it, and returns ask for `workspace_write`,
@@ -148,8 +151,9 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official file discovery: `list_dir`, `glob_files`, `grep_text`
 - Official permission engine: `PermissionPolicy` with structured rule matching and stable explanation text
 - Official enterprise permission categories: `network` and `telemetry` exist for optional intranet/custom-service tools and telemetry flush/sink actions; both require explicit metadata and default to confirmation
-- Official session runtime ownership: `Agent` / `AgentSession` are the public Core facade, `run_agent` is the low-level execution primitive, and internal `QueryEngine`, `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `ProgressGuard`, `AgentToolActionService`, and `AgentExtensionHost` own transcript mutation, lifecycle writes, turn frames and suspend/resume boundaries, open turn-loop continuation, no-progress/runaway protection, non-LLM tool action execution, and extension hook dispatch
-- Official hosted session boundary: `HostedSessionController` is the supported non-root Core/Host bridge for trusted hosted continuation and inspection. Host code must not call private `AgentSession` members or construct `QueryEngine`.
+- Official session runtime ownership: `AgentSession` is the public durable transaction handle; internal `SessionTransaction` owns lease/restore/dispatch/projection, `SessionJournal` appends before `SessionReducer` applies state, `AgentKernel` plans the three private context/provider/tool effect families, and `AgentLoop` drives commit-execute-resume through five required collaborators and one observer boundary
+- Official hosted session boundary: `HostedSessionController` returns frozen `HostedSessionProjection` values. Host stores handles, projections, history, diagnostics, and worker/UI state, never mutable Core `Session`
+- Official retired paths: `QueryEngine`, `SessionRestorer`, mutable Host `Session` ownership, `ExecutionTracer`, and `CircuitBreaker` are deleted without compatibility aliases
 - Official runtime ports: `AgentPorts` carries focused `ContextAssemblerPort`, `SessionProjectionPort`, `SessionRestorePolicyPort`, `ToolRuntimePort`, and `PermissionPolicy` collaborators. Hosted persistence and workspace intelligence stay in Host-owned services rather than a Core service bag.
 - Official live session protocol: Host creates one `SessionEventEnvelope` with schema version, event id, session id, sequence, event kind, timestamp, and JSON-safe payload. Product adapters and frontend backends forward it unchanged; GUI session activity enters through one `session_event` branch with sequence, duplicate, and gap checks.
 - Phase 7C repository convergence is complete: base tool projection is workflow-neutral, missing mode/workflow values remain explicit, the old product `embedagent.tooling` and `embedagent.workflow_packages` namespaces are removed, and six distributions remain independently buildable. Phase 8 real-project validation and clean Windows 7/WebView2 acceptance remain open.
@@ -160,7 +164,7 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official local resources: `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are discovered as workspace-bound file resources and can be refreshed through `ToolRuntime.reload_resources()`, `InProcessAdapter.reload_resources(...)`, `/resources reload`, or `POST /api/sessions/{id}/resources/reload`. Skills support Agent Skills-style frontmatter; visible skills are summarized through one lightweight local skill listing prompt unit, while `/skill:<name> [args]` explicitly expands a local skill file into a normal user turn. Prompt files are not injected into default system prompts; `/prompt:<name-or-path> [args]` explicitly expands a workspace-bound prompt file into a normal user turn.
 - Official local self-extension authoring: `SelfExtensionAuthoringService` and the `author_local_capability` tool generate workspace-bound skills, prompts, workflow-neutral recipe JSON, and disabled-by-default project extension skeletons. Authoring writes files only; it does not reload resources, load Python extension code, or stamp generated recipe files with default C/C++ workflow tool names.
 - Official project extension loading: hosted product paths may load enabled `.embedagent/extensions/<name>/extension.json` manifests with workspace-bound `extension.py` entrypoints; `enabled` defaults to false, enabled manifests must declare permissions, no dependency installation or remote registry is allowed, and loaded extensions register explicit `api.ExtensionCapability` records through the same shared `ExtensionManager`
-- Official agent application assembly: `embedagent_host.runtime.agent_applications` owns generic `AgentApplicationRecord` records and callable profile/runtime factories. `src/embedagent/product_catalog.py` composes the default C/C++ record from `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py` and `profile.py`; profile-only built-ins such as `embedagent.generic`, `embedagent.python`, and `embedagent.html` load the same Agent Core and GUI without installing the C/C++ workflow package. `QueryEngine` has no built-in harness import or constructor fallback.
+- Official agent application assembly: `embedagent_host.runtime.agent_applications` owns generic `AgentApplicationRecord` records and callable profile/runtime factories. `src/embedagent/product_catalog.py` composes the default C/C++ record from `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py` and `profile.py`; profile-only built-ins such as `embedagent.generic`, `embedagent.python`, and `embedagent.html` load the same Agent Core and GUI without installing the C/C++ workflow package. Core runtime assembly has no built-in harness import or constructor fallback.
 - Official frontend application capability: hosted capability payloads expose the selected application as `agentApplication` and available same-package applications as `agentApplications`. GUI shells consume these backend-declared descriptors and must not hard-code C/C++ defaults, no-workspace copy, or application-specific mode/tool lists.
 - Official GUI app capability read model: renderer app-shell capability fanout
   lives in `webapp/src/app-runtime/app-capability-model.js`.
@@ -329,16 +333,23 @@ The product no longer treats the old `code` mode or legacy todo-management workf
   Public standalone SDK records and the `Agent` / `AgentSession` object facade.
 - `packages/embedagent-core/src/embedagent_core/runner.py`
   Low-level `run_agent` execution primitive and its bound runtime.
+- `packages/embedagent-core/src/embedagent_core/session_transaction.py`
+  Leased restore-dispatch-project transaction used by public and hosted session
+  entry points.
+- `packages/embedagent-core/src/embedagent_core/session_journal.py`
+  Canonical append-before-apply commit and restore fold over `SessionLogPort`.
+- `packages/embedagent-core/src/embedagent_core/session_reducer.py`
+  Closed live/restore state reducer and validation context.
 - `packages/embedagent-core/src/embedagent_core/session_log.py`
   Durable `SessionLogPort`, in-memory adapter, session identity, and lease contracts. The product's `transcript.jsonl` store implements this port outside Core.
-- `packages/embedagent-core/src/embedagent_core/query_engine.py`
-  Internal session engine for initialization, interaction suspend/resume, log integration, and live session mutation behind the public SDK.
 - `packages/embedagent-core/src/embedagent_core/agent_lifecycle.py`
   Durable lifecycle journal for schema v2 operation events, save points, pending interaction lifecycle, and context operation payload helpers.
 - `packages/embedagent-core/src/embedagent_core/agent_kernel.py`
-  Internal lifecycle kernel for turn frames and pending interaction creation/resolution boundaries.
+  Internal planner/acceptor for the three closed context, provider, and tool
+  effect families.
 - `packages/embedagent-core/src/embedagent_core/agent_loop.py`
-  Pi-style open continuation loop for agent steps, provider/context attempts, compact retry, tool batches, guard stops, abort transitions, and explicit loop safety-limit compatibility transitions.
+  Commit-execute-resume driver over the kernel, journal, provider, tool action,
+  and continuation-policy collaborators.
 - `packages/embedagent-core/src/embedagent_core/guard.py`
   ProgressGuard for evidence-fingerprint based no-progress/runaway protection across tool actions and observations.
 - `packages/embedagent-core/src/embedagent_core/agent_loop_continuation.py`
@@ -346,7 +357,7 @@ The product no longer treats the old `code` mode or legacy todo-management workf
 - `packages/embedagent-core/src/embedagent_core/agent_tool_action_service.py`
   Non-LLM action executor for active-tool checks, extension pre/post hooks, permission-gated runtime dispatch, path write guards, and extension-owned tool calls.
 - `packages/embedagent-core/src/embedagent_core/agent_extension_host.py`
-  QueryEngine-side extension host for prompt/context hooks, workflow state initialization, dynamic tool registration, explicit active schema projection, tool-call/tool-result hooks, and workflow patches.
+  Runtime-side extension host for prompt/context hooks, workflow state initialization, dynamic tool registration, explicit active schema projection, tool-call/tool-result hooks, and workflow patches.
 - `packages/embedagent-core/src/embedagent_core/agent_event_bus.py`
   Source-aware internal event bus for extension observer/reducer dispatch and event-specific reducer stopping.
 - `packages/embedagent-core/src/embedagent_core/turn_snapshot.py`
@@ -379,7 +390,7 @@ The product no longer treats the old `code` mode or legacy todo-management workf
 - `packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py`
   Hosted scenario application boundary, manifest registry, selected-application loader, profile, mode policy, extension manager, and workflow refreshers.
 - `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py`
-  Default C/C++ `RuntimeDefinition` factory that binds the package profile and bundled workflow extension outside `QueryEngine`; the product application record lives in `src/embedagent/product_catalog.py`.
+  Default C/C++ `RuntimeDefinition` factory that binds the package profile and bundled workflow extension outside generic Core assembly; the product application record lives in `src/embedagent/product_catalog.py`.
 - `packages/embedagent-host/src/embedagent_host/runtime/session_runtime.py` and
   `packages/embedagent-host/src/embedagent_host/runtime/session_projector.py`
   Runtime host state plus pure snapshot/bootstrap projection from session truth.
@@ -505,6 +516,7 @@ Current architecture cutover status:
 - Pi-inspired minimal Core Phase K recovery state: completed
 - Pi-inspired minimal Core Phase L pack compatibility cleanup: completed
 - Pi-inspired minimal Core Phase M core alias cleanup: completed
+- Minimal Agent Core convergence (single reducer/journal/kernel/loop path and frozen Host boundary): completed
 - Repository-side release state: `TARGET_READY` with `acceptance_status=PENDING_WIN7` and `publishable=false`; Phase 7B still requires clean Windows 7 SP1 x64/WebView2 109 windowed evidence through `validate-release-evidence.py`.
 - Phase 8 real C/C++ project validation remains separate and open; the repo-side bundle C smoke gate does not close that program.
 
@@ -512,7 +524,7 @@ Current architecture cutover status:
 
 Recent focused verification includes:
 
-- Python unit tests for harness, query engine, adapter, GUI backend, and tool runtime
+- Python unit tests for the agent runtime, journal/reducer/kernel/loop, workflow harness, adapter, GUI backend, and tool runtime
 - Webapp helper/runtime tests
 - GUI static asset rebuild from current webapp source
 

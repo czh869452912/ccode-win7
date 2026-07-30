@@ -1,3 +1,4 @@
+import inspect
 import threading
 from dataclasses import dataclass
 
@@ -170,9 +171,28 @@ def _loop(calls, kernel=None, provider_steps=None, tool_actions=None, journal=No
     )
 
 
+def test_driver_run_has_no_optional_callback_bag():
+    parameters = set(inspect.signature(AgentLoop.run).parameters)
+
+    assert parameters.isdisjoint(
+        {
+            "on_text_delta",
+            "on_reasoning_delta",
+            "on_tool_start",
+            "on_tool_finish",
+            "on_context_result",
+            "on_step_start",
+            "on_step_finish",
+            "permission_handler",
+            "user_input_handler",
+        }
+    )
+
+
 def test_driver_commits_each_kernel_step_before_executing_its_effect():
     calls = []
     tools = RecordingToolActions(calls)
+
     result = _loop(calls, tool_actions=tools).run(
         Session(session_id="session-1"),
         SessionReducerContext(),

@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-07-26
+> 更新日期：2026-07-30
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,51 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-316
+
+- Date: 2026-07-30
+- Change Topic: Minimal Agent Core convergence
+- Summary:
+  - `AgentSession` is the public durable session transaction handle and
+    `SessionTransaction` owns leased restore, dispatch, and projection.
+  - `SessionJournal` preflights event intents, appends through
+    `SessionLogPort`, and then applies live state through the same
+    `SessionReducer` used by restore.
+  - `AgentKernel` plans the three private context/provider/tool effect
+    families; `AgentLoop` is the five-collaborator commit-execute-resume
+    driver with one observer boundary and no callback bag.
+  - `HostedSessionController` returns frozen `HostedSessionProjection`
+    values; Host no longer stores or restores mutable Core `Session`.
+  - `QueryEngine`, `SessionRestorer`, `ExecutionTracer`, and
+    `CircuitBreaker` are deleted without compatibility aliases.
+- Impacted Scope:
+  - `packages/embedagent-core/src/embedagent_core/`
+  - `packages/embedagent-host/src/embedagent_host/`
+  - `tests/`
+  - `AGENTS.md`
+  - `README.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/modules/agent-core.md`
+- Related Docs:
+  - `docs/superpowers/specs/2026-07-27-minimal-agent-core-convergence-design.md`
+  - `docs/superpowers/plans/2026-07-27-minimal-agent-core-convergence.md`
+  - `.gsd/DECISIONS.md`
+- ADR Required: No
+  - The implemented decision is recorded in `.gsd/DECISIONS.md`; no
+    additional architecture branch remains to choose.
+- Verification:
+  - architecture 159/159; fast Python 1681 passed / 1 deselected; full Python
+    1682/1682; Ruff/Black passed
+  - six wheels built and checked with `ok: true`; all isolated smoke scenarios
+    and GUI webapp test/build gates passed
+- Follow-up:
+  - Keep absence/import/mutator guards in the pre-merge architecture gate.
+  - Preserve Python 3.8, offline, Win7, distribution DAG, and default C/C++
+    workflow smoke constraints.
+  - Treat clean Win7/WebView2 109 windowed evidence and real C/C++ project
+    validation as independent external acceptance work.
 
 ### DC-315
 
