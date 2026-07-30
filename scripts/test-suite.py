@@ -96,7 +96,7 @@ def _partition_command(expression: str) -> List[str]:
     ]
 
 
-def build_command(argv: Sequence[str]) -> List[str]:
+def build_command(argv: Sequence[str], failed_targets: Sequence[str] = ()) -> List[str]:
     args = _parser().parse_args(list(argv))
     if args.command == "tdd":
         return (
@@ -109,7 +109,20 @@ def build_command(argv: Sequence[str]) -> List[str]:
             ]
         )
     if args.command == "failed":
-        return _partition_command(PRE_PUSH_EXPRESSION) + ["--lf", "-q", "-x", "--tb=short"]
+        targets = tuple(failed_targets)
+        if not targets:
+            raise ValueError("no matching failed tests")
+        return (
+            [sys.executable, "-m", "pytest"]
+            + list(targets)
+            + [
+                "-m",
+                PRE_PUSH_EXPRESSION,
+                "-q",
+                "-x",
+                "--tb=short",
+            ]
+        )
     if args.command == "pre-push":
         return _partition_command(PRE_PUSH_EXPRESSION)
     if args.command == "full":
@@ -137,6 +150,45 @@ class _CollectionRecorder(object):
 
     def pytest_collection_modifyitems(self, items):
         self.items = list(items)
+
+
+def _last_failed_nodeids(root: Path) -> frozenset:
+    cache_path = Path(root) / ".pytest_cache" / "v" / "cache" / "lastfailed"
+    try:
+        data = json.loads(cache_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return frozenset()
+    if not isinstance(data, dict):
+        return frozenset()
+    return frozenset(
+        nodeid for nodeid, failed in data.items() if isinstance(nodeid, str) and bool(failed)
+    )
+
+
+def collect_failed_targets(root: Path = Path(".")) -> Tuple[int, Tuple[str, ...]]:
+    import pytest
+
+    cached_nodeids = _last_failed_nodeids(root)
+    if not cached_nodeids:
+        return 0, ()
+
+    recorder = _CollectionRecorder()
+    result = pytest.main(
+        ["tests/", "--collect-only", "-o", "addopts=", "-p", "no:terminal"],
+        plugins=[recorder],
+    )
+    if int(result) != 0:
+        return int(result), ()
+
+    excluded_markers = frozenset(("release", "performance", "slow", "gui"))
+    targets = []
+    for item in recorder.items:
+        if item.nodeid not in cached_nodeids:
+            continue
+        marker_names = frozenset(marker.name for marker in item.iter_markers())
+        if excluded_markers.isdisjoint(marker_names):
+            targets.append(item.nodeid)
+    return 0, tuple(sorted(targets))
 
 
 def audit(root: Path = Path(".")) -> int:
@@ -179,6 +231,14 @@ def _run(command: Sequence[str]) -> int:
 
 def main(argv: Sequence[str] = ()) -> int:
     argv = tuple(argv)
+    if argv == ("failed",):
+        status, targets = collect_failed_targets()
+        if status != 0:
+            return status
+        if not targets:
+            print("No failed tests recorded in the fast regular partition.")
+            return 0
+        return _run(build_command(argv, failed_targets=targets))
     if argv == ("audit",):
         return audit()
     return _run(build_command(argv))

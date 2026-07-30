@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -41,7 +42,6 @@ def test_tdd_command_runs_only_explicit_targets_without_coverage():
 @pytest.mark.parametrize(
     ("argv", "expression"),
     (
-        (("failed",), "not release and not performance and not slow and not gui"),
         (("pre-push",), "not release and not performance and not slow and not gui"),
         (("full",), "not release and not performance"),
         (("release",), "release"),
@@ -60,12 +60,35 @@ def test_named_commands_use_stable_marker_expressions(argv, expression):
 
 def test_failed_command_is_only_a_local_repair_loop():
     suite = load_test_suite_script()
+    target = "tests/test_example.py::test_failure"
 
-    command = suite.build_command(("failed",))
+    command = suite.build_command(("failed",), failed_targets=(target,))
 
-    assert "--lf" in command
+    assert target in command
+    assert "tests/" not in command
+    assert "--lf" not in command
     assert "-x" in command
     assert not any(item.startswith("--cov") for item in command)
+
+
+def test_failed_command_requires_collected_targets():
+    suite = load_test_suite_script()
+
+    with pytest.raises(ValueError, match="no matching failed tests"):
+        suite.build_command(("failed",))
+
+
+def test_failed_main_skips_subprocess_when_no_regular_failures(monkeypatch, capsys):
+    suite = load_test_suite_script()
+    monkeypatch.setattr(suite, "collect_failed_targets", lambda: (0, ()))
+    monkeypatch.setattr(
+        suite,
+        "_run",
+        lambda command: pytest.fail("failed command must not start pytest"),
+    )
+
+    assert suite.main(("failed",)) == 0
+    assert "No failed tests" in capsys.readouterr().out
 
 
 def test_full_coverage_uses_pyproject_coverage_sources():
@@ -114,6 +137,55 @@ def test_nested_full_pytest_scan_reports_subprocess_call(tmp_path):
     violations = suite.nested_full_pytest_violations(tmp_path)
 
     assert violations == ("test_nested.py:2",)
+
+
+def test_collect_failed_targets_filters_stale_and_non_fast_nodes(monkeypatch, tmp_path):
+    suite = load_test_suite_script()
+    regular = "tests/test_regular.py::test_failure"
+    release = "tests/test_release.py::test_failure"
+    stale = "tests/test_regular.py::test_removed"
+    cache_path = tmp_path / ".pytest_cache" / "v" / "cache" / "lastfailed"
+    cache_path.parent.mkdir(parents=True)
+    cache_path.write_text(
+        '{"%s": true, "%s": true, "%s": true}' % (regular, release, stale),
+        encoding="utf-8",
+    )
+
+    class Item(object):
+        def __init__(self, nodeid, marker_names=()):
+            self.nodeid = nodeid
+            self._marker_names = marker_names
+
+        def iter_markers(self):
+            return tuple(SimpleNamespace(name=name) for name in self._marker_names)
+
+    def collect(args, plugins):
+        plugins[0].items = [
+            Item(regular),
+            Item(release, ("release",)),
+            Item("tests/test_other.py::test_not_cached"),
+        ]
+        return 0
+
+    monkeypatch.setattr(pytest, "main", collect)
+
+    status, targets = suite.collect_failed_targets(tmp_path)
+
+    assert status == 0
+    assert targets == (regular,)
+
+
+def test_collect_failed_targets_propagates_collection_failure(monkeypatch, tmp_path):
+    suite = load_test_suite_script()
+    cache_path = tmp_path / ".pytest_cache" / "v" / "cache" / "lastfailed"
+    cache_path.parent.mkdir(parents=True)
+    cache_path.write_text(
+        '{"tests/test_regular.py::test_failure": true}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(pytest, "main", lambda args, plugins: 2)
+
+    assert suite.collect_failed_targets(tmp_path) == (2, ())
 
 
 def test_audit_collects_quietly(monkeypatch, tmp_path):
