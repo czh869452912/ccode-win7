@@ -99,9 +99,11 @@ filterwarnings = [
 [tool.coverage.run]
 source = [
     "src/embedagent",
-    "packages/embedagent-host/src/embedagent_host",
     "packages/embedagent-core/src/embedagent_core",
     "packages/embedagent-protocol/src/embedagent_protocol",
+    "packages/embedagent-host/src/embedagent_host",
+    "packages/embedagent-composition/src/embedagent_composition",
+    "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp",
 ]
 omit = ["*/tests/*", "*/fixtures/*", "*/manual/*"]
 

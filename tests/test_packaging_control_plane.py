@@ -542,7 +542,13 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
         self.assertIn("name: Install uv", workflow)
         self.assertIn("UV_CACHE_DIR: ${{ github.workspace }}\\.uv-cache", workflow)
         self.assertIn("uv sync --locked --python python", workflow)
-        self.assertIn("tests/test_phase7_doctor.py -k release_config_declares", workflow)
+        self.assertIn("python scripts/test-suite.py audit", workflow)
+        self.assertIn("python scripts/test-suite.py full --coverage", workflow)
+        self.assertIn("python scripts/test-suite.py performance", workflow)
+        self.assertIn("python scripts/test-suite.py release", workflow)
+        self.assertIn("npm test", workflow)
+        self.assertIn("npm run build", workflow)
+        self.assertNotIn("--cov=src/embedagent", workflow)
         smoke = workflow.split("  smoke:\n", 1)[1].split("  windows-packaging:\n", 1)[0]
         self.assertIn("name: Install uv", smoke)
 

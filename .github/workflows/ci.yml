@@ -35,14 +35,54 @@ jobs:
         run: pip install uv
       - name: Install dependencies
         # Use the Python already provided by setup-python, not uv's own download
-        run: uv sync --python "$(which python)"
-      - name: Run tests
-        run: uv run --locked --python "$(which python)" pytest tests/ -m "not slow and not gui" --cov=src/embedagent --cov-report=xml --cov-report=term-missing
+        run: uv sync --locked --python "$(which python)"
+      - name: Audit test partitions
+        run: uv run --locked --python "$(which python)" python scripts/test-suite.py audit
+      - name: Run complete regular tests
+        run: uv run --locked --python "$(which python)" python scripts/test-suite.py full --coverage
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage.xml
+
+  performance:
+    name: Performance thresholds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+      - name: Install uv
+        run: pip install uv
+      - name: Install dependencies
+        run: uv sync --locked --python "$(which python)"
+      - name: Run performance tests
+        run: uv run --locked --python "$(which python)" python scripts/test-suite.py performance
+
+  frontend:
+    name: Frontend test and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/embedagent/frontend/gui/webapp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: src/embedagent/frontend/gui/webapp/package-lock.json
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Run frontend tests
+        run: npm test
+      - name: Build frontend assets
+        run: npm run build
+      - name: Verify generated assets are committed
+        working-directory: .
+        run: git diff --exit-code -- src/embedagent/frontend/gui/static
 
   smoke:
     name: Smoke test (workspace install + CLI import)
@@ -78,17 +118,5 @@ jobs:
         run: python -m pip install uv
       - name: Install locked workspace
         run: uv sync --locked --python python
-      - name: Run Windows packaging tests
-        run: >-
-          uv run --locked --python python pytest
-          tests/test_packaging_control_plane.py
-          tests/test_release_reproducibility.py
-          tests/test_python_distribution_smoke.py
-          -v
-      - name: Run package configuration contract test
-        # Full doctor tests require the downloaded release assets and LLVM
-        # toolchain supplied by the offline bundle pipeline, not a source CI checkout.
-        run: >-
-          uv run --locked --python python pytest
-          tests/test_phase7_doctor.py -k release_config_declares_identity_evidence_and_distribution_contract
-          -v
+      - name: Run Windows release tests
+        run: uv run --locked --python python python scripts/test-suite.py release
