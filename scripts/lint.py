@@ -15,6 +15,7 @@ DEFAULT_TARGETS = (
     "packages/embedagent-workflow-cpp/src/",
     "tests/",
     "scripts/lint.py",
+    "scripts/test-suite.py",
     "scripts/build-python-distributions.py",
     "scripts/smoke-python-distributions.py",
     "scripts/export-dependencies.py",
