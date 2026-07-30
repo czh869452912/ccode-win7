@@ -87,6 +87,35 @@ def test_tdd_requires_an_explicit_target():
         suite.build_command(("tdd",))
 
 
+def test_primary_partition_rejects_release_performance_overlap():
+    suite = load_test_suite_script()
+
+    with pytest.raises(ValueError, match="release and performance"):
+        suite.primary_partition(("release", "performance"))
+
+
+def test_primary_partition_defaults_to_regular():
+    suite = load_test_suite_script()
+
+    assert suite.primary_partition(()) == "regular"
+    assert suite.primary_partition(("gui",)) == "regular"
+    assert suite.primary_partition(("release",)) == "release"
+    assert suite.primary_partition(("performance",)) == "performance"
+
+
+def test_nested_full_pytest_scan_reports_subprocess_call(tmp_path):
+    suite = load_test_suite_script()
+    test_file = tmp_path / "test_nested.py"
+    test_file.write_text(
+        "import subprocess\n" "subprocess.run(['python', '-m', 'pytest', 'tests/'])\n",
+        encoding="utf-8",
+    )
+
+    violations = suite.nested_full_pytest_violations(tmp_path)
+
+    assert violations == ("test_nested.py:2",)
+
+
 def test_main_runs_the_built_command(monkeypatch):
     suite = load_test_suite_script()
     calls = []

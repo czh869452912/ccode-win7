@@ -3,12 +3,65 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import subprocess
 import sys
-from typing import List, Sequence
+from pathlib import Path
+from typing import Iterable, List, Sequence, Tuple
 
 REGULAR_EXPRESSION = "not release and not performance"
 PRE_PUSH_EXPRESSION = "not release and not performance and not slow and not gui"
+
+
+def primary_partition(marker_names: Iterable[str]) -> str:
+    names = frozenset(marker_names)
+    if "release" in names and "performance" in names:
+        raise ValueError("test cannot be both release and performance")
+    if "release" in names:
+        return "release"
+    if "performance" in names:
+        return "performance"
+    return "regular"
+
+
+def _call_name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        prefix = _call_name(node.value)
+        return (prefix + "." if prefix else "") + node.attr
+    return ""
+
+
+def _literal_strings(node: ast.AST) -> Tuple[str, ...]:
+    values = []
+    for child in ast.walk(node):
+        if isinstance(child, ast.Str):
+            values.append(str(child.s))
+        elif isinstance(child, ast.Constant) and isinstance(child.value, str):
+            values.append(child.value)
+    return tuple(values)
+
+
+def nested_full_pytest_violations(test_root: Path) -> Tuple[str, ...]:
+    root = Path(test_root).resolve()
+    violations = []
+    for path in sorted(root.rglob("test_*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if _call_name(node.func) not in (
+                "subprocess.call",
+                "subprocess.Popen",
+                "subprocess.run",
+            ):
+                continue
+            values = _literal_strings(node)
+            normalized = tuple(value.rstrip("/\\") for value in values)
+            if "-m" in values and "pytest" in values and "tests" in normalized:
+                violations.append("%s:%d" % (path.relative_to(root).as_posix(), node.lineno))
+    return tuple(violations)
 
 
 def _parser():

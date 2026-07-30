@@ -1,46 +1,10 @@
 """Validation test for HYGN-03: Verify no deprecation warnings from project code during test execution."""
 
 import os
-import subprocess
-import sys
 
 
 class TestNoDeprecationWarnings:
     """Ensure test suite produces zero deprecation warnings from project code."""
-
-    def test_pytest_runs_without_deprecation_warnings(self):
-        """Run pytest with warnings as errors and verify no failures from project code."""
-        # Run the fast test subset with deprecation warnings treated as errors
-        # IMPORTANT: ignore this file to avoid infinite recursion
-        project_root = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
-        nested_basetemp = os.path.join(project_root, "build", "test-sandboxes", "pytest-hygn-03")
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "pytest",
-                "tests/",
-                "-m",
-                "not slow and not gui",
-                "--basetemp",
-                nested_basetemp,
-                "--ignore=tests/test_gui_sync.py",  # Skip known failing test
-                "--ignore=tests/test_hygn_03_warning_cleanup.py",  # Skip self to avoid recursion
-                "-W",
-                "error::DeprecationWarning:embedagent.*",
-                "-q",
-            ],
-            capture_output=True,
-            text=True,
-            cwd=project_root,
-        )
-
-        # Check that the test suite passes (exit code 0)
-        assert result.returncode == 0, (
-            f"Test suite failed when treating project-code DeprecationWarnings as errors.\n"
-            f"stdout: {result.stdout}\n"
-            f"stderr: {result.stderr}"
-        )
 
     def test_pytest_config_has_warning_filters(self):
         """Verify pyproject.toml has warning filter configuration."""
