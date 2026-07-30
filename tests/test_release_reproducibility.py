@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.release
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "compare-release-artifacts.py"
 FIXTURE = ROOT / "tests" / "fixtures" / "packaging" / "reproducibility-config.json"

@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.release
+
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_SCRIPT = ROOT / "scripts" / "package.ps1"
 MOCK_CONFIG = ROOT / "tests" / "fixtures" / "package" / "mock-config.json"

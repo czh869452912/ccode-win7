@@ -88,6 +88,8 @@ markers = [
     "session: session runtime, restore, timeline",
     "gui: GUI and frontend tests (requires display)",
     "slow: integration tests > 5 seconds",
+    "release: packaging, distribution, offline, and release-gate tests",
+    "performance: explicit performance threshold tests",
 ]
 filterwarnings = [
     "error::DeprecationWarning:embedagent.*",

@@ -116,6 +116,27 @@ def test_nested_full_pytest_scan_reports_subprocess_call(tmp_path):
     assert violations == ("test_nested.py:2",)
 
 
+def test_audit_collects_quietly(monkeypatch, tmp_path):
+    suite = load_test_suite_script()
+    calls = []
+
+    def collect(args, plugins):
+        calls.append(args)
+        return 0
+
+    monkeypatch.setattr(pytest, "main", collect)
+
+    assert suite.audit(tmp_path) == 1
+    assert calls == [["tests/", "--collect-only", "-o", "addopts=", "-p", "no:terminal"]]
+
+
+def test_main_routes_audit_without_starting_a_pytest_subprocess(monkeypatch):
+    suite = load_test_suite_script()
+    monkeypatch.setattr(suite, "audit", lambda: 7, raising=False)
+
+    assert suite.main(("audit",)) == 7
+
+
 def test_main_runs_the_built_command(monkeypatch):
     suite = load_test_suite_script()
     calls = []

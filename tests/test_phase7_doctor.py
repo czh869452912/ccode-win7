@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.release
+
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "scripts" / "package.config.json"
 PACKAGE_SCRIPT = ROOT / "scripts" / "package.ps1"

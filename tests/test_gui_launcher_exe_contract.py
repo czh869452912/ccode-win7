@@ -1,6 +1,10 @@
 import unittest
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.release
+
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER_SOURCE = ROOT / "scripts" / "launcher" / "embedagent_gui_launcher.cpp"
 BUILD_SCRIPT = ROOT / "scripts" / "build-gui-launcher.ps1"

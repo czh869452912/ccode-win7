@@ -10,6 +10,10 @@ import unittest
 import zipfile
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.release
+
 ROOT = Path(__file__).resolve().parents[1]
 LIB = ROOT / "scripts" / "package-lib.ps1"
 CONFIG = ROOT / "scripts" / "package.config.json"

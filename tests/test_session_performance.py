@@ -5,11 +5,15 @@ import time
 import unittest
 from itertools import count
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent_host.runtime.session_history import SessionHistoryAssembler
 from embedagent_host.runtime.transcript_store import TranscriptStore
 from session_journal_test_helpers import restore_trusted_events
+
+pytestmark = pytest.mark.performance
 
 _COUNTER = count(1)
 

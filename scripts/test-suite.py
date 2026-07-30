@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -79,6 +80,7 @@ def _parser():
 
     commands.add_parser("release", help="Run release and packaging tests.")
     commands.add_parser("performance", help="Run explicit performance tests.")
+    commands.add_parser("audit", help="Audit complete and non-overlapping partitions.")
     return parser
 
 
@@ -129,12 +131,56 @@ def build_command(argv: Sequence[str]) -> List[str]:
     raise ValueError("unsupported test suite command: %s" % args.command)
 
 
+class _CollectionRecorder(object):
+    def __init__(self):
+        self.items = []
+
+    def pytest_collection_modifyitems(self, items):
+        self.items = list(items)
+
+
+def audit(root: Path = Path(".")) -> int:
+    import pytest
+
+    recorder = _CollectionRecorder()
+    result = pytest.main(
+        ["tests/", "--collect-only", "-o", "addopts=", "-p", "no:terminal"],
+        plugins=[recorder],
+    )
+    if int(result) != 0:
+        return int(result)
+
+    counts = {"regular": 0, "release": 0, "performance": 0}
+    errors = []
+    for item in recorder.items:
+        markers = tuple(marker.name for marker in item.iter_markers())
+        try:
+            partition = primary_partition(markers)
+        except ValueError as exc:
+            errors.append("%s: %s" % (item.nodeid, exc))
+            continue
+        counts[partition] += 1
+
+    for violation in nested_full_pytest_violations(Path(root) / "tests"):
+        errors.append("nested full pytest: %s" % violation)
+    if counts["release"] == 0:
+        errors.append("release partition is empty")
+    if counts["performance"] == 0:
+        errors.append("performance partition is empty")
+
+    print(json.dumps({"counts": counts, "errors": errors}, sort_keys=True))
+    return 1 if errors else 0
+
+
 def _run(command: Sequence[str]) -> int:
     print("+ " + " ".join(command), flush=True)
     return subprocess.call(list(command))
 
 
 def main(argv: Sequence[str] = ()) -> int:
+    argv = tuple(argv)
+    if argv == ("audit",):
+        return audit()
     return _run(build_command(argv))
 
 

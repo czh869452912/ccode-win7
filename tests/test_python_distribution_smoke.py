@@ -7,6 +7,10 @@ import unittest
 import zipfile
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.release
+
 ROOT = Path(__file__).resolve().parents[1]
 SMOKE_SCRIPT = ROOT / "scripts" / "smoke-python-distributions.py"
 BUILD_SCRIPT = ROOT / "scripts" / "build-python-distributions.py"
