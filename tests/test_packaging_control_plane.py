@@ -536,6 +536,30 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
             makefile,
         )
 
+    def test_frontend_native_rollup_dependency_is_optional(self):
+        webapp = ROOT / "src" / "embedagent" / "frontend" / "gui" / "webapp"
+        package = json.loads((webapp / "package.json").read_text(encoding="utf-8"))
+        package_lock = json.loads(
+            (webapp / "package-lock.json").read_text(encoding="utf-8")
+        )
+        dependency = "@rollup/rollup-win32-x64-msvc"
+
+        self.assertNotIn(dependency, package.get("devDependencies", {}))
+        self.assertEqual(
+            package.get("optionalDependencies", {}).get(dependency), "^4.60.1"
+        )
+
+        lock_root = package_lock["packages"][""]
+        self.assertNotIn(dependency, lock_root.get("devDependencies", {}))
+        self.assertEqual(
+            lock_root.get("optionalDependencies", {}).get(dependency), "^4.60.1"
+        )
+
+        native_package = package_lock["packages"]["node_modules/" + dependency]
+        self.assertIs(native_package.get("optional"), True)
+        self.assertEqual(native_package.get("os"), ["win32"])
+        self.assertEqual(native_package.get("cpu"), ["x64"])
+
     def test_ci_workspace_jobs_provision_uv_and_share_offline_build_cache(self):
         workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
