@@ -1,38 +1,39 @@
-# Release Doc Checklist
+# Release Documentation Checklist
 
 > 状态：`active`
 > 类型：`workflow`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-19`
-> 对应代码范围：`README.md`, `docs/`, `scripts/`
+> 最后同步日期：`2026-08-01`
 
-## 1. Scope Confirmation
+## Navigation And State
 
-- 本轮发布涉及哪些代码区域
-- 是否影响用户可见能力、配置、部署或验证方式
-- 是否影响项目级官方契约文档
+- [ ] `docs/README.md` routes packaging and target acceptance to the current module/runbook.
+- [ ] `docs/current-status.md` states the actual release state, blockers, and evidence boundary.
+- [ ] `docs/implementation-roadmap.md` contains only open release sequencing and exit conditions.
+- [ ] `README.md` release summary agrees with current status without duplicating evidence history.
 
-## 2. User-Facing Guide Check
+## Contract And Guide
 
-- 配置、部署、验证、打包说明是否已同步
-- 命令、路径和产物名是否仍有效
-- Win7 / offline 约束是否仍被正确表达
+- [ ] `docs/modules/packaging-and-deployment.md` matches the distribution and bundle layout.
+- [ ] `docs/guides/win7-release-runbook.md` matches current commands, report schema, hashes, WebView2 and C smoke requirements.
+- [ ] `scripts/offline-runtime-contract.json` covers every runtime binary and release gate.
+- [ ] configuration examples contain no secrets and do not require network for base startup.
 
-## 3. Validation Doc Check
+## Evidence Boundary
 
-- 验证步骤是否与当前脚本一致
-- 测试或 smoke 命令是否仍存在
-- 质量门、打包门和 bundle 检查文档是否仍适用
+- [ ] Local tests and hosted CI are not presented as clean Windows 7 acceptance.
+- [ ] Release claims require target-style windowed GUI, Fixed Version WebView2 109, bundle-local C smoke, and hash-bound structured evidence.
+- [ ] `publishable` and acceptance state match validated evidence rather than plan completion.
 
-## 4. Source-of-Truth Check
+## Verification
 
-- `README.md` 和 `AGENTS.md` 是否仍反映当前产品基线
-- 相关架构和契约文档是否已同步
-- 相关模块文档是否已同步
+- [ ] Six distributions build, inspect, and isolate-smoke successfully.
+- [ ] `scripts/package.ps1 doctor` and `release` use the documented control plane.
+- [ ] Architecture guards, full Python partition, lint, and frontend test/build gates pass as applicable.
+- [ ] Paths, commands, links, metadata, and documentation context budgets are checked.
 
-## 5. Archive Check
+## Archive Closeout
 
-- 本轮 `superpowers` 文档是否已完成全局回写
-- 已关闭切片是否已归档
-- 活动入口是否只保留当前有效文档
-- `docs/archive/README.md` 和对应主题包 README 是否列出新增归档材料
+- [ ] Completed release specs/plans and evidence summaries are moved to an indexed archive package.
+- [ ] `docs/superpowers/README.md` lists only release work with open acceptance conditions.
+- [ ] Durable conclusions are present in the owning module, runbook, status, roadmap, or ADR before archival.

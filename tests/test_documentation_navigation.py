@@ -160,3 +160,37 @@ def test_pi_blueprint_describes_direction_without_completed_phase_ledger():
     assert "## Migration Program" not in text
     assert "Phase A:" not in text
     assert "QueryEngine" not in text
+
+
+RETIRED_ACTIVE_AUTHORITIES = (
+    "docs/development-tracker.md",
+    "docs/design-change-log.md",
+    "docs/pre-release-architecture-debt-audit.md",
+    "docs/guides/t3-gui-parity-ledger.md",
+)
+
+
+def _active_global_docs():
+    roots = (ROOT / "README.md", ROOT / "AGENTS.md", ROOT / "docs")
+    for root in roots:
+        candidates = (root,) if root.is_file() else root.rglob("*.md")
+        for path in candidates:
+            relative_path = path.relative_to(ROOT).as_posix()
+            if relative_path.startswith("docs/archive/"):
+                continue
+            if relative_path.startswith("docs/superpowers/"):
+                continue
+            yield path
+
+
+def test_active_global_docs_do_not_route_to_retired_authorities():
+    offenders = []
+    for path in _active_global_docs():
+        text = path.read_text(encoding="utf-8")
+        for token in RETIRED_ACTIVE_AUTHORITIES:
+            if token in text:
+                offenders.append(
+                    "%s references %s"
+                    % (path.relative_to(ROOT).as_posix(), token)
+                )
+    assert offenders == []

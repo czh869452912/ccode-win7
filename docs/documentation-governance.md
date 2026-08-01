@@ -1,86 +1,67 @@
 # Documentation Governance
 
 > 状态：`active`
-> 类型：`workflow`
+> 类型：`governance`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-19`
-> 对应代码范围：`README.md`, `AGENTS.md`, `docs/`
+> 最后同步日期：`2026-08-01`
 
-## 1. Purpose
+## Purpose
 
-本文件定义 EmbedAgent 仓库的文档治理规则，目标是把活动文档、切片文档和历史文档分层管理，并建立“代码与文档同步开发”的默认闭环。
+文档体系的目标是让人和智能体用最小上下文定位当前权威，而不是保存实施流水。一个事实只能有一个所有者；入口负责路由，权威文档负责细节，历史材料负责追溯。
 
-## 2. Document Layers
+## Five Layers
 
-### 2.1 `superpowers` process docs
+| Layer | Documents | Responsibility |
+|---|---|---|
+| Entry | `README.md`, `AGENTS.md` | 产品入口、命令、不可协商约束；不展开模块细节 |
+| Map | `docs/README.md` | 唯一全局意图地图；路由到权威 |
+| Authority | `docs/overall-solution-architecture.md`, `docs/modules/`, contracts, guides, workflows, ADRs | 当前架构、行为、操作和决策理由 |
+| Current work | `docs/current-status.md`, `docs/implementation-roadmap.md`, `docs/superpowers/README.md` | 当前状态、开放顺序、精确活跃切片 |
+| History | `docs/archive/`, `analysis/` | 已完成计划、证据、旧快照和调查材料 |
 
-- 位置：`docs/superpowers/specs/`、`docs/superpowers/plans/`
-- 角色：当前一轮切片说明书
-- 用途：记录本轮设计、计划、范围、约束、验收条件和 review 结果
-- 规则：不作为长期架构真相；切片完成后必须回写全局文档并归档
+活跃实现不得依赖阅读 History 才能发现当前行为。
 
-### 2.2 global project docs
+## One Fact, One Owner
 
-- 位置：`README.md`、`AGENTS.md`、`docs/` 活动文档、`docs/modules/`、`docs/workflows/`、`docs/references/`、`docs/templates/`
-- 角色：长期 `source-of-truth`
-- 用途：定义当前官方术语、架构边界、模块职责、维护规则和标准模板
-- 规则：必须与当前代码和当前官方口径保持同步
+- 跨层拓扑只由总体架构拥有；局部实现由对应模块或契约文档拥有。
+- 操作步骤由 guide 或 workflow 拥有；长期决策理由由 ADR 拥有。
+- Entry 和 Map 只写最短摘要与链接，不复制文件清单、控制器说明或完整契约。
+- 当事实变化时更新所有者；只有路由变化才更新 `docs/README.md` 和代码-文档矩阵。
+- 冲突时，以拥有该事实的当前 authority 为准，并删除其他活跃文档中的重复表述。
 
-### 2.3 archive docs
+## Current Work Is Replace-In-Place
 
-- 位置：`docs/archive/`
-- 角色：历史留痕
-- 用途：保存已完成切片的设计、计划、分析、实现说明、复盘和 handoff 文档
-- 规则：可用于历史参考，但不能替代活动文档承担当前真相职责
+- `docs/current-status.md` 只保存现在的发布状态、焦点、阻塞项、下一步和证据边界。状态变化时替换旧内容，不追加日期日志。
+- `docs/implementation-roadmap.md` 只保存开放项目、顺序约束和退出条件。项目关闭后移除，不保留完成清单。
+- `docs/superpowers/README.md` 必须精确列出尚有开放验收条件的 spec/plan 文件。
+- 切片关闭时，先把可持续结论同步到 authority，再将 spec/plan 移入带 `README.md` 的 archive package，并从活跃索引删除。
 
-## 3. Source-of-Truth Rules
+## ADR Rule
 
-- 产品级长期真相由 `README.md`、`AGENTS.md` 和根目录官方契约文档承担。
-- 模块级长期真相由 `docs/modules/` 承担。
-- 治理规则、术语、模板和流程由 `docs/` 活动文档承担。
-- `superpowers` 文档只服务当前切片，不应直接被视为全局项目基线。
+当变化包含长期约束、至少两个有意义的备选方案或难以从代码推导的理由时，新增或更新 ADR。ADR 记录背景、选择、替代项和后果，不承担当前进度或实施步骤。
 
-## 4. Active Document Types
+## Context Budgets
 
-- `architecture`：说明当前官方架构和系统主链路
-- `module`：说明某个代码域的职责、边界和验证入口
-- `workflow`：说明开发、同步、发布和归档流程
-- `guide`：说明配置、部署、验证等操作方法
-- `reference`：提供术语表、图表规范和代码-文档映射
-- `adr`：记录长期有效的重要决策
-- `tracker`：维护当前阶段和风险
-- `changelog`：记录已发生的关键设计变更
+| Document | Maximum words |
+|---|---:|
+| `README.md` | 1500 |
+| `AGENTS.md` | 2500 |
+| `docs/README.md` | 1000 |
+| `docs/overall-solution-architecture.md` | 3000 |
+| `docs/implementation-roadmap.md` | 1000 |
+| `docs/current-status.md` | 750 |
 
-## 5. Ownership And Update Rules
+超出预算必须在同一变更中拆分到明确所有者并恢复预算；不能以“信息完整”为由让入口或全局权威持续膨胀。
 
-- 修改架构或 workflow 假设时，必须同步更新对应 `source-of-truth` 文档。
-- 修改模块职责、入口文件、上下游边界或验证方式时，必须同步更新对应模块文档。
-- 每轮切片设计完成后，活动期以 `superpowers` 文档为当前工作说明；切片完成后必须回写长期真相。
-- 活动文档应始终使用当前官方词汇，不回流旧术语。
+## Code-Doc Sync
 
-## 6. Code-Doc Sync Policy
+代码变更只更新受影响的所有者：公共契约、跨模块所有权、操作流程、配置/发布行为或当前优先级发生变化时，分别更新 contract/module、guide/workflow、ADR 或 current-work 文档。不要求每次变更追加全局 tracker 或 change log。
 
-- 任何会影响正式术语、协议、模块职责、部署方式、测试入口或用户可见工作流的变更，都必须评估文档影响面。
-- 架构与协议类变化优先更新契约文档，再实施代码。
-- 代码实现完成后，必须检查是否需要更新：
-  - 全局项目文档
-  - 模块文档
-  - `development-tracker.md`
-  - `design-change-log.md`
-  - 必要时 `ADR`
+流程见 `docs/workflows/code-doc-sync.md`；详细所有权见 `docs/references/code-doc-matrix.md`。
 
-## 7. Archive Policy
+## Archive Policy
 
-- 已完成切片的 `superpowers` 文档应移动到 `docs/archive/<topic>/`。
-- 归档前必须先完成全局文档和模块文档回写。
-- archive 应包含主题索引，便于回溯，但活动文档不应把 archive 当成当前真相依赖。
-- `docs/archive/README.md` 维护 archive package 总索引；每个新增或扩充的主题包应维护本包 `README.md`。
-- 活动 docs 根目录只保留长期 source-of-truth 文档。阶段性设计、历史 refactor 记录、完成的 slice plan/spec 不应长期停留在活动根目录或 `docs/superpowers/`。
-
-## 8. Related Documents
-
-- `docs/documentation-style-guide.md`
-- `docs/workflows/code-doc-sync.md`
-- `docs/workflows/architecture-change-process.md`
-- `docs/references/glossary.md`
-- `docs/references/code-doc-matrix.md`
+- Archive 保存已完成切片、关闭审计、历史快照和验收证据，不承载当前官方口径。
+- 每个 archive package 必须列出材料、归档原因和当前权威入口。
+- 活跃文档可以把 `docs/archive/README.md` 作为历史调查入口，但不能把具体归档文件作为当前契约。
+- Git 历史足以保存普通文案演变；只有具有调查、决策或验收价值的材料才进入 archive。

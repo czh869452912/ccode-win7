@@ -154,8 +154,8 @@ validate-cpp-smoke.cmd：
 
 ## 6. 回填位置
 
-- `docs/development-tracker.md`
-- `docs/design-change-log.md`
+- `docs/current-status.md`
+- `docs/guides/win7-release-runbook.md`
 - `docs/modules/packaging-and-deployment.md`
 - `docs/modules/frontend-gui.md`
 ---

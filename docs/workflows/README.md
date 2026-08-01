@@ -1,31 +1,18 @@
 # Documentation Workflows
 
 > 状态：`active`
-> 类型：`workflow`
+> 类型：`navigation`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-19`
-> 对应代码范围：`docs/workflows/`
+> 最后同步日期：`2026-08-01`
 
-## 1. Code-Doc Sync
+These workflows implement one ownership model: update the document that owns the durable fact, change the global map only when routing changes, replace current state rather than appending history, and archive completed process material.
 
-入口文档：`code-doc-sync.md`
+| Need | Workflow |
+|---|---|
+| Keep code and its owning documentation aligned | `docs/workflows/code-doc-sync.md` |
+| Change a cross-layer architecture boundary | `docs/workflows/architecture-change-process.md` |
+| Verify release-facing documentation and evidence claims | `docs/workflows/release-doc-checklist.md` |
 
-用于定义代码实现与文档回写的标准闭环。
+`docs/documentation-governance.md` defines the five layers, authority rules, and context budgets. `docs/documentation-style-guide.md` defines writing and review rules. `docs/README.md` remains the only global map.
 
-## 2. Architecture Change Process
-
-入口文档：`architecture-change-process.md`
-
-用于定义涉及长期架构基线变化时，如何从 `superpowers` 设计推进到全局文档同步。
-
-## 3. Release Doc Checklist
-
-入口文档：`release-doc-checklist.md`
-
-用于定义发布、交付和阶段收口前的文档检查项。
-
-## 4. Archive Closeout
-
-入口文档：`code-doc-sync.md` 与 `release-doc-checklist.md`
-
-用于确认完成切片已经回写长期文档、移入 `docs/archive/<topic>/`，并更新 `docs/archive/README.md` 或主题包 README。
+Closure means durable truth is synchronized once, the active-slice index is exact, and completed specs/plans are placed in an indexed archive package. It does not mean appending completion notes across entry, architecture, roadmap, and status documents.

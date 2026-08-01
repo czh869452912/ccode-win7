@@ -3,93 +3,61 @@
 > 状态：`active`
 > 类型：`reference`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-19`
-> 对应代码范围：`docs/`
+> 最后同步日期：`2026-08-01`
 
-## 1. Language Rules
+## Write For Navigation
 
-- 采用中文主叙述。
-- 路径、类名、函数名、字段名、模式名、工具名、接口名保留英文原文，并使用反引号。
-- 文档说明使用现在时，描述当前生效状态；历史说明必须显式标注。
+先写读者意图、权威结论和下一跳链接。入口和全局文档使用渐进披露：概述只保留理解边界所需的信息，文件、控制器、事件字段和局部规则放入拥有它们的模块或契约文档。
 
-## 2. Metadata Block
+## Metadata
 
-活动文档在标题下方应至少提供以下元信息：
+活跃 authority、guide、workflow 和 current-work 文档应在标题后给出：
 
-- `状态`
-- `类型`
-- `负责人`
-- `最后同步日期`
-- `对应代码范围`
-
-示例：
-
-```md
-> 状态：`active`
-> 类型：`module`
-> 负责人：`project maintainers`
-> 最后同步日期：`2026-04-08`
-> 对应代码范围：`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`
+```markdown
+> 状态：`active|target|archive`
+> 类型：`architecture|contract|module|guide|workflow|status|roadmap|reference`
+> 负责人：`...`
+> 最后同步日期：`YYYY-MM-DD`
 ```
 
-## 3. Required Sections By Document Type
+归档包用归档日期和当前真相入口替代活跃状态信息。
 
-`architecture`、`module`、`workflow` 文档应至少包含：
+## Language And Terms
 
-1. 目的与范围
-2. 适用对象
-3. 官方结论 / 当前规则
-4. 代码对应关系
-5. 关键流程或数据流
-6. 验证与回归入口
-7. 变更触发条件
-8. 相关文档
+- 中文用于协作说明，代码标识、命令、路径、协议字段和官方英文术语保持原样。
+- 使用项目官方词汇；退役名称只能出现在明确的 removed/forbidden 历史语境中。
+- 命令必须可复制，路径必须仓库相对且可验证。
+- 结论优先于过程；避免“最近做了什么”式叙事。
 
-`guide`、`reference`、`adr`、`tracker` 可使用更合适的结构，但仍应保持职责单一、标题稳定。
+## Structure By Owner
 
-## 4. Terminology Rules
+- Entry：产品/约束摘要、常用命令、任务导航。
+- Map：意图、首读文档、下一跳、禁止作为当前真相的来源。
+- Architecture：范围、所有权、跨层数据流、不变量、验证触发器。
+- Module/contract：代码范围、入口、数据流、约束、测试、相关权威。
+- Current status：当前状态、焦点、阻塞、下一步、证据边界。
+- Roadmap：开放项目、顺序、退出条件。
+- Workflow/guide：触发条件、步骤、验证、失败/回滚边界。
+- Archive index：材料清单、归档原因、当前权威入口。
 
-- 活动文档必须使用当前官方词汇。
-- 历史术语只允许出现在“兼容说明”或“历史说明”中。
-- 下列历史词汇不得在活动文档中作为正式术语使用；若必须提及，
-  必须同时说明它们已被移除、禁止或不属于当前架构：
-  - `code` 作为 first-class mode
-  - retired todo vocabulary
-  - retired todo-management tool name（禁止作为当前正式术语）
+## Prohibited Patterns
 
-## 5. Code Mapping Rules
+- 不在活跃文档追加 completion chronology、逐日期验证流水或已完成阶段目录。
+- Entry、architecture 和 current-work 文档不得出现 `Recent Work`、`Completion`、`Completed Phases` 或每个切片一个日期章节。
+- 不在多个文档重复组件、控制器、文件或工具清单；清单只放在拥有它的模块或契约。
+- 不把 archive 链接描述成当前 contract、required reading 或实施入口。
+- 不创建新的全局 tracker/change-log 文档作为每次变更的强制回填点。
+- 不接受没有拆分计划和所有者说明的上下文预算例外。
 
-每篇模块文档必须显式提供：
+## Tables And Diagrams
 
-- 代码目录
-- 入口文件
-- 核心对象
-- 上游依赖
-- 下游影响
-- 相关测试
-- 相关契约文档
+只有当比较、所有权或数据流比短段落更清楚时才使用表格或 Mermaid。图中的节点名必须对应官方边界，且正文说明谁拥有状态和决策。不要用图重复源码目录树。
 
-这部分应使用稳定字段名，便于人工 review 与后续脚本检查。
+## Review Checklist
 
-## 6. Mermaid And Diagram Rules
-
-- 优先使用 Markdown 内嵌 Mermaid。
-- 架构总览文档至少包含 1 张系统分层或主链路图。
-- 模块文档在存在多组件交互时至少包含 1 张组件图或时序图。
-- 工作流文档至少包含 1 张流程图。
-- 状态密集型主题优先使用 `stateDiagram-v2` 或 `sequenceDiagram`。
-
-## 7. Historical Content Rules
-
-- superseded 内容应迁入 `docs/archive/`，而不是长期留在活动入口中平铺。
-- 如活动文档必须提及历史路径，应明确写出“历史说明”或“兼容说明”。
-- archive 负责保留上下文，活动文档负责保留当前真相。
-
-## 8. Review Checklist
-
-- 标题、元信息和章节是否完整
-- 是否使用当前官方术语
-- 路径、类型名、工具名是否与代码一致
-- 是否包含必要的代码映射块
-- 是否在要求场景下提供 Mermaid 图
-- 是否错误地把历史内容写成当前口径
+- 是否能从 `docs/README.md` 按意图到达？
+- 是否只更新了事实的一个所有者？
+- 是否删除了被替代的旧表述？
+- 是否满足上下文预算并避免完成流水？
+- 路径、命令、名称和链接是否可机械验证？
+- 已关闭材料是否进入带索引的 archive package？

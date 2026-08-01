@@ -3,50 +3,47 @@
 > 状态：`active`
 > 类型：`workflow`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-19`
-> 对应代码范围：`README.md`, `AGENTS.md`, `docs/`, `src/embedagent/`
+> 最后同步日期：`2026-08-01`
 
-## 1. When This Workflow Applies
+## When To Use
 
-当改动会影响以下任一项时，使用本流程：
+Use this workflow for distribution ownership, Core/Host/workflow/frontend boundaries, public contracts, durable state, permission policy, offline runtime, or release evidence changes.
 
-- 官方架构主链路
-- 正式术语
-- 模式、权限、协议、任务或会话模型
-- 模块边界或长期维护规则
+## Inputs
 
-## 2. Required Inputs
+- current authority selected through `docs/README.md`;
+- affected code and tests;
+- constraints from `AGENTS.md`;
+- meaningful alternatives and compatibility/deletion implications;
+- an active spec/plan only when the change needs temporary execution context.
 
-- 当前问题陈述
-- 受影响代码区域
-- 当前活动 `source-of-truth` 文档
-- 本轮 `superpowers` 设计与计划文档
+## Design
 
-## 3. `superpowers` Design Output
+State the problem, current boundary, proposed owner, data/control flow, alternatives, non-goals, risks, and measurable acceptance conditions. New Core responsibilities require explicit proof that a focused port, Host service, workflow package, or extension cannot own them safely.
 
-- 使用 `superpowers` 产出当前切片 design/spec
-- 明确范围、非目标、长期结论与验收条件
-- 明确哪些结论最终需要进入全局项目文档
+## Sync Rules
 
-## 4. Global Doc Sync Rules
+1. Update the affected architecture, module, or contract authority.
+2. Update `docs/README.md` or the code-doc matrix only if routing/ownership changed.
+3. Add or update an ADR when durable rationale and alternatives must persist.
+4. Replace `docs/current-status.md` when priorities, blockers, or evidence state changed.
+5. Keep `docs/implementation-roadmap.md` limited to still-open sequencing and exit conditions.
 
-- `superpowers` 文档只服务当前切片，不直接替代全局真相
-- 实现完成后，长期有效的结论必须回写：
-  - `README.md`
-  - `AGENTS.md`
-  - 对应根目录契约文档
-  - 对应模块文档
-- 若变更属于长期决策，应补 `ADR`
+## Review Gates
 
-## 5. Review Gates
+- dependency direction and distribution ownership remain valid;
+- event/session truth has one writer and one durable source;
+- activation, execution, permissions, and write-path decisions remain separate;
+- Windows 7, Python 3.8, offline, C/C++, and release evidence constraints remain explicit;
+- obsolete pre-release shapes are deleted rather than wrapped;
+- focused tests, architecture guards, full partition, lint, and affected frontend/delivery gates pass.
 
-- 设计获批后再进入实现
-- 实现完成后必须通过代码验证与文档验证
-- 在归档前必须确认全局文档已完成同步
+## Closeout
 
-## 6. Closeout Rules
+1. Confirm the owning authority describes the landed behavior.
+2. Confirm any required ADR records the durable decision.
+3. Replace current status if the active focus changed.
+4. Remove the slice from `docs/superpowers/README.md`.
+5. Move completed spec/plan and useful evidence into an indexed archive package.
 
-- 更新 `development-tracker.md`
-- 更新 `design-change-log.md`
-- 必要时新增或更新 `ADR`
-- 完成后把本轮 `superpowers` 文档移入 `docs/archive/`
+Do not close by appending the same completion statement to multiple global documents.

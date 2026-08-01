@@ -3,72 +3,52 @@
 > 状态：`active`
 > 类型：`workflow`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-19`
-> 对应代码范围：`README.md`, `AGENTS.md`, `docs/`, `src/embedagent/`
+> 最后同步日期：`2026-08-01`
 
-## 1. Trigger Conditions
+## Trigger
 
-以下情况必须启动代码-文档同步流程：
+公共契约、模块所有权、跨层数据流、配置、操作步骤、发布证据、长期决策或当前优先级变化时执行本流程。内部重构若不改变这些事实，不需要制造文档流水。
 
-- 修改正式术语、模式、工具、权限、协议、会话模型或任务模型
-- 修改模块职责、入口文件、关键数据流或对外接口
-- 新增或删除用户可见工作流、部署方式、验证方式
-- 修改验证步骤，导致现有文档命令失效
-
-## 2. Change Classification
-
-每次改动先判断属于以下哪类：
-
-- `implementation`
-- `module behavior`
-- `architecture contract`
-- `workflow / process`
-
-分类结果决定需要更新哪些全局文档和模块文档。
-
-## 3. Impact Assessment
-
-至少识别以下内容：
-
-- 受影响代码目录
-- 受影响全局文档
-- 受影响模块文档
-- 是否需要更新 `development-tracker.md`
-- 是否需要更新 `design-change-log.md`
-- 是否需要新增或更新 `ADR`
-
-## 4. Implementation And Sync
-
-架构或协议类变化先更新契约文档，再做实现；模块内部变化可先实现，再在同一轮回写模块文档。
+## Flow
 
 ```mermaid
 flowchart TD
-    A["superpowers spec/plan"] --> B["实现与验证"]
-    B --> C["回写全局项目文档"]
-    B --> D["回写模块文档"]
-    C --> E["更新 tracker / change-log / ADR"]
-    D --> E
-    E --> F["归档本轮 superpowers 文档"]
+    A["Classify durable change"] --> B["Update one contract or module owner"]
+    B --> C["Update map only if routing changed"]
+    C --> D["Replace current status only if focus changed"]
+    D --> E["Add ADR only for durable decision"]
+    E --> F["Archive completed slice"]
 ```
 
-## 5. Verification
+## Classify The Owner
 
-在声称一轮工作完成之前，至少检查：
+| Change | Owner |
+|---|---|
+| Cross-layer dependency or execution invariant | `docs/overall-solution-architecture.md` |
+| Local component behavior | corresponding `docs/modules/` document |
+| Tool, permission, protocol, or mode contract | corresponding contract document |
+| Configuration or operational procedure | corresponding guide/workflow |
+| Durable decision with alternatives | ADR |
+| Current focus/blocker | `docs/current-status.md` |
+| Open ordering/exit criterion | `docs/implementation-roadmap.md` |
 
-- 相关 source-of-truth 文档是否已同步
-- 术语是否仍符合官方词汇
-- 路径、命令、图表与测试入口是否仍有效
-- 活动文档是否错误依赖 archive
+## Steps
 
-## 6. Tracker / Change Log / ADR Updates
+1. Identify the changed durable fact and its one owner through `docs/README.md` and `docs/references/code-doc-matrix.md`.
+2. Update that authority in the same change as the code; remove superseded wording instead of appending a correction.
+3. Update the global map or code-doc matrix only when ownership or routing changed.
+4. Replace current status only when focus, blocker, next action, or evidence state changed.
+5. Add/update an ADR only when rationale and alternatives must survive implementation.
+6. If an active slice closes, synchronize durable conclusions, move its spec/plan into an indexed archive package, and update `docs/superpowers/README.md`.
 
-- 中等以上设计变化必须更新 `design-change-log.md`
-- 当前重点、风险或阶段变化必须更新 `development-tracker.md`
-- 长期有效的重要决策应写入 `docs/adrs/`
+## Verification
 
-## 7. Archive Handoff
+- Run focused tests for the changed code and contract.
+- Run `uv run python scripts/test-suite.py tdd tests/test_documentation_navigation.py` for navigation/governance changes.
+- Run architecture guards for cross-boundary changes.
+- Use `rg` to verify retired paths and superseded terms no longer appear in active authorities.
+- Run `git diff --check` and inspect links, commands, paths, metadata, and context budgets.
 
-- 切片关闭前先回写全局文档与模块文档
-- 再把 `docs/superpowers/` 下该切片文档移动到 `docs/archive/<topic>/`
-- archive README 应保留主题索引和关闭说明
-- 如果活动 docs 根目录存在阶段性历史说明，应在长期结论已进入 source-of-truth 后迁入合适的 `docs/archive/<topic>/`
+## Closure
+
+A change is synchronized when the current owner states the new truth, duplicate old truth is removed, routing remains valid, and any completed process material is historical rather than active context.
