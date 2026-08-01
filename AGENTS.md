@@ -76,10 +76,11 @@ Before non-trivial work, read `README.md` and `docs/README.md`, then open only t
 | Intent | Authority |
 |---|---|
 | System topology and distribution boundaries | `docs/overall-solution-architecture.md` |
-| Agent Core and durable session runtime | `docs/modules/agent-core.md`, `docs/modules/session-runtime.md` |
-| C/C++ workflow, tools, permissions, and context | `docs/modules/harness.md`, `docs/modules/tools-and-tooling.md`, `docs/modules/permissions-and-context.md` |
-| Host/UI protocol and shells | `docs/frontend-protocol.md`, `docs/modules/frontend-gui.md`, `docs/modules/frontend-tui.md` |
-| Packaging, offline delivery, and Win7 acceptance | `docs/modules/packaging-and-deployment.md`, `docs/guides/win7-release-runbook.md` |
+| Agent Core and durable session runtime | `docs/platform/agent-core.md`, `docs/platform/session-runtime.md` |
+| C/C++ workflow, tools, permissions, and context | `docs/applications/cpp-workflow.md`, `docs/platform/tools-and-extensions.md`, `docs/platform/permissions-and-context.md` |
+| Host/UI protocol and registrable shells | `docs/platform/protocol.md`, `docs/platform/frontend-protocol.md`, `docs/platform/frontend-gui.md`, `docs/platform/frontend-tui.md` |
+| Product composition and default registration | `docs/product/composition.md` |
+| Packaging, offline delivery, and Win7 acceptance | `docs/product/packaging-and-deployment.md`, `docs/guides/win7-release-runbook.md` |
 | Current blockers and open sequencing | `docs/current-status.md`, then `docs/implementation-roadmap.md` |
 
 Use `docs/archive/` and `analysis/` only for historical investigation. Implementation must never require archive reading to discover current behavior.
@@ -91,11 +92,11 @@ Use `docs/archive/` and `analysis/` only for historical investigation. Implement
 | `embedagent-core` | `embedagent_core` | Public SDK, workflow-neutral turn/session policy and contracts | none |
 | `embedagent-protocol` | `embedagent_protocol` | Stdlib-only JSON-safe wire DTOs | none |
 | `embedagent-host` | `embedagent_host` | Generic providers, tools, stores, context, and session hosting | exact-matched Core and Protocol |
-| `embedagent-composition` | `embedagent_composition` | Neutral composition marker | none |
+| `embedagent-composition` | `embedagent_composition` | Dependency-free build-time definition/compiler/export contracts | none |
 | `embedagent-workflow-cpp` | `embedagent_workflow_cpp` | Default C/C++ workflow behavior and package metadata | exact-matched Core |
 | `embedagent` | `embedagent` | Product bootstrap, composition, CLI, TUI, and GUI | all five lower distributions |
 
-Dependency direction is lower distributions toward the product only. Core never imports Protocol, Host, product, GUI, or workflow packages. Host never imports `embedagent`; product bootstrap injects registries, policies, discovery, and the selected extension manager into Host. GUI and product configuration stay in the product. C/C++ behavior stays in the workflow package.
+Dependency direction is lower distributions toward the product only. Core never imports Protocol, Host, product, GUI, or workflow packages. Host never imports `embedagent`; product bootstrap injects registries, policies, discovery, and the selected extension manager into Host. GUI/TUI contracts and shell behavior are generic; product configuration, default registration, launcher selection, and delivery assets stay in the product. C/C++ behavior stays in the workflow package.
 
 Offline export must build and validate exactly these six wheels, install project distributions wheel-only with network resolution disabled, stage the product under `app/embedagent`, and keep other distributions under `runtime/site-packages`. Editable links or a duplicate product package in `runtime/site-packages` are release defects.
 
@@ -111,7 +112,7 @@ Offline export must build and validate exactly these six wheels, install project
 - `transcript.jsonl` is the only durable hosted session-history ledger; `Session` / `session.turns` are live truth; `SessionHistoryAssembler` serializes history; `/api/sessions/{id}/bootstrap` activates a session. App bootstrap is shell metadata, never session truth.
 - Permission decisions and writable-path decisions are separate. Standalone callers provide `AgentPorts.permissions`; default `PermissionPolicy()` allows read and asks for write, execution, network, telemetry, and other. `DenyWritePathPolicy` remains independently authoritative.
 - `Session.workflow_state` is the generic workflow carrier. Frontends consume `Session.workflow_state["workflow"]`; C/C++ `TaskGraph` ownership stays behind `CHarnessWorkflowExtension`.
-- Turn snapshots, capability/runtime-config/compaction/recovery/experience reducers, workflow package manifests, and frontend capability projections are read models only. They do not execute tools, grant permissions, restore state, or become parallel truth sources. Their detailed contracts live in the routed module documents.
+- Turn snapshots, capability/runtime-config/compaction/recovery/experience reducers, workflow package manifests, and frontend capability projections are read models only. They do not execute tools, grant permissions, restore state, or become parallel truth sources. Their detailed contracts live in the routed domain authorities.
 
 ## Official Vocabulary
 
@@ -144,7 +145,7 @@ No local or hosted CI result proves Windows 7 delivery. A release claim requires
 
 ## Documentation Rules
 
-- Update the one owning module, contract, workflow, or ADR document; entry files route and do not duplicate detail.
+- Update the one owning platform, application, product, contract, workflow, or ADR document; entry files route and do not duplicate detail.
 - Replace current status in place. Do not append completion diaries, progress ledgers, or verification chronicles to active authorities.
 - A temporary slice stays in `docs/superpowers/` only while an acceptance condition is open. On closure, synchronize durable truth, then move the slice into an indexed `docs/archive/<topic>/` package.
 - New durable architecture rationale belongs in an ADR. Historical narrative belongs only in archive.

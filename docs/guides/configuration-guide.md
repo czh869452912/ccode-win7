@@ -255,7 +255,7 @@ Keep this guide aligned with:
 
 - `README.md`
 - `AGENTS.md`
-- `docs/mode-schema.md`
-- `docs/tool-contracts.md`
-- `docs/permission-model.md`
+- `docs/platform/mode-contract.md`
+- `docs/platform/tool-contracts.md`
+- `docs/platform/permission-model.md`
 - `src/embedagent/modes.py`

@@ -86,6 +86,7 @@ REQUIRED_MAP_TARGETS = (
     "docs/applications/README.md",
     "docs/applications/cpp-workflow.md",
     "docs/product/README.md",
+    "docs/product/composition.md",
     "docs/product/packaging-and-deployment.md",
     "docs/guides/win7-release-runbook.md",
     "docs/workflows/code-doc-sync.md",
@@ -154,7 +155,7 @@ def test_closed_audits_and_parity_ledgers_are_archived():
     assert (ROOT / "docs/archive/t3-gui-parity-shell/2026-07-18-t3-gui-parity-ledger.md").is_file()
 
 
-def test_pi_blueprint_describes_direction_without_completed_phase_ledger():
+def test_agent_platform_direction_has_no_completed_phase_ledger():
     text = _read("docs/platform/agent-platform-blueprint.md")
     assert "## Migration Program" not in text
     assert "Phase A:" not in text
@@ -166,6 +167,14 @@ RETIRED_ACTIVE_AUTHORITIES = (
     "docs/design-change-log.md",
     "docs/pre-release-architecture-debt-audit.md",
     "docs/guides/t3-gui-parity-ledger.md",
+    "docs/agent-harness-v2.md",
+    "docs/frontend-protocol.md",
+    "docs/guides/session-truth-boundary.md",
+    "docs/mode-schema.md",
+    "docs/modules/",
+    "docs/permission-model.md",
+    "docs/pi-inspired-agent-core-blueprint.md",
+    "docs/tool-contracts.md",
 )
 
 
@@ -208,8 +217,75 @@ def test_stable_authorities_use_domain_paths_without_compatibility_redirects():
         assert not (ROOT / relative_path).exists(), relative_path
 
 
-
-
 def test_stable_authority_filenames_do_not_encode_lifecycle_versions():
     for path in _active_global_docs():
         assert not re.search(r"(?:^|[-_])v[0-9]+(?:[-_.]|$)", path.name, re.IGNORECASE), path
+
+
+RETIRED_RUNTIME_ACTORS = (
+    "QueryEngine",
+    "SessionRestorer",
+    "ExecutionTracer",
+    "CircuitBreaker",
+    "HarnessStateSynchronizer",
+)
+
+RETIREMENT_MARKERS = (
+    "retired",
+    "removed",
+    "deleted",
+    "已删除",
+    "已退役",
+    "不再存在",
+)
+
+
+def test_retired_runtime_actors_are_not_described_as_current_truth():
+    offenders = []
+    for path in _active_global_docs():
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for line_number, line in enumerate(lines):
+            for actor in RETIRED_RUNTIME_ACTORS:
+                if actor not in line:
+                    continue
+                context = " ".join(lines[max(0, line_number - 2) : line_number + 3]).lower()
+                if not any(marker in context for marker in RETIREMENT_MARKERS):
+                    offenders.append(
+                        "%s:%s describes %s without retirement context"
+                        % (path.relative_to(ROOT).as_posix(), line_number + 1, actor)
+                    )
+    assert offenders == []
+
+
+PLATFORM_NEUTRAL_AUTHORITIES = (
+    "docs/platform/tools-and-extensions.md",
+    "docs/platform/tool-contracts.md",
+    "docs/platform/permissions-and-context.md",
+    "docs/platform/frontend-protocol.md",
+    "docs/platform/frontend-gui.md",
+    "docs/platform/frontend-tui.md",
+    "docs/platform/permission-model.md",
+    "docs/platform/mode-contract.md",
+)
+
+APPLICATION_ONLY_TERMS = (
+    "C/C++",
+    "TaskGraph",
+    "discipline_profile",
+    "execution_phase",
+    "list_recipes",
+    "run_recipe",
+    "report_quality_v2",
+    "record_failing_evidence",
+    "task_status",
+)
+
+
+def test_platform_contracts_do_not_embed_application_semantics():
+    offenders = []
+    for relative_path in PLATFORM_NEUTRAL_AUTHORITIES:
+        text = _read(relative_path)
+        for token in APPLICATION_ONLY_TERMS:
+            if token in text:
+                offenders.append("%s contains %s" % (relative_path, token))
+    assert offenders == []

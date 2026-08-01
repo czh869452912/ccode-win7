@@ -13,9 +13,9 @@
 
 | Layer | Documents | Responsibility |
 |---|---|---|
-| Entry | `README.md`, `AGENTS.md` | 产品入口、命令、不可协商约束；不展开模块细节 |
+| Entry | `README.md`, `AGENTS.md` | 产品入口、命令、不可协商约束；不展开领域细节 |
 | Map | `docs/README.md` | 唯一全局意图地图；路由到权威 |
-| Authority | `docs/overall-solution-architecture.md`, `docs/modules/`, contracts, guides, workflows, ADRs | 当前架构、行为、操作和决策理由 |
+| Authority | overall architecture, `docs/platform/`, `docs/applications/`, `docs/product/`, guides, workflows, ADRs | 当前架构、行为、操作和决策理由 |
 | Current work | `docs/current-status.md`, `docs/implementation-roadmap.md`, `docs/superpowers/README.md` | 当前状态、开放顺序、精确活跃切片 |
 | History | `docs/archive/`, `analysis/` | 已完成计划、证据、旧快照和调查材料 |
 
@@ -23,7 +23,7 @@
 
 ## One Fact, One Owner
 
-- 跨层拓扑只由总体架构拥有；局部实现由对应模块或契约文档拥有。
+- 跨层拓扑只由总体架构拥有；局部实现由对应 platform/application/product authority 或契约文档拥有。
 - 操作步骤由 guide 或 workflow 拥有；长期决策理由由 ADR 拥有。
 - Entry 和 Map 只写最短摘要与链接，不复制文件清单、控制器说明或完整契约。
 - 当事实变化时更新所有者；只有路由变化才更新 `docs/README.md` 和代码-文档矩阵。
@@ -55,7 +55,7 @@
 
 ## Code-Doc Sync
 
-代码变更只更新受影响的所有者：公共契约、跨模块所有权、操作流程、配置/发布行为或当前优先级发生变化时，分别更新 contract/module、guide/workflow、ADR 或 current-work 文档。不要求每次变更追加全局 tracker 或 change log。
+代码变更只更新受影响的所有者：公共契约、跨领域所有权、操作流程、配置/发布行为或当前优先级发生变化时，分别更新 domain authority/contract、guide/workflow、ADR 或 current-work 文档。不要求每次变更追加全局 tracker 或 change log。
 
 流程见 `docs/workflows/code-doc-sync.md`；详细所有权见 `docs/references/code-doc-matrix.md`。
 

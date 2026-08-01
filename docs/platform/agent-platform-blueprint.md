@@ -1,4 +1,4 @@
-# Pi-Inspired Minimal Agent Core Blueprint
+# Standalone Agent Platform Direction
 
 > 状态：`target`
 > 类型：`architecture-direction`
@@ -8,9 +8,9 @@
 
 ## Purpose
 
-This blueprint evaluates future architecture proposals against a durable direction: a small, composable, self-extensible Agent Core inspired by Pi's functional design philosophy while preserving EmbedAgent's Windows 7, offline, Python 3.8, and default C/C++ constraints.
+This direction evaluates future architecture proposals against a small, composable, self-extensible Agent Platform inspired by Pi's functional design philosophy while preserving EmbedAgent's Windows 7, offline, Python 3.8, and default-application constraints.
 
-It is not an implementation ledger, public API announcement, or migration schedule. Implemented behavior belongs in current architecture, module, and contract documents.
+It is not an implementation ledger, public API announcement, or migration schedule. Implemented behavior belongs in the current platform, application, product, and contract authorities.
 
 ## Minimal Core Thesis
 
@@ -50,7 +50,7 @@ A capability registry should describe tools, local resources, slash commands, mo
 
 Tool activation remains an extension-host decision; execution remains a tool-runtime decision; authorization remains a permission-policy decision. Frontends consume safe projections and do not infer these policies from tool names.
 
-The default C/C++ workflow should remain a replaceable package using the same capability boundary as other trusted local extensions. Its task graph, packs, prompts, recipes, quality reporting, and workflow projection must not thicken workflow-neutral Core.
+Every workflow application, including the product default, should remain a replaceable package using the same capability boundary as other trusted local extensions. Application tasks, packs, prompts, recipes, quality reporting, and workflow projection must not thicken workflow-neutral Core.
 
 ## Local Self-Extension
 
@@ -76,10 +76,10 @@ Network availability must never become a Core assumption or a prerequisite for d
 |---|---|
 | Workflow-neutral standalone SDK, deterministic session policy, focused ports | Core |
 | Concrete providers, stores, workspace intelligence, hosted lifecycle, local tools | Host |
-| Scenario prompts, tools, packs, tasks, recipes, workflow projection | Workflow package |
+| Scenario prompts, tools, packs, tasks, recipes, workflow projection | Application package |
 | Workspace-specific trusted hooks or tools with explicit manifest | Project extension |
-| Composition, configuration defaults, app catalog, CLI/TUI/GUI | Product |
-| Rendering safe protocol projections and collecting user intent | Frontend |
+| Composition, configuration defaults, app catalog, launcher selection, delivery assets | Product |
+| Registrable shell contracts, rendering safe projections, collecting user intent | Platform frontend layer |
 
 When a responsibility could fit multiple rows, choose the lowest-coupling owner that keeps Core standalone and replay deterministic. Do not move policy into the frontend merely to avoid a Host boundary.
 

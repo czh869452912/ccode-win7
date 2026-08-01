@@ -1,201 +1,120 @@
-# Agent Harness V2
+# C/C++ Workflow
 
-## 1. Status
+## Metadata
 
-This document is now the official architecture baseline, not a future design draft.
+> 状态：`active`
+> 类型：`application authority`
+> 负责人：`C/C++ workflow maintainers`
+> 最后同步日期：`2026-08-01`
+> 对应代码范围：`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`, `src/embedagent/product_catalog.py`
 
-Agent Harness is the promoted default C/C++ workflow model for the hosted
-EmbedAgent product.
+## 1. Purpose And Boundary
 
-The harness now lives in the first-party C/C++ workflow package under
-`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`. It remains bundled and enabled by
-default in hosted product builds, but generic Agent Core interacts with it only
-through `ExtensionManager` and workflow package capabilities.
+C/C++ Workflow 是基于 Agent Platform 的上层应用，也是 EmbedAgent 产品当前默认启用的一等工作流。它提供 Clang 为中心的工程识别、执行纪律、任务图、recipe、质量证据和工具包。
 
-The hosted runtime has one selected `AgentApplication` whose `ExtensionManager` is shared by `InProcessAdapter`, each session-scoped `QueryEngine`, and frontend tool catalog visibility. `QueryEngine` consumes that manager through `AgentExtensionHost`, which centralizes prompt/context hooks, active tool names, dynamic tool registration, explicit schema projection, tool-call hooks, tool-result hooks, and extension-owned tool handling. `src/embedagent/product_catalog.py` composes the default C/C++ application record from `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py`, whose runtime definition installs the bundled extension. A bare `Agent` does not import or construct the default harness extension. Hosted product paths may load manifest-gated project-local Python extensions into the same manager. Both bundled and project-local extensions expose hooks through explicit `ExtensionCapability` records returned by `extension_capabilities()`; hook method names are not auto-discovered. Local file resources remain file-only Agent Core resources rather than harness package execution; remote registries, plugin marketplaces, dependency installation, built-in tool replacement, and multi-agent orchestration remain outside the harness baseline.
+通用 `Agent`、`AgentSession`、会话恢复、权限、工具执行、上下文、Host/UI 协议与 GUI/TUI 注册不属于本应用。一个独立 `Agent` 不导入、构造或假设 C/C++ 扩展。
 
-The C harness contributes workflow prompt units through the generic workflow prompt boundary. New prompt descriptors use `WorkflowPrompt`, and newly appended prompt messages use `kind="workflow_prompt"`; the old harness-specific prompt kind is no longer active.
+## 2. Composition
 
-## 2. Core Ideas
+`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py` 提供 `cpp_runtime_definition()`，将 `CHarnessWorkflowExtension` 以标准 `RuntimeDefinition` 扩展注入 Agent Platform。`src/embedagent/product_catalog.py` 把该 factory、应用 profile 和 workspace profile detector 组成 EmbedAgent 的默认 `AgentApplicationRecord`。
+`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/profile.py` 和 `workspace_profile.py` 提供应用 profile 与工作区检测 collaborators。
 
-Harness exists to balance:
+`CHarnessWorkflowExtension.extension_capabilities()` 是应用参与平台的唯一能力边界。当前声明：
 
-- task focus for weaker/offline models
-- enough flexibility for real project work
-- explicit workflow discipline
-- deterministic tool access
+- workflow prompt 是否注入及其内容；
+- workflow state 初始化与 package manifest；
+- active tool names、工具注册和上下文 reducer；
+- workspace recipes 和 session task loading；
+- extension-owned tool call 处理。
 
-It does that by separating three concerns:
+能力必须是显式 `ExtensionCapability` 记录，不按方法名自动发现。运行时的 `ExtensionManager` 和 `AgentExtensionHost` 负责统一分发，应用不建立第二条执行循环。
 
-- user-visible `mode`
-- internal `discipline_profile`
-- internal `execution_phase`
+```mermaid
+flowchart LR
+    A["product_catalog"] --> B["cpp_runtime_definition"]
+    B --> C["ExtensionManager"]
+    C --> D["CHarnessWorkflowExtension"]
+    D --> E["TaskGraph / recipes / tools"]
+    D --> F["Session.workflow_state workflow projection"]
+```
 
-Execution ownership is concentrated in one session-scoped `QueryEngine` facade. `AgentKernel` owns turn frames and pending interaction lifecycle boundaries, `AgentLifecycleJournal` owns durable lifecycle operation writes and save points, `AgentLoop` owns turn-loop orchestration, `AgentToolActionService` owns non-LLM tool action execution, and `AgentExtensionHost` owns extension dispatch. Harness updates workflow truth inside that engine-owned session through the default workflow extension; it is not a second runtime.
+## 3. Workflow Model
 
-Provider requests consume an explicit `TurnSnapshot` built by `QueryEngine` after context assembly and active schema projection. The snapshot records the harness-influenced workflow state and active schemas as frozen inputs, but it does not decide harness phase, active packs, permissions, or tool execution.
+应用将用户可见模式与 C/C++ 内部纪律分开：
 
-Structured compaction state is reducer-backed diagnostics, not harness workflow truth. `compaction_state` may explain compact boundaries, compacted-history checkpoints, and safe file/evidence metadata after restore, but harness phase, task graph state, active packs, permissions, and tool execution remain owned by their existing harness/core boundaries. Compacted-history checkpoints can change how provider history is rebuilt after compaction, but they remain context/session-history behavior and must not make harness reducers or workflow packages responsible for selecting active context.
+- `mode`：`explore`, `spec`, `build`, `debug`, `verify`；
+- `discipline_profile`：当前为 `lite_spec_tdd` 或 `full_spec_tdd`；
+- `execution_phase`：由 profile、mode 和 evidence 共同约束的应用内部阶段；
+- `TaskGraph`：任务结构与进度的应用内部真相。
 
-Recovery state is reducer-backed diagnostics, not harness workflow truth. `recovery_state` may explain hosted resume attempts and trusted transcript prefixes after restore, but harness phase, task graph state, active packs, permissions, and tool execution remain owned by their existing harness/core boundaries.
+常用 phase track：
 
-## 3. Official Modes
+| mode | execution phases |
+|---|---|
+| `build` | `understand` -> `contract` -> `implement` -> `check` -> `handoff`; full profile 可插入 `test_design` / `repair` |
+| `debug` | `reproduce` -> `isolate` -> `patch` -> `regression_check` -> `handoff` |
+| `verify` | `select_recipe` -> `execute` -> `summarize` |
 
-- `explore`
-- `spec`
-- `build`
-- `debug`
-- `verify`
+`phase_engine.py` 根据工具证据推进 phase，`prompt_stack.py` 生成应用 prompt units。平台只持久通用 mode 和 workflow carrier，不解释 profile、phase 或任务图。
 
-## 4. Discipline Profiles
+## 4. Task Truth And Projection
 
-Current harness supports:
+`TaskGraph` 及其 session graph store 属于 `embedagent_workflow_cpp`。`CHarnessWorkflowExtension` 通过 `workflow_projection.py` 将需要给 Host/UI 的部分写入 `Session.workflow_state["workflow"]`：
 
-- `lite_spec_tdd`
-- `full_spec_tdd`
+- `summary`；
+- `items`；
+- `activity`；
+- `metadata.current_phase`；
+- `metadata.discipline_profile`。
 
-`build` and `debug` may operate in either profile depending on workflow state and harness context.
+`Session.workflow_state["workflow"]` 是通用读模型，不是另一个 `TaskGraph`。前端只消费 `task_summary`、`task_items`、`current_phase`、`discipline_profile` 和 `current_activity`，不导入 C/C++ 内部类，也不根据 UI local state 推进 phase。
 
-## 5. Phase Model
+## 5. Tools And Packs
 
-Representative phase tracks:
+通用平台提供文件、搜索、编辑、`bash` 和 `ask_user` 等基础工具。C/C++ 应用通过 `embedagent_workflow_cpp.packs` 声明应用工具包，并注册：
 
-### Build
+- `list_recipes`；
+- `run_recipe`；
+- `report_quality_v2`；
+- `record_failing_evidence`；
+- `task_status`。
 
-- `understand`
-- `contract`
-- `implement`
-- `check`
-- `handoff`
+`report_quality_v2` 是当前实际工具标识，其后缀是稳定运行时 API 的一部分，不表示本文档或整体架构存在两套版本。
 
-Full profile may insert:
+`tool_registry.py` 拥有 handler 组装，`tool_metadata.py` 拥有 permission category、preview、renderer 和 invalidation metadata，`packs.py` 是工具包真相。`AgentExtensionHost` 将 mode contract 与应用 active names 合并后，以显式 tool names 调用 `ToolRuntime.schemas_for(...)`。构造空白 `ToolRuntime` 不会自动注册 C/C++ 工具。
 
-- `test_design`
-- `repair`
+## 6. Recipes And Offline Runtime
 
-### Debug
+`workspace_profile.py` 识别 C/C++ 文件和 build-system 信号；`workspace_recipes.py` 发现 CMake、Make 和 Ninja recipes；`recipe_ops.py` 将发现、执行和质量报告映射为工具 observation。
 
-- `reproduce`
-- `isolate`
-- `patch`
-- `regression_check`
-- `handoff`
+recipe、`bash` 和质量流程只能调用 `scripts/offline-runtime-contract.json` 声明的 bundled binaries。增加运行时二进制时，必须同步该 contract、产品包装检查和离线验收。
 
-### Verify
+## 7. Permission And Context
 
-- `select_recipe`
-- `execute`
-- `summarize`
+C/C++ 应用决定当前工作流焦点、active packs 和 phase evidence；平台 `PermissionPolicy` 决定 allow/ask/deny；独立写路径策略决定路径是否可写；上下文系统决定模型能看到什么。应用扩展参与这些边界，但不替代它们。
 
-## 6. Task Truth
+## 8. Verification
 
-The official task system is:
+主要回归入口：
 
-- `TaskGraph`
-- projected into `task_status`
-- persisted as session task snapshots
-
-`Session.workflow_state` is the generic carrier for workflow-neutral Agent Core. `Session.task_graph` has been removed; the default C/C++ harness keeps `TaskGraph` state behind `CHarnessWorkflowExtension` and its harness-owned session graph state. Frontend projection reads `Session.workflow_state["workflow"]`. Importing or instantiating `embedagent.session.Session` must not import harness task graph internals.
-
-`describe_mode(...)` is read-only prompt/context description.
-`update_task_graph(...)` is the harness path that returns updated harness-owned graph state; the extension then projects it into `Session.workflow_state["workflow"]`.
-
-The built-in C harness workflow extension owns synchronization from harness internals into `Session.workflow_state["workflow"]`, including:
-
-- `summary`
-- `items`
-- `activity`
-- `metadata.current_phase`
-- `metadata.discipline_profile`
-
-The generic workflow payload is assembled by `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workflow_projection.py`. This keeps the C harness `TaskGraph` shape separate from the core/frontend workflow read model.
-
-Workflow-neutral strategies and projectors read this generic workflow payload. They must not inspect harness task graph internals directly.
-
-The old `HarnessStateSynchronizer` service facade has been removed. Refresh and task-snapshot persistence behavior now lives behind `CHarnessWorkflowExtension.refresh_managed_session()` inside the bundled C/C++ application. `InProcessAdapter` reaches it through the selected `AgentApplication.refresh_managed_session()` path rather than through a harness-named host callback.
-
-Frontends consume:
-
-- `task_summary`
-- `task_items`
-
-The old prompt-only todo flow is no longer the architecture baseline.
-
-## 7. Tool Packs
-
-Harness exposes focused packs instead of an undifferentiated tool wall.
-
-Main pack families:
-
-- discovery/file tools
-- shell command tools
-- recipe/build/verify tools
-- task/interaction tools
-
-This keeps model tool selection tight without hard mode walls becoming unusable.
-
-The workflow-neutral `CORE_PACK` contains the minimal file/search/editing foundation plus `bash` and `ask_user`. Built-in mode `allowed_tools` are also workflow-neutral permission/write contracts; they may expose `bash` in command-capable modes, but they do not own `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, or `task_status`.
-
-The built-in C harness extension declares its workflow prompt, state initialization, active-tool, tool-registration, context-reducer, manifest, task-loading, and extension-owned tool capabilities through `ExtensionCapability` records. It registers and activates recipe readiness/execution, quality reporting, failing-evidence capture, and task-status tools through that shared extension capability boundary. Core runtime owns the `bash` primitive. Tool definitions are assembled in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/tool_registry.py`, their metadata lives in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/tool_metadata.py`, and pack ownership lives in `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/packs.py`. Its active-tool capability returns pack tools only; `AgentExtensionHost` unions those with the mode contract when the engine needs the full default C/C++ tool set. `AgentExtensionHost` requests schemas by explicit active tool names through `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)`. Runtime schema filtering no longer activates the default harness pack by itself, and bare `ToolRuntime` construction does not register default C/C++ workflow tools.
-
-The built-in C harness extension also registers C workflow context reducers from `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/context_reducers.py`. Core `ReducerRegistry` stays workflow-neutral and owns `bash` command summaries; recipe summaries, quality reports, failing-evidence records, and task-status reduction belong to the workflow package.
-
-The old product tooling compatibility namespace has been removed. Current code imports bundled C/C++ workflow pack definitions from `embedagent_workflow_cpp.packs`.
-
-Harness code should also consume current core accessors directly. Removed
-mode-registry and sanitizer compatibility aliases are not harness contracts;
-mode registry and shell command sanitizer access now go through
-`get_mode_registry()` and `get_command_sanitizer()`.
-
-The built-in C harness extension also exposes a read-only workflow package manifest. The manifest describes package identity, supported modes/workflow states, declared workflow tools, packs, and recipe resource scope from harness-owned constants. It is control-plane metadata only and is not the harness pack activation mechanism.
-
-`CapabilityRegistry` can project harness-registered tools through the shared runtime catalog and the C workflow package manifest through `workflow_package` descriptors for diagnostics and future reducer work. That projection is not the harness pack activation mechanism; active C/C++ workflow tools still come from the default harness extension and `ExtensionManager.allowed_tool_names(...)`.
-
-`RuntimeConfigReducer` can project registered tool names, harness-influenced active model-visible tool names, and local resource revision metadata after those decisions have been emitted to the transcript. That projection is not the harness pack activation mechanism; the default C/C++ extension still owns pack selection and `AgentExtensionHost` still owns schema projection.
-
-Harness recipes, `bash`, and quality flows must invoke only bundled external tools described by `scripts/offline-runtime-contract.json`. The packaging gate validates Python, Bash from MinGit, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables from that shared contract, so adding a harness runtime binary requires updating the contract and tests in the same change.
-
-## 8. Prompting Model
-
-Prompt construction is layered through harness prompt units, not only through monolithic mode prompts.
-
-The important result is:
-
-- modes stay understandable
-- tool focus stays narrow
-- task state is surfaced explicitly
-
-## 9. Permission / Context Relationship
-
-Harness does not replace permission or context systems.
-
-- Harness decides workflow focus
-- Permission decides whether an action is allowed/ask/deny
-- Context decides what prior information is preserved and surfaced
-
-These are cooperating subsystems, not one overloaded prompt.
-
-## 10. Frontend Projection
-
-The official frontend vocabulary for harness state is:
-
-- `current_phase`
-- `discipline_profile`
-- `current_activity`
-- `task_summary`
-- `task_items`
-
-GUI and TUI should treat these as the stable shell-facing summary of harness state.
-
-GUI session activation must layer that harness summary through one bootstrap payload sourced from transcript-backed session state. Replay logs remain live transport metadata only.
-
-`SessionSnapshotProjector` is the official snapshot read model for that shell-facing summary. It reads `Session.workflow_state["workflow"]`, not `TaskGraph`.
-
-## 11. Design Rule
-
-Do not reintroduce long-lived parallel V1/V2 paths.
-
-When harness changes:
-
-- promote the new path into the official runtime/frontends
-- then delete the old path or archive its documentation
+- `tests/test_c_cpp_workflow_runner_taskgraph.py`
+- `tests/test_c_cpp_workflow_runner_debug.py`
+- `tests/test_c_cpp_workflow_runner_verify.py`
+- `tests/test_c_cpp_workflow_task_projection.py`
+- `tests/test_c_cpp_workflow_contracts.py`
+- `tests/test_workflow_extensions.py`
+- `tests/test_cpp_workflow_distribution.py`
+- `tests/test_agent_profiles.py`
+- `tests/test_host_package_composition.py`
+
+修改 modes、profile、phase、`TaskGraph`、tools/packs、recipes、workflow projection 或 product catalog 注入时，必须同步本文档。
+
+## 9. Related Documents
+
+- `docs/platform/agent-core.md`
+- `docs/platform/tools-and-extensions.md`
+- `docs/platform/mode-contract.md`
+- `docs/platform/permissions-and-context.md`
+- `docs/platform/frontend-protocol.md`
+- `docs/product/composition.md`
+- `docs/product/packaging-and-deployment.md`

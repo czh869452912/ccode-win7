@@ -18,7 +18,7 @@ Version WebView2 109 from the bundle, bundle C smoke, and an empty
 `blocking_errors` list. A local or Windows 10 run can diagnose problems but
 cannot replace this target-machine evidence.
 
-## Phase 7R local versus target evidence
+## Local Versus Target Evidence
 
 `package.ps1 release -Reproducible` runs two isolated child releases and compares
 credential-free bundle records. A passing local run may report `TARGET_READY`

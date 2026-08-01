@@ -11,17 +11,18 @@
 
 ## Current Focus
 
-- 在取得真实 Windows 7 证据前，保留 Phase 7B 目标机交接切片。
+- 当前架构权威按 Agent Platform、上层 applications、EmbedAgent product 三个领域组织；C/C++ 只有一个应用权威，GUI/TUI 通过通用协议注册。
+- 在取得真实 Windows 7 证据前，保留目标机验收交接切片。
 
 ## Blockers
 
 - 干净 Windows 7 SP1 x64 / WebView2 109 窗口化证据依赖外部目标机。
-- Phase 8 真实 C/C++ 项目验证尚未开始。
+- 真实 C/C++ 项目验证尚未开始。
 
 ## Next Actions
 
 1. 获取并验证 Windows 7 证据报告。
-2. 定义 Phase 8 项目语料和证据格式。
+2. 定义真实 C/C++ 项目语料、证据格式和退出条件。
 
 ## Evidence Boundary
 

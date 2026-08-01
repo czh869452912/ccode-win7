@@ -10,7 +10,7 @@
 
 `docs/archive/` 保存已完成切片、历史方案、阶段性分析和关闭说明。
 
-Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md`、`docs/` 活动文档、`docs/modules/`、`docs/workflows/` 和 `docs/references/` 为准。
+Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md` 和 `docs/README.md` 路由的 `docs/platform/`、`docs/applications/`、`docs/product/`、`docs/workflows/` 与 `docs/references/` 为准。
 
 ## 2. Current Archive Packages
 
@@ -23,6 +23,7 @@ Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md`�
 - `documentation-governance-baseline/`
 - `documentation-history/`
 - `documentation-navigation-system/`
+- `documentation-domain-separation/`
 - `enterprise-boundary-foundation/`
 - `gui-agent-bridge-review-fixes/`
 - `interaction-response-async/`

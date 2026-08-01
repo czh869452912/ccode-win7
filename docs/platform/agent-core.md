@@ -3,14 +3,14 @@
 ## Metadata
 
 > 状态：`active`
-> 类型：`module`
-> 负责人：`project maintainers`
-> 最后同步日期：`2026-07-29`
+> 类型：`platform authority`
+> 负责人：`Agent platform maintainers`
+> 最后同步日期：`2026-08-01`
 > 对应代码范围：`packages/embedagent-core/src/embedagent_core/`, `packages/embedagent-host/src/embedagent_host/`
 
 ## 1. Purpose And Scope
 
-本模块文档说明通用 Agent Core 与 hosted product composition 的正式执行主链。公开入口是 `Agent` / `AgentSession` / `AgentPorts`；内部状态主链是 `SessionTransaction`、`SessionJournal`、`SessionReducer`、`AgentKernel` 和 `AgentLoop`；Host 只通过 `HostedSessionController` 获取冻结投影。
+本文档说明通用 Agent Core 以及受支持的 Core/Host 边界。公开入口是 `Agent` / `AgentSession` / `AgentPorts`；内部状态主链是 `SessionTransaction`、`SessionJournal`、`SessionReducer`、`AgentKernel` 和 `AgentLoop`；Host 只通过 `HostedSessionController` 获取冻结投影。
 
 `QueryEngine`、`SessionRestorer`、Host 持有 mutable Core `Session`、`ExecutionTracer` 和 `CircuitBreaker` 已删除，且没有兼容别名。
 
@@ -28,7 +28,7 @@
 - hosted `InProcessAdapter` shared `ExtensionManager` and session-handle ownership
 - hosted command, interaction, maintenance, projection, and history services
 
-Agent Core 提供 workflow-neutral execution、session reducer、permission policy、turn snapshot 与 capability read model。Host 注入 provider、tool runtime、context、store 和 selected application；默认 C/C++ 行为继续由独立 workflow package 提供。
+Agent Core 提供 workflow-neutral execution、session reducer、permission policy、turn snapshot 与 capability read model。Host 注入 provider、tool runtime、context、store 和 selected application；任何具体工作流行为都由上层应用扩展提供。
 
 ## 3. Code Mapping
 
@@ -44,7 +44,6 @@ Agent Core 提供 workflow-neutral execution、session reducer、permission poli
 - frozen read views：`packages/embedagent-core/src/embedagent_core/session_view.py`
 - hosted Core bridge：`packages/embedagent-core/src/embedagent_core/hosting.py`
 - Host runtime：`packages/embedagent-host/src/embedagent_host/inprocess_adapter.py`, `packages/embedagent-host/src/embedagent_host/runtime/session_runtime.py`
-- workflow package：`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`
 
 ## 4. Dependencies And Consumers
 
@@ -87,7 +86,7 @@ flowchart TD
 - `AgentLoop` 不拥有 callback bag、workflow package policy 或直接 session mutator。
 - `AgentExtensionHost` 集中 declared extension dispatch；不得在 transaction、loop 或 Host facade 重建 hook 分发。
 - Host ports 接收 `SessionReadView`，hosted operations 返回 `HostedSessionProjection`。
-- 默认 C/C++ application 由 product catalog 注入，generic Core/Host 没有 harness constructor fallback。
+- 应用由 product composition 通过公开 registry 注入；generic Core/Host 没有具体工作流的 constructor fallback。
 
 ## 6. Verification And Tests
 
@@ -118,7 +117,6 @@ flowchart TD
 - `AgentLoop`, `ProviderStepService`, `AgentToolActionService`, or `AgentExtensionHost` responsibilities
 - `SessionReadView` / `HostedSessionProjection` contract
 - `ManagedSession` ownership or Host restore/projection flow
-- default application/workflow package assembly
 - turn, step, interaction, compaction, or recovery durable event semantics
 
 ## 8. Related Documents
@@ -127,5 +125,7 @@ flowchart TD
 - `README.md`
 - `docs/overall-solution-architecture.md`
 - `docs/implementation-roadmap.md`
-- `docs/frontend-protocol.md`
-- `docs/superpowers/specs/2026-07-27-minimal-agent-core-convergence-design.md`
+- `docs/platform/session-runtime.md`
+- `docs/platform/protocol.md`
+- `docs/platform/tools-and-extensions.md`
+- `docs/platform/frontend-protocol.md`

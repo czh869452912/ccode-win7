@@ -569,7 +569,7 @@ def test_session_snapshot_contract_uses_single_pending_interaction_payload():
             "pending_user_input",
         ),
         ROOT
-        / "docs/frontend-protocol.md": (
+        / "docs/platform/frontend-protocol.md": (
             "`has_pending_permission`",
             "`pending_permission`",
             "`has_pending_input`",
@@ -904,7 +904,7 @@ def test_active_docs_keep_legacy_architecture_terms_in_removed_contexts():
     assert offenders == []
 
 
-def test_active_docs_use_phase7c_paths_and_vocabulary():
+def test_active_docs_use_current_domain_paths_and_vocabulary():
     active_docs = {str(_relative(path)): _read(path) for path in _active_contract_doc_files()}
     joined = "\n".join(active_docs.values())
     forbidden = (
@@ -928,12 +928,12 @@ def test_active_docs_use_phase7c_paths_and_vocabulary():
 
     docs_map = active_docs["docs/README.md"]
     architecture = active_docs["docs/overall-solution-architecture.md"]
-    harness = active_docs["docs/modules/harness.md"]
-    frontend_protocol = active_docs["docs/frontend-protocol.md"]
+    harness = active_docs["docs/applications/cpp-workflow.md"]
+    frontend_protocol = active_docs["docs/platform/frontend-protocol.md"]
     component_path = "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py"
     profile_path = "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/profile.py"
 
-    assert "docs/modules/harness.md" in docs_map
+    assert "docs/applications/cpp-workflow.md" in docs_map
     assert component_path in harness
     assert profile_path in harness
     assert "HostedSessionController" in architecture
@@ -3144,7 +3144,7 @@ def test_artifact_read_model_invalidation_is_retired():
 
     assert offenders == []
 
-    tool_contracts_text = _read(ROOT / "docs/tool-contracts.md")
+    tool_contracts_text = _read(ROOT / "docs/platform/tool-contracts.md")
     for token in (
         "`workspace_files`, `tasks`, or `artifacts`",
         "file/task/artifact refresh",

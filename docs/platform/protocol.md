@@ -1,107 +1,72 @@
-# Protocol And Core
+# Platform Protocol
 
 ## Metadata
 
 > 状态：`active`
-> 类型：`module`
-> 负责人：`project maintainers`
-> 最后同步日期：`2026-07-26`
+> 类型：`platform authority`
+> 负责人：`Agent platform maintainers`
+> 最后同步日期：`2026-08-01`
 > 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `src/embedagent/core/`
 
-## 1. Purpose And Scope
+## 1. Purpose And Boundary
 
-本模块文档说明 EmbedAgent 的前后端正式契约层（`protocol`）以及把契约桥接到 hosted runtime 的适配层（`core`）。
-`protocol` 定义了所有前端实现必须遵守的共享数据结构和双向接口；`core` 提供 `AgentCoreAdapter`，把 `embedagent_host.InProcessAdapter` 的产品负载翻译成稳定协议对象。
+`embedagent_protocol` 是通用 Host/UI 线协议发行包，只依赖 Python 标准库，拥有 JSON-safe DTO、`CoreInterface` 和 `FrontendCallbacks`。`src/embedagent/core/adapter.py` 实现 `AgentCoreAdapter`，将通用 hosted runtime 能力暴露为协议对象。
 
-## 2. Responsibilities
+协议只传输冻结快照、capability descriptors、commands、interactions 和 canonical session events。它不暴露 mutable Core `Session`、不恢复历史、不决定 active tools 或权限、不定义某个前端的布局。
 
-- 声明共享 `dataclass`、枚举和双向接口（`CoreInterface`、`FrontendCallbacks`）
-- 把 hosted runtime 负载翻译成协议快照和事件
-- 原样转发 Host 编码的 `SessionEventEnvelope`
-- 透出统一 interaction response acknowledgement 与 resolved lifecycle event
-- 通过 envelope 中的 `read_model_invalidations` 元数据触发前端安全读模型刷新
-- expose resource reload through the stable core API
-- carry `extensions.local_resources`, `extensions.project_extensions`, and `extension_diagnostics` through snapshots
-- keep tool catalog visibility aligned with the hosted runtime's shared `ExtensionManager`
+## 2. Public Interfaces
 
-## 3. Code Mapping
+`CoreInterface` 覆盖：
 
-- 目录：`packages/embedagent-protocol/src/embedagent_protocol/`, `src/embedagent/core/`
-- 入口文件：`src/embedagent/core/__init__.py`
-- 核心对象：
-  - `protocol/__init__.py` — `CoreInterface`、`FrontendCallbacks`、`Message`、`ToolCall`、`SessionSnapshot` 等全部数据类
-  - `core/adapter.py` — `AgentCoreAdapter` 和 canonical envelope validation/forwarding
-- 上游依赖：`InProcessAdapter`（hosted runtime）
-- 下游影响：`frontend/tui/frontend_adapter.py`、`frontend/gui/backend/server.py`
-- 相关测试：`tests/test_architecture.py`、`tests/test_gui_sync.py`、`tests/test_gui_runtime.py`、`tests/test_gui_backend_api.py`、`tests/test_local_resources.py`、`tests/test_project_extensions.py`、`tests/test_capability_extensions.py`
-- 相关契约：`docs/frontend-protocol.md`、`docs/overall-solution-architecture.md`
+- session create/resume/list/bootstrap/snapshot/lifecycle；
+- submit/cancel/mode/interaction response；
+- workspace、file、diff、plan 和 permission context；
+- app/session capability queries；
+- local resource reload；
+- shutdown。
 
-## 4. Dependencies And Consumers
+`FrontendCallbacks` 只保留 canonical `on_session_event(envelope)` live-session callback。注册前端实现该接口，并通过 `CoreInterface` 反向发起命令。新 GUI、TUI、CLI 或其他 shell 使用同一对接口，不增加前端专用 Core facade。
 
-上游依赖：
+## 3. DTO Families
 
-- `packages/embedagent-host/src/embedagent_host/inprocess_adapter.py`
-- `packages/embedagent-core/src/embedagent_core/query_engine.py`
+- session：`SessionSnapshot`, `ThreadShell`, `ThreadDetailSnapshot`, `PlanSnapshot`, `PermissionContext`；
+- events：`SessionEventEnvelope`, `FailureRecord`；
+- capabilities：`CapabilitySnapshot`, `ModeDescriptor`, `CommandDescriptor`, `ToolPresentation`, `WorkflowPackageDescriptor`, `AgentApplicationDescriptor`；
+- app shell：`AppBootstrap` 及 workspace/surface descriptors；
+- activity：`Message`, `ToolCall`, `ToolResult`, `CommandResult`, `InteractionActivity`；
+- workspace：`WorkspaceInfo`, `DiffPreview`, `RuntimeEnvironmentSnapshot`。
 
-下游消费者：
+DTO 可以携带通用 `workflow` 字典和 capability metadata，但协议发行包不导入任何应用实现。
 
-- `src/embedagent/frontend/tui/frontend_adapter.py` — 实现 `FrontendCallbacks`
-- `src/embedagent/frontend/gui/backend/server.py` — `WebSocketFrontend` 实现 `FrontendCallbacks`
-- `src/embedagent/frontend/gui/launcher.py` — 实例化 `AgentCoreAdapter`
+## 4. Adapter Rule
 
-## 5. Data / Control Flow
-
-用户动作通过 `CoreInterface` 进入 `AgentCoreAdapter`，再委托给 `InProcessAdapter`；交互响应由 Host 的 `HostedInteractionService` 原子 claim 后返回 `accepted` acknowledgement，恢复继续通过同一个 hosted session action pipeline。Host 将每个 live session change 编码一次为 `SessionEventEnvelope`，`AgentCoreAdapter` 验证后直接调用 `FrontendCallbacks.on_session_event(envelope)`。resolved event 和 session snapshot 是前端最终状态的唯一依据。
+`AgentCoreAdapter` 可将 Host 的 snapshot dictionary 转换为协议 dataclass，但对 live events 只做 validation/forwarding：Host 创建一次 `SessionEventEnvelope`，adapter 不重命名 event kind、不重组 payload、不为不同 shell 重新编码。
 
 ```mermaid
 flowchart LR
-    Frontend["Frontend<br/>implements FrontendCallbacks"]
-    Adapter["AgentCoreAdapter<br/>implements CoreInterface"]
-    Host["InProcessAdapter<br/>encodes SessionEventEnvelope"]
-
-    Frontend -->|CoreInterface calls| Adapter
-    Adapter -->|delegates| Host
-    Host -->|SessionEventEnvelope| Adapter
-    Adapter -->|on_session_event| Frontend
+    UI["registered FrontendCallbacks"] -->|CoreInterface calls| A["AgentCoreAdapter"]
+    A --> H["InProcessAdapter"]
+    H -->|one SessionEventEnvelope| A
+    A -->|on_session_event| UI
 ```
 
-关键边界：
+## 5. Registration And Composition
 
-- `protocol` 只依赖标准库，不耦合后端内部实现。
-- `AgentCoreAdapter` 是 `CoreInterface` 的唯一实现；它不重新映射 Host event kinds 或 payload。
-- `FrontendCallbacks` 只有 canonical `on_session_event` live-session callback。
-- resource reload、project extension state 和 extension diagnostics 只作为 backend-owned health/diagnostics state 透出；前端不拥有 extension execution policy。
+`AgentCoreAdapter.register_frontend(...)` 绑定当前 shell callback。GUI app host 可按 workspace 创建/替换 `CoreInterface` 实例，TUI 可绑定单 workspace core。应用 registry、默认 workflow、provider、tools 和产品文案由 product composition 注入，不由 protocol 或 shell 写死。
 
-## 6. Verification And Tests
+## 6. Verification
 
-推荐回归入口：
+- `tests/test_architecture.py`
+- `tests/test_protocol_package_imports.py`
+- `tests/test_session_event_protocol.py`
+- `tests/test_gui_sync.py`
+- `tests/test_terminal_frontend.py`
+- `tests/test_inprocess_adapter_frontend_api.py`
 
-- `tests/test_architecture.py` — 协议对象创建、`MockFrontend`、导入检查
-- `tests/test_gui_sync.py` — canonical envelope 透传、刷新元数据与端到端交互路由
-- `tests/test_gui_runtime.py` — 适配器 API、`WebSocketFrontend` 广播与错误处理、启动器连线
-- `tests/test_gui_backend_api.py`
-- `tests/test_local_resources.py`
-- `tests/test_project_extensions.py`
-- `tests/test_capability_extensions.py`
+## 7. Related Documents
 
-当新增事件类型、会话快照字段、resource reload API、extension diagnostics 字段或前端刷新触发条件变化时，应优先重跑这些测试。
-
-## 7. Change Triggers
-
-以下变化必须同步更新本文件：
-
-- Host 新增 live session event kind 时必须通过 `SessionEventEnvelope` 编码，不得新增产品 adapter 映射层
-- 会话快照字段变化，需要更新 `_session_snapshot_from_dict` 和 `SessionSnapshot`
-- resource reload 或 extension diagnostics API/字段变化
-- 新增应在完成后触发 UI 刷新的工具，需要在工具目录元数据声明 `read_model_invalidations`，并通过工具事件传递给 GUI；不要新增 Core/GUI 侧工具名刷新列表
-- 新增前端形态（CLI、移动端等）需要实现 `FrontendCallbacks`
-- `CoreInterface` 或 `FrontendCallbacks` 接口签名变化
-
-## 8. Related Documents
-
-- `docs/frontend-protocol.md`
-- `docs/overall-solution-architecture.md`
-- `docs/modules/frontend-tui.md`
-- `docs/modules/frontend-gui.md`
-- `docs/references/code-doc-matrix.md`
-- `docs/references/glossary.md`
+- `docs/platform/frontend-protocol.md`
+- `docs/platform/frontend-gui.md`
+- `docs/platform/frontend-tui.md`
+- `docs/platform/session-runtime.md`
+- `docs/product/composition.md`

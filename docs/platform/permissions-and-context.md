@@ -3,101 +3,84 @@
 ## Metadata
 
 > 状态：`active`
-> 类型：`module`
-> 负责人：`project maintainers`
-> 最后同步日期：`2026-07-19`
-> 对应代码范围：`packages/embedagent-core/src/embedagent_core/permissions.py`, `packages/embedagent-host/src/embedagent_host/runtime/context.py`, `packages/embedagent-host/src/embedagent_host/runtime/workspace_intelligence.py`
+> 类型：`platform authority`
+> 负责人：`Agent platform maintainers`
+> 最后同步日期：`2026-08-01`
+> 对应代码范围：`packages/embedagent-core/src/embedagent_core/permissions.py`, `packages/embedagent-core/src/embedagent_core/ports.py`, `packages/embedagent-host/src/embedagent_host/runtime/context.py`, workspace intelligence files
 
-## 1. Purpose And Scope
+## 1. Purpose And Boundary
 
-本模块文档说明权限决策、上下文预算与 workspace intelligence 的协作关系，覆盖 `PermissionPolicy`、`ContextManager` 与 `WorkspaceIntelligenceProvider` / `WorkspaceIntelligenceBroker`。
+权限回答“这个 action 是否可以执行”；写路径策略回答“这个目标是否可写”；上下文组装回答“模型这一轮可以看到什么”。三者协作，但不是同一策略。
 
-## 2. Responsibilities
+Core 使用聚焦的 `ContextAssemblerPort` 和 permission/write-path collaborators，不接收通用 service bag。Host 可实现具体 `ContextManager`、workspace intelligence 和规则加载；application 扩展只通过已声明 capability 提供 context patch 或 reducer。
 
-- permission rule matching and explanation rendering
-- context budgeting and reducer routing
-- workspace intelligence evidence assembly
-- permission enforcement for extension-registered tools through runtime catalog metadata
-- extension context patching through `AgentExtensionHost`
-- extension pre/post tool hooks around `AgentToolActionService`
+## 2. Ownership
 
-该模块确保工具审批、消息组装与 workspace 证据注入围绕统一规则运行，而不是由 prompt 文本隐式驱动。
+| Owner | Responsibility |
+|---|---|
+| `PermissionPolicy` | catalog-category-based allow/ask/deny 与可解释决策 |
+| `WritePathPolicy` | workspace/path/glob 边界，与 permission 独立 |
+| `ContextAssemblerPort` | Core 所见的模型消息组装端口 |
+| Host `ContextManager` | budget、reducers、compaction/history 和安全上下文单元组装 |
+| workspace intelligence | 文件/build-system/evidence 等可验证 workspace signals |
+| `AgentExtensionHost` | 按 declared capabilities 合并扩展 context hooks |
+| `ProviderStepService` | 在每次 provider request 前调用 context 组装并冻结 turn snapshot |
 
-## 3. Code Mapping
+## 3. Permission And Action Flow
 
-- Core 目录：`packages/embedagent-core/src/embedagent_core/`
-- Runtime 目录：`src/embedagent/`
-- 入口文件：`packages/embedagent-core/src/embedagent_core/permissions.py`, `packages/embedagent-host/src/embedagent_host/runtime/context.py`
-- 核心对象：`PermissionPolicy`、`ContextManager`、`WorkspaceIntelligenceProvider`、`WorkspaceIntelligenceBroker`、`AgentExtensionHost`、`AgentToolActionService`
-- 上游依赖：query engine、tool runtime
-- 下游影响：tool approval UX、message assembly、verify context quality
-- 相关测试：`tests/test_permissions.py`、`tests/test_context_config.py`、`tests/test_query_engine_refactor.py`、`tests/test_architecture.py`、`tests/test_capability_extensions.py`、`tests/test_dynamic_tool_registration.py`
-- 相关契约：`docs/permission-model.md`、`docs/overall-solution-architecture.md`
+`AgentToolActionService` 从 active runtime catalog 查询 permission category，调用 `PermissionPolicy`，再独立应用 write-path policy。ask 决策会挂起 action；用户回应后重新进入同一 action pipeline。扩展 before/after hooks 不能跳过这两类检查。
 
-## 4. Dependencies And Consumers
+权限 category、rule shape、默认值和 session memory 契约由 `docs/platform/permission-model.md` 拥有。
 
-上游依赖：
+## 4. Context Assembly
 
-- `packages/embedagent-core/src/embedagent_core/query_engine.py`
-- `packages/embedagent-host/src/embedagent_host/runtime/tools/runtime.py`
-- `packages/embedagent-core/src/embedagent_core/agent_extension_host.py`
-- `packages/embedagent-core/src/embedagent_core/agent_tool_action_service.py`
+一次 provider step 的通用管道：
 
-下游消费者：
-
-- tool approval / ask-user UX
-- model message assembly
-- diagnostics / quality evidence summary
-- verify 模式与 review 相关上下文质量
-
-## 5. Data / Control Flow
-
-`AgentExtensionHost` 先应用 extension context hooks；`AgentToolActionService` 在执行 tool action 时套用 extension before/after tool hooks，并通过 `PermissionPolicy` 对 built-in 与 extension-registered tools 做同一套权限决策。`ToolRuntime` 产出 observations 后，`ContextManager` 与 workspace intelligence 共同组装最终提供给模型的消息上下文。
+1. 从交易中的 frozen `SessionReadView` 取得消息、turn 和 read models；
+2. 运行 Host 注册的 context reducers 与预算策略；
+3. 添加 workspace intelligence 证据和 workspace-bound resource prompt units；
+4. 通过 `AgentExtensionHost` 应用 declared application/project context hooks；
+5. 排除 archived/过期或超出预算内容，保留必需 anchors；
+6. 将消息、active schemas 和安全 diagnostics 冻结到 `TurnSnapshot`。
 
 ```mermaid
 sequenceDiagram
-    participant QE as QueryEngine
-    participant AEH as AgentExtensionHost
-    participant ATS as AgentToolActionService
-    participant PP as PermissionPolicy
-    participant TR as ToolRuntime
-    participant CM as ContextManager
-    QE->>AEH: apply context hooks
-    QE->>ATS: execute tool action
-    ATS->>AEH: before tool hooks
-    ATS->>PP: evaluate action
-    ATS->>TR: execute runtime tool
-    ATS->>AEH: after tool result hooks
-    TR->>CM: observation
+    participant PS as ProviderStepService
+    participant CM as ContextAssemblerPort
+    participant WI as Workspace intelligence
+    participant EH as AgentExtensionHost
+    participant TS as TurnSnapshotService
+    PS->>CM: assemble SessionReadView
+    CM->>WI: request bounded evidence
+    CM->>EH: apply declared context hooks
+    CM-->>PS: messages + safe diagnostics
+    PS->>TS: freeze messages and active schemas
 ```
 
-## 6. Verification And Tests
+## 5. Reducers And Read Models
 
-推荐回归入口：
+context reducer 对 tool observations 生成可控缩的模型证据，不改写 durable history 或执行工具。compaction、recovery、runtime config、capability、workflow 和 turn experience 投影可作为 context 输入，但它们都是读模型，不选择 active tools、不授权、不恢复 session。
+
+application-owned reducer 必须通过 extension capability 注册并携带 source identity。Core/Host 不根据 tool names 重建 application reducer 表。
+
+## 6. Safety
+
+上下文、snapshot diagnostics、workspace intelligence 和 permission explanation 不得泄漏 API keys、credentials、approval secrets、permission tokens、不必要的 raw tool output 或未请求的 source contents。telemetry 只消费另行约束的安全 envelope，不复用 model context 原文。
+
+## 7. Verification
 
 - `tests/test_permissions.py`
+- `tests/test_agent_core_public_api.py`
 - `tests/test_context_config.py`
-- `tests/test_query_engine_refactor.py`
-- `tests/test_architecture.py`
-- `tests/test_capability_extensions.py`
+- `tests/test_context_config.py`
+- `tests/test_workspace_intelligence.py`
+- `tests/test_turn_snapshot.py`
 - `tests/test_dynamic_tool_registration.py`
-
-当 permission 分类、解释文本、extension hook order、context budgeting、reducer 路径或 workspace intelligence 证据聚合变化时，应优先重跑这些测试。
-
-## 7. Change Triggers
-
-以下变化必须同步更新本文件：
-
-- 权限规则匹配结构变化
-- explanation text 语义变化
-- extension-registered tool permission 分类或 hook 执行路径变化
-- context budgeting / reducer routing 变化
-- workspace intelligence provider/broker 结构变化
-- tool approval UX 或 message assembly 边界变化
+- `tests/test_hosted_interaction_service.py`
 
 ## 8. Related Documents
 
-- `docs/permission-model.md`
-- `docs/overall-solution-architecture.md`
-- `docs/references/code-doc-matrix.md`
-- `docs/references/glossary.md`
+- `docs/platform/permission-model.md`
+- `docs/platform/tools-and-extensions.md`
+- `docs/platform/tool-contracts.md`
+- `docs/platform/session-runtime.md`

@@ -47,9 +47,9 @@ flowchart TD
 
 ```mermaid
 sequenceDiagram
-    participant QE as QueryEngine
+    participant SJ as SessionJournal
     participant TS as TranscriptStore
-    QE->>TS: append_event()
+    SJ->>TS: append_event()
 ```
 
 ```mermaid

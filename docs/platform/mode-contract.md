@@ -1,84 +1,66 @@
-# Mode Schema
+# Mode Contract
+
+## Metadata
+
+> 状态：`active`
+> 类型：`platform contract`
+> 负责人：`Agent platform maintainers`
+> 最后同步日期：`2026-08-01`
+> 对应代码范围：`src/embedagent/modes.py`, `packages/embedagent-core/src/embedagent_core/profile.py`
 
 ## 1. Official Modes
 
-EmbedAgent now has one official first-class mode set:
+平台公开模式集为：
 
-- `explore`
-- `spec`
-- `build`
-- `debug`
-- `verify`
+- `explore`；
+- `spec`；
+- `build`；
+- `debug`；
+- `verify`。
 
-`code` is not a valid first-class mode.
+`code` 不是有效模式。模式是用户可见的意图、工具焦点和可写范围契约，不是上层应用的完整状态机。
 
-## 2. Mode Responsibilities
+## 2. Responsibilities
 
-| Mode | Responsibility | Mode-Contract Tool Focus | Write Policy |
-|------|----------------|--------------------------|--------------|
-| `explore` | code reading, explanation, impact analysis, discussion | `read_file`, `list_dir`, `glob_files`, `grep_text`, `git_status`, `git_log`, `ask_user` | read-only |
-| `spec` | requirements, constraints, acceptance criteria, docs | `read_file`, `list_dir`, `glob_files`, `grep_text`, `write_file`, `ask_user` | docs/text-oriented writes |
-| `build` | implementation loop | `read_file`, `list_dir`, `glob_files`, `grep_text`, `write_file`, `edit_file`, `bash`, `ask_user` | implementation writes |
-| `debug` | reproduction, isolation, minimal repair | `read_file`, `list_dir`, `glob_files`, `grep_text`, `write_file`, `edit_file`, `bash`, `ask_user` | implementation writes |
-| `verify` | build/test/static analysis summary without source edits | `read_file`, `list_dir`, `glob_files`, `grep_text`, `bash`, `ask_user` | read-only source edits |
+| Mode | Responsibility | Platform Tool Focus | Write Policy |
+|---|---|---|---|
+| `explore` | 阅读、解释、影响分析 | read/search, `ask_user` | read-only |
+| `spec` | 需求、约束、验收和文档 | read/search, `write_file`, `ask_user` | documentation/text writes |
+| `build` | 实现与迭代 | read/search/edit, `bash`, `ask_user` | implementation writes |
+| `debug` | 复现、隔离、最小修复 | read/search/edit, `bash`, `ask_user` | implementation writes |
+| `verify` | 构建、测试和静态检查汇总 | read/search, `bash`, `ask_user` | no source edits |
 
-Mode-contract tool lists are workflow-neutral. `bash` is the single shell primitive in command-capable modes. Default C/C++ harness tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` are registered runtime tools, but they are activated by the default C harness workflow extension and selected tool packs, not by the built-in mode schema itself.
+实际名称集由 `src/embedagent/modes.py` 的 registry 给出。代码使用 `get_mode_registry()` 和 `initialize_modes()` 访问或初始化 registry，不建立代理别名。
 
-Local resource reload does not alter mode contracts. Reloaded recipe JSON resources still execute only through the existing `run_recipe` tool path and its current mode/permission checks. Reloaded visible skills may appear only in the hosted lightweight local skill listing prompt unit and may be explicitly expanded through `/skill:<name> [args]`; reloaded prompts may be explicitly expanded through `/prompt:<name-or-path> [args]`. These expansions are normal Markdown/text context and do not add tools to the mode.
+## 3. Switching
 
-Reducer-backed runtime configuration does not alter mode contracts. `runtime_config.registered_tool_names` and `runtime_config.active_tool_names` record registered catalog tools and model-visible tools after backend activation for diagnostics/replay, but future activation still flows through the mode contract plus `ExtensionManager` / `AgentExtensionHost`.
+- 模式切换由用户驱动；
+- model 可以提出 `propose_mode_switch` 交互，但只在用户确认后改变 mode；
+- `/mode <name>` 和纯自然语言切换请求在 provider call 前处理；
+- `/mode <name> <message>` 先切换，再提交 message；
+- 未知名称必须失败，不隐式 fallback。
 
-Workflow package manifests do not alter mode contracts. They describe package-supported modes and package-owned packs for diagnostics/control-plane inspection, but active tool selection still flows through the current mode contract plus `ExtensionManager` / `AgentExtensionHost`.
+交互恢复重新进入 `AgentToolActionService`，不创建第二条 mode mutation 路径。
 
-Reducer-backed compaction state does not alter mode contracts. `compaction_state` records structured compact boundary diagnostics for restore/debug visibility, but context selection still flows through the current context manager and active tool selection still flows through mode contracts plus `ExtensionManager` / `AgentExtensionHost`.
+## 4. Tools And Applications
 
-Reducer-backed recovery state does not alter mode contracts. `recovery_state` records hosted resume diagnostics for restore/debug visibility, but mode selection remains user/host driven and active tool selection still flows through mode contracts plus `ExtensionManager` / `AgentExtensionHost`.
+mode 中的 allowed tools 只定义平台基础工具焦点和写入契约。上层应用可根据 mode 和自己的 workflow state 返回 active tool names，`AgentExtensionHost` 将它们与 mode contract 合并，再以显式名称请求 `ToolRuntime.schemas_for(...)`。
 
-Mode registry access is explicit. Code should use `get_mode_registry()` or
-`initialize_modes()` from `src/embedagent/modes.py`; the old module-level
-registry proxy alias has been removed and must not be reintroduced.
-
-## 3. Switching Rules
-
-- Mode switching is user-driven.
-- The model does not autonomously switch modes.
-- The agent may ask for a mode switch through `ask_user`, but the user confirms it.
-- `/mode <name>` and explicit pure natural-language mode-switch requests are handled before provider calls.
-- `/mode <name> <message>` switches to the target mode and then submits `<message>` as the user turn. Natural-language compound requests are not pre-routed.
-- Unknown mode names are invalid input and must fail fast instead of silently falling back to another mode.
-
-## 4. Harness Relationship
-
-Modes are user-visible contracts only.
-
-Actual workflow progression is handled by:
-
-- `discipline_profile`
-- `execution_phase`
-- `TaskGraph`
-
-That means a mode does not directly encode the whole workflow state.
-
-The C/C++ harness provides this progression through the default built-in workflow extension. Agent Core may keep `current_mode` for compatibility, but harness prompt injection, task initialization, and harness tool activation should flow through the extension boundary.
-
-`ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract. Default harness-aware paths such as `QueryEngine` extension activation must combine the mode contract with extension-active tools and request schemas by explicit tool names.
-
-Turn orchestration receives allowed-tool policy by injection rather than by calling runtime aliases. Hosted paths use the shared `ExtensionManager` to combine mode-contract tools with default C harness active tools.
+application manifest、runtime config、compaction state 和 recovery state 仅是读模型，不能更改 mode contract 或激活工具。
 
 ## 5. Writable Scope
 
-Mode-specific writable path policy is still enforced by mode configuration plus permission policy.
+mode 可进一步限制可写 glob，但不授权。`PermissionPolicy` 决定 allow/ask/deny，独立写路径策略决定目标路径是否可写。两者任一拒绝，写操作都不得执行。
 
-High-level rule:
+## 6. Verification
 
-- `explore` and `verify` are read-only
-- `spec` writes documentation/text artifacts
-- `build` and `debug` may write implementation files within allowed globs
+- `tests/test_modes.py`
+- `tests/test_agent_profiles.py`
+- `tests/test_tools_v2_runtime.py`
+- `tests/test_current_architecture_boundaries.py`
 
-## 6. Source Of Truth
+## 7. Related Documents
 
-Mode definitions live in:
-
-- `src/embedagent/modes.py`
-
-If this document disagrees with that file, update one of them immediately so they match.
+- `docs/platform/tools-and-extensions.md`
+- `docs/platform/permission-model.md`
+- `docs/applications/README.md`

@@ -7,13 +7,13 @@
 
 ## Trigger
 
-公共契约、模块所有权、跨层数据流、配置、操作步骤、发布证据、长期决策或当前优先级变化时执行本流程。内部重构若不改变这些事实，不需要制造文档流水。
+公共契约、领域所有权、跨层数据流、配置、操作步骤、发布证据、长期决策或当前优先级变化时执行本流程。内部重构若不改变这些事实，不需要制造文档流水。
 
 ## Flow
 
 ```mermaid
 flowchart TD
-    A["Classify durable change"] --> B["Update one contract or module owner"]
+    A["Classify durable change"] --> B["Update one domain authority or contract owner"]
     B --> C["Update map only if routing changed"]
     C --> D["Replace current status only if focus changed"]
     D --> E["Add ADR only for durable decision"]
@@ -25,7 +25,7 @@ flowchart TD
 | Change | Owner |
 |---|---|
 | Cross-layer dependency or execution invariant | `docs/overall-solution-architecture.md` |
-| Local component behavior | corresponding `docs/modules/` document |
+| Local component behavior | corresponding authority under `docs/platform/`, `docs/applications/`, or `docs/product/` |
 | Tool, permission, protocol, or mode contract | corresponding contract document |
 | Configuration or operational procedure | corresponding guide/workflow |
 | Durable decision with alternatives | ADR |

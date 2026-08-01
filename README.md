@@ -1,6 +1,6 @@
 # EmbedAgent
 
-EmbedAgent is a native, offline-first Agent IDE built around a workflow-neutral Agent Core. The packaged default is a Clang-centered C/C++ development workflow. The product must run from a self-contained bundle on Windows 7 with Python 3.8 and without network access or preinstalled developer tools.
+EmbedAgent is a native, offline-first Agent IDE assembled from a reusable workflow-neutral Agent Platform, replaceable upper-layer applications, and product-specific delivery. The packaged default is a Clang-centered C/C++ development workflow. The product must run from a self-contained bundle on Windows 7 with Python 3.8 and without network access or preinstalled developer tools.
 
 ## Architecture At A Glance
 
@@ -11,7 +11,7 @@ The repository is a six-distribution uv workspace:
 | `embedagent-core` | `embedagent_core` | Dependency-free Agent SDK, session transaction, event/reducer, kernel, loop, permissions, and public contracts |
 | `embedagent-protocol` | `embedagent_protocol` | Stdlib-only JSON-safe Host/UI DTOs |
 | `embedagent-host` | `embedagent_host` | Generic providers, local services, tools, stores, context, and hosted sessions |
-| `embedagent-composition` | `embedagent_composition` | Dependency-free neutral composition marker |
+| `embedagent-composition` | `embedagent_composition` | Dependency-free build-time definition/compiler/export contracts |
 | `embedagent-workflow-cpp` | `embedagent_workflow_cpp` | Independently exported default C/C++ workflow package |
 | `embedagent` | `embedagent` | Product bootstrap plus CLI, TUI, and GUI shells |
 
@@ -65,11 +65,14 @@ The distribution builder is the required release entry point; do not replace it 
 - Read [`docs/current-status.md`](docs/current-status.md) for replace-in-place state and blockers.
 - Read [`docs/implementation-roadmap.md`](docs/implementation-roadmap.md) for open programs and ordering.
 - Read [`docs/overall-solution-architecture.md`](docs/overall-solution-architecture.md) for durable system topology.
+- Read [`docs/platform/README.md`](docs/platform/README.md) for the reusable Agent foundation and registrable shells.
+- Read [`docs/applications/README.md`](docs/applications/README.md) for upper-layer workflows.
+- Read [`docs/product/README.md`](docs/product/README.md) for EmbedAgent composition and delivery.
 - Read [`docs/guides/configuration-guide.md`](docs/guides/configuration-guide.md) for configuration.
 - Read [`docs/guides/win7-release-runbook.md`](docs/guides/win7-release-runbook.md) for target-machine acceptance.
 - Use [`docs/archive/README.md`](docs/archive/README.md) only for historical investigation.
 
-`AGENTS.md` is the compact contributor constitution. Module and contract documents own implementation detail; entry documents only route to them.
+`AGENTS.md` is the compact contributor constitution. Platform, application, product, and contract authorities own implementation detail; entry documents only route to them.
 
 ## Release Evidence
 

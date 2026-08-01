@@ -6,19 +6,20 @@
 > 最后同步日期：`2026-08-01`
 > 对应代码范围：`packages/`, `src/embedagent/`, `scripts/`
 
-本表是 `docs/README.md` 后的代码区域所有权索引。模块或契约文档拥有细节；路线图、状态页和归档材料不拥有代码行为。
+本表是 `docs/README.md` 后的代码区域所有权索引。每行只指定一个 primary authority；路线图、状态页和归档不拥有代码行为。
 
-| Code Area | Primary Paths | Owning Module | Contract / Workflow Authorities |
+| Domain | Primary code paths | Primary authority | Supporting contracts/workflows |
 |---|---|---|---|
-| Agent Core | `packages/embedagent-core/src/embedagent_core/` | `docs/modules/agent-core.md` | `docs/overall-solution-architecture.md`, `docs/workflows/architecture-change-process.md` |
-| Hosted Runtime | `packages/embedagent-host/src/embedagent_host/` | `docs/modules/session-runtime.md` | `docs/modules/agent-core.md`, `docs/frontend-protocol.md` |
-| C/C++ Workflow | `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/` | `docs/modules/harness.md` | `docs/agent-harness-v2.md`, `docs/mode-schema.md` |
-| Tools | `packages/embedagent-host/src/embedagent_host/runtime/tools/`, `packages/embedagent-core/src/embedagent_core/tool_contracts.py` | `docs/modules/tools-and-tooling.md` | `docs/tool-contracts.md`, `docs/workflows/code-doc-sync.md` |
-| Permissions / Context | `packages/embedagent-core/src/embedagent_core/permissions.py`, `packages/embedagent-host/src/embedagent_host/runtime/context.py` | `docs/modules/permissions-and-context.md` | `docs/permission-model.md` |
-| Protocol | `packages/embedagent-protocol/src/embedagent_protocol/`, `src/embedagent/core/` | `docs/modules/protocol-and-core.md` | `docs/frontend-protocol.md` |
-| TUI | `src/embedagent/frontend/tui/` | `docs/modules/frontend-tui.md` | `docs/frontend-protocol.md` |
-| GUI | `src/embedagent/frontend/gui/` | `docs/modules/frontend-gui.md` | `docs/frontend-protocol.md`, `docs/workflows/release-doc-checklist.md` |
-| Product Composition | `src/embedagent/product_catalog.py`, `src/embedagent/product_composition.py` | `docs/overall-solution-architecture.md` | `docs/modules/protocol-and-core.md` |
-| Packaging / Delivery | `scripts/`, distribution metadata, bundled assets | `docs/modules/packaging-and-deployment.md` | `docs/guides/win7-release-runbook.md`, `docs/workflows/release-doc-checklist.md` |
+| Agent Core | `packages/embedagent-core/src/embedagent_core/` | `docs/platform/agent-core.md` | `docs/platform/session-runtime.md`, `docs/workflows/architecture-change-process.md` |
+| Hosted session runtime | `packages/embedagent-host/src/embedagent_host/inprocess_adapter.py`, `packages/embedagent-host/src/embedagent_host/runtime/session_*.py`, `transcript_store.py` | `docs/platform/session-runtime.md` | `docs/platform/agent-core.md`, `docs/platform/frontend-protocol.md` |
+| Tools and extensions | Core extension/action files, `packages/embedagent-host/src/embedagent_host/runtime/tools/`, local/project extension files | `docs/platform/tools-and-extensions.md` | `docs/platform/tool-contracts.md`, `docs/platform/permission-model.md` |
+| Permissions and context | `packages/embedagent-core/src/embedagent_core/permissions.py`, `packages/embedagent-host/src/embedagent_host/runtime/context.py`, workspace intelligence | `docs/platform/permissions-and-context.md` | `docs/platform/permission-model.md` |
+| Modes and profiles | `src/embedagent/modes.py`, Core/Host profile files | `docs/platform/mode-contract.md` | `docs/platform/tools-and-extensions.md` |
+| Protocol | `packages/embedagent-protocol/src/embedagent_protocol/`, `src/embedagent/core/` | `docs/platform/protocol.md` | `docs/platform/frontend-protocol.md` |
+| GUI shell | `src/embedagent/frontend/gui/` | `docs/platform/frontend-gui.md` | `docs/platform/frontend-protocol.md`, `docs/workflows/release-doc-checklist.md` |
+| TUI shell | `src/embedagent/frontend/tui/` | `docs/platform/frontend-tui.md` | `docs/platform/frontend-protocol.md` |
+| C/C++ application | `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/` | `docs/applications/cpp-workflow.md` | `docs/platform/tools-and-extensions.md`, `docs/platform/mode-contract.md` |
+| Product composition | `src/embedagent/product_catalog.py`, product bootstrap/CLI/launchers, `packages/embedagent-composition/` | `docs/product/composition.md` | `docs/overall-solution-architecture.md`, `docs/platform/protocol.md` |
+| Packaging and delivery | `scripts/`, distribution metadata, bundled assets | `docs/product/packaging-and-deployment.md` | `docs/guides/win7-release-runbook.md`, `docs/workflows/release-doc-checklist.md` |
 
-When ownership changes, update this table and the owning authority in the same change. Do not add a second global map.
+所有权改变时，在同一变更中更新本表、primary authority 和 ADR（若需要长期理由）。不新增第二个全局地图。

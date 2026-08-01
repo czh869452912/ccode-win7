@@ -707,19 +707,14 @@ def test_generic_workspace_recipe_facade_does_not_import_c_cpp_workflow_constant
     assert offenders == []
 
 
-def test_tools_module_docs_keep_workspace_recipes_workflow_neutral():
-    text = _read(ROOT / "docs/modules/tools-and-tooling.md")
+def test_tools_platform_docs_keep_application_recipes_outside_platform():
+    text = _read(ROOT / "docs/platform/tools-and-extensions.md")
 
-    assert (
-        "聚合与 `run_recipe` 归一化位于 `packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py`"
-        not in text
-    )
-    assert "`packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py`" in text
-    assert "workflow-neutral file-resource/read-model facade" in text
-    assert "不做 CMake/Make/Ninja 检测" in text
-    assert (
-        "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workspace_recipes.py" in text
-    )
+    assert "workflow-neutral" in text
+    assert "docs/applications/" in text
+    assert "embedagent_workflow_cpp" not in text
+    assert "CMake/Make/Ninja" not in text
+    assert "run_recipe" not in text
 
 
 def test_runtime_service_bag_is_deleted():

@@ -7,9 +7,9 @@
 
 ## Purpose
 
-This document defines current cross-layer ownership and execution invariants for EmbedAgent. Read it when a change crosses distribution, Core/Host, workflow, frontend, or delivery boundaries. Use the module and contract documents linked below for implementation detail.
+This document defines current cross-layer ownership and execution invariants for EmbedAgent. Read it when a change crosses distribution, Core/Host, application, frontend, or delivery boundaries. Use the domain authorities linked below for implementation detail.
 
-The product is a native, offline-first Agent IDE. Agent Core is workflow-neutral; product composition supplies the default Clang-centered C/C++ workflow and replaceable CLI/TUI/GUI shells. Windows 7, Python 3.8, and a self-contained offline bundle are mandatory.
+The repository contains three explicit strata: a reusable workflow-neutral Agent Platform, replaceable upper-layer applications, and the EmbedAgent product composition. EmbedAgent selects the Clang-centered C/C++ application by default and launches registered CLI/TUI/GUI shells. Windows 7, Python 3.8, and a self-contained offline bundle are mandatory.
 
 This document does not inventory source files, record completed phases, track progress, or describe individual GUI controllers.
 
@@ -22,7 +22,7 @@ The uv workspace produces exactly six Python distributions:
 | `embedagent-core` | `embedagent_core` | Public SDK and workflow-neutral runtime policy | none |
 | `embedagent-protocol` | `embedagent_protocol` | Stdlib-only JSON-safe wire DTOs | none |
 | `embedagent-host` | `embedagent_host` | Generic providers, tools, stores, context, and hosted sessions | exact-matched Core and Protocol |
-| `embedagent-composition` | `embedagent_composition` | Neutral composition marker | none |
+| `embedagent-composition` | `embedagent_composition` | Dependency-free build-time definition/compiler/export contracts | none |
 | `embedagent-workflow-cpp` | `embedagent_workflow_cpp` | Default C/C++ workflow package | exact-matched Core |
 | `embedagent` | `embedagent` | Product bootstrap and CLI/TUI/GUI shells | all five lower distributions |
 
@@ -83,7 +83,7 @@ Workspace skills, prompts, and recipes are reloadable data resources. Enabled pr
 
 ## Host, Product, And Frontend Composition
 
-Host owns generic concrete runtime services and managed-session projections. Product owns configuration/bootstrap, the default application catalog, product policies, and CLI/TUI/GUI. The product may compose all lower distributions; lower distributions never call back into product namespaces.
+Host owns generic concrete runtime services and managed-session projections. Platform protocol owns the registrable CLI/TUI/GUI contracts and shell behavior; those implementations currently ship in the product distribution. Product owns configuration/bootstrap, the default application catalog, product policies, shell selection, and offline assets. The product may compose all lower distributions; lower distributions never call back into product namespaces.
 
 Frontend behavior is backend-declared through protocol DTOs and capability projections. Shells may render modes, commands, surfaces, thread actions, tool presentation, and workflow read models, but they do not own activation, permission, restore, extension loading, session history, or workflow policy. Missing backend labels or values remain missing rather than being synthesized from product-specific defaults.
 
@@ -103,14 +103,15 @@ There is no production internal state to preserve. When an internal session, tim
 
 | Change area | Read next |
 |---|---|
-| Agent SDK, kernel, loop, and ports | `docs/modules/agent-core.md` |
-| Transaction, transcript, restore, and projections | `docs/modules/session-runtime.md` |
-| C/C++ workflow and task model | `docs/modules/harness.md`, `docs/agent-harness-v2.md` |
-| Tool registration and execution | `docs/modules/tools-and-tooling.md`, `docs/tool-contracts.md` |
-| Permissions and context | `docs/modules/permissions-and-context.md`, `docs/permission-model.md` |
-| Protocol and UI shells | `docs/modules/protocol-and-core.md`, `docs/frontend-protocol.md`, frontend module docs |
-| Offline packaging and acceptance | `docs/modules/packaging-and-deployment.md`, `docs/guides/win7-release-runbook.md` |
-| Long-term minimal-Core direction | `docs/pi-inspired-agent-core-blueprint.md` |
+| Agent SDK, kernel, loop, and ports | `docs/platform/agent-core.md` |
+| Transaction, transcript, restore, and projections | `docs/platform/session-runtime.md` |
+| C/C++ workflow and task model | `docs/applications/cpp-workflow.md` |
+| Tool registration and execution | `docs/platform/tools-and-extensions.md`, `docs/platform/tool-contracts.md` |
+| Permissions and context | `docs/platform/permissions-and-context.md`, `docs/platform/permission-model.md` |
+| Protocol and UI shells | `docs/platform/protocol.md`, `docs/platform/frontend-protocol.md` |
+| GUI/TUI implementations | `docs/platform/frontend-gui.md`, `docs/platform/frontend-tui.md` |
+| Offline packaging and acceptance | `docs/product/packaging-and-deployment.md`, `docs/guides/win7-release-runbook.md` |
+| Long-term minimal-Core direction | `docs/platform/agent-platform-blueprint.md` |
 
 ## Verification And Change Triggers
 
@@ -122,4 +123,4 @@ uv run python scripts/test-suite.py full
 uv run --locked python scripts/lint.py
 ```
 
-Run `npm test` and `npm run build` from the webapp for frontend source changes. Run the six-distribution build/check/smoke pipeline for distribution changes and the release pipeline for packaging changes. Update this document only when cross-layer ownership, dependency direction, execution spine, durable truth, or release evidence boundaries change; update the owning module for local mechanics.
+Run `npm test` and `npm run build` from the webapp for frontend source changes. Run the six-distribution build/check/smoke pipeline for distribution changes and the release pipeline for packaging changes. Update this document only when cross-layer ownership, dependency direction, execution spine, durable truth, or release evidence boundaries change; update the owning domain authority for local mechanics.

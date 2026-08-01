@@ -1,7 +1,7 @@
 # EmbedAgent Win7 部署前检查清单
 
 > 更新日期：2026-07-19
-> 适用阶段：Phase 7B 目标机验收
+> 适用范围：Windows 7 目标机验收
 
 ---
 
@@ -13,7 +13,7 @@
 - 无需预装 Python / Git / LLVM / Node / Docker
 - 解压后可直接运行
 
-本清单默认对应 `docs/modules/packaging-and-deployment.md` 中定义的 portable bundle 布局。
+本清单默认对应 `docs/product/packaging-and-deployment.md` 中定义的 portable bundle 布局。
 
 ---
 
@@ -174,7 +174,7 @@ bin\git\cmd\git.exe --version
 
 ## 9. 当前结论
 
-Phase 7 的目标机验收不应该从“现场试试看能不能跑”开始，而应该按固定清单逐项核对：
+Windows 7 目标机验收不应该从“现场试试看能不能跑”开始，而应该按固定清单逐项核对：
 
 - bundle 完整性
 - Python 与外部工具存在性
@@ -182,10 +182,10 @@ Phase 7 的目标机验收不应该从“现场试试看能不能跑”开始，
 - Win7 运行库与控制台宿主条件
 - CLI/TUI 的首次启动表现
 
-只有这样，Phase 7 才能证明“离线交付”不是开发机偶然可运行，而是可复制、可审计、可验收的正式交付能力。
+只有这样，目标机验收才能证明“离线交付”不是开发机偶然可运行，而是可复制、可审计、可验收的正式交付能力。
 ---
 
-## 10. Phase 7 结构化证据回传
+## 10. 结构化证据回传
 
 目标机验收必须返回与当前 release identity 绑定的 `win7-evidence.json`。报告至少包含 Windows 7 SP1 AMD64、WebView2 109 bundle runtime、`edgechromium` windowed smoke、bundle Clang C smoke、命令退出码以及空的 `blocking_errors`。
 

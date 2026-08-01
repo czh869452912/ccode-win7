@@ -6,7 +6,7 @@
 > 最后同步日期：`2026-07-19`
 > 对应代码范围：`README.md`, `AGENTS.md`, `docs/`, `src/embedagent/`
 
-## 1. Official Product Vocabulary
+## 1. Official Architecture Vocabulary
 
 | 术语 | 含义 | 备注 |
 |---|---|---|
@@ -15,12 +15,12 @@
 | `build` | 唯一的一等实现模式 | 正式 mode |
 | `debug` | 面向问题定位与修复的模式 | 正式 mode |
 | `verify` | 只读的质量门与验证模式 | 正式 mode |
-| `TaskGraph` | 官方任务真相结构 | 不使用 prompt-only todo flow |
-| `task_status` | 官方任务观察与投影接口 | 前端与模型都围绕该语义 |
-| `discipline_profile` | Harness 内部执行纪律档位 | 与 `mode`、`execution_phase` 配套 |
-| `execution_phase` | Harness 内部执行阶段 | 与 `mode`、`discipline_profile` 配套 |
+| `TaskGraph` | 默认 C/C++ 应用的任务真相结构 | 不进入通用 Core 或 frontend contract |
+| `task_status` | 默认 C/C++ 应用的任务观察工具 | 通过扩展工具边界注册 |
+| `discipline_profile` | C/C++ 应用内部执行纪律档位 | 与 `mode`、`execution_phase` 配套 |
+| `execution_phase` | C/C++ 应用内部执行阶段 | 与 `mode`、`discipline_profile` 配套 |
 | `transcript.jsonl` | 唯一 durable session-history ledger | 历史真相源 |
-| `SessionHistoryAssembler` | GUI 历史序列化器 | 不由 replay-log 直接生成历史 |
+| `SessionHistoryAssembler` | Host/UI 历史序列化器 | 不由 replay tail 直接生成历史 |
 
 ## 2. Official Document Vocabulary
 
@@ -29,7 +29,7 @@
 | `superpowers process docs` | 当前切片说明书 | 位于 `docs/superpowers/` |
 | `global project docs` | 长期 `source-of-truth` | 位于 `README.md`、`AGENTS.md` 与 `docs/` 活动文档 |
 | `archive docs` | 历史留痕 | 位于 `docs/archive/` |
-| `module docs` | 模块级长期说明 | 位于 `docs/modules/` |
+| `domain authority docs` | 平台、应用或产品的长期说明 | 位于 `docs/platform/`、`docs/applications/`、`docs/product/` |
 | `workflow docs` | 可执行流程说明 | 位于 `docs/workflows/` |
 | `reference docs` | 术语、映射与图表约定 | 位于 `docs/references/` |
 
@@ -48,4 +48,4 @@
 
 - 活动文档优先使用本文件中的正式术语。
 - 历史术语只允许出现在“历史说明”或“兼容说明”中。
-- 如果正式术语变化，先更新本文件，再更新根文档和模块文档。
+- 如果正式术语变化，先更新本文件，再更新入口与拥有该术语的领域权威。

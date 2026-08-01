@@ -1,126 +1,86 @@
 # Permission Model
 
-## 1. Official Engine
+## Metadata
 
-The repository now has one official permission engine:
+> 状态：`active`
+> 类型：`platform contract`
+> 负责人：`Agent platform maintainers`
+> 最后同步日期：`2026-08-01`
+> 对应代码范围：`packages/embedagent-core/src/embedagent_core/permissions.py`
 
-- `packages/embedagent-core/src/embedagent_core/permissions.py`
+## 1. Engine And Inputs
 
-There is no parallel `permissions_v2` architecture anymore.
+`PermissionPolicy` 是通用 Agent 平台的唯一权限决策引擎。Standalone caller 通过 `AgentPorts.permissions` 显式注入；Host 可组装产品规则、session memory 和 runtime catalog category lookup，但不得在 adapter 或 UI 内建第二套决策。
 
-## 2. Decision Categories
+写路径决策与权限决策独立。`PermissionPolicy` 返回 allow/ask/deny；`WritePathPolicy` 判定目标是否可写。两者任一拒绝，action 都不执行。
 
-Actions are classified into these categories:
+## 2. Categories
 
-- `read`
-- `workspace_write`
-- `shell_exec`
-- `toolchain_exec`
-- `git_write`
-- `network`
-- `telemetry`
-- `other`
+- `read`；
+- `workspace_write`；
+- `shell_exec`；
+- `toolchain_exec`；
+- `git_write`；
+- `network`；
+- `telemetry`；
+- `other`。
 
-These categories drive default allow/ask behavior and frontend explanation text.
+active `ToolRuntime` catalog metadata 是工具 category 的唯一真相。无有效 category 的工具归为 `other` 并默认 ask，不得用未分类状态绕过高权限检查。
 
-Runtime tool catalog metadata is the source of truth for tool permission category. `PermissionPolicy` may receive a category lookup bound to the active runtime; if a registered tool declares `workspace_write`, `shell_exec`, `toolchain_exec`, or `git_write`, the same approval and rule paths apply as for built-in tools. Unknown tools or tools without valid metadata are classified as `other`, and `other` asks by default. It must not be used as a shortcut for privileged behavior.
+## 3. Rules
 
-Local resource reload is a read/discovery operation and does not grant execution rights. Skills discovered from `.embedagent/skills` may be summarized in the hosted local skill listing prompt unit or explicitly expanded through `/skill:<name> [args]`; prompts discovered from `.embedagent/prompts` may be explicitly expanded through `/prompt:<name-or-path> [args]`. Expansion only reads workspace-bound Markdown/text into a normal user turn and grants no additional tool or write permissions. Recipes discovered from `.embedagent/recipes/*.json` still execute through `run_recipe` and the same recipe/toolchain permission rules as bundled workspace recipes.
+规则是从配置文件读取的结构化对象，支持：
 
-Reducer-backed runtime configuration is diagnostic/replay state and does not grant execution rights. `runtime_config.active_tool_names` records what was model-visible after backend activation, but permission checks for future actions still flow through `PermissionPolicy` with the current runtime category lookup.
+- `decision`: `allow`, `ask`, `deny`；
+- `category`；
+- `tool_names` / `tool`；
+- `path_globs` / `path`；
+- `cwd_globs`；
+- `command_patterns` / `command_prefix`；
+- `recipes` / `recipe`；
+- `reason`。
 
-Workflow package manifests are diagnostic/control-plane state and do not grant execution rights. A manifest can declare package tools and packs for inspection, but permission checks still flow through `PermissionPolicy` after a tool has been activated by the current mode and extension policy.
+匹配采用 last-match-wins。决策返回稳定 explanation，包含 request、risk、reason、rule source、scope 和 memory scope，供 model 和注册前端展示。
 
-Reducer-backed compaction state is diagnostic/replay state and does not grant execution rights. `compaction_state` records compact boundary metadata for restore/debug visibility, but permission checks for future actions still flow through `PermissionPolicy` with the current runtime category lookup.
+## 4. Defaults
 
-Reducer-backed recovery state is diagnostic/replay state and does not grant execution rights. `recovery_state` records hosted resume metadata for restore/debug visibility, but permission checks for future actions still flow through `PermissionPolicy` with the current runtime category lookup.
+无匹配规则时：
 
-`author_local_capability` is a `workspace_write` action. It can create local skills, prompts, recipes, and disabled-by-default project extension skeletons under `.embedagent`, but it does not grant execution rights, reload resources, enable manifests, or load Python extension code.
+- `read` allow；
+- `workspace_write` ask，除非明确 auto-approve writes；
+- `shell_exec` 与 `toolchain_exec` ask，除非明确 auto-approve commands；
+- `git_write` ask，除非明确 auto-approve writes；
+- `network`, `telemetry`, `other` ask，除非明确 auto-approve all。
 
-Project-local Python extension manifests declare requested permissions, but those declarations do not bypass the runtime permission engine. Any dynamic tool registered by a project extension still needs explicit catalog metadata, active-tool visibility through `ExtensionManager.allowed_tool_names(...)`, and a normal `PermissionPolicy` decision for its permission category.
+Core 默认 `PermissionPolicy()` 遵循上述规则。默认离线不表示 network action 可隐式允许。
 
-Project-local extension loading does not grant dependency installation rights. The loader must not invoke installers or package managers while importing enabled manifests; any command execution still has to enter through an official tool/recipe path, use bundled runtime commands, and pass the normal permission policy.
+## 5. Interaction And Memory
 
-Optional intranet/network capabilities do not create an implicit allow path. Intranet Git adapters, custom service tools, provider gateways, organization-local catalog actions, and telemetry uploaders must use explicit tool/provider/sink boundaries with recognized permission metadata. `network` is the official category for network or intranet service access, and `telemetry` is the official category for explicit telemetry flush/upload actions. Both default to confirmation unless a matching rule or auto-approve-all allows them.
+ask 决策使当前 action 挂起并创建 permission interaction。Host/UI 可在当前 session 记住 category 决策，但 remembered categories 只是 permission context 的输入，不是 mode side effect 或 durable global rule。
 
-Telemetry permission scope is intentionally narrow. Passive telemetry may observe only safe lifecycle/capability/diagnostic events and must not export prompts, source contents, raw tool outputs, API keys, approval secrets, permission payloads, or permission tokens. `embedagent.telemetry.build_safe_telemetry_envelope(...)` is local-only redaction/summarization support for future sinks, not a network uploader. Telemetry sink failures should surface as diagnostics without changing normal permission decisions or default offline execution.
+用户回应后，action 重新进入 `AgentToolActionService`，再次经 active-tool、hook、permission 和 path checks。Host 不保存 approval token 以直接调用 runtime handler。
 
-Command sanitization must enter through `get_command_sanitizer()`. Removed
-sanitizer proxy/wrapper aliases must not be reintroduced because they would
-create a second apparent command-safety surface outside the official accessor.
+## 6. Resource, Extension And Network Rules
 
-## 3. Rule Shape
+resource reload 是发现/读取操作，不授予执行权。`author_local_capability` 是 `workspace_write`，它不启用 manifest、加载 Python code 或安装依赖。project extension 声明的 permission 不能绕过 runtime catalog 和 `PermissionPolicy`。
 
-Rules are structured objects loaded from the configured rules file.
+内网 Git、自定义 service、provider gateway 和 telemetry 使用显式 adapter/tool/sink 边界。network 或 telemetry 副作用不得隐藏在 `read` 中。passive telemetry 只接收经约束的安全结构化事件，不接收 prompt、source content、raw output、credential、approval secret 或 permission payload。
 
-Supported fields include:
+## 7. Frontend Projection
 
-- `decision`
-  - `allow`
-  - `ask`
-  - `deny`
-- `category`
-- `tool_names` or `tool`
-- `path_globs` or `path`
-- `cwd_globs`
-- `command_patterns` or `command_prefix`
-- `recipes` or `recipe`
-- `reason`
+前端 permission context 包含 rules path、active categories、normalized rules、remembered categories 和 auto-approve flags。前端只解释已有决策并收集用户回应，不按工具名重新实现风险等级。
 
-Rules are matched with last-match-wins semantics.
+## 8. Verification
 
-## 4. Explanation Format
+- `tests/test_permissions.py`
+- `tests/test_agent_core_public_api.py`
+- `tests/test_inprocess_adapter_frontend_api.py`
+- `tests/test_hosted_interaction_service.py`
+- `tests/test_dynamic_tool_registration.py`
 
-Permission decisions expose stable explanation text for the frontend and the model.
+## 9. Related Documents
 
-The explanation contains:
-
-- request
-- risk
-- reason
-- rule source
-- scope
-- memory scope
-
-This format is intentionally predictable so the UI and the model can reason about denied/ask states consistently.
-
-## 5. Default Policy
-
-Without a matching rule:
-
-- `read` is allowed
-- `workspace_write` asks unless auto-approve-writes is enabled
-- `shell_exec` and `toolchain_exec` ask unless auto-approve-commands is enabled
-- `git_write` asks unless auto-approve-writes is enabled
-- `network`, `telemetry`, and `other` ask unless auto-approve-all is enabled
-
-## 6. Session Memory
-
-Frontends may remember permission categories for the current session.
-That remembered state is part of the permission context view, not an implicit mode side effect.
-
-Approving a pending permission does not create a second execution path.
-The resumed action must re-enter the same validation/execution pipeline as the initial action, including mode/path policy checks.
-Answering a pending user-input interaction follows the same rule: `ask_user`
-and `propose_mode_switch` responses re-enter `AgentToolActionService` rather
-than being handled by a QueryEngine-only branch. Mode-switch proposals are
-interactive actions; the mode changes only after a user response selects or
-confirms the requested mode.
-
-## 7. Frontend Context View
-
-The frontend-visible permission context includes:
-
-- `rules_path`
-- active categories
-- normalized rules
-- remembered categories
-- auto-approve flags
-
-This lets the frontend explain why an operation is blocked without reverse-engineering runtime behavior.
-
-## 8. Design Rule
-
-Do not push permission semantics back into prompt-only mode rules.
-
-Modes may constrain intent and writable scope, but explicit permission decisions still belong to the permission engine.
+- `docs/platform/permissions-and-context.md`
+- `docs/platform/tools-and-extensions.md`
+- `docs/platform/tool-contracts.md`
+- `docs/platform/mode-contract.md`

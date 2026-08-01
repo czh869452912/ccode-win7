@@ -7,14 +7,14 @@
 
 ## Navigation And State
 
-- [ ] `docs/README.md` routes packaging and target acceptance to the current module/runbook.
+- [ ] `docs/README.md` routes packaging and target acceptance to the current product authority/runbook.
 - [ ] `docs/current-status.md` states the actual release state, blockers, and evidence boundary.
 - [ ] `docs/implementation-roadmap.md` contains only open release sequencing and exit conditions.
 - [ ] `README.md` release summary agrees with current status without duplicating evidence history.
 
 ## Contract And Guide
 
-- [ ] `docs/modules/packaging-and-deployment.md` matches the distribution and bundle layout.
+- [ ] `docs/product/packaging-and-deployment.md` matches the distribution and bundle layout.
 - [ ] `docs/guides/win7-release-runbook.md` matches current commands, report schema, hashes, WebView2 and C smoke requirements.
 - [ ] `scripts/offline-runtime-contract.json` covers every runtime binary and release gate.
 - [ ] configuration examples contain no secrets and do not require network for base startup.
@@ -36,4 +36,4 @@
 
 - [ ] Completed release specs/plans and evidence summaries are moved to an indexed archive package.
 - [ ] `docs/superpowers/README.md` lists only release work with open acceptance conditions.
-- [ ] Durable conclusions are present in the owning module, runbook, status, roadmap, or ADR before archival.
+- [ ] Durable conclusions are present in the owning domain authority, runbook, status, roadmap, or ADR before archival.

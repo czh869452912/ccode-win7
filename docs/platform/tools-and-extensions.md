@@ -1,120 +1,114 @@
-# Tools And Tooling
+# Tools And Extensions
 
 ## Metadata
 
 > 状态：`active`
-> 类型：`module`
-> 负责人：`project maintainers`
-> 最后同步日期：`2026-07-26`
-> 对应代码范围：`packages/embedagent-host/src/embedagent_host/runtime/tools/`, `packages/embedagent-host/src/embedagent_host/runtime/local_resources.py`, `packages/embedagent-host/src/embedagent_host/runtime/self_extension_authoring.py`, `packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/recipe_ops.py`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/session_ops.py`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workspace_recipes.py`
+> 类型：`platform authority`
+> 负责人：`Agent platform maintainers`
+> 最后同步日期：`2026-08-01`
+> 对应代码范围：`packages/embedagent-core/src/embedagent_core/agent_extension_host.py`, `packages/embedagent-core/src/embedagent_core/extensions.py`, `packages/embedagent-core/src/embedagent_core/agent_tool_action_service.py`, `packages/embedagent-host/src/embedagent_host/runtime/tools/`
 
-## 1. Purpose And Scope
+## 1. Purpose And Boundary
 
-本模块文档说明官方工具运行时、工具契约、tool packs 和 recipe/quality 执行路径，覆盖 `ToolRuntime` 及其周边 tooling 结构。
+本文档定义通用 Agent 平台的工具注册、激活、schema 投影、执行和扩展分发。平台只内建工作流无关的基础工具；上层应用通过同一扩展边界注册其工具、prompt、状态和上下文能力。
 
-## 2. Responsibilities
+`ToolRuntime` 是唯一工具运行时 facade。`ExtensionManager` 是能力注册和 active tool policy 的共享边界。`AgentExtensionHost` 是 Core 内的统一扩展分发边界。`AgentToolActionService` 是所有非 LLM action 的统一执行管道。
 
-- official tool runtime facade
-- tool packs and contracts
-- schema / catalog metadata
-- workflow-neutral built-in tools plus workflow-owned recipe/quality tools
-- explicit active schema projection through `ToolRuntime.schemas_for(...)`
-- source-aware dynamic tool registration
-- file-only local resource reload
-- workflow-neutral local resource discovery
-- extension tool catalog metadata and permission categories
+## 2. Workflow-Neutral Tools
 
-本模块的目标是保证产品路径只围绕官方工具集合工作，不重新引入平行 runtime 或 legacy duplicate tools。
+平台基础词汇：
 
-## 3. Code Mapping
+- `read_file`；
+- `list_dir`；
+- `glob_files`；
+- `grep_text`；
+- `write_file`；
+- `edit_file`；
+- `author_local_capability`；
+- `bash`；
+- `ask_user`。
 
-- 目录：`packages/embedagent-host/src/embedagent_host/runtime/tools/`, `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`
-- 入口文件：`packages/embedagent-host/src/embedagent_host/runtime/tools/runtime.py`
-- 核心对象：`ToolRuntime`、`ToolDefinition`、tool ops modules
-- 上游依赖：`AgentExtensionHost`、`AgentToolActionService`、default C/C++ workflow extension
-- 下游影响：tool execution、context reduction、frontend tool catalog
-- 相关测试：`tests/test_tools_package.py`、`tests/test_tools_v2_runtime.py`、`tests/test_tool_execution.py`、`tests/test_tool_commit.py`、`tests/test_tool_result_store.py`、`tests/test_dynamic_tool_registration.py`、`tests/test_local_resources.py`、`tests/test_project_extensions.py`、`tests/test_workflow_extensions.py`
-- 相关契约：`docs/tool-contracts.md`、`docs/overall-solution-architecture.md`
+应用工具不得被复制到基础包或 mode registry。平台文档不枚举某个应用的工具集；其所有权由对应 `docs/applications/` 文档说明。
 
-## 4. Dependencies And Consumers
+## 3. Registration, Activation, Projection
 
-上游依赖：
+三个动作必须区分：
 
-- `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`
-- `packages/embedagent-core/src/embedagent_core/query_engine.py`
-- `packages/embedagent-core/src/embedagent_core/agent_extension_host.py`
-- `packages/embedagent-core/src/embedagent_core/agent_tool_action_service.py`
+1. registration 将 `ToolDefinition` 和 catalog metadata 放入共享 `ToolRuntime`；
+2. activation 由 mode contract 与 `ExtensionManager.allowed_tool_names(...)` 产生当前显式名称集；
+3. projection 只能通过 `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` 生成模型可见 schema。
 
-下游消费者：
+已注册不等于已激活；manifest、capability registry、runtime config 和前端 catalog 都是读模型，不能使工具变为 active。调用 `schemas_for(...)` 时不传显式名称，只投影平台 mode contract。
 
-- context reduction / replacement
-- transcript / tool result persistence
-- frontend tool catalog
-- recipe execution 与 quality report 路径
+## 4. Extension Capabilities
 
-## 5. Data / Control Flow
+扩展只通过 `extension_capabilities()` 返回的 `ExtensionCapability` 记录参与。能力记录包含 name、handler、可选 event type、reducer/observer kind、fail-closed override 和安全 metadata。具有同名 Python 方法不构成能力声明。
 
-`AgentExtensionHost` 把 workflow-neutral mode contract 与 shared `ExtensionManager` 的 active tools 合并后，通过 `ToolRuntime.schemas_for(..., tool_names=...)` 请求显式 schema。`ExtensionManager` 只消费扩展通过 `extension_capabilities()` 返回的 `ExtensionCapability` 记录；动态工具注册、active tool names 和 extension-owned tools 都必须显式声明。`AgentToolActionService` 在执行时先走 `PermissionPolicy` 与 extension hooks，再由 `ToolRuntime` 调度具体 tool ops；产出的 observations 进入 transcript、context 和前端可见工具结果投影。
+`AgentEventBus` 按 source 分发 hooks，`AgentExtensionHost` 将 context、prompt、active tools、schema、tool-call、tool-result 和 extension-owned actions 集中在一个边界。运行时所有者不得在 session transaction、Host facade 或 UI adapter 中散落 manager 直调。
 
-`packages/embedagent-host/src/embedagent_host/runtime/local_resources.py` 是 workflow-neutral file-resource
-discovery：skills、prompts 和 `.embedagent/recipes/*.json` 只按资源声明投影，
-不会注入默认 C/C++ workflow tool names。`packages/embedagent-host/src/embedagent_host/runtime/workspace_recipes.py`
-是 workflow-neutral file-resource/read-model facade：它只合并显式项目、本地
-资源与历史 recipe 记录，不做 CMake/Make/Ninja 检测，也不写入默认
-`run_recipe` tool name。默认 C/C++ 工作流的 runnable recipe 聚合、CMake/Make/Ninja
-检测、`run_recipe` 归一化与 recipe resolution 位于
-`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workspace_recipes.py`，并由
-`CHarnessWorkflowExtension` 的 `workspace_recipes` capability 暴露给 hosted API
-和 runtime provider。
+## 5. Execution Pipeline
 
-`packages/embedagent-host/src/embedagent_host/runtime/self_extension_authoring.py` 同样保持 workflow-neutral：生成
-recipe 与 extension validation recipe 时不写入默认 C/C++ `tool_name`。这些
-文件只有在被选定 workflow package 聚合后，才会被映射到该 workflow 的可运行
-tool boundary。
+`AgentToolActionService` 依次处理：
+
+1. 检查工具是否 active；
+2. 应用 before-tool hooks；
+3. 根据 runtime catalog metadata 请求 `PermissionPolicy`；
+4. 独立应用写路径守卫；
+5. 创建或恢复 permission/user-input interaction；
+6. 调度 extension-owned action 或 `ToolRuntime.execute(...)`；
+7. 应用 result hooks 和 workflow patch；
+8. 产生结构化 `Observation` 和 read-model invalidations。
+
+交互式 action 不进入并行预执行，恢复时重新进入同一串行管道。扩展 hooks 不能跳过 mode、权限、路径或 active-tool 检查。
 
 ```mermaid
-flowchart TD
-    A["Mode contract"] --> B["AgentExtensionHost"]
-    C["ExtensionManager active tools"] --> B
-    B --> D["ToolRuntime.schemas_for(..., tool_names=...)"]
-    D --> E["model-visible schemas"]
-    F["AgentToolActionService"] --> G["PermissionPolicy"]
-    F --> H["ToolRuntime.execute"]
-    H --> I["observations"]
-    I --> J["context / transcript / frontend"]
+flowchart LR
+    A["mode contract"] --> B["AgentExtensionHost"]
+    C["ExtensionManager"] --> B
+    B --> D["explicit active names"]
+    D --> E["ToolRuntime schemas"]
+    F["AgentToolActionService"] --> G["hooks / permission / path"]
+    G --> H["ToolRuntime execute"]
+    H --> I["Observation"]
 ```
 
-## 6. Verification And Tests
+## 6. Runtime Catalog
 
-推荐回归入口：
+catalog entry 是 permission category 和安全展示 metadata 的唯一真相，并可包含：
+
+- execution：只读性、并发性、timeout 和 handler 所有权；
+- permission：`read`, `workspace_write`, `shell_exec`, `toolchain_exec`, `git_write`, `network`, `telemetry`, `other`；
+- presentation：`preview_arg`, `changed_path_arg`, labels 和 renderer keys；
+- context/read model：reducer key 和 `read_model_invalidations`；
+- provenance：source type 和 source id。
+
+UI 不得根据工具名推测权限、diff preview、changed paths 或刷新范围。未分类的工具归为 `other`，默认询问用户。
+
+## 7. Local Resources And Project Extensions
+
+Host 可发现 workspace-bound skills、prompts 和 workflow-neutral recipe JSON；resource reload 只刷新文件快照，不执行资源、安装依赖或改变 active tools。`author_local_capability` 只在 `.embedagent` 下创建文件资源或默认禁用的 project extension skeleton。
+
+project Python extension 必须 workspace-bound、manifest-gated、显式 enabled，并经路径和 permission 校验。loader 不访问远程 registry，不安装运行时依赖，不允许替换内建工具。动态工具仍需正常注册、激活和授权。
+
+## 8. Offline And Network Boundaries
+
+所有 runtime-invoked binaries 必须来自 `scripts/offline-runtime-contract.json`。增加子进程依赖必须同步 contract 和产品包装验证。内网 Git、自定义 service、provider gateway 和 telemetry 必须是显式可禁用 adapter，并经正常 `network` 或 `telemetry` 权限。
+
+## 9. Verification
 
 - `tests/test_tools_package.py`
-- `tests/test_tools_v2_runtime.py`
 - `tests/test_tool_execution.py`
-- `tests/test_tool_commit.py`
-- `tests/test_tool_result_store.py`
 - `tests/test_dynamic_tool_registration.py`
+- `tests/test_workflow_extensions.py`
+- `tests/test_capability_extensions.py`
 - `tests/test_local_resources.py`
 - `tests/test_project_extensions.py`
-- `tests/test_workflow_extensions.py`
+- `tests/test_self_extension_authoring.py`
 
-当 schema/catalog、dynamic tool registration、resource reload、tool pack 选择、observation 结构、recipe 执行或 quality report 语义变化时，应优先重跑这些测试。
+## 10. Related Documents
 
-## 7. Change Triggers
-
-以下变化必须同步更新本文件：
-
-- 官方工具集合变化
-- `ToolRuntime` facade 结构变化
-- tool pack 与 tooling contract 变化
-- dynamic tool registration、source metadata 或 permission category 变化
-- local resource reload 语义变化
-- recipe / quality report 正式路径变化
-- tool catalog 前端投影变化
-
-## 8. Related Documents
-
-- `docs/tool-contracts.md`
-- `docs/overall-solution-architecture.md`
-- `docs/references/code-doc-matrix.md`
-- `docs/references/glossary.md`
+- `docs/platform/tool-contracts.md`
+- `docs/platform/permission-model.md`
+- `docs/platform/permissions-and-context.md`
+- `docs/platform/mode-contract.md`
+- `docs/platform/agent-core.md`

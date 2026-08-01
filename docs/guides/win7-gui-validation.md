@@ -156,8 +156,8 @@ validate-cpp-smoke.cmd：
 
 - `docs/current-status.md`
 - `docs/guides/win7-release-runbook.md`
-- `docs/modules/packaging-and-deployment.md`
-- `docs/modules/frontend-gui.md`
+- `docs/product/packaging-and-deployment.md`
+- `docs/platform/frontend-gui.md`
 ---
 
 ## 7. 生成验收报告
