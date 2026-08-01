@@ -70,18 +70,23 @@ REQUIRED_MAP_TARGETS = (
     "docs/overall-solution-architecture.md",
     "docs/implementation-roadmap.md",
     "docs/current-status.md",
-    "docs/modules/agent-core.md",
-    "docs/modules/session-runtime.md",
-    "docs/modules/harness.md",
-    "docs/modules/tools-and-tooling.md",
-    "docs/modules/permissions-and-context.md",
-    "docs/modules/protocol-and-core.md",
-    "docs/modules/frontend-gui.md",
-    "docs/modules/frontend-tui.md",
-    "docs/modules/packaging-and-deployment.md",
-    "docs/tool-contracts.md",
-    "docs/permission-model.md",
-    "docs/frontend-protocol.md",
+    "docs/platform/README.md",
+    "docs/platform/agent-core.md",
+    "docs/platform/session-runtime.md",
+    "docs/platform/tools-and-extensions.md",
+    "docs/platform/tool-contracts.md",
+    "docs/platform/permissions-and-context.md",
+    "docs/platform/permission-model.md",
+    "docs/platform/protocol.md",
+    "docs/platform/frontend-protocol.md",
+    "docs/platform/frontend-gui.md",
+    "docs/platform/frontend-tui.md",
+    "docs/platform/mode-contract.md",
+    "docs/platform/agent-platform-blueprint.md",
+    "docs/applications/README.md",
+    "docs/applications/cpp-workflow.md",
+    "docs/product/README.md",
+    "docs/product/packaging-and-deployment.md",
     "docs/guides/win7-release-runbook.md",
     "docs/workflows/code-doc-sync.md",
     "docs/adrs/README.md",
@@ -150,7 +155,7 @@ def test_closed_audits_and_parity_ledgers_are_archived():
 
 
 def test_pi_blueprint_describes_direction_without_completed_phase_ledger():
-    text = _read("docs/pi-inspired-agent-core-blueprint.md")
+    text = _read("docs/platform/agent-platform-blueprint.md")
     assert "## Migration Program" not in text
     assert "Phase A:" not in text
     assert "QueryEngine" not in text
@@ -185,3 +190,26 @@ def test_active_global_docs_do_not_route_to_retired_authorities():
             if token in text:
                 offenders.append("%s references %s" % (path.relative_to(ROOT).as_posix(), token))
     assert offenders == []
+
+
+RETIRED_DOMAIN_PATHS = (
+    "docs/agent-harness-v2.md",
+    "docs/frontend-protocol.md",
+    "docs/mode-schema.md",
+    "docs/modules",
+    "docs/permission-model.md",
+    "docs/pi-inspired-agent-core-blueprint.md",
+    "docs/tool-contracts.md",
+)
+
+
+def test_stable_authorities_use_domain_paths_without_compatibility_redirects():
+    for relative_path in RETIRED_DOMAIN_PATHS:
+        assert not (ROOT / relative_path).exists(), relative_path
+
+
+
+
+def test_stable_authority_filenames_do_not_encode_lifecycle_versions():
+    for path in _active_global_docs():
+        assert not re.search(r"(?:^|[-_])v[0-9]+(?:[-_.]|$)", path.name, re.IGNORECASE), path

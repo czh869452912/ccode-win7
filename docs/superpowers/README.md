@@ -2,6 +2,11 @@
 
 这里只保留仍有开放验收条件的工作。切片文档是临时执行上下文，不是项目级架构真相。
 
+## Current Architecture Documentation
+
+- `docs/superpowers/specs/2026-08-01-current-architecture-documentation-design.md`
+- `docs/superpowers/plans/2026-08-01-current-architecture-documentation.md`
+
 ## External Release Acceptance
 
 - `docs/superpowers/plans/2026-07-19-phase7b-win7-handoff.md`
