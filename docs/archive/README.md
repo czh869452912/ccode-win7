@@ -3,7 +3,7 @@
 > 状态：`archive`
 > 类型：`reference`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-19`
+> 最后同步日期：`2026-08-01`
 > 对应代码范围：`docs/archive/`
 
 ## 1. Purpose
@@ -21,6 +21,7 @@ Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md`�
 - `clang-integration/`
 - `context-loop/`
 - `documentation-governance-baseline/`
+- `documentation-history/`
 - `enterprise-boundary-foundation/`
 - `gui-agent-bridge-review-fixes/`
 - `interaction-response-async/`
@@ -61,6 +62,7 @@ Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md`�
 - `t3-parity-gui-debug/`
 - `t3code-pi-workbench/`
 - `tool-design/`
+- `test-feedback-and-ci/`
 - `transcript-truth-tool-result-cutover/`
 - `tui-information-architecture/`
 - `workflow-extension-boundary/`
