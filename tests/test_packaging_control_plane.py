@@ -560,6 +560,29 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
         self.assertEqual(native_package.get("os"), ["win32"])
         self.assertEqual(native_package.get("cpu"), ["x64"])
 
+    def test_frontend_ci_runs_required_linux_and_windows_matrix(self):
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8"
+        )
+        frontend = workflow.split("  frontend:\n", 1)[1].split("  smoke:\n", 1)[0]
+
+        self.assertIn(
+            "strategy:\n"
+            "      fail-fast: false\n"
+            "      matrix:\n"
+            "        os: [ubuntu-latest, windows-latest]",
+            frontend,
+        )
+        self.assertIn("runs-on: ${{ matrix.os }}", frontend)
+        for command in (
+            "run: npm ci",
+            "run: npm test",
+            "run: npm run build",
+            "run: git diff --exit-code -- src/embedagent/frontend/gui/static",
+        ):
+            self.assertIn(command, frontend)
+        self.assertNotIn("continue-on-error:", frontend)
+
     def test_ci_workspace_jobs_provision_uv_and_share_offline_build_cache(self):
         workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
