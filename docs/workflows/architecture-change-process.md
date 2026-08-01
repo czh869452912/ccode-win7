@@ -38,7 +38,7 @@ State the problem, current boundary, proposed owner, data/control flow, alternat
 - obsolete pre-release shapes are deleted rather than wrapped;
 - focused tests, architecture guards, full partition, lint, and affected frontend/delivery gates pass.
 
-## Closeout
+## Closure
 
 1. Confirm the owning authority describes the landed behavior.
 2. Confirm any required ADR records the durable decision.

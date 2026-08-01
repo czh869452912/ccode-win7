@@ -22,6 +22,7 @@ Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md`�
 - `context-loop/`
 - `documentation-governance-baseline/`
 - `documentation-history/`
+- `documentation-navigation-system/`
 - `enterprise-boundary-foundation/`
 - `gui-agent-bridge-review-fixes/`
 - `interaction-response-async/`

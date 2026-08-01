@@ -32,7 +32,7 @@
 - [ ] Architecture guards, full Python partition, lint, and frontend test/build gates pass as applicable.
 - [ ] Paths, commands, links, metadata, and documentation context budgets are checked.
 
-## Archive Closeout
+## Archive Closure
 
 - [ ] Completed release specs/plans and evidence summaries are moved to an indexed archive package.
 - [ ] `docs/superpowers/README.md` lists only release work with open acceptance conditions.

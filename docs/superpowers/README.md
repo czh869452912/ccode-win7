@@ -6,11 +6,6 @@
 
 - `docs/superpowers/plans/2026-07-19-phase7b-win7-handoff.md`
 
-## Documentation Navigation Cleanup
-
-- `docs/superpowers/specs/2026-08-01-documentation-navigation-system-design.md`
-- `docs/superpowers/plans/2026-08-01-documentation-navigation-system.md`
-
 ## Closure Rule
 
 先把可持续结论同步到活跃权威文档，再将已完成的 spec 和 plan 移入带索引的 `docs/archive/<topic>/` 包。

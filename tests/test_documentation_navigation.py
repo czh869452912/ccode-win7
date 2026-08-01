@@ -3,7 +3,6 @@ from __future__ import unicode_literals
 import re
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 ACTIVE_LEDGER_PATHS = (
@@ -33,9 +32,7 @@ def _active_superpowers_files():
 
 def _indexed_superpowers_files():
     text = _read("docs/superpowers/README.md")
-    return set(
-        re.findall(r"`(docs/superpowers/(?:specs|plans)/[^`]+[.]md)`", text)
-    )
+    return set(re.findall(r"`(docs/superpowers/(?:specs|plans)/[^`]+[.]md)`", text))
 
 
 def test_historical_progress_ledgers_are_archived():
@@ -149,10 +146,7 @@ def test_closed_audits_and_parity_ledgers_are_archived():
         ROOT
         / "docs/archive/pre-release-debt-cleanup/2026-06-25-pre-release-architecture-debt-audit.md"
     ).is_file()
-    assert (
-        ROOT
-        / "docs/archive/t3-gui-parity-shell/2026-07-18-t3-gui-parity-ledger.md"
-    ).is_file()
+    assert (ROOT / "docs/archive/t3-gui-parity-shell/2026-07-18-t3-gui-parity-ledger.md").is_file()
 
 
 def test_pi_blueprint_describes_direction_without_completed_phase_ledger():
@@ -189,8 +183,5 @@ def test_active_global_docs_do_not_route_to_retired_authorities():
         text = path.read_text(encoding="utf-8")
         for token in RETIRED_ACTIVE_AUTHORITIES:
             if token in text:
-                offenders.append(
-                    "%s references %s"
-                    % (path.relative_to(ROOT).as_posix(), token)
-                )
+                offenders.append("%s references %s" % (path.relative_to(ROOT).as_posix(), token))
     assert offenders == []
