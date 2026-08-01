@@ -61,3 +61,65 @@ def test_current_work_docs_do_not_contain_completion_ledgers():
             text,
         )
         assert forbidden_headings == []
+
+
+DEFAULT_CONTEXT_BUDGETS = {
+    "README.md": 1500,
+    "AGENTS.md": 2500,
+    "docs/README.md": 1000,
+}
+
+REQUIRED_MAP_TARGETS = (
+    "docs/overall-solution-architecture.md",
+    "docs/implementation-roadmap.md",
+    "docs/current-status.md",
+    "docs/modules/agent-core.md",
+    "docs/modules/session-runtime.md",
+    "docs/modules/harness.md",
+    "docs/modules/tools-and-tooling.md",
+    "docs/modules/permissions-and-context.md",
+    "docs/modules/protocol-and-core.md",
+    "docs/modules/frontend-gui.md",
+    "docs/modules/frontend-tui.md",
+    "docs/modules/packaging-and-deployment.md",
+    "docs/tool-contracts.md",
+    "docs/permission-model.md",
+    "docs/frontend-protocol.md",
+    "docs/guides/win7-release-runbook.md",
+    "docs/workflows/code-doc-sync.md",
+    "docs/adrs/README.md",
+    "docs/archive/README.md",
+)
+
+
+def _word_count(text):
+    return len(re.findall(r"\S+", text))
+
+
+def test_default_loaded_documents_stay_within_context_budgets():
+    for relative_path, maximum in DEFAULT_CONTEXT_BUDGETS.items():
+        assert _word_count(_read(relative_path)) <= maximum, relative_path
+
+
+def test_documentation_map_routes_to_existing_authorities():
+    map_text = _read("docs/README.md")
+    for relative_path in REQUIRED_MAP_TARGETS:
+        assert relative_path in map_text
+        assert (ROOT / relative_path).is_file()
+
+
+def test_agent_constitution_keeps_non_negotiable_constraints_reachable():
+    text = _read("AGENTS.md")
+    for token in (
+        "Windows 7",
+        ">=3.8,<3.9",
+        "offline",
+        "C/C++",
+        "embedagent-core",
+        "embedagent-protocol",
+        "embedagent-host",
+        "embedagent-composition",
+        "embedagent-workflow-cpp",
+        "docs/README.md",
+    ):
+        assert token in text

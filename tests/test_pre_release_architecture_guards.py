@@ -827,17 +827,11 @@ def _active_contract_doc_files():
         "docs/archive/",
         "docs/superpowers/",
     )
-    excluded_files = {
-        "docs/design-change-log.md",
-        "docs/development-tracker.md",
-    }
     result = []
     for root in roots:
         candidates = [root] if root.is_file() else list(root.rglob("*.md"))
         for path in candidates:
             rel = _relative(path)
-            if rel in excluded_files:
-                continue
             if any(rel.startswith(prefix) for prefix in excluded_prefixes):
                 continue
             result.append(path)
@@ -932,15 +926,14 @@ def test_active_docs_use_phase7c_paths_and_vocabulary():
                 offenders.append("%s contains %s" % (rel, token))
     assert offenders == []
 
-    readme = active_docs["README.md"]
+    docs_map = active_docs["docs/README.md"]
     architecture = active_docs["docs/overall-solution-architecture.md"]
     harness = active_docs["docs/modules/harness.md"]
     frontend_protocol = active_docs["docs/frontend-protocol.md"]
     component_path = "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py"
     profile_path = "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/profile.py"
 
-    assert component_path in readme
-    assert "src/embedagent/product_catalog.py" in readme
+    assert "docs/modules/harness.md" in docs_map
     assert component_path in harness
     assert profile_path in harness
     assert "HostedSessionController" in architecture
@@ -954,29 +947,6 @@ def test_active_docs_use_phase7c_paths_and_vocabulary():
     assert "SessionEventEnvelope" in frontend_protocol
     assert "session_event" in frontend_protocol
     assert "SessionEventEnvelope" in joined
-
-
-def test_development_tracker_uses_current_c_cpp_workflow_package_paths():
-    text = _read(ROOT / "docs/development-tracker.md")
-
-    forbidden_tokens = (
-        "src/embedagent/" + "harness",
-        "embedagent." + "harness",
-        "src/embedagent/default_extensions.py",
-        "default_extensions.py",
-        "harness/workflow_projection.py",
-        "harness/tool_metadata.py",
-        "harness/packs.py",
-    )
-    offenders = [token for token in forbidden_tokens if token in text]
-    assert offenders == []
-    assert "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/extension.py" in text
-    assert "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application.py" in text
-    assert (
-        "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workflow_projection.py"
-        in text
-    )
-    assert "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/packs.py" in text
 
 
 def test_runtime_tool_execute_calls_stay_behind_action_or_hosted_services():
@@ -3175,13 +3145,11 @@ def test_artifact_read_model_invalidation_is_retired():
     assert offenders == []
 
     tool_contracts_text = _read(ROOT / "docs/tool-contracts.md")
-    development_tracker_text = _read(ROOT / "docs/development-tracker.md")
     for token in (
         "`workspace_files`, `tasks`, or `artifacts`",
         "file/task/artifact refresh",
     ):
         assert token not in tool_contracts_text
-        assert token not in development_tracker_text
 
 
 def test_hosted_interactions_do_not_keep_legacy_blocking_frontend_paths():

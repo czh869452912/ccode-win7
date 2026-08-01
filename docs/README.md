@@ -1,96 +1,33 @@
-# 文档导航
+# Documentation Map
 
 > 状态：`active`
-> 类型：`reference`
+> 类型：`navigation`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-07-19`
-> 对应代码范围：`README.md`, `AGENTS.md`, `docs/`
+> 最后同步日期：`2026-08-01`
 
-## 1. 文档分层
+本页是唯一的全局文档地图。先按意图选择一条路径，再打开拥有该行为的模块、契约或工作流文档；不要把入口文件、临时切片或历史材料当作实现说明书。
 
-- `docs/superpowers/`：当前切片说明书，服务本轮设计、计划、实施与 review；已完成切片必须先同步回全局 active docs，再移入 `docs/archive/`。截至 `2026-07-19`，预发布架构债务清理、Pi/T3 residual debt cleanup、Phase 5/6、Phase 7A/7R 等完成材料均已归档；当前仅保留尚待真实 Win7 验收的 `2026-07-19-phase7b-win7-handoff.md`。
-- `docs/` 活动文档：长期 `source-of-truth`，记录当前官方口径、模块边界和维护规则。
-- `docs/archive/`：历史留痕，保存已完成切片的设计、计划、分析和复盘材料。
+| I need to... | Read first | Then read | Do not use as current truth |
+|---|---|---|---|
+| 了解系统拓扑、六发行包边界和依赖方向 | `docs/overall-solution-architecture.md` | `docs/references/code-doc-matrix.md` | 根 `README.md` 的概览、归档架构方案 |
+| 修改 Agent Core 或 durable session runtime | `docs/modules/agent-core.md` | `docs/modules/session-runtime.md` | 历史 phase/spec、旧 tracker |
+| 修改 C/C++ workflow、harness 或任务投影 | `docs/modules/harness.md` | `docs/agent-harness-v2.md`, `docs/mode-schema.md` | Core 入口文档、历史 harness 计划 |
+| 修改工具注册、激活、执行或展示元数据 | `docs/modules/tools-and-tooling.md` | `docs/tool-contracts.md` | mode 列表、renderer 内的工具名分支 |
+| 修改权限、写路径或上下文组装 | `docs/modules/permissions-and-context.md` | `docs/permission-model.md` | 工具执行结果、产品默认值推测 |
+| 修改 Host/Core DTO 或跨壳层协议 | `docs/modules/protocol-and-core.md` | `docs/frontend-protocol.md` | GUI 局部状态、历史 transport 方案 |
+| 修改 GUI 或 TUI 壳层 | `docs/modules/frontend-gui.md`, `docs/modules/frontend-tui.md` | `docs/frontend-protocol.md` | renderer 自造默认值、历史 parity ledger |
+| 修改打包、离线资产或 Win7 发布验收 | `docs/modules/packaging-and-deployment.md` | `docs/guides/win7-release-runbook.md`, `docs/workflows/release-doc-checklist.md` | 本地测试作为 Win7 验收结论 |
+| 查询当前状态、阻塞项和下一步 | `docs/current-status.md` | `docs/implementation-roadmap.md`, `docs/superpowers/README.md` | 已完成切片、历史进度流水 |
+| 同步代码与文档 | `docs/workflows/code-doc-sync.md` | `docs/documentation-governance.md`, `docs/references/code-doc-matrix.md` | 在多个入口复制同一事实 |
+| 记录或查询长期架构理由 | `docs/adrs/README.md` | 具体 ADR、`docs/workflows/architecture-change-process.md` | 临时 spec 的过程讨论 |
+| 调查历史决策、已关闭计划或旧进度 | `docs/archive/README.md` | 对应 archive package 的 `README.md` | 将 archive 反向作为当前实现依据 |
 
-## 2. 项目级官方文档
+## Authority Rule
 
-- `overall-solution-architecture.md`
-- `pi-inspired-agent-core-blueprint.md`
-- `pre-release-architecture-debt-audit.md`
-- `implementation-roadmap.md`
-- `development-tracker.md`
-- `design-change-log.md`
-- `mode-schema.md`
-- `tool-contracts.md`
-- `permission-model.md`
-- `frontend-protocol.md`
-- `agent-harness-v2.md`
+- `README.md` 和 `AGENTS.md` 是入口与约束，只负责导航和不可协商规则。
+- `docs/modules/` 与项目级 contract 文档拥有当前实现细节。
+- `docs/current-status.md` 和 `docs/implementation-roadmap.md` 只保留当前状态与开放排序，旧内容直接替换而非追加。
+- `docs/adrs/` 拥有长期决策理由；`docs/workflows/` 拥有协作与交付流程。
+- `docs/archive/` 拥有历史。活跃实现工作不得依赖先读 archive 才能理解当前系统。
 
-这些文档定义项目级长期真相，不由单轮 `superpowers` 文档替代。
-
-## 3. 模块文档
-
-- `modules/README.md`
-- `modules/agent-core.md`
-- `modules/session-runtime.md`
-- `modules/harness.md`
-- `modules/tools-and-tooling.md`
-- `modules/permissions-and-context.md`
-- `modules/protocol-and-core.md`
-- `modules/frontend-tui.md`
-- `modules/frontend-gui.md`
-- `modules/packaging-and-deployment.md`
-
-模块文档负责把代码目录、入口文件、数据流、测试入口和相关契约文档稳定地绑定起来。
-
-## 4. 操作指南
-
-- `guides/README.md`
-- `guides/configuration-guide.md`
-- `guides/intranet-deployment.md`
-- `guides/llm-adapter.md`
-- `guides/win7-gui-validation.md`
-- `guides/win7-preflight-checklist.md`
-
-指南文档提供配置示例、操作步骤和兼容性记录，是对模块文档和工作流文档的补充。
-
-## 5. 工作流文档
-
-- `workflows/README.md`
-- `workflows/code-doc-sync.md`
-- `workflows/architecture-change-process.md`
-- `workflows/release-doc-checklist.md`
-
-工作流文档定义“怎么做事”，例如怎样从 `superpowers` 设计回写到全局文档，以及发布前如何检查文档完整性。
-
-## 6. 参考与模板
-
-- `references/glossary.md`
-- `references/code-doc-matrix.md`
-- `references/diagrams-conventions.md`
-- `templates/architecture-doc-template.md`
-- `templates/module-doc-template.md`
-- `templates/workflow-doc-template.md`
-- `templates/adr-template.md`
-- `templates/change-entry-template.md`
-
-参考文档提供统一语言和约束，模板文档提供统一骨架和最小结构。
-
-## 7. ADR
-
-- `adrs/README.md`
-- `adrs/0000-template.md`
-- `adrs/0001-offline-portable-bundle-baseline.md`
-- `adrs/0002-gui-workflow-shell-clean-room.md`
-- `adrs/0003-agent-step-timeline-and-managed-runtime-shell.md`
-- `adrs/0004-packaging-control-plane-redesign.md`
-
-## 8. Archive 使用规则
-
-- `archive/README.md` 是历史材料索引入口。
-- `archive` 只保存历史材料，不承载当前官方口径。
-- 活动文档不得依赖 `archive` 作为当前真相源。
-- 每轮切片完成后，应先同步全局项目文档和模块文档，再归档对应 `superpowers` 材料。
-- Completed self-extensible Agent Core slice materials belong under `docs/archive/self-extensible-agent-core/` after their durable conclusions are synchronized into active source-of-truth docs and module docs.
-- Completed Pi-inspired minimal Core phase materials belong under their phase-specific `docs/archive/phase-*/` package after active docs record the implemented boundary.
-- Historical root-level refactor notes belong under `docs/archive/agent-core-refactor-history/`, not as active docs root entries.
+模块路径与文档所有权的细表见 `docs/references/code-doc-matrix.md`；活跃临时切片的精确列表见 `docs/superpowers/README.md`。
