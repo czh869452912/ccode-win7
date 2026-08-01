@@ -123,3 +123,40 @@ def test_agent_constitution_keeps_non_negotiable_constraints_reachable():
         "docs/README.md",
     ):
         assert token in text
+
+
+AUTHORITY_BUDGETS = {
+    "docs/overall-solution-architecture.md": 3000,
+    "docs/implementation-roadmap.md": 1000,
+    "docs/current-status.md": 750,
+}
+
+RETIRED_ACTIVE_HISTORY = (
+    "docs/pre-release-architecture-debt-audit.md",
+    "docs/guides/t3-gui-parity-ledger.md",
+)
+
+
+def test_global_authorities_stay_within_context_budgets():
+    for relative_path, maximum in AUTHORITY_BUDGETS.items():
+        assert _word_count(_read(relative_path)) <= maximum, relative_path
+
+
+def test_closed_audits_and_parity_ledgers_are_archived():
+    for relative_path in RETIRED_ACTIVE_HISTORY:
+        assert not (ROOT / relative_path).exists()
+    assert (
+        ROOT
+        / "docs/archive/pre-release-debt-cleanup/2026-06-25-pre-release-architecture-debt-audit.md"
+    ).is_file()
+    assert (
+        ROOT
+        / "docs/archive/t3-gui-parity-shell/2026-07-18-t3-gui-parity-ledger.md"
+    ).is_file()
+
+
+def test_pi_blueprint_describes_direction_without_completed_phase_ledger():
+    text = _read("docs/pi-inspired-agent-core-blueprint.md")
+    assert "## Migration Program" not in text
+    assert "Phase A:" not in text
+    assert "QueryEngine" not in text

@@ -3,7 +3,7 @@
 > Status: `archive`
 > Type: `completed-slices`
 > Owner: project maintainers
-> Last synchronized: 2026-06-25
+> Last synchronized: 2026-08-01
 
 This package preserves the completed 2026-06-25 pre-release debt cleanup plan.
 Current architecture truth lives in the active source-of-truth documents, not
@@ -16,6 +16,8 @@ in this archive package.
   Core ownership slimming, explicit extension capabilities, T3-style GUI
   renderer state, dev fixture isolation, and contract-backed Win7/C release
   gates.
+- `2026-06-25-pre-release-architecture-debt-audit.md`: closed finding ledger
+  and deletion-oriented cleanup baseline used by that slice.
 
 ## Current Follow-Up
 

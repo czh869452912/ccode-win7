@@ -1,16 +1,17 @@
 # T3 GUI Parity Shell Archive
 
 > 状态：`archive`
-> 日期：2026-06-22
-> 当前真相：`docs/modules/frontend-gui.md`、`docs/development-tracker.md`、`docs/design-change-log.md`
+> 日期：2026-08-01
+> 当前真相：`docs/modules/frontend-gui.md`、`docs/frontend-protocol.md`、`docs/current-status.md`
 
-This package preserves the completed working plan and design spec for the T3 GUI
-parity shell stabilization slice.
+This package preserves completed T3 GUI parity designs, execution plans, and the closed parity ledger. These files are historical evidence, not current contracts.
 
-The durable conclusions have been synchronized into the active frontend GUI
-module documentation, development tracker, and design change log. These archived
-files are historical implementation materials, not current architecture truth.
+## Contents
 
+- `2026-06-22-t3-gui-parity-shell-design.md`
+- `2026-06-22-t3-gui-parity-shell.md`
+- `2026-07-18-t3-current-gui-parity-and-agent-adapter-design.md`
+- `2026-07-18-t3-current-gui-parity-and-agent-adapter-execution.md`
+- `2026-07-18-t3-gui-parity-ledger.md`
 
-
-本次收口新增：`2026-07-18-t3-current-gui-parity-and-agent-adapter-design.md` 与 `2026-07-18-t3-current-gui-parity-and-agent-adapter-execution.md`。
+Current frontend truth lives in the routed module and protocol authorities named above. Current blockers live only in `docs/current-status.md`.
