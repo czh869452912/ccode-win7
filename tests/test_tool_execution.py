@@ -6,8 +6,13 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent_core.agent_effects import FrozenToolAction, PreparedToolInvocation
 from embedagent_core.session import Action, Observation
-from embedagent_core.tool_execution import StreamingToolExecutor, ToolBatch
+from embedagent_core.tool_execution import (
+    StreamingToolExecutor,
+    ToolBatch,
+    partition_tool_actions,
+)
 
 
 class TestStreamingToolExecutor(unittest.TestCase):
@@ -147,6 +152,45 @@ class TestStreamingToolExecutor(unittest.TestCase):
         self.assertIsNone(updates[3].observation.data.get("error_kind"))
         self.assertEqual(updates[4].observation.data.get("error_kind"), "discarded")
         self.assertNotIn("call-c", started)
+
+    def test_partition_uses_frozen_prepared_invocation_capabilities(self):
+        def prepared(name, source_index, read_only, concurrency_safe):
+            action = Action(name, {"path": "%s.c" % source_index}, "call-%s" % source_index)
+            frozen = FrozenToolAction.from_action(action)
+            return PreparedToolInvocation(
+                invocation_id="tool:assistant:%s" % source_index,
+                provider_call_id=action.call_id,
+                source_index=source_index,
+                original_action=frozen,
+                effective_action=frozen,
+                permission_category="read" if read_only else "workspace_write",
+                read_only=read_only,
+                concurrency_safe=concurrency_safe,
+                presentation_json="{}",
+                source_type="builtin",
+                source_id=name,
+                replay_safe=False,
+            )
+
+        invocations = [
+            prepared("read_file", 0, True, True),
+            prepared("read_file", 1, True, True),
+            prepared("write_file", 2, False, False),
+            prepared("read_file", 3, True, True),
+        ]
+
+        batches = partition_tool_actions(invocations)
+
+        self.assertEqual(
+            [
+                (
+                    batch.parallel,
+                    [item.source_index for item in batch.actions],
+                )
+                for batch in batches
+            ],
+            [(True, [0, 1]), (False, [2]), (True, [3])],
+        )
 
 
 if __name__ == "__main__":

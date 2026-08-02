@@ -1,9 +1,15 @@
+import json
 from types import SimpleNamespace
 
+import pytest
 from embedagent_core.agent_effects import (
     ExecuteToolBatchEffect,
+    FrozenToolAction,
     InteractionSuspended,
+    PreparedToolInvocation,
+    PrepareToolBatchEffect,
     ToolBatchCompleted,
+    ToolBatchPrepared,
 )
 from embedagent_core.agent_tool_action_service import (
     AgentToolActionService,
@@ -69,6 +75,131 @@ class FakeTools(object):
         self.finalized.append(token)
 
 
+class RecordingExtensionHost(FakeExtensionHost):
+    def __init__(self, calls, allowed=True, blocked=False):
+        self.calls = calls
+        self.allowed = allowed
+        self.blocked = blocked
+
+    def allowed_tool_names(self, mode_name, workflow_state=""):
+        del mode_name, workflow_state
+        self.calls.append("allowed")
+        return {"read_file", "write_file"} if self.allowed else set()
+
+    def prepare_tool_call(self, session, action, current_mode, workflow_state):
+        del session, current_mode, workflow_state
+        self.calls.append("before:%s" % action.name)
+        decision = SimpleNamespace(
+            block=self.blocked,
+            reason="blocked",
+            metadata={},
+        )
+        return decision, action
+
+    def handle_tool_call(self, session, tool_name, current_mode, workflow_state):
+        del session, current_mode, workflow_state
+        self.calls.append("extension_dispatch:%s" % tool_name)
+        return None
+
+
+class RecordingPermissionPolicy(object):
+    def __init__(self, calls, outcome="allow"):
+        self.calls = calls
+        self.outcome = outcome
+
+    def remembered_categories_for(self, session_id):
+        del session_id
+        return []
+
+    def evaluate(self, action, remembered_categories=None):
+        del remembered_categories
+        category = "workspace_write" if action.name == "write_file" else "read"
+        self.calls.append("permission:%s" % category)
+        return SimpleNamespace(
+            outcome=self.outcome,
+            request=None,
+            error="denied" if self.outcome == "deny" else None,
+            details={"category": category},
+        )
+
+
+class RecordingWritePathPolicy(object):
+    def __init__(self, calls, allowed=True):
+        self.calls = calls
+        self.allowed = allowed
+
+    def is_path_writable(self, mode_name, path, app_config):
+        del mode_name, app_config
+        self.calls.append("path:%s" % path)
+        return self.allowed
+
+
+class RecordingTools(FakeTools):
+    def __init__(self, calls):
+        super(RecordingTools, self).__init__()
+        self.calls = calls
+
+    def catalog_entry(self, tool_name):
+        self.calls.append("catalog:%s" % tool_name)
+        read_only = tool_name == "read_file"
+        return {
+            "name": tool_name,
+            "permission_category": "read" if read_only else "workspace_write",
+            "read_only": read_only,
+            "concurrency_safe": read_only,
+            "user_label": tool_name,
+            "progress_renderer_key": "default",
+            "result_renderer_key": "default",
+            "supports_diff_preview": False,
+            "source_type": "builtin",
+            "source_id": tool_name,
+        }
+
+    def execute_with_interrupt(self, name, arguments, stop_event):
+        self.calls.append("runtime_execute:%s" % name)
+        return super(RecordingTools, self).execute_with_interrupt(
+            name,
+            arguments,
+            stop_event,
+        )
+
+    def materialize_observation(self, session_id, action, observation):
+        self.calls.append("materialize:%s" % action.name)
+        return super(RecordingTools, self).materialize_observation(
+            session_id,
+            action,
+            observation,
+        )
+
+
+def _prepare_effect(actions):
+    return PrepareToolBatchEffect(
+        "prepare-1",
+        "m-assistant-turn-1-step-1-1",
+        tuple(FrozenToolAction.from_action(action) for action in actions),
+        "build",
+        "",
+    )
+
+
+def _recording_service(calls, outcome="", path_allowed=True):
+    return AgentToolActionService(
+        tools=RecordingTools(calls),
+        permission_policy=RecordingPermissionPolicy(
+            calls,
+            outcome="deny" if outcome == "permission_denied" else "allow",
+        ),
+        extension_host=RecordingExtensionHost(
+            calls,
+            allowed=outcome != "mode_tool_blocked",
+            blocked=outcome == "extension_blocked",
+        ),
+        app_config_provider=lambda: None,
+        interaction_factory=InteractionFactory(),
+        write_path_policy=RecordingWritePathPolicy(calls, allowed=path_allowed),
+    )
+
+
 def _service(policy=None, tools=None):
     return AgentToolActionService(
         tools=tools or FakeTools(),
@@ -84,6 +215,104 @@ def _session():
     session.add_user_message("hello", turn_id="turn-1")
     session.begin_step(step_id="step-1")
     return session
+
+
+def test_prepare_checks_permission_and_path_before_any_dispatch():
+    calls = []
+    service = _recording_service(calls)
+    effect = _prepare_effect(
+        [Action("write_file", {"path": "generated.c", "content": "x"}, "call-1")]
+    )
+
+    result = service.prepare(effect, _session())
+
+    assert isinstance(result, ToolBatchPrepared)
+    assert calls == [
+        "allowed",
+        "before:write_file",
+        "permission:workspace_write",
+        "path:generated.c",
+        "catalog:write_file",
+    ]
+    assert len(result.invocations) == 1
+    invocation = result.invocations[0]
+    assert isinstance(invocation, PreparedToolInvocation)
+    assert invocation.invocation_id == "tool:m-assistant-turn-1-step-1-1:0"
+    assert json.loads(invocation.presentation_json)["tool_label"] == "write_file"
+    assert not any(item.startswith("extension_dispatch") for item in calls)
+    assert not any(item.startswith("runtime_execute") for item in calls)
+    assert not any(item.startswith("materialize") for item in calls)
+
+
+@pytest.mark.parametrize(
+    "outcome, action",
+    [
+        (
+            "mode_tool_blocked",
+            Action("write_file", {"path": "generated.c", "content": "x"}, "call-1"),
+        ),
+        (
+            "extension_blocked",
+            Action("write_file", {"path": "generated.c", "content": "x"}, "call-1"),
+        ),
+        (
+            "permission_denied",
+            Action("write_file", {"path": "generated.c", "content": "x"}, "call-1"),
+        ),
+        (
+            "invalid_arguments",
+            Action("write_file", {"content": "x"}, "call-1"),
+        ),
+        (
+            "mode_path_blocked",
+            Action("write_file", {"path": "generated.c", "content": "x"}, "call-1"),
+        ),
+    ],
+)
+def test_prepare_immediate_outcomes_never_become_ready_invocations(outcome, action):
+    calls = []
+    service = _recording_service(
+        calls,
+        outcome=outcome,
+        path_allowed=outcome != "mode_path_blocked",
+    )
+
+    result = service.prepare(_prepare_effect([action]), _session())
+
+    assert isinstance(result, ToolBatchPrepared)
+    assert result.invocations == ()
+    assert result.immediate_results[0].observation.data["error_kind"] == outcome
+    assert not any(event.event_type == "operation_started" for event in result.events)
+    assert not any(item.startswith("extension_dispatch") for item in calls)
+    assert not any(item.startswith("runtime_execute") for item in calls)
+    assert not any(item.startswith("materialize") for item in calls)
+
+
+def test_prepare_is_serial_even_when_all_actions_are_parallel_safe():
+    calls = []
+    service = _recording_service(calls)
+    effect = _prepare_effect(
+        [
+            Action("read_file", {"path": "a.c"}, "call-a"),
+            Action("read_file", {"path": "b.c"}, "call-b"),
+        ]
+    )
+
+    result = service.prepare(effect, _session())
+
+    assert isinstance(result, ToolBatchPrepared)
+    assert [item.source_index for item in result.invocations] == [0, 1]
+    assert calls == [
+        "allowed",
+        "before:read_file",
+        "permission:read",
+        "catalog:read_file",
+        "allowed",
+        "before:read_file",
+        "permission:read",
+        "catalog:read_file",
+    ]
+    assert not any(item.startswith("runtime_execute") for item in calls)
 
 
 def test_normal_action_returns_tool_batch_completed_with_events_and_token():

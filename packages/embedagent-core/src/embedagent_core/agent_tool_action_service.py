@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import threading
@@ -11,8 +12,14 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from embedagent_core.agent_effects import (
     ExecuteToolBatchEffect,
+    FrozenToolAction,
+    ImmediateToolResult,
     InteractionSuspended,
+    PreparedToolInvocation,
+    PrepareToolBatchEffect,
     ToolBatchCompleted,
+    ToolBatchPrepared,
+    _tool_invocation_id,
 )
 from embedagent_core.agent_extension_host import AgentExtensionHost
 from embedagent_core.interaction import (
@@ -142,6 +149,311 @@ class AgentToolActionService(object):
         self._app_config_provider = app_config_provider
         self._interaction_factory = interaction_factory
         self.write_path_policy = write_path_policy or DenyWritePathPolicy()
+
+    def prepare(
+        self,
+        effect: PrepareToolBatchEffect,
+        session: Session,
+        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]] = None,
+        user_input_handler: Optional[
+            Callable[[UserInputRequest], Optional[UserInputResponse]]
+        ] = None,
+    ):
+        if not isinstance(effect, PrepareToolBatchEffect):
+            raise TypeError("unsupported tool preparation effect")
+        prepared = list(effect.prepared_prefix)
+        immediate = list(effect.immediate_prefix)
+        events = []  # type: List[EventIntent]
+        start_index = max(0, int(effect.start_index or 0))
+
+        for source_index in range(start_index, len(effect.actions)):
+            outcome = self._prepare_action(
+                effect,
+                session,
+                source_index,
+                permission_handler,
+                user_input_handler,
+            )
+            if isinstance(outcome, InteractionSuspended):
+                pending_event = self._pending_interaction_event(session, outcome.pending)
+                return replace(
+                    outcome,
+                    effect_id=effect.effect_id,
+                    events=tuple(events) + outcome.events + (pending_event,),
+                )
+            if isinstance(outcome, PreparedToolInvocation):
+                prepared.append(outcome)
+                continue
+            immediate.append(outcome)
+            events.extend(self._inline_immediate_result_events(effect, session, outcome))
+
+        return ToolBatchPrepared(
+            effect.effect_id,
+            invocations=tuple(prepared),
+            immediate_results=tuple(immediate),
+            events=tuple(events),
+        )
+
+    def _prepare_action(
+        self,
+        effect: PrepareToolBatchEffect,
+        session: Session,
+        source_index: int,
+        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]],
+        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
+    ):
+        original_frozen = effect.actions[source_index]
+        action = original_frozen.to_action()
+        if effect.provider_truncated:
+            return self._immediate_result(
+                source_index,
+                original_frozen,
+                original_frozen,
+                self._failure_observation(
+                    action.name,
+                    "provider output ended before tool arguments were complete",
+                    "truncated_tool_arguments",
+                    True,
+                    "provider_finish_reason",
+                    "Retry the tool call with complete arguments.",
+                    {"synthetic": True},
+                ),
+            )
+
+        if action.name not in self.extension_host.allowed_tool_names(
+            effect.mode_name,
+            workflow_state=effect.workflow_state,
+        ) and action.name not in ("ask_user", "propose_mode_switch"):
+            return self._immediate_result(
+                source_index,
+                original_frozen,
+                original_frozen,
+                self._failure_observation(
+                    action.name,
+                    "Current mode %s does not allow tool %s." % (effect.mode_name, action.name),
+                    "mode_tool_blocked",
+                    False,
+                    effect.mode_name,
+                    "Use a tool allowed by the current mode.",
+                ),
+            )
+
+        blocked_observation, runtime_action = self.prepare_extension_tool_call(
+            session,
+            action,
+            effect.mode_name,
+            effect.workflow_state,
+        )
+        if blocked_observation is not None:
+            return self._immediate_result(
+                source_index,
+                original_frozen,
+                original_frozen,
+                blocked_observation,
+            )
+        try:
+            effective_frozen = FrozenToolAction.from_action(runtime_action)
+        except (TypeError, ValueError):
+            return self._immediate_result(
+                source_index,
+                original_frozen,
+                original_frozen,
+                self._failure_observation(
+                    action.name,
+                    "before-tool hook returned non-JSON-safe arguments",
+                    "invalid_arguments",
+                    False,
+                    "extension",
+                    "Return JSON-safe tool arguments.",
+                ),
+            )
+
+        decision = self.permission_policy.evaluate(
+            runtime_action,
+            remembered_categories=self.permission_policy.remembered_categories_for(
+                session.session_id
+            ),
+        )
+        if decision.outcome == "deny":
+            return self._immediate_result(
+                source_index,
+                original_frozen,
+                effective_frozen,
+                self._failure_observation(
+                    action.name,
+                    decision.error or "Permission policy denied this operation.",
+                    "permission_denied",
+                    False,
+                    "permission_policy",
+                    "Update the permission policy or choose a lower-risk action.",
+                    {
+                        "permission_required": True,
+                        "permission_decision": "deny",
+                    },
+                ),
+            )
+        if decision.request is not None:
+            approved = (
+                permission_handler(decision.request) if permission_handler is not None else None
+            )
+            if approved is None:
+                return self._interaction_factory.permission_request(
+                    runtime_action,
+                    decision.request,
+                    effect.mode_name,
+                )
+            if not approved:
+                return self._immediate_result(
+                    source_index,
+                    original_frozen,
+                    effective_frozen,
+                    self._failure_observation(
+                        action.name,
+                        "Operation was not approved.",
+                        "permission_denied",
+                        False,
+                        "user_confirmation",
+                        "Wait for approval or choose a lower-risk action.",
+                        {
+                            "permission_required": True,
+                            "permission_decision": "deny",
+                        },
+                    ),
+                )
+
+        invalid_path = self._validate_write_path(runtime_action, effect.mode_name)
+        if invalid_path is not None:
+            return self._immediate_result(
+                source_index,
+                original_frozen,
+                effective_frozen,
+                invalid_path,
+            )
+
+        if runtime_action.name in ("ask_user", "propose_mode_switch"):
+            interactive = self._execute_interactive_action(
+                runtime_action,
+                effect.mode_name,
+                user_input_handler,
+            )
+            if isinstance(interactive, InteractionSuspended):
+                return interactive
+            return self._immediate_result(
+                source_index,
+                original_frozen,
+                effective_frozen,
+                interactive,
+            )
+
+        catalog = self._catalog_snapshot(runtime_action.name)
+        if not catalog:
+            return self._immediate_result(
+                source_index,
+                original_frozen,
+                effective_frozen,
+                self._failure_observation(
+                    action.name,
+                    "Tool runtime catalog entry is unavailable.",
+                    "tool_unavailable",
+                    False,
+                    "tool_catalog",
+                    "Refresh tool registration before retrying.",
+                ),
+            )
+        presentation = {
+            "tool_label": str(catalog.get("user_label") or runtime_action.name),
+            "progress_renderer_key": str(catalog.get("progress_renderer_key") or "default"),
+            "result_renderer_key": str(catalog.get("result_renderer_key") or "default"),
+            "supports_diff_preview": bool(catalog.get("supports_diff_preview")),
+        }
+        details = dict(getattr(decision, "details", {}) or {})
+        return PreparedToolInvocation(
+            invocation_id=_tool_invocation_id(effect.assistant_message_id, source_index),
+            provider_call_id=action.call_id,
+            source_index=source_index,
+            original_action=original_frozen,
+            effective_action=effective_frozen,
+            permission_category=str(
+                details.get("category") or catalog.get("permission_category") or "other"
+            ),
+            read_only=bool(catalog.get("read_only")),
+            concurrency_safe=bool(catalog.get("concurrency_safe")),
+            presentation_json=json.dumps(
+                presentation,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            source_type=str(catalog.get("source_type") or ""),
+            source_id=str(catalog.get("source_id") or ""),
+            replay_safe=False,
+        )
+
+    def _catalog_snapshot(self, tool_name: str) -> Dict[str, Any]:
+        lookup = getattr(self.tools, "catalog_entry", None)
+        if not callable(lookup):
+            lookup = getattr(self.tools, "tool_catalog_entry", None)
+        if not callable(lookup):
+            return {}
+        entry = lookup(tool_name)
+        if entry is None:
+            return {}
+        if isinstance(entry, dict):
+            return deepcopy(dict(entry))
+        to_dict = getattr(entry, "to_dict", None)
+        if callable(to_dict):
+            return deepcopy(dict(to_dict() or {}))
+        return {}
+
+    def _immediate_result(
+        self,
+        source_index: int,
+        original_action: FrozenToolAction,
+        effective_action: FrozenToolAction,
+        observation: Observation,
+    ) -> ImmediateToolResult:
+        return ImmediateToolResult(
+            source_index,
+            original_action,
+            effective_action,
+            observation,
+        )
+
+    def _inline_immediate_result_events(
+        self,
+        effect: PrepareToolBatchEffect,
+        session: Session,
+        result: ImmediateToolResult,
+    ) -> Tuple[EventIntent, ...]:
+        original_action = result.original_action.to_action()
+        turn_id, step_id = self._turn_step(session)
+        finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        message_id = "m-tool-%s-%d" % (
+            effect.assistant_message_id,
+            result.source_index,
+        )
+        events = []
+        data = result.observation.data if isinstance(result.observation.data, dict) else {}
+        if data.get("error_kind") == "permission_denied":
+            events.append(self._permission_rejection_event(session, original_action))
+        events.append(
+            EventIntent(
+                "tool_result",
+                {
+                    "turn_id": turn_id,
+                    "step_id": step_id,
+                    "call_id": original_action.call_id,
+                    "tool_name": original_action.name,
+                    "arguments": dict(original_action.arguments),
+                    "message_id": message_id,
+                    "parent_message_id": effect.assistant_message_id,
+                    "finished_at": finished_at,
+                    "replaced_by_refs": [],
+                    "observation": result.observation.to_dict(),
+                },
+            )
+        )
+        return tuple(events)
 
     def execute(
         self,
