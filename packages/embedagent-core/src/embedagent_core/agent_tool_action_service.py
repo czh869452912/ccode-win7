@@ -8,11 +8,10 @@ import time
 import uuid
 from copy import deepcopy
 from dataclasses import replace
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from embedagent_core.agent_effects import (
     ExecutePreparedToolBatchEffect,
-    ExecuteToolBatchEffect,
     FrozenToolAction,
     ImmediateToolResult,
     InteractionSuspended,
@@ -168,19 +167,29 @@ class AgentToolActionService(object):
         start_index = max(0, int(effect.start_index or 0))
 
         for source_index in range(start_index, len(effect.actions)):
-            outcome = self._prepare_action(
-                effect,
-                session,
-                source_index,
-                permission_handler,
-                user_input_handler,
-            )
+            if source_index == start_index and effect.resume_kind:
+                outcome = self._resume_prepared_action(
+                    effect,
+                    session,
+                    source_index,
+                )
+            else:
+                outcome = self._prepare_action(
+                    effect,
+                    session,
+                    source_index,
+                    permission_handler,
+                    user_input_handler,
+                )
             if isinstance(outcome, InteractionSuspended):
-                pending_event = self._pending_interaction_event(session, outcome.pending)
-                return replace(
+                return self._suspend_preparation(
+                    effect,
+                    session,
+                    source_index,
                     outcome,
-                    effect_id=effect.effect_id,
-                    events=tuple(events) + outcome.events + (pending_event,),
+                    tuple(prepared),
+                    tuple(immediate),
+                    tuple(events),
                 )
             if isinstance(outcome, PreparedToolInvocation):
                 prepared.append(outcome)
@@ -193,6 +202,52 @@ class AgentToolActionService(object):
             invocations=tuple(prepared),
             immediate_results=tuple(immediate),
             events=tuple(events),
+        )
+
+    def _suspend_preparation(
+        self,
+        effect: PrepareToolBatchEffect,
+        session: Session,
+        source_index: int,
+        suspended: InteractionSuspended,
+        prepared: Tuple[PreparedToolInvocation, ...],
+        immediate: Tuple[ImmediateToolResult, ...],
+        events: Tuple[EventIntent, ...],
+    ) -> InteractionSuspended:
+        request_payload = suspended.pending.request_payload
+        effective_payload = request_payload.pop(
+            "_preparation_effective_action",
+            effect.actions[source_index].to_dict(),
+        )
+        permission_category = str(request_payload.pop("_preparation_permission_category", "") or "")
+        effective_action = FrozenToolAction.from_dict(dict(effective_payload or {}))
+        checkpoint = {
+            "assistant_message_id": effect.assistant_message_id,
+            "continuation": effect.continuation,
+            "source_index": source_index,
+            "invocation_id": _tool_invocation_id(
+                effect.assistant_message_id,
+                source_index,
+            ),
+            "actions": [action.to_dict() for action in effect.actions],
+            "effective_action": effective_action.to_dict(),
+            "mode_name": effect.mode_name,
+            "workflow_state": effect.workflow_state,
+            "permission_category": permission_category,
+            "prepared_prefix": [item.to_dict() for item in prepared],
+            "immediate_prefix": [item.to_dict() for item in immediate],
+            "interaction_id": suspended.pending.interaction_id,
+            "interaction_kind": suspended.pending.kind,
+        }
+        request_payload["tool_preparation"] = checkpoint
+        pending_event = self._pending_interaction_event(
+            session,
+            suspended.pending,
+        )
+        return replace(
+            suspended,
+            effect_id=effect.effect_id,
+            events=events + suspended.events + (pending_event,),
         )
 
     def _prepare_action(
@@ -298,11 +353,18 @@ class AgentToolActionService(object):
                 permission_handler(decision.request) if permission_handler is not None else None
             )
             if approved is None:
-                return self._interaction_factory.permission_request(
+                suspended = self._interaction_factory.permission_request(
                     runtime_action,
                     decision.request,
                     effect.mode_name,
                 )
+                suspended.pending.request_payload["_preparation_effective_action"] = (
+                    effective_frozen.to_dict()
+                )
+                suspended.pending.request_payload["_preparation_permission_category"] = (
+                    decision.request.category
+                )
+                return suspended
             if not approved:
                 return self._immediate_result(
                     source_index,
@@ -338,6 +400,9 @@ class AgentToolActionService(object):
                 user_input_handler,
             )
             if isinstance(interactive, InteractionSuspended):
+                interactive.pending.request_payload["_preparation_effective_action"] = (
+                    effective_frozen.to_dict()
+                )
                 return interactive
             return self._immediate_result(
                 source_index,
@@ -346,6 +411,99 @@ class AgentToolActionService(object):
                 interactive,
             )
 
+        details = dict(getattr(decision, "details", {}) or {})
+        return self._ready_invocation(
+            effect,
+            source_index,
+            original_frozen,
+            effective_frozen,
+            str(details.get("category") or ""),
+        )
+
+    def _resume_prepared_action(
+        self,
+        effect: PrepareToolBatchEffect,
+        session: Session,
+        source_index: int,
+    ):
+        del session
+        original_frozen = effect.actions[source_index]
+        effective_frozen = effect.resume_effective_action or original_frozen
+        runtime_action = effective_frozen.to_action()
+        try:
+            resolution = json.loads(effect.resume_resolution_json or "{}")
+        except (TypeError, ValueError):
+            resolution = {}
+        if not isinstance(resolution, dict):
+            resolution = {}
+
+        if effect.resume_kind == "permission":
+            if not bool(resolution.get("approved")):
+                return self._immediate_result(
+                    source_index,
+                    original_frozen,
+                    effective_frozen,
+                    self._failure_observation(
+                        original_frozen.name,
+                        "Operation was not approved.",
+                        "permission_denied",
+                        False,
+                        "user_confirmation",
+                        "Wait for approval or choose a lower-risk action.",
+                        {
+                            "permission_required": True,
+                            "permission_decision": "deny",
+                        },
+                    ),
+                )
+            invalid_path = self._validate_write_path(runtime_action, effect.mode_name)
+            if invalid_path is not None:
+                return self._immediate_result(
+                    source_index,
+                    original_frozen,
+                    effective_frozen,
+                    invalid_path,
+                )
+            return self._ready_invocation(
+                effect,
+                source_index,
+                original_frozen,
+                effective_frozen,
+                effect.resume_permission_category,
+            )
+
+        if effect.resume_kind == "user_input":
+            response = UserInputResponse(
+                answer=str(resolution.get("answer") or ""),
+                selected_index=resolution.get("selected_index"),
+                selected_mode=str(resolution.get("selected_mode") or ""),
+                selected_option_text=str(resolution.get("selected_option_text") or ""),
+            )
+            observation = self._execute_interactive_action(
+                runtime_action,
+                effect.mode_name,
+                lambda request: response,
+            )
+            if isinstance(observation, InteractionSuspended):
+                raise RuntimeError("interaction resume unexpectedly re-suspended")
+            return self._immediate_result(
+                source_index,
+                original_frozen,
+                effective_frozen,
+                observation,
+            )
+
+        raise RuntimeError("unsupported interaction checkpoint kind")
+
+    def _ready_invocation(
+        self,
+        effect: PrepareToolBatchEffect,
+        source_index: int,
+        original_frozen: FrozenToolAction,
+        effective_frozen: FrozenToolAction,
+        permission_category: str,
+    ):
+        runtime_action = effective_frozen.to_action()
         catalog = self._catalog_snapshot(runtime_action.name)
         if not catalog:
             return self._immediate_result(
@@ -353,7 +511,7 @@ class AgentToolActionService(object):
                 original_frozen,
                 effective_frozen,
                 self._failure_observation(
-                    action.name,
+                    original_frozen.name,
                     "Tool runtime catalog entry is unavailable.",
                     "tool_unavailable",
                     False,
@@ -367,15 +525,14 @@ class AgentToolActionService(object):
             "result_renderer_key": str(catalog.get("result_renderer_key") or "default"),
             "supports_diff_preview": bool(catalog.get("supports_diff_preview")),
         }
-        details = dict(getattr(decision, "details", {}) or {})
         return PreparedToolInvocation(
             invocation_id=_tool_invocation_id(effect.assistant_message_id, source_index),
-            provider_call_id=action.call_id,
+            provider_call_id=original_frozen.call_id,
             source_index=source_index,
             original_action=original_frozen,
             effective_action=effective_frozen,
             permission_category=str(
-                details.get("category") or catalog.get("permission_category") or "other"
+                permission_category or catalog.get("permission_category") or "other"
             ),
             read_only=bool(catalog.get("read_only")),
             concurrency_safe=bool(catalog.get("concurrency_safe")),
@@ -644,162 +801,9 @@ class AgentToolActionService(object):
             event_action=invocation.original_action.to_action(),
         )
 
-    def execute(
-        self,
-        effect: ExecuteToolBatchEffect,
-        session: Session,
-        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]] = None,
-        user_input_handler: Optional[
-            Callable[[UserInputRequest], Optional[UserInputResponse]]
-        ] = None,
-        precomputed_observations: Optional[Tuple[Optional[Observation], ...]] = None,
-        stop_event: Optional[threading.Event] = None,
-        on_action_start: Optional[Callable[[Action], None]] = None,
-        max_parallel_tools: int = 3,
-    ):
-        if not isinstance(effect, ExecuteToolBatchEffect):
-            raise TypeError("unsupported tool effect")
-        observations: List[Observation] = []
-        events: List[EventIntent] = []
-        commit_tokens: List[Any] = []
-        precomputed = tuple(precomputed_observations or ())
-
-        def append_result(action, precomputed_observation=None):
-            result = self._execute_action(
-                session,
-                action,
-                effect.mode_name,
-                effect.workflow_state,
-                permission_handler,
-                user_input_handler,
-                precomputed_observation=precomputed_observation,
-                stop_event=stop_event,
-            )
-            if isinstance(result, InteractionSuspended):
-                pending_event = self._pending_interaction_event(session, result.pending)
-                return replace(
-                    result,
-                    effect_id=effect.effect_id,
-                    events=tuple(events) + result.events + (pending_event,),
-                    commit_tokens=tuple(commit_tokens),
-                )
-            observation, action_events, commit_token = result
-            observations.append(observation)
-            events.extend(action_events)
-            if commit_token is not None:
-                commit_tokens.append(commit_token)
-            return None
-
-        if precomputed:
-            for index, action in enumerate(effect.actions):
-                if on_action_start is not None:
-                    on_action_start(action)
-                suspension = append_result(
-                    action,
-                    precomputed[index] if index < len(precomputed) else None,
-                )
-                if suspension is not None:
-                    return suspension
-            return ToolBatchCompleted(
-                effect.effect_id,
-                observations=tuple(observations),
-                events=tuple(events),
-                commit_tokens=tuple(commit_tokens),
-            )
-
-        capability_lookup = getattr(self.tools, "tool_capabilities", None)
-        if not callable(capability_lookup):
-
-            def capability_lookup(tool_name):
-                del tool_name
-                return {}
-
-        discard_remaining = False
-        for batch in partition_tool_actions(list(effect.actions), capability_lookup):
-            if discard_remaining:
-                for action in batch.actions:
-                    suspension = append_result(action, self._discarded_observation(action.name))
-                    if suspension is not None:
-                        return suspension
-                continue
-            if batch.parallel and len(batch.actions) > 1:
-                executor = StreamingToolExecutor(
-                    lambda action: self.execute_parallel_tool_action(
-                        session,
-                        action,
-                        effect.mode_name,
-                        effect.workflow_state,
-                        stop_event,
-                    ),
-                    max_parallel_tools,
-                    cancel_event=stop_event,
-                )
-                batch_interrupted = False
-                batch_discarded = False
-                for update in executor.run_batch(batch):
-                    if update.phase == "start":
-                        if on_action_start is not None:
-                            on_action_start(update.action)
-                        if self._stop_is_set(stop_event):
-                            batch_interrupted = True
-                            executor.discard()
-                        continue
-                    precomputed_observation = update.observation
-                    if batch_interrupted or self._stop_is_set(stop_event):
-                        batch_interrupted = True
-                        if not self._is_discarded(precomputed_observation):
-                            precomputed_observation = self._interrupted_observation(
-                                update.action.name
-                            )
-                    suspension = append_result(update.action, precomputed_observation)
-                    if suspension is not None:
-                        return suspension
-                    if self._is_discarded(observations[-1]):
-                        batch_discarded = True
-                if batch_discarded:
-                    discard_remaining = True
-                continue
-
-            for action in batch.actions:
-                if self._stop_is_set(stop_event):
-                    suspension = append_result(
-                        action,
-                        self._discarded_observation(action.name),
-                    )
-                    discard_remaining = True
-                else:
-                    if on_action_start is not None:
-                        on_action_start(action)
-                    precomputed_observation = (
-                        self._interrupted_observation(action.name)
-                        if self._stop_is_set(stop_event)
-                        else None
-                    )
-                    suspension = append_result(action, precomputed_observation)
-                if suspension is not None:
-                    return suspension
-                if self._is_interrupted(observations[-1]):
-                    discard_remaining = True
-        return ToolBatchCompleted(
-            effect.effect_id,
-            observations=tuple(observations),
-            events=tuple(events),
-            commit_tokens=tuple(commit_tokens),
-        )
-
     def finalize(self, commit_tokens: Tuple[Any, ...]) -> None:
         for commit_token in commit_tokens:
             self.tools.finalize_observation(commit_token)
-
-    def is_extension_blocked_observation(self, observation: Optional[Observation]) -> bool:
-        if observation is None or not isinstance(observation.data, dict):
-            return False
-        return observation.data.get("error_kind") == "extension_blocked"
-
-    def is_interactive_serial_skip(self, observation: Optional[Observation]) -> bool:
-        if observation is None or not isinstance(observation.data, dict):
-            return False
-        return observation.data.get("error_kind") == "interactive_serial_skip"
 
     def prepare_extension_tool_call(
         self,
@@ -828,176 +832,6 @@ class AgentToolActionService(object):
                 action,
             )
         return None, runtime_action
-
-    def execute_parallel_tool_action(
-        self,
-        session: Session,
-        action: Action,
-        current_mode: str,
-        workflow_state: str,
-        stop_event: Optional[threading.Event],
-    ) -> Observation:
-        if action.name in ("ask_user", "propose_mode_switch"):
-            return Observation(
-                action.name,
-                False,
-                "interactive tool requires serial action handling",
-                {"error_kind": "interactive_serial_skip", "retryable": False},
-            )
-        blocked_observation, runtime_action = self.prepare_extension_tool_call(
-            session,
-            action,
-            current_mode,
-            workflow_state,
-        )
-        if blocked_observation is not None:
-            return blocked_observation
-        return self.tools.execute_with_interrupt(
-            runtime_action.name,
-            runtime_action.arguments,
-            stop_event,
-        )
-
-    def _execute_action(
-        self,
-        session: Session,
-        action: Action,
-        current_mode: str,
-        workflow_state: str,
-        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]],
-        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
-        precomputed_observation: Optional[Observation] = None,
-        stop_event: Optional[threading.Event] = None,
-    ):
-        runtime_action = action
-        if action.name not in self.extension_host.allowed_tool_names(
-            current_mode,
-            workflow_state=workflow_state,
-        ) and action.name not in ("ask_user", "propose_mode_switch"):
-            return self._complete_action(
-                session,
-                action,
-                self._failure_observation(
-                    action.name,
-                    "当前模式 %s 不允许调用工具 %s。" % (current_mode, action.name),
-                    "mode_tool_blocked",
-                    False,
-                    current_mode,
-                    "请改用当前模式允许的工具。",
-                ),
-            )
-        if precomputed_observation is not None and not self.is_interactive_serial_skip(
-            precomputed_observation
-        ):
-            if self.is_extension_blocked_observation(precomputed_observation):
-                return self._complete_action(session, action, precomputed_observation)
-            observation, workflow_intent = self._apply_extension_tool_result_patch(
-                session,
-                action,
-                current_mode,
-                workflow_state,
-                precomputed_observation,
-            )
-            return self._complete_action(
-                session,
-                action,
-                observation,
-                workflow_intent=workflow_intent,
-            )
-        blocked_observation, runtime_action = self.prepare_extension_tool_call(
-            session,
-            action,
-            current_mode,
-            workflow_state,
-        )
-        if blocked_observation is not None:
-            return self._complete_action(session, action, blocked_observation)
-        if action.name in ("ask_user", "propose_mode_switch"):
-            interactive = self._execute_interactive_action(
-                runtime_action,
-                current_mode,
-                user_input_handler,
-            )
-            if isinstance(interactive, InteractionSuspended):
-                return interactive
-            return self._complete_action(session, action, interactive)
-        observation = self.extension_host.handle_tool_call(
-            session,
-            tool_name=action.name,
-            current_mode=current_mode,
-            workflow_state=workflow_state,
-        )
-        if observation is not None:
-            return self._complete_action(session, action, observation)
-        decision = self.permission_policy.evaluate(
-            runtime_action,
-            remembered_categories=self.permission_policy.remembered_categories_for(
-                session.session_id
-            ),
-        )
-        if decision.outcome == "deny":
-            rejection_event = self._permission_rejection_event(session, action)
-            return self._complete_action(
-                session,
-                action,
-                self._failure_observation(
-                    action.name,
-                    decision.error or "权限规则拒绝该操作。",
-                    "permission_denied",
-                    False,
-                    "permission_policy",
-                    "修改权限规则，或由用户手动放行后重试。",
-                    {"permission_required": True, "permission_decision": "deny"},
-                ),
-                extra_events=(rejection_event,),
-            )
-        if decision.request is not None:
-            approved = (
-                permission_handler(decision.request) if permission_handler is not None else None
-            )
-            if approved is None:
-                return self._interaction_factory.permission_request(
-                    action,
-                    decision.request,
-                    current_mode,
-                )
-            if not approved:
-                rejection_event = self._permission_rejection_event(session, action)
-                return self._complete_action(
-                    session,
-                    action,
-                    self._failure_observation(
-                        action.name,
-                        "操作未获批准，已跳过执行。",
-                        "permission_denied",
-                        False,
-                        "user_confirmation",
-                        "等待用户批准，或改为不需要该权限的方案。",
-                        {"permission_required": True, "permission_decision": "deny"},
-                    ),
-                    extra_events=(rejection_event,),
-                )
-        invalid_path = self._validate_write_path(runtime_action, current_mode)
-        if invalid_path is not None:
-            return self._complete_action(session, action, invalid_path)
-        observation = self.tools.execute_with_interrupt(
-            runtime_action.name,
-            runtime_action.arguments,
-            stop_event,
-        )
-        observation, workflow_intent = self._apply_extension_tool_result_patch(
-            session,
-            runtime_action,
-            current_mode,
-            workflow_state,
-            observation,
-        )
-        return self._complete_action(
-            session,
-            runtime_action,
-            observation,
-            workflow_intent=workflow_intent,
-        )
 
     def _apply_extension_tool_result_patch(
         self,

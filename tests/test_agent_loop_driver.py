@@ -16,7 +16,7 @@ from embedagent_core.agent_effects import (
     ToolBatchCompleted,
     ToolBatchPrepared,
 )
-from embedagent_core.agent_kernel import KernelCursor, KernelStep
+from embedagent_core.agent_kernel import AgentKernel, KernelCursor, KernelStep
 from embedagent_core.agent_loop import AgentLoop
 from embedagent_core.agent_loop_continuation import DefaultAgentLoopContinuationPolicy
 from embedagent_core.ports import StrictSessionRestorePolicy
@@ -26,6 +26,7 @@ from embedagent_core.session import (
     ContextAssemblyResult,
     LoopTransition,
     Observation,
+    PendingInteraction,
     Session,
 )
 from embedagent_core.session_journal import EventIntent, SessionJournal
@@ -483,3 +484,182 @@ def test_observer_failure_does_not_rollback_or_repeat_committed_event():
     assert [event["type"] for event in events] == ["session_meta", "operation_finished"]
     restored = journal.restore("session-1", StrictSessionRestorePolicy())
     assert restored.current_mode == "build"
+
+
+class EventRecordingJournal(object):
+    def __init__(self, calls):
+        self.calls = calls
+
+    def commit(self, session, context, intents):
+        del session, context
+        events = []
+        for intent in intents:
+            payload = dict(intent.payload)
+            kind = str(payload.get("kind") or "")
+            label = intent.event_type + (":" + kind if kind else "")
+            self.calls.append("commit:" + label)
+            events.append({"type": intent.event_type, "payload": payload})
+        return type("Commit", (), {"events": tuple(events)})()
+
+
+class EffectRecordingToolActions(object):
+    def __init__(self, calls):
+        self.calls = calls
+        self.finalized = []
+
+    def prepare(self, effect, session, **kwargs):
+        del session, kwargs
+        self.calls.append("prepare:%s" % effect.effect_id)
+        action = effect.actions[0]
+        invocation = PreparedToolInvocation(
+            invocation_id="tool:%s:0" % effect.assistant_message_id,
+            provider_call_id=action.call_id,
+            source_index=0,
+            original_action=action,
+            effective_action=effect.resume_effective_action or action,
+            permission_category="read",
+            read_only=True,
+            concurrency_safe=True,
+            presentation_json="{}",
+            source_type="builtin",
+            source_id=action.name,
+            replay_safe=False,
+            mode_name=effect.mode_name,
+            workflow_state=effect.workflow_state,
+        )
+        return ToolBatchPrepared(effect.effect_id, invocations=(invocation,))
+
+    def execute_prepared(self, effect, session, **kwargs):
+        del session, kwargs
+        invocation = effect.invocations[0]
+        self.calls.append("dispatch:%s" % invocation.invocation_id)
+        return ToolBatchCompleted(
+            effect.effect_id,
+            observations=(
+                Observation(
+                    invocation.effective_action.name,
+                    True,
+                    None,
+                    {"path": "README.md"},
+                ),
+            ),
+        )
+
+    def finalize(self, tokens):
+        self.finalized.extend(tokens)
+
+
+class CompletingProviderSteps(object):
+    def __init__(self, calls):
+        self.calls = calls
+
+    def assemble_context(self, effect, session):
+        del session
+        self.calls.append("execute:context")
+        return ContextAssembled(effect.effect_id, _assembly(), _snapshot())
+
+    def request_provider(self, effect, observer):
+        del observer
+        self.calls.append("execute:provider")
+        return ProviderCompleted(
+            effect.effect_id,
+            AssistantReply("done", actions=[], finish_reason="stop"),
+        )
+
+
+class RejectingProviderSteps(object):
+    def assemble_context(self, effect, session):
+        del effect, session
+        raise AssertionError("command continuation must not assemble context")
+
+    def request_provider(self, effect, observer):
+        del effect, observer
+        raise AssertionError("command continuation must not request provider")
+
+
+def test_driver_continues_preparation_through_commit_barrier():
+    calls = []
+    kernel = AgentKernel()
+    action = Action("read_file", {"path": "README.md"}, "call-1")
+    frozen = FrozenToolAction.from_action(action)
+    pending = PendingInteraction(
+        interaction_id="pi-1",
+        kind="permission",
+        tool_name="read_file",
+    )
+    session = Session(session_id="session-1", pending_interaction=pending)
+    preparation = PrepareToolBatchEffect(
+        "checkpoint",
+        "m-assistant-turn-1-step-turn-1-1-1",
+        (frozen,),
+        "build",
+        "",
+        continuation="context",
+        resume_kind="permission",
+        resume_effective_action=frozen,
+        resume_resolution_json='{"approved":true}',
+    )
+    initial_step = kernel.resume_preparation(
+        session,
+        pending,
+        {"approved": True},
+        preparation,
+        "turn-1",
+    )
+    session.pending_interaction = None
+    loop = AgentLoop(
+        kernel,
+        EventRecordingJournal(calls),
+        CompletingProviderSteps(calls),
+        EffectRecordingToolActions(calls),
+        DefaultAgentLoopContinuationPolicy(),
+    )
+
+    result = loop.continue_from(initial_step, session, SessionReducerContext())
+
+    resolution_commit = calls.index("commit:pending_resolution:permission")
+    prepare = calls.index("prepare:tool-prepare:turn-1:1:0")
+    execution_commit = calls.index("commit:operation_started:tool_call")
+    dispatch = calls.index("dispatch:tool:m-assistant-turn-1-step-turn-1-1-1:0")
+    assert resolution_commit < prepare < execution_commit < dispatch
+    assert calls.index("execute:context") > dispatch
+    assert calls.index("execute:provider") > calls.index("execute:context")
+    assert result.transition.reason == "completed"
+    assert result.final_text == "done"
+
+
+def test_driver_completes_command_tool_continuation_without_provider_step():
+    calls = []
+    kernel = AgentKernel()
+    action = Action("read_file", {"path": "README.md"}, "command-call")
+    initial_step = kernel.command_tool(
+        "turn-command",
+        "build",
+        "command",
+        action,
+        "m-user",
+    )
+    loop = AgentLoop(
+        kernel,
+        EventRecordingJournal(calls),
+        RejectingProviderSteps(),
+        EffectRecordingToolActions(calls),
+        DefaultAgentLoopContinuationPolicy(),
+    )
+
+    result = loop.continue_from(
+        initial_step,
+        Session(session_id="session-1"),
+        SessionReducerContext(),
+    )
+
+    assert initial_step.effect.assistant_message_id == (
+        "m-assistant-turn-command-step-turn-command-1-0"
+    )
+    assistant = [event for event in initial_step.events if event.event_type == "assistant"][0]
+    assert assistant.payload["message_id"] == initial_step.effect.assistant_message_id
+    assert assistant.payload["actions"][0]["call_id"] == "command-call"
+    assert calls.index("commit:assistant") < calls.index("prepare:tool-prepare:turn-command:1:0")
+    assert "execute:context" not in calls
+    assert "execute:provider" not in calls
+    assert result.transition.reason == "completed"

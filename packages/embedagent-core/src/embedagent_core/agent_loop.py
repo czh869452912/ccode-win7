@@ -84,6 +84,46 @@ class AgentLoop(object):
             stream=stream,
             step_index=self._next_step_index(session, turn_id),
         )
+        return self._drive(
+            step,
+            session,
+            reduction_context,
+            observer,
+            cancel,
+            max_turns,
+            max_parallel_tools,
+        )
+
+    def continue_from(
+        self,
+        initial_step: KernelStep,
+        session: Session,
+        reduction_context: SessionReducerContext,
+        observer: Optional[Any] = None,
+        cancel: Optional[Any] = None,
+        max_turns: Optional[int] = None,
+        max_parallel_tools: int = 3,
+    ) -> QueryTurnResult:
+        return self._drive(
+            initial_step,
+            session,
+            reduction_context,
+            observer,
+            cancel,
+            max_turns,
+            max_parallel_tools,
+        )
+
+    def _drive(
+        self,
+        step: KernelStep,
+        session: Session,
+        reduction_context: SessionReducerContext,
+        observer: Optional[Any],
+        cancel: Optional[Any],
+        max_turns: Optional[int],
+        max_parallel_tools: int,
+    ) -> QueryTurnResult:
         final_text = ""
         observer_enabled = observer is not None
         progress_guard = ProgressGuard()
@@ -91,6 +131,15 @@ class AgentLoop(object):
         pending_tool_notifications = ()  # type: Tuple[Tuple[Action, Observation], ...]
         pending_step_finish = None
         last_reply = AssistantReply("")
+        if (
+            isinstance(step.effect, PrepareToolBatchEffect)
+            and step.cursor.continuation == "complete"
+        ):
+            last_reply = AssistantReply(
+                "",
+                actions=[action.to_action() for action in step.effect.actions],
+                finish_reason="tool_calls",
+            )
         on_context_result = self._observer_callback(observer, "on_context_result")
         on_tool_finish = self._observer_callback(observer, "on_tool_finish")
         on_step_finish = self._observer_callback(observer, "on_step_finish")
@@ -298,7 +347,7 @@ class AgentLoop(object):
         step: KernelStep,
         max_turns: Optional[int],
     ) -> bool:
-        if max_turns is None:
+        if max_turns is None or step.cursor.continuation == "complete":
             return False
         limit = int(max_turns or 0)
         return limit > 0 and step.cursor.step_index >= limit
@@ -357,9 +406,8 @@ class AgentLoop(object):
         guard: ProgressGuard,
         pairs: Tuple[Tuple[Action, Observation], ...],
     ) -> bool:
-        if guard.should_stop():
-            return True
-        return any(guard.should_block(action) for action, observation in pairs)
+        del pairs
+        return guard.should_stop_after_result()
 
     def _transition_with_pending(
         self,

@@ -263,21 +263,12 @@ class StreamingToolExecutor(object):
 
 
 def partition_tool_actions(
-    actions: List[Any],
-    capability_lookup: Optional[Callable[[str], Dict[str, Any]]] = None,
+    actions: List[PreparedToolInvocation],
 ) -> List[ToolBatch]:
     batches = []
     current = None  # type: Optional[ToolBatch]
     for action in actions:
-        if isinstance(action, PreparedToolInvocation):
-            is_parallel = bool(action.read_only) and bool(action.concurrency_safe)
-        else:
-            capabilities = (
-                capability_lookup(action.name) if capability_lookup is not None else {}
-            ) or {}
-            is_parallel = bool(capabilities.get("read_only")) and bool(
-                capabilities.get("concurrency_safe")
-            )
+        is_parallel = bool(action.read_only) and bool(action.concurrency_safe)
         if current is None or current.parallel != is_parallel:
             current = ToolBatch(parallel=is_parallel, actions=[action])
             batches.append(current)

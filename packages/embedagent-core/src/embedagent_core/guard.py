@@ -214,6 +214,7 @@ class ProgressGuard(object):
         self.failure_count += 1
         action_key = _action_key(action)
         retryable = True
+
         if isinstance(observation.data, dict) and observation.data.get("retryable") is False:
             retryable = False
         if action_key == self.last_failed_action_key:
@@ -222,6 +223,12 @@ class ProgressGuard(object):
             self.last_failed_action_key = action_key
             self.same_failed_action_count = 1
         self.last_failed_retryable = retryable
+
+    def should_stop_after_result(self) -> bool:
+        if self.should_stop():
+            return True
+        recent = self.no_progress_history[-self.max_repeated_no_progress :]
+        return len(recent) >= self.max_repeated_no_progress and len(set(recent)) == 1
 
     def should_stop(self) -> bool:
         if self._user_override:

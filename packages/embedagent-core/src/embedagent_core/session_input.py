@@ -1,5 +1,6 @@
 from __future__ import annotations  # noqa: I001
 
+import json
 import logging
 import threading
 from contextlib import contextmanager
@@ -7,10 +8,11 @@ import uuid
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from embedagent_core.agent_effects import (
-    AssembleContextEffect,
-    ExecuteToolBatchEffect,
-    InteractionSuspended,
-    ToolBatchCompleted,
+    FrozenToolAction,
+    ImmediateToolResult,
+    PreparedToolInvocation,
+    PrepareToolBatchEffect,
+    _tool_invocation_id,
 )
 from embedagent_core.agent_extension_host import AgentExtensionHost
 from embedagent_core.agent_kernel import AgentKernel
@@ -50,7 +52,6 @@ from embedagent_core.session import (
     PendingInteraction,
     QueryTurnResult,
     Session,
-    ToolPresentationSnapshot,
 )
 from embedagent_core.session_log import InMemorySessionLog, SessionLogPort
 from embedagent_core.session_journal import EventIntent, SessionJournal
@@ -387,21 +388,6 @@ class SessionInputDispatcher(object):
     def _append_message_event(self, session: Session, payload: Dict[str, Any]) -> None:
         event_type = str(payload.get("role") or "message")
         self._commit_session_event(session, event_type, payload)
-
-    def _tool_presentation_snapshot(self, tool_name: str) -> ToolPresentationSnapshot:
-        lookup = getattr(self.tools, "tool_catalog_entry", None)
-        if not callable(lookup):
-            return ToolPresentationSnapshot(tool_label=tool_name)
-        entry = lookup(tool_name) or {}
-        if not isinstance(entry, dict):
-            return ToolPresentationSnapshot(tool_label=tool_name)
-        return ToolPresentationSnapshot(
-            tool_label=str(entry.get("user_label") or tool_name),
-            permission_category=str(entry.get("permission_category") or ""),
-            supports_diff_preview=bool(entry.get("supports_diff_preview")),
-            progress_renderer_key=str(entry.get("progress_renderer_key") or "default"),
-            result_renderer_key=str(entry.get("result_renderer_key") or "default"),
-        )
 
     def _message_event_payload(self, message: Any) -> Dict[str, Any]:
         payload = {
@@ -779,36 +765,6 @@ class SessionInputDispatcher(object):
         self._persist_summary(session, applied_mode)
         return QueryTurnResult(message_text, session, transition, turns_used=1)
 
-    def _interrupted_observation(self, tool_name: str) -> Observation:
-        return Observation(
-            tool_name=tool_name,
-            success=False,
-            error="tool execution interrupted",
-            data={
-                "error_kind": "interrupted",
-                "retryable": False,
-                "blocked_by": "user_cancelled",
-                "suggested_next_step": "用户取消了当前会话；如需继续，请恢复会话或重新提交请求。",
-                "synthetic": True,
-            },
-        )
-
-    def _record_tool_observation(
-        self,
-        session: Session,
-        action: Action,
-        observation: Observation,
-        current_mode: str,
-        assembly: ContextAssemblyResult,
-        step_id: str,
-        on_tool_finish: Optional[Callable[[Action, Observation], None]],
-    ) -> Observation:
-        del step_id
-        self._persist_summary(session, current_mode, assembly)
-        if on_tool_finish is not None:
-            on_tool_finish(action, observation)
-        return observation
-
     def submit_user_turn(
         self,
         user_text: str,
@@ -952,181 +908,72 @@ class SessionInputDispatcher(object):
         turn_frame = self.kernel.begin_turn(
             session, command_turn_id, current_mode, workflow_state, "command"
         )
-        with self._session_guard():
-            if not session.turns or session.turns[-1].turn_id != command_turn_id:
-                message_id = "m-" + uuid.uuid4().hex[:12]
+        try:
+            with self._session_guard():
+                if not session.turns or session.turns[-1].turn_id != command_turn_id:
+                    self._append_message_event(
+                        session,
+                        {
+                            "role": "user",
+                            "content": user_text or ("/%s" % action.name),
+                            "message_id": "m-" + uuid.uuid4().hex[:12],
+                            "parent_message_id": session.last_message_id(),
+                            "turn_id": command_turn_id,
+                            "step_id": "",
+                        },
+                    )
                 parent_message_id = session.last_message_id()
-                self._append_message_event(
-                    session,
-                    {
-                        "role": "user",
-                        "content": user_text or ("/%s" % action.name),
-                        "message_id": message_id,
-                        "parent_message_id": parent_message_id,
-                        "turn_id": command_turn_id,
-                        "step_id": "",
-                    },
-                )
-            step_id = "s-" + uuid.uuid4().hex[:12]
-            step_index = len(session.turns[-1].steps) + 1
-            self._commit_session_event(
-                session,
-                "step_started",
-                {
-                    "turn_id": command_turn_id,
-                    "step_id": step_id,
-                    "step_index": step_index,
-                },
-            )
-            self._emit_operation_started(
-                session,
-                "step:%s" % step_id,
-                "agent_step",
-                turn_id=command_turn_id,
-                step_id=step_id,
-                metadata={"step_index": step_index},
-            )
-            presentation = self._tool_presentation_snapshot(action.name)
-            self._commit_session_event(
-                session,
-                "tool_call",
-                {
-                    "turn_id": command_turn_id,
-                    "step_id": step_id,
-                    "call_id": action.call_id,
-                    "tool_name": action.name,
-                    "arguments": dict(action.arguments),
-                    "status": "pending",
-                    "presentation": presentation.to_dict(),
-                },
-            )
-            self._emit_operation_started(
-                session,
-                "tool:%s" % action.call_id,
-                "tool_call",
-                turn_id=command_turn_id,
-                step_id=step_id,
-                tool_call_id=action.call_id,
-                parent_operation_id="step:%s" % step_id,
-                metadata={
-                    "tool_name": action.name,
-                    "arguments": dict(action.arguments),
-                    "presentation": presentation.to_dict(),
-                },
-            )
-        if on_step_start is not None:
-            on_step_start(step_id, step_index)
-        context_operation_id = "context:%s:1" % step_id
-        self._emit_operation_started(
-            session,
-            context_operation_id,
-            "context_assembly",
-            turn_id=command_turn_id,
-            step_id=step_id,
-            parent_operation_id="step:%s" % step_id,
-            metadata={
-                "mode_name": current_mode,
-                "workflow_state": workflow_state,
-                "force_compact": False,
-            },
-        )
-        with self._session_guard():
-            context_result = self._provider_steps.assemble_context(
-                AssembleContextEffect(
-                    context_operation_id,
-                    command_turn_id,
-                    step_id,
-                    current_mode,
-                    workflow_state,
-                ),
-                session,
-            )
-        with self._session_guard():
-            for event in context_result.events:
-                self._commit_session_event(session, event.event_type, dict(event.payload))
-        assembly = context_result.assembly
-        if on_context_result is not None:
-            on_context_result(assembly)
-        reply = AssistantReply(content="", actions=[action], finish_reason="tool_calls")
-        interrupted = bool(stop_event is not None and stop_event.is_set())
-        if on_tool_start is not None:
-            on_tool_start(action)
-        precomputed_observation = (
-            self._interrupted_observation(action.name) if interrupted else None
-        )
-        tool_result = self._action_service.execute(
-            ExecuteToolBatchEffect(
-                "tools:%s" % action.call_id,
-                (action,),
+                step_index = len(session.turns[-1].steps) + 1
+
+            initial_step = self.kernel.command_tool(
+                command_turn_id,
                 current_mode,
                 workflow_state,
-            ),
-            session,
-            permission_handler=permission_handler,
-            user_input_handler=user_input_handler,
-            precomputed_observations=(precomputed_observation,),
-            stop_event=stop_event,
-        )
-        with self._session_guard():
-            for event in tool_result.events:
-                self._commit_session_event(session, event.event_type, dict(event.payload))
-        self._action_service.finalize(tuple(tool_result.commit_tokens or ()))
-        if isinstance(tool_result, InteractionSuspended):
-            pending = session.pending_interaction or tool_result.pending
-            reason = "permission_wait" if pending.kind == "permission" else "user_input_wait"
-            transition = LoopTransition(
-                reason=reason,
-                pending_interaction=pending,
-                next_mode=current_mode,
-                turns_used=1,
+                action,
+                parent_message_id,
+                step_index=step_index,
             )
-            self._record_transition(session, transition)
-            result = QueryTurnResult("", session, transition, pending_interaction=pending)
-            self._persist_summary(session, current_mode, assembly)
-            if on_step_finish is not None:
-                on_step_finish(step_index, reply, transition.reason)
-            turn_frame.finish(transition)
-            return result, None
-        if not isinstance(tool_result, ToolBatchCompleted):
-            raise TypeError("unsupported tool effect result")
-        observation = tool_result.observations[0]
-        current_mode = self._apply_tool_selected_mode(
-            session, current_mode, workflow_state, observation
-        )
-        committed = self._record_tool_observation(
-            session,
-            action,
-            observation,
-            current_mode,
-            assembly,
-            step_id,
-            on_tool_finish,
-        )
-        if interrupted:
-            transition = LoopTransition(
-                reason="aborted",
-                message="tool execution interrupted",
-                next_mode=current_mode,
-                turns_used=1,
+            observations = []
+
+            def capture_tool_finish(completed_action, observation):
+                observations.append(observation)
+                if on_tool_finish is not None:
+                    on_tool_finish(completed_action, observation)
+
+            loop_observer = _LoopObserver(
+                None,
+                None,
+                on_tool_start,
+                capture_tool_finish,
+                on_context_result,
+                on_step_start,
+                on_step_finish,
+                permission_handler,
+                user_input_handler,
             )
-            self._record_transition(session, transition)
-            self._persist_summary(session, current_mode, assembly)
-            if on_step_finish is not None:
-                on_step_finish(step_index, reply, "aborted")
-            turn_frame.finish(transition)
-            return (
-                QueryTurnResult("", session, transition, turns_used=1),
-                committed,
+            result = self._agent_loop.continue_from(
+                initial_step,
+                session,
+                self._reduction_context,
+                observer=loop_observer,
+                cancel=stop_event,
+                max_turns=self.max_turns,
+                max_parallel_tools=self.max_parallel_tools,
             )
-        transition = LoopTransition(
-            reason="completed", message="command finished", next_mode=current_mode, turns_used=1
-        )
-        self._record_transition(session, transition)
-        self._persist_summary(session, current_mode, assembly)
-        if on_step_finish is not None:
-            on_step_finish(step_index, reply, "completed")
-        turn_frame.finish(transition)
-        return QueryTurnResult("", session, transition, turns_used=1), committed
+            observation = observations[-1] if observations else None
+            if observation is not None:
+                current_mode = self._apply_tool_selected_mode(
+                    session, current_mode, workflow_state, observation
+                )
+            self._persist_summary(
+                session,
+                result.transition.next_mode or current_mode,
+            )
+            turn_frame.finish(result.transition)
+            return result, observation
+        except BaseException as exc:
+            turn_frame.interrupt("command_error", error=str(exc))
+            raise
 
     def resume_interaction(
         self,
@@ -1169,27 +1016,43 @@ class SessionInputDispatcher(object):
             self._record_transition(session, transition)
             turn_frame.finish(transition)
             return QueryTurnResult("", session, transition)
-        current_mode = self._resume_interaction(
-            session,
+        resolution = dict(interaction_resolution or {})
+        preparation = self._preparation_checkpoint_effect(
             pending,
+            resolution,
             current_mode,
             workflow_state,
-            dict(interaction_resolution or {}),
-            on_tool_start,
-            on_tool_finish,
+        )
+        with self._session_guard():
+            step_index = len(session.turns[-1].steps) + 1 if session.turns else 1
+        initial_step = self.kernel.resume_preparation(
+            session,
+            pending,
+            resolution,
+            preparation,
+            resume_turn_id,
+            source="resume",
+            stream=stream,
+            step_index=step_index,
         )
         last_assembly = []
+        observations = []
 
         def capture_context_result(assembly):
             last_assembly[:] = [assembly]
             if on_context_result is not None:
                 on_context_result(assembly)
 
+        def capture_tool_finish(completed_action, observation):
+            observations.append(observation)
+            if on_tool_finish is not None:
+                on_tool_finish(completed_action, observation)
+
         loop_observer = _LoopObserver(
             on_text_delta,
             on_reasoning_delta,
             on_tool_start,
-            on_tool_finish,
+            capture_tool_finish,
             capture_context_result,
             on_step_start,
             on_step_finish,
@@ -1198,29 +1061,32 @@ class SessionInputDispatcher(object):
         )
 
         try:
-            result = self._agent_loop.run(
-                session=session,
-                reduction_context=self._reduction_context,
-                turn_id=resume_turn_id,
-                current_mode=current_mode,
-                workflow_state=workflow_state,
-                source="resume",
-                stream=stream,
+            result = self._agent_loop.continue_from(
+                initial_step,
+                session,
+                self._reduction_context,
+                observer=loop_observer,
                 cancel=stop_event,
                 max_turns=self.max_turns,
                 max_parallel_tools=self.max_parallel_tools,
-                observer=loop_observer,
             )
+            if observations:
+                current_mode = self._apply_tool_selected_mode(
+                    session,
+                    current_mode,
+                    workflow_state,
+                    observations[-1],
+                )
             self._persist_summary(
                 session,
                 result.transition.next_mode or current_mode,
                 last_assembly[-1] if last_assembly else None,
             )
+            turn_frame.finish(result.transition)
+            return result
         except BaseException as exc:
             turn_frame.interrupt("resume_error", error=str(exc))
             raise
-        turn_frame.finish(result.transition)
-        return result
 
     def _apply_tool_selected_mode(
         self,
@@ -1253,89 +1119,139 @@ class SessionInputDispatcher(object):
             )
         return selected_mode
 
-    def _resume_interaction(
+    def _preparation_checkpoint_effect(
         self,
-        session: Session,
         pending: PendingInteraction,
+        resolution: Dict[str, Any],
         current_mode: str,
         workflow_state: str,
-        resolution: Dict[str, Any],
-        on_tool_start: Optional[Callable[[Action], None]],
-        on_tool_finish: Optional[Callable[[Action, Observation], None]],
-    ) -> str:
-        with self._session_guard():
-            turn_id = session.turns[-1].turn_id if session.turns else ""
-            step_id = session.current_step().step_id if session.current_step() is not None else ""
-            intent = self.kernel.resolve_pending_interaction(session, pending, resolution)
-            self._commit_session_event(session, intent.event_type, intent.payload)
-            self.lifecycle.emit_pending_finished(
-                session,
-                pending,
-                turn_id,
-                step_id,
-                "resolved",
+    ) -> PrepareToolBatchEffect:
+        try:
+            request_payload = pending.request_payload
+            if not isinstance(request_payload, dict):
+                raise ValueError
+            checkpoint = request_payload.get("tool_preparation")
+            if not isinstance(checkpoint, dict):
+                raise ValueError
+            if pending.kind not in ("permission", "user_input"):
+                raise ValueError
+            if str(checkpoint.get("interaction_id") or "") != pending.interaction_id:
+                raise ValueError
+            if str(checkpoint.get("interaction_kind") or "") != pending.kind:
+                raise ValueError
+
+            assistant_message_id = str(checkpoint.get("assistant_message_id") or "")
+            continuation = str(checkpoint.get("continuation") or "")
+            if not assistant_message_id or continuation not in ("context", "complete"):
+                raise ValueError
+            mode_name = str(checkpoint.get("mode_name") or "")
+            checkpoint_workflow_state = str(checkpoint.get("workflow_state") or "")
+            if mode_name != current_mode:
+                raise ValueError
+            if workflow_state and checkpoint_workflow_state != workflow_state:
+                raise ValueError
+
+            action_values = checkpoint.get("actions")
+            if not isinstance(action_values, list) or not action_values:
+                raise ValueError
+            actions = tuple(
+                FrozenToolAction.from_dict(dict(item))
+                for item in action_values
+                if isinstance(item, dict)
             )
-        action_payload = (
-            pending.request_payload.get("action")
-            if isinstance(pending.request_payload, dict)
-            else {}
-        )
-        action = Action(
-            name=str(action_payload.get("name") or pending.tool_name),
-            arguments=dict(action_payload.get("arguments") or {}),
-            call_id=str(action_payload.get("call_id") or ("call-" + pending.interaction_id)),
-        )
-        if on_tool_start is not None:
-            on_tool_start(action)
-        permission_callback = None
-        user_input_callback = None
-        if pending.kind == "permission":
-            approved = bool(resolution.get("approved"))
+            if len(actions) != len(action_values):
+                raise ValueError
+            source_index = int(checkpoint.get("source_index"))
+            if source_index < 0 or source_index >= len(actions):
+                raise ValueError
+            invocation_id = str(checkpoint.get("invocation_id") or "")
+            if invocation_id != _tool_invocation_id(assistant_message_id, source_index):
+                raise ValueError
 
-            def resolved_permission(request):
-                del request
-                return approved
+            effective_payload = checkpoint.get("effective_action")
+            if not isinstance(effective_payload, dict):
+                raise ValueError
+            effective_action = FrozenToolAction.from_dict(dict(effective_payload))
+            pending_action = request_payload.get("action")
+            if not isinstance(pending_action, dict):
+                raise ValueError
+            if str(pending_action.get("name") or "") != effective_action.name:
+                raise ValueError
+            if str(pending_action.get("call_id") or "") != effective_action.call_id:
+                raise ValueError
+            if (
+                dict(pending_action.get("arguments") or {})
+                != effective_action.to_action().arguments
+            ):
+                raise ValueError
+            if str(pending.tool_name or "") != effective_action.name:
+                raise ValueError
 
-            permission_callback = resolved_permission
-        else:
-            response = UserInputResponse(
-                answer=str(resolution.get("answer") or ""),
-                selected_index=resolution.get("selected_index"),
-                selected_mode=str(resolution.get("selected_mode") or ""),
-                selected_option_text=str(resolution.get("selected_option_text") or ""),
+            prepared_values = checkpoint.get("prepared_prefix") or []
+            immediate_values = checkpoint.get("immediate_prefix") or []
+            if not isinstance(prepared_values, list) or not isinstance(immediate_values, list):
+                raise ValueError
+            prepared = tuple(
+                PreparedToolInvocation.from_dict(dict(item))
+                for item in prepared_values
+                if isinstance(item, dict)
             )
+            immediate = tuple(
+                ImmediateToolResult.from_dict(dict(item))
+                for item in immediate_values
+                if isinstance(item, dict)
+            )
+            if len(prepared) != len(prepared_values) or len(immediate) != len(immediate_values):
+                raise ValueError
 
-            def resolved_user_input(request):
-                del request
-                return response
+            completed_indexes = set()
+            for item in prepared:
+                if item.source_index < 0 or item.source_index >= source_index:
+                    raise ValueError
+                if item.source_index in completed_indexes:
+                    raise ValueError
+                if item.original_action != actions[item.source_index]:
+                    raise ValueError
+                if item.invocation_id != _tool_invocation_id(
+                    assistant_message_id,
+                    item.source_index,
+                ):
+                    raise ValueError
+                completed_indexes.add(item.source_index)
+            for item in immediate:
+                if item.source_index < 0 or item.source_index >= source_index:
+                    raise ValueError
+                if item.source_index in completed_indexes:
+                    raise ValueError
+                if item.original_action != actions[item.source_index]:
+                    raise ValueError
+                completed_indexes.add(item.source_index)
+            if completed_indexes != set(range(source_index)):
+                raise ValueError
 
-            user_input_callback = resolved_user_input
-        tool_result = self._action_service.execute(
-            ExecuteToolBatchEffect(
-                "tools:%s" % action.call_id,
-                (action,),
-                current_mode,
-                workflow_state,
-            ),
-            session,
-            permission_handler=permission_callback,
-            user_input_handler=user_input_callback,
-        )
-        if isinstance(tool_result, InteractionSuspended):
-            raise RuntimeError("interaction resume unexpectedly re-suspended")
-        if not isinstance(tool_result, ToolBatchCompleted):
-            raise TypeError("unsupported tool effect result")
-        with self._session_guard():
-            for event in tool_result.events:
-                self._commit_session_event(session, event.event_type, dict(event.payload))
-        self._action_service.finalize(tuple(tool_result.commit_tokens or ()))
-        observation = tool_result.observations[0]
-        current_mode = self._apply_tool_selected_mode(
-            session, current_mode, workflow_state, observation
-        )
-        if on_tool_finish is not None:
-            on_tool_finish(action, observation)
-        return current_mode
+            resolution_json = json.dumps(
+                resolution,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            return PrepareToolBatchEffect(
+                "checkpoint",
+                assistant_message_id,
+                actions,
+                mode_name,
+                checkpoint_workflow_state,
+                start_index=source_index,
+                prepared_prefix=prepared,
+                immediate_prefix=immediate,
+                continuation=continuation,
+                resume_kind=pending.kind,
+                resume_effective_action=effective_action,
+                resume_resolution_json=resolution_json,
+                resume_permission_category=str(checkpoint.get("permission_category") or ""),
+            )
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise RuntimeError("interaction_checkpoint_invalid") from exc
 
     def _persist_summary(
         self, session: Session, current_mode: str, assembly: Optional[ContextAssemblyResult] = None

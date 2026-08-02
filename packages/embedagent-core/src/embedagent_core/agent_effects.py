@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 from embedagent_core.session import (
     Action,
@@ -63,6 +63,25 @@ class FrozenToolAction:
             self.raw_arguments,
         )
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "arguments": json.loads(self.arguments_json),
+            "call_id": self.call_id,
+            "raw_arguments": self.raw_arguments,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Dict[str, Any]) -> "FrozenToolAction":
+        return cls.from_action(
+            Action(
+                str(payload.get("name") or ""),
+                dict(payload.get("arguments") or {}),
+                str(payload.get("call_id") or ""),
+                str(payload.get("raw_arguments") or ""),
+            )
+        )
+
 
 @dataclass(frozen=True)
 class PreparedToolInvocation:
@@ -85,6 +104,50 @@ class PreparedToolInvocation:
         value = json.loads(self.presentation_json)
         return dict(value) if isinstance(value, dict) else {}
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "invocation_id": self.invocation_id,
+            "provider_call_id": self.provider_call_id,
+            "source_index": self.source_index,
+            "original_action": self.original_action.to_dict(),
+            "effective_action": self.effective_action.to_dict(),
+            "permission_category": self.permission_category,
+            "read_only": self.read_only,
+            "concurrency_safe": self.concurrency_safe,
+            "presentation": self.presentation(),
+            "source_type": self.source_type,
+            "source_id": self.source_id,
+            "replay_safe": self.replay_safe,
+            "mode_name": self.mode_name,
+            "workflow_state": self.workflow_state,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Dict[str, Any]) -> "PreparedToolInvocation":
+        return cls(
+            invocation_id=str(payload.get("invocation_id") or ""),
+            provider_call_id=str(payload.get("provider_call_id") or ""),
+            source_index=int(payload.get("source_index") or 0),
+            original_action=FrozenToolAction.from_dict(dict(payload.get("original_action") or {})),
+            effective_action=FrozenToolAction.from_dict(
+                dict(payload.get("effective_action") or {})
+            ),
+            permission_category=str(payload.get("permission_category") or "other"),
+            read_only=bool(payload.get("read_only")),
+            concurrency_safe=bool(payload.get("concurrency_safe")),
+            presentation_json=json.dumps(
+                dict(payload.get("presentation") or {}),
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            source_type=str(payload.get("source_type") or ""),
+            source_id=str(payload.get("source_id") or ""),
+            replay_safe=bool(payload.get("replay_safe")),
+            mode_name=str(payload.get("mode_name") or ""),
+            workflow_state=str(payload.get("workflow_state") or ""),
+        )
+
 
 @dataclass(frozen=True)
 class ImmediateToolResult:
@@ -92,6 +155,30 @@ class ImmediateToolResult:
     original_action: FrozenToolAction
     effective_action: FrozenToolAction
     observation: Observation
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "source_index": self.source_index,
+            "original_action": self.original_action.to_dict(),
+            "effective_action": self.effective_action.to_dict(),
+            "observation": self.observation.to_dict(),
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Dict[str, Any]) -> "ImmediateToolResult":
+        effective_action = FrozenToolAction.from_dict(dict(payload.get("effective_action") or {}))
+        observation = dict(payload.get("observation") or {})
+        return cls(
+            source_index=int(payload.get("source_index") or 0),
+            original_action=FrozenToolAction.from_dict(dict(payload.get("original_action") or {})),
+            effective_action=effective_action,
+            observation=Observation(
+                str(observation.get("tool_name") or effective_action.name),
+                bool(observation.get("success")),
+                observation.get("error"),
+                observation.get("data"),
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -105,6 +192,11 @@ class PrepareToolBatchEffect:
     start_index: int = 0
     prepared_prefix: Tuple[PreparedToolInvocation, ...] = field(default_factory=tuple)
     immediate_prefix: Tuple[ImmediateToolResult, ...] = field(default_factory=tuple)
+    continuation: str = "context"
+    resume_kind: str = ""
+    resume_effective_action: Optional[FrozenToolAction] = None
+    resume_resolution_json: str = ""
+    resume_permission_category: str = ""
 
 
 @dataclass(frozen=True)
@@ -118,20 +210,11 @@ def _tool_invocation_id(assistant_message_id: str, source_index: int) -> str:
     return "tool:%s:%d" % (assistant_message_id, source_index)
 
 
-@dataclass(frozen=True)
-class ExecuteToolBatchEffect:
-    effect_id: str
-    actions: Tuple[Action, ...]
-    mode_name: str
-    workflow_state: str
-
-
 AgentEffect = Union[
     AssembleContextEffect,
     RequestProviderEffect,
     PrepareToolBatchEffect,
     ExecutePreparedToolBatchEffect,
-    ExecuteToolBatchEffect,
 ]
 
 

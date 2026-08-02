@@ -628,6 +628,22 @@ class SpyKernel(object):
         )
         return SpyTurnFrame(self, turn_id, source)
 
+    def command_tool(self, *args, **kwargs):
+        return self._delegate.command_tool(*args, **kwargs)
+
+    def resume_preparation(self, session, pending, resolution, preparation, turn_id, **kwargs):
+        self.resolved_pending.append(
+            {
+                "interaction_id": pending.interaction_id,
+                "kind": pending.kind,
+                "tool_name": pending.tool_name,
+                "resolution": dict(resolution),
+            }
+        )
+        return self._delegate.resume_preparation(
+            session, pending, resolution, preparation, turn_id, **kwargs
+        )
+
     def record_pending_permission(
         self, session, action, permission_payload, current_mode, interaction_id=""
     ):
@@ -693,21 +709,12 @@ class SpyActionService(object):
         self.delegate = delegate
         self.executed = []
 
-    def is_extension_blocked_observation(self, observation):
-        return self.delegate.is_extension_blocked_observation(observation)
+    def prepare(self, effect, *args, **kwargs):
+        self.executed.extend(action.name for action in effect.actions[effect.start_index :])
+        return self.delegate.prepare(effect, *args, **kwargs)
 
-    def is_interactive_serial_skip(self, observation):
-        return self.delegate.is_interactive_serial_skip(observation)
-
-    def prepare_extension_tool_call(self, *args, **kwargs):
-        return self.delegate.prepare_extension_tool_call(*args, **kwargs)
-
-    def execute_parallel_tool_action(self, *args, **kwargs):
-        return self.delegate.execute_parallel_tool_action(*args, **kwargs)
-
-    def execute(self, effect, *args, **kwargs):
-        self.executed.extend(action.name for action in effect.actions)
-        return self.delegate.execute(effect, *args, **kwargs)
+    def execute_prepared(self, effect, *args, **kwargs):
+        return self.delegate.execute_prepared(effect, *args, **kwargs)
 
     def finalize(self, commit_tokens):
         return self.delegate.finalize(commit_tokens)
@@ -908,13 +915,35 @@ class TestRuntimeDispatcherRefactor(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_partition_tool_actions_uses_capabilities(self):
+        from embedagent_core.agent_effects import FrozenToolAction, PreparedToolInvocation
+
         actions = [
             Action("read_file", {"path": "src/demo.c"}, "c1"),
             Action("grep_text", {"path": ".", "pattern": "demo"}, "c2"),
             Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "1"}, "c3"),
             Action("git_status", {"path": "."}, "c4"),
         ]
-        batches = partition_tool_actions(actions, self.tools.tool_capabilities)
+        invocations = []
+        for index, action in enumerate(actions):
+            capabilities = self.tools.tool_capabilities(action.name)
+            frozen = FrozenToolAction.from_action(action)
+            invocations.append(
+                PreparedToolInvocation(
+                    invocation_id="tool:m-test:%d" % index,
+                    provider_call_id=action.call_id,
+                    source_index=index,
+                    original_action=frozen,
+                    effective_action=frozen,
+                    permission_category=str(capabilities.get("permission_category") or "other"),
+                    read_only=bool(capabilities.get("read_only")),
+                    concurrency_safe=bool(capabilities.get("concurrency_safe")),
+                    presentation_json="{}",
+                    source_type="builtin",
+                    source_id=action.name,
+                    replay_safe=False,
+                )
+            )
+        batches = partition_tool_actions(invocations)
         self.assertEqual([batch.parallel for batch in batches], [True, False, True])
         self.assertEqual([len(batch.actions) for batch in batches], [2, 1, 1])
 
@@ -925,7 +954,11 @@ class TestRuntimeDispatcherRefactor(unittest.TestCase):
         self.assertNotIn("content_stored_path", result.data)
 
     def test_agent_tool_action_service_rejects_inactive_tool(self):
-        from embedagent_core.agent_effects import ExecuteToolBatchEffect, ToolBatchCompleted
+        from embedagent_core.agent_effects import (
+            FrozenToolAction,
+            PrepareToolBatchEffect,
+            ToolBatchPrepared,
+        )
         from embedagent_core.agent_extension_host import AgentExtensionHost
         from embedagent_core.agent_tool_action_service import (
             AgentToolActionService,
@@ -953,22 +986,29 @@ class TestRuntimeDispatcherRefactor(unittest.TestCase):
             interaction_factory=InteractionFactory(),
         )
 
-        result = service.execute(
-            ExecuteToolBatchEffect(
-                "tools-1",
-                (Action("read_file", {"path": "missing.txt"}, "call-read"),),
+        action = Action("read_file", {"path": "missing.txt"}, "call-read")
+        result = service.prepare(
+            PrepareToolBatchEffect(
+                "prepare-1",
+                "m-test",
+                (FrozenToolAction.from_action(action),),
                 "build",
                 "chat",
             ),
             Session(),
         )
 
-        self.assertIsInstance(result, ToolBatchCompleted)
-        observation = result.observations[0]
+        self.assertIsInstance(result, ToolBatchPrepared)
+        observation = result.immediate_results[0].observation
         self.assertFalse(observation.success)
         self.assertEqual(observation.data["error_kind"], "mode_tool_blocked")
 
-    def test_parallel_interactive_action_requires_serial_action_execution(self):
+    def test_interactive_action_suspends_during_serial_preparation(self):
+        from embedagent_core.agent_effects import (
+            FrozenToolAction,
+            InteractionSuspended,
+            PrepareToolBatchEffect,
+        )
         from embedagent_core.agent_tool_action_service import (
             AgentToolActionService,
             InteractionFactory,
@@ -988,17 +1028,21 @@ class TestRuntimeDispatcherRefactor(unittest.TestCase):
             interaction_factory=InteractionFactory(),
         )
 
-        observation = service.execute_parallel_tool_action(
+        action = Action("ask_user", {"question": "继续吗？"}, "call-ask")
+        result = service.prepare(
+            PrepareToolBatchEffect(
+                "prepare-ask",
+                "m-test",
+                (FrozenToolAction.from_action(action),),
+                "build",
+                "chat",
+            ),
             Session(),
-            Action("ask_user", {"question": "继续吗？"}, "call-ask"),
-            "build",
-            "chat",
-            stop_event=None,
         )
 
-        self.assertFalse(observation.success)
-        self.assertEqual(observation.data["error_kind"], "interactive_serial_skip")
-        self.assertTrue(service.is_interactive_serial_skip(observation))
+        self.assertIsInstance(result, InteractionSuspended)
+        self.assertEqual(result.pending.kind, "user_input")
+        self.assertEqual(result.pending.tool_name, "ask_user")
 
     def test_agent_loop_can_be_constructed_without_runner_callback(self):
         import inspect
@@ -2869,6 +2913,38 @@ class TestRuntimeDispatcherRefactor(unittest.TestCase):
         self.assertIn("turn_id", payload)
         self.assertIn("step_id", payload)
         self.assertIn("interaction_id", payload)
+        self.assertIn("tool_preparation", payload)
+
+    def test_resume_rejects_malformed_preparation_checkpoint_before_dispatch(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+        engine = RuntimeDispatcher(
+            client=WriteThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=False,
+                workspace=self.workspace,
+            ),
+        )
+        first = engine.submit_user_turn(
+            user_text="写文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+            permission_handler=None,
+        )
+        checkpoint = first.pending_interaction.request_payload["tool_preparation"]
+        checkpoint["invocation_id"] = "tool:forged:0"
+
+        with self.assertRaisesRegex(RuntimeError, "^interaction_checkpoint_invalid$"):
+            engine.resume_interaction(
+                session=session,
+                initial_mode="build",
+                stream=False,
+                interaction_resolution={"approved": True},
+            )
+
+        self.assertFalse(os.path.isfile(os.path.join(self.workspace, "src", "generated_write.c")))
 
     def test_resume_pending_permission_rechecks_mode_path_policy(self):
         session = Session()
@@ -3501,6 +3577,8 @@ class TestRuntimeDispatcherRefactor(unittest.TestCase):
         )
         self.assertEqual(first.transition.reason, "permission_wait")
 
+        checkpoint = first.pending_interaction.request_payload["tool_preparation"]
+        invocation_id = checkpoint["invocation_id"]
         resumed = engine.resume_interaction(
             session=session,
             initial_mode="build",
@@ -3512,6 +3590,23 @@ class TestRuntimeDispatcherRefactor(unittest.TestCase):
         events = transcript_store.load_events(session.session_id)
         event_types = [item["type"] for item in events]
         self.assertIn("pending_resolution", event_types)
+        resolution_index = next(
+            index for index, item in enumerate(events) if item["type"] == "pending_resolution"
+        )
+        execution_start_index = next(
+            index
+            for index, item in enumerate(events)
+            if item["type"] == "operation_started"
+            and item["payload"].get("kind") == "tool_call"
+            and item["payload"].get("operation_id") == invocation_id
+        )
+        tool_result_index = next(
+            index
+            for index, item in enumerate(events)
+            if item["type"] == "tool_result" and item["payload"].get("call_id") == "write-1"
+        )
+        self.assertLess(resolution_index, execution_start_index)
+        self.assertLess(execution_start_index, tool_result_index)
         pending_finishes = [
             item["payload"]
             for item in events

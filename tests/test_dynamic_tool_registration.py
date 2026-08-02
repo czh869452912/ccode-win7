@@ -367,9 +367,17 @@ class OwnedToolExtension(object):
         from embedagent_core.extensions import ExtensionCapability
 
         return [
+            ExtensionCapability("register_tools", self.register_tools),
             ExtensionCapability("allowed_tool_names", self.allowed_tool_names),
             ExtensionCapability("handle_tool_call", self.handle_tool_call),
         ]
+
+    def register_tools(self, event, context):
+        del event, context
+        return ToolRegistrationResult(
+            tools=[make_dynamic_tool(name="owned_status")],
+            source_id=self.extension_id,
+        )
 
     def allowed_tool_names(self, mode_name, workflow_state="chat"):
         if mode_name == "build" and workflow_state == "chat":
@@ -617,7 +625,13 @@ def test_agent_session_executes_active_extension_tool(tmp_path):
 
 
 def test_agent_tool_action_service_executes_active_dynamic_tool(tmp_path):
-    from embedagent_core.agent_effects import ExecuteToolBatchEffect, ToolBatchCompleted
+    from embedagent_core.agent_effects import (
+        ExecutePreparedToolBatchEffect,
+        FrozenToolAction,
+        PrepareToolBatchEffect,
+        ToolBatchCompleted,
+        ToolBatchPrepared,
+    )
     from embedagent_core.agent_extension_host import AgentExtensionHost
     from embedagent_core.agent_tool_action_service import AgentToolActionService, InteractionFactory
     from embedagent_core.permissions import PermissionPolicy
@@ -639,13 +653,20 @@ def test_agent_tool_action_service_executes_active_dynamic_tool(tmp_path):
         interaction_factory=InteractionFactory(),
     )
 
-    result = service.execute(
-        ExecuteToolBatchEffect(
-            "tools-1",
-            (Action("dynamic_echo", {"message": "hello"}, "call-dynamic"),),
+    action = Action("dynamic_echo", {"message": "hello"}, "call-dynamic")
+    prepared = service.prepare(
+        PrepareToolBatchEffect(
+            "prepare-1",
+            "m-test",
+            (FrozenToolAction.from_action(action),),
             "build",
             "chat",
         ),
+        session,
+    )
+    assert isinstance(prepared, ToolBatchPrepared)
+    result = service.execute_prepared(
+        ExecutePreparedToolBatchEffect("tools-1", prepared.invocations, prepared.immediate_results),
         session,
     )
 
@@ -656,7 +677,13 @@ def test_agent_tool_action_service_executes_active_dynamic_tool(tmp_path):
 
 
 def test_agent_tool_action_service_dispatches_extension_owned_tool(tmp_path):
-    from embedagent_core.agent_effects import ExecuteToolBatchEffect, ToolBatchCompleted
+    from embedagent_core.agent_effects import (
+        ExecutePreparedToolBatchEffect,
+        FrozenToolAction,
+        PrepareToolBatchEffect,
+        ToolBatchCompleted,
+        ToolBatchPrepared,
+    )
     from embedagent_core.agent_extension_host import AgentExtensionHost
     from embedagent_core.agent_tool_action_service import AgentToolActionService, InteractionFactory
     from embedagent_core.permissions import PermissionPolicy
@@ -676,14 +703,23 @@ def test_agent_tool_action_service_dispatches_extension_owned_tool(tmp_path):
         interaction_factory=InteractionFactory(),
     )
 
-    result = service.execute(
-        ExecuteToolBatchEffect(
-            "tools-1",
-            (Action("owned_status", {}, "call-owned"),),
+    action = Action("owned_status", {}, "call-owned")
+    session = Session()
+    host.register_tools(session, "build", "chat", reason="session_start")
+    prepared = service.prepare(
+        PrepareToolBatchEffect(
+            "prepare-1",
+            "m-test",
+            (FrozenToolAction.from_action(action),),
             "build",
             "chat",
         ),
-        Session(),
+        session,
+    )
+    assert isinstance(prepared, ToolBatchPrepared)
+    result = service.execute_prepared(
+        ExecutePreparedToolBatchEffect("tools-1", prepared.invocations, prepared.immediate_results),
+        session,
     )
 
     assert isinstance(result, ToolBatchCompleted)

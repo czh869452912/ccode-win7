@@ -22,6 +22,7 @@ from embedagent_core.agent_effects import (
 from embedagent_core.agent_lifecycle import AgentLifecycleJournal
 from embedagent_core.session import (
     Action,
+    AssistantReply,
     InteractionCheckpoint,
     LoopTransition,
     PendingInteraction,
@@ -47,6 +48,7 @@ class KernelCursor:
     workflow_state: str = ""
     source: str = ""
     stream: bool = False
+    continuation: str = "context"
 
 
 @dataclass(frozen=True)
@@ -128,6 +130,112 @@ class AgentKernel(object):
             cursor=cursor,
             events=self._step_started_events(cursor),
             effect=self._context_effect(cursor),
+        )
+
+    def command_tool(
+        self,
+        turn_id: str,
+        mode_name: str,
+        workflow_state: str,
+        action: Action,
+        parent_message_id: str,
+        step_index: int = 1,
+    ) -> KernelStep:
+        step_index = max(1, int(step_index or 1))
+        effect_id = self._effect_id("tool-prepare", turn_id, step_index, 0)
+        cursor = KernelCursor(
+            phase="tool_prepare",
+            expected_effect_id=effect_id,
+            step_index=step_index,
+            provider_attempt=0,
+            compact_retry_used=False,
+            turn_id=turn_id,
+            step_id=self._step_id(turn_id, step_index),
+            mode_name=mode_name,
+            workflow_state=workflow_state,
+            source="command",
+            tool_call_ids=(action.call_id,),
+            continuation="complete",
+        )
+        assistant_message_id = self._assistant_message_id(cursor)
+        cursor = replace(cursor, assistant_message_id=assistant_message_id)
+        result = ProviderCompleted(
+            effect_id,
+            AssistantReply("", actions=[action], finish_reason="tool_calls"),
+            parent_message_id=parent_message_id,
+        )
+        return KernelStep(
+            cursor=cursor,
+            events=self._step_started_events(cursor)[:2]
+            + self._assistant_events(cursor, result, assistant_message_id)
+            + self._tool_planned_events(cursor, result)
+            + (self._operation_started(cursor, "tool_preparation"),),
+            effect=PrepareToolBatchEffect(
+                effect_id,
+                assistant_message_id,
+                (FrozenToolAction.from_action(action),),
+                mode_name,
+                workflow_state,
+                continuation="complete",
+            ),
+        )
+
+    def resume_preparation(
+        self,
+        session: Session,
+        pending: PendingInteraction,
+        resolution: dict,
+        preparation: PrepareToolBatchEffect,
+        turn_id: str,
+        source: str = "resume",
+        stream: bool = False,
+        step_index: int = 1,
+    ) -> KernelStep:
+        step_index = max(1, int(step_index or 1))
+        effect_id = self._effect_id("tool-prepare", turn_id, step_index, 0)
+        effect = replace(preparation, effect_id=effect_id)
+        cursor = KernelCursor(
+            phase="tool_prepare",
+            expected_effect_id=effect_id,
+            step_index=step_index,
+            provider_attempt=0,
+            compact_retry_used=False,
+            assistant_message_id=effect.assistant_message_id,
+            tool_call_ids=tuple(action.call_id for action in effect.actions),
+            turn_id=turn_id,
+            step_id=self._step_id(turn_id, step_index),
+            mode_name=effect.mode_name,
+            workflow_state=effect.workflow_state,
+            source=source,
+            stream=stream,
+            continuation=effect.continuation,
+        )
+        resolution_intent = self.resolve_pending_interaction(session, pending, resolution)
+        resolution_payload = dict(resolution_intent.payload)
+        resolution_payload.update({"turn_id": cursor.turn_id, "step_id": cursor.step_id})
+        resolution_intent = EventIntent(resolution_intent.event_type, resolution_payload)
+        return KernelStep(
+            cursor=cursor,
+            events=self._step_started_events(cursor)[:2]
+            + (
+                resolution_intent,
+                EventIntent(
+                    "operation_finished",
+                    {
+                        "operation_id": "pending:%s" % pending.interaction_id,
+                        "kind": "pending_interaction",
+                        "turn_id": cursor.turn_id,
+                        "step_id": cursor.step_id,
+                        "result": {
+                            "resolution_status": "resolved",
+                            "kind": pending.kind,
+                            "tool_name": pending.tool_name,
+                        },
+                    },
+                ),
+                self._operation_started(cursor, "tool_preparation"),
+            ),
+            effect=effect,
         )
 
     def accept(self, cursor: KernelCursor, result: AgentEffectResult) -> KernelStep:
@@ -318,6 +426,27 @@ class AgentKernel(object):
             tool_invocation_ids=(),
         )
         closing_events = (self._operation_finished(cursor, "tools"),) if close_tools else ()
+        if cursor.continuation == "complete":
+            outcome = LoopTransition(
+                "completed",
+                "command finished",
+                next_mode=next_mode,
+                turns_used=cursor.step_index,
+            )
+            return KernelStep(
+                cursor=replace(
+                    cursor,
+                    phase="complete",
+                    expected_effect_id="",
+                    mode_name=next_mode,
+                ),
+                events=events
+                + closing_events
+                + (self._step_finished(cursor, "completed"),)
+                + self._transition_events(cursor, outcome),
+                outcome=outcome,
+                post_commit_tokens=commit_tokens,
+            )
         return KernelStep(
             cursor=next_cursor,
             events=events
@@ -341,7 +470,13 @@ class AgentKernel(object):
             events=result.events
             + (
                 self._step_finished(cursor, reason),
-                self._operation_finished(cursor, cursor.phase),
+                self._operation_finished(
+                    cursor,
+                    {
+                        "tool_prepare": "tool_preparation",
+                        "tool_execute": "tools",
+                    }.get(cursor.phase, cursor.phase),
+                ),
             )
             + self._transition_events(cursor, outcome),
             outcome=outcome,

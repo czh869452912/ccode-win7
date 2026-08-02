@@ -857,7 +857,13 @@ class DynamicServiceBoundaryExtension(object):
 
 
 def test_agent_tool_action_service_runs_dynamic_tools_through_extension_hooks(tmp_path):
-    from embedagent_core.agent_effects import ExecuteToolBatchEffect, ToolBatchCompleted
+    from embedagent_core.agent_effects import (
+        ExecutePreparedToolBatchEffect,
+        FrozenToolAction,
+        PrepareToolBatchEffect,
+        ToolBatchCompleted,
+        ToolBatchPrepared,
+    )
     from embedagent_core.agent_extension_host import AgentExtensionHost
     from embedagent_core.agent_tool_action_service import AgentToolActionService, InteractionFactory
     from embedagent_core.permissions import PermissionPolicy
@@ -887,18 +893,27 @@ def test_agent_tool_action_service_runs_dynamic_tools_through_extension_hooks(tm
         app_config_provider=lambda: None,
         interaction_factory=InteractionFactory(),
     )
-    result = service.execute(
-        ExecuteToolBatchEffect(
-            "tools-1",
-            (
-                Action(
-                    "service_intranet_fetch",
-                    {"url": "https://intranet.example/original"},
-                    "call-service",
-                ),
-            ),
+    action = Action(
+        "service_intranet_fetch",
+        {"url": "https://intranet.example/original"},
+        "call-service",
+    )
+    prepared = service.prepare(
+        PrepareToolBatchEffect(
+            "prepare-1",
+            "m-test",
+            (FrozenToolAction.from_action(action),),
             "build",
             "chat",
+        ),
+        session,
+    )
+    assert isinstance(prepared, ToolBatchPrepared)
+    result = service.execute_prepared(
+        ExecutePreparedToolBatchEffect(
+            "tools-1",
+            prepared.invocations,
+            prepared.immediate_results,
         ),
         session,
     )

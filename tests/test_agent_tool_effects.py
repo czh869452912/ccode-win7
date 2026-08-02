@@ -467,6 +467,45 @@ def test_permission_ask_returns_interaction_suspended_without_execution():
     assert result.pending.kind == "permission"
     assert result.pending.tool_name == "write_file"
     assert [event.event_type for event in result.events] == ["pending_interaction"]
+    checkpoint = result.pending.request_payload["tool_preparation"]
+    assert checkpoint["assistant_message_id"]
+    assert checkpoint["continuation"] == "context"
+    assert checkpoint["source_index"] == 0
+    assert checkpoint["invocation_id"] == "tool:%s:0" % checkpoint["assistant_message_id"]
+    assert checkpoint["actions"][0]["call_id"] == "call-1"
+    assert checkpoint["effective_action"]["name"] == "write_file"
+    assert not any(
+        event.event_type == "operation_started" and event.payload.get("kind") == "tool_call"
+        for event in result.events
+    )
+
+
+def test_user_input_suspension_carries_preparation_checkpoint():
+    service = _service()
+    result = _run_actions(
+        service,
+        _session(),
+        [
+            Action(
+                "ask_user",
+                {
+                    "question": "switch mode?",
+                    "option_1": "yes",
+                    "option_2": "no",
+                },
+                "call-ask",
+            )
+        ],
+    )
+
+    assert isinstance(result, InteractionSuspended)
+    assert result.pending.kind == "user_input"
+    checkpoint = result.pending.request_payload["tool_preparation"]
+    assert checkpoint["continuation"] == "context"
+    assert checkpoint["source_index"] == 0
+    assert checkpoint["invocation_id"] == "tool:%s:0" % checkpoint["assistant_message_id"]
+    assert checkpoint["actions"][0]["call_id"] == "call-ask"
+    assert checkpoint["effective_action"]["name"] == "ask_user"
 
 
 def test_nonzero_bash_is_diagnostic_observation_not_effect_failure():
