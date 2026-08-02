@@ -1,6 +1,6 @@
 # Agent Core Execution Hardening Design
 
-> 状态：`proposed`
+> 状态：`approved`
 > 类型：`temporary implementation design`
 > 负责人：`Agent platform maintainers`
 > 日期：`2026-08-02`
@@ -67,11 +67,11 @@ Provider 返回工具调用后，Kernel 先计划 `PrepareToolBatchEffect`。Loo
 tool:<assistant_message_id>:<source_index>
 ```
 
-`assistant_message_id` 已由 turn、step 和 provider attempt 确定，source index 来自 assistant message 中的工具调用顺序。Provider `call_id` 不再作为 operation id，也不要求跨 session 全局唯一；它继续出现在 tool message 和 provider correlation 字段中。
+`assistant_message_id` 已由 turn、step 和 provider attempt 确定，source index 来自 assistant message 中的工具调用顺序。Provider `call_id` 不再作为 operation id，也不要求跨 session 全局唯一；它继续出现在 tool message 和 provider correlation 字段中。非 provider 的 command tool turn 必须先持久化 provider attempt 为 `0` 的 deterministic assistant action message，再使用同一 identity 规则。
 
 ### Prepare phase
 
-Preparation 按 assistant source order 执行，且不调用 ToolRuntime 或 extension tool handler。每个 action 依次经过：
+Preparation 按 assistant source order 执行，且不调用 `ToolRuntime.execute_with_interrupt(...)`、result materialization 或 extension tool handler。它只允许使用 active-tool、catalog 和 path resolver 等无副作用查询。每个 action 依次经过：
 
 1. 截断响应拦截；
 2. active-tool 检查；
@@ -83,7 +83,7 @@ Preparation 按 assistant source order 执行，且不调用 ToolRuntime 或 ext
 
 Blocked、invalid、denied、truncated 和无需 runtime dispatch 的 interaction outcomes 形成 immediate observations。它们不得产生 `operation_started`，因为没有副作用开始。
 
-如果 preparation 需要用户交互，`InteractionSuspended` 必须持久化当前 source index、完整 source-ordered batch、已形成的 immediate results、effective action 和 invocation id。恢复仅通过现有 interaction reply 路径继续 preparation；不得执行尚未提交 execution-start intent 的 invocation。
+如果 preparation 需要用户交互，`InteractionSuspended` 必须持久化当前 source index、完整 source-ordered batch、已形成的 immediate results、effective action 和 invocation id。恢复仅通过现有 interaction reply 路径构造 Kernel continuation，并复用同一个 AgentLoop commit-execute-resume driver 继续 preparation；不得直接调用 tool service，也不得执行尚未提交 execution-start intent 的 invocation。
 
 ### Commit before dispatch
 

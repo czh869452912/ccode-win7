@@ -9,6 +9,7 @@
 ## Agent Core Execution Hardening
 
 - `docs/superpowers/specs/2026-08-02-agent-core-execution-hardening-design.md`
+- `docs/superpowers/plans/2026-08-02-agent-core-execution-hardening.md`
 
 ## Closure Rule
 
