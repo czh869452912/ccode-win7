@@ -9,11 +9,15 @@ from embedagent_core.agent_effects import (
     AssembleContextEffect,
     ContextAssembled,
     EffectFailed,
-    ExecuteToolBatchEffect,
+    ExecutePreparedToolBatchEffect,
+    FrozenToolAction,
     InteractionSuspended,
+    PreparedToolInvocation,
+    PrepareToolBatchEffect,
     ProviderCompleted,
     RequestProviderEffect,
     ToolBatchCompleted,
+    ToolBatchPrepared,
 )
 from embedagent_core.agent_lifecycle import AgentLifecycleJournal
 from embedagent_core.session import (
@@ -34,6 +38,8 @@ class KernelCursor:
     step_index: int
     provider_attempt: int
     compact_retry_used: bool
+    assistant_message_id: str = ""
+    tool_invocation_ids: Tuple[str, ...] = field(default_factory=tuple)
     turn_id: str = ""
     step_id: str = ""
     mode_name: str = ""
@@ -132,6 +138,8 @@ class AgentKernel(object):
             return self._accept_context(cursor, result)
         if isinstance(result, ProviderCompleted):
             return self._accept_provider(cursor, result)
+        if isinstance(result, ToolBatchPrepared):
+            return self._accept_prepared(cursor, result)
         if isinstance(result, ToolBatchCompleted):
             return self._accept_tools(cursor, result)
         if isinstance(result, InteractionSuspended):
@@ -169,7 +177,12 @@ class AgentKernel(object):
         )
 
     def _accept_provider(self, cursor: KernelCursor, result: ProviderCompleted) -> KernelStep:
-        events = result.events + self._assistant_events(cursor, result)
+        assistant_message_id = self._assistant_message_id(cursor)
+        events = result.events + self._assistant_events(
+            cursor,
+            result,
+            assistant_message_id,
+        )
         if not result.reply.actions:
             empty = not str(result.reply.content or "").strip()
             outcome = LoopTransition(
@@ -192,28 +205,102 @@ class AgentKernel(object):
             )
 
         effect_id = self._effect_id(
-            "tools", cursor.turn_id, cursor.step_index, cursor.provider_attempt
+            "tool-prepare",
+            cursor.turn_id,
+            cursor.step_index,
+            cursor.provider_attempt,
         )
         next_cursor = replace(
             cursor,
+            assistant_message_id=assistant_message_id,
             tool_call_ids=tuple(action.call_id for action in result.reply.actions),
-            phase="tools",
+            tool_invocation_ids=(),
+            phase="tool_prepare",
             expected_effect_id=effect_id,
         )
         return KernelStep(
             cursor=next_cursor,
-            events=events + self._tool_started_events(next_cursor, result),
-            effect=ExecuteToolBatchEffect(
+            events=events
+            + self._tool_planned_events(next_cursor, result)
+            + (self._operation_started(next_cursor, "tool_preparation"),),
+            effect=PrepareToolBatchEffect(
                 effect_id,
-                tuple(result.reply.actions),
+                assistant_message_id,
+                tuple(FrozenToolAction.from_action(action) for action in result.reply.actions),
                 cursor.mode_name,
                 cursor.workflow_state,
+                provider_truncated=(
+                    str(result.reply.finish_reason or "").strip().lower() == "length"
+                ),
             ),
         )
 
+    def _accept_prepared(self, cursor: KernelCursor, result: ToolBatchPrepared) -> KernelStep:
+        preparation_finished = self._operation_finished(cursor, "tool_preparation")
+        if not result.invocations:
+            observations = tuple(
+                item.observation
+                for item in sorted(
+                    result.immediate_results,
+                    key=lambda value: value.source_index,
+                )
+            )
+            return self._advance_after_tools(
+                cursor,
+                observations,
+                result.events + (preparation_finished,),
+                result.commit_tokens,
+                close_tools=False,
+            )
+
+        effect_id = self._effect_id(
+            "tools",
+            cursor.turn_id,
+            cursor.step_index,
+            cursor.provider_attempt,
+        )
+        next_cursor = replace(
+            cursor,
+            phase="tool_execute",
+            expected_effect_id=effect_id,
+            tool_call_ids=tuple(invocation.provider_call_id for invocation in result.invocations),
+            tool_invocation_ids=tuple(
+                invocation.invocation_id for invocation in result.invocations
+            ),
+        )
+        return KernelStep(
+            cursor=next_cursor,
+            events=result.events
+            + (preparation_finished,)
+            + self._prepared_tool_started_events(next_cursor, result.invocations)
+            + (self._operation_started(next_cursor, "tools"),),
+            effect=ExecutePreparedToolBatchEffect(
+                effect_id,
+                result.invocations,
+                immediate_results=result.immediate_results,
+            ),
+            post_commit_tokens=result.commit_tokens,
+        )
+
     def _accept_tools(self, cursor: KernelCursor, result: ToolBatchCompleted) -> KernelStep:
+        return self._advance_after_tools(
+            cursor,
+            result.observations,
+            result.events,
+            result.commit_tokens,
+            close_tools=True,
+        )
+
+    def _advance_after_tools(
+        self,
+        cursor: KernelCursor,
+        observations: Tuple[Any, ...],
+        events: Tuple[EventIntent, ...],
+        commit_tokens: Tuple[Any, ...],
+        close_tools: bool,
+    ) -> KernelStep:
         next_mode = cursor.mode_name
-        for observation in result.observations:
+        for observation in observations:
             data = observation.data if isinstance(observation.data, dict) else {}
             if data.get("mode_changed") and str(data.get("selected_mode") or "").strip():
                 next_mode = str(data.get("selected_mode") or "").strip()
@@ -226,18 +313,19 @@ class AgentKernel(object):
             step_index=next_index,
             step_id=self._step_id(cursor.turn_id, next_index),
             mode_name=next_mode,
+            assistant_message_id="",
             tool_call_ids=(),
+            tool_invocation_ids=(),
         )
+        closing_events = (self._operation_finished(cursor, "tools"),) if close_tools else ()
         return KernelStep(
             cursor=next_cursor,
-            events=result.events
-            + (
-                self._operation_finished(cursor, "tools"),
-                self._step_finished(cursor, "tool_calls"),
-            )
+            events=events
+            + closing_events
+            + (self._step_finished(cursor, "tool_calls"),)
             + self._step_started_events(next_cursor),
             effect=self._context_effect(next_cursor),
-            post_commit_tokens=result.commit_tokens,
+            post_commit_tokens=commit_tokens,
         )
 
     def _accept_interaction(self, cursor: KernelCursor, result: InteractionSuspended) -> KernelStep:
@@ -406,6 +494,8 @@ class AgentKernel(object):
                 "context": "context_assembly",
                 "provider": "provider_request",
                 "tools": "tools",
+                "tool_prepare": "tool_preparation",
+                "tool_execute": "tools",
             }.get(cursor.phase, cursor.phase)
             events.append(
                 EventIntent(
@@ -421,9 +511,11 @@ class AgentKernel(object):
                 )
             )
 
-        if cursor.phase == "tools":
-            for call_id in cursor.tool_call_ids:
-                operation_id = "tool:%s" % call_id
+        if cursor.phase == "tool_execute":
+            for operation_id, call_id in zip(
+                cursor.tool_invocation_ids,
+                cursor.tool_call_ids,
+            ):
                 if operation_id in closed_ids:
                     continue
                 events.append(
@@ -446,12 +538,8 @@ class AgentKernel(object):
         self,
         cursor: KernelCursor,
         result: ProviderCompleted,
+        message_id: str,
     ) -> Tuple[EventIntent, ...]:
-        message_id = "m-assistant-%s-%s-%d" % (
-            cursor.turn_id or "turn",
-            cursor.step_id or "step",
-            cursor.provider_attempt,
-        )
         actions = [
             {
                 "name": action.name,
@@ -477,7 +565,14 @@ class AgentKernel(object):
             ),
         )
 
-    def _tool_started_events(
+    def _assistant_message_id(self, cursor: KernelCursor) -> str:
+        return "m-assistant-%s-%s-%d" % (
+            cursor.turn_id or "turn",
+            cursor.step_id or "step",
+            cursor.provider_attempt,
+        )
+
+    def _tool_planned_events(
         self,
         cursor: KernelCursor,
         result: ProviderCompleted,
@@ -503,25 +598,38 @@ class AgentKernel(object):
                     },
                 )
             )
+        return tuple(events)
+
+    def _prepared_tool_started_events(
+        self,
+        cursor: KernelCursor,
+        invocations: Tuple[PreparedToolInvocation, ...],
+    ) -> Tuple[EventIntent, ...]:
+        events = []
+        for invocation in invocations:
             events.append(
                 EventIntent(
                     "operation_started",
                     {
-                        "operation_id": "tool:%s" % action.call_id,
+                        "operation_id": invocation.invocation_id,
                         "kind": "tool_call",
                         "turn_id": cursor.turn_id,
                         "step_id": cursor.step_id,
-                        "tool_call_id": action.call_id,
+                        "tool_call_id": invocation.provider_call_id,
                         "parent_operation_id": "step:%s" % cursor.step_id,
                         "metadata": {
-                            "tool_name": action.name,
-                            "arguments": dict(action.arguments),
-                            "presentation": presentation,
+                            "tool_name": invocation.effective_action.name,
+                            "invocation_id": invocation.invocation_id,
+                            "provider_call_id": invocation.provider_call_id,
+                            "permission_category": invocation.permission_category,
+                            "presentation": invocation.presentation(),
+                            "source_type": invocation.source_type,
+                            "source_id": invocation.source_id,
+                            "replay_safe": invocation.replay_safe,
                         },
                     },
                 )
             )
-        events.append(self._operation_started(cursor, "tools"))
         return tuple(events)
 
     def _transition_events(
