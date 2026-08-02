@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform authority`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-01`
+> 最后同步日期：`2026-08-02`
 > 对应代码范围：`packages/embedagent-core/src/embedagent_core/`, `packages/embedagent-host/src/embedagent_host/`
 
 ## 1. Purpose And Scope
@@ -20,9 +20,9 @@
 - `SessionTransaction` lease, restore, input dispatch, and result/host projection
 - `SessionJournal` append-before-apply commit and restore fold
 - `SessionReducer` as the only live/restore state writer
-- `AgentKernel` planning and accepting the three private context, provider, and tool effect families
+- `AgentKernel` planning and accepting context, provider, and two-phase tool effects
 - `AgentLoop` commit-execute-resume driver with five required collaborators and one observer boundary
-- `AgentToolActionService` non-LLM action policy and execution
+- `AgentToolActionService` serial tool preparation and prepared invocation execution
 - `AgentExtensionHost` declared extension dispatch and active schema projection
 - supported non-root `HostedSessionController` frozen Core/Host bridge
 - hosted `InProcessAdapter` shared `ExtensionManager` and session-handle ownership
@@ -55,6 +55,10 @@ Host 依赖 Core 和 Protocol，提供 generic providers、tools、stores、cont
 
 `AgentSession.submit` 调用低层 `run_agent`，进入一个 leased `SessionTransaction`。Transaction 从 `SessionJournal` 恢复或创建内部状态，输入策略生成事件/effect，`AgentLoop` 先提交 `KernelStep.events`，再执行一个 closed effect，并把 typed result 交回 `AgentKernel`。实际 canonical event append 成功后，`SessionReducer` 才更新 live state；restore 使用同一 reducer。
 
+Provider 或 command 产生 action 后，Kernel 先提交 deterministic assistant message 和 planned `tool_call`，再计划 `PrepareToolBatchEffect`。`AgentToolActionService` 按 source order 完成 active-tool、source-aware hook、permission、write-path、interaction 和 runtime metadata preparation，不触发 runtime dispatch。Kernel 接受 `ToolBatchPrepared` 后，只为 ready invocation 提交 `operation_started(kind="tool_call")`；提交成功后，Loop 才执行 `ExecutePreparedToolBatchEffect`。blocked、denied、invalid、truncated 和 suspended action 没有 execution-start record。
+
+Durable invocation id 为 `tool:<assistant_message_id>:<source_index>`；provider call id 只用于消息关联。交互 checkpoint 保存原 assistant identity、source index、已准备前缀和 immediate results，回复后仍通过 `AgentKernel.resume_preparation(...)` 与同一个 Loop driver 继续。Preparation 始终串行；execute 只并行连续的 `read_only && concurrency_safe` invocation，canonical results 始终恢复为 source order。截断且带 actions 的 provider reply 只生成 `truncated_tool_arguments` observations，不进入 hook、permission、path 或 runtime execution。
+
 `HostedSessionController` 通过同一个 transaction 边界执行 trusted hosted operations，返回冻结 `HostedSessionProjection`。Host 的 `ManagedSession` 只保存 session id、`AgentSession` / controller handles、projection/history、diagnostics 与 worker/UI state。
 
 ```mermaid
@@ -82,7 +86,9 @@ flowchart TD
 - `AgentSession` 是 public durable transaction handle，不暴露内部 `Session`。
 - `SessionJournal` 在 actual append 前用 detached state 预检；append 成功后才由 `SessionReducer` 更新 live state。
 - `SessionReducer` 是 live execution 与 restore 的唯一 session mutator。
-- `AgentKernel` 仅拥有 context/provider/tool 三类 private effect state machine。
+- `AgentKernel` 仅拥有 context/provider/tool 三类 private effect family；tool family 内部使用 prepare/execute 两阶段。
+- 任何 runtime tool dispatch 都必须晚于对应 stable invocation 的 durable `operation_started` commit。
+- command 与 interaction resume 不旁路 Loop；两者均构造 Kernel step 并进入同一个 commit-execute-resume driver。
 - `AgentLoop` 不拥有 callback bag、workflow package policy 或直接 session mutator。
 - `AgentExtensionHost` 集中 declared extension dispatch；不得在 transaction、loop 或 Host facade 重建 hook 分发。
 - Host ports 接收 `SessionReadView`，hosted operations 返回 `HostedSessionProjection`。
@@ -99,6 +105,7 @@ flowchart TD
 - `tests/test_session_reducer_restore.py`
 - `tests/test_agent_effect_kernel.py`
 - `tests/test_agent_loop_driver.py`
+- `tests/test_agent_tool_effects.py`
 - `tests/test_session_read_view.py`
 - `tests/test_host_agent_facade.py`
 - `tests/test_host_package_composition.py`

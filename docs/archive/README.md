@@ -3,7 +3,7 @@
 > 状态：`archive`
 > 类型：`reference`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-08-01`
+> 最后同步日期：`2026-08-02`
 > 对应代码范围：`docs/archive/`
 
 ## 1. Purpose
@@ -15,6 +15,7 @@ Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md` 
 ## 2. Current Archive Packages
 
 - `agent-core-program/`
+- `agent-core-execution-hardening/`
 - `agent-core-cutover/`
 - `agent-core-refactor-history/`
 - `agent-harness-v2/`

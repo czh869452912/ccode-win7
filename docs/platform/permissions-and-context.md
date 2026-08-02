@@ -5,8 +5,8 @@
 > 状态：`active`
 > 类型：`platform authority`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-01`
-> 对应代码范围：`packages/embedagent-core/src/embedagent_core/permissions.py`, `packages/embedagent-core/src/embedagent_core/ports.py`, `packages/embedagent-host/src/embedagent_host/runtime/context.py`, workspace intelligence files
+> 最后同步日期：`2026-08-02`
+> 对应代码范围：`packages/embedagent-core/src/embedagent_core/permissions.py`, `packages/embedagent-core/src/embedagent_core/ports.py`, `packages/embedagent-host/src/embedagent_host/inprocess_adapter.py`, `packages/embedagent-host/src/embedagent_host/runtime/context.py`, workspace intelligence files
 
 ## 1. Purpose And Boundary
 
@@ -28,7 +28,11 @@ Core 使用聚焦的 `ContextAssemblerPort` 和 permission/write-path collaborat
 
 ## 3. Permission And Action Flow
 
-`AgentToolActionService` 从 active runtime catalog 查询 permission category，调用 `PermissionPolicy`，再独立应用 write-path policy。ask 决策会挂起 action；用户回应后重新进入同一 action pipeline。扩展 before/after hooks 不能跳过这两类检查。
+`AgentToolActionService` 按 assistant source order 串行准备每个 action：先确认 active tool 并应用 source-aware before hook，再冻结 effective action，查询 runtime catalog permission category，调用 `PermissionPolicy`，最后独立应用 write-path policy。ask 决策会挂起当前 source position；用户回应后从 JSON-safe checkpoint 继续剩余 preparation。扩展 before/after hooks 不能跳过 permission 或 write-path 检查。
+
+Serial 与 parallel execution 共用这一条 preparation 路径。只有 preparation 已完成且 Kernel 已提交 stable execution-start intent 的 ready invocation 才能进入 runtime；并行分组仅发生在 frozen `read_only && concurrency_safe` invocations 上，不会并行 permission、path 或 before-hook 判断。
+
+Standalone `PermissionPolicy()` 默认允许 `read`，对 `workspace_write`、`shell_exec`、`toolchain_exec`、`git_write`、`network`、`telemetry` 和 `other` 请求确认。`InProcessAdapter` 未显式注入 policy 时使用该安全默认；由产品 `LaunchConfig` 显式构造的 hosted policy 保持产品配置所有权。Permission approval 不覆盖独立的 `WritePathPolicy`。
 
 权限 category、rule shape、默认值和 session memory 契约由 `docs/platform/permission-model.md` 拥有。
 
@@ -71,7 +75,6 @@ application-owned reducer 必须通过 extension capability 注册并携带 sour
 
 - `tests/test_permissions.py`
 - `tests/test_agent_core_public_api.py`
-- `tests/test_context_config.py`
 - `tests/test_context_config.py`
 - `tests/test_workspace_intelligence.py`
 - `tests/test_turn_snapshot.py`

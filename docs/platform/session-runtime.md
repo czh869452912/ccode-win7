@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform authority`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-01`
+> 最后同步日期：`2026-08-02`
 > 对应代码范围：`packages/embedagent-core/src/embedagent_core/session*.py`, `packages/embedagent-host/src/embedagent_host/runtime/session_*.py`, `packages/embedagent-host/src/embedagent_host/runtime/transcript_store.py`
 
 ## 1. Purpose And Scope
@@ -53,6 +53,10 @@ flowchart LR
 
 恢复结果携带 consumed/transcript event count、stop reason、operation diagnostics、compaction、recovery、runtime config 和 turn experience 读模型。遇到不可信的中断时，`SessionTransaction` 根据 restore policy 拒绝继续或显式进入恢复流程，不允许 Host 猜测或补写状态。
 
+Planned `tool_call` 与实际副作用开始是两个不同事实。只有 assistant/tool call 已提交而没有 `operation_started(kind="tool_call")` 时，restore 保留该工具记录，但不推断 runtime 已执行，也不触发 `incomplete_side_effect`。一旦 stable invocation 的 execution-start 已持久化且没有 matching finish/interruption，restore 将其视为 outcome unknown，并以 `incomplete_side_effect` 拒绝自动继续。平台不自动重放工具，也不根据 provider call id 猜测 execution identity。
+
+Permission 或 user-input 挂起由 canonical pending interaction 与 JSON-safe preparation checkpoint 恢复；checkpoint identity 或 batch prefix 不一致时 fail closed，且不得 dispatch。正常回复先提交 interaction resolution，再通过同一个 Kernel/Loop preparation continuation 恢复。
+
 ## 5. Hosted Projection And Bootstrap
 
 `HostedSessionController` 通过 `SessionTransaction` 执行 initialize、mode apply、command submit/resume、resource prompt update 和 snapshot，返回冻结 `HostedSessionProjection`。Host 的 `ManagedSession` 只保存：
@@ -95,6 +99,7 @@ sequenceDiagram
 - `tests/test_host_agent_facade.py`
 - `tests/test_session_history.py`
 - `tests/test_session_integration.py`
+- `tests/test_session_operation_log.py`
 - `tests/test_transcript_store.py`
 - `tests/test_inprocess_adapter_frontend_api.py`
 - `tests/test_gui_backend_api.py`

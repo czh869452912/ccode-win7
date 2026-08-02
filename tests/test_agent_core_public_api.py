@@ -65,6 +65,20 @@ class NoopToolRuntime(object):
         del mode, workflow_state, tool_names
         return []
 
+    def tool_catalog_entry(self, tool_name):
+        if tool_name != "ask_user":
+            return None
+        return {
+            "permission_category": "read",
+            "read_only": True,
+            "concurrency_safe": True,
+            "user_label": "Ask User",
+            "progress_renderer_key": "interaction",
+            "result_renderer_key": "interaction",
+            "source_type": "builtin",
+            "source_id": "embedagent.core",
+        }
+
     def materialize_observation(self, session_id, action, observation):
         del session_id, action
         return PreparedToolObservation(observation=observation)

@@ -59,6 +59,7 @@ def test_smoke_scenarios_cover_independent_and_composed_stacks():
     assert ".submit(UserTurn(" in core_probe
     assert "materialize_observation" in core_probe
     assert "commit_observation" not in core_probe
+    assert "tool_catalog_entry" in core_probe
     assert "AgentInteractionRequest" in core_probe
     assert "InteractionReply" in core_probe
     assert "waiting.pending_interaction" in core_probe
