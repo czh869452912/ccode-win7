@@ -6,12 +6,16 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent_core.api import RuntimeDefinition
 from embedagent_core.session import (
     Action,
     AssistantReply,
     Observation,
     Session,
 )
+from embedagent_core.session_journal import SessionJournal
+from embedagent_core.session_reducer import SessionReducer
+from embedagent_core.session_transaction import SessionRecoveryRequired, SessionTransaction
 from embedagent_host.runtime.session_history import SessionHistoryAssembler
 from embedagent_host.runtime.transcript_store import TranscriptStore
 from session_journal_test_helpers import restore_trusted_events
@@ -41,6 +45,47 @@ class TestSessionIntegration(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
+
+    def _append_planned_tool_call(self, session_id):
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
+        self.store.append_event(
+            session_id,
+            "user",
+            {
+                "role": "user",
+                "content": "Write a file",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "step_started",
+            {"turn_id": "t-1", "step_id": "s-1", "step_index": 1},
+        )
+        self.store.append_event(
+            session_id,
+            "tool_call",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "call_id": "provider-call",
+                "tool_name": "write_file",
+                "arguments": {"path": "output.txt", "content": "done"},
+            },
+        )
+
+    def _restore_transaction(self, session_id):
+        transaction = SessionTransaction(
+            session_log=self.store,
+            journal=SessionJournal(self.store, SessionReducer()),
+            loop=None,
+            definition=RuntimeDefinition(default_mode="build"),
+            projection=None,
+            dispatcher=None,
+            event_committer=None,
+        )
+        return transaction._restore_or_create(session_id)
 
     def _build_schema_v2_transcript(self, session_id="sess-e2e"):
         """Build a realistic schema v2 transcript with multiple turns."""
@@ -144,6 +189,36 @@ class TestSessionIntegration(unittest.TestCase):
         self.assertEqual(
             assistant_event.get("parent_message_id"), user_event["payload"]["message_id"]
         )
+
+    def test_restore_does_not_treat_planned_tool_call_as_incomplete_side_effect(self):
+        session_id = "sess-planned-tool"
+        self._append_planned_tool_call(session_id)
+
+        restored = self._restore_transaction(session_id)
+
+        record = restored.session.turns[-1].steps[-1].tool_calls[0]
+        self.assertEqual(record.call_id, "provider-call")
+
+    def test_restore_rejects_unfinished_stable_tool_operation(self):
+        session_id = "sess-started-tool"
+        self._append_planned_tool_call(session_id)
+        self.store.append_event(
+            session_id,
+            "operation_started",
+            {
+                "operation_id": "tool:m-assistant-t-1-s-1-1:0",
+                "kind": "tool_call",
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "tool_call_id": "provider-call",
+                "metadata": {"tool_name": "write_file"},
+            },
+        )
+
+        with self.assertRaisesRegex(SessionRecoveryRequired, "incomplete_side_effect") as captured:
+            self._restore_transaction(session_id)
+
+        self.assertEqual(captured.exception.stop_reason, "incomplete_side_effect")
 
     def test_restore_from_schema_v2_events(self):
         session_id = self._build_schema_v2_transcript()

@@ -28,7 +28,7 @@ def _make_workspace(name):
 
 
 class TestOperationLogReducer(unittest.TestCase):
-    def test_unfinished_explicit_tool_operation_is_interrupted_and_not_retryable(self):
+    def test_unfinished_stable_tool_operation_is_interrupted_and_not_retryable(self):
         events = [
             {
                 "schema_version": 2,
@@ -38,7 +38,7 @@ class TestOperationLogReducer(unittest.TestCase):
                 "ts": "2026-06-13T00:00:00Z",
                 "type": "operation_started",
                 "payload": {
-                    "operation_id": "tool:call-read",
+                    "operation_id": "tool:m-assistant-t-1-s-1-1:0",
                     "kind": "tool_call",
                     "turn_id": "t-1",
                     "step_id": "s-1",
@@ -53,7 +53,7 @@ class TestOperationLogReducer(unittest.TestCase):
 
         state = OperationLogReducer().reduce(events)
 
-        record = state.operations["tool:call-read"]
+        record = state.operations["tool:m-assistant-t-1-s-1-1:0"]
         self.assertEqual(record.status, "interrupted")
         self.assertEqual(record.kind, "tool_call")
         self.assertFalse(record.retryable)
