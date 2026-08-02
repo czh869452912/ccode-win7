@@ -23,6 +23,26 @@ class TestProgressGuard(unittest.TestCase):
         blocked = guard.blocked_observation(action)
         self.assertFalse(blocked.data["retryable"])
 
+    def test_truncated_provider_actions_do_not_count_as_tool_failures(self):
+        guard = ProgressGuard()
+        observation = Observation(
+            tool_name="read_file",
+            success=False,
+            error="provider output ended before tool arguments were complete",
+            data={
+                "retryable": True,
+                "error_kind": "truncated_tool_arguments",
+            },
+        )
+        first = Action("read_file", {"path": "a.c"}, "call-a")
+        second = Action("read_file", {"path": "b.c"}, "call-b")
+
+        guard.record(first, observation)
+        guard.record(second, observation)
+
+        self.assertFalse(guard.should_stop())
+        self.assertFalse(guard.should_block(second))
+
 
 if __name__ == "__main__":
     unittest.main()

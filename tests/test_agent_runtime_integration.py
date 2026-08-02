@@ -220,6 +220,37 @@ class ToolClient(object):
         return reply
 
 
+class TruncatedToolClient(object):
+    def __init__(self):
+        self.calls = 0
+        self.second_messages = []
+
+    def generate(self, messages, tools=None):
+        del tools
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action("read_file", {"path": "src/demo.c"}, "truncated-a"),
+                    Action("read_file", {"path": "src/missing.c"}, "truncated-b"),
+                ],
+                finish_reason="length",
+            )
+        self.second_messages = [dict(item) for item in messages]
+        return AssistantReply(
+            content="truncated calls rejected",
+            actions=[],
+            finish_reason="stop",
+        )
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class TwoFailingBashThenDoneClient(object):
     def __init__(self):
         self.calls = 0
@@ -1037,6 +1068,53 @@ class TestRuntimeDispatcherRefactor(unittest.TestCase):
         events = transcript_store.load_events(session.session_id)
         transitions = [item for item in events if item["type"] == "loop_transition"]
         self.assertEqual(transitions[-1]["payload"]["reason"], "guard_stop")
+
+    def test_truncated_tool_arguments_are_reported_without_dispatch(self):
+        client = TruncatedToolClient()
+        transcript_store = TranscriptStore(self.workspace)
+        runtime = CountingToolRuntime(self.tools)
+        engine = RuntimeDispatcher(
+            client=client,
+            tools=runtime,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        session.add_system_message("controlled build mode")
+
+        result = engine.submit_user_turn(
+            user_text="run the truncated calls",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertEqual(runtime.execute_calls, 0)
+        self.assertEqual(client.calls, 2)
+        events = transcript_store.load_events(session.session_id)
+        tool_results = [item for item in events if item["type"] == "tool_result"]
+        self.assertEqual(
+            [item["payload"]["observation"]["data"]["error_kind"] for item in tool_results],
+            [
+                "truncated_tool_arguments",
+                "truncated_tool_arguments",
+            ],
+        )
+        self.assertFalse(
+            any(
+                item["type"] == "operation_started" and item["payload"].get("kind") == "tool_call"
+                for item in events
+            )
+        )
+        tool_messages = [item for item in client.second_messages if item.get("role") == "tool"]
+        self.assertEqual(
+            [item.get("tool_call_id") for item in tool_messages],
+            ["truncated-a", "truncated-b"],
+        )
 
     def test_agent_runtime_continues_after_diagnostic_bash_failures(self):
         client = TwoFailingBashThenDoneClient()

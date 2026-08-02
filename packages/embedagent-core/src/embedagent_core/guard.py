@@ -200,7 +200,11 @@ class ProgressGuard(object):
         if isinstance(observation.data, dict):
             if observation.data.get("blocked_by") == "user_confirmation":
                 return
-            if observation.data.get("error_kind") in ("discarded", "interrupted"):
+            if observation.data.get("error_kind") in (
+                "discarded",
+                "interrupted",
+                "truncated_tool_arguments",
+            ):
                 return
             if _is_diagnostic_failure(observation):
                 self.no_progress_history.append(_progress_key(action, observation))
