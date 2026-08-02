@@ -1409,6 +1409,28 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             "user_input_required", [item.get("kind") for item in step.get("transitions", [])]
         )
 
+    def test_adapter_default_policy_allows_read_and_asks_for_write_and_execution(self):
+        adapter = _product_adapter(
+            client=WriteThenDoneClient(),
+            tools=self.tools,
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="write a file",
+            stream=False,
+            wait=True,
+            event_handler=lambda envelope: None,
+        )
+
+        waiting = adapter.get_session_snapshot(session_id)
+        self.assertEqual(waiting["status"], "waiting_permission")
+        self.assertEqual(waiting["pending_interaction"]["kind"], "permission")
+        self.assertEqual(waiting["pending_interaction"]["tool_name"], "write_file")
+        self.assertFalse(os.path.exists(os.path.join(self.workspace, "src", "generated_write.c")))
+
     def test_snapshot_and_session_history_preserve_permission_wait_transition(self):
         adapter = _product_adapter(
             client=WriteThenDoneClient(),
@@ -1516,9 +1538,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         ][0]
         self.assertEqual(terminal.get("display_reason"), "guard")
         self.assertTrue(str(terminal.get("message") or "").strip())
-        self.assertEqual(len(turn["steps"]), 1)
+        self.assertEqual(len(turn["steps"]), 2)
         self.assertIn(
-            "guard_stop", [item.get("kind") for item in turn["steps"][0].get("transitions", [])]
+            "guard_stop", [item.get("kind") for item in turn["steps"][-1].get("transitions", [])]
         )
 
     def test_session_finished_event_includes_blocked_outcome(self):

@@ -237,7 +237,7 @@ class InProcessAdapter(object):
         self.client = client
         self.tools = tools
         self.max_turns = max_turns
-        self.permission_policy = permission_policy or PermissionPolicy(auto_approve_all=True)
+        self.permission_policy = permission_policy or PermissionPolicy()
         self.summary_store = summary_store or SessionSummaryStore(self.tools.workspace)
         self.project_memory_store = project_memory_store or ProjectMemoryStore(self.tools.workspace)
         self.context_manager = context_manager

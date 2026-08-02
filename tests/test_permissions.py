@@ -13,6 +13,36 @@ from embedagent_host.runtime.tools import ToolRuntime
 
 
 class TestPermissionPolicy(unittest.TestCase):
+    def test_default_policy_allows_read_and_asks_for_side_effect_categories(self):
+        categories = {
+            "read_tool": "read",
+            "write_tool": "workspace_write",
+            "shell_tool": "shell_exec",
+            "toolchain_tool": "toolchain_exec",
+            "network_tool": "network",
+            "telemetry_tool": "telemetry",
+            "unknown_tool": "other",
+        }
+        policy = PermissionPolicy(category_lookup=lambda name: categories.get(name, ""))
+
+        read_decision = policy.evaluate(Action("read_tool", {}, "call-read"))
+
+        self.assertEqual(read_decision.outcome, "allow")
+        for tool_name, category in (
+            ("write_tool", "workspace_write"),
+            ("shell_tool", "shell_exec"),
+            ("toolchain_tool", "toolchain_exec"),
+            ("network_tool", "network"),
+            ("telemetry_tool", "telemetry"),
+            ("unknown_tool", "other"),
+        ):
+            with self.subTest(category=category):
+                decision = policy.evaluate(Action(tool_name, {}, "call-" + tool_name))
+
+                self.assertEqual(decision.outcome, "ask")
+                self.assertIsNotNone(decision.request)
+                self.assertEqual(decision.request.category, category)
+
     def test_built_in_category_comes_from_runtime_metadata(self):
         import tempfile
 
