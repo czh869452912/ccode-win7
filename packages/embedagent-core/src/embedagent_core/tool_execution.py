@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from embedagent_core.agent_effects import PreparedToolInvocation
-from embedagent_core.session import Action, Observation
+from embedagent_core.session import Observation
 
 
 @dataclass
@@ -18,7 +18,7 @@ class ToolBatch:
 
 @dataclass
 class ToolExecutionUpdate:
-    action: Action
+    action: Any
     observation: Optional[Observation] = None
     phase: str = "result"
     progress: Optional[Dict[str, Any]] = None
@@ -27,7 +27,7 @@ class ToolExecutionUpdate:
 class StreamingToolExecutor(object):
     def __init__(
         self,
-        execute_action: Callable[[Action], Observation],
+        execute_action: Callable[[Any], Observation],
         max_parallel: int = 3,
         cancel_event: Optional[threading.Event] = None,
         idle_timeout_seconds: float = 30.0,
@@ -58,7 +58,7 @@ class StreamingToolExecutor(object):
             return self._run_serial(batch.actions)
         return self._run_parallel(batch.actions)
 
-    def _run_serial(self, actions: List[Action]) -> List[ToolExecutionUpdate]:
+    def _run_serial(self, actions: List[Any]) -> List[ToolExecutionUpdate]:
         updates = []
         for action in actions:
             if self._is_discarded():
@@ -74,7 +74,7 @@ class StreamingToolExecutor(object):
             )
         return updates
 
-    def _run_parallel(self, actions: List[Action]):
+    def _run_parallel(self, actions: List[Any]):
         updates = queue.Queue()  # type: queue.Queue
         sibling_error = threading.Event()
         threads = []
@@ -89,9 +89,10 @@ class StreamingToolExecutor(object):
         )
 
         for action in actions:
-            action_state[action.call_id] = {"started": False, "finished": False}
+            action_state[self._action_key(action)] = {"started": False, "finished": False}
 
-        def runner(action: Action) -> None:
+        def runner(action: Any) -> None:
+            action_key = self._action_key(action)
             if (
                 self._is_discarded()
                 or sibling_error.is_set()
@@ -100,19 +101,19 @@ class StreamingToolExecutor(object):
                 updates.put(self._discarded_update(action))
                 return
             with action_state_lock:
-                action_state[action.call_id]["started"] = True
+                action_state[action_key]["started"] = True
             updates.put(ToolExecutionUpdate(action=action, phase="start"))
             try:
                 observation = self.execute_action(action)
             except (RuntimeError, ValueError, TypeError) as exc:
                 observation = Observation(
-                    tool_name=action.name,
+                    tool_name=self._action_name(action),
                     success=False,
                     error=str(exc),
                     data={"error_kind": "tool_error", "retryable": False},
                 )
             with action_state_lock:
-                action_state[action.call_id]["finished"] = True
+                action_state[action_key]["finished"] = True
             updates.put(
                 ToolExecutionUpdate(
                     action=action,
@@ -161,21 +162,21 @@ class StreamingToolExecutor(object):
                 if not synthetic_updates:
                     continue
                 for synthetic in synthetic_updates:
-                    pending_results[synthetic.action.call_id] = synthetic
+                    pending_results[self._action_key(synthetic.action)] = synthetic
             else:
                 if update.phase == "start":
                     yield update
                     if idle_deadline:
                         idle_deadline = time.time() + self.idle_timeout_seconds
                     continue
-                pending_results[update.action.call_id] = update
+                pending_results[self._action_key(update.action)] = update
                 if idle_deadline:
                     idle_deadline = time.time() + self.idle_timeout_seconds
             while next_result_index < len(actions):
-                expected_call_id = actions[next_result_index].call_id
-                if expected_call_id not in pending_results:
+                expected_key = self._action_key(actions[next_result_index])
+                if expected_key not in pending_results:
                     break
-                current = pending_results.pop(expected_call_id)
+                current = pending_results.pop(expected_key)
                 yield current
                 next_result_index += 1
                 yielded_results += 1
@@ -184,18 +185,18 @@ class StreamingToolExecutor(object):
                     while started_count < len(actions):
                         action = actions[started_count]
                         started_count += 1
-                        pending_results[action.call_id] = self._discarded_update(action)
+                        pending_results[self._action_key(action)] = self._discarded_update(action)
                     continue
                 start_next()
 
         for thread in threads:
             thread.join(self.join_timeout_seconds)
 
-    def _discarded_update(self, action: Action) -> ToolExecutionUpdate:
+    def _discarded_update(self, action: Any) -> ToolExecutionUpdate:
         return ToolExecutionUpdate(
             action=action,
             observation=Observation(
-                tool_name=action.name,
+                tool_name=self._action_name(action),
                 success=False,
                 error="tool execution discarded",
                 data={"error_kind": "discarded", "retryable": False},
@@ -203,11 +204,11 @@ class StreamingToolExecutor(object):
             phase="result",
         )
 
-    def _interrupted_update(self, action: Action) -> ToolExecutionUpdate:
+    def _interrupted_update(self, action: Any) -> ToolExecutionUpdate:
         return ToolExecutionUpdate(
             action=action,
             observation=Observation(
-                tool_name=action.name,
+                tool_name=self._action_name(action),
                 success=False,
                 error="tool execution interrupted",
                 data={"error_kind": "interrupted", "retryable": False},
@@ -215,11 +216,11 @@ class StreamingToolExecutor(object):
             phase="result",
         )
 
-    def _timeout_update(self, action: Action) -> ToolExecutionUpdate:
+    def _timeout_update(self, action: Any) -> ToolExecutionUpdate:
         return ToolExecutionUpdate(
             action=action,
             observation=Observation(
-                tool_name=action.name,
+                tool_name=self._action_name(action),
                 success=False,
                 error="tool execution timed out",
                 data={"error_kind": "timeout", "retryable": False},
@@ -229,7 +230,7 @@ class StreamingToolExecutor(object):
 
     def _finalize_incomplete_updates(
         self,
-        actions: List[Action],
+        actions: List[Any],
         action_state: Dict[str, Dict[str, bool]],
         action_state_lock: threading.Lock,
         reason: str,
@@ -237,7 +238,7 @@ class StreamingToolExecutor(object):
         updates = []
         with action_state_lock:
             for action in actions:
-                state = action_state.get(action.call_id) or {}
+                state = action_state.get(self._action_key(action)) or {}
                 if state.get("finished"):
                     continue
                 state["finished"] = True
@@ -249,6 +250,16 @@ class StreamingToolExecutor(object):
                 else:
                     updates.append(self._discarded_update(action))
         return updates
+
+    def _action_key(self, action: Any) -> str:
+        if isinstance(action, PreparedToolInvocation):
+            return action.invocation_id
+        return str(action.call_id)
+
+    def _action_name(self, action: Any) -> str:
+        if isinstance(action, PreparedToolInvocation):
+            return action.effective_action.name
+        return str(action.name)
 
 
 def partition_tool_actions(

@@ -228,7 +228,7 @@ class ToolRuntimePort(Protocol):
     ) -> None:
         raise NotImplementedError
 
-    def catalog_entry(self, tool_name: str) -> Optional[ToolCatalogEntry]:
+    def tool_catalog_entry(self, tool_name: str) -> Optional[Dict[str, Any]]:
         raise NotImplementedError
 
     def path_resolver(self) -> WorkspacePathResolver:

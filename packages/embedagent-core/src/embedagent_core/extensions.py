@@ -869,6 +869,8 @@ class ExtensionManager(object):
         tool_name: str,
         current_mode: str,
         workflow_state: str = "",
+        source_type: str = "",
+        source_id: str = "",
     ) -> Optional[Any]:
         dispatch = self._dispatch_event(
             "extension.handle_tool_call",
@@ -880,11 +882,18 @@ class ExtensionManager(object):
             },
             None,
             event_name="handle_tool_call",
-            metadata={"tool_name": tool_name, "current_mode": current_mode},
-            reducer_stop=lambda value: value is not None,
+            metadata={
+                "tool_name": tool_name,
+                "current_mode": current_mode,
+                "source_type": source_type,
+                "source_id": source_id,
+            },
+            reducer_stop=(None if source_id else lambda value: value is not None),
         )
         for item in dispatch.reducer_results:
             observation = item.get("value")
+            if source_id and str(item.get("source_id") or "") != source_id:
+                continue
             if observation is not None:
                 return observation
         return None

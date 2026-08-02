@@ -1,9 +1,10 @@
 import json
+import time
 from types import SimpleNamespace
 
 import pytest
 from embedagent_core.agent_effects import (
-    ExecuteToolBatchEffect,
+    ExecutePreparedToolBatchEffect,
     FrozenToolAction,
     InteractionSuspended,
     PreparedToolInvocation,
@@ -53,6 +54,19 @@ class FakeTools(object):
     def __init__(self, observations=None):
         self._observations = dict(observations or {})
         self.finalized = []
+
+    def tool_catalog_entry(self, tool_name):
+        read_only = tool_name == "read_file"
+        return {
+            "permission_category": "read" if read_only else "shell_exec",
+            "read_only": read_only,
+            "concurrency_safe": read_only,
+            "user_label": tool_name,
+            "progress_renderer_key": "default",
+            "result_renderer_key": "default",
+            "source_type": "builtin",
+            "source_id": tool_name,
+        }
 
     def execute_with_interrupt(self, name, arguments, stop_event):
         del arguments, stop_event
@@ -139,7 +153,7 @@ class RecordingTools(FakeTools):
         super(RecordingTools, self).__init__()
         self.calls = calls
 
-    def catalog_entry(self, tool_name):
+    def tool_catalog_entry(self, tool_name):
         self.calls.append("catalog:%s" % tool_name)
         read_only = tool_name == "read_file"
         return {
@@ -215,6 +229,31 @@ def _session():
     session.add_user_message("hello", turn_id="turn-1")
     session.begin_step(step_id="step-1")
     return session
+
+
+def _run_actions(
+    service,
+    session,
+    actions,
+    permission_handler=None,
+    user_input_handler=None,
+):
+    prepared = service.prepare(
+        _prepare_effect(actions),
+        session,
+        permission_handler=permission_handler,
+        user_input_handler=user_input_handler,
+    )
+    if not isinstance(prepared, ToolBatchPrepared) or not prepared.invocations:
+        return prepared
+    return service.execute_prepared(
+        ExecutePreparedToolBatchEffect(
+            "tools-1",
+            prepared.invocations,
+            immediate_results=prepared.immediate_results,
+        ),
+        session,
+    )
 
 
 def test_prepare_checks_permission_and_path_before_any_dispatch():
@@ -315,16 +354,91 @@ def test_prepare_is_serial_even_when_all_actions_are_parallel_safe():
     assert not any(item.startswith("runtime_execute") for item in calls)
 
 
-def test_normal_action_returns_tool_batch_completed_with_events_and_token():
-    service = _service()
-    effect = ExecuteToolBatchEffect(
-        "tools-1",
-        (Action("read_file", {"path": "README.md"}, "call-1"),),
-        "build",
-        "",
+def test_execute_prepared_does_not_repeat_checks_and_uses_invocation_id():
+    calls = []
+    service = _recording_service(calls)
+    session = _session()
+    prepared = service.prepare(
+        _prepare_effect(
+            [
+                Action(
+                    "write_file",
+                    {"path": "generated.c", "content": "x"},
+                    "call-1",
+                )
+            ]
+        ),
+        session,
+    )
+    calls[:] = []
+
+    result = service.execute_prepared(
+        ExecutePreparedToolBatchEffect("tools-1", prepared.invocations),
+        session,
     )
 
-    result = service.execute(effect, _session())
+    assert calls == [
+        "extension_dispatch:write_file",
+        "runtime_execute:write_file",
+        "materialize:write_file",
+    ]
+    finishes = [
+        event
+        for event in result.events
+        if event.event_type in ("operation_finished", "operation_interrupted")
+    ]
+    assert [event.payload["operation_id"] for event in finishes] == [
+        prepared.invocations[0].invocation_id
+    ]
+
+
+def test_execute_prepared_returns_parallel_results_in_source_order():
+    class OutOfOrderTools(FakeTools):
+        def execute_with_interrupt(self, name, arguments, stop_event):
+            del name, stop_event
+            path = str(arguments.get("path") or "")
+            if path == "a.c":
+                time.sleep(0.05)
+            return Observation(
+                "read_file",
+                True,
+                None,
+                {"path": path},
+            )
+
+    service = _service(tools=OutOfOrderTools())
+    session = _session()
+    prepared = service.prepare(
+        _prepare_effect(
+            [
+                Action("read_file", {"path": "a.c"}, "call-a"),
+                Action("read_file", {"path": "b.c"}, "call-b"),
+            ]
+        ),
+        session,
+    )
+
+    result = service.execute_prepared(
+        ExecutePreparedToolBatchEffect("tools-1", prepared.invocations),
+        session,
+        max_parallel_tools=2,
+    )
+
+    assert [item.data["path"] for item in result.observations] == ["a.c", "b.c"]
+    tool_results = [event for event in result.events if event.event_type == "tool_result"]
+    assert [event.payload["call_id"] for event in tool_results] == [
+        "call-a",
+        "call-b",
+    ]
+
+
+def test_normal_action_returns_tool_batch_completed_with_events_and_token():
+    service = _service()
+    result = _run_actions(
+        service,
+        _session(),
+        [Action("read_file", {"path": "README.md"}, "call-1")],
+    )
 
     assert isinstance(result, ToolBatchCompleted)
     assert result.effect_id == "tools-1"
@@ -342,17 +456,14 @@ def test_permission_ask_returns_interaction_suspended_without_execution():
     policy.set_category_lookup(lambda tool_name: "workspace_write")
     tools = FakeTools()
     service = _service(policy=policy, tools=tools)
-    effect = ExecuteToolBatchEffect(
-        "tools-1",
-        (Action("write_file", {"path": "demo.c", "content": "x"}, "call-1"),),
-        "build",
-        "",
+    result = _run_actions(
+        service,
+        _session(),
+        [Action("write_file", {"path": "demo.c", "content": "x"}, "call-1")],
     )
 
-    result = service.execute(effect, _session())
-
     assert isinstance(result, InteractionSuspended)
-    assert result.effect_id == "tools-1"
+    assert result.effect_id == "prepare-1"
     assert result.pending.kind == "permission"
     assert result.pending.tool_name == "write_file"
     assert [event.event_type for event in result.events] == ["pending_interaction"]
@@ -370,14 +481,11 @@ def test_nonzero_bash_is_diagnostic_observation_not_effect_failure():
         },
     )
     service = _service(tools=FakeTools({"bash": diagnostic}))
-    effect = ExecuteToolBatchEffect(
-        "tools-1",
-        (Action("bash", {"command": "false"}, "call-1"),),
-        "build",
-        "",
+    result = _run_actions(
+        service,
+        _session(),
+        [Action("bash", {"command": "false"}, "call-1")],
     )
-
-    result = service.execute(effect, _session())
 
     assert isinstance(result, ToolBatchCompleted)
     assert result.observations == (diagnostic,)
@@ -388,24 +496,18 @@ def test_user_input_mode_selection_is_a_tool_result_without_session_mutation():
     service = _service()
     session = _session()
     initial_messages = list(session.messages)
-    effect = ExecuteToolBatchEffect(
-        "tools-1",
-        (Action("ask_user", {"question": "switch mode?"}, "call-1"),),
-        "",
-        "",
-    )
-
-    result = service.execute(
-        effect,
+    result = _run_actions(
+        service,
         session,
+        [Action("ask_user", {"question": "switch mode?"}, "call-1")],
         user_input_handler=lambda request: UserInputResponse(
             "yes",
             selected_mode="debug",
         ),
     )
 
-    assert isinstance(result, ToolBatchCompleted)
-    observation = result.observations[0]
+    assert isinstance(result, ToolBatchPrepared)
+    observation = result.immediate_results[0].observation
     assert observation.data["selected_mode"] == "debug"
     assert observation.data["mode_changed"] is True
     assert session.messages == initial_messages

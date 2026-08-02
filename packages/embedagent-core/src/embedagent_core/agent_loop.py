@@ -7,10 +7,12 @@ from typing import Any, Optional, Tuple
 from embedagent_core.agent_effects import (
     AssembleContextEffect,
     EffectFailed,
-    ExecuteToolBatchEffect,
+    ExecutePreparedToolBatchEffect,
+    PrepareToolBatchEffect,
     ProviderCompleted,
     RequestProviderEffect,
     ToolBatchCompleted,
+    ToolBatchPrepared,
 )
 from embedagent_core.agent_kernel import AgentKernel, KernelStep
 from embedagent_core.agent_loop_continuation import AgentLoopContinuationPolicy
@@ -147,43 +149,41 @@ class AgentLoop(object):
             if isinstance(effect_result, ProviderCompleted):
                 last_reply = effect_result.reply
                 final_text = effect_result.reply.content
-            if isinstance(effect_result, ToolBatchCompleted):
-                pending_tool_notifications = tuple(
-                    zip(tuple(step.effect.actions), effect_result.observations)
-                )
+            tool_pairs = self._tool_result_pairs(step.effect, effect_result)
+            if tool_pairs:
+                pending_tool_notifications = tool_pairs
                 for action, observation in pending_tool_notifications:
                     progress_guard.record(action, observation)
-                if self._tool_result_is_cancelled(effect_result, cancel):
-                    effect_result = EffectFailed(
-                        effect_result.effect_id,
-                        "cancelled",
-                        "tool execution interrupted",
-                        retryable=False,
-                        events=effect_result.events,
-                        commit_tokens=effect_result.commit_tokens,
-                    )
+                cancelled = isinstance(
+                    effect_result,
+                    ToolBatchCompleted,
+                ) and self._tool_result_is_cancelled(effect_result, cancel)
+                failure_kind = ""
+                failure_message = ""
+                failure_metadata = {}
+                if cancelled:
+                    failure_kind = "cancelled"
+                    failure_message = "tool execution interrupted"
                 elif self._guard_should_stop(progress_guard, pending_tool_notifications):
-                    effect_result = EffectFailed(
-                        effect_result.effect_id,
-                        "guard_stop",
-                        progress_guard.stop_reason(),
-                        retryable=False,
-                        events=effect_result.events,
-                        commit_tokens=effect_result.commit_tokens,
-                    )
+                    failure_kind = "guard_stop"
+                    failure_message = progress_guard.stop_reason()
                 elif self._safety_limit_reached_after_tools(step, max_turns):
                     limit = int(max_turns or 0)
+                    failure_kind = "safety_limit"
+                    failure_message = "reached loop safety limit without completion signal"
+                    failure_metadata = {
+                        "loop_safety_limit": limit,
+                        "turns_used": limit,
+                    }
+                if failure_kind:
                     effect_result = EffectFailed(
                         effect_result.effect_id,
-                        "safety_limit",
-                        "reached loop safety limit without completion signal",
+                        failure_kind,
+                        failure_message,
                         retryable=False,
                         events=effect_result.events,
                         commit_tokens=effect_result.commit_tokens,
-                        metadata={
-                            "loop_safety_limit": limit,
-                            "turns_used": limit,
-                        },
+                        metadata=failure_metadata,
                     )
                 else:
                     pending_step_finish = (
@@ -262,12 +262,23 @@ class AgentLoop(object):
                     self._observer_callback(observer, "on_reasoning_delta"),
                 ),
             )
-        if isinstance(effect, ExecuteToolBatchEffect):
-            return self._tool_actions.execute(
+        if isinstance(effect, PrepareToolBatchEffect):
+            return self._tool_actions.prepare(
                 effect,
                 session,
-                permission_handler=self._observer_callback(observer, "on_permission_request"),
-                user_input_handler=self._observer_callback(observer, "on_user_input_request"),
+                permission_handler=self._observer_callback(
+                    observer,
+                    "on_permission_request",
+                ),
+                user_input_handler=self._observer_callback(
+                    observer,
+                    "on_user_input_request",
+                ),
+            )
+        if isinstance(effect, ExecutePreparedToolBatchEffect):
+            return self._tool_actions.execute_prepared(
+                effect,
+                session,
                 stop_event=cancel,
                 on_action_start=self._observer_callback(observer, "on_tool_start"),
                 max_parallel_tools=max_parallel_tools,
@@ -291,6 +302,40 @@ class AgentLoop(object):
             return False
         limit = int(max_turns or 0)
         return limit > 0 and step.cursor.step_index >= limit
+
+    def _tool_result_pairs(
+        self,
+        effect: Any,
+        result: Any,
+    ) -> Tuple[Tuple[Action, Observation], ...]:
+        if isinstance(result, ToolBatchPrepared):
+            if result.invocations:
+                return ()
+            ordered_immediate = sorted(
+                result.immediate_results,
+                key=lambda item: item.source_index,
+            )
+            return tuple(
+                (
+                    item.original_action.to_action(),
+                    item.observation,
+                )
+                for item in ordered_immediate
+            )
+        if not isinstance(result, ToolBatchCompleted) or not isinstance(
+            effect,
+            ExecutePreparedToolBatchEffect,
+        ):
+            return ()
+        sources = [
+            (item.source_index, item.original_action.to_action())
+            for item in effect.immediate_results
+        ]
+        sources.extend(
+            (item.source_index, item.original_action.to_action()) for item in effect.invocations
+        )
+        ordered_actions = [item[1] for item in sorted(sources, key=lambda item: item[0])]
+        return tuple(zip(ordered_actions, result.observations))
 
     def _tool_result_is_cancelled(
         self,

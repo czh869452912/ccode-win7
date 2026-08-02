@@ -214,3 +214,21 @@ class AgentExtensionHost(object):
             current_mode=current_mode,
             workflow_state=workflow_state,
         )
+
+    def handle_prepared_tool_call(
+        self,
+        session: Session,
+        tool_name: str,
+        current_mode: str,
+        workflow_state: str,
+        source_type: str,
+        source_id: str,
+    ) -> Optional[Observation]:
+        return self.manager.handle_tool_call(
+            session,
+            tool_name=tool_name,
+            current_mode=current_mode,
+            workflow_state=workflow_state,
+            source_type=source_type,
+            source_id=source_id,
+        )

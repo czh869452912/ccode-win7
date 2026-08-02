@@ -11,6 +11,7 @@ from dataclasses import replace
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from embedagent_core.agent_effects import (
+    ExecutePreparedToolBatchEffect,
     ExecuteToolBatchEffect,
     FrozenToolAction,
     ImmediateToolResult,
@@ -387,12 +388,14 @@ class AgentToolActionService(object):
             source_type=str(catalog.get("source_type") or ""),
             source_id=str(catalog.get("source_id") or ""),
             replay_safe=False,
+            mode_name=effect.mode_name,
+            workflow_state=effect.workflow_state,
         )
 
     def _catalog_snapshot(self, tool_name: str) -> Dict[str, Any]:
-        lookup = getattr(self.tools, "catalog_entry", None)
+        lookup = getattr(self.tools, "tool_catalog_entry", None)
         if not callable(lookup):
-            lookup = getattr(self.tools, "tool_catalog_entry", None)
+            lookup = getattr(self.tools, "catalog_entry", None)
         if not callable(lookup):
             return {}
         entry = lookup(tool_name)
@@ -454,6 +457,192 @@ class AgentToolActionService(object):
             )
         )
         return tuple(events)
+
+    def execute_prepared(
+        self,
+        effect: ExecutePreparedToolBatchEffect,
+        session: Session,
+        stop_event: Optional[threading.Event] = None,
+        on_action_start: Optional[Callable[[Action], None]] = None,
+        max_parallel_tools: int = 3,
+    ) -> ToolBatchCompleted:
+        if not isinstance(effect, ExecutePreparedToolBatchEffect):
+            raise TypeError("unsupported prepared tool effect")
+        completed = []
+
+        def append_result(
+            invocation: PreparedToolInvocation,
+            observation: Observation,
+        ) -> None:
+            committed, action_events, commit_token = self._complete_prepared(
+                session,
+                invocation,
+                observation,
+            )
+            completed.append(
+                (
+                    invocation.source_index,
+                    committed,
+                    action_events,
+                    commit_token,
+                )
+            )
+
+        discard_remaining = False
+        for batch in partition_tool_actions(list(effect.invocations)):
+            if discard_remaining:
+                for invocation in batch.actions:
+                    append_result(
+                        invocation,
+                        self._discarded_observation(
+                            invocation.effective_action.name,
+                        ),
+                    )
+                continue
+            if batch.parallel and len(batch.actions) > 1:
+                executor = StreamingToolExecutor(
+                    lambda invocation: self._dispatch_prepared(
+                        session,
+                        invocation,
+                        stop_event,
+                    ),
+                    max_parallel_tools,
+                    cancel_event=stop_event,
+                )
+                batch_interrupted = False
+                batch_discarded = False
+                for update in executor.run_batch(batch):
+                    invocation = update.action
+                    if update.phase == "start":
+                        if on_action_start is not None:
+                            on_action_start(
+                                invocation.effective_action.to_action(),
+                            )
+                        if self._stop_is_set(stop_event):
+                            batch_interrupted = True
+                            executor.discard()
+                        continue
+                    observation = update.observation
+                    if batch_interrupted or self._stop_is_set(stop_event):
+                        batch_interrupted = True
+                        if not self._is_discarded(observation):
+                            observation = self._interrupted_observation(
+                                invocation.effective_action.name,
+                            )
+                    append_result(invocation, observation)
+                    if self._is_discarded(observation):
+                        batch_discarded = True
+                if batch_discarded:
+                    discard_remaining = True
+                continue
+
+            for invocation in batch.actions:
+                action = invocation.effective_action.to_action()
+                if self._stop_is_set(stop_event):
+                    observation = self._discarded_observation(action.name)
+                    discard_remaining = True
+                else:
+                    if on_action_start is not None:
+                        on_action_start(action)
+                    observation = (
+                        self._interrupted_observation(action.name)
+                        if self._stop_is_set(stop_event)
+                        else self._dispatch_prepared(
+                            session,
+                            invocation,
+                            stop_event,
+                        )
+                    )
+                append_result(invocation, observation)
+                if self._is_interrupted(observation):
+                    discard_remaining = True
+
+        observations = [(item.source_index, item.observation) for item in effect.immediate_results]
+        events = []
+        commit_tokens = []
+        for source_index, observation, action_events, commit_token in sorted(
+            completed,
+            key=lambda item: item[0],
+        ):
+            observations.append((source_index, observation))
+            events.extend(action_events)
+            if commit_token is not None:
+                commit_tokens.append(commit_token)
+        return ToolBatchCompleted(
+            effect.effect_id,
+            observations=tuple(item[1] for item in sorted(observations, key=lambda item: item[0])),
+            events=tuple(events),
+            commit_tokens=tuple(commit_tokens),
+        )
+
+    def _dispatch_prepared(
+        self,
+        session: Session,
+        invocation: PreparedToolInvocation,
+        stop_event: Optional[threading.Event],
+    ) -> Observation:
+        action = invocation.effective_action.to_action()
+        try:
+            prepared_handler = getattr(
+                self.extension_host,
+                "handle_prepared_tool_call",
+                None,
+            )
+            if callable(prepared_handler):
+                observation = prepared_handler(
+                    session,
+                    tool_name=action.name,
+                    current_mode=invocation.mode_name,
+                    workflow_state=invocation.workflow_state,
+                    source_type=invocation.source_type,
+                    source_id=invocation.source_id,
+                )
+            else:
+                observation = self.extension_host.handle_tool_call(
+                    session,
+                    tool_name=action.name,
+                    current_mode=invocation.mode_name,
+                    workflow_state=invocation.workflow_state,
+                )
+            if observation is not None:
+                return observation
+            return self.tools.execute_with_interrupt(
+                action.name,
+                action.arguments,
+                stop_event,
+            )
+        except (OSError, RuntimeError, ValueError, TypeError) as exc:
+            return self._failure_observation(
+                action.name,
+                str(exc),
+                "tool_error",
+                False,
+                "tool_runtime",
+                "Inspect the tool error before retrying.",
+            )
+
+    def _complete_prepared(
+        self,
+        session: Session,
+        invocation: PreparedToolInvocation,
+        observation: Observation,
+    ) -> Tuple[Observation, Tuple[EventIntent, ...], Any]:
+        action = invocation.effective_action.to_action()
+        observation, workflow_intent = self._apply_extension_tool_result_patch(
+            session,
+            action,
+            invocation.mode_name,
+            invocation.workflow_state,
+            observation,
+        )
+        return self._complete_action(
+            session,
+            action,
+            observation,
+            workflow_intent=workflow_intent,
+            invocation_id=invocation.invocation_id,
+            event_action=invocation.original_action.to_action(),
+        )
 
     def execute(
         self,
@@ -843,6 +1032,7 @@ class AgentToolActionService(object):
         self,
         action: Action,
         intent: EventIntent,
+        parent_operation_id: str = "",
     ) -> Tuple[EventIntent, ...]:
         payload = dict(intent.payload)
         turn_id = str(payload.get("turn_id") or "")
@@ -860,7 +1050,7 @@ class AgentToolActionService(object):
                     "turn_id": turn_id,
                     "step_id": step_id,
                     "tool_call_id": action.call_id,
-                    "parent_operation_id": "tool:%s" % action.call_id,
+                    "parent_operation_id": parent_operation_id or "tool:%s" % action.call_id,
                     "metadata": {
                         "mode_name": str(payload.get("mode_name") or ""),
                         "workflow_state_name": str(payload.get("workflow_state_name") or ""),
@@ -958,6 +1148,8 @@ class AgentToolActionService(object):
         observation: Observation,
         workflow_intent: Optional[EventIntent] = None,
         extra_events: Tuple[EventIntent, ...] = (),
+        invocation_id: str = "",
+        event_action: Optional[Action] = None,
     ) -> Tuple[Observation, Tuple[EventIntent, ...], Any]:
         try:
             prepared = self.tools.materialize_observation(
@@ -976,6 +1168,7 @@ class AgentToolActionService(object):
                 observation=self._fallback_committed_observation(observation, exc),
             )
         committed = prepared.observation
+        recorded_action = event_action or action
         replacements = [dict(item) for item in prepared.replacements if isinstance(item, dict)]
         replaced_by_refs = [
             str(item.get("stored_path") or "")
@@ -992,9 +1185,9 @@ class AgentToolActionService(object):
                 {
                     "turn_id": turn_id,
                     "step_id": step_id,
-                    "call_id": action.call_id,
-                    "tool_name": action.name,
-                    "arguments": dict(action.arguments),
+                    "call_id": recorded_action.call_id,
+                    "tool_name": recorded_action.name,
+                    "arguments": dict(recorded_action.arguments),
                     "message_id": message_id,
                     "parent_message_id": session.last_message_id(),
                     "finished_at": finished_at,
@@ -1009,15 +1202,30 @@ class AgentToolActionService(object):
                     "content_replacement",
                     {
                         "message_id": message_id,
-                        "tool_call_id": action.call_id,
-                        "tool_name": action.name,
+                        "tool_call_id": recorded_action.call_id,
+                        "tool_name": recorded_action.name,
                         "replacements": replacements,
                     },
                 )
             )
         if workflow_intent is not None:
-            events.extend(self._workflow_patch_operation_events(action, workflow_intent))
-        events.append(self._tool_operation_event(action, committed, turn_id, step_id, finished_at))
+            events.extend(
+                self._workflow_patch_operation_events(
+                    action,
+                    workflow_intent,
+                    parent_operation_id=invocation_id,
+                )
+            )
+        events.append(
+            self._tool_operation_event(
+                recorded_action,
+                committed,
+                turn_id,
+                step_id,
+                finished_at,
+                invocation_id=invocation_id,
+            )
+        )
         return committed, tuple(events), prepared.commit_token
 
     def _tool_operation_event(
@@ -1027,6 +1235,7 @@ class AgentToolActionService(object):
         turn_id: str,
         step_id: str,
         finished_at: str,
+        invocation_id: str = "",
     ) -> EventIntent:
         error_kind = (
             str(observation.data.get("error_kind") or "")
@@ -1037,7 +1246,7 @@ class AgentToolActionService(object):
         return EventIntent(
             "operation_interrupted" if interrupted else "operation_finished",
             {
-                "operation_id": "tool:%s" % action.call_id,
+                "operation_id": invocation_id or "tool:%s" % action.call_id,
                 "kind": "tool_call",
                 "turn_id": turn_id,
                 "step_id": step_id,

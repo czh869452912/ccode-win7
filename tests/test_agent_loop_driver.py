@@ -7,10 +7,14 @@ from embedagent_core.agent_effects import (
     AssembleContextEffect,
     ContextAssembled,
     EffectFailed,
-    ExecuteToolBatchEffect,
+    ExecutePreparedToolBatchEffect,
+    FrozenToolAction,
+    PreparedToolInvocation,
+    PrepareToolBatchEffect,
     ProviderCompleted,
     RequestProviderEffect,
     ToolBatchCompleted,
+    ToolBatchPrepared,
 )
 from embedagent_core.agent_kernel import KernelCursor, KernelStep
 from embedagent_core.agent_loop import AgentLoop
@@ -57,6 +61,25 @@ def _snapshot():
     )
 
 
+def _prepared_invocation():
+    action = Action("read_file", {"path": "README.md"}, "call-1")
+    frozen = FrozenToolAction.from_action(action)
+    return PreparedToolInvocation(
+        invocation_id="tool:m-assistant-turn-1-step-1-1:0",
+        provider_call_id=action.call_id,
+        source_index=0,
+        original_action=frozen,
+        effective_action=frozen,
+        permission_category="read",
+        read_only=True,
+        concurrency_safe=True,
+        presentation_json="{}",
+        source_type="builtin",
+        source_id="read_file",
+        replay_safe=False,
+    )
+
+
 class RecordingJournal(object):
     def __init__(self, calls):
         self.calls = calls
@@ -100,16 +123,31 @@ class SequenceKernel(object):
                 RequestProviderEffect("provider-1", _snapshot(), False),
             )
         if cursor.phase == "provider":
-            next_cursor = KernelCursor("tools", "tools-1", 1, 1, False)
+            action = Action("read_file", {"path": "README.md"}, "call-1")
+            next_cursor = KernelCursor("tool_prepare", "prepare-1", 1, 1, False)
             return KernelStep(
                 next_cursor,
-                (EventIntent("operation_started", {"label": "tool_started"}),),
-                ExecuteToolBatchEffect(
-                    "tools-1",
-                    (Action("read_file", {"path": "README.md"}, "call-1"),),
+                (EventIntent("tool_call", {"label": "tool_planned"}),),
+                PrepareToolBatchEffect(
+                    "prepare-1",
+                    "m-assistant-turn-1-step-1-1",
+                    (FrozenToolAction.from_action(action),),
                     "build",
                     "",
                 ),
+            )
+        if cursor.phase == "tool_prepare":
+            prepared = _prepared_invocation()
+            next_cursor = KernelCursor("tool_execute", "tools-1", 1, 1, False)
+            return KernelStep(
+                next_cursor,
+                (
+                    EventIntent(
+                        "operation_started",
+                        {"label": "tool_execution_started"},
+                    ),
+                ),
+                ExecutePreparedToolBatchEffect("tools-1", (prepared,)),
             )
         return KernelStep(
             KernelCursor("complete", "", 1, 1, False),
@@ -148,7 +186,15 @@ class RecordingToolActions(object):
         self.calls = calls
         self.finalized = []
 
-    def execute(self, effect, session, **kwargs):
+    def prepare(self, effect, session, **kwargs):
+        del session, kwargs
+        self.calls.append("prepare:tool")
+        return ToolBatchPrepared(
+            effect.effect_id,
+            invocations=(_prepared_invocation(),),
+        )
+
+    def execute_prepared(self, effect, session, **kwargs):
         del session, kwargs
         self.calls.append("execute:tool")
         return ToolBatchCompleted(
@@ -189,7 +235,7 @@ def test_driver_run_has_no_optional_callback_bag():
     )
 
 
-def test_driver_commits_each_kernel_step_before_executing_its_effect():
+def test_driver_commits_prepared_execution_start_before_dispatch():
     calls = []
     tools = RecordingToolActions(calls)
 
@@ -206,12 +252,44 @@ def test_driver_commits_each_kernel_step_before_executing_its_effect():
         "execute:context",
         "commit:provider_started",
         "execute:provider",
-        "commit:tool_started",
+        "commit:tool_planned",
+        "prepare:tool",
+        "commit:tool_execution_started",
         "execute:tool",
         "commit:completed",
     ]
     assert result.transition.reason == "completed"
     assert tools.finalized == ["token-1"]
+
+
+class FailingJournal(RecordingJournal):
+    def __init__(self, calls, label):
+        super(FailingJournal, self).__init__(calls)
+        self.label = label
+
+    def commit(self, session, context, intents):
+        for intent in intents:
+            if intent.payload.get("label") == self.label:
+                self.calls.append("commit:%s" % self.label)
+                raise IOError("append failed")
+        return super(FailingJournal, self).commit(session, context, intents)
+
+
+def test_driver_does_not_dispatch_when_execution_start_commit_fails():
+    calls = []
+    journal = FailingJournal(calls, "tool_execution_started")
+
+    with pytest.raises(IOError, match="append failed"):
+        _loop(calls, journal=journal).run(
+            Session(session_id="session-1"),
+            SessionReducerContext(),
+            "turn-1",
+            "build",
+            "",
+        )
+
+    assert "prepare:tool" in calls
+    assert "execute:tool" not in calls
 
 
 class CancelKernel(SequenceKernel):
@@ -245,7 +323,7 @@ def test_driver_turns_pre_effect_cancellation_into_typed_failure():
 
 class SafetyKernel(SequenceKernel):
     def accept(self, cursor, result):
-        if cursor.phase == "tools":
+        if cursor.phase == "tool_execute":
             assert isinstance(result, EffectFailed)
             assert result.error_kind == "safety_limit"
             return KernelStep(
@@ -281,7 +359,7 @@ def test_driver_enforces_explicit_turn_safety_fuse_before_next_effect():
 
 
 class DiscardingToolActions(RecordingToolActions):
-    def execute(self, effect, session, **kwargs):
+    def execute_prepared(self, effect, session, **kwargs):
         del session, kwargs
         self.calls.append("execute:tool")
         return ToolBatchCompleted(

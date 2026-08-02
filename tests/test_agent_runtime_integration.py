@@ -1592,10 +1592,16 @@ class TestRuntimeDispatcherRefactor(unittest.TestCase):
         events = transcript_store.load_events(session.session_id)
         started = [item for item in events if item["type"] == "operation_started"]
         finished = [item for item in events if item["type"] == "operation_finished"]
-        started_ids = [item["payload"].get("operation_id") for item in started]
         finished_ids = [item["payload"].get("operation_id") for item in finished]
-        self.assertIn("tool:call-read-demo", started_ids)
-        self.assertIn("tool:call-read-demo", finished_ids)
+        tool_starts = [item for item in started if item["payload"].get("kind") == "tool_call"]
+        self.assertEqual(len(tool_starts), 1)
+        invocation_id = tool_starts[0]["payload"]["operation_id"]
+        self.assertTrue(invocation_id.startswith("tool:m-assistant-"))
+        self.assertEqual(
+            tool_starts[0]["payload"]["tool_call_id"],
+            "call-read-demo",
+        )
+        self.assertIn(invocation_id, finished_ids)
 
     def test_agent_runtime_emits_core_runtime_operation_events(self):
         transcript_store = TranscriptStore(self.workspace)

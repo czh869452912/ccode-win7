@@ -78,6 +78,8 @@ class PreparedToolInvocation:
     source_type: str
     source_id: str
     replay_safe: bool
+    mode_name: str = ""
+    workflow_state: str = ""
 
     def presentation(self) -> Dict[str, Any]:
         value = json.loads(self.presentation_json)
