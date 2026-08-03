@@ -5,6 +5,7 @@ import {
   bufferSessionTransportEvent,
   createSessionTransportState,
 } from "../src/session-runtime/session-transport-state.js";
+import { capabilitySnapshot, commandDescriptor } from "./protocol-fixtures.mjs";
 
 function deferred() {
   let resolve;
@@ -54,15 +55,9 @@ export async function runSessionActivationControllerTests() {
           turns: [],
         },
         plan: { title: "Build plan" },
-        capabilities: {
-          commands: [
-            {
-              name: "help",
-              usage: "/help",
-              active: true,
-            },
-          ],
-        },
+        capabilities: capabilitySnapshot({
+          commands: [commandDescriptor("help", "/help")],
+        }),
       };
     },
     dispatch: (action) => actions.push(action),

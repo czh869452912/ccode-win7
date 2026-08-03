@@ -1,0 +1,65 @@
+{
+  "active_workspace": {
+    "id": "workspace-1",
+    "label": "Fixture",
+    "path": "D:/fixture"
+  },
+  "app": {
+    "product_name": "EmbedAgent",
+    "protocol": "app_shell_v1"
+  },
+  "diagnostics": {
+    "offline": true
+  },
+  "has_active_workspace": true,
+  "last_error": "",
+  "schema_version": 1,
+  "settings": {
+    "confirm_workspace_switch": true
+  },
+  "shell": {
+    "commands": [
+      {
+        "availability": {},
+        "dispatch": {
+          "kind": "session.create"
+        },
+        "group": "session",
+        "id": "session.new",
+        "label": "New Session",
+        "shortcut": "",
+        "source_id": "",
+        "source_type": "",
+        "summary": ""
+      }
+    ],
+    "interactions": [],
+    "keybindings": [
+      {
+        "command_id": "session.new",
+        "keys": "ctrl+n",
+        "when": {}
+      }
+    ],
+    "schema_version": 1,
+    "surfaces": [
+      {
+        "availability": {},
+        "id": "session.commands",
+        "label": "Commands",
+        "metadata": {},
+        "placement": "overlay",
+        "renderer_key": "command_palette"
+      }
+    ],
+    "timeline_items": [],
+    "tool_presentations": []
+  },
+  "workspaces": [
+    {
+      "id": "workspace-1",
+      "label": "Fixture",
+      "path": "D:/fixture"
+    }
+  ]
+}

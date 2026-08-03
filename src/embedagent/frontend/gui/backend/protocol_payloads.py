@@ -7,10 +7,15 @@ from embedagent_protocol import (
     AppBootstrap,
     CapabilitySnapshot,
     CommandDescriptor,
+    InteractionDescriptor,
+    KeybindingDescriptor,
     ModeDescriptor,
     PlanSnapshot,
-    ThreadDetailSnapshot,
+    SessionBootstrap,
+    ShellDescriptor,
+    SurfaceDescriptor,
     ThreadShell,
+    TimelineItemDescriptor,
     ToolPresentation,
     WorkflowPackageDescriptor,
 )
@@ -54,12 +59,13 @@ def _normal_list(value: Any) -> list:
     return list(value) if isinstance(value, (list, tuple)) else []
 
 
-def _camel_or_snake(payload: Dict[str, Any], camel: str, snake: str, default: Any = None) -> Any:
-    if camel in payload:
-        return payload.get(camel, default)
-    if snake in payload:
-        return payload.get(snake, default)
-    return default
+def _capability_records(data: Dict[str, Any], key: str) -> list:
+    value = data.get(key, [])
+    if not isinstance(value, list):
+        raise ValueError("capabilities.%s must be a list" % key)
+    if any(not isinstance(item, dict) for item in value):
+        raise ValueError("capabilities.%s contains an invalid item" % key)
+    return value
 
 
 def _agent_application_descriptor(
@@ -67,24 +73,16 @@ def _agent_application_descriptor(
     active: bool = False,
 ) -> Optional[AgentApplicationDescriptor]:
     data = _normal_mapping(item)
-    app_id = str(
-        data.get("applicationId") or data.get("application_id") or data.get("id") or ""
-    ).strip()
-    if not app_id:
+    if not data:
         return None
     return AgentApplicationDescriptor(
-        id=app_id,
-        label=str(data.get("label") or data.get("name") or app_id),
-        profile_id=str(_camel_or_snake(data, "profileId", "profile_id", "") or ""),
-        workflow_package_ids=[
-            str(value)
-            for value in _normal_list(
-                _camel_or_snake(data, "workflowPackageIds", "workflow_package_ids", [])
-            )
-        ],
+        id=str(data.get("applicationId") or ""),
+        label=str(data.get("label") or ""),
+        profile_id=str(data.get("profileId") or ""),
+        workflow_package_ids=[str(value) for value in _normal_list(data.get("workflowPackageIds"))],
         active=bool(data.get("active", active)),
-        source_type=str(_camel_or_snake(data, "sourceType", "source_type", "") or ""),
-        source_id=str(_camel_or_snake(data, "sourceId", "source_id", "") or ""),
+        source_type=str(data.get("sourceType") or ""),
+        source_id=str(data.get("sourceId") or ""),
         default=bool(data.get("default", False)),
         metadata=dict(data.get("metadata") or {}),
     )
@@ -93,81 +91,54 @@ def _agent_application_descriptor(
 def _protocol_capability_snapshot(payload: Any) -> CapabilitySnapshot:
     data = _normal_mapping(payload)
     modes = []
-    for item in _normal_list(data.get("modes")):
-        if not isinstance(item, dict):
-            continue
-        mode_id = str(item.get("id") or item.get("name") or "").strip()
-        if not mode_id:
-            continue
+    for item in _capability_records(data, "modes"):
         modes.append(
             ModeDescriptor(
-                id=mode_id,
-                label=str(item.get("label") or item.get("name") or mode_id),
+                id=str(item.get("id") or ""),
+                label=str(item.get("label") or ""),
                 description=str(item.get("description") or ""),
-                icon_key=str(_camel_or_snake(item, "iconKey", "icon_key", "") or ""),
-                color_token=str(_camel_or_snake(item, "colorToken", "color_token", "") or ""),
-                command_id=str(_camel_or_snake(item, "commandId", "command_id", "") or ""),
+                icon_key=str(item.get("icon_key") or ""),
+                color_token=str(item.get("color_token") or ""),
+                command_id=str(item.get("command_id") or ""),
             )
         )
     commands = []
-    for item in _normal_list(data.get("commands")):
-        if not isinstance(item, dict):
-            continue
-        command_id = str(item.get("id") or item.get("name") or "").strip()
-        usage = str(item.get("usage") or "").strip()
-        if not command_id and not usage:
+    for item in _capability_records(data, "commands"):
+        if item.get("active") is False:
             continue
         commands.append(
             CommandDescriptor(
-                id=command_id or usage,
-                label=str(item.get("label") or usage or command_id),
-                group=str(item.get("group") or item.get("source_type") or "command"),
+                id=str(item.get("name") or ""),
+                label=str(item.get("usage") or ""),
+                group=str(item.get("source_type") or ""),
                 dispatch=dict(item.get("dispatch") or {}),
                 shortcut=str(item.get("shortcut") or ""),
                 availability=dict(item.get("availability") or {}),
+                summary=str(item.get("summary") or ""),
+                source_type=str(item.get("source_type") or ""),
+                source_id=str(item.get("source_id") or ""),
             )
         )
     tools = []
-    for item in _normal_list(data.get("tools")):
-        if not isinstance(item, dict):
-            continue
-        name = str(item.get("name") or "").strip()
-        if not name:
+    for item in _capability_records(data, "tools"):
+        if item.get("active") is False:
             continue
         tools.append(
             ToolPresentation(
-                name=name,
-                label=str(item.get("label") or name),
-                icon_key=str(_camel_or_snake(item, "iconKey", "icon_key", "") or ""),
-                renderer_key=str(
-                    _camel_or_snake(item, "rendererKey", "renderer_key", "generic") or "generic"
-                ),
-                permission_category=str(
-                    _camel_or_snake(
-                        item,
-                        "permissionCategory",
-                        "permission_category",
-                        "other",
-                    )
-                    or "other"
-                ),
+                name=str(item.get("name") or ""),
+                label=str(item.get("label") or ""),
+                icon_key=str(item.get("icon_key") or ""),
+                renderer_key=str(item.get("renderer_key") or ""),
+                permission_category=str(item.get("permission_category") or ""),
                 metadata=dict(item.get("metadata") or {}),
             )
         )
     workflow_packages = []
-    workflow_items = data.get("workflowPackages")
-    if workflow_items is None:
-        workflow_items = data.get("workflow_packages")
-    for item in _normal_list(workflow_items):
-        if not isinstance(item, dict):
-            continue
-        package_id = str(item.get("id") or "").strip()
-        if not package_id:
-            continue
+    for item in _capability_records(data, "workflowPackages"):
         workflow_packages.append(
             WorkflowPackageDescriptor(
-                id=package_id,
-                label=str(item.get("label") or package_id),
+                id=str(item.get("id") or ""),
+                label=str(item.get("label") or ""),
                 active=bool(item.get("active")),
                 state=dict(item.get("state") or {}),
                 metadata=dict(item.get("metadata") or {}),
@@ -175,16 +146,12 @@ def _protocol_capability_snapshot(payload: Any) -> CapabilitySnapshot:
         )
     empty_state = data.get("emptyState")
     if empty_state is None:
-        empty_state = data.get("empty_state")
-    model_profiles = data.get("modelProfiles")
-    if model_profiles is None:
-        model_profiles = data.get("model_profiles")
+        empty_state = {}
+    if not isinstance(empty_state, dict):
+        raise ValueError("capabilities.emptyState must be a mapping")
     agent_application = data.get("agentApplication")
-    if agent_application is None:
-        agent_application = data.get("agent_application")
-    agent_applications = data.get("agentApplications")
-    if agent_applications is None:
-        agent_applications = data.get("agent_applications")
+    if agent_application is not None and not isinstance(agent_application, dict):
+        raise ValueError("capabilities.agentApplication must be a mapping")
     current_agent_application = _agent_application_descriptor(
         agent_application,
         active=True,
@@ -198,62 +165,107 @@ def _protocol_capability_snapshot(payload: Any) -> CapabilitySnapshot:
         agent_applications=[
             descriptor
             for descriptor in [
-                _agent_application_descriptor(item) for item in _normal_list(agent_applications)
+                _agent_application_descriptor(item)
+                for item in _capability_records(data, "agentApplications")
             ]
             if descriptor is not None
         ],
-        resources=_normal_list(data.get("resources")),
-        model_profiles=_normal_list(model_profiles),
+        resources=_capability_records(data, "resources"),
+        model_profiles=_capability_records(data, "modelProfiles"),
         empty_state=dict(empty_state or {}),
+    )
+
+
+def _shell_records(data: Dict[str, Any], key: str) -> list:
+    value = data.get(key, [])
+    if not isinstance(value, list):
+        raise ValueError("shell.%s must be a list" % key)
+    return value
+
+
+def _protocol_shell_descriptor(payload: Any) -> ShellDescriptor:
+    data = _normal_mapping(payload)
+    if not data:
+        return ShellDescriptor(schema_version=1)
+    return ShellDescriptor(
+        schema_version=data.get("schema_version"),
+        commands=[
+            CommandDescriptor(
+                id=str(item.get("id") or ""),
+                label=str(item.get("label") or ""),
+                group=str(item.get("group") or ""),
+                dispatch=dict(item.get("dispatch") or {}),
+                shortcut=str(item.get("shortcut") or ""),
+                availability=dict(item.get("availability") or {}),
+                summary=str(item.get("summary") or ""),
+                source_type=str(item.get("source_type") or ""),
+                source_id=str(item.get("source_id") or ""),
+            )
+            for item in _shell_records(data, "commands")
+        ],
+        surfaces=[
+            SurfaceDescriptor(
+                id=str(item.get("id") or ""),
+                label=str(item.get("label") or ""),
+                placement=str(item.get("placement") or ""),
+                renderer_key=str(item.get("renderer_key") or ""),
+                availability=dict(item.get("availability") or {}),
+                metadata=dict(item.get("metadata") or {}),
+            )
+            for item in _shell_records(data, "surfaces")
+        ],
+        keybindings=[
+            KeybindingDescriptor(
+                command_id=str(item.get("command_id") or ""),
+                keys=str(item.get("keys") or ""),
+                when=dict(item.get("when") or {}),
+            )
+            for item in _shell_records(data, "keybindings")
+        ],
+        tool_presentations=[
+            ToolPresentation(
+                name=str(item.get("name") or ""),
+                label=str(item.get("label") or ""),
+                icon_key=str(item.get("icon_key") or ""),
+                renderer_key=str(item.get("renderer_key") or ""),
+                permission_category=str(item.get("permission_category") or ""),
+                metadata=dict(item.get("metadata") or {}),
+            )
+            for item in _shell_records(data, "tool_presentations")
+        ],
+        timeline_items=[
+            TimelineItemDescriptor(
+                event_kind=str(item.get("event_kind") or ""),
+                renderer_key=str(item.get("renderer_key") or ""),
+                priority=item.get("priority", 0),
+            )
+            for item in _shell_records(data, "timeline_items")
+        ],
+        interactions=[
+            InteractionDescriptor(
+                kind=str(item.get("kind") or ""),
+                renderer_key=str(item.get("renderer_key") or ""),
+            )
+            for item in _shell_records(data, "interactions")
+        ],
     )
 
 
 def serialize_app_bootstrap(payload: Any) -> Dict[str, Any]:
     data = _normal_mapping(payload)
-    commands = []
-    for item in _normal_list(data.get("commands")):
-        if not isinstance(item, dict):
-            continue
-        command_id = str(item.get("id") or item.get("name") or "").strip()
-        if not command_id:
-            continue
-        commands.append(
-            CommandDescriptor(
-                id=command_id,
-                label=str(item.get("label") or item.get("usage") or command_id),
-                group=str(item.get("group") or "app"),
-                dispatch=dict(item.get("dispatch") or {}),
-                shortcut=str(item.get("shortcut") or ""),
-                availability=dict(item.get("availability") or {}),
-            )
-        )
-    bootstrap = AppBootstrap(
+    active_workspace = data.get("active_workspace")
+    return AppBootstrap(
+        schema_version=1,
         app=dict(data.get("app") or {}),
         workspaces=_normal_list(data.get("workspaces")),
-        commands=commands,
-        surfaces=_normal_list(data.get("surfaces")),
+        active_workspace=(dict(active_workspace) if isinstance(active_workspace, dict) else None),
+        has_active_workspace=bool(data.get("has_active_workspace")),
+        shell=_protocol_shell_descriptor(data.get("shell")),
+        settings=dict(data.get("settings") or {}),
         diagnostics=dict(data.get("diagnostics") or {}),
-    )
-    result = bootstrap.to_dict()
-    active_workspace = data.get("active_workspace")
-    if active_workspace is None:
-        active_workspace = data.get("activeWorkspace")
-    result.update(
-        {
-            "active_workspace": (
-                dict(active_workspace) if isinstance(active_workspace, dict) else None
-            ),
-            "has_active_workspace": bool(
-                data.get("has_active_workspace") or data.get("hasActiveWorkspace")
-            ),
-            "capabilities": dict(data.get("capabilities") or {}),
-            "settings": dict(data.get("settings") or {}),
-            "last_error": str(data.get("last_error") or data.get("lastError") or ""),
-        }
-    )
-    if "removed" in data:
-        result["removed"] = bool(data.get("removed"))
-    return result
+        last_error=str(data.get("last_error") or ""),
+        removed=bool(data.get("removed")) if "removed" in data else None,
+    ).to_dict()
 
 
 def serialize_session_bootstrap(payload: Any) -> Dict[str, Any]:
@@ -267,16 +279,19 @@ def serialize_session_bootstrap(payload: Any) -> Dict[str, Any]:
     workflow = raw_snapshot_mapping.get("workflow_state")
     if not isinstance(workflow, dict):
         workflow = _normal_mapping(data.get("workflow"))
-    detail = ThreadDetailSnapshot(
+    event_cursor = data.get("event_cursor", 0)
+    if isinstance(event_cursor, bool) or not isinstance(event_cursor, int):
+        raise ValueError("event_cursor must be an integer")
+    return SessionBootstrap(
+        schema_version=1,
+        event_cursor=event_cursor,
         thread=ThreadShell(
             id=session_id,
-            title=str(thread.get("title") or snapshot_payload.get("title") or session_id),
+            title=str(thread.get("title") or ""),
             archived=bool(thread.get("archived")),
             current_mode=str(snapshot_payload.get("current_mode") or ""),
             status=str(snapshot_payload.get("status") or ""),
-            updated_at=str(
-                snapshot_payload.get("updated_at") or snapshot_payload.get("started_at") or ""
-            ),
+            updated_at=str(snapshot_payload.get("updated_at") or ""),
             pending_interaction=bool(snapshot_payload.get("pending_interaction_valid")),
         ),
         snapshot=snapshot_payload,
@@ -284,15 +299,9 @@ def serialize_session_bootstrap(payload: Any) -> Dict[str, Any]:
         capabilities=_protocol_capability_snapshot(data.get("capabilities")),
         workflow=workflow,
         integrity=dict(history.get("integrity") or {}),
-    )
-    result = detail.to_dict()
-    result["plan"] = serialize_plan_snapshot(data.get("plan"))
-    result["permission_context"] = serialize_permission_context(data.get("permission_context"))
-    event_cursor = int(data.get("event_cursor", 0) or 0)
-    if event_cursor < 0:
-        raise ValueError("event_cursor must be non-negative")
-    result["event_cursor"] = event_cursor
-    return result
+        plan=serialize_plan_snapshot(data.get("plan")),
+        permission_context=serialize_permission_context(data.get("permission_context")),
+    ).to_dict()
 
 
 def serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
@@ -307,7 +316,7 @@ def serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
         "current_mode": str(read_value(snapshot, "current_mode", "") or ""),
         "started_at": str(read_value(snapshot, "started_at", "", aliases=("created_at",)) or ""),
         "updated_at": str(read_value(snapshot, "updated_at", "") or ""),
-        "workflow_state": str(read_value(snapshot, "workflow_state", "") or ""),
+        "workflow_state": read_value(snapshot, "workflow_state", "") or "",
         "has_active_plan": bool(read_value(snapshot, "has_active_plan", False)),
         "active_plan_ref": str(read_value(snapshot, "active_plan_ref", "") or ""),
         "current_command_context": str(read_value(snapshot, "current_command_context", "") or ""),
@@ -437,29 +446,4 @@ def serialize_permission_context(context: Any) -> Dict[str, Any]:
 
 
 def serialize_session_capabilities(payload: Any) -> Dict[str, Any]:
-    data = dict(payload) if isinstance(payload, dict) else {}
-    snapshot = _protocol_capability_snapshot(data).to_dict()
-    commands = []
-    for item in list(data.get("commands") or []):
-        if not isinstance(item, dict):
-            continue
-        usage = str(item.get("usage") or item.get("label") or "").strip()
-        name = str(item.get("name") or item.get("id") or usage).strip()
-        if not usage or not name:
-            continue
-        commands.append(
-            {
-                "id": str(item.get("id") or name),
-                "name": name,
-                "usage": usage,
-                "label": str(item.get("label") or usage),
-                "group": str(item.get("group") or item.get("source_type") or "command"),
-                "summary": str(item.get("summary") or ""),
-                "source_type": str(item.get("source_type") or ""),
-                "source_id": str(item.get("source_id") or ""),
-                "active": bool(item.get("active", True)),
-                "dispatch": dict(item.get("dispatch") or {}),
-            }
-        )
-    snapshot["commands"] = commands
-    return snapshot
+    return _protocol_capability_snapshot(payload).to_dict()

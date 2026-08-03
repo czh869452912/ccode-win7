@@ -4,9 +4,9 @@ import { createSourceControlState } from "./source-control/source-control-state.
 import { reduceRunOutputState } from "./session-runtime/run-output-state.js";
 import { createThreadState } from "./session-runtime/thread-state.js";
 import { createTerminalState } from "./terminal/terminal-state.js";
-import { normalizeProtocolCapabilities } from "./session-runtime/protocol-normalizer.js";
+import { emptyProtocolCapabilities } from "./session-runtime/protocol-normalizer.js";
 
-const EMPTY_CAPABILITIES = normalizeProtocolCapabilities({});
+const EMPTY_CAPABILITIES = emptyProtocolCapabilities();
 
 export function canSwitchWorkspace(state = {}) {
   const snapshot = state.snapshot || {};

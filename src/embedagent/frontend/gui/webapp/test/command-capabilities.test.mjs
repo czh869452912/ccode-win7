@@ -4,39 +4,27 @@ import {
   buildComposerCommandsFromCapabilities,
   normalizeCommandCapabilities,
 } from "../src/session-runtime/command-capabilities.js";
+import {
+  capabilitySnapshot,
+  commandDescriptor,
+  modeDescriptor,
+} from "./protocol-fixtures.mjs";
 
 export function runCommandCapabilitiesTests() {
-  const capabilities = normalizeCommandCapabilities({
+  const capabilities = normalizeCommandCapabilities(capabilitySnapshot({
     commands: [
-      {
-        name: "resources",
-        usage: "/resources [reload]",
+      commandDescriptor("resources", "/resources [reload]", {
         summary: "Reload resources",
         source_type: "builtin",
         source_id: "slash_commands",
-        active: true,
-      },
-      {
-        name: "skill:code-review",
-        usage: "/skill:code-review [args]",
+      }),
+      commandDescriptor("skill:code-review", "/skill:code-review [args]", {
         summary: "Review local C changes",
         source_type: "builtin",
         source_id: "slash_commands",
-        active: true,
-      },
-      {
-        name: "hidden",
-        usage: "/hidden",
-        summary: "Inactive",
-        active: false,
-      },
-      {
-        name: "",
-        usage: "/bad",
-        active: true,
-      },
+      }),
     ],
-  });
+  }));
 
   assert.deepEqual(
     capabilities.commands.map((item) => item.usage),
@@ -49,7 +37,7 @@ export function runCommandCapabilitiesTests() {
     ["/resources [reload]", "/skill:code-review [args]"],
   );
   assert.equal(commands[0].id, "backend-command:resources");
-  assert.equal(commands[0].group, "");
+  assert.equal(commands[0].group, "command");
   assert.equal(commands[0].label, "/resources [reload]");
   assert.equal(commands[0].insertion, "/resources ");
   assert.equal(commands[1].insertion, "/skill:code-review ");
@@ -57,29 +45,20 @@ export function runCommandCapabilitiesTests() {
   const appShellGroupedCommands = buildComposerCommandsFromCapabilities(capabilities, {
     defaultGroupId: "action",
   });
-  assert.equal(appShellGroupedCommands[0].group, "action");
+  assert.equal(appShellGroupedCommands[0].group, "command");
 
-  const protocolCapabilities = normalizeCommandCapabilities({
-    modes: [
-      {
-        id: "python-build",
-        label: "Python Build",
-        commandId: "mode.python-build",
-      },
-    ],
+  const protocolCapabilities = normalizeCommandCapabilities(capabilitySnapshot({
+    modes: [modeDescriptor("python-build", "Python Build")],
     commands: [
-      {
-        id: "help",
-        label: "/help",
-        dispatch: { kind: "slash", command: "help" },
-        active: true,
-      },
+      commandDescriptor("help", "/help", {
+        dispatch: { kind: "session.command", command: "/help" },
+      }),
     ],
-  });
+  }));
   assert.equal(protocolCapabilities.commands[0].usage, "/help");
   assert.equal(protocolCapabilities.commands[0].name, "help");
   assert.equal(buildComposerCommandsFromCapabilities(protocolCapabilities)[0].insertion, "/help ");
-  assert.equal(protocolCapabilities.commands[0].group, "");
+  assert.equal(protocolCapabilities.commands[0].group, "command");
   assert.equal(protocolCapabilities.modes[0].id, "python-build");
   assert.equal(protocolCapabilities.commands.some((item) => item.id === "mode.python-build"), true);
   assert.equal(

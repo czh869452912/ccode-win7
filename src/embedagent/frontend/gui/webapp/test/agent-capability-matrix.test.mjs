@@ -4,6 +4,12 @@ import { buildAppCapabilityModel } from "../src/app-runtime/app-capability-model
 import { normalizeAppBootstrap } from "../src/app-shell/model.js";
 import { normalizeProtocolCapabilities } from "../src/session-runtime/protocol-normalizer.js";
 import { buildSessionCapabilityModel } from "../src/session-runtime/session-capability-model.js";
+import {
+  capabilitySnapshot,
+  modeDescriptor,
+  toolDescriptor,
+  workflowPackageDescriptor,
+} from "./protocol-fixtures.mjs";
 
 const AGENTS = [
   { id: "empty", product: "", mode: "", workflow: "", tools: [] },
@@ -20,11 +26,13 @@ export function runAgentCapabilityMatrixTests() {
       app: { shell_version: 1, product_name: fixture.product, protocol: "gui_app_shell_v1" },
       capabilities: { empty_state: { primary: "" } },
     });
-    const session = normalizeProtocolCapabilities({
-      modes: fixture.mode ? [{ id: fixture.mode, label: fixture.mode }] : [],
-      tools: fixture.tools.map((name) => ({ name, label: name })),
-      workflow_packages: fixture.workflow ? [{ id: fixture.workflow, label: fixture.workflow }] : [],
-    });
+    const session = normalizeProtocolCapabilities(capabilitySnapshot({
+      modes: fixture.mode ? [modeDescriptor(fixture.mode)] : [],
+      tools: fixture.tools.map((name) => toolDescriptor(name)),
+      workflow_packages: fixture.workflow
+        ? [workflowPackageDescriptor(fixture.workflow)]
+        : [],
+    }));
     const appModel = buildAppCapabilityModel(app.capabilities);
     const sessionModel = buildSessionCapabilityModel(session);
     assert.equal(app.app.productName, fixture.product);

@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import unittest
@@ -29,9 +30,23 @@ class GuiProtocolProjectionTests(unittest.TestCase):
                     "turns": [{"id": "legacy-turn"}],
                 },
                 "capabilities": {
-                    "modes": [{"id": "python", "label": "Python", "commandId": "mode.python"}],
-                    "commands": [{"id": "mode.python", "label": "Python", "group": "mode"}],
-                    "tools": [{"name": "pytest", "label": "Pytest"}],
+                    "modes": [{"id": "python", "label": "Python", "command_id": "mode.python"}],
+                    "commands": [
+                        {
+                            "name": "mode.python",
+                            "usage": "Python",
+                            "source_type": "mode",
+                            "active": True,
+                        }
+                    ],
+                    "tools": [
+                        {
+                            "name": "pytest",
+                            "label": "Pytest",
+                            "renderer_key": "generic",
+                            "permission_category": "command",
+                        }
+                    ],
                     "agentApplication": {
                         "applicationId": "tests.python",
                         "label": "Python Agent",
@@ -53,21 +68,39 @@ class GuiProtocolProjectionTests(unittest.TestCase):
             }
         )
 
+        self.assertEqual(
+            set(payload),
+            {
+                "schema_version",
+                "event_cursor",
+                "thread",
+                "snapshot",
+                "history",
+                "capabilities",
+                "workflow",
+                "plan",
+                "permission_context",
+            },
+        )
+        self.assertEqual(payload["schema_version"], 1)
         self.assertEqual(payload["thread"]["id"], "sess-1")
         self.assertEqual(payload["history"]["activities"][0]["kind"], "user")
         self.assertNotIn("turns", payload["history"])
         self.assertNotIn("timeline", payload)
         self.assertEqual(payload["capabilities"]["modes"][0]["id"], "python")
         self.assertEqual(
-            payload["capabilities"]["agentApplication"]["applicationId"],
+            payload["capabilities"]["agent_application"]["id"],
             "tests.python",
         )
         self.assertEqual(
-            payload["capabilities"]["agentApplications"][0]["profileId"],
+            payload["capabilities"]["agent_applications"][0]["profile_id"],
             "tests.python.profile",
         )
         self.assertEqual(payload["workflow"]["package_id"], "workflow-python")
         self.assertEqual(payload["event_cursor"], 7)
+        wire = json.dumps(payload)
+        self.assertNotIn("agentApplication", wire)
+        self.assertNotIn("currentMode", wire)
 
     def test_session_bootstrap_does_not_invent_missing_workflow_state(self):
         payload = serialize_session_bootstrap(
@@ -95,6 +128,19 @@ class GuiProtocolProjectionTests(unittest.TestCase):
                 }
             )
 
+    def test_session_bootstrap_rejects_malformed_capability_records(self):
+        with self.assertRaisesRegex(
+            ValueError,
+            "capabilities.modes contains an invalid item",
+        ):
+            serialize_session_bootstrap(
+                {
+                    "snapshot": {"session_id": "sess-invalid", "status": "idle"},
+                    "history": {"activities": []},
+                    "capabilities": {"modes": ["build"]},
+                }
+            )
+
     def test_core_adapter_does_not_invent_missing_workflow_state(self):
         snapshot = _session_snapshot_from_dict({})
 
@@ -108,16 +154,54 @@ class GuiProtocolProjectionTests(unittest.TestCase):
     def test_app_bootstrap_is_app_shell_only(self):
         payload = serialize_app_bootstrap(
             {
-                "app": {"name": "EmbedAgent"},
+                "app": {"product_name": "EmbedAgent"},
                 "workspaces": [{"id": "ws-1", "label": "demo"}],
-                "commands": [{"id": "app.open", "label": "Open", "group": "app"}],
-                "surfaces": [{"id": "chat", "label": "Chat"}],
+                "active_workspace": {"id": "ws-1", "label": "demo"},
+                "has_active_workspace": True,
+                "shell": {
+                    "schema_version": 1,
+                    "commands": [
+                        {
+                            "id": "app.open",
+                            "label": "Open",
+                            "group": "app",
+                            "dispatch": {"kind": "workspace.open"},
+                        }
+                    ],
+                    "surfaces": [],
+                    "keybindings": [],
+                    "tool_presentations": [],
+                    "timeline_items": [],
+                    "interactions": [],
+                },
+                "settings": {"confirm_workspace_switch": True},
                 "diagnostics": {"offline": True},
+                "last_error": "",
                 "history": {"activities": []},
             }
         )
 
-        self.assertEqual(payload["app"]["name"], "EmbedAgent")
+        self.assertEqual(
+            set(payload),
+            {
+                "schema_version",
+                "app",
+                "workspaces",
+                "active_workspace",
+                "has_active_workspace",
+                "shell",
+                "settings",
+                "diagnostics",
+                "last_error",
+            },
+        )
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["app"]["product_name"], "EmbedAgent")
+        self.assertEqual(payload["active_workspace"]["id"], "ws-1")
+        self.assertEqual(
+            payload["shell"]["commands"][0]["dispatch"]["kind"],
+            "workspace.open",
+        )
         self.assertNotIn("history", payload)
         self.assertNotIn("snapshot", payload)
 

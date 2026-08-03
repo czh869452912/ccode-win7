@@ -1,4 +1,7 @@
-import { normalizeProtocolCapabilities } from "./protocol-normalizer.js";
+import {
+  emptyProtocolCapabilities,
+  normalizeProtocolCapabilities,
+} from "./protocol-normalizer.js";
 
 function text(value) {
   return String(value || "").trim();
@@ -12,8 +15,13 @@ function insertionFromUsage(usage) {
   return `${text(usage).replace(/\s+(?:<[^>]+>|\[[^\]]+\]).*$/u, "")} `;
 }
 
-export function normalizeCommandCapabilities(input = {}) {
-  const normalized = normalizeProtocolCapabilities(input);
+export function normalizeCommandCapabilities(input = null) {
+  const inputRecord = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  const normalized = inputRecord.schemaVersion === 1 && Array.isArray(inputRecord.commands)
+    ? inputRecord
+    : Object.keys(inputRecord).length === 0
+      ? emptyProtocolCapabilities()
+      : normalizeProtocolCapabilities(inputRecord);
   const commands = [];
   const seen = new Set();
   const source = Array.isArray(normalized.commands) ? normalized.commands : [];

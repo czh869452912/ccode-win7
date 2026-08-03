@@ -7,6 +7,7 @@ import {
   deriveSessionActivation,
   loadSessionCommandCapabilities,
 } from "../src/app-runtime/session-loaders.js";
+import { capabilitySnapshot, commandDescriptor } from "./protocol-fixtures.mjs";
 
 function createRecordedLoaders() {
   const calls = [];
@@ -147,16 +148,13 @@ export async function runSessionLoadersTests() {
         ],
       },
       plan: { title: "Parser plan", steps: [] },
-      capabilities: {
+      capabilities: capabilitySnapshot({
         commands: [
-          {
-            name: "resources",
-            usage: "/resources [reload]",
+          commandDescriptor("resources", "/resources [reload]", {
             summary: "Reload resources",
-            active: true,
-          },
+          }),
         ],
-      },
+      }),
     },
     "sess-bootstrap",
   );
@@ -192,16 +190,13 @@ export async function runSessionLoadersTests() {
   const loadedCapabilities = await loadSessionCommandCapabilities({
     fetchJson: async (url) => {
       assert.equal(url, "/api/sessions/capabilities");
-      return {
+      return capabilitySnapshot({
         commands: [
-          {
-            name: "help",
-            usage: "/help",
+          commandDescriptor("help", "/help", {
             summary: "Show commands",
-            active: true,
-          },
+          }),
         ],
-      };
+      });
     },
     dispatch: (action) => capabilityActions.push(action),
   });
@@ -217,7 +212,9 @@ export async function runSessionLoadersTests() {
   const loadCapabilities = createSessionCommandCapabilityLoader({
     fetchJson: async (url) => {
       assert.equal(url, "/api/sessions/capabilities");
-      return { commands: [{ name: "mode", usage: "/mode", active: true }] };
+      return capabilitySnapshot({
+        commands: [commandDescriptor("mode", "/mode")],
+      });
     },
     dispatch: (action) => factoryActions.push(action),
   });

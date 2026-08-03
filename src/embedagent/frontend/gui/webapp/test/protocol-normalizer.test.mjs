@@ -1,100 +1,55 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { normalizeProtocolCapabilities } from "../src/session-runtime/protocol-normalizer.js";
+import {
+  emptyProtocolCapabilities,
+  normalizeProtocolAppBootstrap,
+  normalizeProtocolCapabilities,
+  normalizeSessionBootstrap,
+} from "../src/session-runtime/protocol-normalizer.js";
 import { resolveToolPresentation } from "../src/session-runtime/tool-presentation.js";
 
+const FIXTURE_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../../../../tests/fixtures/frontend_protocol",
+);
+
+function readFixture(name) {
+  return JSON.parse(fs.readFileSync(path.join(FIXTURE_ROOT, name), "utf8"));
+}
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 export function runProtocolNormalizerTests() {
-  const capabilities = normalizeProtocolCapabilities({
-    modes: [
-      {
-        id: "python-build",
-        label: "Python Build",
-        description: "Implement Python changes",
-        iconKey: "hammer",
-        colorToken: "success",
-        commandId: "mode.python-build",
-      },
-      {
-        id: "html-preview",
-        label: "HTML Preview",
-        description: "Preview static HTML",
-        icon_key: "browser",
-        color_token: "info",
-      },
-    ],
-    commands: [
-      {
-        id: "workflow.test",
-        label: "Run tests",
-        group: "workflow",
-        dispatch: { kind: "slash", command: "/test" },
-      },
-    ],
-    tools: [
-      {
-        name: "pytest",
-        label: "Pytest",
-        iconKey: "test-tube",
-        rendererKey: "command",
-        permissionCategory: "command",
-        metadata: { previewArg: "command" },
-      },
-    ],
-    workflowPackages: [{ id: "workflow-python", label: "Python", active: true }],
-    agentApplication: {
-      applicationId: "tests.python",
-      label: "Python Agent",
-      profileId: "tests.python.profile",
-      workflowPackageIds: ["workflow-python"],
-      active: true,
-    },
-    agentApplications: [
-      {
-        id: "tests.python",
-        label: "Python Agent",
-        profile_id: "tests.python.profile",
-        workflow_package_ids: ["workflow-python"],
-        active: true,
-      },
-    ],
-    emptyState: {
-      scenario_label: "Python workspace",
-      primary: "Choose a local Python workspace",
-      secondary: "Python workflow metadata drives this shell.",
-      pathPlaceholder: "D:\\work\\python-app",
-    },
-  });
+  const wireSession = readFixture("session_bootstrap.json");
+  const session = normalizeSessionBootstrap(wireSession);
+  const capabilities = session.capabilities;
 
-  assert.deepEqual(
-    capabilities.modes.map((item) => item.id),
-    ["python-build", "html-preview"],
-  );
-  assert.equal(capabilities.modeCatalog["python-build"].label, "Python Build");
-  assert.equal(capabilities.modeCatalog["html-preview"].colorToken, "info");
-  assert.equal(capabilities.commands[0].dispatch.command, "/test");
-  assert.equal(capabilities.toolCatalog.pytest.label, "Pytest");
-  assert.equal(capabilities.workflowPackages[0].id, "workflow-python");
-  assert.equal(capabilities.agentApplication.applicationId, "tests.python");
-  assert.equal(capabilities.agentApplications[0].profileId, "tests.python.profile");
-  assert.equal(capabilities.emptyState.scenarioLabel, "Python workspace");
-  assert.equal(capabilities.emptyState.pathPlaceholder, "D:\\work\\python-app");
+  assert.equal(session.schemaVersion, 1);
+  assert.equal(session.eventCursor, 4);
+  assert.equal(session.thread.currentMode, "build");
+  assert.deepEqual(capabilities.modes.map((item) => item.id), ["build"]);
+  assert.equal(capabilities.modeCatalog.build.label, "Build");
+  assert.equal(capabilities.commands[0].dispatch.command, "/help");
+  assert.equal(capabilities.toolCatalog.read_file.label, "Read File");
+  assert.equal(capabilities.agentApplication.applicationId, "embedagent.generic");
+  assert.equal(capabilities.agentApplications[0].profileId, "embedagent.generic");
+  assert.equal(capabilities.emptyState.scenarioLabel, "Local workspace");
 
-  const pytestPresentation = resolveToolPresentation("pytest", capabilities.toolCatalog);
-  assert.equal(pytestPresentation.label, "Pytest");
-  assert.equal(pytestPresentation.iconKey, "test-tube");
-  assert.equal(pytestPresentation.rendererKey, "command");
-  assert.equal(pytestPresentation.previewArg, "command");
+  const readPresentation = resolveToolPresentation("read_file", capabilities.toolCatalog);
+  assert.equal(readPresentation.label, "Read File");
+  assert.equal(readPresentation.rendererKey, "generic");
 
   const fallbackPresentation = resolveToolPresentation("html_lint", capabilities.toolCatalog);
   assert.equal(fallbackPresentation.label, "html_lint");
   assert.equal(fallbackPresentation.iconKey, "wrench");
   assert.equal(fallbackPresentation.rendererKey, "generic");
 
-  const builtInNameFallbackPresentation = resolveToolPresentation("read_file", {});
-  assert.equal(builtInNameFallbackPresentation.label, "read_file");
-  assert.equal(builtInNameFallbackPresentation.rendererKey, "generic");
-
-  const emptyCapabilities = normalizeProtocolCapabilities({});
+  const emptyCapabilities = emptyProtocolCapabilities();
   assert.deepEqual(emptyCapabilities.emptyState, {
     scenarioLabel: "",
     primary: "",
@@ -103,4 +58,39 @@ export function runProtocolNormalizerTests() {
   });
   assert.deepEqual(emptyCapabilities.agentApplication, null);
   assert.deepEqual(emptyCapabilities.agentApplications, []);
+
+  const app = normalizeProtocolAppBootstrap(readFixture("app_bootstrap.json"));
+  assert.equal(app.schemaVersion, 1);
+  assert.equal(app.hasActiveWorkspace, true);
+  assert.equal(app.shell.surfaces[0].placement, "overlay");
+
+  assert.throws(
+    () => normalizeSessionBootstrap({ ...wireSession, eventCursor: 4 }),
+    /invalid_session_bootstrap/,
+  );
+  assert.throws(
+    () => normalizeSessionBootstrap({ ...wireSession, schema_version: 2 }),
+    /invalid_session_bootstrap:schema_version/,
+  );
+  const missingCursor = { ...wireSession };
+  delete missingCursor.event_cursor;
+  assert.throws(
+    () => normalizeSessionBootstrap(missingCursor),
+    /invalid_session_bootstrap:event_cursor/,
+  );
+
+  const camelMode = clone(wireSession.capabilities);
+  camelMode.modes[0].commandId = camelMode.modes[0].command_id;
+  delete camelMode.modes[0].command_id;
+  assert.throws(
+    () => normalizeProtocolCapabilities(camelMode),
+    /invalid_capability_snapshot/,
+  );
+
+  const invalidPlacement = readFixture("app_bootstrap.json");
+  invalidPlacement.shell.surfaces[0].placement = "right_panel";
+  assert.throws(
+    () => normalizeProtocolAppBootstrap(invalidPlacement),
+    /invalid_app_bootstrap:shell.surface.placement/,
+  );
 }

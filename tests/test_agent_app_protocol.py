@@ -46,6 +46,9 @@ class AgentAppProtocolTests(unittest.TestCase):
                     label="Python Build",
                     group="mode",
                     dispatch={"kind": "mode.set", "mode": "python-build"},
+                    summary="Switch to build mode",
+                    source_type="agent_profile",
+                    source_id="python.profile",
                 )
             ],
             tools=[
@@ -96,6 +99,9 @@ class AgentAppProtocolTests(unittest.TestCase):
         self.assertEqual(payload["agent_application"]["id"], "python")
         self.assertEqual(payload["agent_applications"][0]["profile_id"], "python.profile")
         self.assertEqual(payload["modes"][0]["id"], "python-build")
+        self.assertEqual(payload["commands"][0]["summary"], "Switch to build mode")
+        self.assertEqual(payload["commands"][0]["source_type"], "agent_profile")
+        self.assertEqual(payload["commands"][0]["source_id"], "python.profile")
         self.assertEqual(payload["tools"][0]["label"], "Pytest")
         self.assertNotIn("agentApplication", json.dumps(payload))
         self.assertNotIn("to" + "dos", json.dumps(payload))

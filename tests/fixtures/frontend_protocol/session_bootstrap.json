@@ -1,0 +1,98 @@
+{
+  "capabilities": {
+    "agent_application": {
+      "active": true,
+      "default": false,
+      "id": "embedagent.generic",
+      "label": "Generic Agent",
+      "metadata": {},
+      "profile_id": "embedagent.generic",
+      "source_id": "",
+      "source_type": "",
+      "workflow_package_ids": []
+    },
+    "agent_applications": [
+      {
+        "active": true,
+        "default": false,
+        "id": "embedagent.generic",
+        "label": "Generic Agent",
+        "metadata": {},
+        "profile_id": "embedagent.generic",
+        "source_id": "",
+        "source_type": "",
+        "workflow_package_ids": []
+      }
+    ],
+    "commands": [
+      {
+        "availability": {},
+        "dispatch": {
+          "command": "/help",
+          "kind": "session.command"
+        },
+        "group": "builtin",
+        "id": "help",
+        "label": "/help",
+        "shortcut": "",
+        "source_id": "",
+        "source_type": "",
+        "summary": ""
+      }
+    ],
+    "empty_state": {
+      "scenario_label": "Local workspace"
+    },
+    "model_profiles": [],
+    "modes": [
+      {
+        "color_token": "success",
+        "command_id": "mode.build",
+        "description": "Implement the current task",
+        "icon_key": "hammer",
+        "id": "build",
+        "label": "Build"
+      }
+    ],
+    "resources": [],
+    "schema_version": 1,
+    "tools": [
+      {
+        "icon_key": "",
+        "label": "Read File",
+        "metadata": {},
+        "name": "read_file",
+        "permission_category": "read",
+        "renderer_key": "generic"
+      }
+    ],
+    "workflow_packages": []
+  },
+  "event_cursor": 4,
+  "history": {
+    "activities": [],
+    "integrity": {}
+  },
+  "permission_context": {
+    "categories": [],
+    "session_id": "session-1"
+  },
+  "plan": null,
+  "schema_version": 1,
+  "snapshot": {
+    "current_mode": "build",
+    "session_id": "session-1",
+    "status": "idle",
+    "workflow_state": {}
+  },
+  "thread": {
+    "archived": false,
+    "current_mode": "build",
+    "id": "session-1",
+    "pending_interaction": false,
+    "status": "idle",
+    "title": "Fixture Session",
+    "updated_at": "2026-08-03T00:00:00Z"
+  },
+  "workflow": {}
+}

@@ -85,6 +85,9 @@ class CommandDescriptor:
     dispatch: Dict[str, Any] = field(default_factory=dict)
     shortcut: str = ""
     availability: Dict[str, Any] = field(default_factory=dict)
+    summary: str = ""
+    source_type: str = ""
+    source_id: str = ""
 
     def __post_init__(self) -> None:
         _require_text(self.id, "command.id")
@@ -101,6 +104,9 @@ class CommandDescriptor:
             "dispatch": _require_mapping(self.dispatch, "command.dispatch"),
             "shortcut": self.shortcut,
             "availability": _require_mapping(self.availability, "command.availability"),
+            "summary": self.summary,
+            "source_type": self.source_type,
+            "source_id": self.source_id,
         }
 
 
@@ -475,7 +481,12 @@ class AppBootstrap:
     app: Dict[str, Any]
     workspaces: List[Dict[str, Any]]
     shell: ShellDescriptor
+    active_workspace: Optional[Dict[str, Any]] = None
+    has_active_workspace: bool = False
+    settings: Dict[str, Any] = field(default_factory=dict)
     diagnostics: Dict[str, Any] = field(default_factory=dict)
+    last_error: str = ""
+    removed: Optional[bool] = None
 
     def __post_init__(self) -> None:
         _require_schema_version(self.schema_version)
@@ -485,13 +496,31 @@ class AppBootstrap:
             _require_mapping(workspace, "workspaces")
         if not isinstance(self.shell, ShellDescriptor):
             raise ValueError("shell must be a ShellDescriptor")
+        if self.active_workspace is not None:
+            _require_mapping(self.active_workspace, "active_workspace")
+        _require_mapping(self.settings, "settings")
         _require_mapping(self.diagnostics, "diagnostics")
+        if not isinstance(self.last_error, str):
+            raise ValueError("last_error must be a string")
+        if self.removed is not None and not isinstance(self.removed, bool):
+            raise ValueError("removed must be a bool")
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        payload = {
             "schema_version": self.schema_version,
             "app": _require_mapping(self.app, "app"),
             "workspaces": [_require_mapping(item, "workspaces") for item in self.workspaces],
+            "active_workspace": (
+                _require_mapping(self.active_workspace, "active_workspace")
+                if self.active_workspace is not None
+                else None
+            ),
+            "has_active_workspace": bool(self.has_active_workspace),
             "shell": self.shell.to_dict(),
+            "settings": _require_mapping(self.settings, "settings"),
             "diagnostics": _require_mapping(self.diagnostics, "diagnostics"),
+            "last_error": self.last_error,
         }
+        if self.removed is not None:
+            payload["removed"] = self.removed
+        return payload

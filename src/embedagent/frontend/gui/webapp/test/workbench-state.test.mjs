@@ -39,6 +39,21 @@ function surface(id, title = id, launcherOrder = 0, metadata = {}) {
   return { id, title, launcherOrder, commandLabel: `Show ${title}`, ...metadata };
 }
 
+function capabilitySnapshot(commands = []) {
+  return {
+    schema_version: 1,
+    modes: [],
+    commands,
+    tools: [],
+    workflow_packages: [],
+    agent_application: {},
+    agent_applications: [],
+    resources: [],
+    model_profiles: [],
+    empty_state: {},
+  };
+}
+
 const RIGHT_PANEL_CAPABILITY_DESCRIPTORS = Object.freeze([
   surface("preview", "Preview", 10),
   surface("files", "Files", 20),
@@ -662,8 +677,28 @@ export function runWorkbenchStateTests() {
   assert.equal(commandById("surface.diagnostics", {}, fullAppCapabilities).surface, "diagnostics");
   assert.equal(commandById("message.send"), null);
   assert.equal(commandById("message.send", {}, fullAppCapabilities).slash, "");
-  assert.equal(commandById("help", { commands: [{ name: "help", usage: "/help" }] }).label, "/help");
-  assert.equal(commandById("raw", { commands: [{ name: "raw" }] }), null);
+  const helpCapability = capabilitySnapshot([
+    {
+      id: "help",
+      label: "/help",
+      group: "builtin",
+      dispatch: { kind: "session.command", command: "/help" },
+      shortcut: "",
+      availability: {},
+    },
+  ]);
+  assert.equal(commandById("help", helpCapability).label, "/help");
+  const malformedCapability = capabilitySnapshot([
+    {
+      id: "raw",
+      label: "",
+      group: "builtin",
+      dispatch: {},
+      shortcut: "",
+      availability: {},
+    },
+  ]);
+  assert.throws(() => commandById("raw", malformedCapability), /invalid_capability_snapshot/);
 
   const commandLabelCapabilities = {
     appCommands: [

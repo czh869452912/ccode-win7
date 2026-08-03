@@ -54,3 +54,43 @@ export function normalizeProtocolEnvelope(input = {}, expectedProtocol = "") {
 export function protocolEnvelopeIsValid(value) {
   return Boolean(value && value.valid === true && Array.isArray(value.errors) && value.errors.length === 0);
 }
+
+export function normalizeSessionEventEnvelope(input) {
+  const scope = "invalid_session_event";
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new Error(`${scope}:root`);
+  }
+  const allowed = new Set([
+    "schema_version",
+    "event_id",
+    "session_id",
+    "sequence",
+    "event_kind",
+    "timestamp",
+    "payload",
+  ]);
+  for (const key of Object.keys(input)) {
+    if (!allowed.has(key)) throw new Error(`${scope}:root.${key}`);
+  }
+  const requiredText = (value, field) => {
+    if (typeof value !== "string" || !value.trim()) throw new Error(`${scope}:${field}`);
+    return value.trim();
+  };
+  if (input.schema_version !== 1) throw new Error(`${scope}:schema_version`);
+  if (!Number.isInteger(input.sequence) || input.sequence <= 0) {
+    throw new Error(`${scope}:sequence`);
+  }
+  const payload = objectValue(input.payload);
+  if (payload !== input.payload || !isJsonSafe(payload) || containsSensitiveKey(payload)) {
+    throw new Error(`${scope}:payload`);
+  }
+  return Object.freeze({
+    schemaVersion: input.schema_version,
+    eventId: requiredText(input.event_id, "event_id"),
+    sessionId: requiredText(input.session_id, "session_id"),
+    sequence: input.sequence,
+    eventKind: requiredText(input.event_kind, "event_kind"),
+    timestamp: requiredText(input.timestamp, "timestamp"),
+    payload,
+  });
+}

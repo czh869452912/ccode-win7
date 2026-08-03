@@ -1,6 +1,6 @@
 import {
-  normalizeAgentApplicationDescriptor,
-  normalizeEmptyState,
+  normalizeAppAgentApplicationDescriptor,
+  normalizeAppEmptyState,
 } from "../session-runtime/protocol-normalizer.js";
 
 const SECRET_KEY_PARTS = ["api_key", "authorization", "password", "secret", "token"];
@@ -971,15 +971,15 @@ export function normalizeAppCapabilities(input = {}) {
       chrome: normalizeSurfaceChrome(input),
     },
     keybindings: normalizeKeybindings(input.keybindings || input.key_bindings),
-    agentApplication: normalizeAgentApplicationDescriptor(
+    agentApplication: normalizeAppAgentApplicationDescriptor(
       input.agentApplication || input.agent_application,
     ),
     agentApplications: Array.isArray(input.agentApplications)
-      ? input.agentApplications.map(normalizeAgentApplicationDescriptor).filter(Boolean)
+      ? input.agentApplications.map(normalizeAppAgentApplicationDescriptor).filter(Boolean)
       : Array.isArray(input.agent_applications)
-        ? input.agent_applications.map(normalizeAgentApplicationDescriptor).filter(Boolean)
+        ? input.agent_applications.map(normalizeAppAgentApplicationDescriptor).filter(Boolean)
         : [],
-    emptyState: normalizeEmptyState(input.emptyState || input.empty_state),
+    emptyState: normalizeAppEmptyState(input.emptyState || input.empty_state),
     sourceControl: normalizeSourceControlCapability(input),
     terminal: normalizeTerminalCapability(input),
     preview: normalizePreviewCapability(input),

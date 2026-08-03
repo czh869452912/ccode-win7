@@ -7,7 +7,7 @@ import { createSourceControlState, reduceSourceControlState } from "../source-co
 import { createTerminalState, reduceTerminalState } from "../terminal/terminal-state.js";
 import { createRunOutputState, reduceRunOutputState } from "../session-runtime/run-output-state.js";
 import { createThreadState, readActiveThreadId, reduceThreadState } from "../session-runtime/thread-state.js";
-import { normalizeProtocolCapabilities } from "../session-runtime/protocol-normalizer.js";
+import { emptyProtocolCapabilities } from "../session-runtime/protocol-normalizer.js";
 import {
   ACTIVITY_ACTION_TYPES,
   createActivityState,
@@ -23,7 +23,7 @@ import { sanitizeWorkbenchUiStateForAppCapabilities } from "../workbench/ui-stat
 import { resetWorkspaceScopedState } from "../app-workspaces.js";
 
 export const INITIAL_REQUESTED_MODE = "";
-export const EMPTY_CAPABILITIES = normalizeProtocolCapabilities({});
+export const EMPTY_CAPABILITIES = emptyProtocolCapabilities();
 
 export const initialState = {
   thread: createThreadState(),

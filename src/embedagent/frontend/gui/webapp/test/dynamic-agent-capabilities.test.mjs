@@ -6,6 +6,13 @@ import { normalizeProtocolCapabilities } from "../src/session-runtime/protocol-n
 import { buildSessionCapabilityModel } from "../src/session-runtime/session-capability-model.js";
 import { buildWorkbenchCommands } from "../src/workbench/commands.js";
 import { rightPanelLauncherSurfaceDefinitions } from "../src/workbench/surfaces.js";
+import {
+  agentApplicationDescriptor,
+  capabilitySnapshot,
+  commandDescriptor,
+  modeDescriptor,
+  toolDescriptor,
+} from "./protocol-fixtures.mjs";
 
 const BASE_APP_FIXTURE = Object.freeze({
   app: { shell_version: 1, protocol: "gui_app_shell_v1" },
@@ -55,47 +62,41 @@ const SPECIALIZED_APP_FIXTURE = Object.freeze({
   },
 });
 
-const SPECIALIZED_SESSION_FIXTURE = Object.freeze({
+const SPECIALIZED_SESSION_FIXTURE = capabilitySnapshot({
   modes: [
-    {
-      id: "inspect",
-      label: "Inspect",
+    modeDescriptor("inspect", "Inspect", {
       description: "Inspect the active project",
       icon_key: "search",
-      command_id: "mode.inspect",
-    },
+    }),
   ],
   commands: [
-    {
-      id: "project.check",
-      label: "Check project",
+    commandDescriptor("project.check", "Check project", {
       group: "project",
       dispatch: { kind: "slash", command: "/check-project" },
-    },
+    }),
   ],
   tools: [
-    {
-      name: "project_check",
-      label: "Project check",
+    toolDescriptor("project_check", "Project check", {
       icon_key: "search-check",
-      renderer_key: "generic",
       permission_category: "toolchain_exec",
       metadata: { preview_arg: "target" },
-    },
+    }),
   ],
-  agent_application: {
-    application_id: "tests.project-inspector",
-    label: "Project Inspector",
-    profile_id: "tests.project-inspector.profile",
-    active: true,
-  },
+  agent_application: agentApplicationDescriptor(
+    "tests.project-inspector",
+    "Project Inspector",
+    {
+      profile_id: "tests.project-inspector.profile",
+      active: true,
+    },
+  ),
   empty_state: SPECIALIZED_APP_FIXTURE.capabilities.empty_state,
 });
 
 export function runDynamicAgentCapabilityTests() {
   const baseApp = normalizeAppBootstrap(BASE_APP_FIXTURE);
   const baseAppModel = buildAppCapabilityModel(baseApp.capabilities);
-  const baseSession = normalizeProtocolCapabilities({});
+  const baseSession = normalizeProtocolCapabilities(capabilitySnapshot());
   const baseSessionModel = buildSessionCapabilityModel(baseSession);
 
   assert.equal(baseApp.app.productName, "");

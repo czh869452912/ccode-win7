@@ -732,12 +732,25 @@ class TestGuiBackendApi(unittest.TestCase):
                     break
             self.assertIsNotNone(route)
             payload = asyncio.run(route.endpoint("sess-1"))
-        self.assertIn("snapshot", payload)
-        self.assertIn("history", payload)
-        self.assertIn("plan", payload)
-        self.assertIn("permission_context", payload)
+        self.assertEqual(
+            set(payload),
+            {
+                "schema_version",
+                "event_cursor",
+                "thread",
+                "snapshot",
+                "history",
+                "capabilities",
+                "workflow",
+                "plan",
+                "permission_context",
+            },
+        )
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["capabilities"]["schema_version"], 1)
         self.assertNotIn("turns", payload["history"])
         self.assertEqual(payload["capabilities"]["commands"][0]["label"], "/help")
+        self.assertNotIn("protocol", payload)
 
     def test_session_capabilities_endpoint_returns_slash_commands(self):
         with tempfile.TemporaryDirectory() as static_dir:
@@ -747,10 +760,12 @@ class TestGuiBackendApi(unittest.TestCase):
             route = self._route(backend, "/api/sessions/capabilities", "GET")
         self.assertIsNotNone(route)
         payload = asyncio.run(route.endpoint())
-        self.assertEqual(payload["commands"][0]["usage"], "/help")
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["commands"][0]["label"], "/help")
         self.assertEqual(payload["modes"], [])
         self.assertEqual(payload["tools"], [])
-        self.assertEqual(payload["emptyState"], {})
+        self.assertEqual(payload["empty_state"], {})
+        self.assertNotIn("protocol", payload)
 
     def test_bootstrap_snapshot_preserves_agent_diagnostics(self):
         with tempfile.TemporaryDirectory() as static_dir:
