@@ -17,6 +17,7 @@ class GuiProtocolProjectionTests(unittest.TestCase):
     def test_session_bootstrap_uses_protocol_history_activities_only(self):
         payload = serialize_session_bootstrap(
             {
+                "event_cursor": 7,
                 "snapshot": {
                     "session_id": "sess-1",
                     "status": "idle",
@@ -66,6 +67,7 @@ class GuiProtocolProjectionTests(unittest.TestCase):
             "tests.python.profile",
         )
         self.assertEqual(payload["workflow"]["package_id"], "workflow-python")
+        self.assertEqual(payload["event_cursor"], 7)
 
     def test_session_bootstrap_does_not_invent_missing_workflow_state(self):
         payload = serialize_session_bootstrap(
@@ -81,6 +83,17 @@ class GuiProtocolProjectionTests(unittest.TestCase):
 
         self.assertEqual(payload["snapshot"]["workflow_state"], "")
         self.assertEqual(payload["workflow"], {})
+        self.assertEqual(payload["event_cursor"], 0)
+
+    def test_session_bootstrap_rejects_negative_event_cursor(self):
+        with self.assertRaisesRegex(ValueError, "event_cursor must be non-negative"):
+            serialize_session_bootstrap(
+                {
+                    "event_cursor": -1,
+                    "snapshot": {"session_id": "sess-invalid", "status": "idle"},
+                    "history": {"activities": []},
+                }
+            )
 
     def test_core_adapter_does_not_invent_missing_workflow_state(self):
         snapshot = _session_snapshot_from_dict({})

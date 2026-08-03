@@ -885,6 +885,21 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("permission_context", payload)
         self.assertNotIn("replay", payload)
 
+    def test_bootstrap_payload_includes_current_live_event_cursor(self):
+        session_id = str(self.snapshot.get("session_id") or "")
+        cursor_before = self.adapter._event_emitter.current_cursor(session_id)
+        self.adapter._event_emitter.emit(
+            None,
+            "turn_start",
+            session_id,
+            {"turn_id": "turn-1"},
+        )
+
+        self.assertEqual(
+            self.adapter.get_session_bootstrap(session_id)["event_cursor"],
+            cursor_before + 1,
+        )
+
     def test_build_session_history_uses_active_session_state(self):
         adapter = _product_adapter(
             client=ToolClient(),

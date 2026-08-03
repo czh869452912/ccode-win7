@@ -897,7 +897,10 @@ class InProcessAdapter(object):
 
     def get_session_bootstrap(self, reference: str, mode: str = "") -> Dict[str, Any]:
         state = self._ensure_session_active(reference, mode)
-        return self._bootstrap_service.build(state.session_id)
+        return self._event_emitter.capture(
+            state.session_id,
+            lambda: self._bootstrap_service.build(state.session_id),
+        )
 
     def _history_unavailable_reason(self, exc: Exception) -> str:
         message = str(exc or "").strip().lower()

@@ -288,6 +288,10 @@ def serialize_session_bootstrap(payload: Any) -> Dict[str, Any]:
     result = detail.to_dict()
     result["plan"] = serialize_plan_snapshot(data.get("plan"))
     result["permission_context"] = serialize_permission_context(data.get("permission_context"))
+    event_cursor = int(data.get("event_cursor", 0) or 0)
+    if event_cursor < 0:
+        raise ValueError("event_cursor must be non-negative")
+    result["event_cursor"] = event_cursor
     return result
 
 
