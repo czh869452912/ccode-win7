@@ -8,28 +8,31 @@ function encode(value) {
   return encodeURIComponent(text(value));
 }
 
-function getRequest(fetchJson) {
-  return typeof fetchJson === "function" ? fetchJson : () => Promise.resolve({});
+function signalFrom(options) {
+  return options && typeof options === "object" ? options.signal : undefined;
 }
 
-function jsonOptions(method, body) {
-  const options = { method };
-  if (body === undefined) return options;
+function requestDescriptor(path, method = "GET", body, options) {
   return {
-    ...options,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    path,
+    method,
+    body,
+    signal: signalFrom(options),
   };
 }
 
-export function createAgentAppProtocolAdapter({
-  fetchJson,
-  sendSocketMessage,
-} = {}) {
-  const request = getRequest(fetchJson);
+export function createAgentAppProtocolAdapter({ http, socket } = {}) {
+  const request = http && typeof http.request === "function" ? http.request.bind(http) : null;
+  const connect =
+    socket && typeof socket.connect === "function" ? socket.connect.bind(socket) : null;
 
-  function requestFor(protocol, url, options) {
-    return Promise.resolve(request(url, options)).then((payload) => {
+  function requestHttp(path, method = "GET", body, options) {
+    if (!request) return Promise.reject(new Error("protocol_port_missing:http.request"));
+    return Promise.resolve(request(requestDescriptor(path, method, body, options)));
+  }
+
+  function requestFor(protocol, path, method = "GET", body, options) {
+    return requestHttp(path, method, body, options).then((payload) => {
       if (!payload || typeof payload !== "object" || !payload.protocol) return payload;
       const normalized = normalizeProtocolEnvelope(payload, protocol);
       if (!normalized.valid) {
@@ -49,218 +52,278 @@ export function createAgentAppProtocolAdapter({
       };
     });
   }
-  const sendSocket =
-    typeof sendSocketMessage === "function" ? sendSocketMessage : () => undefined;
 
   const api = {
-    request,
-    fetchJson: request,
-    loadAppBootstrap() {
-      return requestFor("app_shell_v1", "/api/app/bootstrap", jsonOptions("GET"));
+    loadAppBootstrap(options = {}) {
+      return requestFor("app_shell_v1", "/api/app/bootstrap", "GET", undefined, options);
     },
-    openWorkspacePath(path) {
-      return request("/api/app/workspaces", jsonOptions("POST", { path: text(path) }));
+    openWorkspacePath(path, options = {}) {
+      return requestHttp("/api/app/workspaces", "POST", { path: text(path) }, options);
     },
-    activateWorkspace(workspaceId) {
-      return request(
+    activateWorkspace(workspaceId, options = {}) {
+      return requestHttp(
         "/api/app/workspaces/" + encode(workspaceId) + "/activate",
-        jsonOptions("POST"),
+        "POST",
+        undefined,
+        options,
       );
     },
-    removeWorkspace(workspaceId) {
-      return request("/api/app/workspaces/" + encode(workspaceId), { method: "DELETE" });
+    removeWorkspace(workspaceId, options = {}) {
+      return requestHttp(
+        "/api/app/workspaces/" + encode(workspaceId),
+        "DELETE",
+        undefined,
+        options,
+      );
     },
-    loadWorkspaceTree(path = ".") {
-      return request("/api/files/tree?path=" + encode(path), jsonOptions("GET"));
+    loadWorkspaceTree(path = ".", options = {}) {
+      return requestHttp("/api/files/tree?path=" + encode(path), "GET", undefined, options);
     },
-    readFile(path) {
-      return request("/api/files/" + encode(path), jsonOptions("GET"));
+    readFile(path, options = {}) {
+      return requestHttp("/api/files/" + encode(path), "GET", undefined, options);
     },
-    listSessions(limit) {
+    listSessions(limit, options = {}) {
       const query = limit ? "?limit=" + encode(limit) : "";
-      return request("/api/sessions" + query, jsonOptions("GET"));
+      return requestHttp("/api/sessions" + query, "GET", undefined, options);
     },
-    loadSessionCapabilities() {
-      return requestFor("capability_v1", "/api/sessions/capabilities", jsonOptions("GET"));
+    loadSessionCapabilities(options = {}) {
+      return requestFor(
+        "capability_v1",
+        "/api/sessions/capabilities",
+        "GET",
+        undefined,
+        options,
+      );
     },
-    loadSessionBootstrap(sessionId) {
+    loadSessionBootstrap(sessionId, options = {}) {
       return requestFor(
         "agent_session_v1",
         "/api/sessions/" + encode(sessionId) + "/bootstrap",
-        jsonOptions("GET"),
+        "GET",
+        undefined,
+        options,
       );
     },
-    createSession(mode = "") {
+    createSession(mode = "", options = {}) {
       const query = text(mode) ? "?mode=" + encode(mode) : "";
-      return request("/api/sessions" + query, jsonOptions("POST"));
+      return requestHttp("/api/sessions" + query, "POST", undefined, options);
     },
-    setSessionMode(sessionId, mode) {
-      return request(
+    setSessionMode(sessionId, mode, options = {}) {
+      return requestHttp(
         "/api/sessions/" + encode(sessionId) + "/mode",
-        jsonOptions("POST", { mode: text(mode) }),
+        "POST",
+        { mode: text(mode) },
+        options,
       );
     },
-    cancelSession(sessionId) {
-      return request("/api/sessions/" + encode(sessionId) + "/cancel", jsonOptions("POST"));
+    cancelSession(sessionId, options = {}) {
+      return requestHttp(
+        "/api/sessions/" + encode(sessionId) + "/cancel",
+        "POST",
+        undefined,
+        options,
+      );
     },
-    sendSessionMessage(sessionId, value) {
-      return request(
+    sendSessionMessage(sessionId, value, options = {}) {
+      return requestHttp(
         "/api/sessions/" + encode(sessionId) + "/message",
-        jsonOptions("POST", { text: text(value) }),
+        "POST",
+        { text: text(value) },
+        options,
       );
     },
-    renameSession(sessionId, title) {
-      return request(
+    renameSession(sessionId, title, options = {}) {
+      return requestHttp(
         "/api/sessions/" + encode(sessionId) + "/rename",
-        jsonOptions("POST", { title: text(title) }),
+        "POST",
+        { title: text(title) },
+        options,
       );
     },
-    archiveSession(sessionId) {
-      return request("/api/sessions/" + encode(sessionId) + "/archive", jsonOptions("POST"));
+    archiveSession(sessionId, options = {}) {
+      return requestHttp(
+        "/api/sessions/" + encode(sessionId) + "/archive",
+        "POST",
+        undefined,
+        options,
+      );
     },
-    forkSession(sessionId, title) {
-      return request(
+    forkSession(sessionId, title, options = {}) {
+      return requestHttp(
         "/api/sessions/" + encode(sessionId) + "/fork",
-        jsonOptions("POST", { title: text(title) }),
+        "POST",
+        { title: text(title) },
+        options,
       );
     },
-    respondToInteraction(sessionId, interactionId, response) {
-      return request(
+    respondToInteraction(sessionId, interactionId, response, options = {}) {
+      return requestHttp(
         "/api/sessions/" +
           encode(sessionId) +
           "/interactions/" +
           encode(interactionId) +
           "/respond",
-        jsonOptions("POST", response || {}),
+        "POST",
+        response || {},
+        options,
       );
     },
-    reloadSessionResources(sessionId) {
-      return request(
+    reloadSessionResources(sessionId, options = {}) {
+      return requestHttp(
         "/api/sessions/" + encode(sessionId) + "/resources/reload",
-        jsonOptions("POST"),
+        "POST",
+        undefined,
+        options,
       );
     },
-    listTerminals(sessionId) {
-      return request("/api/sessions/" + encode(sessionId) + "/terminals", jsonOptions("GET"));
+    listTerminals(sessionId, options = {}) {
+      return requestHttp(
+        "/api/sessions/" + encode(sessionId) + "/terminals",
+        "GET",
+        undefined,
+        options,
+      );
     },
-    openTerminal(sessionId, terminalId, options = {}) {
-      return request(
+    openTerminal(sessionId, terminalId, terminalOptions = {}, options = {}) {
+      return requestHttp(
         "/api/sessions/" +
           encode(sessionId) +
           "/terminals/" +
           encode(terminalId) +
           "/open",
-        jsonOptions("POST", options),
+        "POST",
+        terminalOptions,
+        options,
       );
     },
-    getTerminalSnapshot(sessionId, terminalId) {
-      return request(
+    getTerminalSnapshot(sessionId, terminalId, options = {}) {
+      return requestHttp(
         "/api/sessions/" +
           encode(sessionId) +
           "/terminals/" +
           encode(terminalId) +
           "/snapshot",
-        jsonOptions("GET"),
+        "GET",
+        undefined,
+        options,
       );
     },
-    writeTerminal(sessionId, terminalId, data) {
-      return request(
+    writeTerminal(sessionId, terminalId, data, options = {}) {
+      return requestHttp(
         "/api/sessions/" +
           encode(sessionId) +
           "/terminals/" +
           encode(terminalId) +
           "/write",
-        jsonOptions("POST", { data }),
+        "POST",
+        { data },
+        options,
       );
     },
-    clearTerminal(sessionId, terminalId) {
-      return request(
+    clearTerminal(sessionId, terminalId, options = {}) {
+      return requestHttp(
         "/api/sessions/" +
           encode(sessionId) +
           "/terminals/" +
           encode(terminalId) +
           "/clear",
-        jsonOptions("POST"),
+        "POST",
+        undefined,
+        options,
       );
     },
-    restartTerminal(sessionId, terminalId, options = {}) {
-      return request(
+    restartTerminal(sessionId, terminalId, terminalOptions = {}, options = {}) {
+      return requestHttp(
         "/api/sessions/" +
           encode(sessionId) +
           "/terminals/" +
           encode(terminalId) +
           "/restart",
-        jsonOptions("POST", options),
+        "POST",
+        terminalOptions,
+        options,
       );
     },
-    resizeTerminal(sessionId, terminalId, cols, rows) {
-      return request(
+    resizeTerminal(sessionId, terminalId, cols, rows, options = {}) {
+      return requestHttp(
         "/api/sessions/" +
           encode(sessionId) +
           "/terminals/" +
           encode(terminalId) +
           "/resize",
-        jsonOptions("POST", { cols, rows }),
+        "POST",
+        { cols, rows },
+        options,
       );
     },
-    closeTerminal(sessionId, terminalId) {
-      return request(
+    closeTerminal(sessionId, terminalId, options = {}) {
+      return requestHttp(
         "/api/sessions/" +
           encode(sessionId) +
           "/terminals/" +
           encode(terminalId) +
           "/close",
-        jsonOptions("POST"),
+        "POST",
+        undefined,
+        options,
       );
     },
-    getSourceControlStatus() {
-      return request("/api/app/source-control/status", jsonOptions("GET"));
+    getSourceControlStatus(options = {}) {
+      return requestHttp("/api/app/source-control/status", "GET", undefined, options);
     },
-    refreshSourceControlStatus() {
-      return request("/api/app/source-control/refresh", jsonOptions("POST"));
+    refreshSourceControlStatus(options = {}) {
+      return requestHttp("/api/app/source-control/refresh", "POST", undefined, options);
     },
-    getSourceControlDiff(path, scope = "") {
+    getSourceControlDiff(path, scope = "", options = {}) {
       const query = new URLSearchParams({ path: text(path) });
       if (text(scope)) query.set("scope", text(scope));
-      return request("/api/app/source-control/diff?" + query.toString(), jsonOptions("GET"));
+      return requestHttp(
+        "/api/app/source-control/diff?" + query.toString(),
+        "GET",
+        undefined,
+        options,
+      );
     },
-    listPreviewSessions(sessionId) {
-      return request("/api/sessions/" + encode(sessionId) + "/preview", jsonOptions("GET"));
+    listPreviewSessions(sessionId, options = {}) {
+      return requestHttp(
+        "/api/sessions/" + encode(sessionId) + "/preview",
+        "GET",
+        undefined,
+        options,
+      );
     },
-    openPreviewSession(sessionId, url) {
-      return request(
+    openPreviewSession(sessionId, url, options = {}) {
+      return requestHttp(
         "/api/sessions/" + encode(sessionId) + "/preview/open",
-        jsonOptions("POST", { url }),
+        "POST",
+        { url },
+        options,
       );
     },
-    refreshPreviewSession(sessionId, tabId) {
-      return request(
-        "/api/sessions/" +
-          encode(sessionId) +
-          "/preview/" +
-          encode(tabId) +
-          "/refresh",
-        jsonOptions("POST"),
+    refreshPreviewSession(sessionId, tabId, options = {}) {
+      return requestHttp(
+        "/api/sessions/" + encode(sessionId) + "/preview/" + encode(tabId) + "/refresh",
+        "POST",
+        undefined,
+        options,
       );
     },
-    closePreviewSession(sessionId, tabId) {
-      return request(
-        "/api/sessions/" +
-          encode(sessionId) +
-          "/preview/" +
-          encode(tabId) +
-          "/close",
-        jsonOptions("POST"),
+    closePreviewSession(sessionId, tabId, options = {}) {
+      return requestHttp(
+        "/api/sessions/" + encode(sessionId) + "/preview/" + encode(tabId) + "/close",
+        "POST",
+        undefined,
+        options,
       );
     },
-    openPreviewExternal(url) {
-      return request("/api/app/preview/open-external", jsonOptions("POST", { url }));
+    openPreviewExternal(url, options = {}) {
+      return requestHttp("/api/app/preview/open-external", "POST", { url }, options);
     },
-    handleEvent(message) {
-      return sendSocket(message);
+    openSessionEvents() {
+      if (!connect) throw new Error("protocol_port_missing:socket.connect");
+      return connect({ path: "/ws" });
     },
   };
 
   return Object.freeze(api);
 }
-

@@ -1,36 +1,24 @@
+import { createHttpTransport } from "../client-runtime/http-transport.js";
 import { createAgentAppProtocolAdapter } from "../client-runtime/protocol-adapter.js";
 
-function defaultFetch(url, options) {
-  return fetch(url, options);
-}
-
-function errorDetail(payload) {
-  if (typeof payload?.detail === "string") return payload.detail;
-  return JSON.stringify(payload?.detail || "");
+function parseBody(body) {
+  if (body === undefined) return undefined;
+  if (typeof body !== "string") return body;
+  return JSON.parse(body);
 }
 
 export function createJsonHttpClient({ fetchImpl } = {}) {
-  const request = typeof fetchImpl === "function" ? fetchImpl : defaultFetch;
-
-  async function rawFetchJson(url, options) {
-    const res = await request(url, options);
-    const payload = await res.json().catch(() => null);
-    if (!res.ok) {
-      const detail = errorDetail(payload);
-      const error = new Error(detail || "HTTP " + res.status);
-      error.status = res.status;
-      error.detail = detail;
-      throw error;
-    }
-    return payload;
-  }
-
-  const protocolAdapter = createAgentAppProtocolAdapter({
-    fetchJson: rawFetchJson,
-  });
+  const http = createHttpTransport({ fetchImpl });
+  const fetchJson = (path, options = {}) =>
+    http.request({
+      path,
+      method: options.method || "GET",
+      body: parseBody(options.body),
+      signal: options.signal,
+    });
   return {
-    fetchJson: protocolAdapter.fetchJson,
-    protocolAdapter,
+    fetchJson,
+    protocolAdapter: createAgentAppProtocolAdapter({ http }),
   };
 }
 

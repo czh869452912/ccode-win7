@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { createJsonHttpClient } from "../src/app-runtime/http-client.js";
+import { createHttpTransport } from "../src/client-runtime/http-transport.js";
 import { runProtocolAdapterTests } from "./protocol-adapter.test.mjs";
 
 function response({ ok = true, status = 200, payload = null } = {}) {
@@ -15,21 +15,40 @@ export async function runHttpClientTests() {
   await runProtocolAdapterTests();
 
   const calls = [];
-  const client = createJsonHttpClient({
-    fetchImpl: async (url, options = {}) => {
-      calls.push([url, options.method || "GET"]);
+  const controller = new AbortController();
+  const transport = createHttpTransport({
+    fetchImpl: async (path, options = {}) => {
+      calls.push({ path, options });
       return response({ payload: { ok: true } });
     },
   });
 
-  assert.deepEqual(await client.fetchJson("/api/demo", { method: "POST" }), { ok: true });
-  assert.deepEqual(calls, [["/api/demo", "POST"]]);
+  assert.deepEqual(
+    await transport.request({
+      path: "/api/demo",
+      method: "POST",
+      body: { value: 1 },
+      signal: controller.signal,
+    }),
+    { ok: true },
+  );
+  assert.deepEqual(calls, [
+    {
+      path: "/api/demo",
+      options: {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: 1 }),
+        signal: controller.signal,
+      },
+    },
+  ]);
 
-  const stringErrorClient = createJsonHttpClient({
+  const stringErrorTransport = createHttpTransport({
     fetchImpl: async () => response({ ok: false, status: 409, payload: { detail: "conflict" } }),
   });
   await assert.rejects(
-    () => stringErrorClient.fetchJson("/api/conflict"),
+    () => stringErrorTransport.request({ path: "/api/conflict" }),
     (error) => {
       assert.equal(error.message, "conflict");
       assert.equal(error.status, 409);
@@ -38,12 +57,12 @@ export async function runHttpClientTests() {
     },
   );
 
-  const objectErrorClient = createJsonHttpClient({
+  const objectErrorTransport = createHttpTransport({
     fetchImpl: async () =>
       response({ ok: false, status: 422, payload: { detail: { reason: "bad payload" } } }),
   });
   await assert.rejects(
-    () => objectErrorClient.fetchJson("/api/bad"),
+    () => objectErrorTransport.request({ path: "/api/bad" }),
     (error) => {
       assert.equal(error.message, '{"reason":"bad payload"}');
       assert.equal(error.status, 422);

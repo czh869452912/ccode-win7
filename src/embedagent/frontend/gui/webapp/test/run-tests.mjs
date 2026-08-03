@@ -1183,10 +1183,29 @@ async function main() {
     webappSourcePath("app-runtime", "http-client.js"),
     "utf8",
   );
+  const httpTransportSource = fs.readFileSync(
+    webappSourcePath("client-runtime", "http-transport.js"),
+    "utf8",
+  );
+  const socketTransportSource = fs.readFileSync(
+    webappSourcePath("client-runtime", "socket-transport.js"),
+    "utf8",
+  );
+  const protocolAdapterSource = fs.readFileSync(
+    webappSourcePath("client-runtime", "protocol-adapter.js"),
+    "utf8",
+  );
   assert.equal(httpClientSource.includes("export function createJsonHttpClient"), true);
   assert.equal(httpClientSource.includes("export const { fetchJson }"), true);
-  assert.equal(httpClientSource.includes("error.status"), true);
+  assert.equal(httpClientSource.includes("fetch("), false);
   assert.equal(httpClientSource.includes("import React"), false);
+  assert.equal(httpTransportSource.includes("export function createHttpTransport"), true);
+  assert.equal(httpTransportSource.includes("return fetch("), true);
+  assert.equal(httpTransportSource.includes("error.status"), true);
+  assert.equal(socketTransportSource.includes("export function createSocketTransport"), true);
+  assert.equal(socketTransportSource.includes("new WebSocketConstructor"), true);
+  assert.equal(protocolAdapterSource.includes("fetchJson:"), false);
+  assert.equal(protocolAdapterSource.includes("request,"), false);
   const initialAppLoadControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "initial-app-load-controller.js"),
     "utf8",

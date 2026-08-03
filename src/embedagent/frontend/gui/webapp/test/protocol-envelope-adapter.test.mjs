@@ -4,32 +4,34 @@ import { createAgentAppProtocolAdapter } from "../src/client-runtime/protocol-ad
 
 export async function runProtocolEnvelopeAdapterTests() {
   const adapter = createAgentAppProtocolAdapter({
-    fetchJson: async (url) => {
-      if (url === "/api/app/bootstrap") {
+    http: {
+      request: async ({ path }) => {
+        if (path === "/api/app/bootstrap") {
+          return {
+            protocol: "app_shell_v1",
+            version: 1,
+            sequence: 1,
+            revision: "shell-1",
+            payload: { app: { product_name: "" }, capabilities: {} },
+          };
+        }
+        if (path === "/api/sessions/capabilities") {
+          return {
+            protocol: "capability_v1",
+            version: 1,
+            sequence: 2,
+            revision: "cap-1",
+            payload: { modes: [], tools: [] },
+          };
+        }
         return {
-          protocol: "app_shell_v1",
+          protocol: "agent_session_v1",
           version: 1,
-          sequence: 1,
-          revision: "shell-1",
-          payload: { app: { product_name: "" }, capabilities: {} },
+          sequence: 3,
+          revision: "session-1",
+          payload: { session_id: "s-1", history: { activities: [] } },
         };
-      }
-      if (url === "/api/sessions/capabilities") {
-        return {
-          protocol: "capability_v1",
-          version: 1,
-          sequence: 2,
-          revision: "cap-1",
-          payload: { modes: [], tools: [] },
-        };
-      }
-      return {
-        protocol: "agent_session_v1",
-        version: 1,
-        sequence: 3,
-        revision: "session-1",
-        payload: { session_id: "s-1", history: { activities: [] } },
-      };
+      },
     },
   });
 
