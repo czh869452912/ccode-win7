@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { createSessionActivationController } from "../src/app-runtime/session-activation-controller.js";
 import { createSessionTransportController } from "../src/app-runtime/session-transport-controller.js";
 import { createSessionTransportState } from "../src/session-runtime/session-transport-state.js";
 
@@ -42,6 +43,11 @@ export async function runSessionTransportControllerTests() {
     },
     loadSession: async (sessionId) => {
       loadedSessions.push(sessionId);
+      transport = {
+        ...transport,
+        connectionState: "connected",
+        reloadState: "healthy",
+      };
     },
     handleMessage: (message) => {
       messages.push(message);
@@ -93,6 +99,59 @@ export async function runSessionTransportControllerTests() {
   await controller.recover("sess-transport", application.state);
   assert.equal(loadedSessions.length, 2);
   assert.equal(transport.reloadState, "healthy");
+
+  const recoveredEvents = [];
+  let recoveryTransport = createSessionTransportState({
+    sessionId: "sess-recovery",
+    phase: "live",
+    eventCursor: 1,
+    connectionState: "connected",
+  });
+  const activateRecovery = createSessionActivationController({
+    fetchJson: async () => ({
+      event_cursor: 2,
+      snapshot: {
+        session_id: "sess-recovery",
+        status: "running",
+        current_mode: "build",
+      },
+      history: { activities: [], integrity: { status: "healthy" } },
+      capabilities: {},
+    }),
+    dispatch: () => {},
+    getTransportState: () => recoveryTransport,
+    updateTransportState: (updater) => {
+      recoveryTransport = updater(recoveryTransport);
+      return recoveryTransport;
+    },
+    dispatchAcceptedSessionEvent: (event) => recoveredEvents.push(event),
+    getAppCapabilities: () => ({ terminal: { enabled: false } }),
+  });
+  const recoveryController = createSessionTransportController({
+    getTransportState: () => recoveryTransport,
+    updateTransportState: (updater) => {
+      recoveryTransport = updater(recoveryTransport);
+      return recoveryTransport;
+    },
+    loadSession: activateRecovery,
+  });
+  const recoveryGap = recoveryController.applyEvent({
+    schema_version: 1,
+    session_id: "sess-recovery",
+    event_id: "evt-recovery-3",
+    sequence: 3,
+    event_kind: "step.started",
+    timestamp: "2026-08-03T00:00:03Z",
+    payload: { step_id: "step-3" },
+  });
+  assert.equal(recoveryGap.reason, "sequence_gap");
+  const firstRecovery = recoveryController.recover("sess-recovery");
+  const repeatedRecovery = recoveryController.recover("sess-recovery");
+  assert.equal(firstRecovery, repeatedRecovery);
+  await firstRecovery;
+  assert.equal(recoveryTransport.lastAppliedSeq, 3);
+  assert.equal(recoveryTransport.reloadState, "healthy");
+  assert.deepEqual(recoveredEvents.map((event) => event.sequence), [3]);
 
   harness.sockets[0].onmessage({ data: "{bad json" });
   assert.equal(transport.connectionState, "degraded");

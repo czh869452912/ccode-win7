@@ -17,8 +17,8 @@ export async function runSocketEffectExecutorTests() {
         accepted: true,
       };
     },
-    recover(sessionId, transportState) {
-      recovered.push({ sessionId, transportState });
+    recover(sessionId) {
+      recovered.push(sessionId);
       return Promise.resolve();
     },
   };
@@ -51,8 +51,7 @@ export async function runSocketEffectExecutorTests() {
 
   assert.equal(appendedEvents.length, 1);
   assert.equal(recovered.length, 1);
-  assert.equal(recovered[0].sessionId, "sess-active");
-  assert.equal(recovered[0].transportState.reloadState, "reload_required");
+  assert.equal(recovered[0], "sess-active");
   assert.deepEqual(clearedRequestIds, ["ask-1"]);
   assert.deepEqual(actions, [
     { type: "interaction_resolved", requestId: "ask-1" },
@@ -62,7 +61,10 @@ export async function runSocketEffectExecutorTests() {
 
   let transport = createSessionTransportState();
   const fallbackLoadedSessions = [];
+  const unavailableActions = [];
   const fallbackExecute = createSocketEffectExecutor({
+    dispatch: (action) => unavailableActions.push(action),
+    getSessionTransportController: () => null,
     getSessionTransportState: () => transport,
     updateSessionTransportState: (updater) => {
       transport = updater(transport);
@@ -96,11 +98,13 @@ export async function runSocketEffectExecutorTests() {
         payload: { turn_id: "turn-1", step_id: "step-1" },
       },
     ],
+    actions: [{ type: "turn_started", turnId: "turn-1" }],
   });
 
-  assert.equal(transport.lastAppliedSeq, 1);
-  assert.equal(transport.reloadState, "reload_required");
-  assert.deepEqual(fallbackLoadedSessions, ["sess-fallback"]);
+  assert.equal(transport.lastAppliedSeq, 0);
+  assert.equal(transport.reloadState, "healthy");
+  assert.deepEqual(fallbackLoadedSessions, []);
+  assert.deepEqual(unavailableActions, []);
 
   const rejectedActions = [];
   const reject = createSocketEffectExecutor({

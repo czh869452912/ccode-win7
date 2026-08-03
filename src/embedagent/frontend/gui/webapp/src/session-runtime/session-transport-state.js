@@ -70,9 +70,15 @@ export function applySessionTransportEvent(state, event) {
     return application(state, false, "stale_sequence");
   }
   if (event.sequence !== state.lastAppliedSeq + 1) {
+    const bufferedEvents = state.bufferedEvents.some(
+      (item) => item.event_id === event.event_id,
+    )
+      ? state.bufferedEvents
+      : state.bufferedEvents.concat(event);
     return application(
       {
         ...state,
+        bufferedEvents,
         reloadState: "reload_required",
       },
       false,
@@ -94,12 +100,16 @@ export function applySessionTransportEvent(state, event) {
 
 export function beginSessionTransportBootstrap(state, sessionId) {
   const current = state || createSessionTransportState();
+  const resolvedSessionId = String(sessionId || "");
+  const bufferedEvents =
+    current.sessionId === resolvedSessionId ? current.bufferedEvents.slice() : [];
   return {
     ...createSessionTransportState({
-      sessionId,
+      sessionId: resolvedSessionId,
       phase: "buffering",
       connectionState: current.connectionState,
     }),
+    bufferedEvents,
     generation: Number(current.generation || 0) + 1,
   };
 }

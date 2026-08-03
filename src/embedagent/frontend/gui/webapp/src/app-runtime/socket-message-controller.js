@@ -19,9 +19,7 @@ export function createSocketMessageController({
   executeLoaderRequest,
   getSessionTransportController,
   getSessionTransportState,
-  updateSessionTransportState,
   getCurrentSessionId,
-  loadSession,
   clearRespondingRequestId,
   getDiffPanelChrome,
   makeId,
@@ -47,17 +45,13 @@ export function createSocketMessageController({
           dispatch,
           executeLoaderRequest,
           getSessionTransportController,
-          getSessionTransportState,
-          updateSessionTransportState,
           getCurrentSessionId,
-          loadSession,
           clearRespondingRequestId,
         });
 
-  function handleMessage(messageOrType, data) {
-    return schedule(() => {
-      const message = readMessageInput(messageOrType, data);
-      const effects = buildEffects({
+  function deriveMessageEffects(messageOrType, data) {
+    const message = readMessageInput(messageOrType, data);
+    return buildEffects({
         type: message.type,
         data: message.data,
         currentSessionId: readCurrentSessionId(),
@@ -66,10 +60,27 @@ export function createSocketMessageController({
         nowIso,
         diffPanelChrome: readDiffPanelChrome(),
       });
+  }
+
+  function handleMessage(messageOrType, data) {
+    return schedule(() => {
+      const effects = deriveMessageEffects(messageOrType, data);
       applyEffects(effects);
       return effects;
     });
   }
 
-  return { handleMessage };
+  function handleAcceptedSessionEvent(envelope) {
+    return schedule(() => {
+      const effects = deriveMessageEffects("session_event", envelope);
+      const acceptedEffects = {
+        ...effects,
+        transportEvents: [],
+      };
+      applyEffects(acceptedEffects);
+      return acceptedEffects;
+    });
+  }
+
+  return { handleAcceptedSessionEvent, handleMessage };
 }

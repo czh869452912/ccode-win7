@@ -42,6 +42,28 @@ export function runSocketMessageControllerTests() {
   assert.equal(deriveInputs[0].makeId("cmd"), "cmd-stable");
   assert.equal(deriveInputs[0].nowIso(), "2026-07-05T00:00:00.000Z");
 
+  const acceptedEffects = [];
+  const acceptedController = createSocketMessageController({
+    deriveEffects: ({ data }) => ({
+      actions: [{ type: "step_started", stepId: data.payload.step_id }],
+      transportEvents: [data],
+      loaderRequests: [{ name: "load_sessions" }],
+    }),
+    executeEffects: (effects) => acceptedEffects.push(effects),
+  });
+  acceptedController.handleAcceptedSessionEvent({
+    event_id: "evt-accepted",
+    event_kind: "step.started",
+    payload: { step_id: "step-accepted" },
+  });
+  assert.deepEqual(acceptedEffects, [
+    {
+      actions: [{ type: "step_started", stepId: "step-accepted" }],
+      transportEvents: [],
+      loaderRequests: [{ name: "load_sessions" }],
+    },
+  ]);
+
   const tupleControllerInputs = [];
   const tupleController = createSocketMessageController({
     deriveEffects: (input) => {

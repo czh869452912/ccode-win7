@@ -1,5 +1,6 @@
 import {
   applySessionTransportEvent,
+  bufferSessionTransportEvent,
   capRetryAttempt,
 } from "../session-runtime/session-transport-state.js";
 import { shouldReconnectSocket } from "../session-runtime/websocket-lifecycle.js";
@@ -32,6 +33,7 @@ export function createSessionTransportController({
   let token = 0;
   let manualClose = false;
   let retryAttempt = 0;
+  let recoveryPromise = null;
   const location = locationObject || defaultLocation();
   const clock = timer || defaultTimer();
   const makeSocket = socketFactory || defaultSocketFactory;
@@ -47,28 +49,28 @@ export function createSessionTransportController({
     typeof loadSession === "function" ? loadSession : () => Promise.resolve();
   const dispatchMessage = typeof handleMessage === "function" ? handleMessage : () => {};
 
-  async function recover(sessionId, state = readTransportState()) {
-    if (!sessionId) return;
-    try {
-      updateTransport((current) => ({
-        ...current,
-        connectionState: current.connectionState === "degraded" ? "degraded" : "connected",
-        reloadState: state?.reloadState === "degraded" ? "degraded" : "reload_required",
-      }));
-      await loadSessionBootstrap(sessionId);
-      updateTransport((current) => ({
-        ...current,
-        connectionState: "connected",
-        reloadState: "healthy",
-        lastAppliedSeq: Number(state?.lastAppliedSeq || current.lastAppliedSeq || 0),
-      }));
-    } catch (_) {
-      updateTransport((current) => ({
-        ...current,
-        connectionState: "degraded",
-        reloadState: "degraded",
-      }));
-    }
+  function recover(sessionId) {
+    if (!sessionId) return Promise.resolve();
+    if (recoveryPromise) return recoveryPromise;
+    updateTransport((current) => ({
+      ...current,
+      connectionState: current.connectionState === "degraded" ? "degraded" : "connected",
+      reloadState:
+        current.reloadState === "degraded" ? "degraded" : "reload_required",
+    }));
+    recoveryPromise = Promise.resolve()
+      .then(() => loadSessionBootstrap(sessionId, { reason: "gap" }))
+      .catch(() => {
+        updateTransport((current) => ({
+          ...current,
+          connectionState: "degraded",
+          reloadState: "degraded",
+        }));
+      })
+      .finally(() => {
+        recoveryPromise = null;
+      });
+    return recoveryPromise;
   }
 
   function connect() {
@@ -116,6 +118,15 @@ export function createSessionTransportController({
   function applyEvent(event) {
     let result = null;
     updateTransport((current) => {
+      if (current.phase === "buffering") {
+        const state = bufferSessionTransportEvent(current, event);
+        result = {
+          state,
+          accepted: false,
+          reason: "buffered_event",
+        };
+        return state;
+      }
       result = applySessionTransportEvent(current, event);
       return result.state;
     });

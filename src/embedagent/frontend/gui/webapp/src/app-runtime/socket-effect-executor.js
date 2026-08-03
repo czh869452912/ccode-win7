@@ -1,5 +1,3 @@
-import { applySessionTransportEvent } from "../session-runtime/session-transport-state.js";
-
 function isReloadRequired(transportState) {
   return (
     transportState?.reloadState === "reload_required" ||
@@ -11,10 +9,7 @@ export function createSocketEffectExecutor({
   dispatch,
   executeLoaderRequest,
   getSessionTransportController,
-  getSessionTransportState,
-  updateSessionTransportState,
   getCurrentSessionId,
-  loadSession,
   clearRespondingRequestId,
 } = {}) {
   const send = typeof dispatch === "function" ? dispatch : () => {};
@@ -24,12 +19,6 @@ export function createSocketEffectExecutor({
     typeof getSessionTransportController === "function"
       ? getSessionTransportController
       : () => null;
-  const readTransportState =
-    typeof getSessionTransportState === "function" ? getSessionTransportState : () => ({});
-  const updateTransport =
-    typeof updateSessionTransportState === "function"
-      ? updateSessionTransportState
-      : (updater) => updater(readTransportState());
   const readCurrentSessionId =
     typeof getCurrentSessionId === "function" ? getCurrentSessionId : () => "";
 
@@ -37,23 +26,14 @@ export function createSocketEffectExecutor({
     if (transportController && typeof transportController.applyEvent === "function") {
       return transportController.applyEvent(entry || {});
     }
-    let result = null;
-    updateTransport((current) => {
-      result = applySessionTransportEvent(current, entry || {});
-      return result.state;
-    });
-    return result;
+    return { state: null, accepted: false, reason: "transport_unavailable" };
   }
 
   function recoverIfNeeded(transportController, nextTransport) {
     const currentSessionId = readCurrentSessionId();
     if (!isReloadRequired(nextTransport) || !currentSessionId) return;
     if (transportController && typeof transportController.recover === "function") {
-      void transportController.recover(currentSessionId, nextTransport);
-      return;
-    }
-    if (typeof loadSession === "function") {
-      void loadSession(currentSessionId);
+      void transportController.recover(currentSessionId);
     }
   }
 
@@ -64,7 +44,7 @@ export function createSocketEffectExecutor({
     let transportAccepted = true;
     if (transportEvents.length) {
       const transportController = readTransportController();
-      let nextTransport = readTransportState();
+      let nextTransport = null;
       for (const entry of transportEvents) {
         const result = applyTransportEvent(transportController, entry);
         nextTransport = result?.state || nextTransport;

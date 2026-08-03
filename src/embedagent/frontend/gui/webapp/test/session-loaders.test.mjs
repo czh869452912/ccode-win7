@@ -82,6 +82,7 @@ export async function runSessionLoadersTests() {
 
   const activation = deriveSessionActivation(
     {
+      event_cursor: 7,
       snapshot: {
         session_id: "sess-bootstrap",
         status: "waiting_permission",
@@ -161,6 +162,7 @@ export async function runSessionLoadersTests() {
   );
 
   assert.equal(activation.sessionId, "sess-bootstrap");
+  assert.equal(activation.eventCursor, 7);
   assert.equal(activation.snapshot.session_id, "sess-bootstrap");
   assert.equal(activation.snapshot.current_mode, "debug");
   assert.equal(activation.snapshot.status, "waiting_permission");
@@ -177,6 +179,7 @@ export async function runSessionLoadersTests() {
 
   const sparseActivation = deriveSessionActivation(null, "sess-empty");
   assert.equal(sparseActivation.sessionId, "sess-empty");
+  assert.equal(sparseActivation.eventCursor, 0);
   assert.equal(sparseActivation.snapshot.session_id, "");
   assert.deepEqual(sparseActivation.activities, []);
   assert.equal(sparseActivation.historyIntegrity, null);

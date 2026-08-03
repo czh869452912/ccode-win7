@@ -24,7 +24,7 @@ function envelope(sessionId, sequence, eventId) {
 }
 
 export function runSessionRuntimeTests() {
-  const initial = createSessionTransportState();
+  const initial = createSessionTransportState({ sessionId: "sess-1", phase: "live" });
   const firstApplication = applySessionTransportEvent(initial, {
     schema_version: 1,
     session_id: "sess-1",
@@ -45,6 +45,12 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(gap.state.reloadState, "reload_required");
   assert.equal(gap.accepted, false);
+  assert.deepEqual(gap.state.bufferedEvents.map((item) => item.sequence), [3]);
+  const recoveryBuffer = beginSessionTransportBootstrap(gap.state, "sess-1");
+  assert.deepEqual(
+    recoveryBuffer.bufferedEvents.map((item) => item.sequence),
+    [3],
+  );
 
   let buffering = beginSessionTransportBootstrap(createSessionTransportState(), "s-1");
   assert.equal(buffering.phase, "buffering");

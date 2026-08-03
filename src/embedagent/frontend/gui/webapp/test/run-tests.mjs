@@ -2268,6 +2268,10 @@ async function main() {
   );
   assert.equal(sessionActivationControllerSource.includes("deriveSessionActivation"), true);
   assert.equal(sessionActivationControllerSource.includes("/bootstrap"), true);
+  assert.equal(sessionActivationControllerSource.includes("beginSessionTransportBootstrap"), true);
+  assert.equal(sessionActivationControllerSource.includes("installSessionTransportBootstrap"), true);
+  assert.equal(sessionActivationControllerSource.includes("activeRequest"), true);
+  assert.equal(sessionActivationControllerSource.includes("dispatchAcceptedSessionEvent"), true);
 
   const sessionTransportControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "session-transport-controller.js"),
@@ -2346,6 +2350,14 @@ async function main() {
   assert.equal(appSource.includes('nextTransport.reloadState === "reload_required"'), false);
   assert.equal(appSource.includes("for (const action of effects.actions"), false);
   assert.equal(appSource.includes("handleMessage: socketMessageController.handleMessage"), true);
+  assert.equal(appSource.includes("getTransportState: sessionTransportHandle.read"), true);
+  assert.equal(appSource.includes("updateTransportState: sessionTransportHandle.update"), true);
+  assert.equal(
+    appSource.includes("socketMessageController.handleAcceptedSessionEvent(envelope)"),
+    true,
+  );
+  assert.equal(appSource.includes("createTransportState: sessionTransportHandle"), false);
+  assert.equal(appSource.includes("replaceTransportState: sessionTransportHandle"), false);
   assert.equal(
     appSource.includes("startTransition(() => socketMessageController.handleMessage"),
     false,
@@ -2360,10 +2372,12 @@ async function main() {
   assert.equal(socketMessageControllerSource.includes("createSocketEffectExecutor"), true);
   assert.equal(socketMessageControllerSource.includes("scheduleMessage"), true);
   assert.equal(socketMessageControllerSource.includes("function handleMessage"), true);
+  assert.equal(socketMessageControllerSource.includes("function handleAcceptedSessionEvent"), true);
   assert.equal(socketMessageControllerSource.includes("import React"), false);
   assert.equal(socketEffectExecutorSource.includes("export function createSocketEffectExecutor"), true);
-  assert.equal(socketEffectExecutorSource.includes("applySessionTransportEvent"), true);
-  assert.equal(socketEffectExecutorSource.includes("recover(currentSessionId, nextTransport)"), true);
+  assert.equal(socketEffectExecutorSource.includes("applySessionTransportEvent"), false);
+  assert.equal(socketEffectExecutorSource.includes("typeof loadSession"), false);
+  assert.equal(socketEffectExecutorSource.includes("recover(currentSessionId)"), true);
   assert.equal(socketEffectExecutorSource.includes("executeLoaderRequest"), true);
   assert.equal(socketEffectExecutorSource.includes("import React"), false);
   assert.equal(appSource.includes("function handleTimelineScroll"), false);
