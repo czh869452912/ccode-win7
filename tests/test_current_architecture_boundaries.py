@@ -5,6 +5,7 @@ current public construction paths and verify that stale aliases remain absent.
 """
 
 import ast
+import re
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -761,3 +762,35 @@ def test_core_profile_prompt_is_product_neutral():
     )
     assert "EmbedAgent" not in source
     assert "优先用中文" not in source
+
+
+def test_tui_rendering_layers_do_not_import_host_implementation():
+    tui_root = ROOT / "src/embedagent/frontend/tui"
+    composition_files = {
+        tui_root / "bootstrap.py",
+        tui_root / "launcher.py",
+    }
+    offenders = []
+    for path in tui_root.rglob("*.py"):
+        if path in composition_files:
+            continue
+        for module in _imported_modules(path):
+            if module == "embedagent_host" or module.startswith("embedagent_host."):
+                offenders.append("%s imports %s" % (_relative(path), module))
+    assert offenders == []
+
+
+def test_terminal_runtime_is_the_only_tui_host_call_owner():
+    tui_root = ROOT / "src/embedagent/frontend/tui"
+    host_call_pattern = re.compile(r"\bself\._host\.")
+    owners = {
+        path.relative_to(tui_root).as_posix()
+        for path in tui_root.rglob("*.py")
+        if host_call_pattern.search(_read(path))
+    }
+
+    assert owners == {"runtime.py"}
+    runtime_source = _read(tui_root / "runtime.py")
+    assert "SessionEventEnvelope" in runtime_source
+    assert "def on_session_event(self, envelope: SessionEventEnvelope)" in runtime_source
+    assert "session_host.adapter" not in runtime_source

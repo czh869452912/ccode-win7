@@ -12,10 +12,10 @@
 
 ## P0: Frontend Shell Convergence
 
-- 让 GUI ProtocolAdapter/ClientRuntime 和 TUI TerminalRuntime 成为各自唯一 effect owner。
 - 由 product composition 编译 GUI/TUI 共用的 shell descriptors，删除固定 catalog 和 fallback。
 - 将核心体验收敛为 Pi 式 session、timeline、composer、interaction、command 和 status 工作面；其他能力改为可选 contribution。
 - 删除双 wire shape、C/C++ 通用层展开字段、`t3/parity` 命名和旧路径。
+- 保持已建立的基线：GUI `ProtocolAdapter` / `ClientRuntime` 和 TUI `TerminalRuntime` 是唯一 effect owners，wire 只接受 current version 1 `snake_case` DTO。
 - 仅当移除全部上层 contribution 后 GUI/TUI 仍可作为稳定最小 Agent shell 工作时退出本阶段。
 
 ## P1: Release Acceptance

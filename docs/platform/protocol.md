@@ -25,22 +25,35 @@
 - local resource reload；
 - shutdown。
 
-`FrontendCallbacks` 只保留 canonical `on_session_event(envelope)` live-session callback。注册前端实现该接口，并通过 `CoreInterface` 反向发起命令。新 GUI、TUI、CLI 或其他 shell 使用同一对接口，不增加前端专用 Core facade。
+`FrontendCallbacks` 只保留 canonical `on_session_event(envelope)` live-session callback。GUI app host 通过 `CoreInterface` / `FrontendCallbacks` 绑定浏览器 shell；TUI 通过公开 `HostedSessionHost` 间接消费同一 DTO 和 event callback 语义。新 shell 不增加前端专用 Core facade 或 event shape。
 
 ## 3. DTO Families
 
-- session：`SessionSnapshot`, `ThreadShell`, `ThreadDetailSnapshot`, `PlanSnapshot`, `PermissionContext`；
+- session：`SessionSnapshot`, `ThreadShell`, `SessionBootstrap`, `PlanSnapshot`, `PermissionContext`；
 - events：`SessionEventEnvelope`, `FailureRecord`；
 - capabilities：`CapabilitySnapshot`, `ModeDescriptor`, `CommandDescriptor`, `ToolPresentation`, `WorkflowPackageDescriptor`, `AgentApplicationDescriptor`；
-- app shell：`AppBootstrap` 及 workspace/surface descriptors；
+- app shell：`AppBootstrap`, `ShellDescriptor` 及 workspace/surface descriptors；
 - activity：`Message`, `ToolCall`, `ToolResult`, `CommandResult`, `InteractionActivity`；
 - workspace：`WorkspaceInfo`, `DiffPreview`, `RuntimeEnvironmentSnapshot`。
 
-当前 `SessionSnapshot` 仍包含 `current_phase`、`discipline_profile`、`current_activity`、`task_summary` 和 `task_items` 等上层 workflow 展开字段，尚未达到本节声明的通用边界。前端收敛切片将让消费者只读取 generic `workflow`，并在同一 strict cutover 中删除这些字段及其 Host/frontend 映射。
+`SessionBootstrap` 是唯一详细会话 bootstrap DTO；已不存在并行 detail DTO。当前 `SessionSnapshot` 仍包含 `current_phase`、`discipline_profile`、`current_activity`、`task_summary` 和 `task_items` 等上层 workflow 展开字段，后续应用边界切片将让消费者只读取 generic `workflow`，并删除这些字段及其 Host/frontend 映射。
 
 DTO 可以携带通用 `workflow` 字典和 capability metadata，但协议发行包不导入任何应用实现。
 
-## 4. Adapter Rule
+## 4. Current Wire Schema
+
+当前 wire schema version 是整数 `1`。`AppBootstrap`、`SessionBootstrap`、`ShellDescriptor` 和 `CapabilitySnapshot` 构造时拒绝其他版本；GUI strict protocol normalizer 对 bootstrap、capability 和 `SessionEventEnvelope` 同样只接受 version `1` 与 `snake_case` keys。app-shell registration 的内部 view projection 不定义 wire shape，并将在共享注册切换中由 product-compiled descriptor 取代。
+
+| Root DTO | Exact current root keys |
+|---|---|
+| `AppBootstrap` | `schema_version`, `app`, `workspaces`, `active_workspace`, `has_active_workspace`, `shell`, `settings`, `diagnostics`, `last_error`；workspace 删除响应可额外包含 `removed` |
+| `SessionBootstrap` | `schema_version`, `event_cursor`, `thread`, `snapshot`, `history`, `capabilities`, `workflow`, `plan`, `permission_context` |
+| `CapabilitySnapshot` | `schema_version`, `modes`, `commands`, `tools`, `workflow_packages`, `agent_application`, `agent_applications`, `resources`, `model_profiles`, `empty_state` |
+| `SessionEventEnvelope` | `schema_version`, `event_id`, `session_id`, `sequence`, `event_kind`, `timestamp`, `payload` |
+
+`history` 只包含 `activities` 和 `integrity`。descriptor DTO 也拒绝未声明字段；generic `metadata`、`workflow`、`payload` 等显式扩展映射保留开放内容。Python DTO `to_dict()` 是 wire serializer，JavaScript `protocol-normalizer.js` 是唯一 wire-to-view-model 映射点；内部 React camelCase 属性不是 wire shape。
+
+## 5. Adapter Rule
 
 `AgentCoreAdapter` 可将 Host 的 snapshot dictionary 转换为协议 dataclass，但对 live events 只做 validation/forwarding：Host 创建一次 `SessionEventEnvelope`，adapter 不重命名 event kind、不重组 payload、不为不同 shell 重新编码。
 
@@ -52,11 +65,11 @@ flowchart LR
     A -->|on_session_event| UI
 ```
 
-## 5. Registration And Composition
+## 6. Registration And Composition
 
-`AgentCoreAdapter.register_frontend(...)` 绑定当前 shell callback。GUI app host 可按 workspace 创建/替换 `CoreInterface` 实例，TUI 可绑定单 workspace core。应用 registry、默认 workflow、provider、tools 和产品文案由 product composition 注入，不由 protocol 或 shell 写死。
+`AgentCoreAdapter.register_frontend(...)` 绑定当前 shell callback。GUI app host 可按 workspace 创建/替换 `CoreInterface` 实例；TUI 从产品 bootstrap 接收公开 `HostedSessionHost` 边界并由 `TerminalRuntime` 适配为同一 bootstrap/envelope 语义。应用 registry、默认 workflow、provider、tools 和产品文案由 product composition 注入，不由 protocol 或 shell 写死。
 
-## 6. Verification
+## 7. Verification
 
 - `tests/test_architecture.py`
 - `tests/test_protocol_package_imports.py`
@@ -65,7 +78,7 @@ flowchart LR
 - `tests/test_terminal_frontend.py`
 - `tests/test_inprocess_adapter_frontend_api.py`
 
-## 7. Related Documents
+## 8. Related Documents
 
 - `docs/platform/frontend-protocol.md`
 - `docs/platform/frontend-gui.md`

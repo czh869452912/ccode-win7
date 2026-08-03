@@ -27,6 +27,7 @@ Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md` 
 - `documentation-navigation-system/`
 - `documentation-domain-separation/`
 - `enterprise-boundary-foundation/`
+- `frontend-shell-convergence-foundation/`
 - `gui-agent-bridge-review-fixes/`
 - `interaction-response-async/`
 - `gui-app-runtime-boundary/`

@@ -22,8 +22,8 @@ GUI 不拥有 Agent Core policy、session history、workflow transition、permis
 | `backend/app_host.py` | workspace registry，按 workspace 创建/切换 `CoreInterface`，绑定 frontend callback |
 | `backend/server.py`, routes/services | HTTP/WebSocket 协议、session/app bootstrap、files、preview、terminal、source control |
 | `backend/app_shell*.py` | backend-owned commands/surfaces/capability shell descriptors |
-| `webapp/src/client-runtime/` | wire validation 与 protocol adaptation；尚未成为全部 HTTP/WebSocket effect 的唯一入口 |
-| `webapp/src/app-runtime/` | controller/effect orchestration；拥有 session activation generation、event ordering/recovery 和 socket shutdown，仍有直接 endpoint 调用待迁移 |
+| `webapp/src/client-runtime/` | 唯一 shell effect owner；组合 HTTP/WebSocket transports、strict protocol adapter、controllers、lifecycle 和 close |
+| `webapp/src/app-runtime/` | 由 `ClientRuntime` 组合的 controller/effect orchestration；不声明 endpoint，不直接调用 transport |
 | `webapp/src/session-runtime/` | pure session/activity/read-model reducers |
 | `webapp/src/workbench/`, `components/` | renderer-local registries、UI state 和 visual surfaces |
 
@@ -33,7 +33,8 @@ flowchart LR
     L --> H["GUIAppHost"]
     H --> C["CoreInterface per workspace"]
     C -->|SessionEventEnvelope| W["WebSocket frontend"]
-    W --> R["React reducers"]
+    W --> PA["strict ProtocolAdapter"]
+    PA --> R["ClientRuntime + reducers"]
     R --> U["capability-driven workbench"]
 ```
 
@@ -47,11 +48,12 @@ app host 可以是 multi-workspace 或 `SingleWorkspaceAppHost`。新产品可�
 
 1. app bootstrap 加载 product metadata、workspaces、commands 和 surfaces；
 2. workspace activation 获得一个 `CoreInterface`；
-3. session activation 先启动新 generation，再调用 `/api/sessions/{id}/bootstrap` 获取 projection 与 Host-owned `event_cursor`；
-4. activation 期间到达的 canonical `session_event` 按 session 缓冲，app-level shell notifications 保持独立；
-5. bootstrap 安装以 cursor 为唯一 sequence 基线，只释放连续且尚未覆盖的 envelopes；
-6. 通过 transport 接受的 envelope 进入同一个 protocol adapter 与 runtime reducer，按 `event_kind` 更新前端投影；
-7. invalidation metadata 触发 controller 刷新 backend read models。
+3. `main.jsx` 组合 HTTP transport、socket transport 和 protocol adapter，`App.jsx` 只创建并绑定一个 `ClientRuntime`；
+4. session activation 先启动新 generation，再通过 named protocol method 获取 projection 与 Host-owned `event_cursor`；
+5. activation 期间到达的 canonical `session_event` 按 session 缓冲，app-level shell notifications 保持独立；
+6. bootstrap 安装以 cursor 为唯一 sequence 基线，只释放连续且尚未覆盖的 envelopes；
+7. 通过 transport 接受的 envelope 进入同一个 protocol adapter 与 runtime reducer，按 `event_kind` 更新前端投影；
+8. invalidation metadata 触发 controller 刷新 backend read models。
 
 renderer 不从事件尾部重建历史。断线重连或 session 切换后，以新 session bootstrap 为准，不以 local persisted timeline 为准。
 
@@ -63,7 +65,7 @@ session transport controller 拥有 socket callbacks、retry timer、recovery pr
 
 backend descriptors 拥有 modes、commands、tools、applications、workflow packages、surfaces、empty-state copy 和 chrome metadata。React 读模型计算当前可见 commands/surfaces，renderer-local registry 只将通用 kind 映射为 component/handler。
 
-右面板、底部 drawer、command palette、timeline row 和 tool detail 的可见性主要由 descriptors 与 catalog metadata 驱动，但 terminal、source-control 和部分 controller 仍绕过 ProtocolAdapter 直接调用 endpoint。renderer 不以 application id、tool name 或 product name 推测能力；本地 fallback catalog 将随共享注册切换删除。
+右面板、底部 drawer、command palette、timeline row 和 tool detail 的可见性由 descriptors 与 catalog metadata 驱动。所有 terminal、source-control、preview、file 和 session 操作都经 `ClientRuntime` 的 named protocol methods；renderer 不以 application id、tool name 或 product name 推测能力。当前开放差距是 GUI/TUI 尚未消费同一 product-compiled shell descriptor，renderer-local fallback catalog 将在共享注册切换中删除。
 
 ## 6. State Ownership
 
@@ -86,6 +88,9 @@ webapp 构建目标与 Windows 7 可用的 Chromium/WebView runtime 能力对齐
 - `tests/test_gui_sync.py`
 - `tests/test_gui_app_host.py`
 - `tests/test_gui_app_shell.py`
+- `src/embedagent/frontend/gui/webapp/test/client-runtime.test.mjs`
+- `src/embedagent/frontend/gui/webapp/test/protocol-adapter.test.mjs`
+- `src/embedagent/frontend/gui/webapp/test/protocol-envelope.test.mjs`
 - `src/embedagent/frontend/gui/webapp`: `npm test`, `npm run build`
 
 webapp source 变更后必须提交 `src/embedagent/frontend/gui/static/` 生成资产。实机 Windows 7/browser runtime 验收属于 release evidence，不能由本地前端测试替代。

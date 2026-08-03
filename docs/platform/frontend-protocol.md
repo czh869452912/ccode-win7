@@ -20,7 +20,20 @@
 
 前端 local state 只拥有布局、选中、折叠、draft、scroll 和输入中交互等展示状态。它不拥有 session history、workflow、permission、tool activation、capability availability 或 restore policy。
 
-## 2. Canonical Event Envelope
+## 2. Effect Ownership
+
+GUI 和 TUI 各有一个 shell runtime，renderer 不直接执行 Host 或 transport effect：
+
+| Shell | Effect owner | Boundary rule |
+|---|---|---|
+| GUI | `ClientRuntime` | `main.jsx` 组合 HTTP transport、socket transport 和 protocol adapter；只有 `protocol-adapter.js` 声明 endpoint，只有 `http-transport.js` 调用 `fetch`，只有 `socket-transport.js` 构造 WebSocket；controllers 只调用 named protocol methods |
+| TUI | `TerminalRuntime` | 只调用 `HostedSessionHost` 公开方法，拥有 selected session、cursor、generation、bootstrap buffer、gap recovery 和 close；controller、views 和 reducer 不导入 Host 实现 |
+
+`ClientRuntime` 和 `TerminalRuntime` 都接收一个 canonical session bootstrap 和 `SessionEventEnvelope`。它们拥有请求取消、旧 generation 失效和 effect dispatch；React/terminal renderer 只消费 action 与可丢失投影。不得再增加 direct endpoint helper、adapter 逃逸、三参数 event callback 或 shell-local history loader。
+
+精确 DTO keys、当前 schema version 和 serializer authority 只在 `docs/platform/protocol.md` 定义。
+
+## 3. Canonical Event Envelope
 
 `SessionEventEnvelope` 字段：
 
@@ -45,9 +58,9 @@ Host `SessionEventEncoder` 为一次 live change 创建一个 envelope，Core ad
 
 schema version 是实际 wire compatibility 标识，不是文档或架构命名。
 
-## 3. Session Bootstrap
+## 4. Session Bootstrap
 
-`/api/sessions/{id}/bootstrap` 是前端激活 session 的正式路径。响应至少包含：
+GUI 的 `/api/sessions/{id}/bootstrap` 与 TUI 的 `HostedSessionHost.get_session_bootstrap(...)` 是各自正式激活入口，并返回同一个 `SessionBootstrap` shape。响应至少包含：
 
 - thread shell metadata；
 - frozen session snapshot；
@@ -62,7 +75,7 @@ Host 在同一个 per-session event stream 同步边界内加载 projection 并�
 
 shell 在请求 bootstrap 前启动新的 activation generation，并缓冲该 session 的 live envelopes。安装时先以 `event_cursor` 作为唯一基线，丢弃不高于 cursor 的 envelope，再按 sequence 应用连续事件；这些事件仍进入统一 `session_event` reducer 路径。sequence gap 只启动当前 generation 的一个 recovery，旧 generation 的 projection、cursor、events 和异步回调全部失效，恢复完成后不得写回旧 cursor。
 
-## 4. Capabilities And Registries
+## 5. Capabilities And Registries
 
 `CapabilitySnapshot` 可投影：
 
@@ -79,29 +92,29 @@ app bootstrap 可声明 surfaces、commands 和 workspace state。shell 必须�
 
 renderer-local registry 只声明当前 shell 支持哪些通用 component/handler/renderer kinds。它是展示实现表，不是 capability source。未支持的 descriptor 必须显式隐藏并产生受控 diagnostics，不得以 generic fallback 补入未注册的应用能力。
 
-## 5. Generic Workflow Projection
+## 6. Generic Workflow Projection
 
 `workflow` 是通用、命名空间可扩展的读模型。shell 可显示 summary、items、activity 和 metadata，但不解释上层应用内部类或在前端推进状态。新应用通过 backend projection 和 descriptors 参与，不要求协议硬编码其专有词汇。
 
-## 6. Interactions
+## 7. Interactions
 
 permission 和 user-input request payload 共享 stable `request_id` / `interaction_id`, `turn_id` 及请求细节。shell 调用 `respond_to_interaction(...)` 后，Host 原子 claim 该交互并返回 acknowledgement。只有 resolved event 和后续 session snapshot 能清除 pending interaction。
 
 前端必须防止同一 request 重复提交，但该本地防护不代替 Host claim。response-failed 事件应恢复可操作状态或显示后端错误，不假设 action 已执行。
 
-## 7. Tool Presentation And Refresh
+## 8. Tool Presentation And Refresh
 
 tool catalog 提供 label、permission category、renderer keys、preview/changed-path metadata 和 provenance。timeline 只按这些字段展示，不按 tool name 猜测。`read_model_invalidations` 可请求 shell 刷新 workspace files、capabilities 等读模型，但不能改变工具、权限或 workflow。
 
 tool/activity identity 使用 engine-issued `turn_id`, `step_id`, `step_index`, `call_id`。前端不 mint 替代 identity。
 
-## 8. Failure And Diagnostics
+## 9. Failure And Diagnostics
 
 tool failure 可携带 `FailureRecord(code, message, retryable, source)`。runtime config、compaction、recovery、turn experience、extension diagnostics 和 integrity 都是读模型，仅用于恢复/调试可见性。它们不是 active-tool、permission、context selection、extension loading 或 history authority。
 
 协议不发送 full prompt、skill/prompt body、source contents、raw tool output、API key、approval secret 或 permission token。
 
-## 9. Verification
+## 10. Verification
 
 - `tests/test_session_event_protocol.py`
 - `tests/test_inprocess_adapter_frontend_api.py`
@@ -111,7 +124,7 @@ tool failure 可携带 `FailureRecord(code, message, retryable, source)`。runti
 - `src/embedagent/frontend/gui/webapp/test/protocol-envelope.test.mjs`
 - `src/embedagent/frontend/gui/webapp/test/protocol-adapter.test.mjs`
 
-## 10. Related Documents
+## 11. Related Documents
 
 - `docs/platform/protocol.md`
 - `docs/platform/session-runtime.md`

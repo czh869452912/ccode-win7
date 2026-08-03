@@ -15,9 +15,9 @@
 | Tools and extensions | Core extension/action files, `packages/embedagent-host/src/embedagent_host/runtime/tools/`, local/project extension files | `docs/platform/tools-and-extensions.md` | `docs/platform/tool-contracts.md`, `docs/platform/permission-model.md` |
 | Permissions and context | `packages/embedagent-core/src/embedagent_core/permissions.py`, `packages/embedagent-host/src/embedagent_host/runtime/context.py`, workspace intelligence | `docs/platform/permissions-and-context.md` | `docs/platform/permission-model.md` |
 | Modes and profiles | `src/embedagent/modes.py`, Core/Host profile files | `docs/platform/mode-contract.md` | `docs/platform/tools-and-extensions.md` |
-| Protocol | `packages/embedagent-protocol/src/embedagent_protocol/`, `src/embedagent/core/` | `docs/platform/protocol.md` | `docs/platform/frontend-protocol.md` |
-| GUI shell | `src/embedagent/frontend/gui/` | `docs/platform/frontend-gui.md` | `docs/platform/frontend-protocol.md`, `docs/workflows/release-doc-checklist.md` |
-| TUI shell | `src/embedagent/frontend/tui/` | `docs/platform/frontend-tui.md` | `docs/platform/frontend-protocol.md` |
+| Protocol | `packages/embedagent-protocol/src/embedagent_protocol/app_protocol.py`, `session_events.py`, `src/embedagent/core/` | `docs/platform/protocol.md` | `docs/platform/frontend-protocol.md` |
+| GUI shell | `src/embedagent/frontend/gui/backend/`, `webapp/src/client-runtime/`, `app-runtime/`, `session-runtime/`, `workbench/` | `docs/platform/frontend-gui.md` | `docs/platform/frontend-protocol.md`, `docs/workflows/release-doc-checklist.md` |
+| TUI shell | `src/embedagent/frontend/tui/runtime.py`, `frontend_adapter.py`, `controller.py`, `reducer.py`, `views/` | `docs/platform/frontend-tui.md` | `docs/platform/frontend-protocol.md` |
 | C/C++ application | `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/` | `docs/applications/cpp-workflow.md` | `docs/platform/tools-and-extensions.md`, `docs/platform/mode-contract.md` |
 | Product composition | `src/embedagent/product_catalog.py`, product bootstrap/CLI/launchers, `packages/embedagent-composition/` | `docs/product/composition.md` | `docs/overall-solution-architecture.md`, `docs/platform/protocol.md` |
 | Packaging and delivery | `scripts/`, distribution metadata, bundled assets | `docs/product/packaging-and-deployment.md` | `docs/guides/win7-release-runbook.md`, `docs/workflows/release-doc-checklist.md` |

@@ -1122,6 +1122,49 @@ def test_gui_transports_and_protocol_are_composed_outside_app():
     assert "request," not in protocol_text
 
 
+def test_gui_wire_effects_have_single_declared_owners():
+    source_root = ROOT / "src/embedagent/frontend/gui/webapp/src"
+    source_files = _source_files_under(
+        "src/embedagent/frontend/gui/webapp/src",
+        suffixes=(".js", ".jsx"),
+    )
+
+    def owners(pattern):
+        return {
+            path.relative_to(source_root).as_posix()
+            for path in source_files
+            if re.search(pattern, _read(path))
+        }
+
+    assert owners(r"/api/") == {"client-runtime/protocol-adapter.js"}
+    assert owners(r"\bfetch\s*\(") == {"client-runtime/http-transport.js"}
+    assert owners(r"\bWebSocket(?:Constructor)?\b") == {"client-runtime/socket-transport.js"}
+
+
+def test_frontend_protocol_sources_do_not_keep_retired_wire_readers():
+    frontend_files = _source_files_under(
+        "src/embedagent/frontend/gui/backend",
+        "src/embedagent/frontend/gui/webapp/src",
+        "src/embedagent/frontend/tui",
+    )
+    frontend_source = "\n".join(_read(path) for path in frontend_files)
+    for token in (
+        "camelOrSnake",
+        "fetchJson",
+    ):
+        assert token not in frontend_source
+
+    python_source = "\n".join(
+        _read(path)
+        for path in _source_files_under(
+            "packages",
+            "src",
+            suffixes=(".py",),
+        )
+    )
+    assert "ThreadDetailSnapshot" not in python_source
+
+
 def test_gui_initial_app_load_is_controller_owned():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     controller_text = _read(

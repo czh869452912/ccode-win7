@@ -9,19 +9,15 @@
 ## Frontend Shell Convergence
 
 - `docs/superpowers/specs/2026-08-03-frontend-shell-convergence-design.md`
-- `docs/superpowers/plans/2026-08-03-frontend-transport-correctness.md`
-- `docs/superpowers/plans/2026-08-03-strict-frontend-protocol-authority.md`
 - `docs/superpowers/plans/2026-08-03-shared-shell-registration.md`
 - `docs/superpowers/plans/2026-08-03-minimal-agent-workbench.md`
 - `docs/superpowers/plans/2026-08-03-frontend-workflow-boundary-cleanup.md`
 
 执行顺序是固定的：
 
-1. transport correctness；
-2. strict protocol authority；
-3. shared shell registration；
-4. minimal agent workbench；
-5. workflow boundary and structure cleanup。
+1. shared shell registration；
+2. minimal agent workbench；
+3. workflow boundary and structure cleanup。
 
 ## Closure Rule
 
