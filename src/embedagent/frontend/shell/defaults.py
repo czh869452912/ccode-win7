@@ -234,12 +234,12 @@ def desktop_file_contribution() -> ShellContribution:
                 "workspace",
                 "shell.surface",
                 210,
-                {"surface_id": "workspace.files"},
+                {"surface_id": "files"},
             ),
         ),
         surfaces=(
             _surface(
-                "workspace.files",
+                "files",
                 "Files",
                 "secondary",
                 "file_reference",
@@ -258,12 +258,12 @@ def terminal_contribution() -> ShellContribution:
                 "shell",
                 "shell.surface",
                 300,
-                {"surface_id": "shell.terminal"},
+                {"surface_id": "terminal"},
             ),
         ),
         surfaces=(
             _surface(
-                "shell.terminal",
+                "terminal",
                 "Terminal",
                 "secondary",
                 "terminal",
@@ -282,12 +282,12 @@ def source_control_contribution() -> ShellContribution:
                 "shell",
                 "shell.surface",
                 400,
-                {"surface_id": "shell.source_control"},
+                {"surface_id": "source_control"},
             ),
         ),
         surfaces=(
             _surface(
-                "shell.source_control",
+                "source_control",
                 "Source Control",
                 "secondary",
                 "source_control",
@@ -306,12 +306,12 @@ def preview_contribution() -> ShellContribution:
                 "shell",
                 "shell.surface",
                 500,
-                {"surface_id": "shell.preview"},
+                {"surface_id": "preview"},
             ),
         ),
         surfaces=(
             _surface(
-                "shell.preview",
+                "preview",
                 "Preview",
                 "secondary",
                 "preview",

@@ -235,7 +235,7 @@ export function runRightPanelStoreParityTests() {
     "approval-secret",
     "diagnostic secret",
   ]) {
-    assert.equal(persistedText.includes(forbidden), false);
+    assert.equal(persistedText.includes(forbidden), false, forbidden);
   }
   const restored = parsePersistedWorkbenchUiState(serialized);
   const restoredText = serializedTextFor(restored);

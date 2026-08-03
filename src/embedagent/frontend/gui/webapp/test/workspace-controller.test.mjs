@@ -13,10 +13,27 @@ function readSource(...parts) {
 
 function bootstrap(id = "ws-2", active = true) {
   return {
-    active_workspace: active ? { id, path: `D:/work/${id}`, label: id } : null,
-    workspaces: active ? [{ id, path: `D:/work/${id}`, label: id }] : [],
+    schema_version: 1,
+    app: { shell_version: 1, product_name: "EmbedAgent", protocol: "gui_app_shell_v1" },
+    active_workspace: active
+      ? { id, path: `D:/work/${id}`, label: id, exists: true }
+      : null,
+    workspaces: active
+      ? [{ id, path: `D:/work/${id}`, label: id, exists: true }]
+      : [],
     has_active_workspace: active,
-    capabilities: active ? { terminal: { enabled: true } } : {},
+    shell: {
+      schema_version: 1,
+      commands: [],
+      surfaces: [],
+      keybindings: [],
+      tool_presentations: [],
+      timeline_items: [],
+      interactions: [],
+    },
+    settings: { confirm_workspace_switch: true, show_diagnostics_badge: true },
+    diagnostics: {},
+    last_error: "",
   };
 }
 

@@ -27,7 +27,7 @@ function defineSurface(input) {
   });
 }
 
-export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
+const RIGHT_PANEL_RENDERERS = Object.freeze([
   defineSurface({
     kind: "preview",
     placement: "right",
@@ -156,7 +156,7 @@ export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
   }),
 ]);
 
-export const BOTTOM_DRAWER_SURFACE_REGISTRY = Object.freeze([
+const BOTTOM_DRAWER_RENDERERS = Object.freeze([
   defineSurface({
     kind: "run_output",
     placement: "bottom",
@@ -261,7 +261,7 @@ export function surfaceChromeLabels(appCapabilities = null) {
 }
 
 function surfaceDefinitionsForPlacement(placement) {
-  return placement === "bottom" ? BOTTOM_DRAWER_SURFACE_REGISTRY : RIGHT_PANEL_SURFACE_REGISTRY;
+  return placement === "bottom" ? BOTTOM_DRAWER_RENDERERS : RIGHT_PANEL_RENDERERS;
 }
 
 function surfaceDefinitionForPlacement(kind, placement) {
@@ -347,7 +347,7 @@ function filterSurfaceDefinitions(definitions, placement, appCapabilities) {
 function configuredSurfaceDefinitionFor(kind, placement, appCapabilities = null) {
   const normalized = String(kind || "");
   const staticDefinition = surfaceDefinitionForPlacement(normalized, placement);
-  if (!appCapabilities) return staticDefinition;
+  if (!appCapabilities) return null;
   const capabilities = surfaceCapabilityDefinitions(appCapabilities, placement);
   const capability = capabilities.find((item) => item.kind === normalized);
   if (!capability) {
@@ -363,10 +363,6 @@ function configuredSurfaceDefinitionFor(kind, placement, appCapabilities = null)
   return hasDisplayTitle(merged) ? merged : null;
 }
 
-export function rightPanelSurfaceDefinitions() {
-  return RIGHT_PANEL_SURFACE_REGISTRY;
-}
-
 export function surfaceDefinitionFor(kind, appCapabilities = null) {
   return configuredSurfaceDefinitionFor(kind, "right", appCapabilities);
 }
@@ -376,11 +372,11 @@ export function bottomDrawerSurfaceDefinitionFor(kind, appCapabilities = null) {
 }
 
 export function rightPanelLauncherSurfaceDefinitions(appCapabilities = null) {
-  return filterSurfaceDefinitions(RIGHT_PANEL_SURFACE_REGISTRY, "right", appCapabilities);
+  return filterSurfaceDefinitions(RIGHT_PANEL_RENDERERS, "right", appCapabilities);
 }
 
 export function bottomDrawerSurfaceDefinitions(appCapabilities = null) {
-  return filterSurfaceDefinitions(BOTTOM_DRAWER_SURFACE_REGISTRY, "bottom", appCapabilities);
+  return filterSurfaceDefinitions(BOTTOM_DRAWER_RENDERERS, "bottom", appCapabilities);
 }
 
 function appendSurfaceDefinition(result, seen, definition) {
@@ -407,39 +403,6 @@ export function persistedSurfaceDefinitions(appCapabilities = null, placement = 
     }
   }
   return result;
-}
-
-export function surfaceCommandDefinitions(appCapabilities = null) {
-  return rightPanelLauncherSurfaceDefinitions(appCapabilities)
-    .filter((definition) => definition.command !== false && definition.commandLabel)
-    .map((definition) => ({
-      id: `surface.${definition.kind}`,
-      group: "surface",
-      label: definition.commandLabel,
-      description: definition.description,
-      slash: definition.slash || "",
-      surface: definition.kind,
-      visibleWhen: definition.visibleWhen || "always",
-      ...(definition.keywords.length > 0 ? { keywords: Array.from(definition.keywords) } : {}),
-    }));
-}
-
-export function bottomDrawerCommandDefinitions(appCapabilities = null) {
-  return bottomDrawerSurfaceDefinitions(appCapabilities)
-    .filter((definition) => definition.command !== false && definition.commandLabel)
-    .map((definition) => ({
-      id: `drawer.${definition.kind}`,
-      group: "surface",
-      label: definition.commandLabel,
-      description: definition.description,
-      slash: definition.slash || "",
-      drawer: definition.kind,
-      dispatch: definition.dispatch && typeof definition.dispatch === "object"
-        ? { ...definition.dispatch }
-        : {},
-      visibleWhen: definition.visibleWhen || "always",
-      ...(definition.keywords.length > 0 ? { keywords: Array.from(definition.keywords) } : {}),
-    }));
 }
 
 export function supportedSurfaceKinds(placement = "right") {
@@ -634,9 +597,10 @@ export function persistedSurfaceFrom(input, fallbackPlacement = "right", appCapa
   const placement = normalizePlacement(source.placement || fallbackPlacement);
   const kind = String(source.kind || "").trim();
   const definition = configuredSurfaceDefinitionFor(kind, placement, appCapabilities);
-  if (!definition && !allowedKinds(placement).includes(kind)) return null;
+  const renderer = definition || surfaceDefinitionForPlacement(kind, placement);
+  if (!renderer) return null;
   const surface = makeSurface({ ...source, placement, kind });
-  return definition ? pickSurfaceFields(surface, definition.persistFields) : surface;
+  return pickSurfaceFields(surface, renderer.persistFields);
 }
 
 export function titleForSurfaceKind(kind, appCapabilities = null) {

@@ -88,7 +88,7 @@ function surfaceCommands(state, status) {
     sessionCapabilities: sessionCapabilityModel.sessionCapabilities,
   }));
   return commands
-    .filter((command) => command && (command.group === "surface" || command.drawer))
+    .filter((command) => command?.dispatch?.kind === "shell.surface")
     .map((command) => command.id);
 }
 

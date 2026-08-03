@@ -22,9 +22,29 @@ export function runAppWorkspaceTests() {
   assert.equal(workspace.exists, true);
 
   const bootstrap = normalizeAppBootstrap({
+    schema_version: 1,
+    app: {
+      shell_version: 1,
+      product_name: "EmbedAgent",
+      protocol: "gui_app_shell_v1",
+    },
     workspaces: [workspace],
     active_workspace: workspace,
     has_active_workspace: true,
+    shell: {
+      schema_version: 1,
+      commands: [],
+      surfaces: [],
+      keybindings: [],
+      tool_presentations: [],
+      timeline_items: [],
+      interactions: [],
+    },
+    settings: {
+      confirm_workspace_switch: true,
+      show_diagnostics_badge: true,
+    },
+    diagnostics: {},
     last_error: "",
   });
   assert.equal(bootstrap.workspaces.length, 1);

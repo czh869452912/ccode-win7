@@ -41,21 +41,6 @@ function deriveEvent(eventKind, payload, sequence = 1, options = {}) {
 }
 
 export function runSocketMessageEffectsTests() {
-  const workspaceActive = derive("workspace_changed", {
-    has_active_workspace: true,
-    active_workspace: { id: "ws-1", path: "D:/work/demo", label: "demo" },
-    workspaces: [{ id: "ws-1", path: "D:/work/demo", label: "demo" }],
-  });
-  assert.equal(workspaceActive.actions[0].type, "workspace_switched");
-  assert.equal(workspaceActive.actions[0].bootstrap.hasActiveWorkspace, true);
-  assert.deepEqual(workspaceActive.loaderRequests, [
-    { name: LOADER_REQUESTS.LOAD_ACTIVE_WORKSPACE_DATA, sessionId: "", assumeWorkspace: true },
-  ]);
-
-  const workspaceInactive = derive("workspace_changed", { has_active_workspace: false });
-  assert.equal(workspaceInactive.actions[0].type, "workspace_switched");
-  assert.equal(workspaceInactive.actions[1].type, "source_control_reset");
-
   const status = deriveEvent("session.status", {
     session_snapshot: {
       session_id: "sess-active",

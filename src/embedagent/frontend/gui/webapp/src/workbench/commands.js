@@ -1,27 +1,3 @@
-import { normalizeCommandCapabilities } from "../session-runtime/command-capabilities.js";
-import {
-  bottomDrawerCommandDefinitions,
-  surfaceCommandDefinitions,
-} from "./surfaces.js";
-
-function appCommandDefinitions(appCapabilities = null) {
-  return Array.isArray(appCapabilities?.appCommands) ? appCapabilities.appCommands : [];
-}
-
-function workspaceCommandDefinitions(appCapabilities = null) {
-  return Array.isArray(appCapabilities?.workspaceCommands) ? appCapabilities.workspaceCommands : [];
-}
-
-function workbenchCommandDefinitions(appCapabilities = null) {
-  return Array.isArray(appCapabilities?.workbenchCommands) ? appCapabilities.workbenchCommands : [];
-}
-
-function defaultCommandGroupId(appCapabilities = null) {
-  return String(
-    appCapabilities?.chrome?.composer?.commandMenu?.defaultCommandGroupId || "",
-  ).trim();
-}
-
 function hasOwn(object, key) {
   return Object.prototype.hasOwnProperty.call(object, key);
 }
@@ -53,40 +29,11 @@ export function buildCommandVisibilityContext(options = {}) {
   };
 }
 
-function commandFromCapability(item = {}, appCapabilities = null) {
-  const id = String(item.id || item.name || "").trim();
-  if (!id) return null;
-  const group = String(item.group || defaultCommandGroupId(appCapabilities)).trim();
-  return {
-    id,
-    group,
-    label: String(item.label || item.usage || "").trim(),
-    slash: String(item.slash || item.usage || "").trim(),
-    visibleWhen: String(item.visibleWhen || "always").trim() || "always",
-    keywords: [item.name, item.summary, item.sourceType, item.sourceId].filter(Boolean),
-    dispatch: item.dispatch && typeof item.dispatch === "object" ? item.dispatch : {},
-  };
-}
-
-export function buildWorkbenchCommands(capabilities = {}, appCapabilities = null) {
-  const dynamicCommands = normalizeCommandCapabilities(capabilities).commands
-    .map((command) => commandFromCapability(command, appCapabilities))
-    .filter(Boolean);
-  const commands = [];
-  const seen = new Set();
-  const builtinCommands = [
-    ...appCommandDefinitions(appCapabilities),
-    ...workbenchCommandDefinitions(appCapabilities),
-    ...surfaceCommandDefinitions(appCapabilities),
-    ...bottomDrawerCommandDefinitions(appCapabilities),
-    ...workspaceCommandDefinitions(appCapabilities),
-  ];
-  for (const command of builtinCommands.concat(dynamicCommands)) {
-    if (!command || !command.id || !command.label || seen.has(command.id)) continue;
-    seen.add(command.id);
-    commands.push(command);
-  }
-  return commands;
+export function buildWorkbenchCommands(_capabilities = {}, appCapabilities = null) {
+  const declared = Array.isArray(appCapabilities?.workbenchCommands)
+    ? appCapabilities.workbenchCommands
+    : [];
+  return declared.filter((command) => command?.id && command?.label);
 }
 
 export function commandById(id, capabilities = {}, appCapabilities = null) {

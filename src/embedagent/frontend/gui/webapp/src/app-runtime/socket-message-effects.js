@@ -1,4 +1,3 @@
-import { normalizeAppBootstrap } from "../app-workspaces.js";
 import { createDiffSurfaceState } from "../session-runtime/diff-model.js";
 import { normalizeSessionPayload } from "../state-helpers.js";
 import { LOADER_REQUESTS } from "./session-loaders.js";
@@ -297,21 +296,6 @@ export function deriveSocketMessageEffects({
   diffPanelChrome = {},
 } = {}) {
   const payload = data || {};
-  if (type === "workspace_changed") {
-    const effects = emptyEffects();
-    const bootstrap = normalizeAppBootstrap(payload);
-    effects.actions.push({ type: "workspace_switched", bootstrap });
-    if (bootstrap.hasActiveWorkspace) {
-      effects.loaderRequests.push({
-        name: LOADER_REQUESTS.LOAD_ACTIVE_WORKSPACE_DATA,
-        sessionId: "",
-        assumeWorkspace: true,
-      });
-    } else {
-      effects.actions.push({ type: "source_control_reset" });
-    }
-    return effects;
-  }
   if (type === "terminal_event") {
     const effects = emptyEffects();
     effects.actions.push({ type: "terminal_event", event: payload?.event || payload || {} });

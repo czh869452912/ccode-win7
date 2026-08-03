@@ -5,12 +5,24 @@ import { initialState } from "../src/client-runtime/runtime-reducer.js";
 
 function appBootstrap() {
   return {
+    schema_version: 1,
     app: { shell_version: 1, product_name: "EmbedAgent", protocol: "gui_app_shell_v1" },
     workspaces: [],
     active_workspace: null,
     has_active_workspace: false,
-    capabilities: {},
-    settings: {},
+    shell: {
+      schema_version: 1,
+      commands: [],
+      surfaces: [],
+      keybindings: [],
+      tool_presentations: [],
+      timeline_items: [],
+      interactions: [],
+    },
+    settings: {
+      confirm_workspace_switch: true,
+      show_diagnostics_badge: true,
+    },
     diagnostics: {},
     last_error: "",
   };

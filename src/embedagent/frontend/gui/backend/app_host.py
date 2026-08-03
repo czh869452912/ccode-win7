@@ -105,7 +105,6 @@ class GUIAppHost(object):
             self._active_core = next_core
             self._active_workspace = refreshed
             self._last_error = ""
-            self._broadcast_workspace_changed()
             return self.bootstrap()
 
     def remove_workspace(self, workspace_id: str) -> Dict[str, Any]:
@@ -119,7 +118,6 @@ class GUIAppHost(object):
                     self._active_core.shutdown()
                 self._active_core = None
                 self._active_workspace = None
-                self._broadcast_workspace_changed()
             payload = self.bootstrap()
             payload["removed"] = removed
             return payload
@@ -131,12 +129,6 @@ class GUIAppHost(object):
             self._active_workspace = None
         if core is not None:
             core.shutdown()
-
-    def _broadcast_workspace_changed(self) -> None:
-        frontend = self._frontend
-        dispatch = getattr(frontend, "_dispatch_message", None)
-        if callable(dispatch):
-            dispatch({"type": "workspace_changed", "data": self.bootstrap()})
 
 
 class SingleWorkspaceAppHost(object):

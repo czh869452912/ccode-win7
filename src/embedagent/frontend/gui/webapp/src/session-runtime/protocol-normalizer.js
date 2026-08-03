@@ -45,6 +45,15 @@ function bool(value, scope, field) {
   return value;
 }
 
+function uniqueIds(items, scope, kind) {
+  const ids = new Set();
+  for (const item of items) {
+    if (ids.has(item.id)) invalid(scope, `duplicate_${kind}:${item.id}`);
+    ids.add(item.id);
+  }
+  return ids;
+}
+
 export function normalizeModeDescriptor(value) {
   const scope = "capability_snapshot";
   const data = record(value, scope, "mode");
@@ -64,8 +73,7 @@ export function normalizeModeDescriptor(value) {
   });
 }
 
-export function normalizeCommandDescriptor(value) {
-  const scope = "capability_snapshot";
+export function normalizeCommandDescriptor(value, scope = "capability_snapshot") {
   const data = record(value, scope, "command");
   exact(
     data,
@@ -100,8 +108,7 @@ export function normalizeCommandDescriptor(value) {
   });
 }
 
-export function normalizeToolDescriptor(value) {
-  const scope = "capability_snapshot";
+export function normalizeToolDescriptor(value, scope = "capability_snapshot") {
   const data = record(value, scope, "tool");
   exact(
     data,
@@ -382,6 +389,8 @@ function normalizeShellDescriptor(value, scope) {
     scope,
     "shell",
   );
+  const commands = array(data.commands, scope, "shell.commands").map((item) =>
+    normalizeCommandDescriptor(item, scope));
   schemaVersion(data.schema_version, scope, "shell.schema_version");
   const surfaces = array(data.surfaces, scope, "shell.surfaces").map((value) => {
     const item = record(value, scope, "shell.surface");
@@ -431,13 +440,25 @@ function normalizeShellDescriptor(value, scope) {
       rendererKey: requiredText(item.renderer_key, scope, "shell.interaction.renderer_key"),
     });
   });
+  const commandIds = uniqueIds(commands, scope, "shell_command");
+  uniqueIds(surfaces, scope, "shell_surface");
+  for (const command of commands) {
+    if (typeof command.dispatch.kind !== "string" || !command.dispatch.kind.trim()) {
+      invalid(scope, `shell_command_dispatch_kind:${command.id}`);
+    }
+  }
+  for (const keybinding of keybindings) {
+    if (!commandIds.has(keybinding.commandId)) {
+      invalid(scope, `unknown_keybinding_command:${keybinding.commandId}`);
+    }
+  }
   return Object.freeze({
     schemaVersion: data.schema_version,
-    commands: array(data.commands, scope, "shell.commands").map(normalizeCommandDescriptor),
+    commands,
     surfaces,
     keybindings,
     toolPresentations: array(data.tool_presentations, scope, "shell.tool_presentations")
-      .map(normalizeToolDescriptor),
+      .map((item) => normalizeToolDescriptor(item, scope)),
     timelineItems,
     interactions,
   });

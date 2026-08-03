@@ -88,6 +88,7 @@ import { runThreadStateTests } from "./thread-state.test.mjs";
 import { runRunOutputStateTests } from "./run-output-state.test.mjs";
 import { runStoreReducerTests } from "./store-reducer.test.mjs";
 import { createComposerState, readComposerDraft } from "../src/composer/composer-state.js";
+import { normalizeAppBootstrap } from "../src/app-shell/model.js";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -97,6 +98,29 @@ function webappSourcePath(...parts) {
 
 function readWebappSourceText(...parts) {
   return fs.readFileSync(webappSourcePath(...parts), "utf8").replace(/\r\n?/g, "\n");
+}
+
+function appBootstrap(patch = {}) {
+  return normalizeAppBootstrap({
+    schema_version: 1,
+    app: { shell_version: 1, product_name: "EmbedAgent", protocol: "gui_app_shell_v1" },
+    workspaces: [],
+    active_workspace: null,
+    has_active_workspace: false,
+    shell: {
+      schema_version: 1,
+      commands: [],
+      surfaces: [],
+      keybindings: [],
+      tool_presentations: [],
+      timeline_items: [],
+      interactions: [],
+    },
+    settings: { confirm_workspace_switch: true, show_diagnostics_badge: true },
+    diagnostics: {},
+    last_error: "",
+    ...patch,
+  });
 }
 
 async function main() {
@@ -146,7 +170,7 @@ async function main() {
 
   const appLoadedState = reducer(initialState, {
     type: "app_bootstrap_loaded",
-    bootstrap: {
+    bootstrap: appBootstrap({
       workspaces: [
         {
           id: "ws-1",
@@ -157,7 +181,7 @@ async function main() {
           last_opened_at: "",
         },
       ],
-      activeWorkspace: {
+      active_workspace: {
         id: "ws-1",
         path: "D:/work/demo",
         label: "demo",
@@ -165,9 +189,8 @@ async function main() {
         created_at: "",
         last_opened_at: "",
       },
-      hasActiveWorkspace: true,
-      lastError: "",
-    },
+      has_active_workspace: true,
+    }),
   });
   assert.equal(appLoadedState.app.bootstrapLoaded, true);
   assert.equal(appLoadedState.app.activeWorkspace.id, "ws-1");
@@ -182,17 +205,9 @@ async function main() {
 
   const directAppLoadedState = reducer(initialState, {
     type: "app_shell_bootstrap_loaded",
-    bootstrap: {
-      app: { shell_version: 1, product_name: "EmbedAgent", protocol: "gui_app_shell_v1" },
-      workspaces: [],
-      active_workspace: null,
-      has_active_workspace: false,
+    bootstrap: appBootstrap({
       diagnostics: { host: { platform: "win32" } },
-      capabilities: {
-        app_commands: [{ id: "app.settings", label: "Preferences", group: "app" }],
-      },
-      settings: { confirm_workspace_switch: true },
-    },
+    }),
   });
   assert.equal(directAppLoadedState.app.bootstrapLoaded, true);
   assert.equal(directAppLoadedState.app.diagnostics.host.platform, "win32");
@@ -211,12 +226,7 @@ async function main() {
     },
     {
       type: "workspace_switched",
-      bootstrap: {
-        workspaces: [],
-        activeWorkspace: null,
-        hasActiveWorkspace: false,
-        lastError: "",
-      },
+      bootstrap: appBootstrap(),
     },
   );
   assert.equal(switchedWorkspaceState.thread.currentSessionId, "");
@@ -1405,7 +1415,7 @@ async function main() {
   assert.equal(socketMessageEffectsSource.includes("LOADER_REQUESTS"), true);
   assert.equal(socketMessageEffectsSource.includes('from "./session-loaders.js"'), true);
   assert.equal(socketMessageEffectsSource.includes("export const LOADER_REQUESTS"), false);
-  assert.equal(socketMessageEffectsSource.includes("workspace_changed"), true);
+  assert.equal(socketMessageEffectsSource.includes("workspace_changed"), false);
   assert.equal(socketMessageEffectsSource.includes("terminal_event"), true);
   assert.equal(socketMessageEffectsSource.includes('type: "set_inspector"'), false);
   assert.equal(socketMessageEffectsSource.includes("inspectorTab"), false);
@@ -1641,7 +1651,8 @@ async function main() {
   assert.equal(appShellModelSource.includes("label: String(input.label || id)"), false);
   assert.equal(appShellModelSource.includes("String(input.label || id).trim() || id"), false);
   assert.equal(workbenchCommandsSource.includes("item.label || item.usage || id"), false);
-  assert.equal(workbenchCommandsSource.includes("!command.label"), true);
+  assert.equal(workbenchCommandsSource.includes("command?.label"), true);
+  assert.equal(workbenchCommandsSource.includes("dynamicCommands"), false);
   assert.equal(commandPaletteModelSource.includes("asText(command.label) || asText(command.id)"), false);
   assert.equal(commandPaletteModelSource.includes("descriptor.description || command.id"), false);
   assert.equal(commandPaletteModelSource.includes("command.slash || command.id"), false);
@@ -2123,7 +2134,7 @@ async function main() {
   }
   assert.equal(commandCapabilitiesSource.includes('group: "command"'), false);
   assert.equal(composerCommandSearchSource.includes("defaultCommandGroupId"), true);
-  assert.equal(workbenchCommandsSource.includes("defaultCommandGroupId"), true);
+  assert.equal(workbenchCommandsSource.includes("defaultCommandGroupId"), false);
 
   const sessionActivationControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "session-activation-controller.js"),

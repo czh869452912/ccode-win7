@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 
+import { normalizeAppBootstrap } from "../src/app-shell/model.js";
 import { initialState, reducer } from "../src/store.js";
-
-function surface(id, title = id) {
-  return { id, title };
-}
 
 export function runStoreReducerTests() {
   const limitedState = {
@@ -113,14 +110,38 @@ export function runStoreReducerTests() {
 
   const appLimitedState = reducer(restoredWorkbenchState, {
     type: "app_bootstrap_loaded",
-    bootstrap: {
-      capabilities: {
-        surfaces: {
-          right_panel: [surface("files", "Files")],
-          bottom_drawer: [surface("logs", "Logs")],
-        },
+    bootstrap: normalizeAppBootstrap({
+      schema_version: 1,
+      app: {
+        shell_version: 1,
+        product_name: "EmbedAgent",
+        protocol: "gui_app_shell_v1",
       },
-    },
+      workspaces: [],
+      active_workspace: null,
+      has_active_workspace: false,
+      shell: {
+        schema_version: 1,
+        commands: [],
+        surfaces: [
+          {
+            id: "files",
+            label: "Files",
+            placement: "secondary",
+            renderer_key: "file_reference",
+            availability: {},
+            metadata: {},
+          },
+        ],
+        keybindings: [],
+        tool_presentations: [],
+        timeline_items: [],
+        interactions: [],
+      },
+      settings: { confirm_workspace_switch: true, show_diagnostics_badge: true },
+      diagnostics: {},
+      last_error: "",
+    }),
   });
 
   const workspacePathEditingState = reducer(restoredWorkbenchState, {

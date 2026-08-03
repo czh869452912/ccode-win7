@@ -28,10 +28,12 @@ export function runRightPanelTabsSourceTests() {
   assert.equal(tabsSource.includes("rightPanelLauncherSurfaceDefinitions"), true);
   assert.equal(tabsSource.includes("surfaceDefinitionFor"), true);
   assert.equal(tabsSource.includes("RIGHT_PANEL_SURFACES"), false);
-  assert.equal(commandsSource.includes("surfaceCommandDefinitions"), true);
+  assert.equal(commandsSource.includes("surfaceCommandDefinitions"), false);
+  assert.equal(commandsSource.includes("dynamicCommands"), false);
   assert.equal(commandsSource.includes('id: "surface.preview"'), false);
   assert.equal(commandsSource.includes('id: "surface.diff"'), false);
-  assert.equal(surfacesSource.includes("RIGHT_PANEL_SURFACE_REGISTRY"), true);
+  assert.equal(surfacesSource.includes("RIGHT_PANEL_SURFACE_REGISTRY"), false);
+  assert.equal(surfacesSource.includes("RIGHT_PANEL_RENDERERS"), true);
   assert.equal(surfacesSource.includes("persistFields"), true);
   assert.equal(surfacesSource.includes("closeBehavior"), true);
   assert.equal(surfacesSource.includes('title: "Preview"'), false);

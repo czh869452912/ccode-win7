@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 
 import { initialState, reducer } from "../src/store.js";
-import {
-  bottomDrawerCommandDefinitions,
-  surfaceCommandDefinitions,
-} from "../src/workbench/surfaces.js";
 import { buildWorkbenchParityModel } from "../src/workbench/workbench-parity-model.js";
 
 function clone(value) {
@@ -33,6 +29,22 @@ function sessionWorkspaceState(patch = {}) {
           { id: "workspace.open", group: "workspace", label: "Open Project" },
           { id: "workspace.refresh", group: "workspace", label: "Refresh Projects" },
           { id: "workspace.remove_current", group: "workspace", label: "Forget Project" },
+        ],
+        workbenchCommands: [
+          {
+            id: "shell.files",
+            group: "shell",
+            label: "Open Files",
+            visibleWhen: "always",
+            dispatch: { kind: "shell.surface", surface_id: "files" },
+          },
+          {
+            id: "shell.preview",
+            group: "shell",
+            label: "Open Preview",
+            visibleWhen: "always",
+            dispatch: { kind: "shell.surface", surface_id: "preview" },
+          },
         ],
         surfaces: {
           rightPanel: [
@@ -95,8 +107,8 @@ export function runWorkbenchParityModelTests() {
   assert.equal(desktopModel.composer.mode, "command-ready");
   assert.equal(desktopModel.timeline.density, "compact");
   assert.deepEqual(desktopModel.commandPalette.availableSurfaceCommands, [
-    ...surfaceCommandDefinitions(desktop.app.capabilities).map((command) => command.id),
-    ...bottomDrawerCommandDefinitions(desktop.app.capabilities).map((command) => command.id),
+    "shell.files",
+    "shell.preview",
   ]);
 
   const undeclaredModel = buildWorkbenchParityModel(

@@ -1,8 +1,12 @@
 import {
   createAppShellState,
-  normalizeAppBootstrap,
   normalizeAppSettings,
 } from "./model.js";
+
+function appBootstrap(value) {
+  if (!value || value.bootstrapLoaded !== true) throw new TypeError("app_bootstrap_not_normalized");
+  return value;
+}
 
 export function resetAppShellWorkspaceState(state = {}) {
   const current = { ...createAppShellState(), ...(state || {}) };
@@ -20,7 +24,7 @@ export function reduceAppShellState(state = createAppShellState(), action = {}) 
   const current = { ...createAppShellState(), ...(state || {}) };
   switch (action.type) {
     case "app_shell_bootstrap_loaded": {
-      const bootstrap = normalizeAppBootstrap(action.bootstrap || {});
+      const bootstrap = appBootstrap(action.bootstrap);
       return {
         ...current,
         ...bootstrap,
@@ -47,7 +51,7 @@ export function reduceAppShellState(state = createAppShellState(), action = {}) 
         workspaceError: action.error || "workspace_open_failed",
       };
     case "app_shell_workspace_switched": {
-      const bootstrap = normalizeAppBootstrap(action.bootstrap || {});
+      const bootstrap = appBootstrap(action.bootstrap);
       return {
         ...resetAppShellWorkspaceState(current),
         ...bootstrap,

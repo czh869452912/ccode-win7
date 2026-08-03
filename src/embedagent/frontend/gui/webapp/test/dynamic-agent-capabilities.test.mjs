@@ -14,53 +14,54 @@ import {
   toolDescriptor,
 } from "./protocol-fixtures.mjs";
 
-const BASE_APP_FIXTURE = Object.freeze({
-  app: { shell_version: 1, protocol: "gui_app_shell_v1" },
-  capabilities: {
-    empty_state: {
-      primary: "Open a workspace",
-      secondary: "",
-      path_placeholder: "D:\\work\\project",
+function appBootstrap(shell, app = {}) {
+  return {
+    schema_version: 1,
+    app: {
+      shell_version: 1,
+      product_name: "",
+      protocol: "gui_app_shell_v1",
+      ...app,
     },
-  },
-});
+    workspaces: [],
+    active_workspace: null,
+    has_active_workspace: false,
+    shell,
+    settings: {
+      confirm_workspace_switch: true,
+      show_diagnostics_badge: true,
+    },
+    diagnostics: {},
+    last_error: "",
+  };
+}
 
-const SPECIALIZED_APP_FIXTURE = Object.freeze({
-  app: {
-    shell_version: 1,
-    product_name: "Project Inspector",
-    protocol: "gui_app_shell_v1",
-  },
-  capabilities: {
-    workbench_commands: [
-      {
-        id: "project.check",
-        label: "Check project",
-        group: "project",
-        dispatch: { kind: "slash", command: "/check-project" },
-      },
-    ],
-    surfaces: {
-      right_panel: [
-        {
-          id: "project_report",
-          kind: "project_report",
-          title: "Project report",
-          body_kind: "surface_panel",
-          panel_kind: "descriptor",
-          launcher: true,
-          command: true,
-        },
-      ],
-    },
-    empty_state: {
-      scenario_label: "Inspection workspace",
-      primary: "Choose a project to inspect",
-      secondary: "Project capabilities configure this shell.",
-      path_placeholder: "D:\\work\\inspection-target",
-    },
-  },
-});
+function shellDescriptor(patch = {}) {
+  return {
+    schema_version: 1,
+    commands: [],
+    surfaces: [],
+    keybindings: [],
+    tool_presentations: [],
+    timeline_items: [],
+    interactions: [],
+    ...patch,
+  };
+}
+
+function shellCommand(id) {
+  return {
+    id,
+    label: "Check project",
+    group: "project",
+    dispatch: { kind: "session.command", command: "check-project" },
+    shortcut: "",
+    availability: {},
+    summary: "",
+    source_type: "agent_application",
+    source_id: "tests.project-inspector",
+  };
+}
 
 const SPECIALIZED_SESSION_FIXTURE = capabilitySnapshot({
   modes: [
@@ -70,9 +71,9 @@ const SPECIALIZED_SESSION_FIXTURE = capabilitySnapshot({
     }),
   ],
   commands: [
-    commandDescriptor("project.check", "Check project", {
+    commandDescriptor("project.unregistered", "Unregistered command", {
       group: "project",
-      dispatch: { kind: "slash", command: "/check-project" },
+      dispatch: { kind: "slash", command: "/unregistered" },
     }),
   ],
   tools: [
@@ -90,23 +91,37 @@ const SPECIALIZED_SESSION_FIXTURE = capabilitySnapshot({
       active: true,
     },
   ),
-  empty_state: SPECIALIZED_APP_FIXTURE.capabilities.empty_state,
+  empty_state: {
+    scenario_label: "Inspection workspace",
+    primary: "Choose a project to inspect",
+    secondary: "",
+    path_placeholder: "D:/work/inspection-target",
+  },
 });
 
 export function runDynamicAgentCapabilityTests() {
-  const baseApp = normalizeAppBootstrap(BASE_APP_FIXTURE);
+  const baseApp = normalizeAppBootstrap(appBootstrap(shellDescriptor()));
   const baseAppModel = buildAppCapabilityModel(baseApp.capabilities);
   const baseSession = normalizeProtocolCapabilities(capabilitySnapshot());
   const baseSessionModel = buildSessionCapabilityModel(baseSession);
 
-  assert.equal(baseApp.app.productName, "");
-  assert.equal(baseAppModel.emptyState.primary, "Open a workspace");
-  assert.deepEqual(baseSession.modes, []);
-  assert.deepEqual(baseSession.tools, []);
+  assert.deepEqual(baseAppModel.appCapabilities.workbenchCommands, []);
   assert.deepEqual(baseSessionModel.modeCatalog, {});
   assert.deepEqual(baseSessionModel.toolCatalog, {});
 
-  const specializedApp = normalizeAppBootstrap(SPECIALIZED_APP_FIXTURE);
+  const specializedApp = normalizeAppBootstrap(appBootstrap(shellDescriptor({
+    commands: [shellCommand("project.check")],
+    surfaces: [
+      {
+        id: "project_report",
+        label: "Project report",
+        placement: "secondary",
+        renderer_key: "workflow_summary",
+        availability: {},
+        metadata: { body_kind: "surface_panel", panel_kind: "descriptor" },
+      },
+    ],
+  }), { product_name: "Project Inspector" }));
   const specializedAppModel = buildAppCapabilityModel(specializedApp.capabilities);
   const specializedSession = normalizeProtocolCapabilities(SPECIALIZED_SESSION_FIXTURE);
   const specializedSessionModel = buildSessionCapabilityModel(specializedSession);
@@ -119,13 +134,12 @@ export function runDynamicAgentCapabilityTests() {
   );
 
   assert.equal(specializedApp.app.productName, "Project Inspector");
-  assert.equal(specializedAppModel.emptyState.scenarioLabel, "Inspection workspace");
-  assert.equal(specializedSession.modes[0].id, "inspect");
+  assert.equal(specializedSessionModel.emptyState.scenarioLabel, "Inspection workspace");
   assert.equal(specializedSessionModel.modeCatalog.inspect.label, "Inspect");
   assert.equal(specializedSessionModel.toolCatalog.project_check.label, "Project check");
-  assert.equal(specializedSessionModel.toolCatalog.project_check.metadata.preview_arg, "target");
   assert.equal(specializedSession.agentApplication.applicationId, "tests.project-inspector");
-  assert.equal(commands.some((item) => item.id === "project.check"), true);
+  assert.deepEqual(commands.map((item) => item.id), ["project.check"]);
+  assert.equal(commands.some((item) => item.id === "project.unregistered"), false);
   assert.deepEqual(surfaces.map((item) => item.kind), ["project_report"]);
   assert.equal(surfaces[0].bodyKind, "surface_panel");
 }
