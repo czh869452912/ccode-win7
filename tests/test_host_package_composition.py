@@ -148,24 +148,7 @@ class HostPackageCompositionTests(unittest.TestCase):
         self.assertNotIn("embedagent.default_c_cpp", available)
         self.assertEqual(payload["emptyState"]["scenario_label"], "Python workspace")
         self.assertEqual(payload["emptyState"]["primary"], "Open a Python project")
-        app_shell = payload["agentApplication"]["metadata"]["appShell"]
-        self.assertEqual(
-            app_shell["rightPanelSurfaceIds"],
-            [
-                "files",
-                "file",
-                "terminal",
-                "diff",
-                "plan",
-                "source_control",
-                "settings",
-                "diagnostics",
-            ],
-        )
-        self.assertEqual(
-            app_shell["disabledCapabilityIds"],
-            ["preview"],
-        )
+        self.assertNotIn("appShell", payload["agentApplication"]["metadata"])
 
     def test_agent_application_registry_uses_explicit_runtime_factories(self):
         module_path = os.path.join(

@@ -1,6 +1,13 @@
+import json
+
 from embedagent_host.hosted.launch_config import LaunchOverrides
+from embedagent_host.runtime.agent_applications import (
+    BUILTIN_AGENT_APPLICATION_RECORDS,
+    GENERIC_AGENT_APPLICATION_ID,
+)
 
 from embedagent.hosted import create_hosted_runtime, resolve_launch_config
+from embedagent.product_catalog import product_shell_registry
 
 
 def test_product_launch_config_injects_product_config_loader(tmp_path):
@@ -37,3 +44,20 @@ def test_product_runtime_injects_product_registry(tmp_path, monkeypatch):
     assert callable(captured["command_sanitizer_factory"])
     assert callable(captured["bundle_root_resolver"])
     assert callable(captured["system_prompt_builder"])
+
+
+def test_host_application_record_has_no_shell_metadata():
+    record = BUILTIN_AGENT_APPLICATION_RECORDS[0]
+
+    assert not hasattr(record, "app_shell")
+    assert "appShell" not in json.dumps(record.to_manifest().metadata)
+
+
+def test_generic_product_shell_has_no_cpp_contribution():
+    descriptor = product_shell_registry().compile(
+        application_id=GENERIC_AGENT_APPLICATION_ID,
+        session_capabilities={"commands": [{"id": "run", "active": True}]},
+    )
+
+    ids = {item.id for item in descriptor.commands}
+    assert "workflow.run" not in ids

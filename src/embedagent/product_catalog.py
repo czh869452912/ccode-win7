@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Iterable
 
 from embedagent_host.runtime.agent_applications import (
     BUILTIN_AGENT_APPLICATION_RECORDS,
@@ -12,69 +12,17 @@ from embedagent_workflow_cpp.package_manifest import C_WORKFLOW_PACKAGE_ID
 from embedagent_workflow_cpp.profile import default_cpp_profile
 from embedagent_workflow_cpp.workspace_profile import c_cpp_workspace_profile_detectors
 
+from embedagent.frontend.shell.defaults import (
+    cpp_workflow_contribution,
+    desktop_file_contribution,
+    minimal_shell_contribution,
+    preview_contribution,
+    source_control_contribution,
+    terminal_contribution,
+)
+from embedagent.frontend.shell.registration import ShellContribution, ShellContributionRegistry
+
 DEFAULT_C_CPP_AGENT_APPLICATION_ID = "embedagent.default_c_cpp"
-
-_DEFAULT_C_CPP_APP_SHELL = {
-    "rightPanelSurfaceIds": (
-        "preview",
-        "files",
-        "file",
-        "terminal",
-        "diff",
-        "plan",
-        "source_control",
-        "settings",
-        "diagnostics",
-    ),
-    "bottomDrawerSurfaceIds": ("run_output", "terminal"),
-    "appCommandIds": (
-        "app.settings",
-        "app.diagnostics",
-        "app.source_control",
-        "app.reload",
-    ),
-    "keybindingCommandIds": (
-        "palette.open",
-        "palette.close",
-        "message.stop",
-        "view.toggle_right_panel",
-        "app.settings",
-        "view.toggle_bottom_drawer",
-        "surface.files",
-        "surface.terminal",
-        "surface.diff",
-        "surface.preview",
-        "message.send",
-    ),
-    "commandPaletteGroupIds": (
-        "app",
-        "session",
-        "message",
-        "mode",
-        "surface",
-        "workspace",
-        "view",
-    ),
-    "disabledCapabilityIds": (),
-}
-
-
-def _command_palette_groups_with_workflow(base_groups: Any) -> List[str]:
-    groups = [str(item) for item in list(base_groups or []) if str(item or "").strip()]
-    if "workflow" in groups:
-        return groups
-    if "view" in groups:
-        index = groups.index("view")
-        return groups[:index] + ["workflow"] + groups[index:]
-    return groups + ["workflow"]
-
-
-def _c_cpp_app_shell(base_app_shell: Dict[str, Any]) -> Dict[str, Any]:
-    app_shell = dict(base_app_shell or {})
-    app_shell["commandPaletteGroupIds"] = tuple(
-        _command_palette_groups_with_workflow(app_shell.get("commandPaletteGroupIds"))
-    )
-    return app_shell
 
 
 def default_c_cpp_application_record() -> AgentApplicationRecord:
@@ -98,7 +46,6 @@ def default_c_cpp_application_record() -> AgentApplicationRecord:
             ),
             "path_placeholder": "Path to C/C++ project",
         },
-        app_shell=_c_cpp_app_shell(_DEFAULT_C_CPP_APP_SHELL),
     )
 
 
@@ -108,3 +55,43 @@ def product_agent_application_registry() -> AgentApplicationRegistry:
         + tuple(BUILTIN_AGENT_APPLICATION_RECORDS),
         default_application_id=DEFAULT_C_CPP_AGENT_APPLICATION_ID,
     )
+
+
+def _merge_shell_contributions(
+    contributions: Iterable[ShellContribution],
+) -> ShellContribution:
+    records = tuple(contributions)
+    return ShellContribution(
+        commands=tuple(item for record in records for item in record.commands),
+        surfaces=tuple(item for record in records for item in record.surfaces),
+        keybindings=tuple(item for record in records for item in record.keybindings),
+        tool_presentations=tuple(item for record in records for item in record.tool_presentations),
+        timeline_items=tuple(item for record in records for item in record.timeline_items),
+        interactions=tuple(item for record in records for item in record.interactions),
+    )
+
+
+def product_shell_registry() -> ShellContributionRegistry:
+    generic = _merge_shell_contributions(
+        (
+            minimal_shell_contribution(),
+            desktop_file_contribution(),
+            terminal_contribution(),
+            source_control_contribution(),
+            preview_contribution(),
+        )
+    )
+    applications = dict(
+        (record.application_id, ShellContribution()) for record in BUILTIN_AGENT_APPLICATION_RECORDS
+    )
+    applications[DEFAULT_C_CPP_AGENT_APPLICATION_ID] = cpp_workflow_contribution()
+    return ShellContributionRegistry(generic=generic, applications=applications)
+
+
+def product_shell_compiler():
+    registry = product_shell_registry()
+
+    def compile_descriptor(application_id, session_capabilities):
+        return registry.compile(application_id, session_capabilities)
+
+    return compile_descriptor
