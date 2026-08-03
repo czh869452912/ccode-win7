@@ -1,4 +1,5 @@
 import json
+import threading
 
 import pytest
 from embedagent_host.runtime.services.event_emitter import EventEmitter
@@ -115,3 +116,48 @@ def test_event_emitter_sends_one_envelope_instance_to_every_handler():
 
     assert first[0] is second[0]
     assert first[0].event_kind == "turn.started"
+
+
+def test_event_emitter_capture_returns_projection_and_current_cursor_atomically():
+    emitter = EventEmitter()
+    received = []
+    emitter.add_handler(None, received.append)
+    emitter.emit(None, "turn_start", "s-1", {"turn_id": "turn-1"})
+
+    captured = emitter.capture("s-1", lambda: {"snapshot": {"status": "idle"}})
+
+    assert captured["event_cursor"] == 1
+    assert captured["snapshot"] == {"status": "idle"}
+
+
+def test_event_emitter_capture_excludes_publication_blocked_behind_capture():
+    emitter = EventEmitter()
+    entered = threading.Event()
+    release = threading.Event()
+    captured = []
+
+    def load_projection():
+        entered.set()
+        assert release.wait(1.0)
+        return {"snapshot": {"status": "running"}}
+
+    capture_thread = threading.Thread(
+        target=lambda: captured.append(emitter.capture("s-1", load_projection))
+    )
+    capture_thread.start()
+    assert entered.wait(1.0)
+    event_thread = threading.Thread(
+        target=lambda: emitter.emit(
+            None,
+            "turn_start",
+            "s-1",
+            {"turn_id": "turn-1"},
+        )
+    )
+    event_thread.start()
+    release.set()
+    capture_thread.join(1.0)
+    event_thread.join(1.0)
+
+    assert captured[0]["event_cursor"] == 0
+    assert emitter.current_cursor("s-1") == 1

@@ -90,8 +90,23 @@ def _failed_tool_payload(event_kind: str, payload: Dict[str, Any]) -> Dict[str, 
 
 class SessionEventEncoder(object):
     def __init__(self) -> None:
-        self._lock = threading.Lock()
+        self._locks_guard = threading.Lock()
+        self._session_locks = {}  # type: Dict[str, threading.RLock]
         self._sequences = {}  # type: Dict[str, int]
+
+    def session_scope(self, session_id: str) -> threading.RLock:
+        resolved_session_id = str(session_id or "")
+        with self._locks_guard:
+            lock = self._session_locks.get(resolved_session_id)
+            if lock is None:
+                lock = threading.RLock()
+                self._session_locks[resolved_session_id] = lock
+        return lock
+
+    def current_sequence(self, session_id: str) -> int:
+        resolved_session_id = str(session_id or "")
+        with self.session_scope(resolved_session_id):
+            return int(self._sequences.get(resolved_session_id, 0) or 0)
 
     def encode(
         self,
@@ -107,7 +122,7 @@ class SessionEventEncoder(object):
         event_kind = _EVENT_KIND_MAP.get(event_name, event_name.replace("_", "."))
         data = _interaction_payload(event_name, data)
         data = _failed_tool_payload(event_kind, data)
-        with self._lock:
+        with self.session_scope(resolved_session_id):
             sequence = int(self._sequences.get(resolved_session_id, 0) or 0) + 1
             self._sequences[resolved_session_id] = sequence
         return SessionEventEnvelope(

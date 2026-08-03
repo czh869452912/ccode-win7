@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from embedagent_host.runtime.session_event_protocol import SessionEventEncoder, SessionEventHandler
 
@@ -41,17 +41,31 @@ class EventEmitter(object):
         session_id: str,
         payload: Dict[str, Any],
     ) -> None:
-        handlers = []
-        envelope = self._encoder.encode(session_id, event_name, payload)
-        if event_handler is not None:
-            handlers.append(event_handler)
-        handlers.extend(self._global_handlers)
-        handlers.extend(self._handlers.get(event_name, []))
-        for handler in handlers:
-            try:
-                handler(envelope)
-            except (RuntimeError, ValueError, TypeError, OSError):
-                logger.exception("Event handler failed for %s", event_name)
+        with self._encoder.session_scope(session_id):
+            handlers = []  # type: List[SessionEventHandler]
+            envelope = self._encoder.encode(session_id, event_name, payload)
+            if event_handler is not None:
+                handlers.append(event_handler)
+            handlers.extend(self._global_handlers)
+            handlers.extend(self._handlers.get(event_name, []))
+            for handler in handlers:
+                try:
+                    handler(envelope)
+                except (RuntimeError, ValueError, TypeError, OSError):
+                    logger.exception("Event handler failed for %s", event_name)
+
+    def current_cursor(self, session_id: str) -> int:
+        return self._encoder.current_sequence(session_id)
+
+    def capture(
+        self,
+        session_id: str,
+        projection_loader: Callable[[], Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        with self._encoder.session_scope(session_id):
+            payload = dict(projection_loader() or {})
+            payload["event_cursor"] = self._encoder.current_sequence(session_id)
+            return payload
 
     def emit_with_snapshot(
         self,
