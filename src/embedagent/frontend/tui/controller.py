@@ -2,14 +2,12 @@ from __future__ import annotations
 
 from typing import Dict, Optional
 
+from embedagent_protocol import SessionEventEnvelope
+
 import embedagent.frontend.tui.reducer as reducer
 from embedagent.frontend.tui.commands import parse_command
 from embedagent.frontend.tui.models import ExplorerItem
-from embedagent.frontend.tui.views.timeline import (
-    format_activity_records,
-    format_context_line,
-    format_observation_line,
-)
+from embedagent.frontend.tui.views.timeline import format_activity_records
 from embedagent.frontend.tui.workbench import command_by_id
 
 
@@ -24,22 +22,12 @@ class TerminalController(object):
         self.refresh_sessions()
         self.refresh_tasks()
         if self.owner.resume_reference:
-            snapshot = self.owner.session_service.resume_session(
+            self.owner.runtime.resume_session(
                 self.owner.resume_reference,
                 self.owner.initial_mode,
-                event_handler=self.on_event,
             )
-            reducer.reset_session_buffers(self.owner.state)
-            reducer.set_snapshot(self.owner.state, snapshot)
-            self.reload_timeline()
         else:
-            snapshot = self.owner.session_service.create_session(
-                self.owner.initial_mode,
-                event_handler=self.on_event,
-            )
-            reducer.reset_session_buffers(self.owner.state)
-            reducer.set_snapshot(self.owner.state, snapshot)
-            self.reload_timeline()
+            self.owner.runtime.create_session(self.owner.initial_mode)
         reducer.append_line(self.owner.state, "[system] 输入消息回车发送，/help 查看命令。")
         self.refresh_explorer(self.owner.state.explorer.tab)
         self.refresh_inspector(self.owner.state.inspector.tab)
@@ -75,7 +63,7 @@ class TerminalController(object):
         interaction_id = str(ticket.get("interaction_id") or "")
         normalized = text.strip().lower()
         if normalized in ("y", "yes"):
-            snapshot = self.owner.session_service.respond_to_interaction(
+            self.owner.runtime.respond_to_interaction(
                 self.owner.state.session.current_session_id,
                 interaction_id,
                 {"decision": "accept"},
@@ -83,19 +71,12 @@ class TerminalController(object):
             reducer.append_line(
                 self.owner.state, "[permission] 已批准 %s" % (ticket.get("tool_name") or "")
             )
-            reducer.set_pending_interaction(self.owner.state, None)
-            reducer.set_snapshot(self.owner.state, snapshot)
-            reducer.update_snapshot(
-                self.owner.state,
-                pending_interaction=None,
-                pending_interaction_valid=False,
-                status="running",
-            )
+
             self.refresh_inspector(self.owner.state.inspector.tab)
             self.owner.refresh_views()
             return
         if normalized in ("n", "no"):
-            snapshot = self.owner.session_service.respond_to_interaction(
+            self.owner.runtime.respond_to_interaction(
                 self.owner.state.session.current_session_id,
                 interaction_id,
                 {"decision": "decline"},
@@ -103,14 +84,7 @@ class TerminalController(object):
             reducer.append_line(
                 self.owner.state, "[permission] 已拒绝 %s" % (ticket.get("tool_name") or "")
             )
-            reducer.set_pending_interaction(self.owner.state, None)
-            reducer.set_snapshot(self.owner.state, snapshot)
-            reducer.update_snapshot(
-                self.owner.state,
-                pending_interaction=None,
-                pending_interaction_valid=False,
-                status="running",
-            )
+
             self.refresh_inspector(self.owner.state.inspector.tab)
             self.owner.refresh_views()
             return
@@ -141,7 +115,7 @@ class TerminalController(object):
                 reducer.append_line(self.owner.state, "[question] 无效选项，请重新输入。")
                 self.owner.refresh_views()
                 return
-        snapshot = self.owner.session_service.respond_to_interaction(
+        self.owner.runtime.respond_to_interaction(
             self.owner.state.session.current_session_id,
             interaction_id,
             {"answers": {"answer": answer}},
@@ -150,14 +124,7 @@ class TerminalController(object):
             self.owner.state,
             "[question] 已回答 %s" % (answer[:96] + ("..." if len(answer) > 96 else "")),
         )
-        reducer.set_pending_interaction(self.owner.state, None)
-        reducer.set_snapshot(self.owner.state, snapshot)
-        updates = {
-            "pending_interaction": None,
-            "pending_interaction_valid": False,
-            "status": "running",
-        }
-        reducer.update_snapshot(self.owner.state, **updates)
+
         self.refresh_inspector(self.owner.state.inspector.tab)
         self.owner.refresh_views()
 
@@ -197,10 +164,9 @@ class TerminalController(object):
             if not args:
                 reducer.append_line(self.owner.state, "[system] 用法：/mode <name>")
             else:
-                snapshot = self.owner.session_service.set_mode(
+                self.owner.runtime.set_session_mode(
                     self.owner.state.session.current_session_id, args[0]
                 )
-                reducer.set_snapshot(self.owner.state, snapshot)
                 reducer.append_line(self.owner.state, "[system] 已切换到 %s 模式" % args[0])
                 self.refresh_inspector(self.owner.state.inspector.tab)
             self.owner.refresh_views()
@@ -261,7 +227,7 @@ class TerminalController(object):
         reducer.update_snapshot(self.owner.state, status="running", last_error=None)
         reducer.set_last_error(self.owner.state, "")
         try:
-            self.owner.session_service.submit(session_id, text, event_handler=self.on_event)
+            self.owner.runtime.submit_user_message(session_id, text)
         except (RuntimeError, ValueError, TypeError) as exc:
             reducer.set_last_error(self.owner.state, str(exc))
             reducer.update_snapshot(self.owner.state, status="error", last_error=str(exc))
@@ -269,12 +235,7 @@ class TerminalController(object):
         self.owner.refresh_views()
 
     def create_new_session(self, mode: Optional[str] = None) -> None:
-        snapshot = self.owner.session_service.create_session(
-            mode or self.owner.initial_mode, event_handler=self.on_event
-        )
-        reducer.reset_session_buffers(self.owner.state)
-        reducer.set_snapshot(self.owner.state, snapshot)
-        self.reload_timeline()
+        self.owner.runtime.create_session(mode or self.owner.initial_mode)
         reducer.append_line(self.owner.state, "[system] 输入消息回车发送，/help 查看命令。")
         self.refresh_sessions()
         self.refresh_explorer("workspace")
@@ -285,12 +246,7 @@ class TerminalController(object):
         self.resume_session("latest")
 
     def resume_session(self, reference: str) -> None:
-        snapshot = self.owner.session_service.resume_session(
-            reference, self.owner.initial_mode, event_handler=self.on_event
-        )
-        reducer.reset_session_buffers(self.owner.state)
-        reducer.set_snapshot(self.owner.state, snapshot)
-        self.reload_timeline()
+        self.owner.runtime.resume_session(reference, self.owner.initial_mode)
         self.refresh_sessions()
         self.refresh_explorer("workspace")
         self.refresh_inspector("status")
@@ -358,7 +314,7 @@ class TerminalController(object):
 
     def open_preview(self, path: str) -> None:
         try:
-            payload = self.owner.workspace_service.read_file(path)
+            payload = self.owner.runtime.read_workspace_file(path)
         except (OSError, ValueError, TypeError) as exc:
             reducer.append_line(self.owner.state, "[error] %s" % exc)
             return
@@ -426,130 +382,52 @@ class TerminalController(object):
         reducer.update_editor_content(self.owner.state, self.owner.layout.editor.text)
         self.owner.refresh_views()
 
-    def on_event(self, event_name: str, session_id: str, payload: Dict[str, object]) -> None:
-        snapshot = payload.get("session_snapshot")
-        if isinstance(snapshot, dict):
-            reducer.set_snapshot(self.owner.state, snapshot)
-        if event_name == "turn_started":
-            reducer.close_stream(self.owner.state)
-            reducer.update_snapshot(self.owner.state, status="running", last_error=None)
-        elif event_name == "session_status":
-            pass
-        elif event_name == "assistant_delta":
-            reducer.update_snapshot(self.owner.state, status="running")
-            reducer.append_delta(self.owner.state, str(payload.get("text") or ""))
-        elif event_name == "reasoning_delta":
-            reducer.append_line(self.owner.state, "[thinking] %s" % (payload.get("text") or ""))
-        elif event_name == "thinking_state":
-            if payload.get("active"):
-                reducer.append_line(self.owner.state, "[thinking] 模型正在思考...")
-        elif event_name == "tool_started":
-            reducer.close_stream(self.owner.state)
-            reducer.update_snapshot(self.owner.state, status="running")
-            reducer.append_line(
-                self.owner.state,
-                "[tool] %s %s" % (payload.get("tool_name") or "", payload.get("arguments") or {}),
-            )
-        elif event_name == "tool_finished":
-            reducer.close_stream(self.owner.state)
-            reducer.update_snapshot(self.owner.state, status="running")
-            data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
-            if payload.get("tool_name") == "switch_mode" and data.get("to_mode"):
-                reducer.update_snapshot(
-                    self.owner.state, current_mode=str(data.get("to_mode") or "")
-                )
-            if payload.get("tool_name") == "ask_user" and data.get("mode"):
-                reducer.update_snapshot(self.owner.state, current_mode=str(data.get("mode") or ""))
-            reducer.append_line(self.owner.state, format_observation_line(payload))
-        elif event_name == "permission_required":
-            permission = payload.get("permission") or {}
-            if isinstance(permission, dict):
-                reducer.set_pending_interaction(self.owner.state, permission)
-                reducer.close_stream(self.owner.state)
-                reducer.update_snapshot(
-                    self.owner.state,
-                    status="waiting_permission",
-                    pending_interaction=permission,
-                    pending_interaction_valid=True,
-                )
-                reducer.append_line(
-                    self.owner.state, "[permission] %s" % (permission.get("reason") or "需要确认")
-                )
-                self.refresh_inspector(self.owner.state.inspector.tab)
-        elif event_name == "user_input_required":
-            request = payload.get("user_input") or {}
-            if isinstance(request, dict):
-                reducer.set_pending_interaction(self.owner.state, request)
-                reducer.close_stream(self.owner.state)
-                reducer.update_snapshot(
-                    self.owner.state,
-                    status="waiting_user_input",
-                    pending_interaction=request,
-                    pending_interaction_valid=True,
-                )
-                questions = request.get("questions") or []
-                question = questions[0] if questions and isinstance(questions[0], dict) else {}
-                reducer.append_line(
-                    self.owner.state,
-                    "[question] %s" % (question.get("question") or "需要用户回答"),
-                )
-                self.refresh_inspector(self.owner.state.inspector.tab)
-        elif event_name == "session_finished":
-            reducer.close_stream(self.owner.state)
-            reducer.set_pending_interaction(self.owner.state, None)
-            snapshot = payload.get("session_snapshot")
-            if isinstance(snapshot, dict):
-                reducer.set_snapshot(self.owner.state, snapshot)
-            else:
-                reducer.update_snapshot(
-                    self.owner.state,
-                    status="idle",
-                    pending_interaction=None,
-                    pending_interaction_valid=False,
-                )
-            reducer.set_last_error(self.owner.state, "")
+    def on_runtime_action(self, action: Dict[str, object]) -> None:
+        action_type = str(action.get("type") or "") if isinstance(action, dict) else ""
+        if action_type == "session_activated":
+            self._install_session_bootstrap(action.get("bootstrap"))
+            return
+        if action_type != "session_event":
+            return
+        envelope = SessionEventEnvelope.from_dict(action.get("event") or {})
+        self.owner.frontend.on_session_event(envelope)
+        if envelope.event_kind == "session.finished":
             self.refresh_workspace_snapshot()
             self.refresh_sessions()
             self.refresh_tasks()
-            self.reload_timeline()
-        elif event_name == "session_resumed":
-            reducer.set_last_error(self.owner.state, "")
-            self.refresh_sessions()
-            self.refresh_tasks()
-            self.reload_timeline()
-        elif event_name == "session_created":
-            self.refresh_sessions()
-            self.refresh_tasks()
-        elif event_name == "session_error":
-            reducer.close_stream(self.owner.state)
-            reducer.set_last_error(self.owner.state, str(payload.get("error") or ""))
-            reducer.set_pending_interaction(self.owner.state, None)
-            reducer.update_snapshot(
-                self.owner.state,
-                status="error",
-                last_error=self.owner.state.session.last_error,
-                pending_interaction=None,
-                pending_interaction_valid=False,
-            )
-            reducer.append_line(
-                self.owner.state, "[error] %s" % self.owner.state.session.last_error
-            )
-        elif event_name == "context_compacted":
-            reducer.set_context_event(self.owner.state, payload)
-            reducer.append_line(self.owner.state, format_context_line(payload))
+            self.refresh_session_projection()
         self.refresh_inspector(self.owner.state.inspector.tab)
         self.owner.refresh_views()
 
-    def refresh_workspace_snapshot(self) -> None:
-        snapshot = self.owner.workspace_service.snapshot()
-        session_id = self.owner.state.session.current_session_id
-        snapshot["tasks"] = (
-            self.owner.session_service.list_tasks(session_id=session_id).get("tasks") or []
+    def _install_session_bootstrap(self, value) -> None:
+        payload = dict(value or {}) if isinstance(value, dict) else {}
+        snapshot = dict(payload.get("snapshot") or {})
+        history = dict(payload.get("history") or {})
+        reducer.reset_session_buffers(self.owner.state)
+        reducer.set_snapshot(self.owner.state, snapshot)
+        pending = None
+        if bool(snapshot.get("pending_interaction_valid")) and isinstance(
+            snapshot.get("pending_interaction"), dict
+        ):
+            pending = dict(snapshot.get("pending_interaction") or {})
+        reducer.set_pending_interaction(self.owner.state, pending)
+        activities = history.get("activities") or []
+        self.owner.state.timeline.lines = format_activity_records(activities)
+        self.owner.state.timeline.stream_text = ""
+        reducer.trim_timeline(self.owner.state)
+        self.latest_assistant_reply = str(
+            history.get("latest_assistant_reply") or self.latest_assistant_reply or ""
         )
+        self.owner.refresh_views()
+
+    def refresh_workspace_snapshot(self) -> None:
+        snapshot = self.owner.runtime.get_workspace_snapshot()
+        session_id = self.owner.state.session.current_session_id
+        snapshot["tasks"] = self.owner.runtime.list_tasks(session_id=session_id).get("tasks") or []
         reducer.set_workspace_snapshot(self.owner.state, snapshot)
 
     def refresh_sessions(self) -> None:
-        items = self.owner.session_service.list_sessions(self.owner.state.session_limit)
+        items = self.owner.runtime.list_sessions(self.owner.state.session_limit)
         self.owner.state.session.session_items = items
         if self.owner.state.explorer.tab == "sessions":
             explorer_items = []
@@ -569,7 +447,7 @@ class TerminalController(object):
 
     def refresh_tasks(self) -> None:
         session_id = self.owner.state.session.current_session_id
-        payload = self.owner.session_service.list_tasks(session_id=session_id)
+        payload = self.owner.runtime.list_tasks(session_id=session_id)
         if self.owner.state.explorer.tab == "tasks":
             explorer_items = []
             for item in payload.get("tasks") or []:
@@ -600,7 +478,7 @@ class TerminalController(object):
         if tab_name == "tasks":
             self.refresh_tasks()
             return
-        payload = self.owner.workspace_service.tree(path=root, max_depth=3, limit=200)
+        payload = self.owner.runtime.list_workspace_tree(path=root, max_depth=3, limit=200)
         items = []
         for item in payload.get("items") or []:
             if not isinstance(item, dict):
@@ -621,20 +499,11 @@ class TerminalController(object):
 
     def refresh_inspector(self, tab: str) -> None:
         reducer.set_inspector_tab(self.owner.state, (tab or "status").lower())
-        self.current_summary = self.owner.session_service.load_summary(
+        self.current_summary = self.owner.runtime.load_session_summary(
             str(self.owner.state.session.current_snapshot.get("summary_ref") or "")
         )
 
-    def reload_timeline(self) -> None:
+    def refresh_session_projection(self) -> None:
         session_id = self.owner.state.session.current_session_id
-        payload = self.owner.timeline_service.load(
-            session_id, limit=self.owner.state.transcript_limit
-        )
-        self.latest_assistant_reply = str(
-            payload.get("latest_assistant_reply") or self.latest_assistant_reply or ""
-        )
-        activities = payload.get("activities") or []
-        if activities:
-            self.owner.state.timeline.lines = format_activity_records(activities)
-            self.owner.state.timeline.stream_text = ""
-            reducer.trim_timeline(self.owner.state)
+        if session_id:
+            self.owner.runtime.activate_session(session_id, reason="refresh")

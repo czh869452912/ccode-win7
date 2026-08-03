@@ -116,18 +116,75 @@ def test_resolve_launch_config_projects_agent_application_id(tmp_path, monkeypat
 
 def test_session_host_delegates_session_operations():
     adapter = MagicMock()
+    adapter.summary_store.load_summary.return_value = {"session_id": "s1"}
     adapter.list_sessions.return_value = [{"session_id": "s1"}]
     adapter.create_session.return_value = {"session_id": "s2"}
     adapter.resume_session.return_value = {"session_id": "s1"}
-    adapter.submit_user_message.return_value = None
+    adapter.get_session_bootstrap.return_value = {"event_cursor": 3}
+    adapter.set_session_mode.return_value = {"session_id": "s1", "current_mode": "verify"}
+    adapter.respond_to_interaction.return_value = {"session_id": "s1", "status": "running"}
+    adapter.cancel_session.return_value = {"session_id": "s1", "status": "idle"}
+    adapter.submit_user_message.return_value = {"session_id": "s1", "status": "running"}
+    adapter.list_tasks.return_value = {"session_id": "s1", "tasks": []}
+    adapter.get_workspace_snapshot.return_value = {"workspace": "D:/work"}
+    adapter.list_workspace_tree.return_value = {"root": ".", "items": []}
+    adapter.read_workspace_file.return_value = {"path": "README.md", "content": "text"}
+    adapter.write_workspace_file.return_value = {"path": "README.md", "content": "changed"}
     host = HostedSessionHost(adapter=adapter)
 
     assert host.list_sessions(limit=1) == [{"session_id": "s1"}]
+    assert host.load_session_summary("latest") == {"session_id": "s1"}
     assert host.create_session(mode="build") == {"session_id": "s2"}
     assert host.resume_session(reference="latest", mode="build") == {"session_id": "s1"}
-    host.submit_user_message(session_id="s1", text="hello", stream=False, wait=True)
+    assert host.get_session_bootstrap("s1") == {"event_cursor": 3}
+    assert host.set_session_mode("s1", "verify")["current_mode"] == "verify"
+    assert host.respond_to_interaction("s1", "i1", {"decision": "accept"}) == {
+        "session_id": "s1",
+        "status": "running",
+    }
+    assert host.cancel_session("s1") == {"session_id": "s1", "status": "idle"}
+    assert host.submit_user_message(
+        session_id="s1",
+        text="hello",
+        stream=False,
+        wait=True,
+    ) == {"session_id": "s1", "status": "running"}
+    assert host.list_tasks("s1") == {"session_id": "s1", "tasks": []}
+    assert host.get_workspace_snapshot() == {"workspace": "D:/work"}
+    assert host.list_workspace_tree(path=".", max_depth=2, limit=20) == {
+        "root": ".",
+        "items": [],
+    }
+    assert host.read_workspace_file("README.md")["content"] == "text"
+    assert host.write_workspace_file("README.md", "changed")["content"] == "changed"
 
     adapter.list_sessions.assert_called_once_with(limit=1)
+    adapter.summary_store.load_summary.assert_called_once_with("latest")
     adapter.create_session.assert_called_once_with("build", event_handler=None)
     adapter.resume_session.assert_called_once_with("latest", "build", event_handler=None)
-    adapter.submit_user_message.assert_called_once()
+    adapter.get_session_bootstrap.assert_called_once_with("s1")
+    adapter.set_session_mode.assert_called_once_with("s1", "verify")
+    adapter.respond_to_interaction.assert_called_once_with(
+        "s1",
+        "i1",
+        {"decision": "accept"},
+    )
+    adapter.cancel_session.assert_called_once_with("s1")
+    adapter.submit_user_message.assert_called_once_with(
+        session_id="s1",
+        text="hello",
+        stream=False,
+        wait=True,
+        permission_resolver=None,
+        user_input_resolver=None,
+        event_handler=None,
+    )
+    adapter.list_tasks.assert_called_once_with(session_id="s1")
+    adapter.get_workspace_snapshot.assert_called_once_with()
+    adapter.list_workspace_tree.assert_called_once_with(
+        path=".",
+        max_depth=2,
+        limit=20,
+    )
+    adapter.read_workspace_file.assert_called_once_with("README.md")
+    adapter.write_workspace_file.assert_called_once_with("README.md", "changed")

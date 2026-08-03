@@ -50,6 +50,17 @@ class TestTuiLauncher(unittest.TestCase):
         ]
         for needle in blocked:
             self.assertNotIn(needle, text)
+        self.assertIn("TerminalRuntime(session_host, dispatch=action_dispatch)", text)
+        self.assertIn("runtime=runtime", text)
+        self.assertNotIn("session_host.adapter", text)
+
+        with open("src/embedagent/frontend/tui/app.py", "r", encoding="utf-8") as fh:
+            app_text = fh.read()
+        self.assertIn("self.runtime = runtime", app_text)
+        self.assertNotIn("self.adapter", app_text)
+        self.assertNotIn("SessionService", app_text)
+        self.assertNotIn("TimelineService", app_text)
+        self.assertNotIn("WorkspaceService", app_text)
 
 
 if __name__ == "__main__":

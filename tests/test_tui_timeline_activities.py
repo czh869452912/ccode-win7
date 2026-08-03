@@ -8,39 +8,47 @@ from embedagent.frontend.tui.state import TerminalState
 from embedagent.frontend.tui.views.inspector import build_inspector_text
 
 
-class FakeTimelineService(object):
-    def load(self, session_id, limit=240):
-        return {
-            "session_id": session_id,
-            "activities": [
-                {
-                    "kind": "user",
-                    "content": "Inspect parser",
-                    "status": "completed",
-                },
-                {
-                    "kind": "assistant",
-                    "content": "Parser inspected.",
-                    "status": "completed",
-                },
-            ],
-            "latest_assistant_reply": "Parser inspected.",
-            "integrity": {"status": "healthy"},
+class FakeRuntime(object):
+    def __init__(self):
+        self.dispatch = None
+
+    def activate_session(self, session_id, reason="activate"):
+        bootstrap = {
+            "snapshot": {"session_id": session_id, "status": "idle"},
+            "history": {
+                "session_id": session_id,
+                "activities": [
+                    {"kind": "user", "content": "Inspect parser", "status": "completed"},
+                    {
+                        "kind": "assistant",
+                        "content": "Parser inspected.",
+                        "status": "completed",
+                    },
+                ],
+                "latest_assistant_reply": "Parser inspected.",
+            },
         }
+        self.dispatch({"type": "session_activated", "bootstrap": bootstrap})
+        return bootstrap
 
 
 class FakeOwner(object):
     def __init__(self):
         self.state = TerminalState(workspace=".", initial_mode="explore")
         self.state.session.current_session_id = "session-1"
-        self.timeline_service = FakeTimelineService()
+        self.runtime = FakeRuntime()
+        self.refresh_count = 0
+
+    def refresh_views(self):
+        self.refresh_count += 1
 
 
-def test_reload_timeline_formats_bootstrap_activities():
+def test_refresh_session_projection_formats_bootstrap_activities():
     owner = FakeOwner()
     controller = TerminalController(owner)
+    owner.runtime.dispatch = controller.on_runtime_action
 
-    controller.reload_timeline()
+    controller.refresh_session_projection()
 
     assert owner.state.timeline.lines == [
         "user> Inspect parser",

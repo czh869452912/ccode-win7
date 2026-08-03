@@ -4,14 +4,10 @@ import os
 from typing import TYPE_CHECKING
 
 from embedagent.frontend.tui.controller import TerminalController
+from embedagent.frontend.tui.frontend_adapter import TUIFrontend
 from embedagent.frontend.tui.host import detect_host
 from embedagent.frontend.tui.layout import TerminalLayout
-from embedagent.frontend.tui.services import (
-    EditorService,
-    SessionService,
-    TimelineService,
-    WorkspaceService,
-)
+from embedagent.frontend.tui.services import EditorService
 from embedagent.frontend.tui.state import TerminalState
 from embedagent.frontend.tui.theme import default_theme
 from embedagent.frontend.tui.views import (
@@ -30,7 +26,7 @@ if TYPE_CHECKING:
 class TerminalApp(object):
     def __init__(
         self,
-        adapter,
+        runtime,
         workspace: str,
         initial_mode: str,
         resume_reference: str = "",
@@ -41,7 +37,7 @@ class TerminalApp(object):
         create_pipe_input=None,
         dummy_output=None,
     ) -> None:
-        self.adapter = adapter
+        self.runtime = runtime
         self.workspace = workspace
         self.initial_mode = initial_mode
         self.resume_reference = resume_reference
@@ -61,12 +57,7 @@ class TerminalApp(object):
             capability=detect_host(),
         )
         self.theme = default_theme()
-        self.session_service = SessionService(
-            adapter, workspace, session_limit=self.state.session_limit
-        )
-        self.workspace_service = WorkspaceService(adapter, workspace)
-        self.timeline_service = TimelineService(adapter)
-        self.editor_service = EditorService(self.workspace_service, workspace)
+        self.editor_service = EditorService(runtime, workspace)
         self.pipe_input = None
         self._pipe_input_cm = None
         if self.headless and self.create_pipe_input is None:
@@ -78,6 +69,7 @@ class TerminalApp(object):
         if self.headless and self.create_pipe_input is not None:
             self._pipe_input_cm = self.create_pipe_input()
             self.pipe_input = self._pipe_input_cm.__enter__()
+        self.frontend = TUIFrontend(self)
         self.controller = TerminalController(self)
         self.layout = TerminalLayout(self)
         self.application = self.layout.application
@@ -139,6 +131,7 @@ class TerminalApp(object):
         self.application.invalidate()
 
     def _close_application_resources(self) -> None:
+        self.runtime.close()
         if self._pipe_input_cm is None:
             return
         try:

@@ -9,7 +9,9 @@ ROOT = Path(__file__).resolve().parents[1]
 HOST_SOURCE = ROOT / "packages" / "embedagent-host" / "src" / "embedagent_host"
 CORE_SOURCE = ROOT / "packages" / "embedagent-core" / "src" / "embedagent_core"
 GUI_SOURCE = ROOT / "src" / "embedagent" / "frontend" / "gui" / "backend"
-TUI_TIMELINE_SOURCE = ROOT / "src" / "embedagent" / "frontend" / "tui" / "services" / "timeline.py"
+TUI_SOURCE = ROOT / "src" / "embedagent" / "frontend" / "tui"
+TUI_RUNTIME_SOURCE = TUI_SOURCE / "runtime.py"
+TUI_CONTROLLER_SOURCE = TUI_SOURCE / "controller.py"
 
 
 def _read(path):
@@ -45,12 +47,16 @@ def test_history_projection_is_transcript_backed_and_bootstrap_owned():
     assert "timeline_store" not in history_source
 
 
-def test_tui_timeline_view_reads_bootstrap_history_only():
-    source = _read(TUI_TIMELINE_SOURCE)
-    assert "get_session_bootstrap" in source
-    assert 'payload.get("history")' in source
-    assert "get_timeline" not in source
-    assert "load_timeline" not in source
+def test_tui_runtime_owns_bootstrap_history_projection_only():
+    runtime_source = _read(TUI_RUNTIME_SOURCE)
+    controller_source = _read(TUI_CONTROLLER_SOURCE)
+
+    assert "get_session_bootstrap" in runtime_source
+    assert 'payload.get("history")' in controller_source
+    assert not (TUI_SOURCE / "services" / "timeline.py").exists()
+    for source in (runtime_source, controller_source):
+        assert "get_timeline" not in source
+        assert "load_timeline" not in source
 
 
 def test_gui_session_bootstrap_serializes_history_without_replay_payload():

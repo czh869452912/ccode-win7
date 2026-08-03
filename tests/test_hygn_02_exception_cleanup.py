@@ -107,21 +107,6 @@ class TestNoBareExceptBlocks:
                 "TypeError",
                 "RuntimeError",
             ],
-            "src/embedagent/frontend/tui/services/workspace.py": [
-                "OSError",
-                "ValueError",
-                "TypeError",
-            ],
-            "src/embedagent/frontend/tui/services/sessions.py": [
-                "OSError",
-                "JSONDecodeError",
-                "ValueError",
-            ],
-            "src/embedagent/frontend/tui/services/timeline.py": [
-                "OSError",
-                "ValueError",
-                "TypeError",
-            ],
             "src/embedagent/frontend/tui/layout.py": ["ValueError", "TypeError"],
             "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py": [
                 "OSError",

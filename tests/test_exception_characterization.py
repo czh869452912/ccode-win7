@@ -66,22 +66,5 @@ def test_core_adapter_read_file_missing(tmp_path):
     assert result.path == "missing.txt"
 
 
-def test_timeline_service_load():
-    """Verify timeline_service handles adapter errors gracefully."""
-    from embedagent.frontend.tui.services.timeline import TimelineService
-
-    service = TimelineService(None)
-    result = service.load("session-123")
-    assert result == {
-        "session_id": "session-123",
-        "history_source": "unavailable",
-        "turns": [],
-        "activities": [],
-        "current_interaction": None,
-        "integrity": {"status": "unavailable"},
-    }
-    assert "items" not in result
-
-
 def test_all_modified_modules_importable():
     """Verify all modified modules can be imported without errors."""

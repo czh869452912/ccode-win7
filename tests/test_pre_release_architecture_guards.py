@@ -44,6 +44,7 @@ ACTIVE_SOURCE_FILES = [
     ROOT / "src/embedagent/frontend/gui/webapp/src/state-helpers.js",
     ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx",
     ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js",
+    ROOT / "src/embedagent/frontend/tui/runtime.py",
     ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/activity-state.js",
 ]
 
@@ -289,7 +290,7 @@ def test_no_session_timeline_api_in_active_source():
         PROTOCOL_SOURCE / "__init__.py",
         ROOT / "src/embedagent/core/adapter.py",
         ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py",
-        ROOT / "src/embedagent/frontend/tui/services/timeline.py",
+        ROOT / "src/embedagent/frontend/tui/runtime.py",
     ]
     offenders = []
     for path in files:
@@ -309,7 +310,7 @@ def test_no_tui_flat_or_event_history_projection_contract():
         ROOT / "packages/embedagent-host/src/embedagent_host/runtime/session_history.py",
         ROOT / "src/embedagent/frontend/tui/controller.py",
         ROOT / "src/embedagent/frontend/tui/frontend_adapter.py",
-        ROOT / "src/embedagent/frontend/tui/services/timeline.py",
+        ROOT / "src/embedagent/frontend/tui/runtime.py",
         ROOT / "src/embedagent/frontend/tui/views/timeline.py",
         ROOT / "src/embedagent/frontend/tui/views/__init__.py",
     ]
@@ -641,7 +642,7 @@ def test_product_interfaces_expose_only_unified_interaction_response():
         PROTOCOL_SOURCE / "__init__.py",
         ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py",
         ROOT / "packages/embedagent-host/src/embedagent_host/hosted_interaction_service.py",
-        ROOT / "src/embedagent/frontend/tui/services/sessions.py",
+        ROOT / "src/embedagent/frontend/tui/runtime.py",
     ]
     forbidden = (
         "def approve_permission",

@@ -5,16 +5,15 @@ import os
 from typing import Dict
 
 from embedagent.frontend.tui.models import EditorBuffer
-from embedagent.frontend.tui.services.workspace import WorkspaceService
 
 
 class EditorService(object):
-    def __init__(self, workspace_service: WorkspaceService, workspace: str) -> None:
-        self.workspace_service = workspace_service
+    def __init__(self, runtime, workspace: str) -> None:
+        self.runtime = runtime
         self.workspace = workspace
 
     def open_buffer(self, path: str) -> EditorBuffer:
-        payload = self.workspace_service.read_file(path)
+        payload = self.runtime.read_workspace_file(path)
         candidate = os.path.join(
             self.workspace, str(payload.get("path") or path).replace("/", os.sep)
         )
@@ -33,7 +32,7 @@ class EditorService(object):
         warning = ""
         if self.has_external_change(buffer):
             warning = "检测到文件在外部发生变化，已按当前缓冲区内容覆盖保存。"
-        result = self.workspace_service.write_file(buffer.path, buffer.content)
+        result = self.runtime.write_workspace_file(buffer.path, buffer.content)
         candidate = os.path.join(self.workspace, buffer.path.replace("/", os.sep))
         buffer.original_content = buffer.content
         buffer.dirty = False
