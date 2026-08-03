@@ -21,6 +21,7 @@ class TestGuiSync(unittest.TestCase):
     def test_gui_backend_route_resolves_core_pending_input_interaction(self):
         import asyncio
 
+        from embedagent_protocol import ShellDescriptor
         from test_inprocess_adapter_frontend_api import AskUserClient
 
         from embedagent.core.adapter import AgentCoreAdapter
@@ -39,7 +40,13 @@ class TestGuiSync(unittest.TestCase):
                 max_turns=8,
                 permission_policy=PermissionPolicy(auto_approve_all=True, workspace=workspace),
             )
-            backend = GUIBackend(core, static_dir=static_dir)
+            backend = GUIBackend(
+                core,
+                static_dir=static_dir,
+                shell_compiler=lambda application_id, capabilities: ShellDescriptor(
+                    schema_version=1
+                ),
+            )
             backend.frontend._dispatch_message = lambda message: True
 
             snapshot = core.create_session("spec")

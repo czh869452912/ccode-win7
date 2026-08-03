@@ -9,11 +9,20 @@ from unittest.mock import ANY, MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent_protocol import SessionEventEnvelope
+from embedagent_protocol import SessionEventEnvelope, ShellDescriptor
 
 from embedagent.frontend.gui import launcher as gui_launcher
 from embedagent.frontend.gui.backend.bridge import ThreadsafeAsyncDispatcher
-from embedagent.frontend.gui.backend.server import GUIBackend, WebSocketFrontend
+from embedagent.frontend.gui.backend.server import GUIBackend as _GUIBackend
+from embedagent.frontend.gui.backend.server import WebSocketFrontend
+
+
+def GUIBackend(*args, **kwargs):
+    kwargs.setdefault(
+        "shell_compiler",
+        lambda application_id, capabilities: ShellDescriptor(schema_version=1),
+    )
+    return _GUIBackend(*args, **kwargs)
 
 
 class TestGuiLauncher(unittest.TestCase):

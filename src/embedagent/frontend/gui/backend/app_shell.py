@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
-from embedagent.frontend.gui.backend.app_shell_spec import (
-    AppShellSpec,
-    default_app_shell_spec,
-)
+from embedagent_protocol import ShellDescriptor
+
+from embedagent.frontend.gui.backend.protocol_payloads import serialize_session_capabilities
 
 APP_SHELL_VERSION = 1
 
@@ -46,66 +45,20 @@ def _safe_mapping(value: Any) -> Any:
     return str(value)
 
 
-def _string_items(value: Any) -> list:
-    if not isinstance(value, (list, tuple)):
-        return []
-    return [str(item) for item in value if str(item or "").strip()]
-
-
-def _id_allow_set(profile: Dict[str, Any], key: str) -> Optional[set]:
-    if key not in profile:
-        return None
-    return set(_string_items(profile.get(key)))
-
-
-def _filter_records_by_id(records: Any, allowed_ids: Optional[set]) -> list:
-    items = list(records or [])
-    if allowed_ids is None:
-        return items
-    return [
-        dict(item)
-        for item in items
-        if isinstance(item, dict) and str(item.get("id") or "") in allowed_ids
-    ]
-
-
-def _filter_keybindings(records: Any, allowed_command_ids: Optional[set]) -> list:
-    items = list(records or [])
-    if allowed_command_ids is None:
-        return items
-    return [
-        dict(item)
-        for item in items
-        if isinstance(item, dict)
-        and str(item.get("command_id") or item.get("commandId") or "") in allowed_command_ids
-    ]
-
-
-def _selected_app_shell_profile(agent_capabilities: Dict[str, Any]) -> Dict[str, Any]:
-    application = agent_capabilities.get("agentApplication")
-    if not isinstance(application, dict):
-        return {}
-    metadata = application.get("metadata")
-    if not isinstance(metadata, dict):
-        return {}
-    profile = metadata.get("appShell")
-    if profile is None:
-        profile = metadata.get("app_shell")
-    return profile if isinstance(profile, dict) else {}
-
-
 class AppShellService(object):
     def __init__(
         self,
         app_host: Any,
+        shell_compiler: Callable[[str, Dict[str, Any]], ShellDescriptor],
         host_diagnostics: Optional[Dict[str, Any]] = None,
         settings: Optional[Dict[str, Any]] = None,
-        shell_spec: Optional[AppShellSpec] = None,
     ) -> None:
+        if not callable(shell_compiler):
+            raise ValueError("shell_compiler_required")
         self._app_host = app_host
         self._host_diagnostics = host_diagnostics if host_diagnostics is not None else {}
         self._settings = dict(settings or {})
-        self._shell_spec = shell_spec or default_app_shell_spec()
+        self._shell_compiler = shell_compiler
 
     def bootstrap(self) -> Dict[str, Any]:
         return self._base_payload(self._app_host.bootstrap())
@@ -139,7 +92,7 @@ class AppShellService(object):
             ),
             "has_active_workspace": bool(payload.get("has_active_workspace")),
             "diagnostics": self._diagnostics(payload),
-            "capabilities": self._capabilities(),
+            "shell": self._compiled_shell().to_dict(),
             "settings": self._settings_payload(),
             "last_error": str(last_error or payload.get("last_error") or ""),
         }
@@ -154,51 +107,16 @@ class AppShellService(object):
             "protocol": "gui_app_shell_v1",
         }
 
-    def _capabilities(self) -> Dict[str, Any]:
-        capabilities = self._shell_spec.capabilities()
-        agent_capabilities = self._agent_capabilities()
-        self._apply_agent_app_shell_profile(capabilities, agent_capabilities)
-        capabilities.update(agent_capabilities)
-        return capabilities
-
-    def _apply_agent_app_shell_profile(
-        self,
-        capabilities: Dict[str, Any],
-        agent_capabilities: Dict[str, Any],
-    ) -> None:
-        profile = _selected_app_shell_profile(agent_capabilities)
-        if not profile:
-            return
-        capabilities["app_commands"] = _filter_records_by_id(
-            capabilities.get("app_commands"),
-            _id_allow_set(profile, "appCommandIds"),
-        )
-        command_palette = dict(capabilities.get("command_palette") or {})
-        command_palette["groups"] = _filter_records_by_id(
-            command_palette.get("groups"),
-            _id_allow_set(profile, "commandPaletteGroupIds"),
-        )
-        capabilities["command_palette"] = command_palette
-
-        surfaces = dict(capabilities.get("surfaces") or {})
-        surfaces["right_panel"] = _filter_records_by_id(
-            surfaces.get("right_panel"),
-            _id_allow_set(profile, "rightPanelSurfaceIds"),
-        )
-        surfaces["bottom_drawer"] = _filter_records_by_id(
-            surfaces.get("bottom_drawer"),
-            _id_allow_set(profile, "bottomDrawerSurfaceIds"),
-        )
-        capabilities["surfaces"] = surfaces
-        capabilities["keybindings"] = _filter_keybindings(
-            capabilities.get("keybindings"),
-            _id_allow_set(profile, "keybindingCommandIds"),
-        )
-        for capability_id in _string_items(profile.get("disabledCapabilityIds")):
-            current = capabilities.get(capability_id)
-            disabled = dict(current or {}) if isinstance(current, dict) else {}
-            disabled["enabled"] = False
-            capabilities[capability_id] = disabled
+    def _compiled_shell(self) -> ShellDescriptor:
+        capabilities = self._agent_capabilities()
+        application = capabilities.get("agent_application")
+        application_id = ""
+        if isinstance(application, dict):
+            application_id = str(application.get("id") or "")
+        descriptor = self._shell_compiler(application_id, capabilities)
+        if not isinstance(descriptor, ShellDescriptor):
+            raise ValueError("shell_compiler_result_invalid")
+        return descriptor
 
     def _agent_capabilities(self) -> Dict[str, Any]:
         current_core = getattr(self._app_host, "current_core", None)
@@ -209,26 +127,16 @@ class AppShellService(object):
                 source = get_session_capabilities("")
             except (OSError, RuntimeError, TypeError, ValueError, AttributeError):
                 source = {}
-            projected = self._project_agent_capabilities(source)
-            if projected:
-                return projected
+            if isinstance(source, dict) and source:
+                return serialize_session_capabilities(source)
         host_agent_capabilities = getattr(self._app_host, "agent_capabilities", None)
         if not callable(host_agent_capabilities):
-            return {}
+            return serialize_session_capabilities({})
         try:
             source = host_agent_capabilities()
         except (OSError, RuntimeError, TypeError, ValueError, AttributeError):
             return {}
-        return self._project_agent_capabilities(source)
-
-    def _project_agent_capabilities(self, source: Any) -> Dict[str, Any]:
-        if not isinstance(source, dict):
-            return {}
-        projected = {}
-        for key in ("agentApplication", "agentApplications", "emptyState"):
-            if key in source:
-                projected[key] = _safe_mapping(source.get(key))
-        return projected
+        return serialize_session_capabilities(source if isinstance(source, dict) else {})
 
     def _settings_payload(self) -> Dict[str, Any]:
         payload = {

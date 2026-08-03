@@ -93,18 +93,22 @@ class GUIBackend:
         static_dir: str = "",
         app_host: Optional[GUIAppHost] = None,
         host_diagnostics: Optional[Dict[str, Any]] = None,
+        shell_compiler: Any = None,
         terminal_service: Optional[Any] = None,
         source_control_service: Optional[Any] = None,
         preview_service: Optional[Any] = None,
     ):
         if core is None and app_host is None:
             raise ValueError("core_or_app_host_required")
+        if not callable(shell_compiler):
+            raise ValueError("shell_compiler_required")
         self.static_dir = static_dir
         self.frontend = WebSocketFrontend()
         self.app_host = app_host if app_host is not None else SingleWorkspaceAppHost(core)
         self.app_host.bind_frontend(self.frontend)
         self.app_shell = AppShellService(
             self.app_host,
+            shell_compiler=shell_compiler,
             host_diagnostics=host_diagnostics or {},
         )
         self.terminal_service = terminal_service

@@ -4,13 +4,22 @@ import sys
 import tempfile
 import unittest
 
+from embedagent_protocol import ShellDescriptor
 from fastapi import HTTPException
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.frontend.gui.backend.app_host import GUIAppHost
-from embedagent.frontend.gui.backend.server import GUIBackend
+from embedagent.frontend.gui.backend.server import GUIBackend as _GUIBackend
 from embedagent.frontend.gui.backend.workspace_registry import WorkspaceRegistry
+
+
+def GUIBackend(*args, **kwargs):
+    kwargs.setdefault(
+        "shell_compiler",
+        lambda application_id, capabilities: ShellDescriptor(schema_version=1),
+    )
+    return _GUIBackend(*args, **kwargs)
 
 
 def _assert_app_shell_payload(testcase, payload):

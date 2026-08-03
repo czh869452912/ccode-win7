@@ -321,7 +321,10 @@ def launch_gui(
 
         from embedagent.frontend.gui.backend.app_host import GUIAppHost
         from embedagent.frontend.gui.backend.server import GUIBackend
-        from embedagent.product_catalog import product_agent_application_registry
+        from embedagent.product_catalog import (
+            product_agent_application_registry,
+            product_shell_compiler,
+        )
 
         def core_factory(path: str):
             _LOGGER.info("Initializing Agent Core for workspace: %s", path)
@@ -340,6 +343,7 @@ def launch_gui(
             static_dir=static_dir,
             app_host=app_host,
             host_diagnostics=host_diagnostics,
+            shell_compiler=product_shell_compiler(),
         )
         startup_events.append("backend_constructed")
         _write_startup_report(startup_report, startup_events, status=startup_status)
