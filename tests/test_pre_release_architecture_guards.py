@@ -1080,6 +1080,12 @@ def test_gui_session_activation_bootstrap_is_controller_handle_owned():
     assert "export function createSessionActivationController" in controller_text
     assert 'type: "session_activated"' in controller_text
     assert 'type: "terminal_summaries_loaded"' in controller_text
+    assert "beginSessionTransportBootstrap" in controller_text
+    assert "installSessionTransportBootstrap" in controller_text
+    assert "dispatchAcceptedSessionEvent" in controller_text
+    assert "activeRequest" in controller_text
+    assert "getTransportState: sessionTransportHandle.read" in app_text
+    assert "updateTransportState: sessionTransportHandle.update" in app_text
 
 
 def test_gui_http_client_is_runtime_owned_not_inline_app_fetch():
@@ -1136,14 +1142,17 @@ def test_gui_socket_effect_execution_is_controller_owned():
     assert "startTransition(() => socketMessageController.handleMessage" not in app_text
     assert "handleMessage: (message) =>" not in app_text
     assert "scheduleMessage: startTransition" in app_text
+    assert "socketMessageController.handleAcceptedSessionEvent(envelope)" in app_text
     assert "export function createSocketMessageController" in controller_text
     assert "deriveSocketMessageEffects" in controller_text
     assert "createSocketEffectExecutor" in controller_text
     assert "scheduleMessage" in controller_text
     assert "function handleMessage" in controller_text
+    assert "function handleAcceptedSessionEvent" in controller_text
     assert "export function createSocketEffectExecutor" in executor_text
-    assert "applySessionTransportEvent" in executor_text
-    assert "recover(currentSessionId, nextTransport)" in executor_text
+    assert "applySessionTransportEvent" not in executor_text
+    assert 'typeof loadSession === "function"' not in executor_text
+    assert "recover(currentSessionId)" in executor_text
     assert "executeLoaderRequest" in executor_text
 
 
@@ -1164,6 +1173,31 @@ def test_gui_session_transport_state_bridge_is_handle_owned():
     assert "function update" in handle_text
     assert "function sync" in handle_text
     assert "createSessionTransportState" in handle_text
+
+
+def test_gui_session_transport_has_single_cursor_and_recovery_owner():
+    adapter_text = _read(ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py")
+    payload_text = _read(ROOT / "src/embedagent/frontend/gui/backend/protocol_payloads.py")
+    activation_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-activation-controller.js"
+    )
+    transport_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-transport-controller.js"
+    )
+    executor_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-effect-executor.js"
+    )
+
+    assert "self._event_emitter.capture(" in adapter_text
+    assert 'result["event_cursor"] = event_cursor' in payload_text
+    assert "installSessionTransportBootstrap" in activation_text
+    assert "dispatchAcceptedSessionEvent" in activation_text
+    assert "lastAppliedSeq: Number(state?.lastAppliedSeq" not in transport_text
+    assert "clearTimeout" in transport_text
+    assert "token += 1" in transport_text
+    assert "loadSessionBootstrap.abort" in transport_text
+    assert 'typeof loadSession === "function"' not in executor_text
+    assert "recover(currentSessionId)" in executor_text
 
 
 def test_gui_responding_request_ids_bridge_is_handle_owned():

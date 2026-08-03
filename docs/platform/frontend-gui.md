@@ -23,7 +23,7 @@ GUI 不拥有 Agent Core policy、session history、workflow transition、permis
 | `backend/server.py`, routes/services | HTTP/WebSocket 协议、session/app bootstrap、files、preview、terminal、source control |
 | `backend/app_shell*.py` | backend-owned commands/surfaces/capability shell descriptors |
 | `webapp/src/client-runtime/` | wire validation 与 protocol adaptation；尚未成为全部 HTTP/WebSocket effect 的唯一入口 |
-| `webapp/src/app-runtime/` | controller/effect orchestration；当前仍有直接 endpoint 调用待迁移 |
+| `webapp/src/app-runtime/` | controller/effect orchestration；拥有 session activation generation、event ordering/recovery 和 socket shutdown，仍有直接 endpoint 调用待迁移 |
 | `webapp/src/session-runtime/` | pure session/activity/read-model reducers |
 | `webapp/src/workbench/`, `components/` | renderer-local registries、UI state 和 visual surfaces |
 
@@ -47,14 +47,17 @@ app host 可以是 multi-workspace 或 `SingleWorkspaceAppHost`。新产品可�
 
 1. app bootstrap 加载 product metadata、workspaces、commands 和 surfaces；
 2. workspace activation 获得一个 `CoreInterface`；
-3. session activation 调用 `/api/sessions/{id}/bootstrap`，原子替换 thread/snapshot/history/capabilities/workflow；
-4. WebSocket 只传输 canonical `session_event` 分支及 app-level shell notifications；
-5. protocol adapter 验证 envelope，runtime reducer 按 `event_kind` 更新前端投影；
-6. invalidation metadata 触发 controller 刷新 backend read models。
+3. session activation 先启动新 generation，再调用 `/api/sessions/{id}/bootstrap` 获取 projection 与 Host-owned `event_cursor`；
+4. activation 期间到达的 canonical `session_event` 按 session 缓冲，app-level shell notifications 保持独立；
+5. bootstrap 安装以 cursor 为唯一 sequence 基线，只释放连续且尚未覆盖的 envelopes；
+6. 通过 transport 接受的 envelope 进入同一个 protocol adapter 与 runtime reducer，按 `event_kind` 更新前端投影；
+7. invalidation metadata 触发 controller 刷新 backend read models。
 
 renderer 不从事件尾部重建历史。断线重连或 session 切换后，以新 session bootstrap 为准，不以 local persisted timeline 为准。
 
-当前 session bootstrap 尚未携带 live event cursor；gap recovery 在替换 bootstrap 后仍保留旧 cursor，重连 timer 也没有纳入 closeable scope。前端收敛切片将先修正这两个传输生命周期缺口，再进行 workbench 结构调整。
+Host 在 event publication 同步边界内捕获 bootstrap cursor。sequence gap 只触发当前 generation 的一个 recovery；快速切换 session 会 abort 旧请求，旧 projection、cursor、buffered events、terminal summaries 和回调都不能覆盖新 session。
+
+session transport controller 拥有 socket callbacks、retry timer、recovery promise 和 activation abort。`close()` 先关闭生命周期并递增 token，再取消 timer 和 bootstrap、解绑 socket callbacks；陈旧的 `onopen`、`onclose` 或已保存 timer 均不能重启 transport。关闭后的 controller 不可复用，重新连接必须构造新实例。
 
 ## 5. Capability-Driven Workbench
 

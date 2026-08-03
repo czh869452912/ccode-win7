@@ -12,7 +12,6 @@
 
 ## P0: Frontend Shell Convergence
 
-- 为 session bootstrap 增加原子 event cursor，修复 gap recovery、重连取消和 session 切换竞争。
 - 让 GUI ProtocolAdapter/ClientRuntime 和 TUI TerminalRuntime 成为各自唯一 effect owner。
 - 由 product composition 编译 GUI/TUI 共用的 shell descriptors，删除固定 catalog 和 fallback。
 - 将核心体验收敛为 Pi 式 session、timeline、composer、interaction、command 和 status 工作面；其他能力改为可选 contribution。

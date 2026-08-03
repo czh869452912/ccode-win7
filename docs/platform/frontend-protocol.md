@@ -15,7 +15,7 @@
 | Layer | Purpose | Truth rule |
 |---|---|---|
 | app bootstrap | 产品名、workspace registry、commands、surfaces、shell diagnostics | 只是 shell metadata，不是 session truth |
-| session bootstrap | 激活 session id，返回 thread、snapshot、history、capabilities、workflow、integrity | 来自 transcript-backed hosted projection |
+| session bootstrap | 激活 session id，返回 thread、snapshot、history、capabilities、workflow、integrity、`event_cursor` | 来自 transcript-backed hosted projection；cursor 由 Host live stream 拥有 |
 | session event stream | 运行中增量事件 | 只能通过 canonical `SessionEventEnvelope` |
 
 前端 local state 只拥有布局、选中、折叠、draft、scroll 和输入中交互等展示状态。它不拥有 session history、workflow、permission、tool activation、capability availability 或 restore policy。
@@ -53,11 +53,14 @@ schema version 是实际 wire compatibility 标识，不是文档或架构命名
 - frozen session snapshot；
 - `history.activities` 和 integrity summary；
 - session capability snapshot；
-- generic `workflow` projection。
+- generic `workflow` projection；
+- non-negative `event_cursor`，表示该 projection 在 Host live event stream 中对应的 high-water mark。
 
 `SessionHistoryAssembler` 拥有 history DTO 序列化，`SessionSnapshotProjector` 拥有 snapshot。GUI/TUI 不从 replay tail、app bootstrap 或自己保存的 timeline 重建 session。
 
-当前 bootstrap 尚未携带 event cursor，因此 GUI 在 sequence gap 后无法原子确定 snapshot 对应的 live high-water mark。收敛切片将把 `event_cursor` 加入当前 schema，并在同一变更中切换全部消费者、删除旧 schema；切换完成前不得宣称 gap recovery 已闭合。
+Host 在同一个 per-session event stream 同步边界内加载 projection 并读取 `event_cursor`。因此一次 live event publication 只能完整地落在 bootstrap 之前或之后，serializer 和 shell 不维护第二个 sequence counter。
+
+shell 在请求 bootstrap 前启动新的 activation generation，并缓冲该 session 的 live envelopes。安装时先以 `event_cursor` 作为唯一基线，丢弃不高于 cursor 的 envelope，再按 sequence 应用连续事件；这些事件仍进入统一 `session_event` reducer 路径。sequence gap 只启动当前 generation 的一个 recovery，旧 generation 的 projection、cursor、events 和异步回调全部失效，恢复完成后不得写回旧 cursor。
 
 ## 4. Capabilities And Registries
 
