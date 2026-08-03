@@ -100,10 +100,13 @@ export async function runWorkspaceControllerTests() {
   );
 
   const appSource = readSource("App.jsx");
+  const clientRuntimeSource = readSource("client-runtime", "client-runtime.js");
   assert.equal(appSource.includes("async function openWorkspace"), false);
   assert.equal(appSource.includes("workspace_path_changed"), false);
-  assert.equal(appSource.includes("createWorkspaceController"), true);
-  assert.equal(appSource.includes("createWorkspaceFilesController"), true);
+  assert.equal(appSource.includes("createWorkspaceController"), false);
+  assert.equal(appSource.includes("createWorkspaceFilesController"), false);
+  assert.equal(clientRuntimeSource.includes("createWorkspaceController"), true);
+  assert.equal(clientRuntimeSource.includes("createWorkspaceFilesController"), true);
 
   const controllerSource = readSource("app-runtime", "workspace-controller.js");
   assert.equal(controllerSource.includes("export function createWorkspaceController"), true);
@@ -113,6 +116,7 @@ export async function runWorkspaceControllerTests() {
   assert.equal(controllerSource.includes("fetchJson"), false);
   assert.equal(controllerSource.includes("protocol"), true);
 
-  assert.equal(appSource.includes("createSessionCommandCapabilityLoader"), true);
-  assert.equal(appSource.includes("loadSessionCommandCapabilitiesForApp"), true);
+  assert.equal(appSource.includes("createSessionCommandCapabilityLoader"), false);
+  assert.equal(clientRuntimeSource.includes("createSessionCommandCapabilityLoader"), true);
+  assert.equal(clientRuntimeSource.includes("loadSessionCommandCapabilities"), true);
 }

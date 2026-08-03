@@ -52,6 +52,10 @@ def _read(path):
     return path.read_text(encoding="utf-8")
 
 
+def _client_runtime_text():
+    return _read(ROOT / "src/embedagent/frontend/gui/webapp/src/client-runtime/client-runtime.js")
+
+
 def _relative(path):
     return path.relative_to(ROOT).as_posix()
 
@@ -1030,7 +1034,8 @@ def test_gui_command_result_diff_surface_is_payload_driven():
 
     assert 'type: "diff_surface_opened"' in text
     assert 'commandName === "diff"' not in text
-    assert "createDiffSurfaceController" in app_text
+    assert "createDiffSurfaceController" not in app_text
+    assert "createDiffSurfaceController" in _client_runtime_text()
     assert "createDiffSurfaceState" not in app_text
     assert 'type: "diff_surface_opened"' not in app_text
     assert "createDiffSurfaceState" in diff_controller_text
@@ -1057,8 +1062,9 @@ def test_gui_session_list_loading_is_controller_owned():
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-list-controller.js"
     )
 
-    assert "createSessionListController" in app_text
-    assert "const { loadSessions } = sessionListController" in app_text
+    assert "createSessionListController" not in app_text
+    assert "createSessionListController" in _client_runtime_text()
+    assert "sessionListController.loadSessions" in _client_runtime_text()
     assert "async function loadSessions" not in app_text
     assert 'fetchJson("/api/sessions")' not in app_text
     assert 'type: "sessions_loaded"' not in app_text
@@ -1074,8 +1080,9 @@ def test_gui_session_activation_bootstrap_is_controller_handle_owned():
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-activation-controller.js"
     )
 
-    assert "createSessionActivationController" in app_text
-    assert "const loadSession = sessionActivationController" in app_text
+    assert "createSessionActivationController" not in app_text
+    assert "createSessionActivationController" in _client_runtime_text()
+    assert "loadSession = createSessionActivationController" in _client_runtime_text()
     assert "async function loadSession" not in app_text
     assert "deriveSessionActivation" not in app_text
     assert "export function createSessionActivationController" in controller_text
@@ -1085,8 +1092,8 @@ def test_gui_session_activation_bootstrap_is_controller_handle_owned():
     assert "installSessionTransportBootstrap" in controller_text
     assert "dispatchAcceptedSessionEvent" in controller_text
     assert "activeRequest" in controller_text
-    assert "getTransportState: sessionTransportHandle.read" in app_text
-    assert "updateTransportState: sessionTransportHandle.update" in app_text
+    assert "getTransportState: sessionTransportHandle.read" in _client_runtime_text()
+    assert "updateTransportState: sessionTransportHandle.update" in _client_runtime_text()
 
 
 def test_gui_transports_and_protocol_are_composed_outside_app():
@@ -1120,11 +1127,13 @@ def test_gui_initial_app_load_is_controller_owned():
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/initial-app-load-controller.js"
     )
 
-    assert "createInitialAppLoadController" in app_text
+    assert "createInitialAppLoadController" not in app_text
+    assert "createInitialAppLoadController" in _client_runtime_text()
     assert "loadAppBootstrap();" not in app_text
     assert "loadSessionCommandCapabilities({ fetchJson, dispatch }).catch" not in app_text
-    assert "createSessionCommandCapabilityLoader" in app_text
-    assert "loadSessionCommandCapabilitiesForApp" in app_text
+    assert "createSessionCommandCapabilityLoader" not in app_text
+    assert "createSessionCommandCapabilityLoader" in _client_runtime_text()
+    assert "loadSessionCommandCapabilities" in _client_runtime_text()
     assert "loadSessionCommandCapabilities({ fetchJson, dispatch })" not in app_text
     assert "export function createInitialAppLoadController" in controller_text
     assert "bootstrapResult" in controller_text
@@ -1141,7 +1150,8 @@ def test_gui_socket_effect_execution_is_controller_owned():
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-effect-executor.js"
     )
 
-    assert "createSocketMessageController" in app_text
+    assert "createSocketMessageController" not in app_text
+    assert "createSocketMessageController" in _client_runtime_text()
     assert "createSocketEffectExecutor" not in app_text
     assert "const executeSocketEffects = createSocketEffectExecutor" not in app_text
     assert "function handleSocketMessage" not in app_text
@@ -1150,11 +1160,14 @@ def test_gui_socket_effect_execution_is_controller_owned():
     assert "transportEvents.length" not in app_text
     assert 'nextTransport.reloadState === "reload_required"' not in app_text
     assert "for (const action of effects.actions" not in app_text
-    assert "handleMessage: socketMessageController.handleMessage" in app_text
+    assert "handleMessage: socketMessageController.handleMessage" in _client_runtime_text()
     assert "startTransition(() => socketMessageController.handleMessage" not in app_text
     assert "handleMessage: (message) =>" not in app_text
-    assert "scheduleMessage: startTransition" in app_text
-    assert "socketMessageController.handleAcceptedSessionEvent(envelope)" in app_text
+    assert "scheduleMessage: browserRuntime.scheduleMessage" in _client_runtime_text()
+    assert (
+        "dispatchAcceptedSessionEvent: socketMessageController.handleAcceptedSessionEvent"
+        in _client_runtime_text()
+    )
     assert "export function createSocketMessageController" in controller_text
     assert "deriveSocketMessageEffects" in controller_text
     assert "createSocketEffectExecutor" in controller_text
@@ -1174,7 +1187,8 @@ def test_gui_session_transport_state_bridge_is_handle_owned():
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-transport-handle.js"
     )
 
-    assert "createSessionTransportHandle" in app_text
+    assert "createSessionTransportHandle" not in app_text
+    assert "createSessionTransportHandle" in _client_runtime_text()
     assert "sessionTransportRef" not in app_text
     assert "function replaceSessionTransport" not in app_text
     assert "function updateSessionTransport" not in app_text
@@ -1218,7 +1232,8 @@ def test_gui_responding_request_ids_bridge_is_handle_owned():
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/responding-request-ids-handle.js"
     )
 
-    assert "createRespondingRequestIdsHandle" in app_text
+    assert "createRespondingRequestIdsHandle" not in app_text
+    assert "createRespondingRequestIdsHandle" in _client_runtime_text()
     assert "respondingRequestIdsRef" not in app_text
     assert "function setRespondingRequestIds" not in app_text
     assert "setRespondingRequestIdsState(normalized)" not in app_text
@@ -2078,7 +2093,7 @@ def test_gui_terminal_copy_is_app_shell_declared():
     assert '"session_required_notice": "Open a session before using the terminal."' in spec_text
     assert "normalizeTerminalChrome" in model_text
     assert "chrome: normalizeTerminalChrome" in model_text
-    assert "getTerminalChrome" in app_text
+    assert "getTerminalChrome" in _client_runtime_text()
     assert "terminalChrome={terminalChrome}" in app_text
     assert "terminalChromeText" in controller_text
     assert "terminalCapabilityEnabled" in controller_text
@@ -2136,10 +2151,11 @@ def test_gui_preview_copy_is_app_shell_declared():
     assert '"session_required_notice": "Open a session before using preview."' in spec_text
     assert "normalizePreviewChrome" in model_text
     assert "preview: normalizePreviewCapability" in model_text
-    assert "createPreviewController" in app_text
-    assert "onPreviewOpenUrl={previewController.openUrl}" in app_text
-    assert "onPreviewRefresh={previewController.refresh}" in app_text
-    assert "onPreviewOpenExternal={previewController.openExternal}" in app_text
+    assert "createPreviewController" not in app_text
+    assert "createPreviewController" in _client_runtime_text()
+    assert "onPreviewOpenUrl={openPreviewUrl}" in app_text
+    assert "onPreviewRefresh={refreshPreview}" in app_text
+    assert "onPreviewOpenExternal={openPreviewExternal}" in app_text
     assert "async function openPreviewUrl" not in app_text
     assert "async function refreshPreview" not in app_text
     assert "async function openPreviewInSystemBrowser" not in app_text
@@ -2229,8 +2245,9 @@ def test_gui_file_preview_copy_is_app_shell_declared():
     assert '"markdown_preview_glyph": "P"' in spec_text
     assert "normalizeFilePreviewChrome" in model_text
     assert "filePreview: normalizeFilePreviewChrome" in model_text
-    assert "createFilePreviewController" in app_text
-    assert "onOpenFile={filePreviewController.openFile}" in app_text
+    assert "createFilePreviewController" not in app_text
+    assert "createFilePreviewController" in _client_runtime_text()
+    assert "onOpenFile={openFile}" in app_text
     assert "async function openFile" not in app_text
     assert "filePreviewController.openFile(path, line)" not in app_text
     assert "function openDiffSurface" not in app_text
@@ -2388,7 +2405,8 @@ def test_gui_source_control_copy_is_app_shell_declared():
     assert "groupOrder:" in model_text
     assert "fileStatusLabels: normalizeStringMap" in model_text
     assert "branchToolbar: normalizeBranchToolbarChrome" in model_text
-    assert "createSourceControlController" in app_text
+    assert "createSourceControlController" not in app_text
+    assert "createSourceControlController" in _client_runtime_text()
     assert "sourceControlChrome.statusUnavailableNotice" in source_control_controller_text
     assert "sourceControlChrome.diffUnavailableNotice" in source_control_controller_text
     assert "sourceControlChrome" in app_text
@@ -2491,9 +2509,10 @@ def test_gui_thread_lifecycle_actions_are_backend_descriptors():
     assert '"Archive this thread?"' not in controller_text
     assert '"Fork thread title"' not in controller_text
     assert '"Thread archived"' not in controller_text
-    assert "createBrowserDialogService" in app_text
-    assert "prompt: browserDialogService.prompt" in app_text
-    assert "confirm: browserDialogService.confirm" in app_text
+    assert "createBrowserDialogService" not in app_text
+    assert "createBrowserDialogService" in _client_runtime_text()
+    assert "prompt: dialogService.prompt" in _client_runtime_text()
+    assert "confirm: dialogService.confirm" in _client_runtime_text()
     assert "window.prompt" not in app_text
     assert "window.confirm" not in app_text
     assert "export function createBrowserDialogService" in browser_dialog_text
@@ -2704,20 +2723,17 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert "defaultNextTerminalId" in terminal_controller_text
     assert "openNewBottomDrawerTerminal" in terminal_controller_text
     assert "activateBottomDrawerTerminal" in terminal_controller_text
-    assert "onKindSelect={terminalController.selectBottomDrawerKind}" in app_text
-    assert "onTerminalNew={terminalController.openNewBottomDrawerTerminal}" in app_text
-    assert "onTerminalSelect={terminalController.activateBottomDrawerTerminal}" in app_text
+    assert "onKindSelect={selectBottomDrawerKind}" in app_text
+    assert "onTerminalNew={openBottomDrawerTerminal}" in app_text
+    assert "onTerminalSelect={activateBottomDrawerTerminal}" in app_text
     assert "terminalController.ensureOpen" not in app_text
     assert "nextTerminalId" not in app_text
     assert 'type: "terminal_active_set"' not in app_text
-    assert "onTerminalNew={terminalController.openRightPanelSurface}" in app_text
-    assert "onTerminalSplit={terminalController.splitActiveRightPanelSurface}" in app_text
-    assert (
-        "onTerminalSplitVertical={terminalController.splitActiveRightPanelSurfaceVertical}"
-        in app_text
-    )
-    assert "onTerminalSelect={terminalController.activateActiveRightPanelPane}" in app_text
-    assert "onTerminalClose={terminalController.closeActiveRightPanelPane}" in app_text
+    assert "onTerminalNew={openRightPanelTerminal}" in app_text
+    assert "onTerminalSplit={splitRightPanelTerminal}" in app_text
+    assert "onTerminalSplitVertical={splitRightPanelTerminalVertical}" in app_text
+    assert "onTerminalSelect={activateRightPanelTerminal}" in app_text
+    assert "onTerminalClose={closeRightPanelTerminal}" in app_text
     assert "terminalController.splitRightPanelSurface" not in app_text
     assert "terminalController.closeRightPanelPane" not in app_text
     assert "terminalController.activateRightPanelPane" not in app_text
@@ -2733,14 +2749,14 @@ def test_gui_workbench_entrypoints_are_app_capability_driven():
     assert "function activateActiveRightPanelPane" in terminal_controller_text
     assert "function closeActiveRightPanelPane" in terminal_controller_text
     assert "commandById" not in app_text
-    assert "onToggleRightPanel={workbenchCommandController.toggleRightPanel}" in app_text
-    assert "onToggleBottomDrawer={workbenchCommandController.toggleBottomDrawer}" in app_text
-    assert "onOpenPalette={workbenchCommandController.openPalette}" in app_text
-    assert "onQueryChange={workbenchCommandController.updatePaletteQuery}" in app_text
-    assert "onClose={workbenchCommandController.closePalette}" in app_text
-    assert "onSelect={workbenchCommandController.selectPaletteCommand}" in app_text
-    assert "onSelectSession={workbenchCommandController.selectPaletteSession}" in app_text
-    assert "onSelectWorkspace={workbenchCommandController.selectPaletteWorkspace}" in app_text
+    assert "onToggleRightPanel={toggleRightPanel}" in app_text
+    assert "onToggleBottomDrawer={toggleBottomDrawer}" in app_text
+    assert "onOpenPalette={openCommandPalette}" in app_text
+    assert "onQueryChange={updatePaletteQuery}" in app_text
+    assert "onClose={closeCommandPalette}" in app_text
+    assert "onSelect={selectPaletteCommand}" in app_text
+    assert "onSelectSession={selectPaletteSession}" in app_text
+    assert "onSelectWorkspace={selectPaletteWorkspace}" in app_text
     assert 'type: "workbench_command_palette_closed"' not in app_text
     assert 'type: "workbench_command_palette_query_changed"' not in app_text
     assert 'type: "workbench_right_panel_toggled"' not in app_text
@@ -2833,7 +2849,8 @@ def test_gui_visual_debug_installation_is_controller_owned():
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/visual-debug-fixtures.js"
     )
 
-    assert "createVisualDebugController" in app_text
+    assert "createVisualDebugController" not in app_text
+    assert "createVisualDebugController" in _client_runtime_text()
     assert "installVisualDebugFixtures" not in app_text
     assert "__EMBEDAGENT_VISUAL_DEBUG__" not in app_text
     assert "window.location.search" not in app_text
@@ -3016,11 +3033,11 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     assert 'switch (definition ? definition.openKind : "")' not in controller_text
     assert "RIGHT_PANEL_ACTIVATION_HANDLERS" in controller_text
     assert "RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]" in controller_text
-    assert "onActivateSurface={rightPanelController.activateSurface}" in app_text
-    assert "onCloseSurface={rightPanelController.closeSurface}" in app_text
-    assert "onCloseOtherSurfaces={rightPanelController.closeOtherSurfaces}" in app_text
-    assert "onCloseSurfacesToRight={rightPanelController.closeSurfacesToRight}" in app_text
-    assert "onCloseAllSurfaces={rightPanelController.closeAllSurfaces}" in app_text
+    assert "onActivateSurface={activateRightPanelSurface}" in app_text
+    assert "onCloseSurface={closeRightPanelSurface}" in app_text
+    assert "onCloseOtherSurfaces={closeOtherRightPanelSurfaces}" in app_text
+    assert "onCloseSurfacesToRight={closeRightPanelSurfacesToRight}" in app_text
+    assert "onCloseAllSurfaces={closeAllRightPanelSurfaces}" in app_text
     assert "onAddSurface={openRightPanelSurface}" in app_text
     assert 'type: "workbench_surface_closed"' not in app_text
     assert 'type: "workbench_surface_close_others"' not in app_text
@@ -3032,18 +3049,20 @@ def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
     assert 'kind: "file"' not in app_text
     assert 'kind: "preview"' not in app_text
     assert 'openRightPanelSurface("files")' not in app_text
-    assert "createFilePreviewController" in app_text
+    assert "createFilePreviewController" not in app_text
+    assert "createFilePreviewController" in _client_runtime_text()
     assert "rightPanelController.openFileSurface(" not in app_text
     assert "const opened = rightPanelController.openFileSurface(" not in app_text
     assert "if (!opened) return;" not in app_text
     assert "openSurface({" in file_preview_controller_text
     assert "if (!opened) return null;" in file_preview_controller_text
-    assert "createPreviewController" in app_text
+    assert "createPreviewController" not in app_text
+    assert "createPreviewController" in _client_runtime_text()
     assert "rightPanelController.openPreviewSurface(" not in app_text
     assert "rightPanelController.canOpenPreviewSurface()" not in app_text
     assert "canOpenPreviewSurface" in preview_controller_text
     assert "openPreviewSurface" in preview_controller_text
-    assert "onOpenFilesSurface={rightPanelController.openFilesSurface}" in app_text
+    assert "onOpenFilesSurface={openFilesSurface}" in app_text
     assert "openKind" in surfaces_text
     assert "activationKind" in surfaces_text
     assert "RIGHT_PANEL_RESOURCE_SURFACES.file" in controller_text
@@ -3355,12 +3374,16 @@ def test_gui_active_workspace_data_loading_is_controller_owned():
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/active-workspace-data-loader.js"
     )
 
-    assert "createActiveWorkspaceDataLoader" in app_text
-    assert "loadWorkspaceData: activeWorkspaceDataLoader.loadActiveWorkspaceData" in app_text
+    assert "createActiveWorkspaceDataLoader" not in app_text
+    assert "createActiveWorkspaceDataLoader" in _client_runtime_text()
+    assert (
+        "loadWorkspaceData: activeWorkspaceDataLoader.loadActiveWorkspaceData"
+        in _client_runtime_text()
+    )
     assert "Promise.all([" not in app_text
     assert 'loadFileChildren(".", { appCapabilities' not in app_text
     assert "sourceControlController.loadStatus(false, assumeWorkspace" not in app_text
-    assert "loadStatus: sourceControlController.loadStatus" in app_text
+    assert "loadStatus: sourceControlController.loadStatus" in _client_runtime_text()
     assert "loadStatus: (refresh, assumeWorkspace, appCapabilities)" not in app_text
     assert (
         "sourceControlController.loadStatus(refresh, assumeWorkspace, appCapabilities)"
@@ -3378,12 +3401,13 @@ def test_gui_composer_actions_are_controller_owned():
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/composer-controller.js"
     )
 
-    assert "createComposerController" in app_text
+    assert "createComposerController" not in app_text
+    assert "createComposerController" in _client_runtime_text()
     assert "function sendMessage" not in app_text
-    assert "onChange={composerController.setDraft}" in app_text
-    assert "onSend={composerController.sendMessage}" in app_text
-    assert "onOpenCommandPalette={composerController.openCommandPalette}" in app_text
-    assert "onRefreshSourceControl={composerController.refreshSourceControl}" in app_text
+    assert "onChange={setComposerDraft}" in app_text
+    assert "onSend={sendComposerMessage}" in app_text
+    assert "onOpenCommandPalette={openComposerPalette}" in app_text
+    assert "onRefreshSourceControl={refreshComposerSourceControl}" in app_text
     assert "export function createComposerController" in controller_text
     assert 'type: "set_composer"' in controller_text
     assert 'type: "workbench_command_palette_opened"' in controller_text
@@ -3400,7 +3424,8 @@ def test_gui_surface_panel_actions_are_controller_owned():
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/surface-panel-props.js"
     )
 
-    assert "createSurfacePanelController" in app_text
+    assert "createSurfacePanelController" not in app_text
+    assert "createSurfacePanelController" in _client_runtime_text()
     assert "buildSurfacePanelProps" in app_text
     assert "surfacePanelController.focusDiffFile" not in app_text
     assert "surfacePanelController.refreshSourceControl" not in app_text
@@ -3438,9 +3463,10 @@ def test_gui_panel_resize_dom_logic_is_controller_owned():
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/panel-resize-controller.js"
     )
 
-    assert "createPanelResizeController" in app_text
-    assert "onResizeSidebar={panelResizeController.startSidebarResize}" in app_text
-    assert "onResizeRightPanel={panelResizeController.startRightPanelResize}" in app_text
+    assert "createPanelResizeController" not in app_text
+    assert "createPanelResizeController" in _client_runtime_text()
+    assert "onResizeSidebar={resizeSidebar}" in app_text
+    assert "onResizeRightPanel={resizeRightPanel}" in app_text
     assert "panelResizeController.startResize" not in app_text
     assert "RESIZE_DIRECTIONS" not in app_text
     assert "function startResize" not in app_text
@@ -3463,9 +3489,10 @@ def test_gui_timeline_scroll_dom_logic_is_controller_owned():
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/timeline-scroll-controller.js"
     )
 
-    assert "createTimelineScrollController" in app_text
-    assert "timelineScrollController.syncToBottom()" in app_text
-    assert "onScroll={timelineScrollController.handleScroll}" in app_text
+    assert "createTimelineScrollController" not in app_text
+    assert "createTimelineScrollController" in _client_runtime_text()
+    assert "timelineScrollController.syncToBottom" in _client_runtime_text()
+    assert "onScroll={handleTimelineScroll}" in app_text
     assert "function handleTimelineScroll" not in app_text
     assert "isAtBottomRef" not in app_text
     assert "scrollTop" not in app_text
@@ -3484,11 +3511,12 @@ def test_gui_interaction_response_bridge_does_not_keep_root_forwarders():
         / "src/embedagent/frontend/gui/webapp/src/app-runtime/interaction-response-controller.js"
     )
 
-    assert "createInteractionResponseController" in app_text
+    assert "createInteractionResponseController" not in app_text
+    assert "createInteractionResponseController" in _client_runtime_text()
     assert "function logEvent" not in app_text
     assert "logEvent:" not in app_text
     assert "function respondToInteraction" not in app_text
-    assert "onRespondInteraction={interactionResponseController.respondToInteraction}" in app_text
+    assert "onRespondInteraction={respondToInteraction}" in app_text
     assert "logEvent" not in controller_text
     assert 'type: "log_event"' in controller_text
 
@@ -3503,14 +3531,15 @@ def test_gui_workbench_keyboard_handling_is_controller_owned():
         ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/workbench-parity-model.js"
     )
 
-    assert "createWorkbenchKeyboardController" in app_text
+    assert "createWorkbenchKeyboardController" not in app_text
+    assert "createWorkbenchKeyboardController" in _client_runtime_text()
     assert "buildCommandVisibilityContext" in app_text
     assert "function isTurnInterruptibleStatus" not in app_text
     assert "hasSession: Boolean(currentSessionId)" not in app_text
     assert "paletteOpen: state.workbench.commandPalette.open" not in app_text
     assert "paletteOpen: current.workbench.commandPalette.open" not in app_text
     assert "isRunning: isTurnInterruptibleStatus(status)" not in app_text
-    assert "workbenchKeyboardController.install()" in app_text
+    assert "keyboardController.install()" in _client_runtime_text()
     assert "function onWorkbenchKeyDown" not in app_text
     assert 'window.addEventListener("keydown"' not in app_text
     assert 'window.removeEventListener("keydown"' not in app_text

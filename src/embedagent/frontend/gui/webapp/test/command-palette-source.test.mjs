@@ -59,16 +59,7 @@ export function runCommandPaletteSourceTests() {
   assert.equal(appSource.includes("keybindings={keybindings}"), true);
   assert.equal(appSource.includes("DEFAULT_KEYBINDINGS"), false);
   assert.equal(appSource.includes("commandById"), false);
-  assert.equal(
-    appSource.includes("onSelect={workbenchCommandController.selectPaletteCommand}"),
-    true,
-  );
-  assert.equal(
-    appSource.includes("onSelectSession={workbenchCommandController.selectPaletteSession}"),
-    true,
-  );
-  assert.equal(
-    appSource.includes("onSelectWorkspace={workbenchCommandController.selectPaletteWorkspace}"),
-    true,
-  );
+  assert.equal(appSource.includes("onSelect={selectPaletteCommand}"), true);
+  assert.equal(appSource.includes("onSelectSession={selectPaletteSession}"), true);
+  assert.equal(appSource.includes("onSelectWorkspace={selectPaletteWorkspace}"), true);
 }
