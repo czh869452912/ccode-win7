@@ -54,16 +54,14 @@ def test_smoke_scenarios_cover_independent_and_composed_stacks():
     ]
     assert smoke.SCENARIOS[0]["distribution"] == "embedagent-core"
     core_probe = smoke.SCENARIOS[0]["probe"]
-    assert "AgentPorts(" in core_probe
-    assert "InMemorySessionLog" in core_probe
-    assert ".submit(UserTurn(" in core_probe
-    assert "materialize_observation" in core_probe
-    assert "commit_observation" not in core_probe
-    assert "tool_catalog_entry" in core_probe
-    assert "AgentInteractionRequest" in core_probe
-    assert "InteractionReply" in core_probe
-    assert "waiting.pending_interaction" in core_probe
-    assert "resumed.final_text == 'done'" in core_probe
+    assert "runpy.run_path" in core_probe
+    assert "standalone_agent.py" in core_probe
+    assert 'example["run_example"]()' in core_probe
+    assert 'result["waiting_reason"] == "user_input_wait"' in core_probe
+    assert 'result["termination_reason"] == "completed"' in core_probe
+    assert "embedagent_host" in core_probe
+    assert "from embedagent_core." not in core_probe
+    assert "AgentPorts(" not in core_probe
     assert smoke.SCENARIOS[2]["distribution"] == "embedagent-host"
     assert smoke.SCENARIOS[2]["distributions"] == (
         "embedagent-core",
@@ -479,6 +477,14 @@ import sys
 import types
 
 
+class ModelClient(object):
+    pass
+
+
+class ToolRuntimePort(object):
+    pass
+
+
 class AgentPorts(object):
     def __init__(self, **ports):
         self.ports = ports
@@ -512,27 +518,48 @@ class Action(object):
         self.call_id = call_id
 
 
+class Observation(object):
+    def __init__(self, *args):
+        self.args = args
+
+
 class PreparedToolObservation(object):
     def __init__(self, observation, commit_token=None):
         self.observation = observation
         self.commit_token = commit_token
 
 
+class _SessionView(object):
+    def __init__(self, session_id):
+        self.session_id = session_id
+
+
 class _AgentResult(object):
-    def __init__(self, final_text, pending_interaction=None):
+    def __init__(
+        self,
+        final_text,
+        session_id,
+        termination_reason,
+        pending_interaction=None,
+    ):
         self.final_text = final_text
         self.pending_interaction = pending_interaction
+        self.session = _SessionView(session_id)
+        self.termination_reason = termination_reason
 
 
 class _AgentSession(object):
-    def __init__(self):
+    def __init__(self, session_id):
         self.calls = 0
+        self.session_id = session_id
 
     def submit(self, turn):
         self.calls += 1
         if self.calls == 1:
             return _AgentResult(
                 "",
+                self.session_id,
+                "user_input_wait",
                 AgentInteractionRequest(
                     "interaction-1",
                     "user_input",
@@ -542,7 +569,7 @@ class _AgentSession(object):
             )
         if not isinstance(turn, InteractionReply):
             raise TypeError("expected interaction reply")
-        return _AgentResult("done")
+        return _AgentResult("done", self.session_id, "completed")
 
 
 class Agent(object):
@@ -552,8 +579,7 @@ class Agent(object):
         return cls()
 
     def open(self, session_id):
-        del session_id
-        return _AgentSession()
+        return _AgentSession(session_id)
 
 
 class PermissionPolicy(object):

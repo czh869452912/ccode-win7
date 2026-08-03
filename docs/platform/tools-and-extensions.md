@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform authority`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-01`
+> 最后同步日期：`2026-08-03`
 > 对应代码范围：`packages/embedagent-core/src/embedagent_core/agent_extension_host.py`, `packages/embedagent-core/src/embedagent_core/extensions.py`, `packages/embedagent-core/src/embedagent_core/agent_tool_action_service.py`, `packages/embedagent-host/src/embedagent_host/runtime/tools/`
 
 ## 1. Purpose And Boundary
@@ -48,28 +48,34 @@
 
 ## 5. Execution Pipeline
 
-`AgentToolActionService` 依次处理：
+`AgentKernel` 先提交 assistant message 和 planned tool call，再产生 `PrepareToolBatchEffect`。`AgentToolActionService` 在 preparation 阶段按 source order 串行处理：
 
 1. 检查工具是否 active；
 2. 应用 before-tool hooks；
 3. 根据 runtime catalog metadata 请求 `PermissionPolicy`；
 4. 独立应用写路径守卫；
-5. 创建或恢复 permission/user-input interaction；
-6. 调度 extension-owned action 或 `ToolRuntime.execute(...)`；
-7. 应用 result hooks 和 workflow patch；
-8. 产生结构化 `Observation` 和 read-model invalidations。
+5. 创建 permission/user-input interaction 或准备 runtime dispatch metadata。
 
-交互式 action 不进入并行预执行，恢复时重新进入同一串行管道。扩展 hooks 不能跳过 mode、权限、路径或 active-tool 检查。
+Preparation 不调度工具。`AgentKernel` 接受准备结果后，只为 ready invocation 产生 `operation_started`；`AgentLoop` 必须先将这些事件持久化提交，再执行 `ExecutePreparedToolBatchEffect`。执行阶段才调度 extension-owned action 或 `ToolRuntime.execute(...)`，然后应用 result hooks、workflow patch，产生结构化 `Observation` 和 read-model invalidations。blocked、denied、invalid、truncated 和 suspended action 不产生 execution-start record。
+
+交互式 action 不进入并行执行。interaction checkpoint 保存原 assistant identity、source index、已准备前缀和 immediate results；回复后通过 `AgentKernel.resume_preparation(...)` 回到同一个 commit-execute-resume Loop，并从 checkpoint 继续未完成的 preparation，不重复已经通过的 hook、权限或路径决策。
+
+Preparation 始终串行；execute 只并行连续的 `read_only && concurrency_safe` invocation，canonical observations 始终恢复为 source order。扩展 hooks 不能跳过 mode、权限、路径或 active-tool 检查。
 
 ```mermaid
-flowchart LR
+flowchart TD
     A["mode contract"] --> B["AgentExtensionHost"]
     C["ExtensionManager"] --> B
     B --> D["explicit active names"]
     D --> E["ToolRuntime schemas"]
-    F["AgentToolActionService"] --> G["hooks / permission / path"]
-    G --> H["ToolRuntime execute"]
-    H --> I["Observation"]
+    F["PrepareToolBatchEffect"] --> G["serial hooks / permission / path"]
+    G --> H["ToolBatchPrepared or interaction checkpoint"]
+    H --> I["durable operation_started commit"]
+    I --> J["ExecutePreparedToolBatchEffect"]
+    J --> K["extension action / ToolRuntime execute"]
+    K --> L["source-ordered Observation"]
+    H --> M["AgentKernel resume_preparation"]
+    M --> G
 ```
 
 ## 6. Runtime Catalog

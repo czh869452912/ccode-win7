@@ -13,6 +13,7 @@ DEFAULT_TARGETS = (
     "packages/embedagent-protocol/src/",
     "packages/embedagent-host/src/",
     "packages/embedagent-workflow-cpp/src/",
+    "examples/",
     "tests/",
     "scripts/lint.py",
     "scripts/test-suite.py",

@@ -10,79 +10,35 @@ import sys
 import tempfile
 from pathlib import Path
 
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+STANDALONE_AGENT_EXAMPLE = REPOSITORY_ROOT / "examples" / "standalone_agent.py"
+
+
+def _standalone_core_probe():
+    lines = [
+        "import importlib.util",
+        "import runpy",
+        "example = runpy.run_path(%s, run_name='standalone_core_smoke')"
+        % json.dumps(str(STANDALONE_AGENT_EXAMPLE)),
+        'result = example["run_example"]()',
+        "blocked = ('embedagent_host', 'embedagent_protocol', "
+        "'embedagent_composition', 'embedagent_workflow_cpp', 'embedagent')",
+        "isolated = not any(importlib.util.find_spec(name) is not None " "for name in blocked)",
+        'ok = (result["waiting_reason"] == "user_input_wait" and '
+        'result["interaction_kind"] == "user_input" and '
+        'result["final_text"] == "done" and '
+        'result["termination_reason"] == "completed" and isolated)',
+        "raise SystemExit(0 if ok else 1)",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 SCENARIOS = (
     {
         "name": "core_only",
         "distribution": "embedagent-core",
         "distributions": ("embedagent-core",),
-        "probe": (
-            "import importlib.util\n"
-            "from embedagent_core import (Agent, AgentInteractionRequest, AgentPorts, "
-            "InteractionReply, UserTurn)\n"
-            "from embedagent_core.permissions import PermissionPolicy\n"
-            "from embedagent_core.ports import NoopContextAssembler\n"
-            "from embedagent_core.session import Action, AssistantReply\n"
-            "from embedagent_core.session_log import InMemorySessionLog\n"
-            "from embedagent_core.tool_contracts import PreparedToolObservation\n"
-            "class FakeModel(object):\n"
-            "    def __init__(self):\n"
-            "        self.calls = 0\n"
-            "    def generate(self, messages, tools=None):\n"
-            "        del messages, tools\n"
-            "        self.calls += 1\n"
-            "        if self.calls == 1:\n"
-            "            return AssistantReply(content='', actions=[Action(\n"
-            "                name='ask_user', arguments={'question': 'Proceed?'}, "
-            "call_id='call-1')], finish_reason='tool_calls')\n"
-            "        return AssistantReply(content='done', actions=[], finish_reason='stop')\n"
-            "    def stream(self, messages, tools=None, on_text_delta=None, "
-            "on_reasoning_delta=None):\n"
-            "        del messages, tools, on_text_delta, on_reasoning_delta\n"
-            "        return AssistantReply(content='done', actions=[], finish_reason='stop')\n"
-            "class NoopToolRuntime(object):\n"
-            "    workspace = ''\n"
-            "    def schemas_for(self, mode, workflow_state=None, tool_names=None):\n"
-            "        del mode, workflow_state, tool_names\n"
-            "        return []\n"
-            "    def tool_catalog_entry(self, tool_name):\n"
-            "        if tool_name != 'ask_user':\n"
-            "            return None\n"
-            "        return {\n"
-            "            'permission_category': 'read',\n"
-            "            'read_only': True,\n"
-            "            'concurrency_safe': True,\n"
-            "            'user_label': 'Ask User',\n"
-            "            'progress_renderer_key': 'interaction',\n"
-            "            'result_renderer_key': 'interaction',\n"
-            "            'source_type': 'builtin',\n"
-            "            'source_id': 'embedagent.core',\n"
-            "        }\n"
-            "    def materialize_observation(self, session_id, action, observation):\n"
-            "        del session_id, action\n"
-            "        return PreparedToolObservation(observation=observation)\n"
-            "    def finalize_observation(self, commit_token):\n"
-            "        del commit_token\n"
-            "blocked = ('embedagent_host', 'embedagent_protocol', "
-            "'embedagent_composition', 'embedagent_workflow_cpp', 'embedagent')\n"
-            "ports = AgentPorts(\n"
-            "    model=FakeModel(),\n"
-            "    tools=NoopToolRuntime(),\n"
-            "    session_log=InMemorySessionLog(),\n"
-            "    context=NoopContextAssembler(),\n"
-            "    permissions=PermissionPolicy(),\n"
-            ")\n"
-            "session = Agent.create(ports).open('smoke-core')\n"
-            "waiting = session.submit(UserTurn('hello', stream=False))\n"
-            "pending = waiting.pending_interaction\n"
-            "resumed = session.submit(InteractionReply(\n"
-            "    pending.interaction_id, {'answer': 'yes'}, stream=False))\n"
-            "isolated = not any(importlib.util.find_spec(name) is not None "
-            "for name in blocked)\n"
-            "ok = (isinstance(pending, AgentInteractionRequest) and "
-            "pending.kind == 'user_input' and pending.tool_name == 'ask_user' and "
-            "resumed.final_text == 'done' and isolated)\n"
-            "raise SystemExit(0 if ok else 1)\n"
-        ),
+        "probe": _standalone_core_probe(),
     },
     {
         "name": "protocol_only",

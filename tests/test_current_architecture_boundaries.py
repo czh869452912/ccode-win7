@@ -712,6 +712,11 @@ def test_tools_platform_docs_keep_application_recipes_outside_platform():
 
     assert "workflow-neutral" in text
     assert "docs/applications/" in text
+    assert "`PrepareToolBatchEffect`" in text
+    assert "`operation_started`" in text
+    assert "`ExecutePreparedToolBatchEffect`" in text
+    assert "checkpoint" in text
+    assert "恢复时重新进入同一串行管道" not in text
     assert "embedagent_workflow_cpp" not in text
     assert "CMake/Make/Ninja" not in text
     assert "run_recipe" not in text

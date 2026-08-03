@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform authority`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-02`
+> 最后同步日期：`2026-08-03`
 > 对应代码范围：`packages/embedagent-core/src/embedagent_core/`, `packages/embedagent-host/src/embedagent_host/`
 
 ## 1. Purpose And Scope
@@ -13,6 +13,20 @@
 本文档说明通用 Agent Core 以及受支持的 Core/Host 边界。公开入口是 `Agent` / `AgentSession` / `AgentPorts`；内部状态主链是 `SessionTransaction`、`SessionJournal`、`SessionReducer`、`AgentKernel` 和 `AgentLoop`；Host 只通过 `HostedSessionController` 获取冻结投影。
 
 `QueryEngine`、`SessionRestorer`、Host 持有 mutable Core `Session`、`ExecutionTracer` 和 `CircuitBreaker` 已删除，且没有兼容别名。
+
+### Standalone Public Surface
+
+`embedagent_core` 根包拥有可独立提取的稳定入口：
+
+- execution handles：`Agent`, `AgentSession`, `AgentPorts`, `RuntimeDefinition`, `UserTurn`, `InteractionReply`, `AgentResult`；
+- focused collaborators：`ModelClient`, `ToolRuntimePort`, `SessionLogPort`, `ContextAssemblerPort`, `SessionRestorePolicyPort`, `SessionProjectionPort`；
+- safe stdlib defaults：`PermissionPolicy`, `InMemorySessionLog`, `NoopContextAssembler`, `NoopSessionProjection`, `StrictSessionRestorePolicy`；
+- provider/tool DTOs：`Action`, `AssistantReply`, `Observation`, `PreparedToolObservation`；
+- execution errors：`ModelClientError`, `ToolError`, `SessionLeaseConflict`, `SessionRecoveryRequired`。
+
+`AgentPorts` 仍要求调用方显式提供 model、tools、session log、context 和 permissions；Core 不从 Host 或 product 查找隐式默认值。根包不导出 `HostedSessionController`、Kernel、Loop、mutable `Session` 或具体 provider/tool 实现。高级 extension authoring contract 保持由其所属 Core 子模块拥有，不为示例另造 facade。
+
+`examples/standalone_agent.py` 是最小可执行参考，使用根包 API 和显式 ports 完成运行、user-input 挂起及同一 session 恢复。`scripts/smoke-python-distributions.py` 的 `core_only` 场景在只安装 Core wheel 的隔离环境中直接执行该示例，并拒绝 Host、Protocol、Composition、workflow 和 product 分发。
 
 ## 2. Responsibilities
 
@@ -99,6 +113,8 @@ flowchart TD
 推荐回归入口：
 
 - `tests/test_agent_core_public_api.py`
+- `tests/test_standalone_agent_example.py`
+- `tests/test_python_distribution_smoke.py`
 - `tests/test_agent_runtime_integration.py`
 - `tests/test_session_journal.py`
 - `tests/test_session_reducer.py`

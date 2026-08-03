@@ -312,6 +312,54 @@ def test_standalone_agent_core_public_symbols_are_available():
     assert all(symbol is not None for symbol in public_symbols)
 
 
+def test_standalone_construction_contracts_are_available_from_core_root():
+    from embedagent_core import (
+        Action,
+        AssistantReply,
+        ContextAssemblerPort,
+        InMemorySessionLog,
+        ModelClient,
+        ModelClientError,
+        NoopContextAssembler,
+        NoopSessionProjection,
+        Observation,
+        PermissionPolicy,
+        PreparedToolObservation,
+        SessionLeaseConflict,
+        SessionLogPort,
+        SessionProjectionPort,
+        SessionRecoveryRequired,
+        SessionRestorePolicyPort,
+        StrictSessionRestorePolicy,
+        ToolError,
+        ToolRuntimePort,
+    )
+
+    public_symbols = (
+        Action,
+        AssistantReply,
+        ContextAssemblerPort,
+        InMemorySessionLog,
+        ModelClient,
+        ModelClientError,
+        NoopContextAssembler,
+        NoopSessionProjection,
+        Observation,
+        PermissionPolicy,
+        PreparedToolObservation,
+        SessionLeaseConflict,
+        SessionLogPort,
+        SessionProjectionPort,
+        SessionRecoveryRequired,
+        SessionRestorePolicyPort,
+        StrictSessionRestorePolicy,
+        ToolError,
+        ToolRuntimePort,
+    )
+
+    assert all(symbol is not None for symbol in public_symbols)
+
+
 def test_hosting_controller_is_not_exported_from_core_root():
     import embedagent_core
 

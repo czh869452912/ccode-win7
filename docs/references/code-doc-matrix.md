@@ -3,14 +3,14 @@
 > 状态：`active`
 > 类型：`reference`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-08-01`
+> 最后同步日期：`2026-08-03`
 > 对应代码范围：`packages/`, `src/embedagent/`, `scripts/`
 
 本表是 `docs/README.md` 后的代码区域所有权索引。每行只指定一个 primary authority；路线图、状态页和归档不拥有代码行为。
 
 | Domain | Primary code paths | Primary authority | Supporting contracts/workflows |
 |---|---|---|---|
-| Agent Core | `packages/embedagent-core/src/embedagent_core/` | `docs/platform/agent-core.md` | `docs/platform/session-runtime.md`, `docs/workflows/architecture-change-process.md` |
+| Agent Core | `packages/embedagent-core/src/embedagent_core/`, `examples/standalone_agent.py` | `docs/platform/agent-core.md` | `docs/platform/session-runtime.md`, `docs/workflows/architecture-change-process.md` |
 | Hosted session runtime | `packages/embedagent-host/src/embedagent_host/inprocess_adapter.py`, `packages/embedagent-host/src/embedagent_host/runtime/session_*.py`, `transcript_store.py` | `docs/platform/session-runtime.md` | `docs/platform/agent-core.md`, `docs/platform/frontend-protocol.md` |
 | Tools and extensions | Core extension/action files, `packages/embedagent-host/src/embedagent_host/runtime/tools/`, local/project extension files | `docs/platform/tools-and-extensions.md` | `docs/platform/tool-contracts.md`, `docs/platform/permission-model.md` |
 | Permissions and context | `packages/embedagent-core/src/embedagent_core/permissions.py`, `packages/embedagent-host/src/embedagent_host/runtime/context.py`, workspace intelligence | `docs/platform/permissions-and-context.md` | `docs/platform/permission-model.md` |
