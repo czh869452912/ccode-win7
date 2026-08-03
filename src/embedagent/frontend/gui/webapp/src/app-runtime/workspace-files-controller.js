@@ -8,12 +8,15 @@ function readAppCapabilities({ appCapabilities, getAppCapabilities }) {
 }
 
 export function createWorkspaceFilesController({
-  fetchJson,
+  protocol,
   dispatch,
   appCapabilities,
   getAppCapabilities,
 } = {}) {
-  const request = typeof fetchJson === "function" ? fetchJson : () => Promise.resolve({});
+  const loadWorkspaceTree =
+    protocol && typeof protocol.loadWorkspaceTree === "function"
+      ? protocol.loadWorkspaceTree.bind(protocol)
+      : null;
   const send = typeof dispatch === "function" ? dispatch : () => {};
 
   async function loadFileChildren(path = ".", options = {}) {
@@ -23,11 +26,9 @@ export function createWorkspaceFilesController({
         : null;
     const capabilities =
       optionCapabilities || readAppCapabilities({ appCapabilities, getAppCapabilities });
-    if (!workspaceFilesCapabilityEnabled(capabilities)) {
-      return null;
-    }
+    if (!loadWorkspaceTree || !workspaceFilesCapabilityEnabled(capabilities)) return null;
     const normalizedPath = path || ".";
-    const payload = await request(`/api/files/tree?path=${encodeURIComponent(normalizedPath)}`);
+    const payload = await loadWorkspaceTree(normalizedPath);
     const children = (payload.items || []).map(createTreeNode);
     if (normalizedPath === ".") {
       send({ type: "file_tree_loaded", nodes: children });

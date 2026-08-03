@@ -10,26 +10,24 @@ function defaultTimer() {
   return { clearTimeout, setTimeout };
 }
 
-function defaultLocation() {
-  if (typeof window !== "undefined") return window.location;
-  return { protocol: "http:", host: "localhost" };
-}
-
-function defaultSocketFactory(url) {
-  return new WebSocket(url);
+function requireProtocolMethod(protocol, name) {
+  const method = protocol && protocol[name];
+  if (typeof method !== "function") throw new Error(`protocol_method_missing:${name}`);
+  return method.bind(protocol);
 }
 
 export function createSessionTransportController({
+  protocol,
   getCurrentSessionId,
   getTransportState,
   updateTransportState,
   loadSession,
   handleMessage,
-  socketFactory,
-  locationObject,
   timer,
 } = {}) {
-  let socket = null;
+  let channel = null;
+  let unsubscribeMessage = null;
+  let unsubscribeState = null;
   let token = 0;
   let manualClose = false;
   let retryAttempt = 0;
@@ -38,9 +36,8 @@ export function createSessionTransportController({
   let recoveryPromise = null;
   let recoveryToken = -1;
   let recoverySessionId = "";
-  const location = locationObject || defaultLocation();
   const clock = timer || defaultTimer();
-  const makeSocket = socketFactory || defaultSocketFactory;
+  const openSessionEvents = requireProtocolMethod(protocol, "openSessionEvents");
   const readCurrentSessionId =
     typeof getCurrentSessionId === "function" ? getCurrentSessionId : () => "";
   const readTransportState =
@@ -54,45 +51,30 @@ export function createSessionTransportController({
   const dispatchMessage = typeof handleMessage === "function" ? handleMessage : () => {};
 
   function abortActiveBootstrap() {
-    if (typeof loadSessionBootstrap.abort === "function") {
-      loadSessionBootstrap.abort();
-    }
+    if (typeof loadSessionBootstrap.abort === "function") loadSessionBootstrap.abort();
   }
 
   function recover(sessionId) {
     if (closed || !sessionId) return Promise.resolve({ stale: true });
-    if (
-      recoveryPromise &&
-      recoveryToken === token &&
-      recoverySessionId === sessionId
-    ) {
+    if (recoveryPromise && recoveryToken === token && recoverySessionId === sessionId) {
       return recoveryPromise;
     }
     updateTransport((current) => ({
       ...current,
       connectionState: current.connectionState === "degraded" ? "degraded" : "connected",
-      reloadState:
-        current.reloadState === "degraded" ? "degraded" : "reload_required",
+      reloadState: current.reloadState === "degraded" ? "degraded" : "reload_required",
     }));
     const activeRecoveryToken = token;
     let pending = null;
     pending = Promise.resolve()
       .then(() => {
-        if (
-          closed ||
-          token !== activeRecoveryToken ||
-          recoveryPromise !== pending
-        ) {
+        if (closed || token !== activeRecoveryToken || recoveryPromise !== pending) {
           return { stale: true };
         }
         return loadSessionBootstrap(sessionId, { reason: "gap" });
       })
       .catch(() => {
-        if (
-          closed ||
-          token !== activeRecoveryToken ||
-          recoveryPromise !== pending
-        ) {
+        if (closed || token !== activeRecoveryToken || recoveryPromise !== pending) {
           return { stale: true };
         }
         updateTransport((current) => ({
@@ -113,78 +95,84 @@ export function createSessionTransportController({
     return pending;
   }
 
-  function socketIsStale(activeSocket, socketToken) {
-    return closed || token !== socketToken || socket !== activeSocket;
+  function channelIsStale(activeChannel, channelToken) {
+    return closed || token !== channelToken || channel !== activeChannel;
+  }
+
+  function releaseSubscriptions() {
+    if (typeof unsubscribeMessage === "function") unsubscribeMessage();
+    if (typeof unsubscribeState === "function") unsubscribeState();
+    unsubscribeMessage = null;
+    unsubscribeState = null;
+  }
+
+  function scheduleReconnect(activeChannel, channelToken) {
+    updateTransport((current) => ({ ...current, connectionState: "disconnected" }));
+    if (
+      !shouldReconnectSocket({
+        activeToken: token,
+        socketToken: channelToken,
+        manualClose,
+        closed,
+      })
+    ) {
+      return;
+    }
+    retryAttempt = capRetryAttempt(retryAttempt + 1);
+    const delay = Math.min(1500 * Math.pow(2, Math.max(retryAttempt - 1, 0)), 30000);
+    retryTimerId = clock.setTimeout(() => {
+      retryTimerId = null;
+      if (closed || token !== channelToken || manualClose) return;
+      if (channel === activeChannel) {
+        releaseSubscriptions();
+        channel = null;
+      }
+      connect();
+    }, delay);
   }
 
   function connect() {
-    if (closed || socket) return socket;
+    if (closed || channel) return channel;
     manualClose = false;
     if (retryTimerId !== null) {
       clock.clearTimeout(retryTimerId);
       retryTimerId = null;
     }
     if (recoveryPromise) abortActiveBootstrap();
-    const socketToken = token + 1;
-    token = socketToken;
-    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-    const activeSocket = makeSocket(`${protocol}//${location.host}/ws`);
-    socket = activeSocket;
+    const channelToken = token + 1;
+    token = channelToken;
+    const activeChannel = openSessionEvents();
+    channel = activeChannel;
     let closeHandled = false;
-    activeSocket.onopen = async () => {
-      if (socketIsStale(activeSocket, socketToken)) return;
-      updateTransport((current) => ({ ...current, connectionState: "connected" }));
-      retryAttempt = 0;
-      const sessionId = readCurrentSessionId();
-      const state = readTransportState();
-      if (sessionId && state.reloadState !== "healthy") {
-        await recover(sessionId);
-      }
-    };
-    activeSocket.onclose = () => {
-      if (socketIsStale(activeSocket, socketToken) || closeHandled) return;
-      closeHandled = true;
-      updateTransport((current) => ({ ...current, connectionState: "disconnected" }));
-      if (
-        !shouldReconnectSocket({
-          activeToken: token,
-          socketToken,
-          manualClose,
-          closed,
-        })
-      ) {
+
+    unsubscribeMessage = activeChannel.onMessage((message) => {
+      if (channelIsStale(activeChannel, channelToken)) return;
+      dispatchMessage(message);
+    });
+    unsubscribeState = activeChannel.onStateChange(async (state) => {
+      if (channelIsStale(activeChannel, channelToken)) return;
+      if (state === "open") {
+        updateTransport((current) => ({ ...current, connectionState: "connected" }));
+        retryAttempt = 0;
+        const sessionId = readCurrentSessionId();
+        const transportState = readTransportState();
+        if (sessionId && transportState.reloadState !== "healthy") await recover(sessionId);
         return;
       }
-      retryAttempt = capRetryAttempt(retryAttempt + 1);
-      const delay = Math.min(1500 * Math.pow(2, Math.max(retryAttempt - 1, 0)), 30000);
-      retryTimerId = clock.setTimeout(() => {
-        retryTimerId = null;
-        if (closed || token !== socketToken || manualClose) return;
-        if (socket === activeSocket) socket = null;
-        connect();
-      }, delay);
-    };
-    activeSocket.onerror = () => {
-      if (socketIsStale(activeSocket, socketToken)) return;
-      updateTransport((current) => ({
-        ...current,
-        connectionState: "degraded",
-        reloadState: "reload_required",
-      }));
-    };
-    activeSocket.onmessage = (event) => {
-      if (socketIsStale(activeSocket, socketToken)) return;
-      try {
-        dispatchMessage(JSON.parse(event.data));
-      } catch (_) {
+      if (state === "error") {
         updateTransport((current) => ({
           ...current,
           connectionState: "degraded",
-          reloadState: "degraded",
+          reloadState: "reload_required",
         }));
+        return;
       }
-    };
-    return activeSocket;
+      if (state === "closed" && !closeHandled) {
+        closeHandled = true;
+        scheduleReconnect(activeChannel, channelToken);
+      }
+    });
+    return activeChannel;
   }
 
   function applyEvent(event) {
@@ -192,11 +180,7 @@ export function createSessionTransportController({
     updateTransport((current) => {
       if (current.phase === "buffering") {
         const state = bufferSessionTransportEvent(current, event);
-        result = {
-          state,
-          accepted: false,
-          reason: "buffered_event",
-        };
+        result = { state, accepted: false, reason: "buffered_event" };
         return state;
       }
       result = applySessionTransportEvent(current, event);
@@ -210,23 +194,16 @@ export function createSessionTransportController({
     closed = true;
     manualClose = true;
     token += 1;
-    if (retryTimerId !== null) {
-      clock.clearTimeout(retryTimerId);
-    }
+    if (retryTimerId !== null) clock.clearTimeout(retryTimerId);
     retryTimerId = null;
     abortActiveBootstrap();
     recoveryPromise = null;
     recoveryToken = -1;
     recoverySessionId = "";
-    const activeSocket = socket;
-    socket = null;
-    if (activeSocket) {
-      activeSocket.onopen = null;
-      activeSocket.onmessage = null;
-      activeSocket.onerror = null;
-      activeSocket.onclose = null;
-      activeSocket.close();
-    }
+    const activeChannel = channel;
+    channel = null;
+    releaseSubscriptions();
+    if (activeChannel) activeChannel.close();
   }
 
   return { connect, close, recover, applyEvent };

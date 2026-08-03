@@ -25,12 +25,7 @@ class GuiDynamicAgentCapabilityTests(unittest.TestCase):
         app_payload = serialize_app_bootstrap(
             {
                 "app": {"shell_version": 1, "protocol": "gui_app_shell_v1"},
-                "capabilities": {
-                    "empty_state": {
-                        "primary": "Open a workspace",
-                        "path_placeholder": r"D:\work\project",
-                    }
-                },
+                "shell": {"schema_version": 1},
             }
         )
         session_payload = serialize_session_bootstrap(
@@ -42,14 +37,12 @@ class GuiDynamicAgentCapabilityTests(unittest.TestCase):
         )
 
         self.assertNotIn("product_name", app_payload["app"])
-        self.assertEqual(
-            app_payload["capabilities"]["empty_state"]["primary"],
-            "Open a workspace",
-        )
+        self.assertNotIn("capabilities", app_payload)
+        self.assertEqual(app_payload["shell"]["commands"], [])
         self.assertEqual(session_payload["capabilities"]["modes"], [])
         self.assertEqual(session_payload["capabilities"]["commands"], [])
         self.assertEqual(session_payload["capabilities"]["tools"], [])
-        self.assertFalse(session_payload["capabilities"]["agentApplication"])
+        self.assertFalse(session_payload["capabilities"]["agent_application"])
 
     def test_specialized_agent_preserves_generic_descriptors(self):
         app_payload = serialize_app_bootstrap(
@@ -59,8 +52,9 @@ class GuiDynamicAgentCapabilityTests(unittest.TestCase):
                     "product_name": "Project Inspector",
                     "protocol": "gui_app_shell_v1",
                 },
-                "capabilities": {
-                    "workbench_commands": [
+                "shell": {
+                    "schema_version": 1,
+                    "commands": [
                         {
                             "id": "project.check",
                             "label": "Check project",
@@ -68,17 +62,19 @@ class GuiDynamicAgentCapabilityTests(unittest.TestCase):
                             "dispatch": {"kind": "slash", "command": "/check-project"},
                         }
                     ],
-                    "surfaces": {
-                        "right_panel": [
-                            {
-                                "id": "project_report",
-                                "kind": "project_report",
-                                "title": "Project report",
-                                "body_kind": "surface_panel",
-                                "panel_kind": "descriptor",
-                            }
-                        ]
-                    },
+                    "surfaces": [
+                        {
+                            "id": "project_report",
+                            "label": "Project report",
+                            "placement": "secondary",
+                            "renderer_key": "descriptor",
+                            "metadata": {"kind": "project_report"},
+                        }
+                    ],
+                    "keybindings": [],
+                    "tool_presentations": [],
+                    "timeline_items": [],
+                    "interactions": [],
                 },
             }
         )
@@ -102,10 +98,12 @@ class GuiDynamicAgentCapabilityTests(unittest.TestCase):
                     ],
                     "commands": [
                         {
-                            "id": "project.check",
-                            "label": "Check project",
-                            "group": "project",
-                            "dispatch": {"kind": "slash", "command": "/check-project"},
+                            "name": "project.check",
+                            "usage": "/check-project",
+                            "summary": "Check project",
+                            "source_type": "project",
+                            "source_id": "tests.project-inspector",
+                            "active": True,
                         }
                     ],
                     "tools": [
@@ -118,10 +116,11 @@ class GuiDynamicAgentCapabilityTests(unittest.TestCase):
                             "metadata": {"preview_arg": "target"},
                         }
                     ],
-                    "agent_application": {
-                        "application_id": "tests.project-inspector",
+                    "agentApplication": {
+                        "applicationId": "tests.project-inspector",
                         "label": "Project Inspector",
-                        "profile_id": "tests.project-inspector.profile",
+                        "profileId": "tests.project-inspector.profile",
+                        "workflowPackageIds": [],
                         "active": True,
                     },
                 },
@@ -130,11 +129,11 @@ class GuiDynamicAgentCapabilityTests(unittest.TestCase):
 
         self.assertEqual(app_payload["app"]["product_name"], "Project Inspector")
         self.assertEqual(
-            app_payload["capabilities"]["workbench_commands"][0]["id"],
+            app_payload["shell"]["commands"][0]["id"],
             "project.check",
         )
         self.assertEqual(
-            app_payload["capabilities"]["surfaces"]["right_panel"][0]["kind"],
+            app_payload["shell"]["surfaces"][0]["id"],
             "project_report",
         )
         self.assertEqual(session_payload["capabilities"]["modes"][0]["id"], "inspect")
@@ -147,7 +146,7 @@ class GuiDynamicAgentCapabilityTests(unittest.TestCase):
             "project_check",
         )
         self.assertEqual(
-            session_payload["capabilities"]["agentApplication"]["applicationId"],
+            session_payload["capabilities"]["agent_application"]["id"],
             "tests.project-inspector",
         )
 
@@ -155,7 +154,7 @@ class GuiDynamicAgentCapabilityTests(unittest.TestCase):
         script = """
 import sys
 from embedagent.frontend.gui.backend.protocol_payloads import serialize_app_bootstrap
-serialize_app_bootstrap({"app": {}, "capabilities": {}})
+serialize_app_bootstrap({"app": {}, "shell": {"schema_version": 1}})
 if "embedagent_workflow_cpp" in sys.modules:
     raise SystemExit("workflow package imported by GUI protocol serializer")
 """

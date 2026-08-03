@@ -26,12 +26,13 @@ import { runVisualLanguageCssTests } from "./visual-language-css.test.mjs";
 import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
 import { runVisualDebugControllerTests } from "./visual-debug-controller.test.mjs";
 import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
-import { runHttpClientTests } from "./http-client.test.mjs";
+import { runHttpTransportTests } from "./http-transport.test.mjs";
 import { runInitialAppLoadControllerTests } from "./initial-app-load-controller.test.mjs";
 import { runSessionLoadersTests } from "./session-loaders.test.mjs";
 import { runSessionActivationControllerTests } from "./session-activation-controller.test.mjs";
 import { runSessionListControllerTests } from "./session-list-controller.test.mjs";
 import { runSessionControllerTests } from "./session-controller.test.mjs";
+import { runControllerProtocolOwnershipTests } from "./controller-protocol-ownership.test.mjs";
 import { runSourceControlControllerTests } from "./source-control-controller.test.mjs";
 import { runSurfacePanelPropsTests } from "./surface-panel-props.test.mjs";
 import { runFilePreviewControllerTests } from "./file-preview-controller.test.mjs";
@@ -77,7 +78,6 @@ import { runComposerTriggerTests } from "./composer-trigger.test.mjs";
 import { runFilePreviewModelTests } from "./file-preview-model.test.mjs";
 import { runPreviewSurfaceModelTests } from "./preview-surface-model.test.mjs";
 import { runPreviewSurfaceSourceTests } from "./preview-surface-source.test.mjs";
-import { runPreviewApiTests } from "./preview-api.test.mjs";
 import { runRightPanelStoreParityTests } from "./right-panel-store-parity.test.mjs";
 import { runRightPanelControllerTests } from "./right-panel-controller.test.mjs";
 import { runRightPanelTabsSourceTests } from "./right-panel-tabs-source.test.mjs";
@@ -1142,7 +1142,7 @@ async function main() {
   assert.equal(appSource.includes("createSessionActivationController"), true);
   assert.equal(appSource.includes("const loadSession = sessionActivationController"), true);
   assert.equal(appSource.includes("async function loadSession"), false);
-  assert.equal(appSource.includes('import { fetchJson } from "./app-runtime/http-client.js"'), true);
+  assert.equal(appSource.includes("function App({ protocol })"), true);
   assert.equal(appSource.includes("async function fetchJson"), false);
   assert.equal(appSource.includes("fetch("), false);
   assert.equal(appSource.includes('fetchJson("/api/sessions")'), false);
@@ -1159,8 +1159,8 @@ async function main() {
   );
   assert.equal(sessionControllerSource.includes("export function createSessionController"), true);
   assert.equal(sessionControllerSource.includes("no_active_workspace"), true);
-  assert.equal(sessionControllerSource.includes("/api/sessions?mode="), true);
-  assert.equal(sessionControllerSource.includes("/message"), true);
+  assert.equal(sessionControllerSource.includes("/api/"), false);
+  assert.equal(sessionControllerSource.includes("sendSessionMessage"), true);
   assert.equal(sessionControllerSource.includes("import React"), false);
   const composerControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "composer-controller.js"),
@@ -1176,13 +1176,9 @@ async function main() {
     "utf8",
   );
   assert.equal(sessionListControllerSource.includes("export function createSessionListController"), true);
-  assert.equal(sessionListControllerSource.includes("/api/sessions"), true);
+  assert.equal(sessionListControllerSource.includes("/api/"), false);
   assert.equal(sessionListControllerSource.includes('type: "sessions_loaded"'), true);
   assert.equal(sessionListControllerSource.includes("import React"), false);
-  const httpClientSource = fs.readFileSync(
-    webappSourcePath("app-runtime", "http-client.js"),
-    "utf8",
-  );
   const httpTransportSource = fs.readFileSync(
     webappSourcePath("client-runtime", "http-transport.js"),
     "utf8",
@@ -1195,10 +1191,7 @@ async function main() {
     webappSourcePath("client-runtime", "protocol-adapter.js"),
     "utf8",
   );
-  assert.equal(httpClientSource.includes("export function createJsonHttpClient"), true);
-  assert.equal(httpClientSource.includes("export const { fetchJson }"), true);
-  assert.equal(httpClientSource.includes("fetch("), false);
-  assert.equal(httpClientSource.includes("import React"), false);
+  const mainSource = fs.readFileSync(webappSourcePath("main.jsx"), "utf8");
   assert.equal(httpTransportSource.includes("export function createHttpTransport"), true);
   assert.equal(httpTransportSource.includes("return fetch("), true);
   assert.equal(httpTransportSource.includes("error.status"), true);
@@ -1206,6 +1199,10 @@ async function main() {
   assert.equal(socketTransportSource.includes("new WebSocketConstructor"), true);
   assert.equal(protocolAdapterSource.includes("fetchJson:"), false);
   assert.equal(protocolAdapterSource.includes("request,"), false);
+  assert.equal(mainSource.includes("createHttpTransport"), true);
+  assert.equal(mainSource.includes("createSocketTransport"), true);
+  assert.equal(mainSource.includes("createAgentAppProtocolAdapter"), true);
+  assert.equal(mainSource.includes("<App protocol={protocol} />"), true);
   const initialAppLoadControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "initial-app-load-controller.js"),
     "utf8",
@@ -1233,9 +1230,9 @@ async function main() {
     "utf8",
   );
   assert.equal(threadLifecycleControllerSource.includes("export function createThreadLifecycleController"), true);
-  assert.equal(threadLifecycleControllerSource.includes("/rename"), true);
-  assert.equal(threadLifecycleControllerSource.includes("/archive"), true);
-  assert.equal(threadLifecycleControllerSource.includes("/fork"), true);
+  assert.equal(threadLifecycleControllerSource.includes("renameSession"), true);
+  assert.equal(threadLifecycleControllerSource.includes("archiveSession"), true);
+  assert.equal(threadLifecycleControllerSource.includes("forkSession"), true);
   assert.equal(threadLifecycleControllerSource.includes("import React"), false);
   assert.equal(threadLifecycleControllerSource.includes("${action.label} failed"), false);
   assert.equal(threadLifecycleControllerSource.includes("label: id"), false);
@@ -1483,7 +1480,7 @@ async function main() {
   assert.equal(filePreviewControllerSource.includes("file_preview_loaded"), true);
   assert.equal(filePreviewControllerSource.includes("file_preview_load_failed"), true);
   assert.equal(filePreviewControllerSource.includes("chrome.unavailableMessage"), true);
-  assert.equal(filePreviewControllerSource.includes("/api/files/"), true);
+  assert.equal(filePreviewControllerSource.includes("/api/"), false);
   assert.equal(filePreviewControllerSource.includes("import React"), false);
   assert.equal(previewControllerSource.includes("export function createPreviewController"), true);
   assert.equal(previewControllerSource.includes("canOpenPreviewSurface"), true);
@@ -1646,13 +1643,6 @@ async function main() {
   assert.equal(terminalControllerSource.includes("from \"../terminal/terminal-state"), false);
   assert.equal(terminalControllerSource.includes("embedagent"), false);
 
-  const terminalApiSource = fs.readFileSync(
-    webappSourcePath("terminal", "terminal-api.js"),
-    "utf8",
-  );
-  assert.equal(terminalApiSource.includes("/api/sessions/"), true);
-  assert.equal(terminalApiSource.includes("fetch("), true);
-  assert.equal(terminalApiSource.includes("Terminal request failed"), false);
 
   const visualDebugFixturesSource = fs.readFileSync(
     webappSourcePath("app-runtime", "visual-debug-fixtures.js"),
@@ -1995,11 +1985,6 @@ async function main() {
   ]) {
     assert.equal(sourceControlPanelSource.includes(hardcodedSourceControlCopy), false);
   }
-  const sourceControlApiSource = fs.readFileSync(
-    webappSourcePath("source-control", "source-control-api.js"),
-    "utf8",
-  );
-  assert.equal(sourceControlApiSource.includes("Source control request failed"), false);
 
   const branchToolbarSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "BranchToolbar.jsx"),
@@ -2201,14 +2186,6 @@ async function main() {
   assert.equal(previewSurfaceSource.includes("onOpenExternal"), true);
   assert.equal(previewSurfaceSource.includes("onOpenUrl"), true);
 
-  const previewApiSource = fs.readFileSync(
-    webappSourcePath("preview", "preview-api.js"),
-    "utf8",
-  );
-  assert.equal(previewApiSource.includes("/api/sessions/"), true);
-  assert.equal(previewApiSource.includes("/preview/open"), true);
-  assert.equal(previewApiSource.includes("/api/app/preview/open-external"), true);
-  assert.equal(previewApiSource.includes("Preview request failed"), false);
 
   const repoRoot = path.resolve(WEBAPP_ROOT, "..", "..", "..", "..", "..");
   const visualDebugSource = fs.readFileSync(
@@ -2286,7 +2263,7 @@ async function main() {
     "utf8",
   );
   assert.equal(sessionActivationControllerSource.includes("deriveSessionActivation"), true);
-  assert.equal(sessionActivationControllerSource.includes("/bootstrap"), true);
+  assert.equal(sessionActivationControllerSource.includes("loadSessionBootstrap"), true);
   assert.equal(sessionActivationControllerSource.includes("beginSessionTransportBootstrap"), true);
   assert.equal(sessionActivationControllerSource.includes("installSessionTransportBootstrap"), true);
   assert.equal(sessionActivationControllerSource.includes("activeRequest"), true);
@@ -2530,16 +2507,16 @@ async function main() {
   runInteractionModelTests();
   runDiffModelTests();
   runDiffSurfaceControllerTests();
-  await runHttpClientTests();
+  await runHttpTransportTests();
   await runInitialAppLoadControllerTests();
   runFilePreviewModelTests();
   runPreviewSurfaceModelTests();
   runPreviewSurfaceSourceTests();
-  await runPreviewApiTests();
   runWebSocketLifecycleTests();
   await runSessionLoadersTests();
   await runSessionActivationControllerTests();
   await runSessionListControllerTests();
+  runControllerProtocolOwnershipTests();
   await runSessionControllerTests();
   await runSourceControlControllerTests();
   runSurfacePanelPropsTests();

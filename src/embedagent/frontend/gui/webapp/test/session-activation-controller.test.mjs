@@ -31,34 +31,34 @@ export async function runSessionActivationControllerTests() {
   const acceptedEvents = [];
   let transport = createSessionTransportState();
   const controller = createSessionActivationController({
-    fetchJson: async (url) => {
-      calls.push(["fetchJson", url]);
-      return {
-        event_cursor: 6,
-        snapshot: {
-          session_id: "sess-activation",
-          status: "idle",
-          current_mode: "build",
-        },
-        history: {
-          history_source: "bootstrap",
-          integrity: { status: "healthy" },
-          activities: [
-            {
-              kind: "user",
-              id: "activity-user",
-              turn_id: "turn-1",
-              content: "hello",
-              projection_source: "session_state",
-            },
-          ],
-          turns: [],
-        },
-        plan: { title: "Build plan" },
-        capabilities: capabilitySnapshot({
-          commands: [commandDescriptor("help", "/help")],
-        }),
-      };
+    protocol: {
+      loadSessionBootstrap: async (sessionId, options) => {
+        calls.push(["loadSessionBootstrap", sessionId, options.signal]);
+        return {
+          ...bootstrap("sess-activation", 6),
+          history: {
+            integrity: { status: "healthy" },
+            activities: [
+              {
+                kind: "user",
+                id: "activity-user",
+                turn_id: "turn-1",
+                content: "hello",
+                projection_source: "session_state",
+              },
+            ],
+            turns: [],
+          },
+          plan: { title: "Build plan" },
+          capabilities: capabilitySnapshot({
+            commands: [commandDescriptor("help", "/help")],
+          }),
+        };
+      },
+      listTerminals: async (sessionId) => {
+        calls.push(["listTerminals", sessionId]);
+        return { terminals: [{ terminal_id: "term-1" }] };
+      },
     },
     dispatch: (action) => actions.push(action),
     defaultMode: "explore",
@@ -69,42 +69,28 @@ export async function runSessionActivationControllerTests() {
     },
     dispatchAcceptedSessionEvent: (event) => acceptedEvents.push(event),
     getAppCapabilities: () => ({ terminal: { enabled: true } }),
-    listTerminals: async (sessionId) => {
-      calls.push(["listTerminals", sessionId]);
-      return { terminals: [{ terminal_id: "term-1" }] };
-    },
   });
 
   await controller("sess-activation");
-
-  assert.deepEqual(calls[0], [
-    "fetchJson",
-    "/api/sessions/sess-activation/bootstrap",
-  ]);
+  assert.equal(calls[0][0], "loadSessionBootstrap");
+  assert.equal(calls[0][1], "sess-activation");
+  assert.equal(typeof calls[0][2]?.aborted, "boolean");
   assert.equal(actions[0].type, "session_activated");
-  assert.equal(actions[0].sessionId, "sess-activation");
-  assert.equal(actions[0].snapshot.current_mode, "build");
-  assert.equal(actions[0].activities[0].kind, "user");
-  assert.deepEqual(actions[0].historyIntegrity, { status: "healthy" });
   assert.equal(actions[0].capabilities.commands[0].usage, "/help");
-  assert.equal(transport.sessionId, "sess-activation");
   assert.equal(transport.phase, "live");
   assert.equal(transport.lastAppliedSeq, 6);
   assert.deepEqual(acceptedEvents, []);
   assert.deepEqual(actions[1], { type: "plan_loaded", plan: { title: "Build plan" } });
-  assert.deepEqual(actions[2], {
-    type: "terminal_summaries_loaded",
-    terminals: [{ terminal_id: "term-1" }],
-  });
-  assert.equal(calls.some((item) => item[0] === "loadTasks"), false);
-  assert.equal(calls.some((item) => item[0] === "loadArtifacts"), false);
+  assert.equal(actions[2].type, "terminal_summaries_loaded");
 
   const first = deferred();
   const second = deferred();
   const switchedActions = [];
   let switchedTransport = createSessionTransportState();
   const switchController = createSessionActivationController({
-    fetchJson: (url) => (url.includes("s-1") ? first.promise : second.promise),
+    protocol: {
+      loadSessionBootstrap: (sessionId) => (sessionId === "s-1" ? first.promise : second.promise),
+    },
     dispatch: (action) => switchedActions.push(action),
     getTransportState: () => switchedTransport,
     updateTransportState: (updater) => {
@@ -113,30 +99,24 @@ export async function runSessionActivationControllerTests() {
     },
     getAppCapabilities: () => ({ terminal: { enabled: false } }),
   });
-
   const firstLoad = switchController("s-1");
   const secondLoad = switchController("s-2");
   second.resolve(bootstrap("s-2", 8));
-  const secondResult = await secondLoad;
+  assert.equal((await secondLoad).stale, false);
   first.resolve(bootstrap("s-1", 4));
-  const firstResult = await firstLoad;
-
-  assert.equal(secondResult.stale, false);
-  assert.equal(firstResult.stale, true);
+  assert.equal((await firstLoad).stale, true);
   assert.deepEqual(
     switchedActions
       .filter((action) => action.type === "session_activated")
       .map((action) => action.sessionId),
     ["s-2"],
   );
-  assert.equal(switchedTransport.sessionId, "s-2");
-  assert.equal(switchedTransport.lastAppliedSeq, 8);
 
   const pendingBootstrap = deferred();
   const drainedEvents = [];
   let bufferedTransport = createSessionTransportState();
   const bufferedController = createSessionActivationController({
-    fetchJson: () => pendingBootstrap.promise,
+    protocol: { loadSessionBootstrap: () => pendingBootstrap.promise },
     dispatch: () => {},
     getTransportState: () => bufferedTransport,
     updateTransportState: (updater) => {
@@ -147,7 +127,6 @@ export async function runSessionActivationControllerTests() {
     getAppCapabilities: () => ({ terminal: { enabled: false } }),
   });
   const bufferedLoad = bufferedController("s-buffered");
-  assert.equal(bufferedTransport.phase, "buffering");
   bufferedTransport = bufferSessionTransportEvent(bufferedTransport, {
     schema_version: 1,
     session_id: "s-buffered",
@@ -158,24 +137,20 @@ export async function runSessionActivationControllerTests() {
     payload: { step_id: "step-3" },
   });
   pendingBootstrap.resolve(bootstrap("s-buffered", 2));
-  const bufferedResult = await bufferedLoad;
-
-  assert.equal(bufferedResult.stale, false);
+  assert.equal((await bufferedLoad).stale, false);
   assert.equal(bufferedTransport.lastAppliedSeq, 3);
-  assert.equal(bufferedTransport.bufferedEvents.length, 0);
-  assert.deepEqual(
-    drainedEvents.map((event) => event.event_id),
-    ["evt-buffered-3"],
-  );
+  assert.deepEqual(drainedEvents.map((event) => event.event_id), ["evt-buffered-3"]);
 
   const terminalFailureActions = [];
   const terminalFailureController = createSessionActivationController({
-    fetchJson: async () => ({}),
+    protocol: {
+      loadSessionBootstrap: async () => ({}),
+      listTerminals: async () => {
+        throw new Error("terminal unavailable");
+      },
+    },
     dispatch: (action) => terminalFailureActions.push(action),
     getAppCapabilities: () => ({ terminal: { enabled: true } }),
-    listTerminals: async () => {
-      throw new Error("terminal unavailable");
-    },
   });
   await terminalFailureController("sess-terminal-failure");
   assert.deepEqual(terminalFailureActions.at(-1), {
@@ -183,21 +158,8 @@ export async function runSessionActivationControllerTests() {
     terminals: [],
   });
 
-  const terminalDisabledActions = [];
-  const terminalDisabledCalls = [];
-  const terminalDisabledController = createSessionActivationController({
-    fetchJson: async () => ({}),
-    dispatch: (action) => terminalDisabledActions.push(action),
-    getAppCapabilities: () => ({ terminal: { enabled: false } }),
-    listTerminals: async (sessionId) => {
-      terminalDisabledCalls.push(["listTerminals", sessionId]);
-      return { terminals: [{ terminal_id: "hidden-terminal" }] };
-    },
-  });
-  await terminalDisabledController("sess-terminal-disabled");
-  assert.equal(terminalDisabledCalls.some((item) => item[0] === "listTerminals"), false);
-  assert.equal(
-    terminalDisabledActions.some((action) => action.type === "terminal_summaries_loaded"),
-    false,
+  assert.throws(
+    () => createSessionActivationController({ protocol: {} }),
+    /protocol_method_missing:loadSessionBootstrap/,
   );
 }

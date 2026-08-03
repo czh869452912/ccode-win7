@@ -95,7 +95,7 @@ function createHarness(options = {}) {
       throw new Error(failures[name]);
     }
   };
-  const api = {
+  const protocol = {
     listTerminals: async (sessionId) => {
       apiCalls.push({ name: "listTerminals", args: [sessionId] });
       maybeFail("listTerminals");
@@ -130,7 +130,7 @@ function createHarness(options = {}) {
   const controller = createTerminalController({
     getState: () => state,
     dispatch: (action) => actions.push(action),
-    api,
+    protocol,
     nextTerminalId: (ids) => `term-${ids.length + 1}`,
     getAppCapabilities: () => appCapabilities,
     getTerminalChrome: () => TERMINAL_CHROME,

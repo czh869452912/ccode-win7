@@ -269,10 +269,14 @@ export function createAgentAppProtocolAdapter({ http, socket } = {}) {
       );
     },
     getSourceControlStatus(options = {}) {
-      return requestHttp("/api/app/source-control/status", "GET", undefined, options);
+      return requestHttp("/api/app/source-control/status", "GET", undefined, options).then(
+        (payload) => payload?.source_control || {},
+      );
     },
     refreshSourceControlStatus(options = {}) {
-      return requestHttp("/api/app/source-control/refresh", "POST", undefined, options);
+      return requestHttp("/api/app/source-control/refresh", "POST", undefined, options).then(
+        (payload) => payload?.source_control || {},
+      );
     },
     getSourceControlDiff(path, scope = "", options = {}) {
       const query = new URLSearchParams({ path: text(path) });
@@ -282,7 +286,7 @@ export function createAgentAppProtocolAdapter({ http, socket } = {}) {
         "GET",
         undefined,
         options,
-      );
+      ).then((payload) => payload?.diff || {});
     },
     listPreviewSessions(sessionId, options = {}) {
       return requestHttp(

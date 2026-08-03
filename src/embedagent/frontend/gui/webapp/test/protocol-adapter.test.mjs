@@ -7,6 +7,18 @@ export async function runProtocolAdapterTests() {
   const http = {
     request: async (request) => {
       calls.push(request);
+      if (request.path === "/api/app/source-control/status") {
+        return { source_control: { branch: "main", files: [] } };
+      }
+      if (request.path.startsWith("/api/app/source-control/diff?")) {
+        return { diff: { available: true, diff: "patch" } };
+      }
+      if (request.path.endsWith("/terminals")) {
+        return { terminals: [{ terminal_id: "term-1" }] };
+      }
+      if (request.path.includes("/preview/open") || request.path.endsWith("open-external")) {
+        return { preview: { tab_id: "tab-1" } };
+      }
       return { session_id: "s-1" };
     },
   };
@@ -41,12 +53,8 @@ export async function runProtocolAdapterTests() {
 
   const controller = new AbortController();
   await adapter.sendSessionMessage("s-1", "hello", { signal: controller.signal });
-  assert.deepEqual(calls[2], {
-    path: "/api/sessions/s-1/message",
-    method: "POST",
-    body: { text: "hello" },
-    signal: controller.signal,
-  });
+  assert.equal(calls[2].signal, controller.signal);
+  assert.deepEqual(calls[2].body, { text: "hello" });
 
   await adapter.respondToInteraction(
     "s-1",
@@ -60,6 +68,39 @@ export async function runProtocolAdapterTests() {
     body: { decision: "allow" },
     signal: controller.signal,
   });
+
+  assert.deepEqual(await adapter.listTerminals("s-1"), {
+    terminals: [{ terminal_id: "term-1" }],
+  });
+  assert.equal(calls.at(-1).path, "/api/sessions/s-1/terminals");
+
+  await adapter.openTerminal("s-1", "term/1", { cols: 120, rows: 40 });
+  assert.deepEqual(calls.at(-1), {
+    path: "/api/sessions/s-1/terminals/term%2F1/open",
+    method: "POST",
+    body: { cols: 120, rows: 40 },
+    signal: undefined,
+  });
+
+  assert.deepEqual(await adapter.getSourceControlStatus(), {
+    branch: "main",
+    files: [],
+  });
+  assert.deepEqual(await adapter.getSourceControlDiff("src/main.c", "staged"), {
+    available: true,
+    diff: "patch",
+  });
+  assert.equal(
+    calls.at(-1).path,
+    "/api/app/source-control/diff?path=src%2Fmain.c&scope=staged",
+  );
+
+  await adapter.openPreviewSession("s-1", "http://localhost:5173");
+  assert.equal(calls.at(-1).path, "/api/sessions/s-1/preview/open");
+  assert.deepEqual(calls.at(-1).body, { url: "http://localhost:5173" });
+
+  await adapter.openPreviewExternal("http://localhost:5173");
+  assert.equal(calls.at(-1).path, "/api/app/preview/open-external");
 
   const channel = adapter.openSessionEvents();
   assert.equal(typeof channel.close, "function");

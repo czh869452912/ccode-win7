@@ -188,8 +188,8 @@ export async function runSessionLoadersTests() {
 
   const capabilityActions = [];
   const loadedCapabilities = await loadSessionCommandCapabilities({
-    fetchJson: async (url) => {
-      assert.equal(url, "/api/sessions/capabilities");
+    protocol: {
+      loadSessionCapabilities: async () => {
       return capabilitySnapshot({
         commands: [
           commandDescriptor("help", "/help", {
@@ -197,6 +197,7 @@ export async function runSessionLoadersTests() {
           }),
         ],
       });
+      },
     },
     dispatch: (action) => capabilityActions.push(action),
   });
@@ -210,11 +211,12 @@ export async function runSessionLoadersTests() {
 
   const factoryActions = [];
   const loadCapabilities = createSessionCommandCapabilityLoader({
-    fetchJson: async (url) => {
-      assert.equal(url, "/api/sessions/capabilities");
+    protocol: {
+      loadSessionCapabilities: async () => {
       return capabilitySnapshot({
         commands: [commandDescriptor("mode", "/mode")],
       });
+      },
     },
     dispatch: (action) => factoryActions.push(action),
   });

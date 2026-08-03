@@ -1,9 +1,4 @@
 import { createDiffSurfaceState } from "../session-runtime/diff-model.js";
-import {
-  getSourceControlDiff as requestSourceControlDiff,
-  getSourceControlStatus as requestSourceControlStatus,
-  refreshSourceControlStatus as requestSourceControlRefresh,
-} from "../source-control/source-control-api.js";
 import { sourceControlCapabilityEnabled } from "../source-control/source-control-capability.js";
 
 function readAppCapabilities({ appCapabilities, getAppCapabilities }) {
@@ -23,17 +18,23 @@ function formatTemplate(template = "", values = {}) {
   );
 }
 
+function optionalProtocolMethod(protocol, name) {
+  const method = protocol && protocol[name];
+  return typeof method === "function" ? method.bind(protocol) : null;
+}
+
 export function createSourceControlController({
+  protocol,
   dispatch,
   appCapabilities,
   getAppCapabilities,
   hasActiveWorkspace,
-  getSourceControlStatus = requestSourceControlStatus,
-  refreshSourceControlStatus = requestSourceControlRefresh,
-  getSourceControlDiff = requestSourceControlDiff,
   getSourceControlChrome,
   getDiffPanelChrome,
 } = {}) {
+  const getSourceControlStatus = optionalProtocolMethod(protocol, "getSourceControlStatus");
+  const refreshSourceControlStatus = optionalProtocolMethod(protocol, "refreshSourceControlStatus");
+  const getSourceControlDiff = optionalProtocolMethod(protocol, "getSourceControlDiff");
   const send = typeof dispatch === "function" ? dispatch : () => {};
 
   function capabilitiesFor(overrideCapabilities) {
@@ -49,16 +50,15 @@ export function createSourceControlController({
 
   async function loadStatus(refresh = false, assumeWorkspace, overrideCapabilities) {
     const capabilities = capabilitiesFor(overrideCapabilities);
-    if (!workspaceActive(assumeWorkspace) || !sourceControlCapabilityEnabled(capabilities)) {
+    const request = refresh ? refreshSourceControlStatus : getSourceControlStatus;
+    if (!request || !workspaceActive(assumeWorkspace) || !sourceControlCapabilityEnabled(capabilities)) {
       send({ type: "source_control_reset" });
       return null;
     }
     send({ type: "source_control_load_started" });
     const sourceControlChrome = readChrome(getSourceControlChrome);
     try {
-      const payload = refresh
-        ? await refreshSourceControlStatus()
-        : await getSourceControlStatus();
+      const payload = await request();
       send({ type: "source_control_status_loaded", status: payload });
       return payload;
     } catch (error) {
@@ -71,7 +71,7 @@ export function createSourceControlController({
   }
 
   async function openFile(file, scope = "unstaged") {
-    if (!sourceControlCapabilityEnabled(capabilitiesFor())) return null;
+    if (!getSourceControlDiff || !sourceControlCapabilityEnabled(capabilitiesFor())) return null;
     const path = file?.path || "";
     if (!path) return null;
     const sourceControlChrome = readChrome(getSourceControlChrome);
@@ -112,9 +112,5 @@ export function createSourceControlController({
     }
   }
 
-  return {
-    loadStatus,
-    refreshStatus: () => loadStatus(true),
-    openFile,
-  };
+  return { loadStatus, refreshStatus: () => loadStatus(true), openFile };
 }

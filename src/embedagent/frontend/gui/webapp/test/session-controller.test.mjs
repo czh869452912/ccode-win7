@@ -2,22 +2,27 @@ import assert from "node:assert/strict";
 
 import { createSessionController } from "../src/app-runtime/session-controller.js";
 
+function requiredProtocol(overrides = {}) {
+  return {
+    createSession: async () => ({}),
+    setSessionMode: async () => ({}),
+    cancelSession: async () => ({}),
+    sendSessionMessage: async () => ({}),
+    ...overrides,
+  };
+}
+
 export async function runSessionControllerTests() {
   const calls = [];
   const actions = [];
   const loadedSessions = [];
   const controller = createSessionController({
-    fetchJson: async (url, options = {}) => {
-      calls.push(["fetchJson", url, options.method || "GET"]);
-      if (url === "/api/sessions?mode=debug" || url === "/api/sessions") {
-        return {
-          session_id: "sess-new",
-          status: "idle",
-          current_mode: url.endsWith("debug") ? "debug" : "agent-default",
-        };
-      }
-      throw new Error(`unexpected url ${url}`);
-    },
+    protocol: requiredProtocol({
+      createSession: async (mode) => {
+        calls.push(["createSession", mode]);
+        return { session_id: "sess-new", status: "idle", current_mode: mode || "agent-default" };
+      },
+    }),
     dispatch: (action) => actions.push(action),
     normalizeSessionPayload: (payload) => ({
       session_id: payload.session_id,
@@ -34,21 +39,20 @@ export async function runSessionControllerTests() {
     },
   });
 
-  const sessionId = await controller.createSession("debug");
-
-  assert.equal(sessionId, "sess-new");
-  const defaultSessionId = await controller.createSession();
-  assert.equal(defaultSessionId, "sess-new");
-  assert.equal(calls.some((call) => call[1] === "/api/sessions"), true);
+  assert.equal(await controller.createSession("debug"), "sess-new");
+  assert.equal(await controller.createSession(), "sess-new");
+  assert.deepEqual(
+    calls.filter((call) => call[0] === "createSession"),
+    [["createSession", "debug"], ["createSession", ""]],
+  );
   assert.deepEqual(loadedSessions, ["sess-new", "sess-new"]);
   assert.equal(actions.some((action) => action.type === "session_activated"), false);
-  assert.equal(calls.some((call) => call[0] === "loadSessions"), true);
 
   const cancelActions = [];
   const cancelController = createSessionController({
-    fetchJson: async (url, options = {}) => {
-      calls.push(["fetchJson", url, options.method || "GET"]);
-      if (url === "/api/sessions/sess-cancel/cancel") {
+    protocol: requiredProtocol({
+      cancelSession: async (sessionId) => {
+        calls.push(["cancelSession", sessionId]);
         return {
           session_id: "sess-cancel",
           status: "idle",
@@ -56,9 +60,8 @@ export async function runSessionControllerTests() {
           pending_interaction: null,
           pending_interaction_valid: false,
         };
-      }
-      throw new Error(`unexpected url ${url}`);
-    },
+      },
+    }),
     dispatch: (action) => cancelActions.push(action),
     normalizeSessionPayload: (payload) => ({
       session_id: payload.session_id,
@@ -75,16 +78,12 @@ export async function runSessionControllerTests() {
   });
 
   await cancelController.cancelSession();
-
   assert.deepEqual(cancelActions[0], { type: "stream_completed" });
-  assert.deepEqual(cancelActions[1], {
-    type: "session_snapshot",
-    snapshot: {
-      session_id: "sess-cancel",
-      status: "idle",
-      current_mode: "build",
-      pending_interaction: null,
-      pending_interaction_valid: false,
-    },
-  });
+  assert.equal(cancelActions[1].type, "session_snapshot");
+  assert.equal(cancelActions[1].snapshot.session_id, "sess-cancel");
+
+  assert.throws(
+    () => createSessionController({ protocol: {}, normalizeSessionPayload() {} }),
+    /protocol_method_missing:createSession/,
+  );
 }

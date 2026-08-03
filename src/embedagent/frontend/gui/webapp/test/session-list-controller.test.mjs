@@ -6,29 +6,30 @@ export async function runSessionListControllerTests() {
   const calls = [];
   const actions = [];
   const controller = createSessionListController({
-    fetchJson: async (url, options = {}) => {
-      calls.push([url, options.method || "GET"]);
-      return {
-        sessions: [
-          { session_id: "sess-1", user_goal: "Inspect parser" },
-          { session_id: "sess-2", user_goal: "Verify parser" },
-        ],
-      };
+    protocol: {
+      listSessions: async () => {
+        calls.push("listSessions");
+        return {
+          sessions: [
+            { session_id: "sess-1", user_goal: "Inspect parser" },
+            { session_id: "sess-2", user_goal: "Verify parser" },
+          ],
+        };
+      },
     },
     dispatch: (action) => actions.push(action),
   });
 
   const sessions = await controller.loadSessions();
-
-  assert.deepEqual(calls, [["/api/sessions", "GET"]]);
+  assert.deepEqual(calls, ["listSessions"]);
   assert.deepEqual(sessions, [
     { session_id: "sess-1", user_goal: "Inspect parser" },
     { session_id: "sess-2", user_goal: "Verify parser" },
   ]);
-  assert.deepEqual(actions, [
-    {
-      type: "sessions_loaded",
-      sessions,
-    },
-  ]);
+  assert.deepEqual(actions, [{ type: "sessions_loaded", sessions }]);
+
+  assert.throws(
+    () => createSessionListController({ protocol: {} }),
+    /protocol_method_missing:listSessions/,
+  );
 }

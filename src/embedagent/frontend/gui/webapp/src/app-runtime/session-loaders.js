@@ -13,18 +13,20 @@ export const LOADER_REQUESTS = Object.freeze({
 });
 
 function invoke(callback, ...args) {
-  if (typeof callback !== "function") {
-    return Promise.resolve();
-  }
+  if (typeof callback !== "function") return Promise.resolve();
   return Promise.resolve().then(() => callback(...args));
+}
+
+function requireProtocolMethod(protocol, name) {
+  const method = protocol && protocol[name];
+  if (typeof method !== "function") throw new Error(`protocol_method_missing:${name}`);
+  return method.bind(protocol);
 }
 
 export function createLoaderRequestExecutor(loaders = {}) {
   return function executeLoaderRequest(request = {}) {
     const name = request?.name || "";
-    if (name === LOADER_REQUESTS.LOAD_APP_BOOTSTRAP) {
-      return invoke(loaders.loadAppBootstrap);
-    }
+    if (name === LOADER_REQUESTS.LOAD_APP_BOOTSTRAP) return invoke(loaders.loadAppBootstrap);
     if (name === LOADER_REQUESTS.LOAD_ACTIVE_WORKSPACE_DATA) {
       return invoke(
         loaders.loadActiveWorkspaceData,
@@ -32,9 +34,7 @@ export function createLoaderRequestExecutor(loaders = {}) {
         Boolean(request.assumeWorkspace),
       );
     }
-    if (name === LOADER_REQUESTS.LOAD_SESSIONS) {
-      return invoke(loaders.loadSessions);
-    }
+    if (name === LOADER_REQUESTS.LOAD_SESSIONS) return invoke(loaders.loadSessions);
     if (name === LOADER_REQUESTS.LOAD_SESSION) {
       if (!request.sessionId) return Promise.resolve();
       return invoke(loaders.loadSession, request.sessionId);
@@ -70,10 +70,10 @@ export function deriveSessionActivation(payload = {}, sessionId = "", options = 
   };
 }
 
-export async function loadSessionCommandCapabilities({ fetchJson, dispatch } = {}) {
-  const request = typeof fetchJson === "function" ? fetchJson : () => Promise.resolve({});
+export async function loadSessionCommandCapabilities({ protocol, dispatch } = {}) {
+  const loadSessionCapabilities = requireProtocolMethod(protocol, "loadSessionCapabilities");
   const send = typeof dispatch === "function" ? dispatch : () => {};
-  const capabilities = normalizeCommandCapabilities(await request("/api/sessions/capabilities"));
+  const capabilities = normalizeCommandCapabilities(await loadSessionCapabilities());
   send({ type: "session_capabilities_loaded", capabilities });
   return capabilities;
 }

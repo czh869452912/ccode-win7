@@ -15,7 +15,7 @@ def register_app_routes(app: Any, backend: Any) -> None:
 
     @app.get("/api/app/workspaces")
     async def list_app_workspaces():
-        return backend.app_shell.list_workspaces()
+        return serialize_app_bootstrap(backend.app_shell.list_workspaces())
 
     @app.post("/api/app/workspaces")
     async def open_app_workspace(request: Dict[str, Any]):
@@ -24,7 +24,7 @@ def register_app_routes(app: Any, backend: Any) -> None:
         if not path:
             raise HTTPException(status_code=422, detail="workspace_path_required")
         try:
-            return backend.app_shell.open_workspace_path(path, label=label)
+            return serialize_app_bootstrap(backend.app_shell.open_workspace_path(path, label=label))
         except ValueError as exc:
             detail = str(exc or "").strip() or "workspace_open_failed"
             status = 404 if detail == "workspace_not_found" else 422
@@ -33,7 +33,7 @@ def register_app_routes(app: Any, backend: Any) -> None:
     @app.post("/api/app/workspaces/{workspace_id}/activate")
     async def activate_app_workspace(workspace_id: str):
         try:
-            return backend.app_shell.activate_workspace(workspace_id)
+            return serialize_app_bootstrap(backend.app_shell.activate_workspace(workspace_id))
         except ValueError as exc:
             detail = str(exc or "").strip() or "workspace_activate_failed"
             status = 404 if detail == "workspace_not_found" else 422
@@ -41,7 +41,7 @@ def register_app_routes(app: Any, backend: Any) -> None:
 
     @app.delete("/api/app/workspaces/{workspace_id}")
     async def remove_app_workspace(workspace_id: str):
-        return backend.app_shell.remove_workspace(workspace_id)
+        return serialize_app_bootstrap(backend.app_shell.remove_workspace(workspace_id))
 
     @app.post("/api/app/preview/open-external")
     async def open_preview_external(request: Dict[str, Any]):

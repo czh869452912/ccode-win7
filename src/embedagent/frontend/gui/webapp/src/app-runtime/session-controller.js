@@ -1,5 +1,13 @@
+function requireProtocolMethod(protocol, name) {
+  const method = protocol && protocol[name];
+  if (typeof method !== "function") {
+    throw new Error(`protocol_method_missing:${name}`);
+  }
+  return method.bind(protocol);
+}
+
 export function createSessionController({
-  fetchJson,
+  protocol,
   dispatch,
   normalizeSessionPayload,
   getCurrentSessionId,
@@ -9,14 +17,14 @@ export function createSessionController({
   loadSessions,
   loadSession,
 }) {
+  const createSessionRequest = requireProtocolMethod(protocol, "createSession");
+  const setSessionMode = requireProtocolMethod(protocol, "setSessionMode");
+  const cancelSessionRequest = requireProtocolMethod(protocol, "cancelSession");
+  const sendSessionMessage = requireProtocolMethod(protocol, "sendSessionMessage");
+
   async function createSession(mode) {
     const requestedMode = String(mode || "").trim();
-    const url = requestedMode
-      ? `/api/sessions?mode=${encodeURIComponent(requestedMode)}`
-      : "/api/sessions";
-    const payload = await fetchJson(url, {
-      method: "POST",
-    });
+    const payload = await createSessionRequest(requestedMode);
     const snapshot = normalizeSessionPayload(payload);
     await Promise.all([loadSessions(), loadSession(snapshot.session_id)]);
     return snapshot.session_id;
@@ -26,11 +34,7 @@ export function createSessionController({
     dispatch({ type: "mode_requested", mode });
     const sessionId = getCurrentSessionId();
     if (!sessionId) return;
-    await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/mode`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode }),
-    });
+    await setSessionMode(sessionId, mode);
     await loadSession(sessionId);
   }
 
@@ -38,9 +42,7 @@ export function createSessionController({
     const sessionId = getCurrentSessionId();
     if (!sessionId) return;
     dispatch({ type: "stream_completed" });
-    const snapshot = await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/cancel`, {
-      method: "POST",
-    });
+    const snapshot = await cancelSessionRequest(sessionId);
     if (snapshot?.session_id) {
       dispatch({ type: "session_snapshot", snapshot: normalizeSessionPayload(snapshot) });
     }
@@ -53,18 +55,12 @@ export function createSessionController({
       dispatch({ type: "workspace_activation_failed", error: "no_active_workspace" });
       return;
     }
-    if (typeof markTimelineBottom === "function") {
-      markTimelineBottom();
-    }
+    if (typeof markTimelineBottom === "function") markTimelineBottom();
     dispatch({ type: "stream_completed" });
     dispatch({ type: "local_user_message", text });
     let sessionId = getCurrentSessionId();
     if (!sessionId) sessionId = await createSession(getCurrentMode());
-    await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/message`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
+    await sendSessionMessage(sessionId, text);
   }
 
   return { createSession, setMode, cancelSession, submitText };

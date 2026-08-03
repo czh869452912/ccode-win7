@@ -11,7 +11,6 @@ import { createSurfacePanelController } from "./app-runtime/surface-panel-contro
 import { buildSurfacePanelProps } from "./app-runtime/surface-panel-props.js";
 import { buildAppCapabilityModelFromState } from "./app-runtime/app-capability-model.js";
 import { createBrowserDialogService } from "./app-runtime/browser-dialog-service.js";
-import { fetchJson } from "./app-runtime/http-client.js";
 import { createComposerController } from "./app-runtime/composer-controller.js";
 import { createInitialAppLoadController } from "./app-runtime/initial-app-load-controller.js";
 import { createDiffSurfaceController } from "./app-runtime/diff-surface-controller.js";
@@ -38,14 +37,6 @@ import { createInteractionResponseController } from "./app-runtime/interaction-r
 import { createWorkbenchCommandController } from "./app-runtime/workbench-command-controller.js";
 import { createWorkspaceController } from "./app-runtime/workspace-controller.js";
 import { createVisualDebugController } from "./app-runtime/visual-debug-controller.js";
-import {
-  clearTerminal,
-  closeTerminal,
-  listTerminals,
-  openTerminal,
-  restartTerminal,
-  writeTerminal,
-} from "./terminal/terminal-api.js";
 import { buildBranchToolbarModel } from "./source-control/branch-toolbar-model.js";
 import { readComposerDraft } from "./composer/composer-state.js";
 import {
@@ -88,7 +79,7 @@ function readCurrentSessionCapabilityModel(stateRef) {
   return buildSessionCapabilityModelFromState(stateRef.current);
 }
 
-function App() {
+function App({ protocol }) {
   const [state, dispatch] = useReducer(runtimeReducer, initialState, (baseState) => ({
     ...baseState,
     workbench: readPersistedWorkbenchUiState(),
@@ -204,6 +195,7 @@ function App() {
   const sourceControlController = useMemo(
     () =>
       createSourceControlController({
+        protocol,
         dispatch,
         getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
         hasActiveWorkspace: () => stateRef.current.app.hasActiveWorkspace,
@@ -226,19 +218,12 @@ function App() {
         getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
         getTerminalChrome: () => readCurrentAppCapabilityModel(stateRef).terminalChrome,
         dispatch,
-        api: {
-          listTerminals,
-          openTerminal,
-          writeTerminal,
-          clearTerminal,
-          restartTerminal,
-          closeTerminal,
-        },
+        protocol,
       }),
     [],
   );
   const loadSessionCommandCapabilitiesForApp = useMemo(
-    () => createSessionCommandCapabilityLoader({ fetchJson, dispatch }),
+    () => createSessionCommandCapabilityLoader({ protocol, dispatch }),
     [],
   );
 
@@ -278,12 +263,12 @@ function App() {
   // websocket lifecycle
   useEffect(() => {
     const controller = createSessionTransportController({
+      protocol,
       getCurrentSessionId: () => currentSessionIdRef.current,
       getTransportState: sessionTransportHandle.read,
       updateTransportState: sessionTransportHandle.update,
       loadSession,
       handleMessage: socketMessageController.handleMessage,
-      locationObject: window.location,
     });
     sessionTransportControllerRef.current = controller;
     controller.connect();
@@ -308,7 +293,7 @@ function App() {
   const sessionListController = useMemo(
     () =>
       createSessionListController({
-        fetchJson,
+        protocol,
         dispatch,
       }),
     [],
@@ -317,7 +302,7 @@ function App() {
   const sessionActivationController = useMemo(
     () =>
       createSessionActivationController({
-        fetchJson,
+        protocol,
         dispatch,
         defaultMode: INITIAL_REQUESTED_MODE,
         getTransportState: sessionTransportHandle.read,
@@ -325,7 +310,6 @@ function App() {
         dispatchAcceptedSessionEvent: (envelope) =>
           socketMessageController.handleAcceptedSessionEvent(envelope),
         getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
-        listTerminals,
       }),
     [sessionTransportHandle],
   );
@@ -334,7 +318,7 @@ function App() {
   const workspaceFilesController = useMemo(
     () =>
       createWorkspaceFilesController({
-        fetchJson,
+        protocol,
         dispatch,
         getAppCapabilities: () => readCurrentAppCapabilityModel(stateRef).appCapabilities,
       }),
@@ -355,7 +339,7 @@ function App() {
   const filePreviewController = useMemo(
     () =>
       createFilePreviewController({
-        fetchJson,
+        protocol,
         dispatch,
         getFilePreviewChrome: () => readCurrentAppCapabilityModel(stateRef).filePreviewChrome,
         rightPanelController,
@@ -365,6 +349,7 @@ function App() {
   const previewController = useMemo(
     () =>
       createPreviewController({
+        protocol,
         dispatch,
         getCurrentSessionId: () => readActiveThreadId(stateRef.current),
         getPreviewChrome: () => readCurrentAppCapabilityModel(stateRef).previewChrome,
@@ -421,7 +406,7 @@ function App() {
   const workspaceController = useMemo(
     () =>
       createWorkspaceController({
-        fetchJson,
+        protocol,
         dispatch,
         getState: () => stateRef.current,
         getCurrentSessionId: () => readActiveThreadId(stateRef.current),
@@ -441,7 +426,7 @@ function App() {
   const sessionController = useMemo(
     () =>
       createSessionController({
-        fetchJson,
+        protocol,
         dispatch,
         normalizeSessionPayload,
         getCurrentSessionId: () => readActiveThreadId(stateRef.current),
@@ -460,7 +445,7 @@ function App() {
   const threadLifecycleController = useMemo(
     () =>
       createThreadLifecycleController({
-        fetchJson,
+        protocol,
         dispatch,
         loadSessions,
         loadSession,
@@ -568,7 +553,7 @@ function App() {
   const interactionResponseController = useMemo(
     () =>
       createInteractionResponseController({
-        fetchJson,
+        protocol,
         dispatch,
         normalizeSessionPayload,
         getCurrentSessionId: () => currentSessionIdRef.current,

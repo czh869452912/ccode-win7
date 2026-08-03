@@ -1,9 +1,3 @@
-import {
-  openPreviewExternal as requestOpenPreviewExternal,
-  openPreviewSession as requestOpenPreviewSession,
-  refreshPreviewSession as requestRefreshPreviewSession,
-} from "../preview/preview-api.js";
-
 function readChrome(getPreviewChrome) {
   const value = typeof getPreviewChrome === "function" ? getPreviewChrome() : {};
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -13,15 +7,21 @@ function errorNotice(error, fallback = "") {
   return error instanceof Error && error.message ? error.message : fallback || "";
 }
 
+function optionalProtocolMethod(protocol, name) {
+  const method = protocol && protocol[name];
+  return typeof method === "function" ? method.bind(protocol) : null;
+}
+
 export function createPreviewController({
+  protocol,
   dispatch,
   getCurrentSessionId,
   getPreviewChrome,
   rightPanelController,
-  openPreviewSession = requestOpenPreviewSession,
-  refreshPreviewSession = requestRefreshPreviewSession,
-  openPreviewExternal = requestOpenPreviewExternal,
 } = {}) {
+  const openPreviewSession = optionalProtocolMethod(protocol, "openPreviewSession");
+  const refreshPreviewSession = optionalProtocolMethod(protocol, "refreshPreviewSession");
+  const openPreviewExternal = optionalProtocolMethod(protocol, "openPreviewExternal");
   const send = typeof dispatch === "function" ? dispatch : () => {};
   const panel = rightPanelController || {};
   const canOpenSurface =
@@ -34,7 +34,7 @@ export function createPreviewController({
     typeof getCurrentSessionId === "function" ? getCurrentSessionId : () => "";
 
   async function openUrl(url) {
-    if (!canOpenSurface()) return null;
+    if (!openPreviewSession || !canOpenSurface()) return null;
     const chrome = readChrome(getPreviewChrome);
     const sessionId = currentSessionId();
     if (!sessionId) {
@@ -48,16 +48,13 @@ export function createPreviewController({
       openSurface({ resourceId, previewSnapshot: snapshot });
       return result;
     } catch (error) {
-      send({
-        type: "interaction_notice_set",
-        notice: errorNotice(error, chrome.failedNotice),
-      });
+      send({ type: "interaction_notice_set", notice: errorNotice(error, chrome.failedNotice) });
       throw error;
     }
   }
 
   async function refresh(snapshot) {
-    if (!canOpenSurface()) return null;
+    if (!refreshPreviewSession || !canOpenSurface()) return null;
     const chrome = readChrome(getPreviewChrome);
     const sessionId = currentSessionId();
     const tabId = snapshot?.tabId || snapshot?.tab_id || "";
@@ -78,15 +75,12 @@ export function createPreviewController({
   }
 
   async function openExternal(url) {
-    if (!canOpenSurface()) return null;
+    if (!openPreviewExternal || !canOpenSurface()) return null;
     const chrome = readChrome(getPreviewChrome);
     try {
       return await openPreviewExternal(url);
     } catch (error) {
-      send({
-        type: "interaction_notice_set",
-        notice: errorNotice(error, chrome.openFailedNotice),
-      });
+      send({ type: "interaction_notice_set", notice: errorNotice(error, chrome.openFailedNotice) });
       throw error;
     }
   }

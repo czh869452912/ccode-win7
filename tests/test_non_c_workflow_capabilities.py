@@ -26,11 +26,11 @@ class NonCWorkflowCapabilityTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(payload["thread"]["currentMode"], "python-build")
+        self.assertEqual(payload["thread"]["current_mode"], "python-build")
         self.assertEqual(payload["capabilities"]["modes"][0]["id"], "python-explore")
         self.assertEqual(payload["capabilities"]["tools"][0]["label"], "Pytest")
         self.assertEqual(
-            payload["capabilities"]["emptyState"]["scenario_label"],
+            payload["capabilities"]["empty_state"]["scenario_label"],
             "Python workspace",
         )
         self.assertNotIn("C/C++", str(payload))

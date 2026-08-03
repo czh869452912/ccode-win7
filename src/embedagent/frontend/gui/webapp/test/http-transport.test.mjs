@@ -11,7 +11,7 @@ function response({ ok = true, status = 200, payload = null } = {}) {
   };
 }
 
-export async function runHttpClientTests() {
+export async function runHttpTransportTests() {
   await runProtocolAdapterTests();
 
   const calls = [];

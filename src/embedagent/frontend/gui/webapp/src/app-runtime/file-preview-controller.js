@@ -16,12 +16,15 @@ function readChrome(getFilePreviewChrome) {
 }
 
 export function createFilePreviewController({
-  fetchJson,
+  protocol,
   dispatch,
   getFilePreviewChrome,
   rightPanelController,
 } = {}) {
-  const request = typeof fetchJson === "function" ? fetchJson : () => Promise.resolve({});
+  const readFile =
+    protocol && typeof protocol.readFile === "function"
+      ? protocol.readFile.bind(protocol)
+      : null;
   const send = typeof dispatch === "function" ? dispatch : () => {};
   const panel = rightPanelController || {};
   const normalizePath =
@@ -34,6 +37,7 @@ export function createFilePreviewController({
     typeof panel.openFileSurface === "function" ? panel.openFileSurface : () => false;
 
   async function openFile(path, line) {
+    if (!readFile) return null;
     const filePath = normalizePath(path);
     if (!filePath) return null;
     const chrome = readChrome(getFilePreviewChrome);
@@ -45,7 +49,7 @@ export function createFilePreviewController({
     if (!opened) return null;
     send({ type: "file_preview_load_started", path: filePath });
     try {
-      const payload = await request(`/api/files/${encodeURIComponent(filePath)}`);
+      const payload = await readFile(filePath);
       send({
         type: "file_preview_loaded",
         path: filePath,

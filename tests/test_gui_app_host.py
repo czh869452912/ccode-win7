@@ -14,22 +14,23 @@ from embedagent.frontend.gui.backend.workspace_registry import WorkspaceRegistry
 
 
 def _assert_app_shell_payload(testcase, payload):
+    testcase.assertEqual(payload["schema_version"], 1)
     testcase.assertEqual(payload["app"]["shell_version"], 1)
     testcase.assertEqual(payload["app"]["protocol"], "gui_app_shell_v1")
     testcase.assertIn("diagnostics", payload)
-    testcase.assertIn("capabilities", payload)
     testcase.assertIn("settings", payload)
-    testcase.assertIn(
-        "app.settings",
-        [item["id"] for item in payload["capabilities"]["app_commands"]],
-    )
-    testcase.assertIn(
-        "palette.open",
-        [item["command_id"] for item in payload["capabilities"]["keybindings"]],
-    )
-    testcase.assertIn(
-        "settings",
-        [item["id"] for item in payload["capabilities"]["surfaces"]["right_panel"]],
+    testcase.assertNotIn("capabilities", payload)
+    testcase.assertEqual(
+        set(payload["shell"]),
+        {
+            "schema_version",
+            "commands",
+            "surfaces",
+            "keybindings",
+            "tool_presentations",
+            "timeline_items",
+            "interactions",
+        },
     )
 
 
@@ -164,10 +165,7 @@ class TestGuiAppHost(unittest.TestCase):
 
         _assert_app_shell_payload(self, payload)
         self.assertEqual(payload["active_workspace"]["path"], os.path.realpath(workspace))
-        self.assertEqual(
-            payload["capabilities"]["agentApplication"]["applicationId"],
-            "tests.generic",
-        )
+        self.assertNotIn("capabilities", payload)
         self.assertEqual(payload["diagnostics"]["active_core"]["present"], True)
         self.assertEqual(len(created), 1)
         self.assertIs(created[0].frontend, backend.frontend)

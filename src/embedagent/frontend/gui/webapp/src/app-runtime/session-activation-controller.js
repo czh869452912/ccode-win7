@@ -6,19 +6,18 @@ import {
   installSessionTransportBootstrap,
 } from "../session-runtime/session-transport-state.js";
 
-function invoke(callback, ...args) {
-  if (typeof callback !== "function") {
-    return Promise.resolve();
-  }
-  return Promise.resolve().then(() => callback(...args));
-}
-
 function defaultAbortController() {
   return new AbortController();
 }
 
+function requireProtocolMethod(protocol, name) {
+  const method = protocol && protocol[name];
+  if (typeof method !== "function") throw new Error(`protocol_method_missing:${name}`);
+  return method.bind(protocol);
+}
+
 export function createSessionActivationController({
-  fetchJson,
+  protocol,
   dispatch,
   deriveSessionActivation,
   defaultMode = "",
@@ -26,11 +25,14 @@ export function createSessionActivationController({
   updateTransportState,
   dispatchAcceptedSessionEvent,
   createAbortController,
-  listTerminals,
   appCapabilities,
   getAppCapabilities,
 } = {}) {
-  const fetchBootstrap = typeof fetchJson === "function" ? fetchJson : () => Promise.resolve({});
+  const fetchBootstrap = requireProtocolMethod(protocol, "loadSessionBootstrap");
+  const listTerminals =
+    protocol && typeof protocol.listTerminals === "function"
+      ? protocol.listTerminals.bind(protocol)
+      : null;
   const send = typeof dispatch === "function" ? dispatch : () => {};
   const derive = deriveSessionActivation || defaultDeriveSessionActivation;
   let internalTransport = createSessionTransportState();
@@ -48,9 +50,7 @@ export function createSessionActivationController({
       ? dispatchAcceptedSessionEvent
       : () => {};
   const makeAbortController =
-    typeof createAbortController === "function"
-      ? createAbortController
-      : defaultAbortController;
+    typeof createAbortController === "function" ? createAbortController : defaultAbortController;
   const readAppCapabilities = () => {
     const value =
       typeof getAppCapabilities === "function" ? getAppCapabilities() : appCapabilities;
@@ -81,13 +81,10 @@ export function createSessionActivationController({
     });
 
     try {
-      const payload = await fetchBootstrap(
-        `/api/sessions/${encodeURIComponent(resolvedSessionId)}/bootstrap`,
-        { signal: request.controller.signal },
-      );
-      if (requestIsStale(request, resolvedSessionId, generation)) {
-        return { stale: true };
-      }
+      const payload = await fetchBootstrap(resolvedSessionId, {
+        signal: request.controller.signal,
+      });
+      if (requestIsStale(request, resolvedSessionId, generation)) return { stale: true };
       const activation = derive(payload, resolvedSessionId, { defaultMode });
       send({
         type: "session_activated",
@@ -113,20 +110,13 @@ export function createSessionActivationController({
       }
       for (const event of installation.applied) dispatchAccepted(event);
 
-      if (terminalCapabilityEnabled(readAppCapabilities())) {
+      if (listTerminals && terminalCapabilityEnabled(readAppCapabilities())) {
         try {
-          const terminalPayload = await invoke(listTerminals, resolvedSessionId);
-          if (requestIsStale(request, resolvedSessionId, generation)) {
-            return { stale: true };
-          }
-          send({
-            type: "terminal_summaries_loaded",
-            terminals: terminalPayload?.terminals || [],
-          });
+          const terminalPayload = await listTerminals(resolvedSessionId);
+          if (requestIsStale(request, resolvedSessionId, generation)) return { stale: true };
+          send({ type: "terminal_summaries_loaded", terminals: terminalPayload?.terminals || [] });
         } catch (_) {
-          if (requestIsStale(request, resolvedSessionId, generation)) {
-            return { stale: true };
-          }
+          if (requestIsStale(request, resolvedSessionId, generation)) return { stale: true };
           send({ type: "terminal_summaries_loaded", terminals: [] });
         }
       }

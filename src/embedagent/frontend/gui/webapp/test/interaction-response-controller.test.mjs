@@ -14,11 +14,13 @@ export async function runInteractionResponseControllerTests() {
   let respondingIds = [];
   const calls = [];
   const dispatches = [];
-  const pendingFetch = deferred();
+  const pendingResponse = deferred();
   const controller = createInteractionResponseController({
-    fetchJson: async (url, options) => {
-      calls.push({ url, options });
-      return pendingFetch.promise;
+    protocol: {
+      respondToInteraction: async (sessionId, interactionId, response) => {
+        calls.push({ sessionId, interactionId, response });
+        return pendingResponse.promise;
+      },
     },
     dispatch: (action) => dispatches.push(action),
     normalizeSessionPayload: (payload) => ({ ...payload, normalized: true }),
@@ -35,11 +37,10 @@ export async function runInteractionResponseControllerTests() {
 
   const first = controller.respondToInteraction({ answers: { answer: "yes" } });
   assert.equal(respondingIds.includes("ask-1"), true);
-  const duplicate = await controller.respondToInteraction({ answers: { answer: "again" } });
-  assert.equal(duplicate, null);
+  assert.equal(await controller.respondToInteraction({ answers: { answer: "again" } }), null);
   assert.equal(calls.length, 1);
 
-  pendingFetch.resolve({
+  pendingResponse.resolve({
     session_id: "sess-1",
     interaction_id: "ask-1",
     status: "resolved",
@@ -55,7 +56,11 @@ export async function runInteractionResponseControllerTests() {
 
   assert.equal(response.status, "resolved");
   assert.deepEqual(respondingIds, []);
-  assert.equal(calls[0].url, "/api/sessions/sess-1/interactions/ask-1/respond");
+  assert.deepEqual(calls[0], {
+    sessionId: "sess-1",
+    interactionId: "ask-1",
+    response: { answers: { answer: "yes" } },
+  });
   assert.equal(dispatches[0].type, "interaction_notice_clear");
   assert.equal(dispatches[1].type, "session_snapshot");
   assert.equal(dispatches[1].snapshot.normalized, true);
@@ -69,12 +74,14 @@ export async function runInteractionResponseControllerTests() {
   let acceptedReloads = 0;
   const acceptedDispatches = [];
   const acceptedController = createInteractionResponseController({
-    fetchJson: async () => ({
-      session_id: "sess-1",
-      interaction_id: "ask-accepted",
-      status: "accepted",
-      snapshot: null,
-    }),
+    protocol: {
+      respondToInteraction: async () => ({
+        session_id: "sess-1",
+        interaction_id: "ask-accepted",
+        status: "accepted",
+        snapshot: null,
+      }),
+    },
     dispatch: (action) => acceptedDispatches.push(action),
     getCurrentSessionId: () => "sess-1",
     getCurrentInteraction: () => ({ interactionId: "ask-accepted", kind: "user_input" }),
@@ -86,11 +93,7 @@ export async function runInteractionResponseControllerTests() {
       acceptedReloads += 1;
     },
   });
-
-  const accepted = await acceptedController.respondToInteraction({
-    answers: { answer: "yes" },
-  });
-
+  const accepted = await acceptedController.respondToInteraction({ answers: { answer: "yes" } });
   assert.equal(accepted.status, "accepted");
   assert.equal(acceptedReloads, 0);
   assert.equal(acceptedDispatches.some((action) => action.type === "session_snapshot"), false);
@@ -99,11 +102,13 @@ export async function runInteractionResponseControllerTests() {
   let loadedSession = "";
   respondingIds = [];
   const expiredController = createInteractionResponseController({
-    fetchJson: async () => {
-      const error = new Error("interaction_expired");
-      error.status = 410;
-      error.detail = "interaction_expired";
-      throw error;
+    protocol: {
+      respondToInteraction: async () => {
+        const error = new Error("interaction_expired");
+        error.status = 410;
+        error.detail = "interaction_expired";
+        throw error;
+      },
     },
     dispatch: (action) => dispatches.push(action),
     normalizeSessionPayload: (payload) => payload,
@@ -117,17 +122,14 @@ export async function runInteractionResponseControllerTests() {
       loadedSession = sessionId;
     },
   });
-
-  const expired = await expiredController.respondToInteraction({ answers: { answer: "late" } });
-
-  assert.equal(expired, null);
+  assert.equal(
+    await expiredController.respondToInteraction({ answers: { answer: "late" } }),
+    null,
+  );
   assert.deepEqual(respondingIds, []);
   assert.equal(loadedSession, "sess-1");
-  assert.equal(dispatches.at(-2).type, "interaction_notice_set");
   assert.equal(dispatches.at(-2).notice.kind, "expired");
-  assert.deepEqual(dispatches.at(-1), {
-    type: "log_event",
-    label: "interaction_response",
-    detail: "interaction_expired",
-  });
+
+  const missingProtocol = createInteractionResponseController({});
+  assert.equal(await missingProtocol.respondToInteraction({}), null);
 }

@@ -1063,7 +1063,8 @@ def test_gui_session_list_loading_is_controller_owned():
     assert 'fetchJson("/api/sessions")' not in app_text
     assert 'type: "sessions_loaded"' not in app_text
     assert "export function createSessionListController" in controller_text
-    assert 'request("/api/sessions")' in controller_text
+    assert "listSessions" in controller_text
+    assert '"/api/"' not in controller_text
     assert 'type: "sessions_loaded"' in controller_text
 
 
@@ -1088,18 +1089,29 @@ def test_gui_session_activation_bootstrap_is_controller_handle_owned():
     assert "updateTransportState: sessionTransportHandle.update" in app_text
 
 
-def test_gui_http_client_is_runtime_owned_not_inline_app_fetch():
+def test_gui_transports_and_protocol_are_composed_outside_app():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    http_client_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/http-client.js"
+    main_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/main.jsx")
+    http_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/client-runtime/http-transport.js"
+    )
+    socket_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/client-runtime/socket-transport.js"
+    )
+    protocol_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/client-runtime/protocol-adapter.js"
     )
 
-    assert 'import { fetchJson } from "./app-runtime/http-client.js"' in app_text
-    assert "async function fetchJson" not in app_text
+    assert "function App({ protocol })" in app_text
     assert "fetch(" not in app_text
-    assert "export function createJsonHttpClient" in http_client_text
-    assert "export const { fetchJson }" in http_client_text
-    assert "error.status" in http_client_text
+    assert "createHttpTransport" in main_text
+    assert "createSocketTransport" in main_text
+    assert "createAgentAppProtocolAdapter" in main_text
+    assert "<App protocol={protocol} />" in main_text
+    assert "return fetch(" in http_text
+    assert "new WebSocketConstructor" in socket_text
+    assert "fetchJson:" not in protocol_text
+    assert "request," not in protocol_text
 
 
 def test_gui_initial_app_load_is_controller_owned():
@@ -1189,7 +1201,7 @@ def test_gui_session_transport_has_single_cursor_and_recovery_owner():
     )
 
     assert "self._event_emitter.capture(" in adapter_text
-    assert 'result["event_cursor"] = event_cursor' in payload_text
+    assert "event_cursor=event_cursor" in payload_text
     assert "installSessionTransportBootstrap" in activation_text
     assert "dispatchAcceptedSessionEvent" in activation_text
     assert "lastAppliedSeq: Number(state?.lastAppliedSeq" not in transport_text
@@ -1499,7 +1511,7 @@ def test_gui_app_shell_projects_active_agent_application_capabilities():
     assert "get_session_capabilities" in app_shell_text
     assert '"agentApplication"' in app_shell_text
     assert '"agentApplications"' in app_shell_text
-    assert "normalizeAgentApplicationDescriptor" in app_model_text
+    assert "normalizeAppAgentApplicationDescriptor" in app_model_text
     assert "buildAppCapabilityModel" in app_text
     assert "buildSessionCapabilityModelFromState" in app_text
     assert "appEmptyState || sessionEmptyState" in app_text
@@ -2051,7 +2063,6 @@ def test_gui_terminal_copy_is_app_shell_declared():
         ROOT / "src/embedagent/frontend/gui/webapp/src/terminal/terminal-capability.js"
     )
     labels_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/terminal/terminal-labels.js")
-    api_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/terminal/terminal-api.js")
     shell_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/TerminalShell.jsx"
     )
@@ -2079,7 +2090,7 @@ def test_gui_terminal_copy_is_app_shell_declared():
     assert "terminalChrome" in shell_text
     assert "terminalChrome" in surface_body_text
     assert "terminalChrome" in bottom_drawer_text
-    assert '"Terminal request failed"' not in api_text
+    assert "listTerminals" in controller_text
 
     for hardcoded_copy in (
         '"Open a session before using the terminal."',
@@ -2113,7 +2124,6 @@ def test_gui_preview_copy_is_app_shell_declared():
     preview_model_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/preview-surface-model.js"
     )
-    preview_api_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/preview/preview-api.js")
     preview_controller_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/preview-controller.js"
     )
@@ -2146,7 +2156,7 @@ def test_gui_preview_copy_is_app_shell_declared():
     assert "previewChrome" in preview_surface_text
     assert "chrome.statusReady" in preview_model_text
     assert "chrome.emptyTitle" in preview_model_text
-    assert '"Preview request failed"' not in preview_api_text
+    assert "openPreviewSession" in preview_controller_text
 
     for hardcoded_copy in (
         '"Open a session before using preview."',
@@ -2231,7 +2241,8 @@ def test_gui_file_preview_copy_is_app_shell_declared():
     assert "filePreviewChrome.unavailableMessage" not in file_preview_controller_text
     assert "chrome.unavailableMessage" in file_preview_controller_text
     assert "fileSurfaceTitle(filePath, filePreviewChrome)" not in app_text
-    assert "/api/files/" in file_preview_controller_text
+    assert "readFile" in file_preview_controller_text
+    assert '"/api/"' not in file_preview_controller_text
     assert "file_preview_load_started" in file_preview_controller_text
     assert "file_preview_loaded" in file_preview_controller_text
     assert "file_preview_load_failed" in file_preview_controller_text
@@ -2354,9 +2365,6 @@ def test_gui_source_control_copy_is_app_shell_declared():
         ROOT
         / "src/embedagent/frontend/gui/webapp/src/source-control/source-control-presentation.js"
     )
-    source_control_api_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/source-control/source-control-api.js"
-    )
     source_control_controller_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/source-control-controller.js"
     )
@@ -2400,7 +2408,7 @@ def test_gui_source_control_copy_is_app_shell_declared():
     assert "|| normalized" not in source_control_presentation_text
     assert "model.branchMetaLabel" in branch_toolbar_text
     assert "sourceControlChrome?.branchToolbar" in branch_toolbar_model_text
-    assert '"Source control request failed"' not in source_control_api_text
+    assert "getSourceControlStatus" in source_control_controller_text
 
     for hardcoded_copy in (
         '"Source control unavailable"',
@@ -3319,8 +3327,6 @@ def test_gui_workspace_lifecycle_stays_in_workspace_controller():
         "canSwitchWorkspace",
         "normalizeAppBootstrap",
         "workspace_path_changed",
-        '"/api/app/bootstrap"',
-        '"/api/app/workspaces"',
     )
     offenders = []
     for token in forbidden_app_tokens:
@@ -3331,8 +3337,8 @@ def test_gui_workspace_lifecycle_stays_in_workspace_controller():
         "function setWorkspacePath",
         'type: "workspace_path_changed"',
         "normalizeAppBootstrap",
-        '"/api/app/bootstrap"',
-        '"/api/app/workspaces"',
+        "loadAppBootstrap",
+        "openWorkspacePath",
     )
     for token in required_controller_tokens:
         if token not in controller_text:

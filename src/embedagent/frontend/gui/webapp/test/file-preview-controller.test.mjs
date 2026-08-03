@@ -8,9 +8,11 @@ export async function runFilePreviewControllerTests() {
   const requests = [];
   const controller = createFilePreviewController({
     dispatch: (action) => actions.push(action),
-    fetchJson: async (url) => {
-      requests.push(url);
-      return { path: "src/main.c", content: "int main(void) { return 0; }\n" };
+    protocol: {
+      readFile: async (path) => {
+        requests.push(path);
+        return { path: "src/main.c", content: "int main(void) { return 0; }\n" };
+      },
     },
     getFilePreviewChrome: () => ({
       defaultFileTitle: "Document",
@@ -28,20 +30,15 @@ export async function runFilePreviewControllerTests() {
 
   const loaded = await controller.openFile("\\src\\main.c", 12);
 
-  assert.deepEqual(openRequests, [
-    { filePath: "src/main.c", revealLine: 12, title: "main.c" },
-  ]);
-  assert.deepEqual(requests, ["/api/files/src%2Fmain.c"]);
+  assert.deepEqual(openRequests, [{ filePath: "src/main.c", revealLine: 12, title: "main.c" }]);
+  assert.deepEqual(requests, ["src/main.c"]);
   assert.equal(loaded.path, "src/main.c");
   assert.deepEqual(actions, [
     { type: "file_preview_load_started", path: "src/main.c" },
     {
       type: "file_preview_loaded",
       path: "src/main.c",
-      preview: {
-        title: "src/main.c",
-        content: "int main(void) { return 0; }\n",
-      },
+      preview: { title: "src/main.c", content: "int main(void) { return 0; }\n" },
     },
   ]);
 
@@ -49,9 +46,11 @@ export async function runFilePreviewControllerTests() {
   const unavailableRequests = [];
   const unavailableController = createFilePreviewController({
     dispatch: (action) => unavailableActions.push(action),
-    fetchJson: async (url) => {
-      unavailableRequests.push(url);
-      return {};
+    protocol: {
+      readFile: async (path) => {
+        unavailableRequests.push(path);
+        return {};
+      },
     },
     rightPanelController: {
       normalizeFileSurfacePath: () => "src/blocked.c",
@@ -66,8 +65,10 @@ export async function runFilePreviewControllerTests() {
   const failedActions = [];
   const failedController = createFilePreviewController({
     dispatch: (action) => failedActions.push(action),
-    fetchJson: async () => {
-      throw new Error("");
+    protocol: {
+      readFile: async () => {
+        throw new Error("");
+      },
     },
     getFilePreviewChrome: () => ({ unavailableMessage: "Cannot open file" }),
     rightPanelController: {
@@ -79,10 +80,11 @@ export async function runFilePreviewControllerTests() {
   assert.equal(await failedController.openFile("src/missing.c"), null);
   assert.deepEqual(failedActions, [
     { type: "file_preview_load_started", path: "src/missing.c" },
-    {
-      type: "file_preview_load_failed",
-      path: "src/missing.c",
-      error: "Cannot open file",
-    },
+    { type: "file_preview_load_failed", path: "src/missing.c", error: "Cannot open file" },
   ]);
+
+  const missingProtocol = createFilePreviewController({
+    rightPanelController: { openFileSurface: () => true },
+  });
+  assert.equal(await missingProtocol.openFile("src/main.c"), null);
 }

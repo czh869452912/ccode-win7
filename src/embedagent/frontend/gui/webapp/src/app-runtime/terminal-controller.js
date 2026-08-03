@@ -33,8 +33,8 @@ function readSessionId(state) {
   return readActiveThreadId(state);
 }
 
-function readApi(deps, name) {
-  const candidate = deps.api && deps.api[name];
+function readProtocolMethod(deps, name) {
+  const candidate = deps.protocol && deps.protocol[name];
   return typeof candidate === "function" ? candidate : null;
 }
 
@@ -151,7 +151,7 @@ export function createTerminalController(deps = {}) {
       normalizeTerminalId(preferredId) ||
       normalizeTerminalId(terminal.activeTerminalId) ||
       nextId(deps, terminal.terminalIds || []);
-    const openTerminal = readApi(deps, "openTerminal");
+    const openTerminal = readProtocolMethod(deps, "openTerminal");
     if (!openTerminal || !terminalId) return null;
     try {
       const payload = await openTerminal(context.sessionId, terminalId, TERMINAL_DIMENSIONS);
@@ -171,7 +171,7 @@ export function createTerminalController(deps = {}) {
     if (!context) return null;
     const terminal = readTerminalState(context.state);
     const targetTerminalId = normalizeTerminalId(terminalId) || nextId(deps, terminal.terminalIds || []);
-    const openTerminal = readApi(deps, "openTerminal");
+    const openTerminal = readProtocolMethod(deps, "openTerminal");
     if (!openTerminal || !targetTerminalId) return null;
     try {
       const payload = await openTerminal(context.sessionId, targetTerminalId, TERMINAL_DIMENSIONS);
@@ -189,7 +189,7 @@ export function createTerminalController(deps = {}) {
     const state = getState();
     const sessionId = readSessionId(state);
     if (!sessionId) return;
-    const listTerminals = readApi(deps, "listTerminals");
+    const listTerminals = readProtocolMethod(deps, "listTerminals");
     if (!listTerminals) return;
     try {
       const payload = await listTerminals(sessionId);
@@ -205,7 +205,7 @@ export function createTerminalController(deps = {}) {
     const sessionId = readSessionId(state);
     const targetTerminalId = normalizeTerminalId(terminalId);
     if (!sessionId || !targetTerminalId) return null;
-    const writeTerminal = readApi(deps, "writeTerminal");
+    const writeTerminal = readProtocolMethod(deps, "writeTerminal");
     if (!writeTerminal) return null;
     try {
       dispatch({ type: "terminal_active_set", terminalId: targetTerminalId });
@@ -228,7 +228,7 @@ export function createTerminalController(deps = {}) {
     const sessionId = readSessionId(state);
     const targetTerminalId = normalizeTerminalId(terminalId);
     if (!sessionId || !targetTerminalId) return null;
-    const clearTerminal = readApi(deps, "clearTerminal");
+    const clearTerminal = readProtocolMethod(deps, "clearTerminal");
     if (!clearTerminal) return null;
     try {
       dispatch({ type: "terminal_active_set", terminalId: targetTerminalId });
@@ -252,7 +252,7 @@ export function createTerminalController(deps = {}) {
     const sessionId = readSessionId(state);
     const targetTerminalId = normalizeTerminalId(terminalId);
     if (!sessionId || !targetTerminalId) return null;
-    const restartTerminal = readApi(deps, "restartTerminal");
+    const restartTerminal = readProtocolMethod(deps, "restartTerminal");
     if (!restartTerminal) return null;
     try {
       dispatch({ type: "terminal_active_set", terminalId: targetTerminalId });
@@ -277,7 +277,7 @@ export function createTerminalController(deps = {}) {
     const terminal = readTerminalState(state);
     const terminalId = normalizeTerminalId(terminal.activeTerminalId);
     if (!sessionId || !terminalId) return null;
-    const closeTerminal = readApi(deps, "closeTerminal");
+    const closeTerminal = readProtocolMethod(deps, "closeTerminal");
     if (!closeTerminal) return null;
     try {
       await closeTerminal(sessionId, terminalId);
@@ -382,7 +382,7 @@ export function createTerminalController(deps = {}) {
     if (!targetTerminalId) return null;
     const context = requireSession();
     if (!context) return null;
-    const closeTerminal = readApi(deps, "closeTerminal");
+    const closeTerminal = readProtocolMethod(deps, "closeTerminal");
     if (!closeTerminal) return null;
     try {
       await closeTerminal(context.sessionId, targetTerminalId);

@@ -1,5 +1,10 @@
+function optionalProtocolMethod(protocol, name) {
+  const method = protocol && protocol[name];
+  return typeof method === "function" ? method.bind(protocol) : null;
+}
+
 export function createThreadLifecycleController({
-  fetchJson,
+  protocol,
   dispatch,
   loadSessions,
   loadSession,
@@ -8,6 +13,10 @@ export function createThreadLifecycleController({
   prompt,
   confirm,
 }) {
+  const renameSession = optionalProtocolMethod(protocol, "renameSession");
+  const archiveSession = optionalProtocolMethod(protocol, "archiveSession");
+  const forkSession = optionalProtocolMethod(protocol, "forkSession");
+
   function currentActions() {
     const capabilities = getThreadLifecycleCapabilities ? getThreadLifecycleCapabilities() : {};
     return Array.isArray(capabilities?.actions) ? capabilities.actions : [];
@@ -29,63 +38,44 @@ export function createThreadLifecycleController({
     if (!noticeTitle && !noticeBody) return;
     dispatch({
       type: "interaction_notice_set",
-      notice: {
-        kind: "thread_lifecycle",
-        title: noticeTitle,
-        body: noticeBody,
-      },
+      notice: { kind: "thread_lifecycle", title: noticeTitle, body: noticeBody },
     });
   }
 
   async function renameThread(sessionId, action = actionDescriptor("rename")) {
+    if (!renameSession) return;
     const current = getThreadSessions().find((item) => item.session_id === sessionId) || {};
     const initialTitle = current.thread?.title || current.title || current.user_goal || "";
     const title = prompt(actionText(action, "promptTitle", action.label), initialTitle);
     if (title === null) return;
     const normalizedTitle = String(title || "").trim();
     if (!normalizedTitle) {
-      dispatchLifecycleNotice(
-        actionText(action, "emptyTitle"),
-        actionText(action, "emptyBody"),
-      );
+      dispatchLifecycleNotice(actionText(action, "emptyTitle"), actionText(action, "emptyBody"));
       return;
     }
-    await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/rename`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: normalizedTitle }),
-    });
+    await renameSession(sessionId, normalizedTitle);
     await loadSessions();
   }
 
   async function archiveThread(sessionId, action = actionDescriptor("archive")) {
+    if (!archiveSession) return;
     const confirmTitle = actionText(action, "confirmTitle", action.label);
     if (confirmTitle && !confirm(confirmTitle)) return;
-    await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/archive`, {
-      method: "POST",
-    });
+    await archiveSession(sessionId);
     await loadSessions();
-    dispatchLifecycleNotice(
-      actionText(action, "successTitle"),
-      actionText(action, "successBody"),
-    );
+    dispatchLifecycleNotice(actionText(action, "successTitle"), actionText(action, "successBody"));
   }
 
   async function forkThread(sessionId, action = actionDescriptor("fork")) {
+    if (!forkSession) return;
     const title = prompt(
       actionText(action, "promptTitle", action.label),
       actionText(action, "promptInitial"),
     );
     if (title === null) return;
-    const payload = await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/fork`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: String(title || "").trim() }),
-    });
+    const payload = await forkSession(sessionId, String(title || "").trim());
     await loadSessions();
-    if (payload.session_id) {
-      await loadSession(payload.session_id);
-    }
+    if (payload.session_id) await loadSession(payload.session_id);
   }
 
   async function handleThreadLifecycleAction(actionId, sessionId) {

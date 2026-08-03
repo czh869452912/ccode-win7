@@ -1,9 +1,7 @@
 import { canSwitchWorkspace as defaultCanSwitchWorkspace, normalizeAppBootstrap } from "../app-workspaces.js";
 
 function invoke(callback, ...args) {
-  if (typeof callback !== "function") {
-    return Promise.resolve();
-  }
+  if (typeof callback !== "function") return Promise.resolve();
   return Promise.resolve().then(() => callback(...args));
 }
 
@@ -11,8 +9,14 @@ function workspaceErrorFrom(error) {
   return String(error?.detail || error?.message || "workspace_open_failed");
 }
 
+function requireProtocolMethod(protocol, name) {
+  const method = protocol && protocol[name];
+  if (typeof method !== "function") throw new Error(`protocol_method_missing:${name}`);
+  return method.bind(protocol);
+}
+
 export function createWorkspaceController({
-  fetchJson,
+  protocol,
   dispatch,
   getState,
   getAppState,
@@ -20,7 +24,10 @@ export function createWorkspaceController({
   canSwitchWorkspace = defaultCanSwitchWorkspace,
   loadWorkspaceData,
 } = {}) {
-  const request = typeof fetchJson === "function" ? fetchJson : () => Promise.resolve({});
+  const requestAppBootstrap = requireProtocolMethod(protocol, "loadAppBootstrap");
+  const requestOpenWorkspace = requireProtocolMethod(protocol, "openWorkspacePath");
+  const requestActivateWorkspace = requireProtocolMethod(protocol, "activateWorkspace");
+  const requestRemoveWorkspace = requireProtocolMethod(protocol, "removeWorkspace");
   const send = typeof dispatch === "function" ? dispatch : () => {};
   const readState = typeof getState === "function" ? getState : () => ({});
   const readAppState =
@@ -44,15 +51,8 @@ export function createWorkspaceController({
   }
 
   async function loadAppBootstrap() {
-    const payload = await request("/api/app/bootstrap");
-    const bootstrap = normalizeAppBootstrap(payload || {});
-    send({ type: "app_bootstrap_loaded", bootstrap });
-    if (bootstrap.hasActiveWorkspace) {
-      await loadWorkspaceScopedData("", true, bootstrap.capabilities);
-    } else {
-      send({ type: "source_control_reset" });
-    }
-    return bootstrap;
+    const payload = await requestAppBootstrap();
+    return applyBootstrap(payload, "app_bootstrap_loaded");
   }
 
   async function loadActiveWorkspaceData(
@@ -69,9 +69,7 @@ export function createWorkspaceController({
 
   function assertCanSwitch() {
     const switchState = canSwitchWorkspace(readState());
-    if (switchState.allowed) {
-      return true;
-    }
+    if (switchState.allowed) return true;
     send({ type: "workspace_activation_failed", error: switchState.reason });
     return false;
   }
@@ -85,12 +83,7 @@ export function createWorkspaceController({
     if (!assertCanSwitch()) return;
     send({ type: "workspace_activation_started" });
     try {
-      const payload = await request("/api/app/workspaces", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: targetPath }),
-      });
-      await applyBootstrap(payload, "workspace_switched");
+      await applyBootstrap(await requestOpenWorkspace(targetPath), "workspace_switched");
     } catch (error) {
       send({ type: "workspace_activation_failed", error: workspaceErrorFrom(error) });
     }
@@ -100,21 +93,14 @@ export function createWorkspaceController({
     if (!assertCanSwitch()) return;
     send({ type: "workspace_activation_started" });
     try {
-      const payload = await request(
-        `/api/app/workspaces/${encodeURIComponent(workspaceId)}/activate`,
-        { method: "POST" },
-      );
-      await applyBootstrap(payload, "workspace_switched");
+      await applyBootstrap(await requestActivateWorkspace(workspaceId), "workspace_switched");
     } catch (error) {
       send({ type: "workspace_activation_failed", error: workspaceErrorFrom(error) });
     }
   }
 
   async function removeWorkspace(workspaceId) {
-    const payload = await request(`/api/app/workspaces/${encodeURIComponent(workspaceId)}`, {
-      method: "DELETE",
-    });
-    await applyBootstrap(payload, "workspace_switched");
+    await applyBootstrap(await requestRemoveWorkspace(workspaceId), "workspace_switched");
   }
 
   return {

@@ -9,14 +9,12 @@ function interactionIdFor(interaction) {
 }
 
 function interactionLogDetail(interaction, payload) {
-  if (interaction?.kind === "permission") {
-    return String(payload?.decision || "");
-  }
+  if (interaction?.kind === "permission") return String(payload?.decision || "");
   return String(payload?.answers?.answer || "").slice(0, 40);
 }
 
 export function createInteractionResponseController({
-  fetchJson,
+  protocol,
   dispatch,
   normalizeSessionPayload,
   getCurrentSessionId,
@@ -26,7 +24,10 @@ export function createInteractionResponseController({
   loadSession,
 } = {}) {
   const send = typeof dispatch === "function" ? dispatch : () => {};
-  const fetchPayload = typeof fetchJson === "function" ? fetchJson : () => Promise.resolve({});
+  const respond =
+    protocol && typeof protocol.respondToInteraction === "function"
+      ? protocol.respondToInteraction.bind(protocol)
+      : null;
   const normalize =
     typeof normalizeSessionPayload === "function" ? normalizeSessionPayload : (payload) => payload;
   const readSessionId = typeof getCurrentSessionId === "function" ? getCurrentSessionId : () => "";
@@ -62,33 +63,21 @@ export function createInteractionResponseController({
   }
 
   async function respondToInteraction(payload) {
+    if (!respond) return null;
     const sessionId = String(readSessionId() || "");
     const interaction = readInteraction();
     const interactionId = interactionIdFor(interaction);
-    if (!sessionId || !interactionId) return null;
-    if (isResponding(interactionId)) return null;
+    if (!sessionId || !interactionId || isResponding(interactionId)) return null;
 
     markResponding(interactionId);
     send({ type: "interaction_notice_clear" });
     let keepResponding = false;
     try {
-      const response = await fetchPayload(
-        `/api/sessions/${encodeURIComponent(sessionId)}/interactions/${encodeURIComponent(interactionId)}/respond`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload || {}),
-        },
-      );
+      const response = await respond(sessionId, interactionId, payload || {});
       if (response?.status === "accepted") {
-        // Backend events and the next session snapshot are authoritative while the
-        // claimed interaction resumes; never apply an acknowledgement as state.
         keepResponding = true;
       } else if (response?.snapshot) {
-        send({
-          type: "session_snapshot",
-          snapshot: normalize(response.snapshot),
-        });
+        send({ type: "session_snapshot", snapshot: normalize(response.snapshot) });
       } else {
         await reloadSession(sessionId);
       }
