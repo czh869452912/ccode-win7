@@ -7,10 +7,15 @@ function normalizeReloadState(value, fallback = "healthy") {
 }
 
 export function createSessionTransportState(options = {}) {
+  const eventCursor = Number(options.eventCursor || 0);
   return {
+    sessionId: String(options.sessionId || ""),
+    generation: Number(options.generation || 0),
+    phase: options.phase || "idle",
+    bufferedEvents: [],
     events: [],
     eventIds: new Set(),
-    lastAppliedSeq: 0,
+    lastAppliedSeq: Number.isInteger(eventCursor) && eventCursor >= 0 ? eventCursor : 0,
     reloadState: normalizeReloadState(options.reloadState),
     connectionState: options.connectionState || "connecting",
   };
@@ -55,10 +60,16 @@ export function applySessionTransportEvent(state, event) {
       "invalid_envelope",
     );
   }
+  if (state.sessionId && event.session_id !== state.sessionId) {
+    return application(state, false, "wrong_session");
+  }
   if (state.eventIds.has(event.event_id)) {
     return application(state, false, "duplicate_event");
   }
-  if (state.lastAppliedSeq && event.sequence !== state.lastAppliedSeq + 1) {
+  if (event.sequence <= state.lastAppliedSeq) {
+    return application(state, false, "stale_sequence");
+  }
+  if (event.sequence !== state.lastAppliedSeq + 1) {
     return application(
       {
         ...state,
@@ -79,6 +90,106 @@ export function applySessionTransportEvent(state, event) {
     },
     true,
   );
+}
+
+export function beginSessionTransportBootstrap(state, sessionId) {
+  const current = state || createSessionTransportState();
+  return {
+    ...createSessionTransportState({
+      sessionId,
+      phase: "buffering",
+      connectionState: current.connectionState,
+    }),
+    generation: Number(current.generation || 0) + 1,
+  };
+}
+
+export function bufferSessionTransportEvent(state, event) {
+  if (!validEnvelope(event)) {
+    return {
+      ...state,
+      reloadState: "degraded",
+    };
+  }
+  if (state.phase !== "buffering" || event.session_id !== state.sessionId) {
+    return state;
+  }
+  if (
+    state.eventIds.has(event.event_id) ||
+    state.bufferedEvents.some((item) => item.event_id === event.event_id)
+  ) {
+    return state;
+  }
+  return {
+    ...state,
+    bufferedEvents: state.bufferedEvents.concat(event),
+  };
+}
+
+export function installSessionTransportBootstrap(state, options = {}) {
+  const sessionId = String(options.sessionId || "");
+  const generation = Number(options.generation || 0);
+  if (
+    state.phase !== "buffering" ||
+    state.sessionId !== sessionId ||
+    state.generation !== generation
+  ) {
+    return { state, applied: [], stale: true };
+  }
+
+  const eventCursor = Number(options.eventCursor || 0);
+  if (!Number.isInteger(eventCursor) || eventCursor < 0) {
+    return {
+      state: { ...state, phase: "live", reloadState: "degraded" },
+      applied: [],
+      stale: false,
+    };
+  }
+
+  let current = {
+    ...state,
+    phase: "live",
+    bufferedEvents: [],
+    events: [],
+    eventIds: new Set(),
+    lastAppliedSeq: eventCursor,
+    reloadState: state.reloadState === "degraded" ? "degraded" : "healthy",
+  };
+  const candidates = state.bufferedEvents
+    .filter((event) => event.session_id === sessionId)
+    .sort((left, right) => left.sequence - right.sequence);
+  const applied = [];
+  const remaining = [];
+  const seenEventIds = new Set();
+
+  for (let index = 0; index < candidates.length; index += 1) {
+    const event = candidates[index];
+    if (seenEventIds.has(event.event_id)) continue;
+    seenEventIds.add(event.event_id);
+    if (event.sequence <= eventCursor) continue;
+    const result = applySessionTransportEvent(current, event);
+    current = result.state;
+    if (result.accepted) {
+      applied.push(event);
+      continue;
+    }
+    if (result.reason === "sequence_gap") {
+      remaining.push(event);
+      for (const pending of candidates.slice(index + 1)) {
+        if (!seenEventIds.has(pending.event_id)) {
+          seenEventIds.add(pending.event_id);
+          remaining.push(pending);
+        }
+      }
+      break;
+    }
+  }
+
+  return {
+    state: { ...current, bufferedEvents: remaining },
+    applied,
+    stale: false,
+  };
 }
 
 export function projectTransportView({ transportState } = {}) {

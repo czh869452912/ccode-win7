@@ -2,11 +2,26 @@ import assert from "node:assert/strict";
 
 import {
   applySessionTransportEvent,
+  beginSessionTransportBootstrap,
+  bufferSessionTransportEvent,
   capRetryAttempt,
   createSessionTransportState,
+  installSessionTransportBootstrap,
   projectTransportView,
 } from "../src/session-runtime/session-transport-state.js";
 import { buildSessionActivityRuntime } from "../src/session-runtime/activity-state.js";
+
+function envelope(sessionId, sequence, eventId) {
+  return {
+    schema_version: 1,
+    session_id: sessionId,
+    event_id: eventId,
+    sequence,
+    event_kind: "step.started",
+    timestamp: "2026-08-03T00:00:00Z",
+    payload: {},
+  };
+}
 
 export function runSessionRuntimeTests() {
   const initial = createSessionTransportState();
@@ -30,6 +45,59 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(gap.state.reloadState, "reload_required");
   assert.equal(gap.accepted, false);
+
+  let buffering = beginSessionTransportBootstrap(createSessionTransportState(), "s-1");
+  assert.equal(buffering.phase, "buffering");
+  assert.equal(buffering.generation, 1);
+  buffering = bufferSessionTransportEvent(buffering, envelope("s-1", 3, "evt-3"));
+  buffering = bufferSessionTransportEvent(buffering, envelope("s-1", 2, "evt-2"));
+  buffering = bufferSessionTransportEvent(buffering, envelope("s-2", 4, "other"));
+  const installed = installSessionTransportBootstrap(buffering, {
+    sessionId: "s-1",
+    generation: buffering.generation,
+    eventCursor: 1,
+  });
+
+  assert.equal(installed.state.phase, "live");
+  assert.equal(installed.state.lastAppliedSeq, 3);
+  assert.deepEqual(
+    installed.applied.map((item) => item.sequence),
+    [2, 3],
+  );
+  assert.equal(installed.state.bufferedEvents.length, 0);
+
+  let gappedBuffer = beginSessionTransportBootstrap(createSessionTransportState(), "s-1");
+  gappedBuffer = bufferSessionTransportEvent(gappedBuffer, envelope("s-1", 2, "evt-2"));
+  gappedBuffer = bufferSessionTransportEvent(gappedBuffer, envelope("s-1", 4, "evt-4"));
+  const gappedInstall = installSessionTransportBootstrap(gappedBuffer, {
+    sessionId: "s-1",
+    generation: gappedBuffer.generation,
+    eventCursor: 1,
+  });
+
+  assert.equal(gappedInstall.state.reloadState, "reload_required");
+  assert.deepEqual(
+    gappedInstall.applied.map((item) => item.sequence),
+    [2],
+  );
+  assert.deepEqual(
+    gappedInstall.state.bufferedEvents.map((item) => item.sequence),
+    [4],
+  );
+
+  const gapFromZero = applySessionTransportEvent(
+    createSessionTransportState({ sessionId: "s-1", phase: "live" }),
+    envelope("s-1", 3, "evt-gap-zero"),
+  );
+  assert.equal(gapFromZero.reason, "sequence_gap");
+
+  const stale = applySessionTransportEvent(
+    createSessionTransportState({ sessionId: "s-1", phase: "live", eventCursor: 3 }),
+    envelope("s-1", 2, "evt-late"),
+  );
+  assert.equal(stale.reason, "stale_sequence");
+  assert.equal(stale.state.lastAppliedSeq, 3);
+  assert.equal(stale.state.reloadState, "healthy");
 
   const runtime = buildSessionActivityRuntime({
     snapshot: {
