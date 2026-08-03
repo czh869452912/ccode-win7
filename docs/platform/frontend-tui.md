@@ -5,12 +5,12 @@
 > 状态：`active`
 > 类型：`platform implementation`
 > 负责人：`TUI maintainers`
-> 最后同步日期：`2026-08-01`
+> 最后同步日期：`2026-08-03`
 > 对应代码范围：`src/embedagent/frontend/tui/`
 
 ## 1. Purpose And Boundary
 
-TUI 是 `CoreInterface` / `FrontendCallbacks` 之上的可注册终端 shell 实现，使用 `prompt_toolkit` 和 `rich` 提供键盘优先、低颜色可回退的 workbench。它与 GUI 消费同一会话、capability、command、interaction 和 generic workflow 协议，不内建上层应用策略。
+TUI 是 `CoreInterface` / `FrontendCallbacks` 之上的终端 shell 实现，使用 `prompt_toolkit` 和 `rich` 提供键盘优先、低颜色可回退的 workbench。它已消费 canonical session events 和 hosted snapshots，但 command、mode、surface 与 task workbench 仍由本地固定 catalog 驱动，尚未完成与 GUI 共用产品注册真相的切换。
 
 ## 2. Architecture
 
@@ -21,7 +21,7 @@ TUI 是 `CoreInterface` / `FrontendCallbacks` 之上的可注册终端 shell 实
 | `frontend_adapter.py` | `TUIFrontend` 实现 canonical `on_session_event` |
 | `controller.py`, `commands.py` | 用户输入、command dispatch 和 interaction response |
 | `state.py`, `reducer.py` | 可丢失终端投影与纯状态转换 |
-| `workbench.py`, `layout.py`, `views/` | capability-driven layout、overlays、panels 和 rendering |
+| `workbench.py`, `layout.py`, `views/` | 当前固定 workbench catalog、layout、overlays、panels 和 rendering；descriptor cutover 尚未完成 |
 | `services/` | 面向 `CoreInterface` 的 workspace/session/timeline/editor services |
 
 ```mermaid
@@ -40,9 +40,11 @@ bootstrap 将 `TUIFrontend` 注册到 core。`TUIFrontend.on_session_event(...)`
 
 session 启动或切换时，TUI 使用 backend snapshot/history 替换状态。terminal buffer 是展示投影，不是可恢复 transcript。
 
-## 4. Capability-Driven Workbench
+## 4. Current Registration Gap
 
-command palette、mode selector、timeline、explorer、editor、diff、inspector 和 dialogs 从协议 descriptor 与 backend snapshot 计算可见性。TUI 可因终端能力限制使用更简化 renderer，但不修改 command semantics、tool activation、permission 或 workflow ownership。
+command palette、mode selector、explorer 和 inspector 当前从 `WORKBENCH_COMMANDS`、`RIGHT_PANEL_SURFACES` 及 controller command branches 计算，不是 backend descriptor 的投影。`workflow.diff`、tasks explorer 等 product/application 能力也仍直接出现在 TUI shell 中。
+
+当前收敛切片将由 product composition 注入唯一 shell descriptor，并让 TUI 只保留通用 renderer/handler registry。切换时必须删除固定 catalog 和 fallback，不保留双注册路径。
 
 raw console 或低颜色 host 下必须保持可操作。终端支持差异是 presentation fallback，不是第二套产品能力。
 

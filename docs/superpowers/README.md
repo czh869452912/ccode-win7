@@ -6,6 +6,10 @@
 
 - `docs/superpowers/plans/2026-07-19-win7-acceptance-handoff.md`
 
+## Frontend Shell Convergence
+
+- `docs/superpowers/specs/2026-08-03-frontend-shell-convergence-design.md`
+
 ## Closure Rule
 
 先把可持续结论同步到活跃权威文档，再将已完成的 spec 和 plan 移入带索引的 `docs/archive/<topic>/` 包。

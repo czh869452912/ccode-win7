@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform contract`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-01`
+> 最后同步日期：`2026-08-03`
 > 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `packages/embedagent-host/src/embedagent_host/runtime/session_event_protocol.py`, `src/embedagent/core/adapter.py`, `src/embedagent/frontend/`
 
 ## 1. Truth Layers
@@ -55,7 +55,9 @@ schema version 是实际 wire compatibility 标识，不是文档或架构命名
 - session capability snapshot；
 - generic `workflow` projection。
 
-`SessionHistoryAssembler` 拥有 history DTO 序列化，`SessionSnapshotProjector` 拥有 snapshot。GUI/TUI 不从 replay tail、app bootstrap 或自己保存的 timeline 重建 session。切换 session 时应用新 bootstrap 替换 backend-owned state，再接续对应 session event sequence。
+`SessionHistoryAssembler` 拥有 history DTO 序列化，`SessionSnapshotProjector` 拥有 snapshot。GUI/TUI 不从 replay tail、app bootstrap 或自己保存的 timeline 重建 session。
+
+当前 bootstrap 尚未携带 event cursor，因此 GUI 在 sequence gap 后无法原子确定 snapshot 对应的 live high-water mark。收敛切片将把 `event_cursor` 加入当前 schema，并在同一变更中切换全部消费者、删除旧 schema；切换完成前不得宣称 gap recovery 已闭合。
 
 ## 4. Capabilities And Registries
 
@@ -72,7 +74,7 @@ schema version 是实际 wire compatibility 标识，不是文档或架构命名
 
 app bootstrap 可声明 surfaces、commands 和 workspace state。shell 必须从 descriptor/capability registry 计算可见性、标签、排序、dispatch 和 renderer key；不以产品名、应用 id、工具名或 command id 分支重建 backend policy。
 
-renderer-local registry 只声明当前 shell 支持哪些通用 component/handler/renderer kinds。它是展示实现表，不是 capability source。未支持的 descriptor 应显式隐藏或以 generic fallback 显示，不私自补入默认应用能力。
+renderer-local registry 只声明当前 shell 支持哪些通用 component/handler/renderer kinds。它是展示实现表，不是 capability source。未支持的 descriptor 必须显式隐藏并产生受控 diagnostics，不得以 generic fallback 补入未注册的应用能力。
 
 ## 5. Generic Workflow Projection
 

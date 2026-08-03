@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform authority`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-01`
+> 最后同步日期：`2026-08-03`
 > 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `src/embedagent/core/`
 
 ## 1. Purpose And Boundary
@@ -35,6 +35,8 @@
 - app shell：`AppBootstrap` 及 workspace/surface descriptors；
 - activity：`Message`, `ToolCall`, `ToolResult`, `CommandResult`, `InteractionActivity`；
 - workspace：`WorkspaceInfo`, `DiffPreview`, `RuntimeEnvironmentSnapshot`。
+
+当前 `SessionSnapshot` 仍包含 `current_phase`、`discipline_profile`、`current_activity`、`task_summary` 和 `task_items` 等上层 workflow 展开字段，尚未达到本节声明的通用边界。前端收敛切片将让消费者只读取 generic `workflow`，并在同一 strict cutover 中删除这些字段及其 Host/frontend 映射。
 
 DTO 可以携带通用 `workflow` 字典和 capability metadata，但协议发行包不导入任何应用实现。
 

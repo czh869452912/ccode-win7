@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform implementation`
 > 负责人：`GUI maintainers`
-> 最后同步日期：`2026-08-01`
+> 最后同步日期：`2026-08-03`
 > 对应代码范围：`src/embedagent/frontend/gui/`
 
 ## 1. Purpose And Boundary
@@ -22,8 +22,8 @@ GUI 不拥有 Agent Core policy、session history、workflow transition、permis
 | `backend/app_host.py` | workspace registry，按 workspace 创建/切换 `CoreInterface`，绑定 frontend callback |
 | `backend/server.py`, routes/services | HTTP/WebSocket 协议、session/app bootstrap、files、preview、terminal、source control |
 | `backend/app_shell*.py` | backend-owned commands/surfaces/capability shell descriptors |
-| `webapp/src/client-runtime/` | wire validation 与 protocol adaptation |
-| `webapp/src/app-runtime/` | controller/effect orchestration |
+| `webapp/src/client-runtime/` | wire validation 与 protocol adaptation；尚未成为全部 HTTP/WebSocket effect 的唯一入口 |
+| `webapp/src/app-runtime/` | controller/effect orchestration；当前仍有直接 endpoint 调用待迁移 |
 | `webapp/src/session-runtime/` | pure session/activity/read-model reducers |
 | `webapp/src/workbench/`, `components/` | renderer-local registries、UI state 和 visual surfaces |
 
@@ -54,11 +54,13 @@ app host 可以是 multi-workspace 或 `SingleWorkspaceAppHost`。新产品可�
 
 renderer 不从事件尾部重建历史。断线重连或 session 切换后，以新 session bootstrap 为准，不以 local persisted timeline 为准。
 
+当前 session bootstrap 尚未携带 live event cursor；gap recovery 在替换 bootstrap 后仍保留旧 cursor，重连 timer 也没有纳入 closeable scope。前端收敛切片将先修正这两个传输生命周期缺口，再进行 workbench 结构调整。
+
 ## 5. Capability-Driven Workbench
 
 backend descriptors 拥有 modes、commands、tools、applications、workflow packages、surfaces、empty-state copy 和 chrome metadata。React 读模型计算当前可见 commands/surfaces，renderer-local registry 只将通用 kind 映射为 component/handler。
 
-右面板、底部 drawer、command palette、timeline row、tool detail、file preview、diff、terminal 和 source-control 均由 descriptors 与安全 catalog metadata 驱动。renderer 不以 application id、tool name 或 product name 推测能力。当前 shell 不支持的 generic kind 使用显式 fallback，不补入默认应用行为。
+右面板、底部 drawer、command palette、timeline row 和 tool detail 的可见性主要由 descriptors 与 catalog metadata 驱动，但 terminal、source-control 和部分 controller 仍绕过 ProtocolAdapter 直接调用 endpoint。renderer 不以 application id、tool name 或 product name 推测能力；本地 fallback catalog 将随共享注册切换删除。
 
 ## 6. State Ownership
 

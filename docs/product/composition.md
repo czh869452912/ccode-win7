@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`product authority`
 > 负责人：`EmbedAgent product maintainers`
-> 最后同步日期：`2026-08-01`
+> 最后同步日期：`2026-08-03`
 > 对应代码范围：`src/embedagent/`, `packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py`, `packages/embedagent-composition/src/embedagent_composition/`
 
 ## 1. Purpose And Boundary
@@ -74,9 +74,11 @@ flowchart TD
 
 ## 4. Shell Injection
 
-GUI/TUI 都是平台级注册 shell。产品层只选择启动哪个 shell，并注入 core factory、application registry、app capabilities、product copy 和 bundled runtime 路径。shell 不得反向读取 `product_catalog.py` 的应用细节以作为 UI policy。
+GUI/TUI 的目标边界都是平台级注册 shell。产品层只选择启动哪个 shell，并注入 core factory、application registry、app capabilities、product copy 和 bundled runtime 路径。shell 不得反向读取 `product_catalog.py` 的应用细节以作为 UI policy。
 
 产品 app-shell descriptors 可对 commands、surfaces、keybindings、palette groups 和 disabled capabilities 做选择。这些是组合 metadata，不改变 shell 支持的 generic renderer/handler contract。
+
+当前 GUI 已消费大部分 app-shell descriptors，TUI 仍使用本地固定 catalog；两者尚未共享同一编译结果。前端收敛切片负责建立 product-owned descriptor compiler，并在 GUI/TUI 同步切换时删除旧 catalog 和 fallback。
 
 ## 5. Configuration And Offline Defaults
 
