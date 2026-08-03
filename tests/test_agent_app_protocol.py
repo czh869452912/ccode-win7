@@ -155,7 +155,14 @@ class AgentAppProtocolTests(unittest.TestCase):
             workspaces=[],
             shell=ShellDescriptor(
                 schema_version=1,
-                commands=[CommandDescriptor(id="app.open", label="Open", group="app")],
+                commands=[
+                    CommandDescriptor(
+                        id="app.open",
+                        label="Open",
+                        group="app",
+                        dispatch={"kind": "workspace.open"},
+                    )
+                ],
             ),
             diagnostics={"offline": True},
         )
@@ -238,6 +245,79 @@ class AgentAppProtocolTests(unittest.TestCase):
         self.assertEqual(payload["shell"]["schema_version"], 1)
         self.assertEqual(payload["shell"]["surfaces"][0]["renderer_key"], "files")
         self.assertNotIn("rendererKey", json.dumps(payload))
+
+    def test_shell_descriptor_is_json_safe_and_workflow_neutral(self):
+        descriptor = ShellDescriptor(
+            schema_version=1,
+            commands=[
+                CommandDescriptor(
+                    id="session.new",
+                    label="New Session",
+                    group="session",
+                    dispatch={"kind": "session.create"},
+                )
+            ],
+            surfaces=[
+                SurfaceDescriptor(
+                    id="session.command_palette",
+                    label="Commands",
+                    placement="overlay",
+                    renderer_key="command_palette",
+                )
+            ],
+            keybindings=[
+                KeybindingDescriptor(command_id="session.new", keys="ctrl+n")
+            ],
+        )
+
+        payload = descriptor.to_dict()
+
+        json.dumps(payload)
+        self.assertEqual(
+            payload["commands"][0]["dispatch"], {"kind": "session.create"}
+        )
+        self.assertNotIn("task_graph", json.dumps(payload).lower())
+
+    def test_shell_descriptor_rejects_cross_field_contract_violations(self):
+        command = CommandDescriptor(
+            id="session.new",
+            label="New Session",
+            group="session",
+            dispatch={"kind": "session.create"},
+        )
+        surface = SurfaceDescriptor(
+            id="session.commands",
+            label="Commands",
+            placement="overlay",
+            renderer_key="command_palette",
+        )
+        invalid_factories = (
+            lambda: ShellDescriptor(commands=[command, command]),
+            lambda: ShellDescriptor(surfaces=[surface, surface]),
+            lambda: ShellDescriptor(
+                commands=[
+                    CommandDescriptor(
+                        id="session.cancel",
+                        label="Cancel",
+                        group="session",
+                        dispatch={},
+                    )
+                ]
+            ),
+            lambda: ShellDescriptor(
+                commands=[command],
+                keybindings=[
+                    KeybindingDescriptor(
+                        command_id="session.cancel",
+                        keys="ctrl+c",
+                    )
+                ],
+            ),
+        )
+        for index, factory in enumerate(invalid_factories):
+            with self.subTest(index=index):
+                with self.assertRaises(ValueError):
+                    factory()
 
     def test_current_frontend_dtos_reject_invalid_structure(self):
         valid_thread = ThreadShell(

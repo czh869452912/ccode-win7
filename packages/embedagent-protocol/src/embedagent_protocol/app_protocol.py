@@ -46,6 +46,16 @@ def _require_items(value: Any, item_type: Type[Any], field_name: str) -> List[An
     return items
 
 
+def _unique_ids(kind: str, records: List[Any]) -> set:
+    record_ids = set()
+    for record in records:
+        record_id = record.id
+        if record_id in record_ids:
+            raise ValueError("duplicate_%s:%s" % (kind, record_id))
+        record_ids.add(record_id)
+    return record_ids
+
+
 def _serialize_activity(value: Any) -> Dict[str, Any]:
     if hasattr(value, "to_dict"):
         payload = value.to_dict()
@@ -360,6 +370,15 @@ class ShellDescriptor:
             (self.interactions, InteractionDescriptor, "shell.interactions"),
         ):
             _require_items(records, item_type, field_name)
+        command_ids = _unique_ids("shell_command", self.commands)
+        _unique_ids("shell_surface", self.surfaces)
+        for command in self.commands:
+            dispatch_kind = command.dispatch.get("kind")
+            if not isinstance(dispatch_kind, str) or not dispatch_kind.strip():
+                raise ValueError("shell_command_dispatch_kind:%s" % command.id)
+        for keybinding in self.keybindings:
+            if keybinding.command_id not in command_ids:
+                raise ValueError("unknown_keybinding_command:%s" % keybinding.command_id)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
