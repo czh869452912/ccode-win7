@@ -11,6 +11,19 @@ from prompt_toolkit.widgets import TextArea
 from embedagent.frontend.tui.completion import TerminalCompleter
 
 
+def _prompt_toolkit_keys(value):
+    keys = []
+    for raw in str(value or "").strip().lower().split():
+        if raw.startswith("ctrl+"):
+            raw = "c-" + raw[5:]
+        elif raw.startswith("shift+"):
+            raw = "s-" + raw[6:]
+        elif raw.startswith("alt+"):
+            raw = "escape " + raw[4:]
+        keys.extend(raw.split())
+    return tuple(keys)
+
+
 class TerminalLayout(object):
     # Layout ratios: main chat area dominates
     MAIN_AREA_RATIO = 0.75
@@ -135,7 +148,6 @@ class TerminalLayout(object):
     def _build_key_bindings(self):
         bindings = KeyBindings()
 
-        @bindings.add("c-c")
         @bindings.add("c-q")
         def _(event):
             event.app.exit()
@@ -147,42 +159,6 @@ class TerminalLayout(object):
         @bindings.add("s-tab")
         def _(event):
             event.app.layout.focus_previous()
-
-        @bindings.add("f1")
-        def _(event):
-            self.owner.controller.show_help()
-
-        @bindings.add("f2")
-        def _(event):
-            self.owner.controller.create_new_session()
-
-        @bindings.add("f3")
-        def _(event):
-            self.owner.controller.resume_latest_session()
-
-        @bindings.add("f4")
-        def _(event):
-            self.owner.controller.show_sessions_explorer()
-
-        @bindings.add("f5")
-        def _(event):
-            self.owner.controller.activate_selection()
-
-        @bindings.add("f6")
-        def _(event):
-            self.owner.controller.show_snapshot()
-
-        @bindings.add("f7")
-        def _(event):
-            self.owner.controller.open_selected_preview()
-
-        @bindings.add("f8")
-        def _(event):
-            self.owner.controller.edit_selected_item()
-
-        @bindings.add("f10")
-        def _(event):
-            self.owner.controller.toggle_follow_output()
 
         @bindings.add("c-s", filter=has_focus(self.editor))
         def _(event):
@@ -200,20 +176,22 @@ class TerminalLayout(object):
         def _(event):
             self.owner.controller.close_aux_view()
 
-        @bindings.add("c-p")
-        def _(event):
-            self.toggle_auxiliary_panels()
-            event.app.invalidate()
-
-        @bindings.add("c-k")
-        def _(event):
-            self.owner.controller.open_command_palette()
-
         @bindings.add(
             "escape",
             filter=Condition(lambda: self.owner.state.workbench.command_palette.open),
         )
         def _(event):
             self.owner.controller.close_command_palette()
+
+        for descriptor in self.owner.state.workbench.keybindings:
+            keys = _prompt_toolkit_keys(descriptor.keys)
+            if not keys:
+                continue
+
+            def execute_registered_command(event, command_id=descriptor.command_id):
+                self.owner.controller.execute_workbench_command(command_id)
+                event.app.invalidate()
+
+            bindings.add(*keys)(execute_registered_command)
 
         return bindings

@@ -12,8 +12,8 @@ class ParsedCommand:
     args: List[str]
 
 
-def command_names() -> List[str]:
-    return slash_name_strings()
+def command_names(state) -> List[str]:
+    return slash_name_strings(state)
 
 
 def parse_command(text: str) -> ParsedCommand:

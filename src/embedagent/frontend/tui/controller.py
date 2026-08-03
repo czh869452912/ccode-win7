@@ -8,7 +8,6 @@ import embedagent.frontend.tui.reducer as reducer
 from embedagent.frontend.tui.commands import parse_command
 from embedagent.frontend.tui.models import ExplorerItem
 from embedagent.frontend.tui.views.timeline import format_activity_records
-from embedagent.frontend.tui.workbench import command_by_id
 
 
 class TerminalController(object):
@@ -28,7 +27,7 @@ class TerminalController(object):
             )
         else:
             self.owner.runtime.create_session(self.owner.initial_mode)
-        reducer.append_line(self.owner.state, "[system] 输入消息回车发送，/help 查看命令。")
+        reducer.append_line(self.owner.state, "[system] 会话已就绪。")
         self.refresh_explorer(self.owner.state.explorer.tab)
         self.refresh_inspector(self.owner.state.inspector.tab)
         if self.owner.initial_message:
@@ -129,93 +128,42 @@ class TerminalController(object):
         self.owner.refresh_views()
 
     def handle_command(self, text: str) -> None:
-        command = parse_command(text)
-        name = command.name
-        args = command.args
-        if name == "quit":
-            self.owner.application.exit()
-            return
-        if name == "help":
-            self.show_help()
-            return
-        if name == "palette":
-            self.open_command_palette()
-            return
-        if name == "new":
-            self.create_new_session(args[0] if args else self.owner.initial_mode)
-            return
-        if name == "resume":
-            reference = args[0] if args else "latest"
-            if reference == "selected":
-                self.activate_selection()
-            else:
-                self.resume_session(reference)
-            return
-        if name == "sessions":
-            self.show_sessions_explorer()
-            return
-        if name == "snapshot":
-            self.show_snapshot()
-            return
-        if name == "close":
-            self.close_aux_view()
-            return
-        if name == "mode":
-            if not args:
-                reducer.append_line(self.owner.state, "[system] 用法：/mode <name>")
-            else:
-                self.owner.runtime.set_session_mode(
-                    self.owner.state.session.current_session_id, args[0]
-                )
-                reducer.append_line(self.owner.state, "[system] 已切换到 %s 模式" % args[0])
-                self.refresh_inspector(self.owner.state.inspector.tab)
-            self.owner.refresh_views()
-            return
-        if name in ("plan", "review", "diff", "permissions"):
-            self.submit_message(text)
-            return
-        if name == "workspace":
-            self.refresh_explorer("workspace", args[0] if args else ".")
-            self.owner.refresh_views()
-            return
-        if name == "tasks":
-            self.refresh_explorer("tasks")
-            self.show_plan()
-            self.owner.refresh_views()
-            return
-        if name == "open":
-            if not args:
-                reducer.append_line(self.owner.state, "[system] 用法：/open <path>")
-            else:
-                self.open_preview(args[0])
-            self.owner.refresh_views()
-            return
-        if name == "edit":
-            if not args:
-                reducer.append_line(self.owner.state, "[system] 用法：/edit <path>")
-            else:
-                self.open_editor(args[0])
-            self.owner.refresh_views()
-            return
-        if name == "save":
-            self.save_editor()
-            self.owner.refresh_views()
-            return
-        if name == "explorer":
-            self.refresh_explorer(args[0] if args else "workspace")
-            self.owner.refresh_views()
-            return
-        if name == "inspector":
-            self.refresh_inspector(args[0] if args else "status")
-            self.owner.refresh_views()
-            return
-        if name == "follow":
-            value = (args[0] if args else "on").lower()
-            reducer.set_follow_output(self.owner.state, value != "off")
-            self.owner.refresh_views()
-            return
-        reducer.append_line(self.owner.state, "[system] 未知命令：%s" % text)
+        parsed = parse_command(text)
+        try:
+            command = self.owner.runtime.resolve_command(parsed.name)
+            if str(command.dispatch.get("kind") or "") == "session.command":
+                reducer.append_line(self.owner.state, "user> %s" % text)
+            self.owner.runtime.execute_command(
+                command.id,
+                parsed.args,
+                default_mode=self.owner.initial_mode,
+            )
+            self._after_shell_command(command.dispatch)
+        except (RuntimeError, ValueError, TypeError) as exc:
+            reducer.set_last_error(self.owner.state, str(exc))
+            reducer.append_line(self.owner.state, "[error] %s" % exc)
         self.owner.refresh_views()
+
+    def _after_shell_command(self, dispatch: Dict[str, object]) -> None:
+        kind = str(dispatch.get("kind") or "")
+        if kind in (
+            "session.create",
+            "session.select",
+            "session.rename",
+            "session.archive",
+            "session.fork",
+        ):
+            self.refresh_sessions()
+        if kind in ("session.create", "session.select", "session.fork"):
+            self.refresh_explorer("workspace")
+        if kind in (
+            "session.create",
+            "session.select",
+            "session.fork",
+            "session.mode",
+            "session.cancel",
+        ):
+            self.refresh_inspector("status")
 
     def submit_message(self, text: str) -> None:
         session_id = self.owner.state.session.current_session_id
@@ -236,7 +184,7 @@ class TerminalController(object):
 
     def create_new_session(self, mode: Optional[str] = None) -> None:
         self.owner.runtime.create_session(mode or self.owner.initial_mode)
-        reducer.append_line(self.owner.state, "[system] 输入消息回车发送，/help 查看命令。")
+        reducer.append_line(self.owner.state, "[system] 会话已就绪。")
         self.refresh_sessions()
         self.refresh_explorer("workspace")
         self.refresh_inspector("status")
@@ -361,20 +309,16 @@ class TerminalController(object):
         self.owner.refresh_views()
 
     def execute_workbench_command(self, command_id: str) -> None:
-        command = command_by_id(command_id)
+        command = self.owner.state.workbench.command_by_id(command_id)
         if not command.id:
             return
-        if command.surface:
-            reducer.set_workbench_surface(self.owner.state, command.surface)
-            self.refresh_inspector(command.surface)
-            self.owner.refresh_views()
-            return
-        if command.drawer:
-            reducer.set_workbench_drawer(self.owner.state, command.drawer)
-            self.owner.refresh_views()
-            return
-        if command.slash:
-            self.handle_command(command.slash)
+        try:
+            self.owner.runtime.execute_command(command.id, [], default_mode=self.owner.initial_mode)
+            self._after_shell_command(command.dispatch)
+        except (RuntimeError, ValueError, TypeError) as exc:
+            reducer.set_last_error(self.owner.state, str(exc))
+            reducer.append_line(self.owner.state, "[error] %s" % exc)
+        self.owner.refresh_views()
 
     def on_editor_text_changed(self, _buffer) -> None:
         if self.owner.state.main_view != "editor":
@@ -387,6 +331,15 @@ class TerminalController(object):
         if action_type == "session_activated":
             self._install_session_bootstrap(action.get("bootstrap"))
             return
+        if action_type == "shell_surface":
+            self._activate_shell_surface(action.get("surface"))
+            return
+        if action_type == "shell_command":
+            dispatch = action.get("dispatch")
+            if isinstance(dispatch, dict) and dispatch.get("kind") == "workspace.open":
+                self.refresh_explorer("workspace")
+            self.owner.refresh_views()
+            return
         if action_type != "session_event":
             return
         envelope = SessionEventEnvelope.from_dict(action.get("event") or {})
@@ -397,6 +350,28 @@ class TerminalController(object):
             self.refresh_tasks()
             self.refresh_session_projection()
         self.refresh_inspector(self.owner.state.inspector.tab)
+        self.owner.refresh_views()
+
+    def _activate_shell_surface(self, value) -> None:
+        surface = dict(value or {}) if isinstance(value, dict) else {}
+        surface_id = str(surface.get("id") or "")
+        renderer_key = str(surface.get("renderer_key") or "")
+        if renderer_key == "command_palette":
+            reducer.show_command_palette(self.owner.state)
+        elif renderer_key == "composer":
+            self.owner.application.layout.focus(self.owner.composer)
+        elif renderer_key == "interaction":
+            self.refresh_inspector("status")
+        elif renderer_key == "file_reference":
+            self.refresh_explorer("workspace")
+            reducer.set_workbench_surface(self.owner.state, surface_id)
+        elif renderer_key == "workflow_summary":
+            self.show_plan()
+        elif renderer_key == "inline_diff":
+            self.refresh_inspector("diff")
+        else:
+            reducer.set_workbench_surface(self.owner.state, surface_id)
+            self.refresh_inspector(surface_id)
         self.owner.refresh_views()
 
     def _install_session_bootstrap(self, value) -> None:

@@ -18,7 +18,7 @@ class TerminalCompleter(Completer):
         stripped = text_before.lstrip()
         if stripped.startswith("/"):
             prefix = stripped[1:]
-            for name in command_names():
+            for name in command_names(state.workbench):
                 if prefix and not name.startswith(prefix):
                     continue
                 yield Completion(name, start_position=-len(prefix), display="/" + name)

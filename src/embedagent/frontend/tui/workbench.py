@@ -1,22 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import List
+from dataclasses import dataclass, field, replace
+from typing import Any, Dict, List, Tuple
 
-RIGHT_PANEL_SURFACES = [
-    "interaction",
-    "tasks",
-    "plan",
-    "run",
-    "problems",
-    "review",
-    "permissions",
-    "runtime",
-    "preview",
-    "log",
-]
-
-BOTTOM_DRAWER_SURFACES = ["terminal", "run_output", "logs"]
+from embedagent_protocol import KeybindingDescriptor, ShellDescriptor, SurfaceDescriptor
 
 
 @dataclass(frozen=True)
@@ -24,52 +11,20 @@ class WorkbenchCommand:
     id: str
     label: str
     group: str
+    dispatch: Dict[str, Any] = field(default_factory=dict)
     slash: str = ""
     surface: str = ""
-    drawer: str = ""
 
 
-WORKBENCH_COMMANDS = [
-    WorkbenchCommand("session.new", "New Session", "session", "/new"),
-    WorkbenchCommand("session.refresh", "Refresh Sessions", "session", "/sessions"),
-    WorkbenchCommand("session.resume", "Resume Session", "session", "/resume"),
-    WorkbenchCommand("message.send", "Send Message", "message"),
-    WorkbenchCommand("message.stop", "Stop Running Turn", "message"),
-    WorkbenchCommand("mode.explore", "Mode: Explore", "mode", "/mode explore"),
-    WorkbenchCommand("mode.spec", "Mode: Spec", "mode", "/mode spec"),
-    WorkbenchCommand("mode.build", "Mode: Build", "mode", "/mode build"),
-    WorkbenchCommand("mode.debug", "Mode: Debug", "mode", "/mode debug"),
-    WorkbenchCommand("mode.verify", "Mode: Verify", "mode", "/mode verify"),
-    WorkbenchCommand("surface.interaction", "Open Interaction", "surface", "", "interaction"),
-    WorkbenchCommand("surface.tasks", "Open Tasks", "surface", "/tasks", "tasks"),
-    WorkbenchCommand("surface.plan", "Open Plan", "surface", "/plan", "plan"),
-    WorkbenchCommand("surface.run", "Open Run", "surface", "", "run"),
-    WorkbenchCommand("surface.problems", "Open Problems", "surface", "", "problems"),
-    WorkbenchCommand("surface.review", "Open Review", "surface", "/review", "review"),
-    WorkbenchCommand(
-        "surface.permissions", "Open Permissions", "surface", "/permissions", "permissions"
-    ),
-    WorkbenchCommand("surface.runtime", "Open Runtime", "surface", "/snapshot", "runtime"),
-    WorkbenchCommand("surface.preview", "Open Preview", "surface", "", "preview"),
-    WorkbenchCommand("surface.log", "Open Log", "surface", "", "log"),
-    WorkbenchCommand("drawer.run_output", "Toggle Run Output", "surface", "", "", "run_output"),
-    WorkbenchCommand("workspace.files", "Open Files", "workspace", "/workspace"),
-    WorkbenchCommand("workflow.diff", "Review Diff", "workflow", "/diff"),
-    WorkbenchCommand("view.toggle_right_panel", "Toggle Right Panel", "view"),
-    WorkbenchCommand("view.toggle_bottom_drawer", "Toggle Bottom Drawer", "view"),
-    WorkbenchCommand("palette.open", "Open Command Palette", "view", "/palette"),
-    WorkbenchCommand("palette.close", "Close Command Palette", "view"),
-    WorkbenchCommand("snapshot", "Show Snapshot", "session", "/snapshot"),
-    WorkbenchCommand("close", "Close Auxiliary View", "view", "/close"),
-    WorkbenchCommand("file.open", "Open File Preview", "workspace", "/open"),
-    WorkbenchCommand("file.edit", "Edit File", "workspace", "/edit"),
-    WorkbenchCommand("file.save", "Save File", "workspace", "/save"),
-    WorkbenchCommand("explorer.open", "Open Explorer", "workspace", "/explorer"),
-    WorkbenchCommand("inspector.open", "Open Inspector", "surface", "/inspector"),
-    WorkbenchCommand("timeline.follow", "Toggle Follow Output", "view", "/follow"),
-    WorkbenchCommand("help", "Help", "view", "/help"),
-    WorkbenchCommand("quit", "Quit", "view", "/quit"),
-]
+def _slash_for(command_id: str, dispatch: Dict[str, Any]) -> str:
+    kind = str(dispatch.get("kind") or "")
+    if kind == "interaction.respond":
+        return ""
+    if kind == "session.command":
+        name = str(dispatch.get("command") or "").strip()
+    else:
+        name = str(command_id or "").rsplit(".", 1)[-1].strip()
+    return "/" + name if name else ""
 
 
 @dataclass
@@ -81,24 +36,58 @@ class CommandPaletteState:
 
 @dataclass
 class WorkbenchState:
-    right_panel_open: bool = True
+    shell_descriptor: ShellDescriptor = field(default_factory=ShellDescriptor)
+    right_panel_open: bool = False
     bottom_drawer_open: bool = False
-    active_surface: str = "tasks"
-    active_drawer: str = "run_output"
+    active_surface: str = ""
+    active_drawer: str = ""
     command_palette: CommandPaletteState = field(default_factory=CommandPaletteState)
+    commands: Tuple[WorkbenchCommand, ...] = field(init=False, default_factory=tuple)
+    surfaces: Tuple[SurfaceDescriptor, ...] = field(init=False, default_factory=tuple)
+    keybindings: Tuple[KeybindingDescriptor, ...] = field(init=False, default_factory=tuple)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.shell_descriptor, ShellDescriptor):
+            raise TypeError("shell_descriptor must be a ShellDescriptor")
+        self.commands = tuple(
+            WorkbenchCommand(
+                id=item.id,
+                label=item.label,
+                group=item.group,
+                dispatch=dict(item.dispatch),
+                slash=_slash_for(item.id, item.dispatch),
+                surface=str(item.dispatch.get("surface_id") or ""),
+            )
+            for item in self.shell_descriptor.commands
+        )
+        self.surfaces = tuple(self.shell_descriptor.surfaces)
+        self.keybindings = tuple(self.shell_descriptor.keybindings)
+        secondary_ids = tuple(item.id for item in self.surfaces if item.placement == "secondary")
+        if self.active_surface not in secondary_ids:
+            self.active_surface = secondary_ids[0] if secondary_ids else ""
+        if not secondary_ids:
+            self.right_panel_open = False
+
+    def command_by_id(self, command_id: str) -> WorkbenchCommand:
+        for command in self.commands:
+            if command.id == command_id:
+                return command
+        return WorkbenchCommand("", "", "")
+
+    def resolve_command(self, name: str) -> WorkbenchCommand:
+        normalized = str(name or "").strip().lower().lstrip("/")
+        for command in self.commands:
+            if command.slash.lstrip("/").lower() == normalized:
+                return command
+            if command.id.lower() == normalized:
+                return command
+        return WorkbenchCommand("", "", "")
 
 
-def command_by_id(command_id: str) -> WorkbenchCommand:
-    for command in WORKBENCH_COMMANDS:
-        if command.id == command_id:
-            return command
-    return WorkbenchCommand("", "", "")
-
-
-def slash_command_names() -> List[WorkbenchCommand]:
+def slash_command_names(state: WorkbenchState) -> List[WorkbenchCommand]:
     values = []
     seen = set()
-    for command in WORKBENCH_COMMANDS:
+    for command in state.commands:
         if not command.slash:
             continue
         name = command.slash.strip().split()[0].lstrip("/")
@@ -110,24 +99,24 @@ def slash_command_names() -> List[WorkbenchCommand]:
                 command.id,
                 command.label,
                 command.group,
-                "/" + name,
-                command.surface,
-                command.drawer,
+                dict(command.dispatch),
+                slash="/" + name,
+                surface=command.surface,
             )
         )
     return values
 
 
-def slash_name_strings() -> List[str]:
-    return [item.slash.lstrip("/") for item in slash_command_names()]
+def slash_name_strings(state: WorkbenchState) -> List[str]:
+    return [item.slash.lstrip("/") for item in slash_command_names(state)]
 
 
-def visible_palette_commands(query: str = "") -> List[WorkbenchCommand]:
+def visible_palette_commands(state: WorkbenchState, query: str = "") -> List[WorkbenchCommand]:
     normalized = (query or "").strip().lower()
     if not normalized:
-        return list(WORKBENCH_COMMANDS)
+        return list(state.commands)
     matches = []
-    for command in WORKBENCH_COMMANDS:
+    for command in state.commands:
         haystack = " ".join([command.id, command.label, command.group, command.slash]).lower()
         if normalized in haystack:
             matches.append(command)
@@ -135,46 +124,20 @@ def visible_palette_commands(query: str = "") -> List[WorkbenchCommand]:
 
 
 def open_surface(state: WorkbenchState, surface: str) -> WorkbenchState:
-    if surface not in RIGHT_PANEL_SURFACES:
+    if surface not in [item.id for item in state.surfaces if item.placement == "secondary"]:
         return state
-    return WorkbenchState(
-        right_panel_open=True,
-        bottom_drawer_open=state.bottom_drawer_open,
-        active_surface=surface,
-        active_drawer=state.active_drawer,
-        command_palette=state.command_palette,
-    )
+    return replace(state, right_panel_open=True, active_surface=surface)
 
 
 def open_drawer(state: WorkbenchState, drawer: str) -> WorkbenchState:
-    if drawer not in BOTTOM_DRAWER_SURFACES:
-        return state
-    return WorkbenchState(
-        right_panel_open=state.right_panel_open,
-        bottom_drawer_open=True,
-        active_surface=state.active_surface,
-        active_drawer=drawer,
-        command_palette=state.command_palette,
-    )
+    return state
 
 
 def open_palette(state: WorkbenchState) -> WorkbenchState:
     palette = CommandPaletteState(open=True, query="", selected_index=0)
-    return WorkbenchState(
-        right_panel_open=state.right_panel_open,
-        bottom_drawer_open=state.bottom_drawer_open,
-        active_surface=state.active_surface,
-        active_drawer=state.active_drawer,
-        command_palette=palette,
-    )
+    return replace(state, command_palette=palette)
 
 
 def close_palette(state: WorkbenchState) -> WorkbenchState:
     palette = CommandPaletteState(open=False, query="", selected_index=0)
-    return WorkbenchState(
-        right_panel_open=state.right_panel_open,
-        bottom_drawer_open=state.bottom_drawer_open,
-        active_surface=state.active_surface,
-        active_drawer=state.active_drawer,
-        command_palette=palette,
-    )
+    return replace(state, command_palette=palette)

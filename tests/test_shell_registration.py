@@ -166,6 +166,29 @@ class ShellRegistrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unknown_keybinding_command:workflow.verify"):
             registry.compile("", {"commands": []})
 
+    def test_compiler_rejects_shell_command_with_unknown_surface(self):
+        registry = ShellContributionRegistry(
+            generic=ShellContribution(
+                commands=(
+                    CommandContribution(
+                        descriptor=CommandDescriptor(
+                            id="shell.missing",
+                            label="Missing",
+                            group="shell",
+                            dispatch={
+                                "kind": "shell.surface",
+                                "surface_id": "missing",
+                            },
+                        ),
+                        order=10,
+                    ),
+                )
+            )
+        )
+
+        with self.assertRaisesRegex(ValueError, "unknown_shell_surface:missing"):
+            registry.compile("", {})
+
     def test_compiler_rejects_unknown_application(self):
         registry = ShellContributionRegistry(applications={"tests.app": ShellContribution()})
 

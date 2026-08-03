@@ -14,6 +14,7 @@ from embedagent.frontend.shell.registration import (
 SUPPORTED_RENDERERS = frozenset(
     (
         "command_palette",
+        "composer",
         "interaction",
         "generic_timeline",
         "tool",
@@ -29,6 +30,9 @@ SUPPORTED_DISPATCH_KINDS = frozenset(
     (
         "session.create",
         "session.cancel",
+        "session.rename",
+        "session.archive",
+        "session.fork",
         "session.mode",
         "session.command",
         "session.select",
@@ -128,8 +132,13 @@ def compile_shell_descriptor(
     _require_unique_order("shell_surface", surface_records)
     _require_unique_value("shell_command", (record.descriptor.id for record in command_records))
     _require_unique_value("shell_surface", (record.descriptor.id for record in surface_records))
+    surface_ids = set(record.descriptor.id for record in surface_records)
     for record in command_records:
         _validate_dispatch(record)
+        if record.descriptor.dispatch.get("kind") == "shell.surface":
+            surface_id = str(record.descriptor.dispatch.get("surface_id") or "").strip()
+            if surface_id not in surface_ids:
+                raise ValueError("unknown_shell_surface:%s" % surface_id)
     for record in surface_records:
         _validate_renderer(record.descriptor.renderer_key, record.descriptor.id)
 

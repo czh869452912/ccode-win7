@@ -265,17 +265,13 @@ class AgentAppProtocolTests(unittest.TestCase):
                     renderer_key="command_palette",
                 )
             ],
-            keybindings=[
-                KeybindingDescriptor(command_id="session.new", keys="ctrl+n")
-            ],
+            keybindings=[KeybindingDescriptor(command_id="session.new", keys="ctrl+n")],
         )
 
         payload = descriptor.to_dict()
 
         json.dumps(payload)
-        self.assertEqual(
-            payload["commands"][0]["dispatch"], {"kind": "session.create"}
-        )
+        self.assertEqual(payload["commands"][0]["dispatch"], {"kind": "session.create"})
         self.assertNotIn("task_graph", json.dumps(payload).lower())
 
     def test_shell_descriptor_rejects_cross_field_contract_violations(self):

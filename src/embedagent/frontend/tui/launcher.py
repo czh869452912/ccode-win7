@@ -13,6 +13,10 @@ from typing import Optional
 
 from embedagent.frontend.tui.bootstrap import TUIUnavailableError, run_tui
 from embedagent.hosted import LaunchOverrides, create_hosted_runtime, resolve_launch_config
+from embedagent.product_catalog import (
+    product_agent_application_registry,
+    product_shell_compiler,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,6 +56,13 @@ def launch_tui(
         ),
     )
     runtime = create_hosted_runtime(launch_config)
+    application_record = product_agent_application_registry().record_by_id(
+        launch_config.agent_application_id
+    )
+    shell_descriptor = product_shell_compiler()(
+        application_record.application_id,
+        runtime.session_host.get_session_capabilities(""),
+    )
 
     previous_headless = os.environ.get("EMBEDAGENT_TUI_HEADLESS")
     if headless:
@@ -65,6 +76,7 @@ def launch_tui(
             mode=mode,
             resume=resume,
             initial_message=message,
+            shell_descriptor=shell_descriptor,
         )
     finally:
         if previous_headless is None:

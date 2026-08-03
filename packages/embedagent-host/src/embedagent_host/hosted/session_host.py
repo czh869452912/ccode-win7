@@ -19,6 +19,9 @@ class HostedSessionHost(object):
     def get_session_bootstrap(self, reference: str) -> Dict[str, object]:
         return self.adapter.get_session_bootstrap(reference)
 
+    def get_session_capabilities(self, session_id: str = "") -> Dict[str, object]:
+        return self.adapter.get_session_capabilities(session_id)
+
     def create_session(
         self, mode: str, event_handler: Optional[SessionEventHandler] = None
     ) -> Dict[str, object]:
@@ -42,6 +45,15 @@ class HostedSessionHost(object):
 
     def cancel_session(self, session_id: str) -> Dict[str, object]:
         return self.adapter.cancel_session(session_id)
+
+    def rename_session(self, session_id: str, title: str) -> Dict[str, object]:
+        return self.adapter.rename_session(session_id, title)
+
+    def archive_session(self, session_id: str) -> Dict[str, object]:
+        return self.adapter.archive_session(session_id)
+
+    def fork_session(self, session_id: str, title: str = "") -> Dict[str, object]:
+        return self.adapter.fork_session(session_id, title)
 
     def submit_user_message(
         self,

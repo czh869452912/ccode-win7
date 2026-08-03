@@ -47,6 +47,7 @@ def run_tui(
     workspace: str,
     mode: str,
     resume: str,
+    shell_descriptor,
     initial_message: str = "",
 ) -> int:
     deps = load_tui_dependencies()
@@ -54,7 +55,7 @@ def run_tui(
     from embedagent.frontend.tui.runtime import TerminalRuntime
 
     action_dispatch = _RuntimeActionDispatch()
-    runtime = TerminalRuntime(session_host, dispatch=action_dispatch)
+    runtime = TerminalRuntime(session_host, shell_descriptor, dispatch=action_dispatch)
     try:
         app = TerminalApp(
             runtime=runtime,

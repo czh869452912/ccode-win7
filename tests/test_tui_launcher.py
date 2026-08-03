@@ -3,21 +3,36 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
+from embedagent_protocol import ShellDescriptor
+
 from embedagent.frontend.tui import launcher as tui_launcher
 
 
 class TestTuiLauncher(unittest.TestCase):
     def test_launch_tui_uses_hosted_runtime_factory(self):
         runtime = MagicMock()
+        runtime.session_host.get_session_capabilities.return_value = {}
+        descriptor = ShellDescriptor()
+        application_registry = MagicMock()
+        application_registry.record_by_id.return_value.application_id = "tests.python"
+        compiler = MagicMock(return_value=descriptor)
         with tempfile.TemporaryDirectory() as workspace:
             real_workspace = os.path.realpath(workspace)
             with patch(
                 "embedagent.frontend.tui.launcher.resolve_launch_config",
-                return_value=MagicMock(workspace=real_workspace),
+                return_value=MagicMock(
+                    workspace=real_workspace, agent_application_id="tests.python"
+                ),
             ) as resolve_config, patch(
                 "embedagent.frontend.tui.launcher.create_hosted_runtime",
                 return_value=runtime,
             ) as create_runtime, patch(
+                "embedagent.frontend.tui.launcher.product_agent_application_registry",
+                return_value=application_registry,
+            ), patch(
+                "embedagent.frontend.tui.launcher.product_shell_compiler",
+                return_value=compiler,
+            ), patch(
                 "embedagent.frontend.tui.launcher.run_tui",
                 return_value=0,
             ) as run_tui:
@@ -35,6 +50,8 @@ class TestTuiLauncher(unittest.TestCase):
             "tests.python",
         )
         create_runtime.assert_called_once()
+        compiler.assert_called_once_with("tests.python", {})
+        self.assertIs(run_tui.call_args.kwargs["shell_descriptor"], descriptor)
         self.assertIs(run_tui.call_args.kwargs["session_host"], runtime.session_host)
 
     def test_tui_bootstrap_architecture_guard_blocks_direct_runtime_construction(self):
@@ -50,7 +67,9 @@ class TestTuiLauncher(unittest.TestCase):
         ]
         for needle in blocked:
             self.assertNotIn(needle, text)
-        self.assertIn("TerminalRuntime(session_host, dispatch=action_dispatch)", text)
+        self.assertIn(
+            "TerminalRuntime(session_host, shell_descriptor, dispatch=action_dispatch)", text
+        )
         self.assertIn("runtime=runtime", text)
         self.assertNotIn("session_host.adapter", text)
 

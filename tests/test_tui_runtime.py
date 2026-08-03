@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import pytest
-from embedagent_protocol import SessionEventEnvelope
+from embedagent_protocol import CommandDescriptor, SessionEventEnvelope, ShellDescriptor
 
 from embedagent.frontend.tui.runtime import TerminalRuntime
+
+SHELL = ShellDescriptor()
 
 
 def bootstrap_payload(session_id="s-1", event_cursor=0):
@@ -40,6 +42,8 @@ class FakeHostedSessionHost(object):
         self.bootstrap_calls = []
         self.event_handler = None
         self.during_bootstrap = None
+        self.submissions = []
+        self.lifecycle_calls = []
 
     def list_sessions(self, limit=10):
         return [{"session_id": "s-1"}][:limit]
@@ -66,6 +70,7 @@ class FakeHostedSessionHost(object):
 
     def submit_user_message(self, **kwargs):
         self.event_handler = kwargs["event_handler"]
+        self.submissions.append(kwargs)
         return None
 
     def respond_to_interaction(self, session_id, interaction_id, payload):
@@ -73,6 +78,18 @@ class FakeHostedSessionHost(object):
 
     def cancel_session(self, session_id):
         return {"session_id": session_id, "status": "cancelled"}
+
+    def rename_session(self, session_id, title):
+        self.lifecycle_calls.append(("rename", session_id, title))
+        return {"session_id": session_id, "title": title}
+
+    def archive_session(self, session_id):
+        self.lifecycle_calls.append(("archive", session_id))
+        return {"session_id": session_id, "archived": True}
+
+    def fork_session(self, session_id, title=""):
+        self.lifecycle_calls.append(("fork", session_id, title))
+        return {"session_id": "s-2", "title": title}
 
     def load_session_summary(self, reference):
         return {"reference": reference}
@@ -96,7 +113,7 @@ class FakeHostedSessionHost(object):
 def test_terminal_runtime_installs_bootstrap_cursor_and_applies_contiguous_event():
     host = FakeHostedSessionHost([bootstrap_payload(event_cursor=2)])
     actions = []
-    runtime = TerminalRuntime(host, dispatch=actions.append)
+    runtime = TerminalRuntime(host, SHELL, dispatch=actions.append)
 
     runtime.activate_session("s-1")
     runtime.on_session_event(session_event("s-1", 3, "evt-3"))
@@ -110,7 +127,7 @@ def test_terminal_runtime_installs_bootstrap_cursor_and_applies_contiguous_event
 def test_terminal_runtime_buffers_live_event_while_bootstrap_is_loading():
     host = FakeHostedSessionHost([bootstrap_payload(event_cursor=2)])
     actions = []
-    runtime = TerminalRuntime(host, dispatch=actions.append)
+    runtime = TerminalRuntime(host, SHELL, dispatch=actions.append)
     host.during_bootstrap = lambda: runtime.on_session_event(session_event("s-1", 3, "buffered"))
 
     runtime.activate_session("s-1")
@@ -124,6 +141,7 @@ def test_terminal_runtime_accepts_only_canonical_envelopes_and_selected_session(
     actions = []
     runtime = TerminalRuntime(
         FakeHostedSessionHost([bootstrap_payload(event_cursor=2)]),
+        SHELL,
         dispatch=actions.append,
     )
     runtime.activate_session("s-1")
@@ -141,7 +159,7 @@ def test_terminal_runtime_recovers_sequence_gap_from_current_bootstrap():
         [bootstrap_payload(event_cursor=2), bootstrap_payload(event_cursor=4)]
     )
     actions = []
-    runtime = TerminalRuntime(host, dispatch=actions.append)
+    runtime = TerminalRuntime(host, SHELL, dispatch=actions.append)
     runtime.activate_session("s-1")
 
     runtime.on_session_event(session_event("s-1", 4, "evt-4"))
@@ -154,7 +172,7 @@ def test_terminal_runtime_recovers_sequence_gap_from_current_bootstrap():
 
 def test_terminal_runtime_rejects_operations_and_ignores_events_after_close():
     actions = []
-    runtime = TerminalRuntime(FakeHostedSessionHost(), dispatch=actions.append)
+    runtime = TerminalRuntime(FakeHostedSessionHost(), SHELL, dispatch=actions.append)
     runtime.activate_session("s-1")
     runtime.close()
 
@@ -166,4 +184,72 @@ def test_terminal_runtime_rejects_operations_and_ignores_events_after_close():
 
 def test_terminal_runtime_requires_complete_host_boundary():
     with pytest.raises(TypeError, match="host_method_missing:list_sessions"):
-        TerminalRuntime(object(), dispatch=lambda action: None)
+        TerminalRuntime(object(), SHELL, dispatch=lambda action: None)
+
+
+def test_terminal_runtime_requires_compiled_shell_descriptor():
+    with pytest.raises(TypeError, match="shell_descriptor"):
+        TerminalRuntime(FakeHostedSessionHost(), {}, dispatch=lambda action: None)
+
+
+def test_terminal_runtime_resolves_and_executes_only_descriptor_commands():
+    descriptor = ShellDescriptor(
+        commands=[
+            CommandDescriptor(
+                id="workflow.inspect",
+                label="Inspect",
+                group="workflow",
+                dispatch={"kind": "session.command", "command": "inspect"},
+            )
+        ]
+    )
+    host = FakeHostedSessionHost()
+    runtime = TerminalRuntime(host, descriptor, dispatch=lambda action: None)
+    runtime.create_session("build")
+
+    command = runtime.resolve_command("inspect")
+    assert command.id == "workflow.inspect"
+    runtime.execute_command(command.id, ["src/main.c"], default_mode="build")
+
+    assert host.submissions[-1]["text"] == "/inspect src/main.c"
+    with pytest.raises(ValueError, match="unknown_shell_command"):
+        runtime.execute_command("workflow.missing", [], default_mode="build")
+
+
+def test_terminal_runtime_executes_session_lifecycle_dispatches():
+    descriptor = ShellDescriptor(
+        commands=[
+            CommandDescriptor(
+                id="session.rename",
+                label="Rename",
+                group="session",
+                dispatch={"kind": "session.rename"},
+            ),
+            CommandDescriptor(
+                id="session.archive",
+                label="Archive",
+                group="session",
+                dispatch={"kind": "session.archive"},
+            ),
+            CommandDescriptor(
+                id="session.fork",
+                label="Fork",
+                group="session",
+                dispatch={"kind": "session.fork"},
+            ),
+        ]
+    )
+    host = FakeHostedSessionHost([bootstrap_payload(), bootstrap_payload("s-2")])
+    runtime = TerminalRuntime(host, descriptor, dispatch=lambda action: None)
+    runtime.create_session("build")
+
+    runtime.execute_command("session.rename", ["New", "Title"], default_mode="build")
+    runtime.execute_command("session.archive", [], default_mode="build")
+    runtime.execute_command("session.fork", ["Forked"], default_mode="build")
+
+    assert host.lifecycle_calls == [
+        ("rename", "s-1", "New Title"),
+        ("archive", "s-1"),
+        ("fork", "s-1", "Forked"),
+    ]
+    assert runtime.selected_session_id == "s-2"

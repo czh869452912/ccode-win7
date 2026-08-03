@@ -18,6 +18,7 @@ from embedagent.frontend.tui.views import (
     build_prompt,
     build_timeline_text,
 )
+from embedagent.frontend.tui.workbench import WorkbenchState
 
 if TYPE_CHECKING:
     pass
@@ -55,6 +56,7 @@ class TerminalApp(object):
             session_limit=max(1, int(session_limit)),
             transcript_limit=max(40, int(transcript_limit)),
             capability=detect_host(),
+            workbench=WorkbenchState(runtime.shell_descriptor),
         )
         self.theme = default_theme()
         self.editor_service = EditorService(runtime, workspace)

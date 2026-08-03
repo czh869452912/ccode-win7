@@ -4,7 +4,7 @@ import threading
 from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional
 
-from embedagent_protocol import SessionEventEnvelope
+from embedagent_protocol import CommandDescriptor, SessionEventEnvelope, ShellDescriptor
 
 _REQUIRED_HOST_METHODS = (
     "list_sessions",
@@ -15,6 +15,9 @@ _REQUIRED_HOST_METHODS = (
     "submit_user_message",
     "respond_to_interaction",
     "cancel_session",
+    "rename_session",
+    "archive_session",
+    "fork_session",
     "load_session_summary",
     "list_tasks",
     "get_workspace_snapshot",
@@ -55,12 +58,18 @@ class TerminalRuntime(object):
     def __init__(
         self,
         host,
+        shell_descriptor: ShellDescriptor,
         dispatch: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> None:
+        if not isinstance(shell_descriptor, ShellDescriptor):
+            raise TypeError("shell_descriptor must be a ShellDescriptor")
         for name in _REQUIRED_HOST_METHODS:
             if not callable(getattr(host, name, None)):
                 raise TypeError("host_method_missing:%s" % name)
         self._host = host
+        self._shell_descriptor = shell_descriptor
+        self._commands = tuple(shell_descriptor.commands)
+        self._surfaces = dict((item.id, item) for item in shell_descriptor.surfaces)
         self._dispatch = dispatch if callable(dispatch) else lambda action: None
         self._lock = threading.RLock()
         self._selected_session_id = ""
@@ -70,6 +79,10 @@ class TerminalRuntime(object):
         self._recovering = False
         self._buffered_events: List[SessionEventEnvelope] = []
         self._closed = False
+
+    @property
+    def shell_descriptor(self) -> ShellDescriptor:
+        return self._shell_descriptor
 
     @property
     def selected_session_id(self) -> str:
@@ -220,6 +233,88 @@ class TerminalRuntime(object):
             user_input_resolver=None,
             event_handler=self.on_session_event,
         )
+
+    def resolve_command(self, name: str) -> CommandDescriptor:
+        normalized = str(name or "").strip().lower().lstrip("/")
+        for command in self._commands:
+            if command.id.lower() == normalized:
+                return command
+            dispatch = command.dispatch
+            if str(dispatch.get("kind") or "") == "session.command":
+                command_name = str(dispatch.get("command") or "").strip().lower()
+            else:
+                command_name = command.id.rsplit(".", 1)[-1].lower()
+            if command_name == normalized:
+                return command
+        raise ValueError("unknown_shell_command:%s" % normalized)
+
+    def execute_command(
+        self,
+        command_id: str,
+        args: List[str],
+        default_mode: str,
+    ) -> Any:
+        command = self.resolve_command(command_id)
+        values = [str(item) for item in list(args or [])]
+        dispatch = dict(command.dispatch)
+        kind = str(dispatch.get("kind") or "")
+        if kind == "session.create":
+            return self.create_session(values[0] if values else default_mode)
+        if kind == "session.select":
+            return self.resume_session(values[0] if values else "latest", default_mode)
+        if kind == "session.cancel":
+            return self.cancel_session(_required_session_id(self.selected_session_id))
+        if kind == "session.rename":
+            title = " ".join(values).strip()
+            if not title:
+                raise ValueError("shell_command_argument_required:title")
+            return self._host.rename_session(_required_session_id(self.selected_session_id), title)
+        if kind == "session.archive":
+            return self._host.archive_session(_required_session_id(self.selected_session_id))
+        if kind == "session.fork":
+            snapshot = self._host.fork_session(
+                _required_session_id(self.selected_session_id),
+                " ".join(values).strip(),
+            )
+            if not isinstance(snapshot, dict):
+                raise TypeError("session snapshot must be a mapping")
+            return self.activate_session(_required_session_id(snapshot.get("session_id")), "fork")
+        if kind == "session.mode":
+            if not values:
+                raise ValueError("shell_command_argument_required:mode")
+            return self.set_session_mode(_required_session_id(self.selected_session_id), values[0])
+        if kind == "session.command":
+            command_name = str(dispatch.get("command") or "").strip()
+            if not command_name:
+                raise ValueError("shell_command_dispatch_invalid:%s" % command.id)
+            text = "/" + command_name
+            if values:
+                text += " " + " ".join(values)
+            return self.submit_user_message(_required_session_id(self.selected_session_id), text)
+        if kind == "shell.surface":
+            surface_id = str(dispatch.get("surface_id") or "").strip()
+            surface = self._surfaces.get(surface_id)
+            if surface is None:
+                raise ValueError("unknown_shell_surface:%s" % surface_id)
+            self._dispatch_action(
+                {
+                    "type": "shell_surface",
+                    "command_id": command.id,
+                    "surface": surface.to_dict(),
+                }
+            )
+            return None
+        if kind in ("workspace.open", "interaction.respond"):
+            self._dispatch_action(
+                {
+                    "type": "shell_command",
+                    "command_id": command.id,
+                    "dispatch": dispatch,
+                    "args": values,
+                }
+            )
+            return None
+        raise ValueError("unsupported_shell_dispatch:%s" % kind)
 
     def respond_to_interaction(
         self,
