@@ -1,6 +1,6 @@
 import unittest
 
-from embedagent_protocol import SessionEventEnvelope
+from embedagent_protocol import CapabilitySnapshot, SessionEventEnvelope, ShellDescriptor
 
 from embedagent.frontend.gui.backend.protocol_versions import (
     AGENT_SESSION_PROTOCOL,
@@ -41,6 +41,14 @@ class ProtocolVersionTests(unittest.TestCase):
             payload={},
         )
         self.assertEqual(session_event.to_dict()["schema_version"], 1)
+
+    def test_frontend_protocol_dtos_require_current_schema_version(self):
+        self.assertEqual(CapabilitySnapshot(schema_version=1).to_dict()["schema_version"], 1)
+        self.assertEqual(ShellDescriptor(schema_version=1).to_dict()["schema_version"], 1)
+        with self.assertRaises(ValueError):
+            CapabilitySnapshot(schema_version=0)
+        with self.assertRaises(ValueError):
+            ShellDescriptor(schema_version=2)
 
     def test_protocol_envelope_rejects_bad_sequence_revision_and_sensitive_fields(self):
         result = validate_protocol_envelope(

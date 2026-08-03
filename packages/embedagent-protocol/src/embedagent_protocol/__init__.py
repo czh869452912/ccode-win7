@@ -27,13 +27,28 @@ from embedagent_protocol.app_protocol import (
     InteractionActivity as InteractionActivity,
 )
 from embedagent_protocol.app_protocol import (
+    InteractionDescriptor as InteractionDescriptor,
+)
+from embedagent_protocol.app_protocol import (
+    KeybindingDescriptor as KeybindingDescriptor,
+)
+from embedagent_protocol.app_protocol import (
     ModeDescriptor as ModeDescriptor,
 )
 from embedagent_protocol.app_protocol import (
-    ThreadDetailSnapshot as ThreadDetailSnapshot,
+    SessionBootstrap as SessionBootstrap,
+)
+from embedagent_protocol.app_protocol import (
+    ShellDescriptor as ShellDescriptor,
+)
+from embedagent_protocol.app_protocol import (
+    SurfaceDescriptor as SurfaceDescriptor,
 )
 from embedagent_protocol.app_protocol import (
     ThreadShell as ThreadShell,
+)
+from embedagent_protocol.app_protocol import (
+    TimelineItemDescriptor as TimelineItemDescriptor,
 )
 from embedagent_protocol.app_protocol import (
     ToolPresentation as ToolPresentation,

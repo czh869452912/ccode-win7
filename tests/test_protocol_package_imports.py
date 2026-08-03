@@ -50,13 +50,15 @@ import sys
 
 root = pathlib.Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(root))
-from embedagent_protocol import CoreInterface, PermissionContext
+from embedagent_protocol import CoreInterface, PermissionContext, SessionBootstrap, ShellDescriptor
 import embedagent_protocol
 
 package_file = pathlib.Path(embedagent_protocol.__file__).resolve()
 assert root in package_file.parents, package_file
 assert CoreInterface is not None
 assert PermissionContext is not None
+assert SessionBootstrap is not None
+assert ShellDescriptor is not None
 for module_name in sys.modules:
     assert module_name != "embedagent"
     assert not module_name.startswith("embedagent.")
