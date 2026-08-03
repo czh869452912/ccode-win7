@@ -27,4 +27,13 @@ export function runWebSocketLifecycleTests() {
     }),
     true,
   );
+  assert.equal(
+    shouldReconnectSocket({
+      activeToken: 1,
+      socketToken: 1,
+      manualClose: false,
+      closed: true,
+    }),
+    false,
+  );
 }

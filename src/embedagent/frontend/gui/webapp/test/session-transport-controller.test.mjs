@@ -25,6 +25,22 @@ function createSocketHarness() {
   };
 }
 
+function createFakeClock() {
+  return {
+    callbacks: new Map(),
+    nextId: 1,
+    setTimeout(callback) {
+      const id = this.nextId;
+      this.nextId += 1;
+      this.callbacks.set(id, callback);
+      return id;
+    },
+    clearTimeout(id) {
+      this.callbacks.delete(id);
+    },
+  };
+}
+
 export async function runSessionTransportControllerTests() {
   const harness = createSocketHarness();
   const scheduled = [];
@@ -59,6 +75,7 @@ export async function runSessionTransportControllerTests() {
         scheduled.push({ callback, delay });
         return scheduled.length;
       },
+      clearTimeout() {},
     },
   });
 
@@ -167,6 +184,66 @@ export async function runSessionTransportControllerTests() {
   controller.close();
   assert.equal(harness.sockets[1].closeCalls, 1);
   assert.equal(scheduled.length, scheduleCount);
+
+  const shutdownHarness = createSocketHarness();
+  const shutdownClock = createFakeClock();
+  let shutdownTransport = createSessionTransportState({
+    connectionState: "connecting",
+    reloadState: "reload_required",
+  });
+  let finishBootstrap;
+  const bootstrapPromise = new Promise((resolve) => {
+    finishBootstrap = resolve;
+  });
+  let bootstrapAbortCalls = 0;
+  const loadShutdownSession = () => bootstrapPromise;
+  loadShutdownSession.abort = () => {
+    bootstrapAbortCalls += 1;
+  };
+  let shutdownUpdates = 0;
+  const shutdownController = createSessionTransportController({
+    getCurrentSessionId: () => "sess-shutdown",
+    getTransportState: () => shutdownTransport,
+    updateTransportState: (updater) => {
+      shutdownUpdates += 1;
+      shutdownTransport = updater(shutdownTransport);
+      return shutdownTransport;
+    },
+    loadSession: loadShutdownSession,
+    socketFactory: shutdownHarness.factory,
+    locationObject: { protocol: "http:", host: "shutdown.test" },
+    timer: shutdownClock,
+  });
+
+  shutdownController.connect();
+  const shutdownSocket = shutdownHarness.sockets[0];
+  const staleOpen = shutdownSocket.onopen;
+  const staleClose = shutdownSocket.onclose;
+  const opening = staleOpen();
+  await Promise.resolve();
+  staleClose();
+  assert.equal(shutdownClock.callbacks.size, 1);
+  const savedRetry = Array.from(shutdownClock.callbacks.values())[0];
+
+  shutdownController.close();
+  assert.equal(shutdownSocket.closeCalls, 1);
+  assert.equal(shutdownClock.callbacks.size, 0);
+  assert.equal(bootstrapAbortCalls, 1);
+  assert.equal(shutdownSocket.onopen, null);
+  assert.equal(shutdownSocket.onmessage, null);
+  assert.equal(shutdownSocket.onerror, null);
+  assert.equal(shutdownSocket.onclose, null);
+
+  finishBootstrap();
+  await opening;
+  const updatesAfterClose = shutdownUpdates;
+  await staleOpen();
+  staleClose();
+  savedRetry();
+  shutdownController.connect();
+  assert.equal(shutdownUpdates, updatesAfterClose);
+  assert.equal(shutdownClock.callbacks.size, 0);
+  assert.equal(shutdownHarness.sockets.length, 1);
 
   const secureHarness = createSocketHarness();
   const secureController = createSessionTransportController({

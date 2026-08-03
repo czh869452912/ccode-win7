@@ -7,7 +7,7 @@ import { shouldReconnectSocket } from "../session-runtime/websocket-lifecycle.js
 
 function defaultTimer() {
   if (typeof window !== "undefined") return window;
-  return { setTimeout };
+  return { clearTimeout, setTimeout };
 }
 
 function defaultLocation() {
@@ -33,7 +33,11 @@ export function createSessionTransportController({
   let token = 0;
   let manualClose = false;
   let retryAttempt = 0;
+  let retryTimerId = null;
+  let closed = false;
   let recoveryPromise = null;
+  let recoveryToken = -1;
+  let recoverySessionId = "";
   const location = locationObject || defaultLocation();
   const clock = timer || defaultTimer();
   const makeSocket = socketFactory || defaultSocketFactory;
@@ -49,18 +53,48 @@ export function createSessionTransportController({
     typeof loadSession === "function" ? loadSession : () => Promise.resolve();
   const dispatchMessage = typeof handleMessage === "function" ? handleMessage : () => {};
 
+  function abortActiveBootstrap() {
+    if (typeof loadSessionBootstrap.abort === "function") {
+      loadSessionBootstrap.abort();
+    }
+  }
+
   function recover(sessionId) {
-    if (!sessionId) return Promise.resolve();
-    if (recoveryPromise) return recoveryPromise;
+    if (closed || !sessionId) return Promise.resolve({ stale: true });
+    if (
+      recoveryPromise &&
+      recoveryToken === token &&
+      recoverySessionId === sessionId
+    ) {
+      return recoveryPromise;
+    }
     updateTransport((current) => ({
       ...current,
       connectionState: current.connectionState === "degraded" ? "degraded" : "connected",
       reloadState:
         current.reloadState === "degraded" ? "degraded" : "reload_required",
     }));
-    recoveryPromise = Promise.resolve()
-      .then(() => loadSessionBootstrap(sessionId, { reason: "gap" }))
+    const activeRecoveryToken = token;
+    let pending = null;
+    pending = Promise.resolve()
+      .then(() => {
+        if (
+          closed ||
+          token !== activeRecoveryToken ||
+          recoveryPromise !== pending
+        ) {
+          return { stale: true };
+        }
+        return loadSessionBootstrap(sessionId, { reason: "gap" });
+      })
       .catch(() => {
+        if (
+          closed ||
+          token !== activeRecoveryToken ||
+          recoveryPromise !== pending
+        ) {
+          return { stale: true };
+        }
         updateTransport((current) => ({
           ...current,
           connectionState: "degraded",
@@ -68,41 +102,78 @@ export function createSessionTransportController({
         }));
       })
       .finally(() => {
+        if (recoveryPromise !== pending) return;
         recoveryPromise = null;
+        recoveryToken = -1;
+        recoverySessionId = "";
       });
-    return recoveryPromise;
+    recoveryPromise = pending;
+    recoveryToken = activeRecoveryToken;
+    recoverySessionId = sessionId;
+    return pending;
+  }
+
+  function socketIsStale(activeSocket, socketToken) {
+    return closed || token !== socketToken || socket !== activeSocket;
   }
 
   function connect() {
+    if (closed || socket) return socket;
     manualClose = false;
+    if (retryTimerId !== null) {
+      clock.clearTimeout(retryTimerId);
+      retryTimerId = null;
+    }
+    if (recoveryPromise) abortActiveBootstrap();
     const socketToken = token + 1;
     token = socketToken;
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-    socket = makeSocket(`${protocol}//${location.host}/ws`);
-    socket.onopen = async () => {
+    const activeSocket = makeSocket(`${protocol}//${location.host}/ws`);
+    socket = activeSocket;
+    let closeHandled = false;
+    activeSocket.onopen = async () => {
+      if (socketIsStale(activeSocket, socketToken)) return;
       updateTransport((current) => ({ ...current, connectionState: "connected" }));
       retryAttempt = 0;
       const sessionId = readCurrentSessionId();
       const state = readTransportState();
       if (sessionId && state.reloadState !== "healthy") {
-        await recover(sessionId, state);
+        await recover(sessionId);
       }
     };
-    socket.onclose = () => {
+    activeSocket.onclose = () => {
+      if (socketIsStale(activeSocket, socketToken) || closeHandled) return;
+      closeHandled = true;
       updateTransport((current) => ({ ...current, connectionState: "disconnected" }));
-      if (!shouldReconnectSocket({ activeToken: token, socketToken, manualClose })) return;
+      if (
+        !shouldReconnectSocket({
+          activeToken: token,
+          socketToken,
+          manualClose,
+          closed,
+        })
+      ) {
+        return;
+      }
       retryAttempt = capRetryAttempt(retryAttempt + 1);
       const delay = Math.min(1500 * Math.pow(2, Math.max(retryAttempt - 1, 0)), 30000);
-      clock.setTimeout(connect, delay);
+      retryTimerId = clock.setTimeout(() => {
+        retryTimerId = null;
+        if (closed || token !== socketToken || manualClose) return;
+        if (socket === activeSocket) socket = null;
+        connect();
+      }, delay);
     };
-    socket.onerror = () => {
+    activeSocket.onerror = () => {
+      if (socketIsStale(activeSocket, socketToken)) return;
       updateTransport((current) => ({
         ...current,
         connectionState: "degraded",
         reloadState: "reload_required",
       }));
     };
-    socket.onmessage = (event) => {
+    activeSocket.onmessage = (event) => {
+      if (socketIsStale(activeSocket, socketToken)) return;
       try {
         dispatchMessage(JSON.parse(event.data));
       } catch (_) {
@@ -113,6 +184,7 @@ export function createSessionTransportController({
         }));
       }
     };
+    return activeSocket;
   }
 
   function applyEvent(event) {
@@ -134,9 +206,27 @@ export function createSessionTransportController({
   }
 
   function close() {
+    if (closed) return;
+    closed = true;
     manualClose = true;
-    if (socket) socket.close();
+    token += 1;
+    if (retryTimerId !== null) {
+      clock.clearTimeout(retryTimerId);
+    }
+    retryTimerId = null;
+    abortActiveBootstrap();
+    recoveryPromise = null;
+    recoveryToken = -1;
+    recoverySessionId = "";
+    const activeSocket = socket;
     socket = null;
+    if (activeSocket) {
+      activeSocket.onopen = null;
+      activeSocket.onmessage = null;
+      activeSocket.onerror = null;
+      activeSocket.onclose = null;
+      activeSocket.close();
+    }
   }
 
   return { connect, close, recover, applyEvent };
