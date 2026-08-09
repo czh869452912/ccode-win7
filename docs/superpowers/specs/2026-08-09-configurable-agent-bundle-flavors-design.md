@@ -204,6 +204,7 @@ class CompiledBundlePlan:
     assurance: str
     artifact_name: str
     agent_id: str
+    config_template_id: str
     allowed_agent_application_ids: Tuple[str, ...]
     component_ids: Tuple[str, ...]
     shell_ids: Tuple[str, ...]
@@ -230,8 +231,9 @@ Supporting this requires moving GUI-only third-party dependencies behind an owni
 extra or equivalent locked feature. Project distribution dependencies remain unchanged.
 
 The plan is serialized before dependency export. Every later stage records and verifies its
-hash. A stage receiving a plan with an unsupported schema version, mismatched hash, or missing
-field fails before mutating its output tree.
+hash. `config_template_id` is resolved from the trusted recipe during compilation so staging
+never needs to reopen the recipe registry. A stage receiving a plan with an unsupported schema
+version, mismatched hash, or missing field fails before mutating its output tree.
 
 `allowed_agent_application_ids` and `shell_ids` are also runtime restrictions. A project wheel
 being present does not make every packaged application or shell available. Product bootstrap

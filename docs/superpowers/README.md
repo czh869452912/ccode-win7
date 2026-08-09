@@ -9,6 +9,7 @@
 ## Configurable Agent Bundle Flavors
 
 - `docs/superpowers/specs/2026-08-09-configurable-agent-bundle-flavors-design.md`
+- `docs/superpowers/plans/2026-08-09-configurable-agent-bundle-flavors.md`
 
 ## Closure Rule
 
