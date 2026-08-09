@@ -20,6 +20,7 @@ CONFIG = ROOT / "scripts" / "package.config.json"
 EXPORT_SCRIPT = ROOT / "scripts" / "export-dependencies.py"
 CHECK_SCRIPT = ROOT / "scripts" / "check-bundle-dependencies.py"
 VALIDATE_SCRIPT = ROOT / "scripts" / "validate-offline-bundle.ps1"
+CLI_SMOKE_SCRIPT = ROOT / "scripts" / "validate-cli-smoke.py"
 PACKAGE_SCRIPT = ROOT / "scripts" / "package.ps1"
 RUNTIME_CONTRACT = ROOT / "scripts" / "offline-runtime-contract.json"
 MOCK_CONFIG = ROOT / "tests" / "fixtures" / "package" / "mock-config.json"
@@ -545,6 +546,90 @@ class TestRuntimeBundleContract(unittest.TestCase):
         )
 
 
+@unittest.skipIf(sys.platform != "win32", "Windows-only: requires bundled python.exe")
+class TestCliSmokeGate(unittest.TestCase):
+    def test_cli_smoke_runs_from_bundle_python_and_restores_session(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            test_root = Path(tmp)
+            bundle_root = test_root / "bundle"
+            workspace = test_root / "workspace"
+            python_root = bundle_root / "runtime" / "python"
+            python_root.mkdir(parents=True)
+            (bundle_root / "app" / "embedagent").mkdir(parents=True)
+            (bundle_root / "bin").mkdir()
+            workspace.mkdir()
+            (workspace / "README.md").write_text("CLI smoke fixture\n", encoding="ascii")
+            shutil.copyfile(sys.executable, python_root / "python.exe")
+            (python_root / "pyvenv.cfg").write_text(
+                "home = {0}\ninclude-system-site-packages = false\nversion = {1}\n".format(
+                    sys.base_prefix,
+                    ".".join(str(item) for item in sys.version_info[:3]),
+                ),
+                encoding="ascii",
+            )
+            plan, plan_hash = _write_compiled_bundle_plan(bundle_root, "minimal-cli")
+            (bundle_root / "manifests" / "bundle-manifest.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 2,
+                        "flavor_id": plan["flavor_id"],
+                        "bundle_plan_sha256": plan_hash,
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+                encoding="ascii",
+            )
+            report_path = test_root / "cli-smoke-report.json"
+            env = os.environ.copy()
+            env.pop("PYTHONHOME", None)
+            env["EMBEDAGENT_BUNDLE_ROOT"] = str(bundle_root)
+            env["PYTHONPATH"] = os.pathsep.join(
+                [
+                    str(ROOT / "src"),
+                    str(ROOT / "packages" / "embedagent-core" / "src"),
+                    str(ROOT / "packages" / "embedagent-protocol" / "src"),
+                    str(ROOT / "packages" / "embedagent-host" / "src"),
+                    str(ROOT / "packages" / "embedagent-composition" / "src"),
+                    str(ROOT / "packages" / "embedagent-workflow-cpp" / "src"),
+                ]
+            )
+
+            result = subprocess.run(
+                [
+                    str(python_root / "python.exe"),
+                    str(CLI_SMOKE_SCRIPT),
+                    "--bundle-root",
+                    str(bundle_root),
+                    "--workspace",
+                    str(workspace),
+                    "--json-report",
+                    str(report_path),
+                ],
+                cwd=str(bundle_root),
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(
+                json.loads(report_path.read_text(encoding="ascii")),
+                {
+                    "agent_application_id": "embedagent.generic",
+                    "flavor_id": "minimal-cli",
+                    "ok": True,
+                    "permission_interaction_completed": True,
+                    "runtime_source": "bundle",
+                    "schema_version": 1,
+                    "session_created": True,
+                    "session_restored": True,
+                    "tool_completed": True,
+                    "user_input_interaction_completed": True,
+                },
+            )
+
+
 class TestPrepareOfflineContract(unittest.TestCase):
     def _script_text(self):
         return (ROOT / "scripts" / "prepare-offline.ps1").read_text(encoding="utf-8")
@@ -567,6 +652,7 @@ class TestPrepareOfflineContract(unittest.TestCase):
 
     def test_package_local_release_gates_are_selected_by_bundle_plan(self):
         script = LIB.read_text(encoding="utf-8")
+        validator = VALIDATE_SCRIPT.read_text(encoding="utf-8")
 
         self.assertIn(
             "if (@($Context.bundle_plan.gate_ids) -contains 'gui_headless_smoke')",
@@ -576,6 +662,22 @@ class TestPrepareOfflineContract(unittest.TestCase):
             "if (@($Context.bundle_plan.gate_ids) -contains 'cpp_smoke_workspace')",
             script,
         )
+        self.assertIn("function Invoke-CliSmokeGate", validator)
+        self.assertIn(
+            "@($bundlePlan.gate_ids) -contains 'win7_cli_smoke'",
+            validator,
+        )
+
+    def test_cli_smoke_report_is_excluded_from_bundle_identity_hashes(self):
+        expected_path = "manifests/cli-smoke-report.json"
+
+        for relative_path in (
+            "scripts/build-offline-bundle.ps1",
+            "scripts/compare-release-artifacts.py",
+            "scripts/validate-offline-bundle.ps1",
+        ):
+            script = (ROOT / relative_path).read_text(encoding="utf-8")
+            self.assertIn(expected_path, script.replace("\\", "/"), relative_path)
 
     def test_prepare_offline_uses_current_default_mode(self):
         script = self._script_text()
@@ -1850,6 +1952,75 @@ class TestPackageOrchestration(unittest.TestCase):
             validate_report = Path(verify_summary["validate_report"])
             validate_payload = json.loads(validate_report.read_text(encoding="utf-8"))
         self.assertFalse(validate_payload["skip_dynamic_checks"])
+
+    def test_mock_package_matrix_keeps_flavor_and_assurance_orthogonal(self):
+        env = os.environ.copy()
+        env["EMBEDAGENT_PYTHON"] = sys.executable
+        for profile in ("dev", "release"):
+            for flavor in ("minimal-cli", "cpp-desktop"):
+                with self.subTest(
+                    profile=profile, flavor=flavor
+                ), tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    config_path = _write_isolated_mock_config(root, dynamic=True)
+                    result = subprocess.run(
+                        [
+                            _powershell_exe(),
+                            "-NoProfile",
+                            "-File",
+                            str(PACKAGE_SCRIPT),
+                            "release",
+                            "-Profile",
+                            profile,
+                            "-Flavor",
+                            flavor,
+                            "-Config",
+                            str(config_path),
+                            "-Json",
+                        ],
+                        cwd=str(ROOT),
+                        capture_output=True,
+                        text=True,
+                        env=env,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    payload = json.loads(result.stdout)
+                    self.assertEqual(
+                        payload["final_status"],
+                        "READY" if profile == "release" else "DEV_ONLY",
+                    )
+                    bundle_root = Path(payload["artifact_root"])
+                    plan = json.loads(
+                        (bundle_root / "manifests" / "bundle-plan.json").read_text(encoding="ascii")
+                    )
+                    self.assertEqual(plan["flavor_id"], flavor)
+                    self.assertEqual(plan["assurance"], profile)
+                    self.assertEqual(
+                        "win7_cli_smoke" in plan["gate_ids"],
+                        profile == "release",
+                    )
+                    self.assertEqual(
+                        (bundle_root / "runtime" / "webview2-fixed-runtime").is_dir(),
+                        flavor == "cpp-desktop",
+                    )
+                    self.assertEqual(
+                        (bundle_root.parent / (bundle_root.name + ".zip")).is_file(),
+                        profile == "release",
+                    )
+                    self.assertEqual(
+                        (bundle_root / "tools" / "validation" / "validate-cli-smoke.py").is_file(),
+                        profile == "release",
+                    )
+                    verify = payload["stages"][-1]["summary"]
+                    validate = json.loads(
+                        Path(verify["validate_report"]).read_text(encoding="ascii")
+                    )
+                    result_codes = [item["code"] for item in validate["results"]]
+                    self.assertEqual(validate["skip_dynamic_checks"], profile == "dev")
+                    self.assertEqual(
+                        "dynamic.release_gate.win7_cli_smoke" in result_codes,
+                        profile == "release",
+                    )
 
     def test_mock_desktop_release_includes_gui_build_stages(self):
         env = os.environ.copy()

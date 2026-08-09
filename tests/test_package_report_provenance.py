@@ -37,7 +37,8 @@ def _write_isolated_config(root, origin="fixture"):
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="requires PowerShell")
-def test_fixture_release_isolated_and_provenance_bound(tmp_path):
+@pytest.mark.parametrize("flavor", ["minimal-cli", "cpp-desktop"])
+def test_fixture_release_isolated_and_provenance_bound(tmp_path, flavor):
     config_path = _write_isolated_config(tmp_path)
     production_latest = ROOT / "build" / "offline-reports" / "latest.json"
     before = production_latest.read_bytes() if production_latest.exists() else None
@@ -53,6 +54,8 @@ def test_fixture_release_isolated_and_provenance_bound(tmp_path):
             "release",
             "-Config",
             str(config_path),
+            "-Flavor",
+            flavor,
             "-Json",
         ],
         cwd=str(ROOT),
@@ -65,9 +68,13 @@ def test_fixture_release_isolated_and_provenance_bound(tmp_path):
     payload = json.loads(result.stdout)
     assert payload["execution_kind"] == "test"
     assert payload["config_origin"] == "fixture"
-    assert payload["flavor"] == "cpp-desktop"
+    assert payload["flavor"] == flavor
     assert payload["bundle_plan_sha256"]
-    assert Path(payload["bundle_plan_path"]).exists()
+    plan_path = Path(payload["bundle_plan_path"])
+    assert plan_path.exists()
+    plan = json.loads(plan_path.read_text(encoding="ascii"))
+    assert plan["flavor_id"] == flavor
+    assert plan["assurance"] == "release"
     assert str(tmp_path) in payload["report_path"]
     assert Path(payload["report_path"]).exists()
     assert before == (production_latest.read_bytes() if production_latest.exists() else None)

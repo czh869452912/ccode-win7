@@ -7,15 +7,13 @@ param(
     [switch]$AllowDownload,
     [string]$BuildRoot = "",
     [string]$AssetCacheRoot = "",
-    [string]$DepsReportPath = ""
+    [string]$DepsReportPath = "",
+    [switch]$NoZip
 )
 
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..')).Path
 . (Join-Path $projectRoot 'scripts\package-lib.ps1')
 
-if (-not $AllowDownload) {
-    throw 'mock build expected AllowDownload'
-}
 $planState = Read-VerifiedBundlePlan `
     -ProjectRoot $projectRoot `
     -BundlePlanPath $BundlePlanPath `
@@ -53,7 +51,7 @@ $identity = [ordered]@{
     schema_version = 2
     source_revision = ((& git -C $projectRoot rev-parse HEAD 2>$null | Out-String).Trim())
     version = '0.1.0'
-    profile = 'release'
+    profile = [string]$planState.plan.assurance
     flavor_id = [string]$planState.plan.flavor_id
     target_id = [string]$planState.plan.target_id
     bundle_plan_sha256 = [string]$planState.plan_sha256
@@ -88,5 +86,11 @@ foreach ($name in @('bundle-plan.json', 'agent.json', 'agent.lock.json')) {
 }
 $stableContent = if ($env:EMBEDAGENT_REPRO_MUTATE_SECOND -and $effectiveBuildRoot -like '*run-b*') { 'mutated' } else { 'stable' }
 Set-Content -LiteralPath (Join-Path $bundleRoot 'stable.txt') -Value $stableContent -Encoding ASCII
-Set-Content -LiteralPath (Join-Path $distRoot ($ArtifactName + '.zip')) -Value 'zip-sentinel' -Encoding ASCII
+$zipPath = Join-Path $distRoot ($ArtifactName + '.zip')
+if (-not $NoZip) {
+    Set-Content -LiteralPath $zipPath -Value 'zip-sentinel' -Encoding ASCII
+}
+elseif (Test-Path -LiteralPath $zipPath) {
+    Remove-Item -LiteralPath $zipPath -Force
+}
 Write-Host "mock build complete"

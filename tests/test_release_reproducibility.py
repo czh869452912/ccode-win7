@@ -245,7 +245,7 @@ def _write_package_config(root):
     return path
 
 
-def _run_reproducible_package(tmp_path, mutate_second=False):
+def _run_reproducible_package(tmp_path, mutate_second=False, flavor="cpp-desktop"):
     config_path = _write_package_config(tmp_path)
     env = os.environ.copy()
     env["EMBEDAGENT_PYTHON"] = sys.executable
@@ -260,6 +260,8 @@ def _run_reproducible_package(tmp_path, mutate_second=False):
             "release",
             "-Config",
             str(config_path),
+            "-Flavor",
+            flavor,
             "-Reproducible",
             "-ReproducibilityRoot",
             str(tmp_path / "repro"),
@@ -275,11 +277,13 @@ def _run_reproducible_package(tmp_path, mutate_second=False):
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-only: requires PowerShell")
-def test_package_reproducibility_gate_accepts_matching_runs(tmp_path):
-    result, payload = _run_reproducible_package(tmp_path)
+@pytest.mark.parametrize("flavor", ["minimal-cli", "cpp-desktop"])
+def test_package_reproducibility_gate_accepts_matching_flavor_runs(tmp_path, flavor):
+    result, payload = _run_reproducible_package(tmp_path, flavor=flavor)
 
     assert result.returncode == 0, result.stderr
     stage = payload["stages"][-1]
+    assert payload["flavor"] == flavor
     assert payload["final_status"] == "TARGET_READY"
     assert stage["name"] == "artifact_reproducibility"
     assert stage["status"] == "pass"

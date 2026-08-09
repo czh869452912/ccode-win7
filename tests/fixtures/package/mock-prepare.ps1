@@ -13,9 +13,6 @@ param(
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..')).Path
 . (Join-Path $projectRoot 'scripts\package-lib.ps1')
 
-if (-not $AllowDownload) {
-    throw 'mock prepare expected AllowDownload'
-}
 if (-not $SitePackagesRoot) {
     throw 'mock prepare expected SitePackagesRoot'
 }
@@ -108,6 +105,10 @@ if (@($bundlePlan.gate_ids) -contains 'cpp_smoke_workspace') {
     Set-Content -LiteralPath (Join-Path $bundleRoot 'data\workspace-template\main.c') -Value 'int main(void) { return 0; }' -Encoding ASCII
     New-Item -ItemType Directory -Path (Join-Path $bundleRoot 'tools\validation') -Force | Out-Null
     Set-Content -LiteralPath (Join-Path $bundleRoot 'tools\validation\validate-cpp-smoke.py') -Value '# fixture' -Encoding ASCII
+}
+if (@($bundlePlan.gate_ids) -contains 'win7_cli_smoke') {
+    New-Item -ItemType Directory -Path (Join-Path $bundleRoot 'tools\validation') -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $bundleRoot 'tools\validation\validate-cli-smoke.py') -Value '# fixture' -Encoding ASCII
 }
 if (@($bundlePlan.gate_ids) -contains 'gui_headless_smoke') {
     New-Item -ItemType Directory -Path (Join-Path $bundleRoot 'tools\validation') -Force | Out-Null

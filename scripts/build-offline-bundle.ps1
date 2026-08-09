@@ -501,7 +501,7 @@ $expectedHashes = [ordered]@{
     hash_scope = 'bundle tree excluding checksums, generated smoke/acceptance reports, and this file; zip hash is the external sidecar value'
 }
 $expectedHashes | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $expectedHashesPath -Encoding ASCII
-$expectedHashes.bundle_sha256 = Get-BundleTreeSha256 -Root $distBundleRoot -ExcludedRelativePaths @('manifests/evidence/expected-bundle-hashes.json', 'manifests/cpp-smoke-report.json', 'manifests/evidence/win7-evidence.json', 'manifests/evidence/acceptance-report.json')
+$expectedHashes.bundle_sha256 = Get-BundleTreeSha256 -Root $distBundleRoot -ExcludedRelativePaths @('manifests/evidence/expected-bundle-hashes.json', 'manifests/cli-smoke-report.json', 'manifests/cpp-smoke-report.json', 'manifests/evidence/win7-evidence.json', 'manifests/evidence/acceptance-report.json')
 $expectedHashes | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $expectedHashesPath -Encoding ASCII
 Copy-Item -LiteralPath $expectedHashesPath -Destination (Join-Path $sourcesRoot 'expected-bundle-hashes.json') -Force
 Write-BundleChecksums -Root $distBundleRoot -ChecksumPath $distChecksumsPath
@@ -570,7 +570,7 @@ $artifactHashes = [ordered]@{
     bundle_plan_sha256 = [string]$planState.plan_sha256
     agent_lock_sha256 = [string]$bundlePlan.agent_lock_sha256
     gate_ids = @($bundlePlan.gate_ids)
-    bundle_sha256 = Get-BundleTreeSha256 -Root $distBundleRoot -ExcludedRelativePaths @('manifests/evidence/expected-bundle-hashes.json', 'manifests/cpp-smoke-report.json', 'manifests/evidence/win7-evidence.json', 'manifests/evidence/acceptance-report.json')
+    bundle_sha256 = Get-BundleTreeSha256 -Root $distBundleRoot -ExcludedRelativePaths @('manifests/evidence/expected-bundle-hashes.json', 'manifests/cli-smoke-report.json', 'manifests/cpp-smoke-report.json', 'manifests/evidence/win7-evidence.json', 'manifests/evidence/acceptance-report.json')
     zip_sha256 = $(if ($zipCreated) { (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null })
     identity_sha256 = $(if (Test-Path -LiteralPath (Join-Path $distBundleRoot 'manifests\release-identity.json')) { (Get-FileHash -LiteralPath (Join-Path $distBundleRoot 'manifests\release-identity.json') -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null })
 }

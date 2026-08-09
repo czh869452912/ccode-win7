@@ -27,6 +27,7 @@ compare_release_identity = _RELEASE_IDENTITY.compare_release_identity
 
 DEFAULT_EXCLUDED_PATHS = (
     "manifests/checksums.txt",
+    "manifests/cli-smoke-report.json",
     "manifests/cpp-smoke-report.json",
     "manifests/evidence/acceptance-report.json",
     "manifests/evidence/expected-bundle-hashes.json",

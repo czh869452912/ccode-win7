@@ -766,7 +766,7 @@ function Complete-PackageReport {
         $report['artifact_status'] = 'provisional'
         $report['publishable'] = $false
     }
-    elseif ($report['command'] -eq 'release' -or $report['profile'] -eq 'release') {
+    elseif ($report['profile'] -eq 'release') {
         $report['final_status'] = 'READY'
         $report['artifact_status'] = 'verified'
         $report['publishable'] = $true
@@ -884,7 +884,7 @@ function New-PackageContext {
         output_root = $OutputRoot
         artifact_name = $effectiveArtifactName
         allow_download = $AllowDownload -or [bool]$profileConfig.allow_download
-        no_zip = $NoZip
+        no_zip = $NoZip -or (-not [bool]$profileConfig.create_zip)
         strict = $Strict
         reproducible = $Reproducible
         reproducibility_root = $ReproducibilityRoot
@@ -1698,6 +1698,9 @@ function Invoke-PackageAssemble {
     }
     if ([bool]$Context.allow_download) {
         $buildArgs += '-AllowDownload'
+    }
+    if ([bool]$Context.no_zip) {
+        $buildArgs += '-NoZip'
     }
 
     Write-PackageLog "[assemble] Running prepare-offline.ps1..."

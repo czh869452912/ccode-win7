@@ -642,6 +642,65 @@ function Invoke-CppSmokeGate {
     }
 }
 
+function Invoke-CliSmokeGate {
+    param(
+        [System.Collections.ArrayList]$Results,
+        [string]$BundleRoot,
+        [object]$Contract,
+        [object]$Plan
+    )
+
+    $cliGate = Get-ReleaseGateById -Contract $Contract -Id 'win7_cli_smoke'
+    if ($null -eq $cliGate) {
+        return
+    }
+    $pythonExe = Join-Path $BundleRoot 'runtime\python\python.exe'
+    $scriptPath = Join-Path $BundleRoot ([string]$cliGate.script).Replace('/', '\')
+    if (-not (Test-Path -LiteralPath $pythonExe) -or -not (Test-Path -LiteralPath $scriptPath)) {
+        $level = if ($RequireComplete) { 'fail' } else { 'warn' }
+        Add-Result -Results $Results -Level $level -Code 'dynamic.release_gate.win7_cli_smoke' -Message 'Skipped CLI smoke gate because bundled python or the smoke script is missing.'
+        return
+    }
+    $reportPath = Join-Path $BundleRoot 'manifests\cli-smoke-report.json'
+    Push-Location $BundleRoot
+    try {
+        $null = & $pythonExe $scriptPath --bundle-root $BundleRoot --json-report $reportPath 2>&1
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -ne 0 -or -not (Test-Path -LiteralPath $reportPath -PathType Leaf)) {
+            Add-Result -Results $Results -Level 'fail' -Code 'dynamic.release_gate.win7_cli_smoke' -Message ('CLI smoke gate failed with exit code {0}.' -f $exitCode)
+            return
+        }
+        $report = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
+        $requiredFlags = @(
+            'session_created',
+            'tool_completed',
+            'permission_interaction_completed',
+            'user_input_interaction_completed',
+            'session_restored'
+        )
+        $valid = [bool]$report.ok
+        $valid = $valid -and ([int]$report.schema_version -eq [int]$cliGate.report_schema_version)
+        $valid = $valid -and ([string]$report.runtime_source -eq [string]$cliGate.expected_runtime_source)
+        $valid = $valid -and ([string]$report.flavor_id -eq [string]$Plan.flavor_id)
+        $valid = $valid -and (@($Plan.allowed_agent_application_ids) -contains [string]$report.agent_application_id)
+        foreach ($flag in $requiredFlags) {
+            $valid = $valid -and [bool](Get-JsonPropertyValue -Object $report -Name $flag)
+        }
+        if ($valid) {
+            Add-Result -Results $Results -Level 'pass' -Code 'dynamic.release_gate.win7_cli_smoke' -Message ('CLI smoke gate passed. Report: {0}' -f $reportPath)
+        }
+        else {
+            Add-Result -Results $Results -Level 'fail' -Code 'dynamic.release_gate.win7_cli_smoke' -Message 'CLI smoke report does not satisfy the selected bundle plan and runtime contract.'
+        }
+    }
+    catch {
+        Add-Result -Results $Results -Level 'fail' -Code 'dynamic.release_gate.win7_cli_smoke' -Message ('CLI smoke gate could not validate its report: {0}' -f $_.Exception.GetType().Name)
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 function Invoke-GuiHelpCheck {
     param(
         [System.Collections.ArrayList]$Results,
@@ -819,7 +878,7 @@ function Test-ReleaseArtifactContract {
         try {
             $expectedHashes = Get-Content -LiteralPath $expectedHashesPath -Raw | ConvertFrom-Json
             $expectedBundleHash = [string]$expectedHashes.bundle_sha256
-            $actualExpectedBundleHash = Get-TreeContentSha256 -Root $BundleRoot -ExcludedRelativePaths @('manifests/checksums.txt', 'manifests/evidence/expected-bundle-hashes.json', 'manifests/cpp-smoke-report.json', 'manifests/evidence/win7-evidence.json', 'manifests/evidence/acceptance-report.json')
+            $actualExpectedBundleHash = Get-TreeContentSha256 -Root $BundleRoot -ExcludedRelativePaths @('manifests/checksums.txt', 'manifests/evidence/expected-bundle-hashes.json', 'manifests/cli-smoke-report.json', 'manifests/cpp-smoke-report.json', 'manifests/evidence/win7-evidence.json', 'manifests/evidence/acceptance-report.json')
             if (-not $expectedBundleHash -or $expectedBundleHash.ToLowerInvariant() -ne $actualExpectedBundleHash) {
                 Add-Result -Results $Results -Level 'fail' -Code 'release.bundle_sha256' -Message 'expected-bundle-hashes.json bundle_sha256 mismatch.'
             }
@@ -1076,6 +1135,9 @@ Test-ReleaseArtifactContract -Results $results -Manifest $manifest -BundleRoot $
 
 if (-not $SkipDynamicChecks) {
     Invoke-RuntimeContractDynamicChecks -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract -RuntimeComponentIds $selectedRuntimeComponentIds
+    if ($null -ne $bundlePlan -and @($bundlePlan.gate_ids) -contains 'win7_cli_smoke') {
+        Invoke-CliSmokeGate -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract -Plan $bundlePlan
+    }
     if ($null -ne $bundlePlan -and @($bundlePlan.gate_ids) -contains 'cpp_smoke_workspace') {
         Invoke-CppSmokeGate -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract
     }

@@ -15,6 +15,21 @@ $actualPlanSha256 = (Get-FileHash -LiteralPath $BundlePlanPath -Algorithm SHA256
 if ($actualPlanSha256 -ne $BundlePlanSha256.ToLowerInvariant()) {
     throw 'mock validate bundle plan hash mismatch'
 }
+$bundlePlan = Get-Content -LiteralPath $BundlePlanPath -Raw | ConvertFrom-Json
+$results = @(
+    [ordered]@{
+        level = 'pass'
+        code = 'mock.validate'
+        message = 'mock validate succeeded'
+    }
+)
+if ((-not $SkipDynamicChecks) -and (@($bundlePlan.gate_ids) -contains 'win7_cli_smoke')) {
+    $results += [ordered]@{
+        level = 'pass'
+        code = 'dynamic.release_gate.win7_cli_smoke'
+        message = 'mock CLI smoke gate succeeded'
+    }
+}
 
 $payload = [ordered]@{
     ok = $true
@@ -23,19 +38,13 @@ $payload = [ordered]@{
     require_complete = [bool]$RequireComplete
     fail_count = 0
     warn_count = 0
-    pass_count = 1
+    pass_count = @($results).Count
     bundle_plan = [ordered]@{
         path = $BundlePlanPath
         source_path = $BundlePlanPath
         sha256 = $actualPlanSha256
     }
-    results = @(
-        [ordered]@{
-            level = 'pass'
-            code = 'mock.validate'
-            message = 'mock validate succeeded'
-        }
-    )
+    results = $results
 }
 
 if ($JsonOutputPath) {
