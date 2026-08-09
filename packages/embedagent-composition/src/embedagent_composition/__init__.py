@@ -9,6 +9,7 @@ from .model import (
     ComponentManifest,
     ComponentRef,
 )
+from .recipes import FrozenBundleRecipeRegistry, OfficialBundleRecipe
 
 __version__ = "0.1.0"
 
@@ -18,6 +19,8 @@ __all__ = [
     "ComponentManifest",
     "ComponentRef",
     "CompositionError",
+    "FrozenBundleRecipeRegistry",
+    "OfficialBundleRecipe",
     "compile_agent",
     "export_agent",
 ]
