@@ -212,7 +212,21 @@ function Resolve-7za {
     if (Test-Path -LiteralPath $extractDir) {
         Remove-Item -LiteralPath $extractDir -Recurse -Force
     }
-    Expand-Archive -LiteralPath $zipCachePath -DestinationPath $extractDir -Force
+    $expandArchivePath = $zipCachePath
+    $temporaryArchivePath = ''
+    try {
+        if ([System.IO.Path]::GetExtension($zipCachePath) -ne '.zip') {
+            $temporaryArchivePath = $zipCachePath + '.zip'
+            Copy-Item -LiteralPath $zipCachePath -Destination $temporaryArchivePath -Force
+            $expandArchivePath = $temporaryArchivePath
+        }
+        Expand-Archive -LiteralPath $expandArchivePath -DestinationPath $extractDir -Force
+    }
+    finally {
+        if ($temporaryArchivePath -and (Test-Path -LiteralPath $temporaryArchivePath)) {
+            Remove-Item -LiteralPath $temporaryArchivePath -Force
+        }
+    }
 
     # 找到 7za.exe
     $exeInExtract = Get-ChildItem -LiteralPath $extractDir -Filter '7za.exe' -Recurse -File | Select-Object -First 1
