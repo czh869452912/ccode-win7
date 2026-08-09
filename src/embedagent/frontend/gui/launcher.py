@@ -14,6 +14,7 @@ import threading
 import time
 from typing import Any, Dict, Optional
 
+from embedagent.bundle_policy import load_current_bundle_policy
 from embedagent.hosted import LaunchOverrides, create_hosted_runtime, resolve_launch_config
 from embedagent.runtime_discovery import discover_bundle_root, running_from_bundle
 
@@ -258,6 +259,8 @@ def launch_gui(
         debug: 是否调试模式
         headless: 是否无窗口模式（用于测试）
     """
+    bundle_policy = load_current_bundle_policy(__file__)
+    bundle_policy.require_shell("gui")
     startup_events = []
     startup_status = "running"
     _write_startup_report(startup_report, startup_events, status=startup_status)
@@ -330,7 +333,8 @@ def launch_gui(
             _LOGGER.info("Initializing Agent Core for workspace: %s", path)
             return create_core(path, runtime_config)
 
-        agent_application_registry = product_agent_application_registry()
+        allowed_ids = bundle_policy.allowed_agent_application_ids if bundle_policy.bundled else None
+        agent_application_registry = product_agent_application_registry(allowed_ids)
         app_host = GUIAppHost(
             core_factory=core_factory,
             agent_capabilities=agent_application_capability_payload(

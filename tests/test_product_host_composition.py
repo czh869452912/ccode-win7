@@ -1,13 +1,18 @@
 import json
 
+import pytest
 from embedagent_host.hosted.launch_config import LaunchOverrides
 from embedagent_host.runtime.agent_applications import (
     BUILTIN_AGENT_APPLICATION_RECORDS,
     GENERIC_AGENT_APPLICATION_ID,
 )
 
+from embedagent.bundle_policy import BundleRuntimePolicy
 from embedagent.hosted import create_hosted_runtime, resolve_launch_config
-from embedagent.product_catalog import product_shell_registry
+from embedagent.product_catalog import (
+    product_agent_application_registry,
+    product_shell_registry,
+)
 
 
 def test_product_launch_config_injects_product_config_loader(tmp_path):
@@ -44,6 +49,72 @@ def test_product_runtime_injects_product_registry(tmp_path, monkeypatch):
     assert callable(captured["command_sanitizer_factory"])
     assert callable(captured["bundle_root_resolver"])
     assert callable(captured["system_prompt_builder"])
+
+
+def test_product_registry_filters_allowed_applications_in_stable_order():
+    registry = product_agent_application_registry(
+        allowed_application_ids=("embedagent.python", "embedagent.generic")
+    )
+
+    assert [record.application_id for record in registry.application_records] == [
+        "embedagent.generic",
+        "embedagent.python",
+    ]
+    assert registry.default_application_id == "embedagent.python"
+
+    with pytest.raises(ValueError, match="Unknown allowed agent application"):
+        product_agent_application_registry(allowed_application_ids=("tests.unknown",))
+
+
+def test_product_host_rejects_unplanned_application_before_runtime(tmp_path, monkeypatch):
+    config_dir = tmp_path / ".embedagent"
+    config_dir.mkdir()
+    (config_dir / "config.json").write_text(
+        '{"model": "product-model", "agent_application_id": "embedagent.python"}',
+        encoding="utf-8",
+    )
+    policy = BundleRuntimePolicy(
+        bundled=True,
+        flavor_id="minimal-cli",
+        bundle_plan_sha256="e" * 64,
+        allowed_agent_application_ids=("embedagent.generic",),
+        shell_ids=("cli",),
+    )
+    monkeypatch.setattr("embedagent.hosted._current_bundle_policy", lambda: policy)
+
+    with pytest.raises(ValueError, match="not included in bundle flavor minimal-cli"):
+        resolve_launch_config(str(tmp_path), LaunchOverrides())
+
+
+def test_product_runtime_injects_plan_filtered_registry(tmp_path, monkeypatch):
+    captured = {}
+    policy = BundleRuntimePolicy(
+        bundled=True,
+        flavor_id="minimal-cli",
+        bundle_plan_sha256="e" * 64,
+        allowed_agent_application_ids=("embedagent.generic",),
+        shell_ids=("cli",),
+    )
+
+    def fake_create(launch_config, **kwargs):
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr("embedagent.hosted._current_bundle_policy", lambda: policy)
+    monkeypatch.setattr("embedagent.hosted.create_generic_hosted_runtime", fake_create)
+    launch_config = resolve_launch_config(
+        str(tmp_path),
+        LaunchOverrides(model="product-model"),
+    )
+
+    create_hosted_runtime(launch_config)
+
+    assert launch_config.agent_application_id == "embedagent.generic"
+    registry = captured["agent_application_registry"]
+    assert [record.application_id for record in registry.application_records] == [
+        "embedagent.generic"
+    ]
+    assert registry.default_application_id == "embedagent.generic"
 
 
 def test_host_application_record_has_no_shell_metadata():

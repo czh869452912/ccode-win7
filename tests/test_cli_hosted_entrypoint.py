@@ -1,6 +1,8 @@
 import json
 from unittest.mock import MagicMock
 
+import pytest
+
 from embedagent import cli
 from embedagent.config import AppConfig
 
@@ -84,6 +86,21 @@ def test_cli_architecture_guard_blocks_direct_runtime_construction():
     ]
     for needle in blocked:
         assert needle not in text
+
+
+def test_cli_requires_cli_shell_before_resolving_launch_config(tmp_path, monkeypatch):
+    policy = MagicMock()
+    policy.require_shell.side_effect = ValueError("cli is not included in bundle flavor gui-only")
+    resolve = MagicMock()
+    monkeypatch.setattr("embedagent.cli.load_current_bundle_policy", lambda path: policy)
+    monkeypatch.setattr("embedagent.cli.resolve_launch_config", resolve)
+    monkeypatch.setattr("embedagent.cli.initialize_modes", lambda workspace: None)
+
+    with pytest.raises(SystemExit):
+        cli.main(["--workspace", str(tmp_path), "--model", "test-model", "hello"])
+
+    policy.require_shell.assert_called_once_with("cli")
+    resolve.assert_not_called()
 
 
 def test_cli_returns_blocked_outcome_exit_code_and_diagnostic(tmp_path, monkeypatch, capsys):

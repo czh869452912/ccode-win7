@@ -9,6 +9,21 @@ from embedagent.frontend.tui import launcher as tui_launcher
 
 
 class TestTuiLauncher(unittest.TestCase):
+    def test_tui_rejects_unplanned_shell_before_runtime_construction(self):
+        policy = MagicMock()
+        policy.require_shell.side_effect = ValueError(
+            "tui is not included in bundle flavor minimal-cli"
+        )
+        with tempfile.TemporaryDirectory() as workspace, patch(
+            "embedagent.frontend.tui.launcher.load_current_bundle_policy",
+            return_value=policy,
+        ), patch("embedagent.frontend.tui.launcher.resolve_launch_config") as resolve_config:
+            with self.assertRaisesRegex(ValueError, "not included in bundle flavor"):
+                tui_launcher.launch_tui(workspace=workspace)
+
+        policy.require_shell.assert_called_once_with("tui")
+        resolve_config.assert_not_called()
+
     def test_launch_tui_uses_hosted_runtime_factory(self):
         runtime = MagicMock()
         runtime.session_host.get_session_capabilities.return_value = {}

@@ -2,6 +2,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -9,6 +10,23 @@ from embedagent.frontend.gui.launcher import _resolve_initial_workspace
 
 
 class TestGuiLauncherAppMode(unittest.TestCase):
+    def test_gui_rejects_unplanned_shell_before_dependency_checks(self):
+        policy = MagicMock()
+        policy.require_shell.side_effect = ValueError(
+            "gui is not included in bundle flavor minimal-cli"
+        )
+        with patch(
+            "embedagent.frontend.gui.launcher.load_current_bundle_policy",
+            return_value=policy,
+        ), patch("embedagent.frontend.gui.launcher.check_dependencies") as dependencies:
+            with self.assertRaisesRegex(ValueError, "not included in bundle flavor"):
+                from embedagent.frontend.gui.launcher import launch_gui
+
+                launch_gui()
+
+        policy.require_shell.assert_called_once_with("gui")
+        dependencies.assert_not_called()
+
     def test_no_workspace_arguments_return_empty_string(self):
         self.assertEqual(_resolve_initial_workspace("", ""), "")
 

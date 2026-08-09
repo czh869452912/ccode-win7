@@ -11,6 +11,7 @@ import os
 import sys
 from typing import Optional
 
+from embedagent.bundle_policy import load_current_bundle_policy
 from embedagent.frontend.tui.bootstrap import TUIUnavailableError, run_tui
 from embedagent.hosted import LaunchOverrides, create_hosted_runtime, resolve_launch_config
 from embedagent.product_catalog import (
@@ -39,6 +40,8 @@ def launch_tui(
     agent_application_id: Optional[str] = None,
 ):
     """启动 TUI。"""
+    bundle_policy = load_current_bundle_policy(__file__)
+    bundle_policy.require_shell("tui")
     workspace = os.path.realpath(workspace)
     launch_config = resolve_launch_config(
         workspace,
@@ -56,7 +59,8 @@ def launch_tui(
         ),
     )
     runtime = create_hosted_runtime(launch_config)
-    application_record = product_agent_application_registry().record_by_id(
+    allowed_ids = bundle_policy.allowed_agent_application_ids if bundle_policy.bundled else None
+    application_record = product_agent_application_registry(allowed_ids).record_by_id(
         launch_config.agent_application_id
     )
     shell_descriptor = product_shell_compiler()(

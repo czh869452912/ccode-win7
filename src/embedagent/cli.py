@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 
 from embedagent_core.model import ModelClientError
 
+from embedagent.bundle_policy import load_current_bundle_policy
 from embedagent.hosted import LaunchOverrides, create_hosted_runtime, resolve_launch_config
 from embedagent.modes import DEFAULT_MODE, initialize_modes, parse_mode_command
 from embedagent.tui import TUIUnavailableError
@@ -211,6 +212,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     initialize_modes(workspace)
 
     try:
+        load_current_bundle_policy(__file__).require_shell("cli")
         launch_config = resolve_launch_config(
             workspace,
             LaunchOverrides(
