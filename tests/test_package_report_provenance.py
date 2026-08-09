@@ -65,6 +65,9 @@ def test_fixture_release_isolated_and_provenance_bound(tmp_path):
     payload = json.loads(result.stdout)
     assert payload["execution_kind"] == "test"
     assert payload["config_origin"] == "fixture"
+    assert payload["flavor"] == "cpp-desktop"
+    assert payload["bundle_plan_sha256"]
+    assert Path(payload["bundle_plan_path"]).exists()
     assert str(tmp_path) in payload["report_path"]
     assert Path(payload["report_path"]).exists()
     assert before == (production_latest.read_bytes() if production_latest.exists() else None)

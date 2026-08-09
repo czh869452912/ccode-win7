@@ -171,7 +171,7 @@ class TestPackageFoundation(unittest.TestCase):
         result = run_pwsh(
             ". '{lib}'; "
             "$cfg = Read-PackageConfig -Path '{config}'; "
-            "[ordered]@{{default_profile=$cfg.default_profile; profiles=@($cfg.profiles.PSObject.Properties.Name)}} "
+            "[ordered]@{{default_profile=$cfg.default_profile; default_flavor=$cfg.default_flavor; profiles=@($cfg.profiles.PSObject.Properties.Name)}} "
             "| ConvertTo-Json -Compress".format(
                 lib=str(LIB).replace("\\", "\\\\"),
                 config=str(CONFIG).replace("\\", "\\\\"),
@@ -180,7 +180,57 @@ class TestPackageFoundation(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["default_profile"], "dev")
+        self.assertEqual(payload["default_flavor"], "cpp-desktop")
         self.assertEqual(sorted(payload["profiles"]), ["dev", "release"])
+
+    def test_profile_and_flavor_are_orthogonal(self):
+        result = run_pwsh(
+            ". '{lib}'; "
+            "$cfg = Read-PackageConfig -Path '{config}'; "
+            "$ctx = New-PackageContext -ProjectRoot '{root}' -Config $cfg "
+            "-ConfigPath '{config}' -Command 'doctor' -RequestedProfile 'release' "
+            "-RequestedFlavor 'minimal-cli' -BundleRoot '' -OutputRoot '' "
+            "-ArtifactName '' -AllowDownload $false -NoZip $false -Strict $false; "
+            "[ordered]@{{profile=$ctx.profile; flavor=$ctx.flavor; plan=$ctx.bundle_plan.flavor_id}} "
+            "| ConvertTo-Json -Compress".format(
+                lib=str(LIB).replace("\\", "\\\\"),
+                config=str(CONFIG).replace("\\", "\\\\"),
+                root=str(ROOT).replace("\\", "\\\\"),
+            )
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            json.loads(result.stdout),
+            {
+                "profile": "release",
+                "flavor": "minimal-cli",
+                "plan": "minimal-cli",
+            },
+        )
+
+    def test_unknown_flavor_fails_before_build_root_exists(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            config = json.loads(MOCK_CONFIG.read_text(encoding="utf-8"))
+            config["paths"]["reports_root"] = str(root / "reports")
+            config["paths"]["build_root"] = str(root / "build")
+            config_path = root / "package.config.json"
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+            result = run_pwsh(
+                ". '{lib}'; "
+                "$cfg = Read-PackageConfig -Path '{config}'; "
+                "New-PackageContext -ProjectRoot '{root}' -Config $cfg "
+                "-ConfigPath '{config}' -Command 'doctor' -RequestedProfile 'dev' "
+                "-RequestedFlavor 'missing' -BundleRoot '' -OutputRoot '' "
+                "-ArtifactName '' -AllowDownload $false -NoZip $false -Strict $false".format(
+                    lib=str(LIB).replace("\\", "\\\\"),
+                    config=str(config_path).replace("\\", "\\\\"),
+                    root=str(ROOT).replace("\\", "\\\\"),
+                )
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("unknown_bundle_recipe", result.stderr)
+            self.assertFalse((root / "build").exists())
 
     def test_release_report_maps_success_to_ready(self):
         result = run_pwsh(
@@ -349,11 +399,15 @@ class TestRuntimeBundleContract(unittest.TestCase):
     def test_runtime_contract_lists_managed_tools(self):
         payload = json.loads(RUNTIME_CONTRACT.read_text(encoding="utf-8"))
 
-        self.assertEqual(payload["schema_version"], 1)
-        tool_ids = [item["id"] for item in payload["required_tools"]]
+        self.assertEqual(payload["schema_version"], 2)
+        tools = [
+            tool
+            for component in payload["runtime_components"]
+            for tool in component.get("managed_tools") or []
+        ]
+        tool_ids = [item["id"] for item in tools]
         self.assertEqual(tool_ids, ["python", "git", "bash", "rg", "ctags", "llvm"])
-        for item in payload["required_tools"]:
-            self.assertTrue(item["component"])
+        for item in tools:
             self.assertTrue(item["category"])
             self.assertTrue(item.get("paths") or item.get("alternatives"))
 
@@ -366,6 +420,7 @@ class TestRuntimeBundleContract(unittest.TestCase):
             gate_ids,
             [
                 "runtime_contract",
+                "win7_cli_smoke",
                 "cpp_smoke_workspace",
                 "gui_headless_smoke",
                 "win7_windowed_gui_smoke",
@@ -385,7 +440,8 @@ class TestRuntimeBundleContract(unittest.TestCase):
 
     def test_runtime_contract_lists_current_llvm_children(self):
         payload = json.loads(RUNTIME_CONTRACT.read_text(encoding="utf-8"))
-        llvm = [item for item in payload["required_tools"] if item["id"] == "llvm"][0]
+        llvm_component = [item for item in payload["runtime_components"] if item["id"] == "llvm"][0]
+        llvm = llvm_component["managed_tools"][0]
         child_paths = [child["path"] for child in llvm["children"]]
 
         self.assertEqual(
@@ -406,16 +462,21 @@ class TestPrepareOfflineContract(unittest.TestCase):
     def _script_text(self):
         return (ROOT / "scripts" / "prepare-offline.ps1").read_text(encoding="utf-8")
 
-    def test_package_config_exposes_gui_launcher_build_tool(self):
+    def test_package_config_uses_plan_compiler_instead_of_stage_selectors(self):
         payload = json.loads(CONFIG.read_text(encoding="utf-8"))
 
-        self.assertIn("gui_launcher_build_root", payload["paths"])
         self.assertEqual(
-            payload["tooling"]["build_gui_launcher"],
-            "scripts/build-gui-launcher.ps1",
+            payload["tooling"]["compile_bundle_plan"],
+            "scripts/compile-bundle-plan.py",
         )
-        self.assertTrue(payload["profiles"]["dev"]["run_gui_launcher_build"])
-        self.assertTrue(payload["profiles"]["release"]["run_gui_launcher_build"])
+        retired = {
+            "required_assets",
+            "required_project_distributions",
+            "run_frontend_build",
+            "run_gui_launcher_build",
+        }
+        for profile in payload["profiles"].values():
+            self.assertFalse(retired.intersection(profile))
 
     def test_prepare_offline_uses_current_default_mode(self):
         script = self._script_text()
@@ -955,7 +1016,7 @@ class TestStageJsonReports(unittest.TestCase):
             self.assertFalse(external["ok"])
             self.assertTrue(any("runtime_tool.git" in error for error in external["errors"]))
             self.assertTrue(any("runtime_tool.llvm.clang" in error for error in external["errors"]))
-            self.assertEqual(payload["runtime_contract"]["schema_version"], 1)
+            self.assertEqual(payload["runtime_contract"]["schema_version"], 2)
 
     def test_dependency_checker_accepts_runtime_contract_complete_mock_bundle(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1012,6 +1073,7 @@ class TestStageJsonReports(unittest.TestCase):
                 "embedagent-gui.cmd",
                 "validate-gui-smoke.cmd",
                 "validate-cpp-smoke.cmd",
+                "validate-cli-smoke.cmd",
                 "config/config.json",
                 "config/config.json.template",
                 "config/permission-rules.json",
@@ -1022,6 +1084,7 @@ class TestStageJsonReports(unittest.TestCase):
                 "app/embedagent/frontend/gui/static/assets/app.js",
                 "tools/validation/validate-gui-smoke.py",
                 "tools/validation/validate-cpp-smoke.py",
+                "tools/validation/validate-cli-smoke.py",
                 "data/workspace-template/main.c",
                 "manifests/bundle-manifest.json",
             ]:
@@ -1262,7 +1325,7 @@ class TestStageJsonReports(unittest.TestCase):
             self.assertIn("runtime_tool.python", result_codes)
             self.assertIn("runtime_tool.git", result_codes)
             self.assertIn("runtime_tool.llvm.clang_tidy", result_codes)
-            self.assertEqual(payload["runtime_contract"]["schema_version"], 1)
+            self.assertEqual(payload["runtime_contract"]["schema_version"], 2)
 
     def test_validate_offline_bundle_flags_missing_cpp_smoke_assets_in_strict_mode(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1607,9 +1670,19 @@ class TestPackageOrchestration(unittest.TestCase):
         latest_path = report_path.parent / "latest.json"
         self.assertTrue(latest_path.exists())
         stage_names = [stage["name"] for stage in payload["stages"]]
-        self.assertEqual(stage_names, ["deps", "prepare", "build", "verify"])
+        self.assertEqual(
+            stage_names,
+            [
+                "deps",
+                "frontend_build",
+                "gui_launcher_build",
+                "prepare",
+                "build",
+                "verify",
+            ],
+        )
         stage_statuses = [stage["status"] for stage in payload["stages"]]
-        self.assertEqual(stage_statuses, ["pass", "pass", "pass", "pass"])
+        self.assertEqual(stage_statuses, ["pass"] * 6)
         for stage in payload["stages"]:
             self.assertIn("started_at", stage)
             self.assertIn("finished_at", stage)
@@ -1649,7 +1722,7 @@ class TestPackageOrchestration(unittest.TestCase):
             validate_payload = json.loads(validate_report.read_text(encoding="utf-8"))
         self.assertFalse(validate_payload["skip_dynamic_checks"])
 
-    def test_mock_release_does_not_inject_frontend_build_stage(self):
+    def test_mock_desktop_release_includes_gui_build_stages(self):
         env = os.environ.copy()
         env["EMBEDAGENT_PYTHON"] = sys.executable
         tmp_dir = tempfile.TemporaryDirectory()
@@ -1672,7 +1745,39 @@ class TestPackageOrchestration(unittest.TestCase):
         )
         payload = json.loads(result.stdout)
         stage_names = [stage["name"] for stage in payload.get("stages", [])]
+        self.assertIn("frontend_build", stage_names)
+        self.assertIn("gui_launcher_build", stage_names)
+        tmp_dir.cleanup()
+
+    def test_mock_minimal_release_omits_gui_build_stages(self):
+        env = os.environ.copy()
+        env["EMBEDAGENT_PYTHON"] = sys.executable
+        tmp_dir = tempfile.TemporaryDirectory()
+        config_path = _write_isolated_mock_config(Path(tmp_dir.name))
+        result = subprocess.run(
+            [
+                _powershell_exe(),
+                "-NoProfile",
+                "-File",
+                str(PACKAGE_SCRIPT),
+                "release",
+                "-Flavor",
+                "minimal-cli",
+                "-Config",
+                str(config_path),
+                "-Json",
+            ],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        payload = json.loads(result.stdout)
+        stage_names = [stage["name"] for stage in payload.get("stages", [])]
         self.assertNotIn("frontend_build", stage_names)
+        self.assertNotIn("gui_launcher_build", stage_names)
+        tmp_dir.cleanup()
 
 
 if __name__ == "__main__":

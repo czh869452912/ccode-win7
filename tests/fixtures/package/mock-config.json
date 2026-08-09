@@ -4,6 +4,7 @@
     "config_origin": "fixture"
   },
   "default_profile": "dev",
+  "default_flavor": "cpp-desktop",
   "paths": {
     "project_root": ".",
     "build_root": "build",
@@ -18,6 +19,7 @@
     "dist_bundle_root": "build/offline-dist/mock-artifact"
   },
   "tooling": {
+    "compile_bundle_plan": "scripts/compile-bundle-plan.py",
     "export_dependencies": "tests/fixtures/package/mock-export.py",
     "build_gui_launcher": "tests/fixtures/package/mock-build-gui-launcher.ps1",
     "prepare_bundle": "tests/fixtures/package/mock-prepare.ps1",
@@ -32,11 +34,8 @@
       "offline_dependency_build": false,
       "require_complete": false,
       "create_zip": false,
-      "run_frontend_build": false,
-      "run_gui_launcher_build": false,
       "run_dynamic_checks": false,
-      "run_dependency_checker": true,
-      "required_assets": []
+      "run_dependency_checker": true
     },
     "release": {
       "artifact_name": "mock-artifact",
@@ -44,14 +43,8 @@
       "offline_dependency_build": true,
       "require_complete": true,
       "create_zip": true,
-      "run_frontend_build": false,
-      "run_gui_launcher_build": false,
       "run_dynamic_checks": false,
-      "run_dependency_checker": true,
-      "required_assets": [
-        "python_embedded_x64",
-        "mingit_x64"
-      ]
+      "run_dependency_checker": true
     }
   }
 }

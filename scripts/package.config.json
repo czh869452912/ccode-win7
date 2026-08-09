@@ -4,6 +4,7 @@
     "config_origin": "production"
   },
   "default_profile": "dev",
+  "default_flavor": "cpp-desktop",
   "paths": {
     "project_root": ".",
     "build_root": "build",
@@ -20,6 +21,7 @@
     "release_evidence_root": "manifests/evidence"
   },
   "tooling": {
+    "compile_bundle_plan": "scripts/compile-bundle-plan.py",
     "export_dependencies": "scripts/export-dependencies.py",
     "build_gui_launcher": "scripts/build-gui-launcher.ps1",
     "prepare_bundle": "scripts/prepare-offline.ps1",
@@ -34,17 +36,8 @@
       "offline_dependency_build": false,
       "require_complete": false,
       "create_zip": false,
-      "run_frontend_build": true,
-      "run_gui_launcher_build": true,
       "run_dynamic_checks": false,
-      "run_dependency_checker": true,
-      "required_assets": [
-        "python_embedded_x64",
-        "mingit_x64",
-        "ripgrep_x64",
-        "universal_ctags_x64",
-        "webview2_fixed_runtime_x64"
-      ]
+      "run_dependency_checker": true
     },
     "release": {
       "artifact_name": "embedagent-win7-x64",
@@ -52,26 +45,9 @@
       "offline_dependency_build": true,
       "require_complete": true,
       "create_zip": true,
-      "run_frontend_build": true,
-      "run_gui_launcher_build": true,
       "run_dynamic_checks": true,
       "run_dependency_checker": true,
-      "minimum_free_bytes": 8589934592,
-      "required_project_distributions": [
-        "embedagent-core",
-        "embedagent-protocol",
-        "embedagent-host",
-        "embedagent-composition",
-        "embedagent-workflow-cpp",
-        "embedagent"
-      ],
-      "required_assets": [
-        "python_embedded_x64",
-        "mingit_x64",
-        "ripgrep_x64",
-        "universal_ctags_x64",
-        "webview2_fixed_runtime_x64"
-      ]
+      "minimum_free_bytes": 8589934592
     }
   }
 }

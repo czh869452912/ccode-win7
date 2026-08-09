@@ -299,6 +299,25 @@ function Get-JsonPropertyValue {
     return $null
 }
 
+function Get-RuntimeContractManagedTools {
+    param(
+        [object]$Contract
+    )
+
+    $tools = @()
+    foreach ($component in @(Get-JsonPropertyValue -Object $Contract -Name 'runtime_components')) {
+        if ($null -eq $component) {
+            continue
+        }
+        foreach ($tool in @(Get-JsonPropertyValue -Object $component -Name 'managed_tools')) {
+            if ($null -ne $tool) {
+                $tools += $tool
+            }
+        }
+    }
+    return $tools
+}
+
 function Test-ContractPathSet {
     param(
         [string]$BundleRoot,
@@ -359,7 +378,7 @@ function Test-RuntimeContract {
         [object]$Contract
     )
 
-    foreach ($tool in @($Contract.required_tools)) {
+    foreach ($tool in @(Get-RuntimeContractManagedTools -Contract $Contract)) {
         $toolId = [string]$tool.id
         $present = $false
         if (Test-JsonProperty -Object $tool -Name 'alternatives') {
@@ -403,7 +422,7 @@ function Invoke-RuntimeContractDynamicChecks {
         [object]$Contract
     )
 
-    foreach ($tool in @($Contract.required_tools)) {
+    foreach ($tool in @(Get-RuntimeContractManagedTools -Contract $Contract)) {
         $toolId = [string]$tool.id
         if (Test-JsonProperty -Object $tool -Name 'dynamic_check') {
             $toolPath = Get-ContractPrimaryPath -BundleRoot $BundleRoot -Tool $tool

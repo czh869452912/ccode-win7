@@ -234,12 +234,14 @@ function Read-PackageConfig {
 function New-PackageReport {
     param(
         [string]$Command,
-        [string]$Profile
+        [string]$Profile,
+        [string]$Flavor = ''
     )
 
     return [ordered]@{
         command = $Command
         profile = $Profile
+        flavor = $Flavor
         started_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
         command_status = 'running'
         final_status = $null
@@ -260,6 +262,9 @@ function New-PackageContextReport {
     return [ordered]@{
         command = [string]$Context.command
         profile = [string]$Context.profile
+        flavor = [string]$Context.flavor
+        bundle_plan_path = [string]$Context.bundle_plan_path
+        bundle_plan_sha256 = [string]$Context.bundle_plan_sha256
         run_id = $runId
         execution_kind = [string]$Context.execution_kind
         config_origin = [string]$Context.config_origin
@@ -277,6 +282,60 @@ function New-PackageContextReport {
         warnings = @()
     }
 }
+
+function Resolve-PackageBundlePlan {
+    param(
+        [string]$ProjectRoot,
+        [object]$Config,
+        [string]$Flavor,
+        [string]$Profile
+    )
+
+    $reportsRoot = Resolve-ConfigPath -ProjectRoot $ProjectRoot -Path ([string]$Config.paths.reports_root)
+    $compilerPath = Resolve-ConfigPath -ProjectRoot $ProjectRoot -Path ([string]$Config.tooling.compile_bundle_plan)
+    $runtimeContractPath = Join-Path $ProjectRoot 'scripts\offline-runtime-contract.json'
+    $assetManifestPath = Resolve-ConfigPath -ProjectRoot $ProjectRoot -Path ([string]$Config.paths.asset_manifest)
+    $planRoot = Join-Path $reportsRoot ('plan-{0}-{1}' -f $Flavor, $Profile)
+    $planReportPath = Join-Path $reportsRoot ('plan-{0}-{1}-report.json' -f $Flavor, $Profile)
+    $pythonPath = Resolve-PackagePythonPath -ProjectRoot $ProjectRoot
+    $compilerOutput = @(& $pythonPath $compilerPath `
+        --flavor $Flavor `
+        --target 'win7-x64-portable' `
+        --assurance $Profile `
+        --runtime-contract $runtimeContractPath `
+        --asset-manifest $assetManifestPath `
+        --output-dir $planRoot `
+        --json-report $planReportPath 2>&1)
+    $compilerExitCode = $LASTEXITCODE
+    $planReport = $null
+    if (Test-Path -LiteralPath $planReportPath -PathType Leaf) {
+        $planReport = Get-Content -LiteralPath $planReportPath -Raw | ConvertFrom-Json
+    }
+    if ($compilerExitCode -ne 0 -or -not $planReport -or -not $planReport.ok) {
+        $errorCode = if ($planReport -and $planReport.error_code) { [string]$planReport.error_code } else { 'bundle_plan_compilation_failed' }
+        $message = if ($planReport -and $planReport.message) { [string]$planReport.message } else { ($compilerOutput -join '; ') }
+        throw ('Bundle plan compilation failed ({0}): {1}' -f $errorCode, $message)
+    }
+    $planPath = [string]$planReport.plan_path
+    if (-not (Test-Path -LiteralPath $planPath -PathType Leaf)) {
+        throw "Compiled bundle plan not found: $planPath"
+    }
+    $planHash = (Get-FileHash -LiteralPath $planPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($planHash -ne [string]$planReport.plan_sha256) {
+        throw 'Compiled bundle plan hash does not match its compiler report.'
+    }
+    $plan = Get-Content -LiteralPath $planPath -Raw | ConvertFrom-Json
+    if ([int]$plan.schema_version -ne 1 -or [string]$plan.flavor_id -ne $Flavor) {
+        throw 'Compiled bundle plan identity does not match the package request.'
+    }
+    return [ordered]@{
+        reports_root = $reportsRoot
+        plan = $plan
+        plan_path = $planPath
+        plan_sha256 = $planHash
+    }
+}
+
 function New-PackageStageTimer {
     $started = Get-Date
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -398,6 +457,7 @@ function New-PackageContext {
         [string]$ConfigPath,
         [string]$Command,
         [string]$RequestedProfile,
+        [string]$RequestedFlavor,
         [string]$BundleRoot,
         [string]$OutputRoot,
         [string]$ArtifactName,
@@ -423,6 +483,21 @@ function New-PackageContext {
         throw "Unknown packaging profile: $effectiveProfile"
     }
 
+    $effectiveFlavor = if ($RequestedFlavor) {
+        $RequestedFlavor
+    }
+    else {
+        [string]$Config.default_flavor
+    }
+    if (-not $effectiveFlavor) {
+        throw 'Package config must define default_flavor when no flavor is requested.'
+    }
+    $planState = Resolve-PackageBundlePlan `
+        -ProjectRoot $ProjectRoot `
+        -Config $Config `
+        -Flavor $effectiveFlavor `
+        -Profile $effectiveProfile
+
     $configOrigin = [string]$Config.metadata.config_origin
     $executionKind = if ($configOrigin -eq 'production') { 'release' } else { 'test' }
     $sourceRevision = (& git -C $ProjectRoot rev-parse HEAD 2>$null | Out-String).Trim()
@@ -432,8 +507,15 @@ function New-PackageContext {
         }
         $sourceRevision = 'unknown'
     }
-    $reportsRoot = Resolve-ConfigPath -ProjectRoot $ProjectRoot -Path ([string]$Config.paths.reports_root)
-    $artifactRoot = Resolve-ConfigPath -ProjectRoot $ProjectRoot -Path ([string]$Config.paths.dist_bundle_root)
+    $reportsRoot = [string]$planState.reports_root
+    $effectiveArtifactName = if ($ArtifactName) { $ArtifactName } else { [string]$planState.plan.artifact_name }
+    $configuredBuildRoot = Resolve-ConfigPath -ProjectRoot $ProjectRoot -Path ([string]$Config.paths.build_root)
+    $artifactRoot = if ($BundleRoot) {
+        Resolve-ConfigPath -ProjectRoot $ProjectRoot -Path $BundleRoot
+    }
+    else {
+        Join-Path (Join-Path $configuredBuildRoot 'offline-dist') $effectiveArtifactName
+    }
     return [ordered]@{
         run_id = [guid]::NewGuid().ToString('N')
         execution_kind = $executionKind
@@ -446,10 +528,14 @@ function New-PackageContext {
         config = $Config
         command = $Command
         profile = $effectiveProfile
+        flavor = $effectiveFlavor
+        bundle_plan = $planState.plan
+        bundle_plan_path = [string]$planState.plan_path
+        bundle_plan_sha256 = [string]$planState.plan_sha256
         profile_config = $profileConfig
         bundle_root = $BundleRoot
         output_root = $OutputRoot
-        artifact_name = $(if ($ArtifactName) { $ArtifactName } else { [string]$profileConfig.artifact_name })
+        artifact_name = $effectiveArtifactName
         allow_download = $AllowDownload -or [bool]$profileConfig.allow_download
         no_zip = $NoZip
         strict = $Strict
@@ -659,6 +745,7 @@ function Get-PackageDoctorChecks {
     $checks += New-PackageDoctorCheck -Name 'asset_manifest' -Code 'asset_manifest' -Ok (Test-Path -LiteralPath $assetManifestPath) -Blocking $releaseBlocking -Path $assetManifestPath
 
     $toolingPaths = @(
+        (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.compile_bundle_plan)),
         (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.export_dependencies)),
         (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.build_gui_launcher)),
         (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.prepare_bundle)),
@@ -710,10 +797,7 @@ function Get-PackageDoctorChecks {
         $assetManifest = $null
     }
     $cacheRoot = Resolve-ConfigPath -ProjectRoot $projectRoot -Path (Join-Path ([string]$config.paths.build_root) 'offline-cache')
-    $requiredAssetIds = @()
-    if ($Context.profile_config.required_assets) {
-        $requiredAssetIds = @($Context.profile_config.required_assets)
-    }
+    $requiredAssetIds = @($Context.bundle_plan.asset_ids)
     foreach ($assetId in $requiredAssetIds) {
         $asset = @($assetManifest.assets | Where-Object { [string]$_.id -eq [string]$assetId }) | Select-Object -First 1
         $cachePath = if ($asset) { Join-Path $cacheRoot ([string]$asset.cache_relpath) } else { Join-Path $cacheRoot ([string]$assetId) }
@@ -740,13 +824,7 @@ function Get-PackageDoctorChecks {
         $checks += New-PackageDoctorCheck -Name ('toolchain:llvm:' + $childName) -Code ('toolchain.llvm.' + $childName) -Ok (Test-Path -LiteralPath $childPath -PathType Leaf) -Blocking $releaseBlocking -Path $childPath
     }
 
-    $distributionNames = @()
-    if ($Context.profile_config.PSObject.Properties.Name -contains 'required_project_distributions') {
-        $distributionNames = @($Context.profile_config.required_project_distributions)
-    }
-    if ($distributionNames.Count -eq 0) {
-        $distributionNames = @('embedagent-core', 'embedagent-protocol', 'embedagent-host', 'embedagent-composition', 'embedagent-workflow-cpp', 'embedagent')
-    }
+    $distributionNames = @($Context.bundle_plan.project_distribution_ids)
     foreach ($distributionName in $distributionNames) {
         $projectPath = if ($distributionName -eq 'embedagent') {
             Join-Path $projectRoot 'pyproject.toml'
@@ -846,12 +924,10 @@ function Get-PackageRequiredAssetIds {
     )
 
     $requiredAssets = @()
-    if ($Context.profile_config -and $Context.profile_config.required_assets) {
-        foreach ($assetId in @($Context.profile_config.required_assets)) {
-            $value = "$assetId".Trim()
-            if ($value) {
-                $requiredAssets += $value
-            }
+    foreach ($assetId in @($Context.bundle_plan.asset_ids)) {
+        $value = "$assetId".Trim()
+        if ($value) {
+            $requiredAssets += $value
         }
     }
     return @($requiredAssets | Select-Object -Unique)
@@ -1008,13 +1084,7 @@ function Invoke-PackageDeps {
     $timer = New-PackageStageTimer
     $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $scriptPath -Arguments $arguments
     $payload = Get-Content -LiteralPath $jsonPath -Raw | ConvertFrom-Json
-    $expectedDistributions = @()
-    if ($Context.profile_config.PSObject.Properties.Name -contains 'required_project_distributions') {
-        $expectedDistributions = @($Context.profile_config.required_project_distributions)
-    }
-    if ($expectedDistributions.Count -eq 0) {
-        $expectedDistributions = @('embedagent-core', 'embedagent-protocol', 'embedagent-host', 'embedagent-composition', 'embedagent-workflow-cpp', 'embedagent')
-    }
+    $expectedDistributions = @($Context.bundle_plan.project_distribution_ids)
     $actualDistributions = @()
     if ($payload.PSObject.Properties.Name -contains 'project_distributions') {
         $actualDistributions = @($payload.project_distributions)
@@ -1027,7 +1097,7 @@ function Invoke-PackageDeps {
     if (($payload.PSObject.Properties.Name -contains 'wheel_hashes') -and $payload.wheel_hashes) {
         $wheelHashCount = @($payload.wheel_hashes.PSObject.Properties).Count
     }
-    $hasSixWheelContract = ($Context.profile_config.PSObject.Properties.Name -contains 'required_project_distributions') -or ($payload.PSObject.Properties.Name -contains 'project_distributions')
+    $hasSixWheelContract = ($expectedDistributions.Count -eq 6) -and ($payload.PSObject.Properties.Name -contains 'project_distributions')
     $depsOk = if ($hasSixWheelContract) {
         [bool]$payload.ok -and $actualDistributions.Count -eq $expectedDistributions.Count -and (($actualDistributions -join '|' ) -eq ($expectedDistributions -join '|' )) -and $actualWheels.Count -eq 6 -and $wheelHashCount -eq 6
     } else {
@@ -1179,13 +1249,14 @@ function Invoke-PackageAssemble {
         return
     }
 
-    if ([bool]$Context.profile_config.run_frontend_build) {
+    $hasGuiShell = @($Context.bundle_plan.shell_ids) -contains 'gui'
+    if ($hasGuiShell) {
         Invoke-FrontendBuild -Context $Context -Report $Report
         if (@($Report.Value.blocking_issues).Count -gt 0) { return }
     }
 
     $guiLauncherExePath = ''
-    if ([bool]$Context.profile_config.run_gui_launcher_build) {
+    if ($hasGuiShell) {
         $guiLauncherExePath = Invoke-GuiLauncherBuild -Context $Context -Report $Report
         if (@($Report.Value.blocking_issues).Count -gt 0) { return }
     }
@@ -1422,12 +1493,7 @@ function Invoke-PackageVerify {
     )
 
     Write-PackageLog "[verify] Starting bundle verification..."
-    $bundleRoot = if ($Context.bundle_root) {
-        Resolve-ConfigPath -ProjectRoot $Context.project_root -Path $Context.bundle_root
-    }
-    else {
-        Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.dist_bundle_root)
-    }
+    $bundleRoot = [string]$Context.artifact_root
     if (-not (Test-Path -LiteralPath $bundleRoot)) {
         Write-PackageLog ("[verify]   FAIL: Bundle root not found: {0}" -f $bundleRoot)
         Add-StageResult -Report $Report -Name 'verify' -Status 'fail' -ExitCode 1 -Summary @{ reason = 'bundle_root_missing'; bundle_root = $bundleRoot }
@@ -1614,6 +1680,7 @@ function Invoke-ReproducibilityChildRelease {
         '-File', $packageScript,
         'release',
         '-Profile', 'release',
+        '-Flavor', [string]$Context.flavor,
         '-Config', [string]$Run.config_path,
         '-Json'
     )
@@ -1734,7 +1801,7 @@ function Invoke-PackageCommand {
     )
 
     Write-PackageLog ""
-    Write-PackageLog ("=== Package Command: {0} (profile: {1}) ===" -f $Context.command, $Context.profile)
+    Write-PackageLog ("=== Package Command: {0} (profile: {1}, flavor: {2}) ===" -f $Context.command, $Context.profile, $Context.flavor)
     $report = New-PackageContextReport -Context $Context
     switch ($Context.command) {
         'deps' {

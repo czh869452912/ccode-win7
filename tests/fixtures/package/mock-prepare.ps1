@@ -4,7 +4,8 @@ param(
     [switch]$AllowDownload,
     [string]$SitePackagesRoot = "",
     [string]$BuildRoot = "",
-    [string]$AssetCacheRoot = ""
+    [string]$AssetCacheRoot = "",
+    [string]$GuiLauncherExePath = ""
 )
 
 if (@($AssetIds).Count -eq 0) {

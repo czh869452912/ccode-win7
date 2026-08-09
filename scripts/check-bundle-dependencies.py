@@ -52,9 +52,22 @@ def load_runtime_contract() -> Dict:
         payload = json.load(handle)
     if not isinstance(payload, dict):
         raise ValueError("runtime contract must be a JSON object")
-    if not isinstance(payload.get("required_tools"), list):
-        raise ValueError("runtime contract missing required_tools array")
+    if payload.get("schema_version") != 2:
+        raise ValueError("runtime contract must use schema version 2")
+    if not isinstance(payload.get("runtime_components"), list):
+        raise ValueError("runtime contract missing runtime_components array")
     return payload
+
+
+def managed_runtime_tools(contract: Dict) -> List[Dict]:
+    tools = []
+    for component in contract.get("runtime_components") or []:
+        if not isinstance(component, dict):
+            continue
+        for tool in component.get("managed_tools") or []:
+            if isinstance(tool, dict):
+                tools.append(tool)
+    return tools
 
 
 def runtime_contract_summary(contract: Dict) -> Dict:
@@ -232,7 +245,7 @@ def check_external_tools(bundle_root: Path) -> Tuple[bool, List[str]]:
     errors = []
     contract = load_runtime_contract()
 
-    for tool in contract.get("required_tools") or []:
+    for tool in managed_runtime_tools(contract):
         if not isinstance(tool, dict):
             continue
         tool_id = str(tool.get("id") or "")
@@ -284,6 +297,7 @@ def check_release_gates(bundle_root: Path) -> Tuple[bool, List[str]]:
 
     required = [
         "runtime_contract",
+        "win7_cli_smoke",
         "cpp_smoke_workspace",
         "gui_headless_smoke",
         "win7_windowed_gui_smoke",

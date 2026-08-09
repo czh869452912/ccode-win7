@@ -7,6 +7,9 @@ param(
     [ValidateSet('dev', 'release')]
     [string]$Profile = '',
 
+    [ValidateSet('minimal-cli', 'cpp-desktop')]
+    [string]$Flavor = '',
+
     [string]$Config = 'scripts/package.config.json',
     [string]$BundleRoot = '',
     [string]$OutputRoot = '',
@@ -38,6 +41,7 @@ try {
         -ConfigPath $configPath `
         -Command $Command `
         -RequestedProfile $Profile `
+        -RequestedFlavor $Flavor `
         -BundleRoot $BundleRoot `
         -OutputRoot $OutputRoot `
         -ArtifactName $ArtifactName `
@@ -69,6 +73,9 @@ catch {
         $report = [ordered]@{
             command = $Command
             profile = $Profile
+            flavor = $Flavor
+            bundle_plan_path = ''
+            bundle_plan_sha256 = ''
             command_status = 'NOT_READY'
             final_status = $null
             blocking_issues = @($errorMessage)
