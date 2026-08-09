@@ -719,9 +719,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
         projected_workflow = projected["workflow_state"]["workflow"]
         self.assertEqual(projected_workflow["metadata"]["current_phase"], expected_phase)
-        self.assertEqual(
-            projected_workflow["metadata"]["discipline_profile"], expected_discipline
-        )
+        self.assertEqual(projected_workflow["metadata"]["discipline_profile"], expected_discipline)
         self.assertNotEqual(str(projected_workflow.get("summary") or ""), stale_summary)
         self.assertGreaterEqual(len(projected_workflow.get("items") or []), 1)
         self.assertNotIn("task_items", projected)

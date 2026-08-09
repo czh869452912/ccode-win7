@@ -980,7 +980,8 @@ def test_session_snapshot_projects_extension_state_and_diagnostics():
         ],
     )
 
-    assert snapshot["extensions"] == {"sample": {"state": {"enabled": True}}}
+    assert snapshot["workflow_state"]["extensions"] == {"sample": {"state": {"enabled": True}}}
+    assert "extensions" not in snapshot
     assert snapshot["extension_diagnostics"][0]["extension_id"] == "sample"
     assert snapshot["extension_diagnostics"][0]["error"] == "sample error"
 

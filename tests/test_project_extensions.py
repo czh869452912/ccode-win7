@@ -172,8 +172,10 @@ def test_inprocess_adapter_loads_enabled_project_extension_into_shared_manager(t
     snapshot = adapter.create_session(mode="build")
 
     assert adapter.project_extension_state["counts"]["loaded"] == 1
-    assert "project_extensions" in snapshot["extensions"]
-    assert snapshot["extensions"]["project_extensions"]["state"]["counts"]["loaded"] == 1
+    extensions = snapshot["workflow_state"]["extensions"]
+    assert "project_extensions" in extensions
+    assert extensions["project_extensions"]["state"]["counts"]["loaded"] == 1
+    assert "extensions" not in snapshot
     assert "project_echo" in adapter.extension_manager.allowed_tool_names("build")
 
 

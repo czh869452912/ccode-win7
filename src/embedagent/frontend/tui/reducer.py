@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Dict, Optional
 
-from embedagent.frontend.tui.state import TerminalState
 from embedagent.frontend.tui.shell_state import close_palette, open_palette
+from embedagent.frontend.tui.state import TerminalState
 
 
 def set_snapshot(state: TerminalState, snapshot: Dict[str, object]) -> None:

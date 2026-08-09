@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Callable, Dict
+from typing import Any
 
 from embedagent.frontend.tui.state import ContributionState
 

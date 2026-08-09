@@ -1003,10 +1003,6 @@ def test_tool_refresh_paths_use_read_model_invalidations_not_tool_name_lists():
     assert offenders == []
 
 
-
-
-
-
 def test_gui_command_result_session_switch_is_payload_driven():
     text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"
@@ -1258,8 +1254,6 @@ def test_gui_command_result_run_output_log_is_payload_driven():
     assert 'data?.success ? "ok" : "error"' not in text
 
 
-
-
 def test_gui_user_input_interactions_do_not_default_to_ask_user_tool():
     text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/interaction-model.js"
@@ -1383,32 +1377,6 @@ def test_global_mode_facade_uses_generic_profile_not_default_c_cpp():
     assert "global/base agent profile" in modes_text
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def test_gui_composer_slash_menu_does_not_keep_static_hint_fallbacks():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     composer_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Composer.jsx")
@@ -1422,22 +1390,6 @@ def test_gui_composer_slash_menu_does_not_keep_static_hint_fallbacks():
     assert "commandsFromHints" not in interaction_model_text
     assert "commandHints" not in interaction_model_text
     assert 'group: "command"' not in interaction_model_text
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def test_agent_core_has_no_harness_prompt_or_command_name_validation_coupling():
@@ -1571,10 +1523,6 @@ def test_gui_has_no_split_tool_catalog_facade():
         assert token not in core_adapter_text
 
 
-
-
-
-
 def test_gui_visual_debug_installation_is_controller_owned():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     controller_text = _read(
@@ -1594,8 +1542,6 @@ def test_gui_visual_debug_installation_is_controller_owned():
     assert "getLocationSearch" in controller_text
     assert "getCurrentMode" in controller_text
     assert "export function installVisualDebugFixtures" in fixtures_text
-
-
 
 
 def test_gui_has_no_retired_inspector_sidecar_state():
@@ -1658,10 +1604,6 @@ def test_gui_has_no_retired_inspector_sidecar_state():
         assert token not in inspector_text
 
 
-
-
-
-
 def test_gui_has_no_retired_workflow_runtime_panel_display_helper():
     removed_paths = (
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/workflow-display.js",
@@ -1700,8 +1642,6 @@ def test_gui_has_no_split_artifact_refetch_facade():
         assert token not in core_adapter_text
         assert token not in gui_server_text
         assert token not in gui_routes_text
-
-
 
 
 def test_gui_manual_and_styles_do_not_keep_artifact_browser_shell():
@@ -1862,8 +1802,6 @@ def test_renderer_transport_uses_canonical_envelope_ordering_fields():
     assert "event.timestamp" in source
 
 
-
-
 def test_gui_active_workspace_data_loading_is_controller_owned():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     loader_text = _read(
@@ -1889,18 +1827,6 @@ def test_gui_active_workspace_data_loading_is_controller_owned():
     assert "Promise.all([" in loader_text
     assert 'invoke(loadFileChildren, ".",' in loader_text
     assert "invoke(loadStatus, false," in loader_text
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def test_gui_runtime_state_does_not_reintroduce_removed_root_session_state():

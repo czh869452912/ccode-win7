@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from embedagent.frontend.tui.state import TerminalState
 from embedagent.frontend.tui.shell_state import visible_palette_commands
+from embedagent.frontend.tui.state import TerminalState
 
 
 def build_command_palette_text(state: TerminalState) -> str:

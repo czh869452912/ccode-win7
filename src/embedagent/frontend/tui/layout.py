@@ -88,9 +88,7 @@ class TerminalLayout(object):
                     Float(
                         content=ConditionalContainer(
                             content=self.command_palette,
-                            filter=Condition(
-                                lambda: self.owner.state.shell.command_palette.open
-                            ),
+                            filter=Condition(lambda: self.owner.state.shell.command_palette.open),
                         ),
                         top=3,
                         left=4,

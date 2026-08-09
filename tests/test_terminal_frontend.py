@@ -9,8 +9,8 @@ from embedagent_protocol import CommandDescriptor, ShellDescriptor, SurfaceDescr
 from prompt_toolkit.document import Document
 
 from embedagent.frontend.tui.completion import TerminalCompleter
-from embedagent.frontend.tui.state import TerminalState
 from embedagent.frontend.tui.shell_state import ShellState
+from embedagent.frontend.tui.state import TerminalState
 
 SHELL = ShellDescriptor(
     commands=[

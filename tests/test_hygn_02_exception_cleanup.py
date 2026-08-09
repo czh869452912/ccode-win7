@@ -107,7 +107,7 @@ class TestNoBareExceptBlocks:
                 "TypeError",
                 "RuntimeError",
             ],
-            "src/embedagent/frontend/tui/layout.py": ["ValueError", "TypeError"],
+            "src/embedagent/frontend/tui/shell_state.py": ["ValueError", "TypeError"],
             "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py": [
                 "OSError",
                 "ValueError",
