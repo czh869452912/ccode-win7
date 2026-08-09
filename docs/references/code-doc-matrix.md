@@ -20,7 +20,7 @@
 | GUI shell | `src/embedagent/frontend/gui/backend/`, `webapp/src/client-runtime/`, `app-runtime/`, `session-runtime/`, `components/shell/`, `components/contributions/` | `docs/platform/frontend-gui.md` | `docs/platform/frontend-protocol.md`, `docs/workflows/release-doc-checklist.md` |
 | TUI shell | `src/embedagent/frontend/tui/runtime.py`, `frontend_adapter.py`, `shell_state.py`, `controller.py`, `reducer.py`, `layout.py`, `views/`, `contributions.py` | `docs/platform/frontend-tui.md` | `docs/platform/frontend-protocol.md` |
 | C/C++ application | `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/` | `docs/applications/cpp-workflow.md` | `docs/platform/tools-and-extensions.md`, `docs/platform/mode-contract.md` |
-| Product composition | `src/embedagent/product_catalog.py`, product bootstrap/CLI/launchers, `packages/embedagent-composition/` | `docs/product/composition.md` | `docs/overall-solution-architecture.md`, `docs/platform/protocol.md` |
-| Packaging and delivery | `scripts/`, distribution metadata, bundled assets | `docs/product/packaging-and-deployment.md` | `docs/guides/win7-release-runbook.md`, `docs/workflows/release-doc-checklist.md` |
+| Product composition | `src/embedagent/product_catalog.py`, `bundle_catalog.py`, `bundle_policy.py`, product bootstrap/CLI/launchers, `packages/embedagent-composition/` | `docs/product/composition.md` | `docs/overall-solution-architecture.md`, `docs/platform/protocol.md` |
+| Packaging and delivery | `scripts/compile-bundle-plan.py`, package/export/prepare/build/validate/evidence scripts, `scripts/offline-runtime-contract.json`, `config/bundle-flavors/`, distribution metadata, bundled assets | `docs/product/packaging-and-deployment.md` | `docs/guides/win7-release-runbook.md`, `docs/workflows/release-doc-checklist.md` |
 
 所有权改变时，在同一变更中更新本表、primary authority 和 ADR（若需要长期理由）。不新增第二个全局地图。

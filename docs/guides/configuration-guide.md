@@ -126,6 +126,26 @@ Built-in application ids are:
 The equivalent environment variable is `EMBEDAGENT_AGENT_APPLICATION_ID`, and
 CLI/TUI/GUI launchers accept `--agent-application <id>`.
 
+## Packaged Flavor Restrictions
+
+开发树中的完整 registry 和离线 bundle 的可选范围不同。bundle 启动时会校验 `manifests/bundle-plan.json` 与 `bundle-manifest.json` 的 hash binding，然后只允许计划声明的 application 和 shell：
+
+| Flavor | Allowed application IDs | Available shells |
+|---|---|---|
+| `minimal-cli` | `embedagent.generic` | CLI |
+| `cpp-desktop` | `embedagent.default_c_cpp` | CLI, TUI, GUI |
+
+在 bundle 中省略 `agent_application_id` 会选择计划允许的首个 application。显式配置其他 built-in ID 会 fail closed，即使包含该代码的六个 project wheel 已安装。类似地，`minimal-cli` 不能通过 launcher 参数激活 TUI/GUI。
+
+打包选择由 packaging CLI 控制，不写入 workspace config：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/package.ps1 release -Profile release -Flavor minimal-cli
+powershell -ExecutionPolicy Bypass -File scripts/package.ps1 release -Profile release -Flavor cpp-desktop
+```
+
+省略 `-Flavor` 时使用 `cpp-desktop`。`-Profile` 只控制 dev/release assurance，`-Flavor` 只控制产品内容。官方模板位于 `config/bundle-flavors/`，模板不包含 `api_key`；真实 credential 只能进入未提交的用户/项目配置或环境变量。
+
 ## Writable Globs
 
 `mode_writable_globs` completely replaces the built-in write scope for a mode.

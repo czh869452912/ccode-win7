@@ -1,7 +1,7 @@
 # Win7 GUI 验证步骤
 
 > 更新日期：2026-07-19
-> 适用对象：已解压的离线 bundle，在真实 Windows 7 目标机上执行
+> 适用对象：已解压的 `cpp-desktop` 离线 bundle，在真实 Windows 7 目标机上执行；不适用于 `minimal-cli`
 
 ---
 

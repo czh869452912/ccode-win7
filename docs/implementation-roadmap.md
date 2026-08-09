@@ -12,10 +12,10 @@
 
 ## P0: Release Acceptance
 
-- 在干净的 Windows 7 SP1 x64 环境完成窗口化 GUI 冒烟。
-- 验证打包的 Fixed Version WebView2 109 和 bundle-local C smoke。
-- 生成并校验与制品哈希绑定的证据。
-- 仅当 `validate-release-evidence.py` 报告 `ACCEPTED` 时退出本阶段。
+- 对 `minimal-cli`，在干净 Windows 7 SP1 x64 环境验证 bundled Python 启动的 CLI Agent smoke，覆盖 session、read tool、permission/user-input continuation 与 restore。
+- 对 `cpp-desktop`，在独立干净 Windows 7 SP1 x64 环境验证 CLI smoke、Fixed Version WebView2 109 窗口化 GUI 和 bundle-local C smoke。
+- 每份报告必须匹配该 flavor 的 release identity、bundle plan/Agent lock hash 与精确 gate set；不得用另一个 flavor 的证据替代。
+- 仅当两个 official release flavor 各自被 `validate-release-evidence.py` 报告为 `ACCEPTED` 时退出本阶段。
 
 ## P1: Real C/C++ Project Validation
 
@@ -36,5 +36,6 @@
 ## Sequencing Rules
 
 - 始终保持 Python 3.8、Windows 7、离线运行和六发行包边界。
+- `-Profile` 只改变 assurance，`-Flavor` 只改变产品内容；默认 flavor 保持 `cpp-desktop`。
 - 不重新引入已退役的兼容路径。
 - 归档历史不得参与当前工作排序。

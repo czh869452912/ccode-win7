@@ -6,7 +6,7 @@
 > 类型：`product authority`
 > 负责人：`EmbedAgent product maintainers`
 > 最后同步日期：`2026-08-09`
-> 对应代码范围：`src/embedagent/`, `packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py`, `packages/embedagent-composition/src/embedagent_composition/`
+> 对应代码范围：`src/embedagent/`, `packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py`, `packages/embedagent-composition/src/embedagent_composition/`, `scripts/compile-bundle-plan.py`
 
 ## 1. Purpose And Boundary
 
@@ -18,7 +18,20 @@ EmbedAgent 是本仓库对 Agent Platform、application records、provider/tools
 
 ### Build-Time Definition
 
-`embedagent-composition` 是无运行时依赖的中立编译/导出层，提供 `AgentProductDefinition`, `ComponentManifest`, `compile_agent()` 和 `export_agent()`。它不是 product bootstrap，不导入 Core、Host、Protocol 或任何工作流。
+`embedagent-composition` 是无运行时依赖的中立编译/导出层，提供 `AgentProductDefinition`, `ComponentManifest`, `compile_agent()` 和 `export_agent()`，以及 `OfficialBundleRecipe`, `FrozenBundleRecipeRegistry` 和 `compile_bundle_plan()`。它不是 product bootstrap，不导入 Core、Host、Protocol 或任何工作流。
+
+`src/embedagent/bundle_catalog.py` 是产品 component catalog 与官方 recipe 的唯一所有者。catalog 描述 distribution、profile、provider、toolset、workflow 和 shell 的依赖及 runtime requirements；recipe 只选择产品定义、shell 和配置模板，不枚举 asset path、wheel name 或 release gate。`scripts/compile-bundle-plan.py` 将 recipe、target、assurance、runtime contract 和 asset manifest 编译成只读 `CompiledBundlePlan`，并同时导出 `bundle-plan.json`, `agent.json` 和 `agent.lock.json`。
+
+当前官方 flavor：
+
+| Flavor | Agent application | Shells | Product scope |
+|---|---|---|---|
+| `minimal-cli` | `embedagent.generic` | CLI | workflow-neutral 最小 Agent，不激活 C/C++ workflow、TUI 或 GUI |
+| `cpp-desktop` | `embedagent.default_c_cpp` | CLI, TUI, GUI | 默认完整 C/C++ desktop 产品 |
+
+`cpp-desktop` 是省略 `-Flavor` 时的默认值。`-Flavor` 选择产品内容，`-Profile dev|release` 只选择 assurance；二者正交。任意私有 `AgentProductDefinition` 仍可使用中立 composition API 编译，但只有冻结 registry 中的 recipe 是本产品可打包的公开 flavor。
+
+编译计划是 export、staging、validation、release identity、target evidence 和 runtime bootstrap 的共同输入。未知 recipe/component/requirement/provider/asset/feature/launcher/gate/schema 或 hash 必须在输出变更前失败，后续阶段不得重新推导另一份产品选择。
 
 ### Runtime Application Registry
 
@@ -33,6 +46,8 @@ EmbedAgent 是本仓库对 Agent Platform、application records、provider/tools
 - app-shell commands/surfaces/capability restrictions。
 
 Host 的 base registry 当前提供 generic、Python 和 HTML profile records。`src/embedagent/product_catalog.py` 在此基础上注册 packaged C/C++ workflow record，并将它设为 EmbedAgent 默认应用。C/C++ record 是当前唯一具有独立 workflow distribution 的默认产品应用。
+
+开发源码中的 registry 可包含全部 records；bundle runtime 不能据此扩大制品能力。`src/embedagent/bundle_policy.py` 校验 embedded plan 与 bundle manifest 的 flavor/hash binding，并只向 Host 暴露计划允许的 application IDs。空 application 选择解析为计划中的首个允许项；显式选择未打包 application 会 fail closed，即使对应 Python distribution 物理存在。
 
 ### Product Bootstrap
 
@@ -76,6 +91,8 @@ flowchart TD
 
 GUI/TUI 都是平台级注册 shell。产品层选择启动 shell，并注入 core/host factory、application registry、product metadata 和 bundled runtime 路径。shell 不得反向读取应用 catalog 的细节作为 UI policy。
 
+打包运行时还必须先通过 `BundleRuntimePolicy.require_shell(...)`。`minimal-cli` 只允许 CLI；TUI/GUI 入口在该 flavor 中既不 staging，也不能通过源码或 wheel 的物理存在被激活。开发树不发现 bundle 时保持 unrestricted，便于使用全部已注册 shell 和 application。
+
 产品维护一个 `ShellContributionRegistry`：generic contribution 定义最小 session/timeline/composer/interaction 能力，selected application 只追加其 commands、surfaces、tool presentation、timeline item 和 interaction records。`compile_shell_descriptor(...)` 合并两层记录，按当前 session capabilities 过滤 application commands，校验唯一 id/order、dispatch kind、renderer key 和 keybinding target，并产出 schema version 1 的 `ShellDescriptor`。
 
 GUI app bootstrap 与 TUI launcher 调用同一个 product shell compiler。两者没有本地固定 catalog、兼容 fallback 或第二条注册路径。renderer registry 只声明该 shell 构建实际支持的通用 renderer key；它不是产品能力真相。
@@ -84,7 +101,7 @@ EmbedAgent 默认组合注册最小核心以及 desktop files、terminal、sourc
 
 ## 5. Configuration And Offline Defaults
 
-EmbedAgent 默认离线，运行时只从 bundle/config/workspace 中解析 provider、tools、resources 和 application。`config/config.json` 可包含 API key，不得提交或进入 telemetry/diagnostics。optional intranet adapters 必须显式可禁用并通过正常 network permission。
+EmbedAgent 默认离线，运行时只从 bundle/config/workspace 中解析 provider、tools、resources 和 application。官方 flavor 分别使用 `config/bundle-flavors/minimal-cli.json` 与 `cpp-desktop.json`；模板不含 `api_key` 或 credential 字段。用户生成的 `config/config.json` 可包含 API key，不得提交或进入 telemetry/diagnostics。optional intranet adapters 必须显式可禁用并通过正常 network permission。
 
 ## 6. Verification
 
@@ -94,6 +111,11 @@ EmbedAgent 默认离线，运行时只从 bundle/config/workspace 中解析 prov
 - `tests/test_gui_app_host.py`
 - `tests/test_terminal_frontend.py`
 - `tests/test_python_distribution_contract.py`
+- `tests/test_agent_composition.py`
+- `tests/test_bundle_plan.py`
+- `tests/test_product_bundle_recipes.py`
+- `tests/test_bundle_runtime_policy.py`
+- `tests/test_packaging_control_plane.py`
 - `tests/test_current_architecture_boundaries.py`
 
 ## 7. Related Documents

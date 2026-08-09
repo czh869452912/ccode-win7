@@ -91,11 +91,11 @@ Shells may render modes, commands, surfaces, thread actions, tool presentation, 
 
 ## Offline Runtime And Release Evidence
 
-Runtime must work on a clean Windows 7 SP1 x64 machine without network or preinstalled developer tools. The bundle carries Python 3.8 embeddable, vendored dependencies, MinGit/Bash, ripgrep, Universal Ctags, LLVM/Clang children, Fixed Version WebView2 109, and every invoked binary. `scripts/offline-runtime-contract.json` is the single contract for runtime assets and release gates.
+Runtime must work on a clean Windows 7 SP1 x64 machine without network or preinstalled plan-selected tools. Every official bundle carries Python 3.8 embeddable, vendored dependencies, MinGit/Bash, ripgrep, Universal Ctags, and every binary selected by its immutable bundle plan. The default `cpp-desktop` flavor additionally carries LLVM/Clang children and Fixed Version WebView2 109; `minimal-cli` does not advertise or stage those capabilities. `scripts/offline-runtime-contract.json` is the single contract for runtime assets and release gates.
 
 The six project wheels are built, checked, and smoke-tested before wheel-only offline staging. Product files live under `app/embedagent`; lower distributions live under `runtime/site-packages`. Runtime network resolution, editable links, or a duplicate product package are defects.
 
-Repository status may reach `TARGET_READY`, but `publishable=false` remains until hash-bound evidence from a clean Windows 7 target validates windowed GUI startup, WebView2 loading, and bundle-local C smoke. Local tests and hosted Windows CI do not replace target evidence.
+Repository status may reach `TARGET_READY`, but `publishable=false` remains until hash-bound evidence from a clean Windows 7 target validates the exact gate set in that flavor's release identity. Minimal acceptance requires bundle-local CLI Agent smoke; desktop acceptance additionally requires windowed GUI/WebView2 and bundle-local C smoke. Local tests and hosted Windows CI do not replace target evidence.
 
 ## Pre-Release Change Rule
 
