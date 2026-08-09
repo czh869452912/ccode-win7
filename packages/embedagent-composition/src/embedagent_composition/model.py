@@ -26,6 +26,7 @@ class ComponentManifest:
     conflicts: Tuple[str, ...] = field(default_factory=tuple)
     permission_categories: Tuple[str, ...] = field(default_factory=tuple)
     runtime_assets: Tuple[str, ...] = field(default_factory=tuple)
+    runtime_requirements: Tuple[str, ...] = field(default_factory=tuple)
     resource_scopes: Tuple[str, ...] = field(default_factory=tuple)
     namespaces: Tuple[str, ...] = field(default_factory=tuple)
 
@@ -39,6 +40,7 @@ class ComponentManifest:
             "conflicts": list(self.conflicts),
             "permission_categories": list(self.permission_categories),
             "runtime_assets": list(self.runtime_assets),
+            "runtime_requirements": list(self.runtime_requirements),
             "resource_scopes": list(self.resource_scopes),
             "namespaces": list(self.namespaces),
         }
@@ -53,7 +55,7 @@ class AgentProductDefinition:
     tools: Tuple[ComponentRef, ...] = field(default_factory=tuple)
     resources: Tuple[ComponentRef, ...] = field(default_factory=tuple)
     host: Optional[ComponentRef] = None
-    gui: Optional[ComponentRef] = None
+    shells: Tuple[ComponentRef, ...] = field(default_factory=tuple)
 
     def component_refs(self) -> Tuple[ComponentRef, ...]:
         refs = [self.profile]
@@ -63,8 +65,7 @@ class AgentProductDefinition:
         refs.extend(self.resources)
         if self.host is not None:
             refs.append(self.host)
-        if self.gui is not None:
-            refs.append(self.gui)
+        refs.extend(self.shells)
         return tuple(refs)
 
 

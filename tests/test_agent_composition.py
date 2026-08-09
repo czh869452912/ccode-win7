@@ -8,7 +8,15 @@ from embedagent_composition.export import export_agent
 from embedagent_composition.model import AgentProductDefinition, ComponentManifest, ComponentRef
 
 
-def manifest(component_id, kind, requires=(), conflicts=(), assets=(), namespaces=()):
+def manifest(
+    component_id,
+    kind,
+    requires=(),
+    conflicts=(),
+    assets=(),
+    namespaces=(),
+    runtime_requirements=(),
+):
     return ComponentManifest(
         component_id=component_id,
         kind=kind,
@@ -18,6 +26,7 @@ def manifest(component_id, kind, requires=(), conflicts=(), assets=(), namespace
         conflicts=tuple(conflicts),
         runtime_assets=tuple(assets),
         namespaces=tuple(namespaces),
+        runtime_requirements=tuple(runtime_requirements),
     )
 
 
@@ -139,3 +148,49 @@ def test_catalog_rejects_duplicate_namespace_and_asset_escape():
     with pytest.raises(CompositionError) as escape:
         safe.register(manifest("safe", "profile", assets=("../escape.txt",)))
     assert escape.value.code == "unsafe_asset_path"
+
+
+def test_shells_and_runtime_requirements_are_compiled_deterministically():
+    catalog = ComponentCatalog()
+    catalog.register(manifest("profile", "profile"))
+    catalog.register(
+        manifest(
+            "shell.cli",
+            "shell",
+            runtime_requirements=("runtime.python", "search.rg"),
+        )
+    )
+    definition = AgentProductDefinition(
+        agent_id="tests.agent",
+        profile=ComponentRef("profile"),
+        shells=(ComponentRef("shell.cli"),),
+    )
+
+    compiled = compile_agent(definition, catalog.freeze())
+
+    shell_ids = tuple(ref.component_id for ref in definition.component_refs())
+    assert shell_ids.count("shell.cli") == 1
+    components = dict(
+        (item["component_id"], item) for item in compiled.manifest["components"]
+    )
+    assert components["shell.cli"]["runtime_requirements"] == [
+        "runtime.python",
+        "search.rg",
+    ]
+
+
+@pytest.mark.parametrize(
+    "requirement",
+    ("", "Runtime.Python", "runtime python", "runtime/python", "runtime..python"),
+)
+def test_catalog_rejects_invalid_runtime_requirement(requirement):
+    catalog = ComponentCatalog()
+    with pytest.raises(CompositionError) as error:
+        catalog.register(
+            manifest(
+                "invalid",
+                "profile",
+                runtime_requirements=(requirement,),
+            )
+        )
+    assert error.value.code == "invalid_runtime_requirement"

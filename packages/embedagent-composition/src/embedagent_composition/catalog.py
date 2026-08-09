@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import re
 from pathlib import PurePosixPath
 from typing import Dict, Tuple
 
 from .errors import CompositionError
 from .model import ComponentManifest
+
+
+_RUNTIME_REQUIREMENT_RE = re.compile(r"^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9_-]*)+$")
 
 
 def _validate_asset_path(value: str) -> None:
@@ -44,6 +48,10 @@ class ComponentCatalog(object):
             raise CompositionError("invalid_component", component_id)
         for asset in manifest.runtime_assets:
             _validate_asset_path(asset)
+        for requirement in manifest.runtime_requirements:
+            value = str(requirement or "").strip()
+            if not _RUNTIME_REQUIREMENT_RE.match(value):
+                raise CompositionError("invalid_runtime_requirement", value)
         self._manifests[component_id] = manifest
 
     def freeze(self) -> FrozenComponentCatalog:
