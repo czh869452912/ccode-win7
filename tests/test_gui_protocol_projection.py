@@ -77,7 +77,6 @@ class GuiProtocolProjectionTests(unittest.TestCase):
                 "snapshot",
                 "history",
                 "capabilities",
-                "workflow",
                 "plan",
                 "permission_context",
             },
@@ -96,7 +95,10 @@ class GuiProtocolProjectionTests(unittest.TestCase):
             payload["capabilities"]["agent_applications"][0]["profile_id"],
             "tests.python.profile",
         )
-        self.assertEqual(payload["workflow"]["package_id"], "workflow-python")
+        self.assertEqual(
+            payload["snapshot"]["workflow_state"]["package_id"],
+            "workflow-python",
+        )
         self.assertEqual(payload["event_cursor"], 7)
         wire = json.dumps(payload)
         self.assertNotIn("agentApplication", wire)
@@ -114,8 +116,8 @@ class GuiProtocolProjectionTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(payload["snapshot"]["workflow_state"], "")
-        self.assertEqual(payload["workflow"], {})
+        self.assertEqual(payload["snapshot"]["workflow_state"], {})
+        self.assertNotIn("workflow", payload)
         self.assertEqual(payload["event_cursor"], 0)
 
     def test_session_bootstrap_rejects_negative_event_cursor(self):
@@ -144,7 +146,7 @@ class GuiProtocolProjectionTests(unittest.TestCase):
     def test_core_adapter_does_not_invent_missing_workflow_state(self):
         snapshot = _session_snapshot_from_dict({})
 
-        self.assertEqual(snapshot.workflow_state, "")
+        self.assertEqual(snapshot.workflow_state, {})
 
     def test_managed_session_defaults_to_empty_workflow_state(self):
         managed = ManagedSession(session_id="sess-managed", current_mode="")

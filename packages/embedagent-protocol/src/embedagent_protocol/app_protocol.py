@@ -451,7 +451,6 @@ class SessionBootstrap:
     snapshot: Dict[str, Any]
     activities: List[Any]
     capabilities: CapabilitySnapshot
-    workflow: Dict[str, Any] = field(default_factory=dict)
     integrity: Dict[str, Any] = field(default_factory=dict)
     plan: Optional[Dict[str, Any]] = None
     permission_context: Dict[str, Any] = field(default_factory=dict)
@@ -468,7 +467,6 @@ class SessionBootstrap:
         _require_list(self.activities, "activities")
         if not isinstance(self.capabilities, CapabilitySnapshot):
             raise ValueError("capabilities must be a CapabilitySnapshot")
-        _require_mapping(self.workflow, "workflow")
         _require_mapping(self.integrity, "integrity")
         if self.plan is not None:
             _require_mapping(self.plan, "plan")
@@ -485,7 +483,6 @@ class SessionBootstrap:
                 "integrity": _require_mapping(self.integrity, "integrity"),
             },
             "capabilities": self.capabilities.to_dict(),
-            "workflow": _require_mapping(self.workflow, "workflow"),
             "plan": _require_mapping(self.plan, "plan") if self.plan is not None else None,
             "permission_context": _require_mapping(
                 self.permission_context,

@@ -61,3 +61,20 @@ def test_generic_product_shell_has_no_cpp_contribution():
 
     ids = {item.id for item in descriptor.commands}
     assert "workflow.run" not in ids
+
+
+def test_minimal_product_shell_keeps_interactions_out_of_command_palette():
+    descriptor = product_shell_registry().compile(
+        application_id=GENERIC_AGENT_APPLICATION_ID,
+        session_capabilities={"commands": []},
+    )
+
+    commands = dict((item.id, item) for item in descriptor.commands)
+    assert "interaction.permission.respond" not in commands
+    assert "interaction.input.respond" not in commands
+    assert commands["session.rename"].availability == {"visible_when": "has_session"}
+    assert commands["session.archive"].availability == {"visible_when": "has_session"}
+    assert commands["session.fork"].availability == {"visible_when": "has_session"}
+    assert commands["session.cancel"].availability == {"visible_when": "running"}
+    assert commands["session.mode"].availability == {"visible_when": "has_session"}
+    assert commands["workspace.files"].availability == {"visible_when": "has_workspace"}

@@ -117,7 +117,27 @@ class _FakeCoreWithTimeline(_FakeCore):
                 "current_mode": "build",
                 "created_at": "2026-04-04T00:00:00Z",
                 "updated_at": "2026-04-04T00:00:00Z",
-                "workflow_state": "chat",
+                "workflow_state": {
+                    "workflow": {
+                        "id": "c_harness",
+                        "label": "C Harness",
+                        "state": "active",
+                        "summary": "in_progress build:implement",
+                        "activity": "build harness active (implement)",
+                        "items": [
+                            {
+                                "id": 1,
+                                "content": "build:implement",
+                                "status": "in_progress",
+                                "done": False,
+                            }
+                        ],
+                        "metadata": {
+                            "current_phase": "implement",
+                            "discipline_profile": "lite_spec_tdd",
+                        },
+                    }
+                },
                 "has_active_plan": False,
                 "active_plan_ref": "",
                 "current_command_context": "",
@@ -156,13 +176,6 @@ class _FakeCoreWithTimeline(_FakeCore):
                     "completed": [{"kind": "file_created", "path": "README.md"}],
                     "next_steps": ["Run validation for the changed files."],
                 },
-                "current_phase": "implement",
-                "discipline_profile": "lite_spec_tdd",
-                "current_activity": "build harness active (implement)",
-                "task_summary": "in_progress build:implement",
-                "task_items": [
-                    {"id": 1, "content": "build:implement", "status": "in_progress", "done": False}
-                ],
             },
             "history": {
                 "session_id": session_id,
@@ -293,7 +306,27 @@ class _SnapshotCore(_FakeCore):
                 "current_mode": "build",
                 "created_at": "2026-04-04T00:00:00Z",
                 "updated_at": "2026-04-04T00:00:00Z",
-                "workflow_state": "chat",
+                "workflow_state": {
+                    "workflow": {
+                        "id": "c_harness",
+                        "label": "C Harness",
+                        "state": "active",
+                        "summary": "in_progress build:implement",
+                        "activity": "build harness active (implement)",
+                        "items": [
+                            {
+                                "id": 1,
+                                "content": "build:implement",
+                                "status": "in_progress",
+                                "done": False,
+                            }
+                        ],
+                        "metadata": {
+                            "current_phase": "implement",
+                            "discipline_profile": "lite_spec_tdd",
+                        },
+                    }
+                },
                 "has_active_plan": False,
                 "active_plan_ref": "",
                 "current_command_context": "",
@@ -304,13 +337,6 @@ class _SnapshotCore(_FakeCore):
                 "runtime_environment": None,
                 "pending_interaction_valid": False,
                 "restore_stop_reason": self.stop_reason,
-                "current_phase": "implement",
-                "discipline_profile": "lite_spec_tdd",
-                "current_activity": "build harness active (implement)",
-                "task_summary": "in_progress build:implement",
-                "task_items": [
-                    {"id": 1, "content": "build:implement", "status": "in_progress", "done": False}
-                ],
             },
         )()
 
@@ -750,7 +776,6 @@ class TestGuiBackendApi(unittest.TestCase):
                 "snapshot",
                 "history",
                 "capabilities",
-                "workflow",
                 "plan",
                 "permission_context",
             },
@@ -999,9 +1024,12 @@ class TestGuiBackendApi(unittest.TestCase):
             payload = asyncio.run(route.endpoint("sess-1"))
         self.assertNotIn("timeline" + "_replay_status", payload)
         self.assertEqual(payload["restore_stop_reason"], "transcript_missing")
-        self.assertEqual(payload["current_phase"], "implement")
-        self.assertEqual(payload["discipline_profile"], "lite_spec_tdd")
-        self.assertEqual(payload["task_items"][0]["content"], "build:implement")
+        workflow = payload["workflow_state"]["workflow"]
+        self.assertEqual(workflow["metadata"]["current_phase"], "implement")
+        self.assertEqual(workflow["metadata"]["discipline_profile"], "lite_spec_tdd")
+        self.assertEqual(workflow["items"][0]["content"], "build:implement")
+        self.assertNotIn("current_phase", payload)
+        self.assertNotIn("task_items", payload)
 
 
 if __name__ == "__main__":

@@ -74,6 +74,35 @@ def test_gui_session_bootstrap_serializes_history_without_replay_payload():
     assert "replay" not in encoded
 
 
+def test_generic_snapshot_keeps_workflow_only_in_the_carrier():
+    payload = serialize_session_bootstrap(
+        {
+            "snapshot": {
+                "session_id": "session-1",
+                "status": "idle",
+                "workflow_state": {
+                    "workflow": {
+                        "id": "example",
+                        "summary": "Build project",
+                        "items": [{"id": "task-1"}],
+                    }
+                },
+            },
+            "history": {"activities": []},
+        }
+    )
+    snapshot = payload["snapshot"]
+    assert snapshot["workflow_state"]["workflow"]["summary"] == "Build project"
+    for retired in (
+        "current_phase",
+        "discipline_profile",
+        "current_activity",
+        "task_summary",
+        "task_items",
+    ):
+        assert retired not in snapshot
+
+
 def test_hosted_command_permissions_use_the_core_action_pipeline_once():
     adapter_source = _read(HOST_SOURCE / "inprocess_adapter.py")
     command_source = _read(HOST_SOURCE / "hosted_command_service.py")

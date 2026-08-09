@@ -234,7 +234,7 @@ class SessionSnapshot:
     current_mode: str
     created_at: str
     updated_at: str
-    workflow_state: str = ""
+    workflow_state: Dict[str, Any] = field(default_factory=dict)
     has_active_plan: bool = False
     active_plan_ref: str = ""
     current_command_context: str = ""
@@ -263,11 +263,6 @@ class SessionSnapshot:
     turn_experience: Dict[str, Any] = field(default_factory=dict)
     pending_interaction: Optional[Dict[str, Any]] = None
     pending_interaction_valid: bool = False
-    current_phase: str = ""
-    discipline_profile: str = ""
-    current_activity: str = ""
-    task_summary: str = ""
-    task_items: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass

@@ -270,15 +270,10 @@ def serialize_app_bootstrap(payload: Any) -> Dict[str, Any]:
 
 def serialize_session_bootstrap(payload: Any) -> Dict[str, Any]:
     data = _normal_mapping(payload)
-    raw_snapshot = data.get("snapshot")
-    raw_snapshot_mapping = _normal_mapping(raw_snapshot)
     snapshot_payload = serialize_session_snapshot(data.get("snapshot"))
     session_id = str(snapshot_payload.get("session_id") or data.get("session_id") or "")
     thread = _normal_mapping(data.get("thread"))
     history = _normal_mapping(data.get("history"))
-    workflow = raw_snapshot_mapping.get("workflow_state")
-    if not isinstance(workflow, dict):
-        workflow = _normal_mapping(data.get("workflow"))
     event_cursor = data.get("event_cursor", 0)
     if isinstance(event_cursor, bool) or not isinstance(event_cursor, int):
         raise ValueError("event_cursor must be an integer")
@@ -297,7 +292,6 @@ def serialize_session_bootstrap(payload: Any) -> Dict[str, Any]:
         snapshot=snapshot_payload,
         activities=_normal_list(history.get("activities")),
         capabilities=_protocol_capability_snapshot(data.get("capabilities")),
-        workflow=workflow,
         integrity=dict(history.get("integrity") or {}),
         plan=serialize_plan_snapshot(data.get("plan")),
         permission_context=serialize_permission_context(data.get("permission_context")),
@@ -316,7 +310,7 @@ def serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
         "current_mode": str(read_value(snapshot, "current_mode", "") or ""),
         "started_at": str(read_value(snapshot, "started_at", "", aliases=("created_at",)) or ""),
         "updated_at": str(read_value(snapshot, "updated_at", "") or ""),
-        "workflow_state": read_value(snapshot, "workflow_state", "") or "",
+        "workflow_state": dict(read_value(snapshot, "workflow_state", {}) or {}),
         "has_active_plan": bool(read_value(snapshot, "has_active_plan", False)),
         "active_plan_ref": str(read_value(snapshot, "active_plan_ref", "") or ""),
         "current_command_context": str(read_value(snapshot, "current_command_context", "") or ""),
@@ -355,11 +349,6 @@ def serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
         "compaction_state": dict(read_value(snapshot, "compaction_state", {}) or {}),
         "recovery_state": dict(read_value(snapshot, "recovery_state", {}) or {}),
         "turn_experience": dict(read_value(snapshot, "turn_experience", {}) or {}),
-        "current_phase": str(read_value(snapshot, "current_phase", "") or ""),
-        "discipline_profile": str(read_value(snapshot, "discipline_profile", "") or ""),
-        "current_activity": str(read_value(snapshot, "current_activity", "") or ""),
-        "task_summary": str(read_value(snapshot, "task_summary", "") or ""),
-        "task_items": list(read_value(snapshot, "task_items", []) or []),
     }
 
 

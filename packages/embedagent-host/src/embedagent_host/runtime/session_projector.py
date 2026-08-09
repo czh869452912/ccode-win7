@@ -29,21 +29,11 @@ def _normalize_recent_transitions(items: List[Dict[str, Any]]) -> List[Dict[str,
     return normalized
 
 
-def _workflow_from_projection(projection: Dict[str, Any]) -> Dict[str, Any]:
+def _workflow_state_from_projection(projection: Dict[str, Any]) -> Dict[str, Any]:
     workflow_state = dict(projection.get("workflow_state") or {})
     if not isinstance(workflow_state, dict):
         return {}
-    workflow = workflow_state.get("workflow") or {}
-    if not isinstance(workflow, dict):
-        return {}
-    return dict(workflow)
-
-
-def _workflow_metadata(workflow: Dict[str, Any]) -> Dict[str, Any]:
-    metadata = workflow.get("metadata") or {}
-    if not isinstance(metadata, dict):
-        return {}
-    return dict(metadata)
+    return workflow_state
 
 
 class SessionSnapshotProjector(object):
@@ -65,21 +55,7 @@ class SessionSnapshotProjector(object):
             list(summary_payload.get("recent_transitions") or [])
         )
         core_projection = dict(getattr(state, "projection", {}) or {})
-        workflow = _workflow_from_projection(core_projection)
-        metadata = _workflow_metadata(workflow)
-        workflow_items = list(workflow.get("items") or [])
-        workflow_phase = str(metadata.get("current_phase") or workflow.get("current_phase") or "")
-        workflow_discipline = str(
-            metadata.get("discipline_profile") or workflow.get("discipline_profile") or ""
-        )
-        workflow_summary = str(workflow.get("summary") or "")
-        workflow_activity = str(workflow.get("activity") or "")
-        workflow_state = dict(core_projection.get("workflow_state") or {})
-        extensions = {}
-        if isinstance(workflow_state, dict):
-            raw_extensions = workflow_state.get("extensions") or {}
-            if isinstance(raw_extensions, dict):
-                extensions = dict(raw_extensions)
+        workflow_state = _workflow_state_from_projection(core_projection)
         return {
             "session_id": state.session_id,
             "status": state.status,
@@ -88,7 +64,7 @@ class SessionSnapshotProjector(object):
                 summary_payload.get("started_at") or core_projection.get("started_at") or ""
             ),
             "updated_at": str(summary_payload.get("updated_at") or state.updated_at),
-            "workflow_state": state.workflow_state,
+            "workflow_state": workflow_state,
             "has_active_plan": bool(state.active_plan_ref),
             "active_plan_ref": state.active_plan_ref,
             "current_command_context": state.current_command_context,
@@ -128,13 +104,6 @@ class SessionSnapshotProjector(object):
             "recovery_state": dict(getattr(state, "recovery_state", {}) or {}),
             "turn_experience": dict(getattr(state, "turn_experience", {}) or {}),
             "pending_interaction_valid": bool(pending_interaction),
-            "current_phase": workflow_phase,
-            "discipline_profile": workflow_discipline,
-            "current_activity": workflow_activity,
-            "task_summary": workflow_summary,
-            "task_items": workflow_items,
-            "workflow": workflow,
-            "extensions": extensions,
             "extension_diagnostics": list(extension_diagnostics or []),
             "runtime_source": str(runtime_payload.get("runtime_source") or ""),
             "bundled_tools_ready": bool(runtime_payload.get("bundled_tools_ready")),

@@ -3,19 +3,6 @@ from __future__ import annotations
 from typing import Any, Dict
 
 
-def _display_rows(phase: str, discipline: str, activity: str):
-    rows = []
-    for key, label_key, value in (
-        ("current_phase", "inspector.currentPhase", phase),
-        ("discipline_profile", "inspector.disciplineProfile", discipline),
-        ("current_activity", "inspector.currentActivity", activity),
-    ):
-        text = str(value or "")
-        if text:
-            rows.append({"key": key, "label_key": label_key, "value": text})
-    return rows
-
-
 def build_c_harness_workflow_projection(graph: Any, context: Any = None) -> Dict[str, Any]:
     summary = str(graph.render_summary())
     items = list(graph.to_items())
@@ -38,6 +25,5 @@ def build_c_harness_workflow_projection(graph: Any, context: Any = None) -> Dict
         "metadata": {
             "current_phase": phase,
             "discipline_profile": discipline,
-            "display_rows": _display_rows(phase, discipline, activity),
         },
     }

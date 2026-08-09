@@ -121,7 +121,11 @@ class AgentAppProtocolTests(unittest.TestCase):
                 updated_at="2026-07-02T10:00:00Z",
                 pending_interaction=True,
             ),
-            snapshot={"session_id": "sess-1", "status": "waiting_permission"},
+            snapshot={
+                "session_id": "sess-1",
+                "status": "waiting_permission",
+                "workflow_state": {"workflow": {"id": "workflow-python"}},
+            },
             activities=[
                 InteractionActivity(
                     id="act-1",
@@ -137,13 +141,14 @@ class AgentAppProtocolTests(unittest.TestCase):
                 )
             ],
             capabilities=CapabilitySnapshot(schema_version=1),
-            workflow={"package_id": "workflow-python"},
             integrity={"status": "healthy"},
         )
 
         payload = detail.to_dict()
 
         self.assertEqual(payload["history"]["activities"][0]["kind"], "approval.requested")
+        self.assertEqual(payload["snapshot"]["workflow_state"]["workflow"]["id"], "workflow-python")
+        self.assertNotIn("workflow", payload)
         self.assertNotIn("timeline", payload)
         self.assertNotIn("turns", payload["history"])
         json.dumps(payload)
@@ -360,7 +365,7 @@ class AgentAppProtocolTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     factory()
 
-    def test_session_snapshot_preserves_missing_workflow_state(self):
+    def test_session_snapshot_defaults_to_generic_workflow_carrier(self):
         snapshot = SessionSnapshot(
             session_id="s-1",
             status=SessionStatus.IDLE,
@@ -369,7 +374,17 @@ class AgentAppProtocolTests(unittest.TestCase):
             updated_at="",
         )
 
-        self.assertEqual(snapshot.workflow_state, "")
+        self.assertEqual(snapshot.workflow_state, {})
+        self.assertEqual(
+            {
+                "current_phase",
+                "discipline_profile",
+                "current_activity",
+                "task_summary",
+                "task_items",
+            }.intersection(snapshot.__dataclass_fields__),
+            set(),
+        )
 
 
 if __name__ == "__main__":

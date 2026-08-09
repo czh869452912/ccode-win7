@@ -324,23 +324,6 @@ def test_c_harness_workflow_projection_builder_shapes_generic_payload():
     assert workflow["metadata"] == {
         "current_phase": "context-phase",
         "discipline_profile": "context-discipline",
-        "display_rows": [
-            {
-                "key": "current_phase",
-                "label_key": "inspector.currentPhase",
-                "value": "context-phase",
-            },
-            {
-                "key": "discipline_profile",
-                "label_key": "inspector.disciplineProfile",
-                "value": "context-discipline",
-            },
-            {
-                "key": "current_activity",
-                "label_key": "inspector.currentActivity",
-                "value": "context activity",
-            },
-        ],
     }
 
 
@@ -401,14 +384,23 @@ def test_snapshot_projector_prefers_generic_workflow_state():
 
     snapshot = SessionSnapshotProjector().build_snapshot(state, summary={}, runtime={})
 
-    assert snapshot["workflow"]["id"] == "fake_workflow"
-    assert snapshot["current_phase"] == "workflow:phase"
-    assert snapshot["discipline_profile"] == "workflow:discipline"
-    assert snapshot["current_activity"] == "workflow activity"
-    assert snapshot["task_summary"] == "workflow summary"
-    assert snapshot["task_items"] == [
+    workflow = snapshot["workflow_state"]["workflow"]
+    assert workflow["id"] == "fake_workflow"
+    assert workflow["metadata"]["current_phase"] == "workflow:phase"
+    assert workflow["metadata"]["discipline_profile"] == "workflow:discipline"
+    assert workflow["activity"] == "workflow activity"
+    assert workflow["summary"] == "workflow summary"
+    assert workflow["items"] == [
         {"id": "task-1", "content": "workflow task", "status": "in_progress"}
     ]
+    for retired in (
+        "current_phase",
+        "discipline_profile",
+        "current_activity",
+        "task_summary",
+        "task_items",
+    ):
+        assert retired not in snapshot
 
 
 def test_session_snapshot_projector_no_longer_reads_task_graph_directly():

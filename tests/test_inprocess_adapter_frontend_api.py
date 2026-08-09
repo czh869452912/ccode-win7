@@ -616,7 +616,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.snapshot = self.adapter.create_session("build")
 
     def test_session_starts_with_explicit_empty_workflow_state(self):
-        self.assertEqual(self.snapshot["workflow_state"], "")
+        self.assertIsInstance(self.snapshot["workflow_state"], dict)
+        self.assertNotIn("workflow", self.snapshot["workflow_state"])
 
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
@@ -686,12 +687,13 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         # No harness state pre-generated on session creation
         self.assertEqual(tasks["count"], 0)
 
-    def test_session_snapshot_exposes_task_items(self):
-        self.assertIn("task_items", self.snapshot)
-        # No harness state pre-generated on session creation
-        self.assertEqual(len(self.snapshot.get("task_items") or []), 0)
+    def test_session_snapshot_has_only_generic_workflow_carrier(self):
+        self.assertIsInstance(self.snapshot.get("workflow_state"), dict)
+        self.assertNotIn("workflow", self.snapshot.get("workflow_state") or {})
+        self.assertNotIn("task_items", self.snapshot)
+        self.assertNotIn("current_phase", self.snapshot)
 
-    def test_session_snapshot_projects_task_fields_from_workflow_state(self):
+    def test_session_snapshot_preserves_workflow_state_without_flattening(self):
         session_id = str(self.snapshot.get("session_id") or "")
         _append_test_workflow_patch(self.adapter, session_id)
         state = self.adapter._sessions[session_id]
@@ -715,12 +717,15 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
         projected = self.adapter.get_session_snapshot(session_id)
 
-        # Snapshot should project from workflow_state, not from stale state values
-        self.assertEqual(projected.get("current_phase"), expected_phase)
-        self.assertEqual(projected.get("discipline_profile"), expected_discipline)
-        # task_summary should contain the track phases, not the stale summary
-        self.assertNotEqual(str(projected.get("task_summary") or ""), stale_summary)
-        self.assertGreaterEqual(len(projected.get("task_items") or []), 1)
+        projected_workflow = projected["workflow_state"]["workflow"]
+        self.assertEqual(projected_workflow["metadata"]["current_phase"], expected_phase)
+        self.assertEqual(
+            projected_workflow["metadata"]["discipline_profile"], expected_discipline
+        )
+        self.assertNotEqual(str(projected_workflow.get("summary") or ""), stale_summary)
+        self.assertGreaterEqual(len(projected_workflow.get("items") or []), 1)
+        self.assertNotIn("task_items", projected)
+        self.assertNotIn("current_phase", projected)
 
     def test_session_snapshot_uses_synced_workflow_without_describing_harness(self):
         session_id = str(self.snapshot.get("session_id") or "")
@@ -741,9 +746,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
         projected = self.adapter.get_session_snapshot(session_id)
 
-        self.assertEqual(projected.get("current_phase"), expected_phase)
         self.assertEqual(
-            projected.get("workflow", {}).get("metadata", {}).get("current_phase"),
+            projected.get("workflow_state", {})
+            .get("workflow", {})
+            .get("metadata", {})
+            .get("current_phase"),
             expected_phase,
         )
 
@@ -791,12 +798,12 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         resumed = resumed_adapter.resume_session(session_id, "build")
         resumed_state = resumed_adapter._sessions[session_id]
 
-        self.assertEqual(created.get("workflow_state"), "")
+        self.assertNotIn("workflow", created.get("workflow_state") or {})
         self.assertNotIn(
             "frontend_intranet_fetch",
             self.adapter._active_tool_names_for_state(created_state),
         )
-        self.assertEqual(resumed.get("workflow_state"), "")
+        self.assertNotIn("workflow", resumed.get("workflow_state") or {})
         self.assertNotIn(
             "frontend_intranet_fetch",
             resumed_adapter._active_tool_names_for_state(resumed_state),
@@ -845,8 +852,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
         self.assertEqual(before_history, state.history)
         self.assertEqual(projected["session_id"], self.snapshot["session_id"])
-        self.assertIn("task_items", projected)
-        self.assertIn("current_phase", projected)
+        self.assertIn("workflow_state", projected)
+        self.assertNotIn("task_items", projected)
+        self.assertNotIn("current_phase", projected)
 
     def test_adapter_reuses_one_agent_session_handle_per_session(self):
         state = self.adapter._sessions[self.snapshot["session_id"]]
@@ -3247,9 +3255,10 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         )
         snapshot = self.adapter.get_session_snapshot(session_id)
         self.assertTrue(snapshot["has_active_plan"])
-        self.assertEqual(snapshot["workflow_state"], "plan")
+        self.assertIsInstance(snapshot["workflow_state"], dict)
         plan = self.adapter.get_session_plan(session_id)
         self.assertIsNotNone(plan)
+        self.assertEqual(plan.workflow_state, "plan")
         self.assertIn("add tests", plan.content)
 
     def test_slash_permissions_reflects_session_memory(self):
