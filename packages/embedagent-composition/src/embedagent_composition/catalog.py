@@ -7,7 +7,6 @@ from typing import Dict, Tuple
 from .errors import CompositionError
 from .model import ComponentManifest
 
-
 _RUNTIME_REQUIREMENT_RE = re.compile(r"^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9_-]*)+$")
 
 
@@ -61,10 +60,14 @@ class ComponentCatalog(object):
         for manifest in self._manifests.values():
             for required in manifest.requires:
                 if required not in self._manifests:
-                    raise CompositionError("missing_dependency", "%s -> %s" % (manifest.component_id, required))
+                    raise CompositionError(
+                        "missing_dependency", "%s -> %s" % (manifest.component_id, required)
+                    )
             for conflict in manifest.conflicts:
                 if conflict not in self._manifests:
-                    raise CompositionError("unknown_conflict", "%s -> %s" % (manifest.component_id, conflict))
+                    raise CompositionError(
+                        "unknown_conflict", "%s -> %s" % (manifest.component_id, conflict)
+                    )
             for namespace in manifest.namespaces:
                 owner = namespaces.get(namespace)
                 if owner is not None and owner != manifest.component_id:

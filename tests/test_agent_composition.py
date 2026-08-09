@@ -170,9 +170,7 @@ def test_shells_and_runtime_requirements_are_compiled_deterministically():
 
     shell_ids = tuple(ref.component_id for ref in definition.component_refs())
     assert shell_ids.count("shell.cli") == 1
-    components = dict(
-        (item["component_id"], item) for item in compiled.manifest["components"]
-    )
+    components = dict((item["component_id"], item) for item in compiled.manifest["components"])
     assert components["shell.cli"]["runtime_requirements"] == [
         "runtime.python",
         "search.rg",
