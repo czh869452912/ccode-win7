@@ -58,6 +58,11 @@ export function resolveVisiblePermission(explicitPermission, snapshot) {
 }
 
 export function normalizeSessionPayload(payload, defaultMode = "") {
+  const workflowState = payload.workflow_state
+    && typeof payload.workflow_state === "object"
+    && !Array.isArray(payload.workflow_state)
+    ? payload.workflow_state
+    : {};
   const recentTransitions = Array.isArray(payload.recent_transitions)
     ? payload.recent_transitions.map((entry) => ({
         ...entry,
@@ -72,7 +77,7 @@ export function normalizeSessionPayload(payload, defaultMode = "") {
     current_mode: payload.current_mode || defaultMode,
     started_at: payload.started_at || payload.created_at || "",
     updated_at: payload.updated_at || "",
-    workflow_state: payload.workflow_state || "",
+    workflow_state: workflowState,
     has_active_plan: Boolean(payload.has_active_plan),
     active_plan_ref: payload.active_plan_ref || "",
     current_command_context: payload.current_command_context || "",
@@ -98,11 +103,6 @@ export function normalizeSessionPayload(payload, defaultMode = "") {
       payload.turn_experience && typeof payload.turn_experience === "object"
         ? payload.turn_experience
         : {},
-    current_phase: payload.current_phase || "",
-    discipline_profile: payload.discipline_profile || "",
-    current_activity: payload.current_activity || "",
-    task_summary: payload.task_summary || "",
-    task_items: Array.isArray(payload.task_items) ? payload.task_items : [],
     pending_interaction: payload.pending_interaction || null,
   };
 }

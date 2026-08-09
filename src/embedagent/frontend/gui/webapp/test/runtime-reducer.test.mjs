@@ -12,12 +12,14 @@ export function runRuntimeReducerTests() {
     snapshot: {
       session_id: "s-1",
       current_mode: "",
-      task_items: [],
+      workflow_state: { workflow: { id: "example", items: [{ id: "task-1" }] } },
     },
     activities: [],
     capabilities: {},
   });
   assert.equal(activated.thread.currentSessionId, "s-1");
+  assert.equal(activated.snapshot.workflow_state.workflow.id, "example");
+  assert.equal(Object.hasOwn(activated, "tasks"), false);
 
   const next = runtimeReducer(activated, {
     type: "interaction_requested",

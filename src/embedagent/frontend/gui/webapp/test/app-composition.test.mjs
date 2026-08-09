@@ -9,6 +9,8 @@ export function runAppCompositionTests() {
   const appSource = fs.readFileSync(path.join(WEBAPP_ROOT, "src", "App.jsx"), "utf8");
   const clientRuntimeSource = fs.readFileSync(
     path.join(WEBAPP_ROOT, "src", "client-runtime", "client-runtime.js"), "utf8");
+  const shellRuntimeSource = fs.readFileSync(
+    path.join(WEBAPP_ROOT, "src", "client-runtime", "use-agent-shell-runtime.js"), "utf8");
   assert.equal(appSource.includes("fetch("), false);
   assert.equal(appSource.includes("new WebSocket"), false);
   assert.equal(appSource.includes("C/C++"), false);
@@ -18,9 +20,10 @@ export function runAppCompositionTests() {
   assert.equal(appSource.includes("report_quality_v2"), false);
   assert.equal(appSource.includes("task_status"), false);
   assert.equal(appSource.includes("createAgentAppProtocolAdapter"), false);
-  assert.equal(appSource.includes("createClientRuntime"), true);
-  assert.equal(appSource.includes('from "./app-runtime/surface-panel-props.js"'), true);
-  assert.equal(appSource.includes('from "./app-runtime/app-capability-model.js"'), true);
+  assert.equal(appSource.includes("createClientRuntime"), false);
+  assert.equal(appSource.includes("useAgentShellRuntime"), true);
+  assert.equal(appSource.includes("<AgentShell"), true);
+  assert.equal(shellRuntimeSource.includes("createClientRuntime"), true);
   for (const factory of [
     "createComposerController",
     "createSessionController",
@@ -33,8 +36,5 @@ export function runAppCompositionTests() {
     assert.equal(clientRuntimeSource.includes(factory), true, factory);
   }
   const appRuntimeImports = appSource.match(/from "\.\/app-runtime\/[^"]+"/g) || [];
-  assert.deepEqual(appRuntimeImports.sort(), [
-    'from "./app-runtime/app-capability-model.js"',
-    'from "./app-runtime/surface-panel-props.js"',
-  ]);
+  assert.deepEqual(appRuntimeImports, []);
 }

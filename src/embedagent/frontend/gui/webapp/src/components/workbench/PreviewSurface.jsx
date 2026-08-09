@@ -277,7 +277,7 @@ export default function PreviewSurface({
   const effectiveUrl = snapshot?.url || activeUrl;
 
   return (
-    <section className="right-panel-preview-surface" data-testid="right-panel-preview-surface">
+    <section className="preview-contribution" data-testid="preview-contribution">
       <PreviewChromeRow
         chrome={previewChrome}
         url={effectiveUrl}

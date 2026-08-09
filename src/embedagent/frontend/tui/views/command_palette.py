@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from embedagent.frontend.tui.state import TerminalState
-from embedagent.frontend.tui.workbench import visible_palette_commands
+from embedagent.frontend.tui.shell_state import visible_palette_commands
 
 
 def build_command_palette_text(state: TerminalState) -> str:
-    palette = state.workbench.command_palette
+    palette = state.shell.command_palette
     if not palette.open:
         return ""
-    commands = visible_palette_commands(state.workbench, palette.query)
+    commands = visible_palette_commands(state.shell, palette.query)
     lines = [
         " Command Palette",
         " query: %s" % (palette.query or ""),

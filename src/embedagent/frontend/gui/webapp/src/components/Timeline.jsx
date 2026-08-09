@@ -80,12 +80,12 @@ const Timeline = forwardRef(function Timeline(
 ) {
   const timelineNodeRef = React.useRef(null);
   const pendingAnchorRef = React.useRef(null);
-  const t3Rows = Array.isArray(rows) ? rows : [];
-  const [timelineUiState, setTimelineUiState] = React.useState(() => createTimelineUiState(t3Rows));
+  const timelineRows = Array.isArray(rows) ? rows : [];
+  const [timelineUiState, setTimelineUiState] = React.useState(() => createTimelineUiState(timelineRows));
 
   React.useEffect(() => {
-    setTimelineUiState((previous) => createTimelineUiState(t3Rows, previous));
-  }, [t3Rows]);
+    setTimelineUiState((previous) => createTimelineUiState(timelineRows, previous));
+  }, [timelineRows]);
 
   React.useLayoutEffect(() => {
     const pending = pendingAnchorRef.current;
@@ -162,7 +162,7 @@ const Timeline = forwardRef(function Timeline(
 
   return (
     <div
-      className="timeline t3-timeline"
+      className="timeline activity-timeline"
       ref={setTimelineNode}
       onScroll={onScroll}
       role="log"
@@ -182,9 +182,9 @@ const Timeline = forwardRef(function Timeline(
             {chrome.historyUnavailable || ""}
           </div>
         ) : null}
-        {t3Rows.length > 0 ? (
+        {timelineRows.length > 0 ? (
           <TimelineRows
-            rows={t3Rows}
+            rows={timelineRows}
             onOpenDiff={onOpenDiff}
             onOpenFile={onOpenFile}
             markdownComponents={markdownComponents}

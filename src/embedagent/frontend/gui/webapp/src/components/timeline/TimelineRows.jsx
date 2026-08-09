@@ -203,7 +203,7 @@ function WorkingTimer({ createdAt, chrome = {} }) {
 
 function WorkingRow({ row, chrome = {} }) {
   return (
-    <div className="t3-working-row" data-testid="timeline-working-row" data-row-kind="working">
+    <div className="working-row" data-testid="timeline-working-row" data-row-kind="working">
       <span className="timeline-working-dots" aria-hidden="true">
         <span />
         <span />
@@ -243,7 +243,7 @@ function MessageRow({ row, markdownComponents }) {
   if (row.role === "assistant") {
     return (
       <article
-        className={`t3-message-row assistant${row.streaming ? " streaming" : ""}`}
+        className={`timeline-message-row assistant${row.streaming ? " streaming" : ""}`}
         data-testid="timeline-assistant-message"
         data-row-kind="message"
         aria-busy={row.streaming || undefined}
@@ -261,8 +261,8 @@ function MessageRow({ row, markdownComponents }) {
     );
   }
   return (
-    <article className="t3-message-row user" data-testid="timeline-user-message" data-row-kind="message">
-      <div className="t3-user-bubble">{row.content || ""}</div>
+    <article className="timeline-message-row user" data-testid="timeline-user-message" data-row-kind="message">
+      <div className="timeline-user-bubble">{row.content || ""}</div>
     </article>
   );
 }
@@ -288,14 +288,14 @@ function TurnFoldRow({
       : activityChrome.turnFoldStepPluralTemplate;
   return (
     <section
-      className="t3-turn-fold-row"
+      className="turn-fold-row"
       data-testid="timeline-turn-fold"
       data-row-kind="turn_fold"
       data-row-key={key}
     >
       <button
         type="button"
-        className="t3-turn-fold-summary"
+        className="turn-fold-summary"
         aria-expanded={open}
         onClick={() => onToggleRow && onToggleRow(key)}
       >
@@ -303,7 +303,7 @@ function TurnFoldRow({
         <span>{formatTemplate(stepTemplate, { count: workCount })}</span>
       </button>
       {open ? (
-        <div className="t3-turn-fold-body">
+        <div className="turn-fold-body">
           {entries.map((entry) => (
             <TimelineRowSwitch
               key={entry.id}
@@ -326,10 +326,10 @@ function TurnFoldRow({
 function InteractionRow({ row, chrome = {} }) {
   const status = row.status || chrome.interactionPendingStatus || "";
   return (
-    <div className={`t3-interaction-row ${row.status || "pending"}`} data-row-kind="interaction">
-      <span className="t3-interaction-label">{row.label || row.interactionKind || chrome.interactionLabel || ""}</span>
-      <span className="t3-interaction-status">{status}</span>
-      {row.detail ? <span className="t3-interaction-detail">{row.detail}</span> : null}
+    <div className={`interaction-row ${row.status || "pending"}`} data-row-kind="interaction">
+      <span className="interaction-label">{row.label || row.interactionKind || chrome.interactionLabel || ""}</span>
+      <span className="interaction-status">{status}</span>
+      {row.detail ? <span className="interaction-detail">{row.detail}</span> : null}
     </div>
   );
 }
@@ -348,14 +348,14 @@ function ExpandableShell({ row, rowKeyFor, rowUiState, onToggleRow, className, l
     >
       <button
         type="button"
-        className="t3-rich-row-summary"
+        className="activity-detail-row-summary"
         aria-expanded={open}
         onClick={() => onToggleRow && onToggleRow(key)}
       >
-        <span className="t3-rich-row-label">{label}</span>
-        {meta ? <span className="t3-rich-row-meta">{meta}</span> : null}
+        <span className="activity-detail-row-label">{label}</span>
+        {meta ? <span className="activity-detail-row-meta">{meta}</span> : null}
       </button>
-      {open ? <div className="t3-rich-row-body">{children}</div> : null}
+      {open ? <div className="activity-detail-row-body">{children}</div> : null}
     </section>
   );
 }
@@ -373,7 +373,7 @@ function ReasoningRow({ row, rowUiState, onToggleRow, rowKeyFor, chrome = {} }) 
       rowUiState={rowUiState}
       onToggleRow={onToggleRow}
       rowKeyFor={rowKeyFor}
-      className={`t3-reasoning-row${row.streaming ? " streaming" : ""}`}
+      className={`reasoning-row${row.streaming ? " streaming" : ""}`}
       data-testid="timeline-reasoning-row"
       label={row.label || chrome.reasoningLabel || ""}
       meta={meta}
@@ -385,8 +385,8 @@ function ReasoningRow({ row, rowUiState, onToggleRow, rowKeyFor, chrome = {} }) 
 
 function ThinkingRow({ row, chrome = {} }) {
   return (
-    <div className="t3-thinking-row" data-testid="timeline-thinking-row" data-row-kind="thinking" aria-live="polite">
-      <span className="t3-thinking-pulse" aria-hidden="true" />
+    <div className="thinking-row" data-testid="timeline-thinking-row" data-row-kind="thinking" aria-live="polite">
+      <span className="thinking-pulse" aria-hidden="true" />
       <span>{row.label || chrome.thinkingLabel || ""}</span>
     </div>
   );
@@ -408,10 +408,10 @@ function ContextSummaryRow({ row, chrome = {} }) {
     );
   }
   return (
-    <div className="t3-context-summary-row system-card context" data-testid="timeline-context-summary-row" data-row-kind="context_summary" role="status">
+    <div className="context-summary-row system-card context" data-testid="timeline-context-summary-row" data-row-kind="context_summary" role="status">
       <span>{row.content || chrome.contextUpdated || ""}</span>
       {parts.length > 0 ? (
-        <span className="t3-rich-row-meta">{parts.join(chrome.metadataSeparator || "")}</span>
+        <span className="activity-detail-row-meta">{parts.join(chrome.metadataSeparator || "")}</span>
       ) : null}
     </div>
   );
@@ -424,7 +424,7 @@ function CommandResultRow({ row, markdownComponents, rowUiState, onToggleRow, ro
       rowUiState={rowUiState}
       onToggleRow={onToggleRow}
       rowKeyFor={rowKeyFor}
-      className={`t3-command-result-row ${row.success === false ? "error" : "success"}`}
+      className={`command-activity-result-row ${row.success === false ? "error" : "success"}`}
       data-testid="timeline-command-result-row"
       label={row.label || chrome.commandDefaultName || ""}
       meta={row.success === false ? chrome.commandFailedStatus || "" : chrome.commandCompletedStatus || ""}
@@ -451,7 +451,7 @@ function ReviewResultRow({ row, markdownComponents, rowUiState, onToggleRow, row
       rowUiState={rowUiState}
       onToggleRow={onToggleRow}
       rowKeyFor={rowKeyFor}
-      className={`t3-review-result-row ${row.success === false ? "error" : "success"}`}
+      className={`review-result-row ${row.success === false ? "error" : "success"}`}
       data-testid="timeline-review-result-row"
       label={row.label || chrome.reviewLabel || ""}
       meta={formatTemplate(findingTemplate, { count: findingCount })}
@@ -467,11 +467,11 @@ function ReviewResultRow({ row, markdownComponents, rowUiState, onToggleRow, row
         </ReactMarkdown>
       ) : null}
       {findingCount > 0 ? (
-        <div className="t3-review-findings">
+        <div className="review-findings">
           {row.findings.map((finding) => (
-            <article key={finding.id} className="t3-review-finding">
-              <div className="t3-review-finding-title">{finding.title}</div>
-              <div className="t3-review-finding-meta">
+            <article key={finding.id} className="review-finding">
+              <div className="review-finding-title">{finding.title}</div>
+              <div className="review-finding-meta">
                 {finding.file && onOpenFile ? (
                   <button
                     type="button"
@@ -491,7 +491,7 @@ function ReviewResultRow({ row, markdownComponents, rowUiState, onToggleRow, row
         </div>
       ) : null}
       {Array.isArray(row.residualRisks) && row.residualRisks.length > 0 ? (
-        <ul className="t3-review-risks">
+        <ul className="review-risks">
           {row.residualRisks.map((risk) => <li key={risk}>{risk}</li>)}
         </ul>
       ) : null}

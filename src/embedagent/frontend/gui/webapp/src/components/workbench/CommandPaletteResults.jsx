@@ -1,4 +1,5 @@
 import React from "react";
+import { ChevronRight } from "lucide-react";
 
 function rowClassName(item, active) {
   const classes = ["cmd-palette-row"];
@@ -54,9 +55,11 @@ export default function CommandPaletteResults({
                   role="option"
                   data-testid={itemTestId(item)}
                 >
-                  <span className="cmd-palette-row-leading" aria-hidden="true">
-                    {item.leading}
-                  </span>
+                  {item.leading ? (
+                    <span className="cmd-palette-row-leading" aria-hidden="true">
+                      {item.leading}
+                    </span>
+                  ) : null}
                   <span className="cmd-palette-row-main">
                     <span className="cmd-palette-row-title">{item.title}</span>
                     <span className="cmd-palette-row-description">{item.description}</span>
@@ -65,7 +68,7 @@ export default function CommandPaletteResults({
                     {item.shortcut ? <kbd className="cmd-palette-row-shortcut">{item.shortcut}</kbd> : null}
                     {item.trailing ? <span className="cmd-palette-row-trailing">{item.trailing}</span> : null}
                     {item.meta ? <span className="cmd-palette-row-id">{item.meta}</span> : null}
-                    {item.type === "submenu" ? <span className="cmd-palette-row-chevron">›</span> : null}
+                    {item.type === "submenu" ? <ChevronRight className="cmd-palette-row-chevron" size={14} /> : null}
                   </span>
                 </button>
               );

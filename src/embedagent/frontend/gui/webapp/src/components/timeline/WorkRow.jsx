@@ -79,7 +79,7 @@ export default function WorkRow({
 
   return (
     <div
-      className={`t3-work-row ${row.tone || "neutral"} density-${density || "compact"}`}
+      className={`tool-activity-row ${row.tone || "neutral"} density-${density || "compact"}`}
       data-testid="timeline-work-row"
       data-row-kind="work"
       data-row-key={rowKey}
@@ -88,26 +88,26 @@ export default function WorkRow({
       data-status-indicator={presentation.statusIndicator}
     >
       <button
-        className="t3-work-summary"
+        className="tool-activity-summary"
         type="button"
         onClick={handleToggle}
         aria-expanded={expanded}
         title={presentation.preview ? `${presentation.heading} - ${presentation.preview}` : presentation.heading}
       >
-        <span className={`t3-work-icon ${presentation.iconTone || "normal"}`} aria-hidden="true">
+        <span className={`tool-activity-icon ${presentation.iconTone || "normal"}`} aria-hidden="true">
           <WorkEntryIcon name={presentation.iconName} />
         </span>
-        <span className={`t3-work-label ${presentation.headingTone || "normal"}`}>{presentation.heading}</span>
-        {presentation.preview ? <span className="t3-work-preview">{presentation.preview}</span> : <span />}
-        <span className="t3-work-status-slot" aria-label={statusLabel(row, workRowChrome) || undefined}>
-          {hasDetail ? <span className={`t3-work-chevron${expanded ? " expanded" : ""}`} aria-hidden="true">v</span> : null}
-          <span className={`t3-work-status-indicator ${presentation.statusIndicator || "none"}`} aria-hidden="true">
+        <span className={`tool-activity-label ${presentation.headingTone || "normal"}`}>{presentation.heading}</span>
+        {presentation.preview ? <span className="tool-activity-preview">{presentation.preview}</span> : <span />}
+        <span className="tool-activity-status-slot" aria-label={statusLabel(row, workRowChrome) || undefined}>
+          {hasDetail ? <span className={`tool-activity-chevron${expanded ? " expanded" : ""}`} aria-hidden="true">v</span> : null}
+          <span className={`tool-activity-status-indicator ${presentation.statusIndicator || "none"}`} aria-hidden="true">
             <StatusIndicator indicator={presentation.statusIndicator} />
           </span>
         </span>
       </button>
       {expanded && hasDetail ? (
-        <div className="t3-work-detail timeline-work-detail" data-testid="timeline-work-detail">
+        <div className="tool-activity-detail timeline-work-detail" data-testid="timeline-work-detail">
           {row.detailModel ? (
             <ToolDetail
               model={row.detailModel}
@@ -115,14 +115,14 @@ export default function WorkRow({
               chrome={toolDetailChrome}
             />
           ) : null}
-          {presentation.expandedBody ? <pre className="t3-work-detail-text">{presentation.expandedBody}</pre> : null}
+          {presentation.expandedBody ? <pre className="tool-activity-detail-text">{presentation.expandedBody}</pre> : null}
           {!row.detailModel && !presentation.expandedBody && row.detail ? (
-            <pre className="t3-work-detail-text">{row.detail}</pre>
+            <pre className="tool-activity-detail-text">{row.detail}</pre>
           ) : null}
           {Array.isArray(row.changedFiles) && row.changedFiles.length > 0 ? (
-            <div className="t3-work-file-list">
+            <div className="tool-activity-file-list">
               {row.changedFiles.map((file) => (
-                <span key={file.path} className="t3-work-file">{file.path}</span>
+                <span key={file.path} className="tool-activity-file">{file.path}</span>
               ))}
             </div>
           ) : null}

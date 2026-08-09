@@ -129,8 +129,9 @@ function DiagnosticsPanel({ appShell, chrome }) {
   const workspaceCommands = Array.isArray(capabilities.workspaceCommands)
     ? capabilities.workspaceCommands
     : [];
-  const surfaces = capabilities.surfaces || {};
-  const rightPanel = Array.isArray(surfaces.rightPanel) ? surfaces.rightPanel : [];
+  const contributions = Array.isArray(capabilities.contributions)
+    ? capabilities.contributions
+    : [];
   const surfaceLabel = (surface) => String(surface?.kind || surface?.id || "");
   const diagnosticGroups = chrome.diagnosticGroups || {};
   return (
@@ -154,8 +155,8 @@ function DiagnosticsPanel({ appShell, chrome }) {
         {appCommands.concat(workspaceCommands).map((command) => (
           <span key={command.id} className="rule-chip monospace">{command.id}</span>
         ))}
-        {rightPanel.map((surface) => (
-          <span key={`surface-${surfaceLabel(surface)}`} className="rule-chip muted monospace">right:{surfaceLabel(surface)}</span>
+        {contributions.map((surface) => (
+          <span key={`surface-${surfaceLabel(surface)}`} className="rule-chip muted monospace">surface:{surfaceLabel(surface)}</span>
         ))}
       </div>
     </div>

@@ -105,10 +105,7 @@ def format_context_line(payload):
 
 
 def build_timeline_text(state):
-    parts = list(state.timeline.lines)
+    parts = list(state.timeline.items)
     if state.timeline.stream_text:
         parts.append(state.timeline.stream_text)
-    if state.main_view == "preview" and state.preview_text:
-        header = "Preview: %s" % (state.preview_path or "-")
-        return header + "\n\n" + state.preview_text
     return "\n".join(parts)

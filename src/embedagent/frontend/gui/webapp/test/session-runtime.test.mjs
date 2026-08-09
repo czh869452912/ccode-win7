@@ -160,7 +160,7 @@ export function runSessionRuntimeTests() {
     },
     sessionTransport: createSessionTransportState(),
   });
-  const experienceRow = experienceRuntime.t3TimelineRows.find((row) => row.id === "turn-experience-summary");
+  const experienceRow = experienceRuntime.timelineRows.find((row) => row.id === "turn-experience-summary");
   assert.equal(experienceRow.kind, "system_notice");
   assert.equal(experienceRow.tone, "warning");
   assert.equal(experienceRow.content.includes("Done: file_created README.md"), true);
@@ -206,7 +206,7 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(interactionRuntime.currentInteraction.interactionId, "int-2");
   assert.equal(interactionRuntime.timelineItems.length, 1);
-  assert.equal(interactionRuntime.t3TimelineRows.filter((row) => row.kind === "interaction").length, 0);
+  assert.equal(interactionRuntime.timelineRows.filter((row) => row.kind === "interaction").length, 0);
 
   const ignoredTransportEventRuntime = buildSessionActivityRuntime({
     snapshot: {
@@ -261,7 +261,7 @@ export function runSessionRuntimeTests() {
     dedupedInteractionRuntime.timelineItems.filter((item) => item.kind === "interaction").length,
     1,
   );
-  assert.equal(dedupedInteractionRuntime.t3TimelineRows.filter((row) => row.kind === "interaction").length, 0);
+  assert.equal(dedupedInteractionRuntime.timelineRows.filter((row) => row.kind === "interaction").length, 0);
 
   const commandRuntime = buildSessionActivityRuntime({
     snapshot: {
@@ -302,7 +302,7 @@ export function runSessionRuntimeTests() {
     activeTurnId: "turn-runtime",
     thinkingActive: true,
   });
-  assert.equal(thinkingRuntime.t3TimelineRows.some((row) => row.kind === "working"), true);
+  assert.equal(thinkingRuntime.timelineRows.some((row) => row.kind === "working"), true);
 
   const detachedRuntime = buildSessionActivityRuntime({
     snapshot: {

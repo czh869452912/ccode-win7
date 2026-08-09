@@ -9,9 +9,8 @@ from embedagent_protocol import CommandDescriptor, ShellDescriptor, SurfaceDescr
 from prompt_toolkit.document import Document
 
 from embedagent.frontend.tui.completion import TerminalCompleter
-from embedagent.frontend.tui.models import ExplorerItem
 from embedagent.frontend.tui.state import TerminalState
-from embedagent.frontend.tui.workbench import WorkbenchState
+from embedagent.frontend.tui.shell_state import ShellState
 
 SHELL = ShellDescriptor(
     commands=[
@@ -27,7 +26,7 @@ SHELL = ShellDescriptor(
             id="custom.details",
             label="Details",
             placement="secondary",
-            renderer_key="generic_timeline",
+            renderer_key="file_reference",
         )
     ],
 )
@@ -35,15 +34,17 @@ SHELL = ShellDescriptor(
 
 class TestTerminalFrontendModules(unittest.TestCase):
     def setUp(self):
-        self.state = TerminalState(
+        self.state = TerminalState.from_shell_descriptor(
             workspace=tempfile.mkdtemp(),
             initial_mode="build",
-            workbench=WorkbenchState(SHELL),
+            descriptor=SHELL,
         )
-        self.state.explorer.items = [
-            ExplorerItem(kind="file", path="src/main.c", label="[F] main.c"),
-            ExplorerItem(kind="file", path="docs/readme.md", label="[F] readme.md"),
-        ]
+        self.state.contributions["custom.details"].data = {
+            "items": [
+                {"kind": "file", "path": "src/main.c"},
+                {"kind": "file", "path": "docs/readme.md"},
+            ]
+        }
         self.state.session.session_items = [
             {"session_id": "sess-001", "current_mode": "build"},
         ]
@@ -65,35 +66,34 @@ class TestTerminalFrontendModules(unittest.TestCase):
         items = self._complete("session:sess")
         self.assertIn("sess-001", items)
 
-    def test_tui_workbench_commands_and_surfaces(self):
-        from embedagent.frontend.tui.workbench import (
-            open_surface,
-            slash_command_names,
-        )
+    def test_tui_shell_commands_and_contributions(self):
+        from embedagent.frontend.tui.reducer import activate_contribution
+        from embedagent.frontend.tui.shell_state import slash_commands
 
-        workbench = self.state.workbench
-        self.assertEqual([item.id for item in workbench.commands], ["custom.inspect"])
-        self.assertEqual([item.id for item in workbench.surfaces], ["custom.details"])
-        self.assertEqual(workbench.command_by_id("custom.inspect").slash, "/inspect")
-        self.assertEqual([item.slash for item in slash_command_names(workbench)], ["/inspect"])
+        shell = self.state.shell
+        self.assertEqual([item.id for item in shell.commands], ["custom.inspect"])
+        self.assertEqual([item.id for item in shell.surfaces], ["custom.details"])
+        self.assertEqual(shell.command_by_id("custom.inspect").slash, "/inspect")
+        self.assertEqual([item.slash for item in slash_commands(shell)], ["/inspect"])
 
-        next_state = open_surface(workbench, "custom.details")
-        self.assertIsNot(next_state, workbench)
-        self.assertEqual(next_state.active_surface, "custom.details")
-        self.assertIs(next_state.right_panel_open, True)
-        self.assertIs(open_surface(workbench, "undeclared"), workbench)
+        activate_contribution(self.state, "custom.details")
+        self.assertEqual(self.state.overlay.active_id, "custom.details")
+        self.assertIs(self.state.contributions["custom.details"].active, True)
+        activate_contribution(self.state, "undeclared")
+        self.assertEqual(self.state.overlay.active_id, "")
+        self.assertIs(self.state.contributions["custom.details"].active, False)
 
     def test_empty_descriptor_has_no_registered_commands_or_surfaces(self):
-        workbench = WorkbenchState(ShellDescriptor())
+        shell = ShellState(ShellDescriptor())
 
-        self.assertEqual(workbench.commands, ())
-        self.assertEqual(workbench.surfaces, ())
+        self.assertEqual(shell.commands, ())
+        self.assertEqual(shell.surfaces, ())
 
     def test_tui_command_palette_rendering_filters_commands(self):
         from embedagent.frontend.tui.views.command_palette import build_command_palette_text
 
-        self.state.workbench.command_palette.open = True
-        self.state.workbench.command_palette.query = "inspect"
+        self.state.shell.command_palette.open = True
+        self.state.shell.command_palette.query = "inspect"
         text = build_command_palette_text(self.state)
         self.assertIn("Inspect Target", text)
         self.assertIn("/inspect", text)

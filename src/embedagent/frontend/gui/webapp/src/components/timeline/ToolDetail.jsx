@@ -19,7 +19,7 @@ function fallbackMatchLabel(chrome = {}) {
 function FieldList({ fields = [], chrome = {} }) {
   if (!Array.isArray(fields) || fields.length === 0) return null;
   return (
-    <dl className="t3-tool-detail-grid">
+    <dl className="tool-detail-detail-grid">
       {fields.map((field) => (
         <React.Fragment key={`${field.key || field.label}-${field.value}`}>
           <dt>{fieldLabel(field, chrome)}</dt>
@@ -32,12 +32,12 @@ function FieldList({ fields = [], chrome = {} }) {
 
 function FileTargetButton({ item, onOpenFile, children }) {
   if (!item?.path || !onOpenFile) {
-    return <span className="t3-tool-detail-item-path">{children}</span>;
+    return <span className="tool-detail-detail-item-path">{children}</span>;
   }
   return (
     <button
       type="button"
-      className="t3-tool-detail-item-path timeline-file-link"
+      className="tool-detail-detail-item-path timeline-file-link"
       data-testid={`timeline-tool-file-link--${item.path}`}
       onClick={() => onOpenFile(item.path, item.line || undefined)}
     >
@@ -48,13 +48,13 @@ function FileTargetButton({ item, onOpenFile, children }) {
 
 function MatchItems({ items = [], onOpenFile = null, chrome = {} }) {
   return (
-    <div className="t3-tool-detail-list">
+    <div className="tool-detail-detail-list">
       {items.map((item) => {
         const label = [item.path, item.displayLine || item.line ? `:${item.displayLine || item.line}` : ""]
           .filter(Boolean)
           .join("") || fallbackMatchLabel(chrome);
         return (
-          <div key={item.id || `${item.path}-${item.line}-${item.text}`} className="t3-tool-detail-item">
+          <div key={item.id || `${item.path}-${item.line}-${item.text}`} className="tool-detail-detail-item">
             <FileTargetButton item={item} onOpenFile={onOpenFile}>{label}</FileTargetButton>
             {item.text ? <code>{item.text}</code> : null}
           </div>
@@ -66,7 +66,7 @@ function MatchItems({ items = [], onOpenFile = null, chrome = {} }) {
 
 function FileItems({ items = [], onOpenFile = null }) {
   return (
-    <div className="t3-tool-detail-files">
+    <div className="tool-detail-detail-files">
       {items.map((item) => (
         <FileTargetButton key={item.id || item.path} item={item} onOpenFile={onOpenFile}>
           {item.path}
@@ -84,8 +84,8 @@ function Section({ section, onOpenFile, chrome = {} }) {
   const isDiff = section.kind === "diff";
   const isOutput = section.kind === "stdout" || section.kind === "stderr" || section.kind === "error";
   return (
-    <section className={`t3-tool-detail-section ${section.kind || "text"}`}>
-      <div className="t3-tool-detail-section-title">{sectionTitle(section, chrome)}</div>
+    <section className={`tool-detail-detail-section ${section.kind || "text"}`}>
+      <div className="tool-detail-detail-section-title">{sectionTitle(section, chrome)}</div>
       {section.kind === "matches" ? (
         <MatchItems items={section.items || []} onOpenFile={onOpenFile} chrome={chrome} />
       ) : null}
@@ -101,7 +101,7 @@ export default function ToolDetail({ model, onOpenFile = null, chrome = {} }) {
   if (!model) return null;
   const sections = Array.isArray(model.sections) ? model.sections : [];
   return (
-    <div className="t3-tool-detail" data-testid="timeline-tool-detail">
+    <div className="tool-detail-detail" data-testid="timeline-tool-detail">
       <FieldList fields={model.fields || []} chrome={chrome} />
       {sections.map((section, index) => (
         <Section

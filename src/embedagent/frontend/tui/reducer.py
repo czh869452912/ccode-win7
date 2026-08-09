@@ -1,56 +1,49 @@
 from __future__ import annotations
 
-from typing import Dict, Iterable, Optional
+from typing import Dict, Optional
 
-from embedagent.frontend.tui.models import EditorBuffer, ExplorerItem
 from embedagent.frontend.tui.state import TerminalState
-from embedagent.frontend.tui.workbench import (
-    close_palette,
-    open_drawer,
-    open_palette,
-    open_surface,
-)
+from embedagent.frontend.tui.shell_state import close_palette, open_palette
 
 
 def set_snapshot(state: TerminalState, snapshot: Dict[str, object]) -> None:
     state.session.current_snapshot = dict(snapshot)
     state.session.current_session_id = str(snapshot.get("session_id") or "")
+    state.session.current_mode = str(
+        snapshot.get("current_mode") or state.session.current_mode or state.initial_mode
+    )
 
 
 def update_snapshot(state: TerminalState, **updates: object) -> None:
     merged = dict(state.session.current_snapshot)
     merged.update(updates)
-    state.session.current_snapshot = merged
-    state.session.current_session_id = str(
-        merged.get("session_id") or state.session.current_session_id or ""
-    )
+    set_snapshot(state, merged)
 
 
 def reset_session_buffers(state: TerminalState) -> None:
-    state.timeline.lines = []
+    state.timeline.items = []
     state.timeline.stream_text = ""
     state.timeline.follow_output = True
     state.session.pending_interaction = None
     state.session.last_context_event = {}
     state.session.last_error = ""
-    state.preview_path = ""
-    state.preview_text = ""
-    state.editor = state.editor.__class__()
-    state.main_view = "timeline"
-    state.inspector.tab = "status"
+    state.overlay.active_id = ""
+    for contribution in state.contributions.values():
+        contribution.active = False
+        contribution.data = {}
 
 
 def close_stream(state: TerminalState) -> None:
     if not state.timeline.stream_text:
         return
-    state.timeline.lines.append(state.timeline.stream_text)
+    state.timeline.items.append(state.timeline.stream_text)
     state.timeline.stream_text = ""
     trim_timeline(state)
 
 
 def append_line(state: TerminalState, line: str) -> None:
     close_stream(state)
-    state.timeline.lines.append(line)
+    state.timeline.items.append(line)
     trim_timeline(state)
 
 
@@ -63,57 +56,13 @@ def append_delta(state: TerminalState, text: str) -> None:
 
 
 def trim_timeline(state: TerminalState) -> None:
-    if len(state.timeline.lines) > state.transcript_limit:
-        state.timeline.lines = state.timeline.lines[-state.transcript_limit :]
-
-
-def set_explorer_items(
-    state: TerminalState, tab: str, items: Iterable[ExplorerItem], root: str = "."
-) -> None:
-    state.explorer.tab = tab
-    state.explorer.items = list(items)
-    state.explorer.root = root
-    if not state.explorer.items:
-        state.explorer.selection = 0
-        return
-    state.explorer.selection = max(0, min(state.explorer.selection, len(state.explorer.items) - 1))
-
-
-def move_explorer_selection(state: TerminalState, step: int) -> None:
-    if not state.explorer.items:
-        state.explorer.selection = 0
-        return
-    limit = len(state.explorer.items) - 1
-    state.explorer.selection = max(0, min(limit, state.explorer.selection + step))
-
-
-def current_explorer_item(state: TerminalState) -> Optional[ExplorerItem]:
-    if not state.explorer.items:
-        return None
-    index = max(0, min(state.explorer.selection, len(state.explorer.items) - 1))
-    return state.explorer.items[index]
-
-
-def set_workspace_snapshot(state: TerminalState, snapshot: Dict[str, object]) -> None:
-    state.workspace_snapshot = dict(snapshot)
-
-
-def set_preview(state: TerminalState, path: str, text: str) -> None:
-    state.preview_path = path
-    state.preview_text = text
-    state.main_view = "preview"
-
-
-def set_main_view(state: TerminalState, name: str) -> None:
-    state.main_view = name
-
-
-def set_inspector_tab(state: TerminalState, tab: str) -> None:
-    state.inspector.tab = tab
+    if len(state.timeline.items) > state.transcript_limit:
+        state.timeline.items = state.timeline.items[-state.transcript_limit :]
 
 
 def set_pending_interaction(state: TerminalState, ticket: Optional[Dict[str, object]]) -> None:
     state.session.pending_interaction = dict(ticket or {}) if ticket else None
+    state.overlay.active_id = "session.interaction" if ticket else ""
 
 
 def set_last_error(state: TerminalState, message: str) -> None:
@@ -124,37 +73,22 @@ def set_context_event(state: TerminalState, payload: Dict[str, object]) -> None:
     state.session.last_context_event = dict(payload)
 
 
-def set_editor_buffer(
-    state: TerminalState, buffer: EditorBuffer, diff_preview: str = "", warning: str = ""
-) -> None:
-    state.editor.buffer = buffer
-    state.editor.diff_preview = diff_preview
-    state.editor.warning = warning
-    state.main_view = "editor"
-
-
-def update_editor_content(state: TerminalState, content: str) -> None:
-    buffer = state.editor.buffer
-    buffer.content = content
-    buffer.dirty = buffer.content != buffer.original_content
-
-
 def set_follow_output(state: TerminalState, enabled: bool) -> None:
     state.timeline.follow_output = bool(enabled)
 
 
-def set_workbench_surface(state: TerminalState, surface: str) -> None:
-    state.workbench = open_surface(state.workbench, surface)
-    state.inspector.tab = surface
-
-
-def set_workbench_drawer(state: TerminalState, drawer: str) -> None:
-    state.workbench = open_drawer(state.workbench, drawer)
+def activate_contribution(state: TerminalState, surface: str) -> None:
+    for contribution in state.contributions.values():
+        contribution.active = contribution.surface_id == surface
+    state.overlay.active_id = surface if surface in state.contributions else ""
 
 
 def show_command_palette(state: TerminalState) -> None:
-    state.workbench = open_palette(state.workbench)
+    state.shell = open_palette(state.shell)
+    state.overlay.active_id = "session.command_palette"
 
 
 def hide_command_palette(state: TerminalState) -> None:
-    state.workbench = close_palette(state.workbench)
+    state.shell = close_palette(state.shell)
+    if state.overlay.active_id == "session.command_palette":
+        state.overlay.active_id = ""

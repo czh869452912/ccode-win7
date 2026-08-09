@@ -8,9 +8,9 @@ export function isTurnInterruptibleStatus(status) {
 
 export function buildCommandVisibilityContext(options = {}) {
   const appState = options.appState && typeof options.appState === "object" ? options.appState : {};
-  const workbenchState =
-    options.workbenchState && typeof options.workbenchState === "object"
-      ? options.workbenchState
+  const contributionState =
+    options.contributionState && typeof options.contributionState === "object"
+      ? options.contributionState
       : {};
   const currentStatus = options.currentStatus || "idle";
   const hasActiveWorkspace = hasOwn(options, "hasActiveWorkspace")
@@ -18,7 +18,7 @@ export function buildCommandVisibilityContext(options = {}) {
     : appState.hasActiveWorkspace;
   const paletteOpen = hasOwn(options, "paletteOpen")
     ? options.paletteOpen
-    : workbenchState.commandPalette?.open;
+    : contributionState.palette?.open;
   return {
     hasSession: Boolean(options.currentSessionId),
     hasWorkspace: Boolean(hasActiveWorkspace),

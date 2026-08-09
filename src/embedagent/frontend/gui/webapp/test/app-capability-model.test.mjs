@@ -16,12 +16,7 @@ export function runAppCapabilityModelTests() {
       chrome: { refreshLabel: "Refresh" },
       localServers: [{ id: "vite", label: "Vite", url: "http://localhost:5173" }],
     },
-    surfaces: {
-      chrome: {
-        filePreview: { loadingMessage: "Loading file" },
-        diffPanel: { defaultTitle: "Diff" },
-      },
-    },
+    contributions: [{ id: "files", rendererKey: "file_reference" }],
     threadLifecycle: { actions: [{ id: "rename", label: "Rename" }] },
     emptyState: { primary: "Open a project" },
   };
@@ -37,9 +32,9 @@ export function runAppCapabilityModelTests() {
   assert.equal(model.previewCapability, capabilities.preview);
   assert.equal(model.previewChrome, capabilities.preview.chrome);
   assert.equal(model.previewServers, capabilities.preview.localServers);
-  assert.equal(model.surfaceChrome, capabilities.surfaces.chrome);
-  assert.equal(model.filePreviewChrome, capabilities.surfaces.chrome.filePreview);
-  assert.equal(model.diffPanelChrome, capabilities.surfaces.chrome.diffPanel);
+  assert.equal(model.contributions, capabilities.contributions);
+  assert.deepEqual(model.filePreviewChrome, {});
+  assert.deepEqual(model.diffPanelChrome, {});
   assert.equal(model.threadLifecycleCapabilities, capabilities.threadLifecycle);
   assert.equal(model.emptyState, capabilities.emptyState);
 
@@ -57,7 +52,7 @@ export function runAppCapabilityModelTests() {
   assert.deepEqual(empty.previewCapability, {});
   assert.deepEqual(empty.previewChrome, {});
   assert.deepEqual(empty.previewServers, []);
-  assert.deepEqual(empty.surfaceChrome, {});
+  assert.deepEqual(empty.contributions, []);
   assert.deepEqual(empty.filePreviewChrome, {});
   assert.deepEqual(empty.diffPanelChrome, {});
   assert.deepEqual(empty.threadLifecycleCapabilities, {});

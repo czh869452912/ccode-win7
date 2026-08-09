@@ -3,8 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from embedagent.frontend.tui.models import EditorBuffer, ExplorerItem
-from embedagent.frontend.tui.workbench import WorkbenchState
+from embedagent_protocol import ShellDescriptor
+
+from embedagent.frontend.tui.shell_state import ShellState
 
 
 @dataclass
@@ -18,6 +19,7 @@ class CapabilityProfile:
 @dataclass
 class SessionState:
     current_session_id: str = ""
+    current_mode: str = ""
     current_snapshot: Dict[str, Any] = field(default_factory=dict)
     session_items: List[Dict[str, Any]] = field(default_factory=list)
     session_selection: int = 0
@@ -27,23 +29,10 @@ class SessionState:
 
 
 @dataclass
-class ExplorerState:
-    tab: str = "workspace"
-    items: List[ExplorerItem] = field(default_factory=list)
-    selection: int = 0
-    root: str = "."
-
-
-@dataclass
 class TimelineState:
-    lines: List[str] = field(default_factory=list)
+    items: List[str] = field(default_factory=list)
     stream_text: str = ""
     follow_output: bool = True
-
-
-@dataclass
-class InspectorState:
-    tab: str = "status"
 
 
 @dataclass
@@ -52,10 +41,22 @@ class ComposerState:
 
 
 @dataclass
-class EditorState:
-    buffer: EditorBuffer = field(default_factory=EditorBuffer)
-    diff_preview: str = ""
-    warning: str = ""
+class StatusState:
+    message: str = ""
+
+
+@dataclass
+class OverlayState:
+    active_id: str = ""
+
+
+@dataclass
+class ContributionState:
+    surface_id: str
+    renderer_key: str
+    label: str
+    active: bool = False
+    data: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -66,15 +67,34 @@ class TerminalState:
     transcript_limit: int = 240
     capability: CapabilityProfile = field(default_factory=CapabilityProfile)
     session: SessionState = field(default_factory=SessionState)
-    explorer: ExplorerState = field(default_factory=ExplorerState)
     timeline: TimelineState = field(default_factory=TimelineState)
-    inspector: InspectorState = field(default_factory=InspectorState)
     composer: ComposerState = field(default_factory=ComposerState)
-    editor: EditorState = field(default_factory=EditorState)
-    workspace_snapshot: Dict[str, Any] = field(default_factory=dict)
-    preview_path: str = ""
-    preview_text: str = ""
-    main_view: str = "timeline"
-    help_text: str = ""
-    status_message: str = ""
-    workbench: WorkbenchState = field(default_factory=WorkbenchState)
+    status: StatusState = field(default_factory=StatusState)
+    overlay: OverlayState = field(default_factory=OverlayState)
+    contributions: Dict[str, ContributionState] = field(default_factory=dict)
+    shell: ShellState = field(default_factory=ShellState)
+
+    @classmethod
+    def from_shell_descriptor(
+        cls, workspace: str, initial_mode: str, descriptor: ShellDescriptor, **kwargs: Any
+    ) -> "TerminalState":
+        if not isinstance(descriptor, ShellDescriptor):
+            raise TypeError("descriptor must be a ShellDescriptor")
+        contributions = {}
+        for surface in descriptor.surfaces:
+            if surface.placement != "secondary":
+                continue
+            contributions[surface.id] = ContributionState(
+                surface_id=surface.id,
+                renderer_key=surface.renderer_key,
+                label=surface.label,
+            )
+        state = cls(
+            workspace=workspace,
+            initial_mode=initial_mode,
+            shell=ShellState(descriptor),
+            contributions=contributions,
+            **kwargs,
+        )
+        state.session.current_mode = initial_mode
+        return state

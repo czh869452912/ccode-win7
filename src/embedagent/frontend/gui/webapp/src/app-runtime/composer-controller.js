@@ -25,7 +25,7 @@ export function createComposerController({
   }
 
   function openCommandPalette() {
-    send({ type: "workbench_command_palette_opened" });
+    send({ type: "command_palette_opened" });
   }
 
   async function refreshSourceControlStatus() {

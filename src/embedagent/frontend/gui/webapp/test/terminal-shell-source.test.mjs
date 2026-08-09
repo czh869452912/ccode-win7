@@ -11,13 +11,12 @@ function readSource(...parts) {
 
 export function runTerminalShellSourceTests() {
   const shellSource = readSource("components", "workbench", "TerminalShell.jsx");
-  const bottomDrawerSource = readSource("components", "workbench", "BottomDrawer.jsx");
-  const surfaceBodySource = readSource("components", "workbench", "RightPanelSurfaceBody.jsx");
-  const cssSource = readSource("styles.css");
+  const rendererSource = readSource("components", "contributions", "renderer-registry.js");
+  const cssSource = readSource("styles", "contributions.css");
 
   assert.equal(shellSource.includes("export default function TerminalShell"), true);
-  assert.equal(shellSource.includes("owner === \"right-panel\""), true);
-  assert.equal(shellSource.includes("owner === \"drawer\""), true);
+  assert.equal(shellSource.includes("right-panel"), false);
+  assert.equal(shellSource.includes("drawer"), false);
   assert.equal(shellSource.includes("splitDirection === \"vertical\""), true);
   assert.equal(shellSource.includes("terminal-shell-pane"), true);
   assert.equal(shellSource.includes("terminalChrome.newLabel"), true);
@@ -40,12 +39,8 @@ export function runTerminalShellSourceTests() {
   ]) {
     assert.equal(shellSource.includes(hardcodedCopy), false);
   }
-  assert.equal(bottomDrawerSource.includes("TerminalShell"), true);
-  assert.equal(bottomDrawerSource.includes("terminalChrome"), true);
-  assert.equal(bottomDrawerSource.includes("export function TerminalSurface"), false);
-  assert.equal(surfaceBodySource.includes("TerminalShell"), true);
-  assert.equal(surfaceBodySource.includes("terminalChrome"), true);
-  assert.equal(surfaceBodySource.includes("RightPanelTerminalSurface"), false);
+  assert.equal(rendererSource.includes("TerminalShell"), true);
+  assert.equal(rendererSource.includes("terminalChrome"), true);
   assert.equal(cssSource.includes(".terminal-shell"), true);
   assert.equal(cssSource.includes(".terminal-shell-panes.split-vertical"), true);
 }

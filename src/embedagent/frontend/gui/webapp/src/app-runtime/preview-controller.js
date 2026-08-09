@@ -17,19 +17,17 @@ export function createPreviewController({
   dispatch,
   getCurrentSessionId,
   getPreviewChrome,
-  rightPanelController,
+  contributionController,
 } = {}) {
   const openPreviewSession = optionalProtocolMethod(protocol, "openPreviewSession");
   const refreshPreviewSession = optionalProtocolMethod(protocol, "refreshPreviewSession");
   const openPreviewExternal = optionalProtocolMethod(protocol, "openPreviewExternal");
   const send = typeof dispatch === "function" ? dispatch : () => {};
-  const panel = rightPanelController || {};
+  const contributions = contributionController || {};
   const canOpenSurface =
-    typeof panel.canOpenPreviewSurface === "function"
-      ? panel.canOpenPreviewSurface
-      : () => false;
+    typeof contributions.openPreview === "function" ? () => true : () => false;
   const openSurface =
-    typeof panel.openPreviewSurface === "function" ? panel.openPreviewSurface : () => false;
+    typeof contributions.openPreview === "function" ? contributions.openPreview : () => false;
   const currentSessionId =
     typeof getCurrentSessionId === "function" ? getCurrentSessionId : () => "";
 

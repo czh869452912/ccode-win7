@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.frontend.tui.controller import TerminalController
 from embedagent.frontend.tui.state import TerminalState
-from embedagent.frontend.tui.views.inspector import build_inspector_text
+from embedagent.frontend.tui.views.header import build_header_text
 
 
 class FakeRuntime(object):
@@ -50,7 +50,7 @@ def test_refresh_session_projection_formats_bootstrap_activities():
 
     controller.refresh_session_projection()
 
-    assert owner.state.timeline.lines == [
+    assert owner.state.timeline.items == [
         "user> Inspect parser",
         "assistant> Parser inspected.",
     ]
@@ -58,7 +58,7 @@ def test_refresh_session_projection_formats_bootstrap_activities():
     assert controller.latest_assistant_reply == "Parser inspected."
 
 
-def test_inspector_summarizes_turn_experience_from_snapshot():
+def test_core_header_projects_session_without_inspector_state():
     state = TerminalState(workspace=".", initial_mode="build")
     state.session.current_snapshot = {
         "session_id": "session-1",
@@ -77,9 +77,10 @@ def test_inspector_summarizes_turn_experience_from_snapshot():
         },
     }
 
-    text = build_inspector_text(state, {}, "")
+    state.session.current_mode = "build"
+    text = build_header_text(state)
 
-    assert "Turn Experience" in text
-    assert "- done: file_created README.md" in text
-    assert "- unverified: validation_missing Created files have not been validated." in text
-    assert "- next: Run validation for the changed files." in text
+    assert "session=session-1" in text
+    assert "mode=build" in text
+    assert "status=idle" in text
+    assert not hasattr(state, "inspector")

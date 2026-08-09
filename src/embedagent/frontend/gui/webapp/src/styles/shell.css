@@ -1,0 +1,435 @@
+.agent-shell {
+  --session-rail-width: 264px;
+  display: grid;
+  grid-template-columns: var(--session-rail-width) minmax(0, 1fr);
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-canvas);
+}
+
+.agent-shell.rail-collapsed {
+  --session-rail-width: 48px;
+}
+
+.agent-main {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto 28px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.session-rail {
+  z-index: 40;
+  display: flex;
+  width: 264px;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border-default);
+  background: var(--bg-default);
+  transition: width 140ms ease, transform 140ms ease;
+}
+
+.session-rail.is-collapsed {
+  width: 48px;
+}
+
+.session-rail-header,
+.session-rail-footer,
+.session-rail-row,
+.session-rail-command,
+.session-rail-session {
+  display: flex;
+  align-items: center;
+}
+
+.session-rail-header {
+  height: 48px;
+  flex: 0 0 48px;
+  justify-content: space-between;
+  padding: 0 8px 0 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.session-rail-product {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icon-button,
+.session-rail-menu summary {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.icon-button:hover,
+.session-rail-menu summary:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.session-rail-command {
+  min-height: 38px;
+  margin: 6px 8px 2px;
+  justify-content: flex-start;
+  gap: 10px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.session-rail-command:hover,
+.session-rail-command:focus-visible {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+
+.session-rail.is-collapsed .session-rail-header {
+  justify-content: center;
+  padding: 0;
+}
+
+.session-rail.is-collapsed .session-rail-command {
+  width: 36px;
+  margin-inline: 6px;
+  justify-content: center;
+  padding: 0;
+}
+
+.session-rail-list {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 4px 6px;
+}
+
+.session-rail-row {
+  position: relative;
+  min-height: 42px;
+  border-radius: 6px;
+}
+
+.session-rail-row:hover,
+.session-rail-row.is-selected {
+  background: var(--bg-subtle);
+}
+
+.session-rail-row.is-selected::before {
+  position: absolute;
+  inset: 8px auto 8px 0;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--color-success);
+  content: "";
+}
+
+.session-rail-session {
+  min-height: 42px;
+  flex: 1 1 auto;
+  gap: 9px;
+  border: 0;
+  padding: 5px 8px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.session-rail.is-collapsed .session-rail-session {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.session-state-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.session-state-dot.status-running,
+.session-state-dot.has-interaction {
+  background: var(--color-warning);
+  box-shadow: 0 0 0 3px rgba(215, 173, 98, .12);
+}
+
+.session-state-dot.status-idle,
+.session-state-dot.status-completed {
+  background: var(--color-success);
+}
+
+.session-state-dot.status-error {
+  background: var(--color-error);
+}
+
+.session-rail-session-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.session-rail-session-copy strong,
+.session-rail-session-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-rail-session-copy strong {
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.session-rail-session-copy small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.session-rail-menu {
+  position: relative;
+  flex: 0 0 30px;
+}
+
+.session-rail-menu summary {
+  list-style: none;
+}
+
+.session-rail-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.session-rail-menu-items {
+  position: absolute;
+  z-index: 90;
+  top: 32px;
+  right: 0;
+  display: grid;
+  width: 144px;
+  padding: 4px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  box-shadow: var(--surface-shadow);
+}
+
+.session-rail-menu-items button {
+  border: 0;
+  border-radius: 4px;
+  padding: 7px 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+}
+
+.session-rail-menu-items button:hover {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+
+.session-rail-footer {
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: stretch;
+  padding-bottom: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.session-rail-workspace-form {
+  padding: 2px 8px 4px;
+}
+
+.session-rail-workspace-form input,
+.workspace-gate input,
+.composer-mode-select {
+  width: 100%;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.session-rail-workspace-form input {
+  height: 30px;
+  padding: 0 8px;
+}
+
+.agent-timeline-region {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.agent-timeline-region > .timeline {
+  width: 100%;
+}
+
+.agent-composer-region {
+  min-width: 0;
+  background: var(--bg-canvas);
+}
+
+.agent-status-footer {
+  display: flex;
+  height: 28px;
+  align-items: center;
+  gap: 14px;
+  overflow: hidden;
+  padding: 0 12px;
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-default);
+  color: var(--text-muted);
+  font: 10px/1 var(--font-mono);
+}
+
+.agent-status-footer span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-status-footer .connection-state::before {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  content: "";
+}
+
+.agent-status-footer .connection-state.status-connecting::before,
+.agent-status-footer .connection-state.status-disconnected::before {
+  background: var(--color-warning);
+}
+
+.agent-status-context {
+  margin-left: auto;
+}
+
+.workspace-gate {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 18px;
+  overflow: auto;
+  padding: 24px;
+}
+
+.workspace-gate form {
+  display: grid;
+  width: min(520px, 100%);
+  gap: 10px;
+}
+
+.workspace-gate label {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.workspace-gate form > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.workspace-gate input {
+  height: 38px;
+  padding: 0 11px;
+}
+
+.workspace-gate button {
+  min-height: 38px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 0 12px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.workspace-gate [role="alert"] {
+  margin: 0;
+  color: var(--color-error);
+  font-size: 11px;
+}
+
+.workspace-recent-list {
+  display: flex;
+  width: min(520px, 100%);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mobile-rail-toggle {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .agent-shell,
+  .agent-shell.rail-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .session-rail {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(264px, calc(100vw - 48px));
+    box-shadow: 14px 0 32px rgba(0, 0, 0, .3);
+  }
+
+  .session-rail.is-collapsed {
+    width: min(264px, calc(100vw - 48px));
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+
+  .mobile-rail-toggle {
+    position: fixed;
+    z-index: 45;
+    top: 8px;
+    left: 8px;
+    display: inline-flex;
+    border: 1px solid var(--border-default);
+    background: var(--bg-default);
+  }
+
+  .agent-shell:not(.rail-collapsed) .agent-main {
+    pointer-events: none;
+  }
+
+  .agent-status-footer span:nth-child(2) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-rail {
+    transition: none;
+  }
+}

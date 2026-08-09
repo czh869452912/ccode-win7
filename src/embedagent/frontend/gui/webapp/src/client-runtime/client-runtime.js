@@ -7,6 +7,7 @@ import { buildAppCapabilityModelFromState } from "../app-runtime/app-capability-
 import { createActiveWorkspaceDataLoader } from "../app-runtime/active-workspace-data-loader.js";
 import { createBrowserDialogService } from "../app-runtime/browser-dialog-service.js";
 import { createComposerController } from "../app-runtime/composer-controller.js";
+import { createContributionController } from "../app-runtime/contribution-controller.js";
 import { createDiffSurfaceController } from "../app-runtime/diff-surface-controller.js";
 import { createFilePreviewController } from "../app-runtime/file-preview-controller.js";
 import { createInitialAppLoadController } from "../app-runtime/initial-app-load-controller.js";
@@ -15,10 +16,8 @@ import {
   createLoaderRequestExecutor,
   createSessionCommandCapabilityLoader,
 } from "../app-runtime/session-loaders.js";
-import { createPanelResizeController } from "../app-runtime/panel-resize-controller.js";
 import { createPreviewController } from "../app-runtime/preview-controller.js";
 import { createRespondingRequestIdsHandle } from "../app-runtime/responding-request-ids-handle.js";
-import { createRightPanelController } from "../app-runtime/right-panel-controller.js";
 import { createSessionActivationController } from "../app-runtime/session-activation-controller.js";
 import { createSessionController } from "../app-runtime/session-controller.js";
 import { createSessionListController } from "../app-runtime/session-list-controller.js";
@@ -26,7 +25,6 @@ import { createSessionTransportController } from "../app-runtime/session-transpo
 import { createSessionTransportHandle } from "../app-runtime/session-transport-handle.js";
 import { createSocketMessageController } from "../app-runtime/socket-message-controller.js";
 import { createSourceControlController } from "../app-runtime/source-control-controller.js";
-import { createSurfacePanelController } from "../app-runtime/surface-panel-controller.js";
 import { createTerminalController } from "../app-runtime/terminal-controller.js";
 import { createThreadLifecycleController } from "../app-runtime/thread-lifecycle-controller.js";
 import { createTimelineScrollController } from "../app-runtime/timeline-scroll-controller.js";
@@ -80,7 +78,7 @@ function sessionModel(getState) {
   return buildSessionCapabilityModelFromState(getState());
 }
 
-function contributionKey(request) {
+function actionKey(request) {
   if (typeof request === "string") return request;
   const kind = String(request?.kind || "").trim();
   const action = String(request?.action || "").trim();
@@ -150,12 +148,17 @@ export function createClientRuntime({
   const timelineScrollController = createTimelineScrollController({
     getElement: typeof getTimelineElement === "function" ? getTimelineElement : () => null,
   });
+  const contributionController = createContributionController({
+    dispatch: send,
+    getShellDescriptor: () => readState().app?.shell || {},
+  });
   const terminalController = createTerminalController({
     protocol,
     dispatch: send,
     getState: readState,
     getAppCapabilities: () => readAppModel().appCapabilities,
     getTerminalChrome: () => readAppModel().terminalChrome,
+    contributionController,
   });
   const loadSessionCommandCapabilities = createSessionCommandCapabilityLoader({
     protocol,
@@ -167,38 +170,24 @@ export function createClientRuntime({
     dispatch: send,
     getAppCapabilities: () => readAppModel().appCapabilities,
   });
-  const rightPanelController = createRightPanelController({
-    dispatch: send,
-    terminalController,
-    getAppCapabilities: () => readAppModel().appCapabilities,
-  });
   const filePreviewController = createFilePreviewController({
     protocol,
     dispatch: send,
     getFilePreviewChrome: () => readAppModel().filePreviewChrome,
-    rightPanelController,
+    contributionController,
   });
   const previewController = createPreviewController({
     protocol,
     dispatch: send,
     getCurrentSessionId: () => readActiveThreadId(readState()),
     getPreviewChrome: () => readAppModel().previewChrome,
-    rightPanelController,
+    contributionController,
   });
   const diffSurfaceController = createDiffSurfaceController({
     dispatch: send,
     getRuntimeState: readActivityRuntime,
     getDiffPanelChrome: () => readAppModel().diffPanelChrome,
   });
-  const surfacePanelController = createSurfacePanelController({
-    dispatch: send,
-    sourceControlController,
-  });
-  const panelResizeController = createPanelResizeController({
-    documentObject: browserRuntime.documentObject,
-    getComputedStyleFn: browserRuntime.getComputedStyleFn,
-  });
-
   let loadSession = () => Promise.resolve({ stale: true });
   const activeWorkspaceDataLoader = createActiveWorkspaceDataLoader({
     getAppCapabilities: () => readAppModel().appCapabilities,
@@ -249,21 +238,30 @@ export function createClientRuntime({
     documentObject: browserRuntime.documentObject,
     setTimeoutFn: schedule,
     getCurrentMode: () => readState().snapshot?.current_mode || readState().requestedMode,
-    getActiveWorkspaceId: () => readState().app?.activeWorkspace?.id || "",
+    getCurrentSessionId: () => readActiveThreadId(readState()),
+    getShellDescriptor: () => readAppModel().appCapabilities.shell,
     getSessionCapabilities: () => readSessionModel().sessionCapabilities,
     getAppCapabilities: () => readAppModel().appCapabilities,
     createSession: sessionController.createSession,
-    loadSessions: sessionListController.loadSessions,
     loadSession: (...args) => loadSession(...args),
-    loadAppBootstrap: workspaceController.loadAppBootstrap,
     activateWorkspace: workspaceController.activateWorkspace,
-    removeWorkspace: workspaceController.removeWorkspace,
-    sendMessage: composerController.sendMessage,
     cancelSession: sessionController.cancelSession,
+    renameSession: (sessionId, command) => threadLifecycleController.renameThread(
+      sessionId,
+      { id: "rename", capability: "rename", label: command.label },
+    ),
+    archiveSession: (sessionId, command) => threadLifecycleController.archiveThread(
+      sessionId,
+      { id: "archive", capability: "archive", label: command.label },
+    ),
+    forkSession: (sessionId, command) => threadLifecycleController.forkThread(
+      sessionId,
+      { id: "fork", capability: "fork", label: command.label },
+    ),
     submitText: sessionController.submitText,
     setMode: sessionController.setMode,
-    openRightPanelSurface: rightPanelController.openSurface,
-    terminalController,
+    openContributionSurface: contributionController.openSurface,
+    prompt: dialogService.prompt,
   });
   const executeLoaderRequest = createLoaderRequestExecutor({
     loadAppBootstrap: workspaceController.loadAppBootstrap,
@@ -322,7 +320,7 @@ export function createClientRuntime({
         currentSessionId: readActiveThreadId(state),
         currentStatus: state.snapshot?.status || "idle",
         appState: state.app,
-        workbenchState: state.workbench,
+        contributionState: state.contribution,
         sessionCapabilities: sessionModel(() => state).sessionCapabilities,
       });
     },
@@ -347,7 +345,7 @@ export function createClientRuntime({
     visualDebugCleanup = visualDebugController.install() || null;
   }
 
-  const contributionHandlers = Object.freeze({
+  const actionHandlers = Object.freeze({
     "command_palette.close": workbenchCommandController.closePalette,
     "command_palette.open": workbenchCommandController.openPalette,
     "command_palette.query": workbenchCommandController.updatePaletteQuery,
@@ -361,46 +359,42 @@ export function createClientRuntime({
     "diff.open": diffSurfaceController.open,
     "file.open": filePreviewController.openFile,
     "files.load": workspaceFilesController.loadFileChildren,
-    "files.open_surface": rightPanelController.openFilesSurface,
+    "files.open_surface": contributionController.openFiles,
     "interaction.sync": (interactionId) => respondingRequestIdsHandle.set((ids) =>
       ids.filter((requestId) => requestId === String(interactionId || ""))),
-    "panel.resize_right": panelResizeController.startRightPanelResize,
-    "panel.resize_sidebar": panelResizeController.startSidebarResize,
     "preview.open_external": previewController.openExternal,
     "preview.open_url": previewController.openUrl,
     "preview.refresh": previewController.refresh,
     "session.reload_list": sessionListController.loadSessions,
-    "source_control.change_settings": surfacePanelController.changeAppSettings,
-    "source_control.focus_diff": surfacePanelController.focusDiffFile,
-    "source_control.open_file": surfacePanelController.selectSourceControlFile,
-    "source_control.refresh": surfacePanelController.refreshSourceControl,
-    "surface.activate": rightPanelController.activateSurface,
-    "surface.close": rightPanelController.closeSurface,
-    "surface.close_all": rightPanelController.closeAllSurfaces,
-    "surface.close_others": rightPanelController.closeOtherSurfaces,
-    "surface.close_to_right": rightPanelController.closeSurfacesToRight,
-    "surface.open": rightPanelController.openSurface,
-    "terminal.activate_bottom": terminalController.activateBottomDrawerTerminal,
-    "terminal.activate_right": terminalController.activateActiveRightPanelPane,
+    "source_control.change_settings": (patch) => send({ type: "app_shell_settings_changed", patch }),
+    "source_control.focus_diff": (filePath) => send({ type: "diff_file_focused", filePath }),
+    "source_control.open_file": (file, scope) => sourceControlController.openFile(
+      typeof file === "string" ? { path: file } : file,
+      scope,
+    ),
+    "source_control.refresh": () => sourceControlController.loadStatus(true),
+    "surface.activate": contributionController.activate,
+    "surface.close": contributionController.close,
+    "surface.close_all": contributionController.closeAll,
+    "surface.close_others": contributionController.closeOthers,
+    "surface.close_after": contributionController.closeAfter,
+    "surface.open": contributionController.openSurface,
+    "terminal.activate": terminalController.activateContributionTerminal,
     "terminal.clear_active": terminalController.clearActive,
     "terminal.clear_by_id": terminalController.clearById,
     "terminal.close_active": terminalController.closeActive,
-    "terminal.close_right": terminalController.closeActiveRightPanelPane,
-    "terminal.open_new_bottom": terminalController.openNewBottomDrawerTerminal,
-    "terminal.open_right": terminalController.openRightPanelSurface,
+    "terminal.close": terminalController.closeContributionTerminal,
+    "terminal.open": terminalController.openContribution,
     "terminal.restart_active": terminalController.restartActive,
     "terminal.restart_by_id": terminalController.restartById,
-    "terminal.select_bottom_kind": terminalController.selectBottomDrawerKind,
     "terminal.send_active": terminalController.sendActive,
     "terminal.send_to": terminalController.sendTo,
-    "terminal.split_right": terminalController.splitActiveRightPanelSurface,
-    "terminal.split_right_vertical": terminalController.splitActiveRightPanelSurfaceVertical,
+    "terminal.split": terminalController.splitContribution,
+    "terminal.split_vertical": terminalController.splitContributionVertical,
     "timeline.mark_bottom": timelineScrollController.markFollowingBottom,
     "timeline.scroll": timelineScrollController.handleScroll,
     "timeline.sync_bottom": timelineScrollController.syncToBottom,
     "visual_debug.refresh": installVisualDebug,
-    "workbench.toggle_bottom_drawer": workbenchCommandController.toggleBottomDrawer,
-    "workbench.toggle_right_panel": workbenchCommandController.toggleRightPanel,
     "workspace.load_active": workspaceController.loadActiveWorkspaceData,
     "workspace.path_changed": workspaceController.setWorkspacePath,
   });
@@ -440,8 +434,8 @@ export function createClientRuntime({
     submitText: action(sessionController.submitText),
     respondToInteraction: action(interactionResponseController.respondToInteraction),
     executeCommand: action(workbenchCommandController.execute),
-    openContribution: action((request, ...args) => {
-      const handler = contributionHandlers[contributionKey(request)];
+    dispatchAction: action((request, ...args) => {
+      const handler = actionHandlers[actionKey(request)];
       if (typeof handler !== "function") return null;
       return handler(...args);
     }),

@@ -1,5 +1,3 @@
-import { surfaceDefinitionFor } from "../workbench/surfaces.js";
-
 function appObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
@@ -19,9 +17,11 @@ function hasComposerFileHint(appCapabilities) {
 export function workspaceFilesCapabilityEnabled(appCapabilities = {}) {
   const capabilities = appObject(appCapabilities);
   if (!capabilities) return false;
+  const contributions = Array.isArray(capabilities.contributions)
+    ? capabilities.contributions
+    : [];
   return Boolean(
-    surfaceDefinitionFor("files", capabilities) ||
-      surfaceDefinitionFor("file", capabilities) ||
+    contributions.some((item) => item?.id === "files" || item?.rendererKey === "file_reference") ||
       hasComposerFileHint(capabilities),
   );
 }

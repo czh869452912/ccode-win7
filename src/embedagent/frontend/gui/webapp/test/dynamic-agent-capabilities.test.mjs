@@ -5,7 +5,6 @@ import { buildAppCapabilityModel } from "../src/app-runtime/app-capability-model
 import { normalizeProtocolCapabilities } from "../src/session-runtime/protocol-normalizer.js";
 import { buildSessionCapabilityModel } from "../src/session-runtime/session-capability-model.js";
 import { buildWorkbenchCommands } from "../src/workbench/commands.js";
-import { rightPanelLauncherSurfaceDefinitions } from "../src/workbench/surfaces.js";
 import {
   agentApplicationDescriptor,
   capabilitySnapshot,
@@ -129,9 +128,7 @@ export function runDynamicAgentCapabilityTests() {
     specializedSession,
     specializedAppModel.appCapabilities,
   );
-  const surfaces = rightPanelLauncherSurfaceDefinitions(
-    specializedAppModel.appCapabilities,
-  );
+  const surfaces = specializedAppModel.contributions;
 
   assert.equal(specializedApp.app.productName, "Project Inspector");
   assert.equal(specializedSessionModel.emptyState.scenarioLabel, "Inspection workspace");

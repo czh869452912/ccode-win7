@@ -32,9 +32,8 @@ export async function runPreviewControllerTests() {
     dispatch: (action) => actions.push(action),
     getCurrentSessionId: () => "sess-1",
     getPreviewChrome: () => PREVIEW_CHROME,
-    rightPanelController: {
-      canOpenPreviewSurface: () => true,
-      openPreviewSurface: (request) => openRequests.push(request),
+    contributionController: {
+      openPreview: (request) => openRequests.push(request),
     },
   });
 
@@ -56,9 +55,8 @@ export async function runPreviewControllerTests() {
     dispatch: (action) => noSessionActions.push(action),
     getCurrentSessionId: () => "",
     getPreviewChrome: () => PREVIEW_CHROME,
-    rightPanelController: {
-      canOpenPreviewSurface: () => true,
-      openPreviewSurface: () => {
+    contributionController: {
+      openPreview: () => {
         throw new Error("should not open");
       },
     },
@@ -73,7 +71,7 @@ export async function runPreviewControllerTests() {
     protocol,
     dispatch: (action) => disabledCalls.push(action),
     getCurrentSessionId: () => "sess-1",
-    rightPanelController: { canOpenPreviewSurface: () => false },
+    contributionController: {},
   });
   assert.equal(await disabledController.openUrl("http://localhost:5173"), null);
   assert.equal(await disabledController.refresh({ tabId: "tab-1" }), null);
@@ -90,13 +88,13 @@ export async function runPreviewControllerTests() {
     dispatch: (action) => failedActions.push(action),
     getCurrentSessionId: () => "sess-1",
     getPreviewChrome: () => PREVIEW_CHROME,
-    rightPanelController: { canOpenPreviewSurface: () => true },
+    contributionController: { openPreview: () => true },
   });
   await assert.rejects(() => failedController.openExternal("http://localhost:5173"));
   assert.deepEqual(failedActions, [{ type: "interaction_notice_set", notice: "Open failed" }]);
 
   const missingProtocol = createPreviewController({
-    rightPanelController: { canOpenPreviewSurface: () => true },
+    contributionController: { openPreview: () => true },
   });
   assert.equal(await missingProtocol.openUrl("http://localhost:5173"), null);
 }

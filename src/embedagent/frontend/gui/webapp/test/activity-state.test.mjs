@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 
 import {
   buildSessionActivityRuntime,
-  normalizeHistoryActivities,
 } from "../src/session-runtime/activity-state.js";
+import { normalizeHistoryActivities } from "../src/session-runtime/timeline/activity-grouping.js";
 import {
   createActivityState,
   reduceActivityState,
@@ -187,11 +187,11 @@ export function runActivityStateTests() {
   assert.equal(runtime.timelineView[0].steps[0].activityItems[0].kind, "reasoning");
   assert.equal(runtime.timelineView[0].steps[0].activityItems[1].toolName, "read_file");
   assert.equal(
-    runtime.t3TimelineRows.some((row) => row.kind === "message" && row.role === "user"),
+    runtime.timelineRows.some((row) => row.kind === "message" && row.role === "user"),
     true,
   );
   assert.equal(
-    runtime.t3TimelineRows.some(
+    runtime.timelineRows.some(
       (row) => row.kind === "turn_fold" && row.entries.some((entry) => entry.kind === "work"),
     ),
     true,
@@ -220,11 +220,11 @@ export function runActivityStateTests() {
   assert.equal(pendingRuntime.currentInteraction.interactionId, "ask-1");
   assert.equal(pendingRuntime.interactionNotice, null);
   assert.equal(
-    pendingRuntime.t3TimelineRows.filter((row) => row.kind === "interaction").length,
+    pendingRuntime.timelineRows.filter((row) => row.kind === "interaction").length,
     0,
   );
   assert.equal(
-    pendingRuntime.t3TimelineRows.filter((row) => row.kind === "system_notice").length,
+    pendingRuntime.timelineRows.filter((row) => row.kind === "system_notice").length,
     0,
   );
 
@@ -326,11 +326,11 @@ export function runActivityStateTests() {
     sessionTransport: createSessionTransportState(),
     activities: denseActivities,
   });
-  const denseFold = denseRuntime.t3TimelineRows.find((row) => row.kind === "turn_fold");
+  const denseFold = denseRuntime.timelineRows.find((row) => row.kind === "turn_fold");
   assert.ok(denseFold);
   assert.equal(denseFold.entries.filter((entry) => entry.kind === "work").length, 6);
   assert.equal(denseFold.entries.some((entry) => entry.kind === "context_summary"), true);
-  const denseReview = denseRuntime.t3TimelineRows.find((row) => row.kind === "review_result");
+  const denseReview = denseRuntime.timelineRows.find((row) => row.kind === "review_result");
   assert.ok(denseReview);
   assert.equal(denseReview.findings[0].file, "src/parser.c");
   assert.equal(denseReview.findings[0].line, 42);

@@ -1,53 +1,81 @@
 import { commandById } from "../workbench/commands.js";
 
+function focusSelector({ documentObject, setTimeoutFn }, selector) {
+  setTimeoutFn(() => documentObject.querySelector(selector)?.focus(), 0);
+}
+
+function currentSessionId(context) {
+  return String(context.getCurrentSessionId?.() || "").trim();
+}
+
+function requireCurrentSession(context) {
+  const sessionId = currentSessionId(context);
+  if (!sessionId) throw new Error("shell_command_requires_session");
+  return sessionId;
+}
+
+function surfaceById(context, surfaceId) {
+  const descriptor = context.getShellDescriptor?.() || {};
+  const surfaces = Array.isArray(descriptor.surfaces) ? descriptor.surfaces : [];
+  return surfaces.find((item) => item?.id === surfaceId) || null;
+}
+
+async function openRegisteredSurface(context, dispatchDescriptor) {
+  const surfaceId = String(dispatchDescriptor.surface_id || "").trim();
+  const surface = surfaceById(context, surfaceId);
+  if (!surface) throw new Error(`unknown_shell_surface:${surfaceId}`);
+  if (surface.rendererKey === "command_palette") {
+    context.dispatch({ type: "command_palette_opened" });
+    return;
+  }
+  if (surface.rendererKey === "composer" || surface.rendererKey === "interaction") {
+    focusSelector(context, '[data-testid="composer-input"]');
+    return;
+  }
+  if (surface.placement === "secondary") {
+    context.openContributionSurface(surface.id, surface.label);
+    return;
+  }
+  throw new Error(`unsupported_shell_renderer:${surface.rendererKey}`);
+}
+
 const COMMAND_DISPATCH_HANDLERS = Object.freeze(Object.assign(Object.create(null), {
-  "mode.set": async ({ setMode }, dispatchDescriptor) => {
-    if (dispatchDescriptor.mode) {
-      await setMode(dispatchDescriptor.mode);
-    }
-  },
-  "command_palette.open": async ({ dispatch }) => {
-    dispatch({ type: "workbench_command_palette_opened" });
-  },
-  "command_palette.close": async ({ dispatch }) => {
-    dispatch({ type: "workbench_command_palette_closed" });
-  },
   "session.create": async ({ createSession, getCurrentMode }) => {
     await createSession(getCurrentMode());
   },
-  "sessions.reload": async ({ loadSessions }) => {
-    await loadSessions();
+  "session.select": async ({ dispatch }) => {
+    dispatch({ type: "command_palette_opened" });
   },
-  "workspace.focus_path_input": async ({ documentObject, setTimeoutFn }) => {
-    setTimeoutFn(() => {
-      documentObject
-        .querySelector('[data-testid="sidebar-workspace-path-input"]')
-        ?.focus();
-    }, 0);
+  "session.rename": async (context, _dispatchDescriptor, command) => {
+    await context.renameSession(requireCurrentSession(context), command);
   },
-  "app_shell.reload": async ({ loadAppBootstrap }) => {
-    await loadAppBootstrap();
+  "session.archive": async (context, _dispatchDescriptor, command) => {
+    await context.archiveSession(requireCurrentSession(context), command);
   },
-  "workspace.remove_active_recent": async ({ getActiveWorkspaceId, removeWorkspace }) => {
-    const workspaceId = getActiveWorkspaceId();
-    if (workspaceId) {
-      await removeWorkspace(workspaceId);
-    }
+  "session.fork": async (context, _dispatchDescriptor, command) => {
+    await context.forkSession(requireCurrentSession(context), command);
   },
-  "message.submit": async ({ sendMessage }) => {
-    await sendMessage();
-  },
-  "turn.cancel": async ({ cancelSession }) => {
+  "session.cancel": async ({ cancelSession }) => {
     await cancelSession();
   },
-  "workbench.toggle_right_panel": async ({ dispatch }) => {
-    dispatch({ type: "workbench_right_panel_toggled" });
+  "session.mode": async (context, dispatchDescriptor, command) => {
+    const selected = String(dispatchDescriptor.mode || context.prompt?.(
+      command.label,
+      context.getCurrentMode(),
+    ) || "").trim();
+    if (selected) await context.setMode(selected);
   },
-  "workbench.toggle_bottom_drawer": async ({ dispatch }) => {
-    dispatch({ type: "workbench_bottom_drawer_toggled" });
+  "session.command": async ({ submitText }, dispatchDescriptor) => {
+    const name = String(dispatchDescriptor.command || "").trim();
+    if (!name) throw new Error("shell_command_dispatch_invalid");
+    await submitText(`/${name}`);
   },
-  "terminal.ensure_open": async ({ terminalController }) => {
-    await terminalController.ensureOpen();
+  "workspace.open": async (context) => {
+    focusSelector(context, '[data-testid="sidebar-workspace-path-input"]');
+  },
+  "shell.surface": openRegisteredSurface,
+  "interaction.respond": async (context) => {
+    focusSelector(context, '[data-testid="composer-input"]');
   },
 }));
 
@@ -61,36 +89,38 @@ export function createWorkbenchCommandController({
   documentObject,
   setTimeoutFn,
   getCurrentMode,
-  getActiveWorkspaceId,
+  getCurrentSessionId,
+  getShellDescriptor,
   getSessionCapabilities,
   getAppCapabilities,
   createSession,
-  loadSessions,
   loadSession,
-  loadAppBootstrap,
   activateWorkspace,
-  removeWorkspace,
-  sendMessage,
   cancelSession,
+  renameSession,
+  archiveSession,
+  forkSession,
   submitText,
   setMode,
-  openRightPanelSurface,
-  terminalController,
+  openContributionSurface,
+  prompt,
 }) {
   const context = {
+    archiveSession,
     cancelSession,
     createSession,
     dispatch,
     documentObject,
-    getActiveWorkspaceId,
     getCurrentMode,
-    loadAppBootstrap,
-    loadSessions,
-    removeWorkspace,
-    sendMessage,
+    getCurrentSessionId,
+    getShellDescriptor,
+    forkSession,
+    openContributionSurface,
+    prompt,
+    renameSession,
     setMode,
     setTimeoutFn,
-    terminalController,
+    submitText,
   };
   const readSessionCapabilities =
     typeof getSessionCapabilities === "function" ? getSessionCapabilities : () => ({});
@@ -98,23 +128,15 @@ export function createWorkbenchCommandController({
     typeof getAppCapabilities === "function" ? getAppCapabilities : () => ({});
 
   function openPalette() {
-    dispatch({ type: "workbench_command_palette_opened" });
+    dispatch({ type: "command_palette_opened" });
   }
 
   function closePalette() {
-    dispatch({ type: "workbench_command_palette_closed" });
+    dispatch({ type: "command_palette_closed" });
   }
 
   function updatePaletteQuery(query) {
-    dispatch({ type: "workbench_command_palette_query_changed", query });
-  }
-
-  function toggleRightPanel() {
-    dispatch({ type: "workbench_right_panel_toggled" });
-  }
-
-  function toggleBottomDrawer() {
-    dispatch({ type: "workbench_bottom_drawer_toggled" });
+    dispatch({ type: "command_palette_query_changed", query });
   }
 
   async function execute(command) {
@@ -122,21 +144,8 @@ export function createWorkbenchCommandController({
     const dispatchDescriptor =
       command.dispatch && typeof command.dispatch === "object" ? command.dispatch : {};
     const handler = COMMAND_DISPATCH_HANDLERS[dispatchDescriptor.kind];
-    if (handler) {
-      await handler(context, dispatchDescriptor);
-      return;
-    }
-    if (command.surface) {
-      openRightPanelSurface(command.surface, command.label);
-      return;
-    }
-    if (command.drawer) {
-      dispatch({ type: "workbench_surface_activated", placement: "bottom", kind: command.drawer });
-      return;
-    }
-    if (command.slash) {
-      await submitText(command.slash);
-    }
+    if (!handler) throw new Error(`unsupported_shell_dispatch:${dispatchDescriptor.kind || ""}`);
+    await handler(context, dispatchDescriptor, command);
   }
 
   async function selectPaletteCommand(command) {
@@ -169,8 +178,6 @@ export function createWorkbenchCommandController({
     selectPaletteCommand,
     selectPaletteSession,
     selectPaletteWorkspace,
-    toggleBottomDrawer,
-    toggleRightPanel,
     updatePaletteQuery,
   };
 }

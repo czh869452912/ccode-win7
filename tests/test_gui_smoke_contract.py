@@ -20,6 +20,11 @@ class TestGuiSmokeContract(unittest.TestCase):
         with open(path, "r", encoding="utf-8") as handle:
             return handle.read()
 
+    def _visual_script_text(self):
+        path = os.path.join(ROOT, "scripts", "gui-visual-debug.mjs")
+        with open(path, "r", encoding="utf-8") as handle:
+            return handle.read()
+
     def test_smoke_launcher_uses_workspace_scoped_app_home(self):
         smoke = _load_smoke_script()
         with tempfile.TemporaryDirectory() as root:
@@ -97,6 +102,31 @@ class TestGuiSmokeContract(unittest.TestCase):
             "model_failure",
             "renderer_failure",
             "cleanup_failure",
+        ):
+            self.assertIn(marker, text)
+
+    def test_visual_smoke_covers_minimal_shell_and_optional_contributions(self):
+        text = self._visual_script_text()
+
+        for scenario in (
+            "empty",
+            "session",
+            "streaming",
+            "tool",
+            "interaction",
+            "commands",
+            "recovery",
+            "narrow",
+            "optional-terminal",
+            "optional-diff",
+        ):
+            self.assertIn('"%s"' % scenario, text)
+        for marker in (
+            "[data-agent-shell]",
+            "[data-session-timeline]",
+            "[data-session-composer]",
+            "elementsFromPoint",
+            "documentWidth",
         ):
             self.assertIn(marker, text)
 

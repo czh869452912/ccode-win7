@@ -19,22 +19,20 @@ export function createFilePreviewController({
   protocol,
   dispatch,
   getFilePreviewChrome,
-  rightPanelController,
+  contributionController,
 } = {}) {
   const readFile =
     protocol && typeof protocol.readFile === "function"
       ? protocol.readFile.bind(protocol)
       : null;
   const send = typeof dispatch === "function" ? dispatch : () => {};
-  const panel = rightPanelController || {};
+  const contributions = contributionController || {};
   const normalizePath =
-    typeof panel.normalizeFileSurfacePath === "function"
-      ? panel.normalizeFileSurfacePath
+    typeof contributions.normalizeFilePath === "function"
+      ? contributions.normalizeFilePath
       : normalizeFallbackPath;
-  const fileTitle =
-    typeof panel.fileSurfaceTitle === "function" ? panel.fileSurfaceTitle : fallbackFileTitle;
   const openSurface =
-    typeof panel.openFileSurface === "function" ? panel.openFileSurface : () => false;
+    typeof contributions.openFile === "function" ? contributions.openFile : () => false;
 
   async function openFile(path, line) {
     if (!readFile) return null;
@@ -44,7 +42,7 @@ export function createFilePreviewController({
     const opened = openSurface({
       filePath,
       revealLine: line,
-      title: fileTitle(filePath, chrome),
+      title: fallbackFileTitle(filePath, chrome),
     });
     if (!opened) return null;
     send({ type: "file_preview_load_started", path: filePath });

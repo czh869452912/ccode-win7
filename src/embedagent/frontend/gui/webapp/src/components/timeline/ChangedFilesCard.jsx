@@ -1,12 +1,12 @@
 import React from "react";
 
-import { buildChangedFilesTree, summarizeDiffStats } from "../../session-runtime/t3-timeline.js";
+import { buildChangedFilesTree, summarizeDiffStats } from "../../session-runtime/timeline/diff-activity.js";
 
 function DiffStatLabel({ additions = 0, deletions = 0 }) {
   return (
-    <span className="t3-diff-stats">
-      <span className="t3-diff-add">+{additions || 0}</span>
-      <span className="t3-diff-del">-{deletions || 0}</span>
+    <span className="diff-stats">
+      <span className="diff-add">+{additions || 0}</span>
+      <span className="diff-del">-{deletions || 0}</span>
     </span>
   );
 }
@@ -25,21 +25,21 @@ function TreeNode({ node, depth, turnId, onOpenDiff, allExpanded }) {
 
   if (node.kind === "directory") {
     return (
-      <div className="t3-changed-tree-node directory" data-testid={`changed-dir--${node.path}`}>
+      <div className="changed-tree-node directory" data-testid={`changed-dir--${node.path}`}>
         <button
           type="button"
-          className="t3-changed-tree-row"
+          className="changed-tree-row"
           style={{ paddingLeft: `${7 + depth * 14}px` }}
           aria-expanded={expanded}
           onClick={() => setExpanded((value) => !value)}
         >
-          <span className={`t3-tree-chevron${expanded ? " expanded" : ""}`} aria-hidden="true">{">"}</span>
-          <span className="t3-tree-icon" aria-hidden="true">{expanded ? "v" : ">"}</span>
-          <span className="t3-tree-name">{node.name}</span>
+          <span className={`changed-tree-chevron${expanded ? " expanded" : ""}`} aria-hidden="true">{">"}</span>
+          <span className="changed-tree-icon" aria-hidden="true">{expanded ? "v" : ">"}</span>
+          <span className="changed-tree-name">{node.name}</span>
           {node.stat ? <DiffStatLabel additions={node.stat.additions} deletions={node.stat.deletions} /> : null}
         </button>
         {expanded ? (
-          <div className="t3-changed-tree-children">
+          <div className="changed-tree-children">
             {(node.children || []).map((child) => (
               <TreeNode
                 key={`${child.kind}:${child.path}`}
@@ -60,14 +60,14 @@ function TreeNode({ node, depth, turnId, onOpenDiff, allExpanded }) {
   return (
     <button
       type="button"
-      className="t3-changed-tree-row file"
+      className="changed-tree-row file"
       style={{ paddingLeft: `${7 + depth * 14}px` }}
       onClick={() => onOpenDiff && onOpenDiff({ turnId, filePath: node.path })}
       data-testid={`changed-file--${node.path}`}
     >
-      <span className="t3-tree-spacer" aria-hidden="true" />
-      <span className="t3-tree-icon" aria-hidden="true">[]</span>
-      <span className="t3-tree-name">{node.name}</span>
+      <span className="changed-tree-spacer" aria-hidden="true" />
+      <span className="changed-tree-icon" aria-hidden="true">[]</span>
+      <span className="changed-tree-name">{node.name}</span>
       <DiffStatLabel additions={stat.additions} deletions={stat.deletions} />
     </button>
   );
@@ -80,34 +80,34 @@ export default function ChangedFilesCard({ row, onOpenDiff, chrome = {} }) {
   const stats = React.useMemo(() => summarizeDiffStats(files), [files]);
   if (!files.length) return null;
   return (
-    <section className="t3-changed-files-card" data-testid="changed-files-card" data-row-kind="diff_summary">
-      <header className="t3-changed-files-title">
+    <section className="changed-files-card" data-testid="changed-files-card" data-row-kind="diff_summary">
+      <header className="changed-files-title">
         <button
-          className="t3-changed-files-open"
+          className="changed-files-open"
           type="button"
           onClick={() => onOpenDiff && onOpenDiff({ turnId: row.turnId || "", filePath: files[0]?.path || "" })}
         >
           <span>{formatTemplate(chrome.summaryTemplate, { count: files.length })}</span>
           <DiffStatLabel additions={row.additions ?? stats.additions} deletions={row.deletions ?? stats.deletions} />
         </button>
-        <div className="t3-changed-files-actions">
+        <div className="changed-files-actions">
           <button
             type="button"
-            className="t3-mini-button"
+            className="activity-mini-button"
             onClick={() => setAllExpanded((value) => !value)}
           >
             {allExpanded ? chrome.collapseLabel || "" : chrome.expandLabel || ""}
           </button>
           <button
             type="button"
-            className="t3-mini-button"
+            className="activity-mini-button"
             onClick={() => onOpenDiff && onOpenDiff({ turnId: row.turnId || "", filePath: files[0]?.path || "" })}
           >
             {chrome.viewDiffLabel || ""}
           </button>
         </div>
       </header>
-      <div className="t3-changed-files-tree" data-testid="changed-files-tree">
+      <div className="changed-files-tree" data-testid="changed-files-tree">
         {tree.map((node) => (
           <TreeNode
             key={`${node.kind}:${node.path}`}

@@ -10,7 +10,7 @@ import {
   applySessionTransportEvent,
   createSessionTransportState,
 } from "../src/session-runtime/session-transport-state.js";
-import { summarizeChangedFiles } from "../src/session-runtime/t3-timeline.js";
+import { summarizeChangedFiles } from "../src/session-runtime/timeline/diff-activity.js";
 
 function envelope(eventKind, payload, sequence = 1) {
   return {

@@ -50,16 +50,17 @@ export function runCommandPaletteSourceTests() {
   assert.equal(modelSource.includes("fetch("), false);
   assert.equal(modelSource.includes("transcript"), false);
 
-  const appSource = readSource("App.jsx");
-  assert.equal(appSource.includes("paletteCommands"), true);
-  assert.equal(appSource.includes("activeWorkspaceId"), true);
-  assert.equal(appSource.includes("sessions={threadSessions}"), true);
-  assert.equal(appSource.includes("currentSessionId={currentSessionId}"), true);
-  assert.equal(appSource.includes("workspaces={state.app.workspaces}"), true);
-  assert.equal(appSource.includes("keybindings={keybindings}"), true);
-  assert.equal(appSource.includes("DEFAULT_KEYBINDINGS"), false);
-  assert.equal(appSource.includes("commandById"), false);
-  assert.equal(appSource.includes("onSelect={selectPaletteCommand}"), true);
-  assert.equal(appSource.includes("onSelectSession={selectPaletteSession}"), true);
-  assert.equal(appSource.includes("onSelectWorkspace={selectPaletteWorkspace}"), true);
+  const runtimeSource = readSource("client-runtime", "use-agent-shell-runtime.js");
+  const hostSource = readSource("components", "shell", "ShellOverlayHost.jsx");
+  assert.equal(runtimeSource.includes("paletteCommands"), true);
+  assert.equal(hostSource.includes("activeWorkspaceId={sessions.activeWorkspace?.id"), true);
+  assert.equal(hostSource.includes("sessions={sessions.items}"), true);
+  assert.equal(hostSource.includes("currentSessionId={sessions.currentId}"), true);
+  assert.equal(hostSource.includes("workspaces={sessions.workspaces}"), true);
+  assert.equal(hostSource.includes("keybindings={shell.keybindings}"), true);
+  assert.equal(hostSource.includes("DEFAULT_KEYBINDINGS"), false);
+  assert.equal(runtimeSource.includes("commandById"), false);
+  assert.equal(hostSource.includes("onSelect={actions.selectPaletteCommand}"), true);
+  assert.equal(hostSource.includes("onSelectSession={actions.selectPaletteSession}"), true);
+  assert.equal(hostSource.includes("onSelectWorkspace={actions.selectPaletteWorkspace}"), true);
 }

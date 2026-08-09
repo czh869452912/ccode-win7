@@ -81,6 +81,7 @@ def minimal_shell_contribution() -> ShellContribution:
                 "session",
                 "session.rename",
                 30,
+                availability={"visible_when": "has_session"},
             ),
             _command(
                 "session.archive",
@@ -88,6 +89,7 @@ def minimal_shell_contribution() -> ShellContribution:
                 "session",
                 "session.archive",
                 40,
+                availability={"visible_when": "has_session"},
             ),
             _command(
                 "session.fork",
@@ -95,6 +97,7 @@ def minimal_shell_contribution() -> ShellContribution:
                 "session",
                 "session.fork",
                 50,
+                availability={"visible_when": "has_session"},
             ),
             _command(
                 "session.cancel",
@@ -102,6 +105,7 @@ def minimal_shell_contribution() -> ShellContribution:
                 "session",
                 "session.cancel",
                 60,
+                availability={"visible_when": "running"},
             ),
             _command(
                 "session.mode",
@@ -109,6 +113,7 @@ def minimal_shell_contribution() -> ShellContribution:
                 "session",
                 "session.mode",
                 70,
+                availability={"visible_when": "has_session"},
             ),
             _command(
                 "shell.command_palette",
@@ -125,22 +130,6 @@ def minimal_shell_contribution() -> ShellContribution:
                 "shell.surface",
                 90,
                 {"surface_id": "session.composer"},
-            ),
-            _command(
-                "interaction.permission.respond",
-                "Respond To Permission",
-                "interaction",
-                "interaction.respond",
-                100,
-                {"interaction_kind": "permission"},
-            ),
-            _command(
-                "interaction.input.respond",
-                "Respond To Input",
-                "interaction",
-                "interaction.respond",
-                110,
-                {"interaction_kind": "user_input"},
             ),
         ),
         surfaces=(
@@ -239,6 +228,7 @@ def desktop_file_contribution() -> ShellContribution:
                 "shell.surface",
                 210,
                 {"surface_id": "files"},
+                availability={"visible_when": "has_workspace"},
             ),
         ),
         surfaces=(
@@ -263,6 +253,7 @@ def terminal_contribution() -> ShellContribution:
                 "shell.surface",
                 300,
                 {"surface_id": "terminal"},
+                availability={"visible_when": "has_workspace"},
             ),
         ),
         surfaces=(
@@ -287,6 +278,7 @@ def source_control_contribution() -> ShellContribution:
                 "shell.surface",
                 400,
                 {"surface_id": "source_control"},
+                availability={"visible_when": "has_workspace"},
             ),
         ),
         surfaces=(
@@ -311,6 +303,7 @@ def preview_contribution() -> ShellContribution:
                 "shell.surface",
                 500,
                 {"surface_id": "preview"},
+                availability={"visible_when": "has_workspace"},
             ),
         ),
         surfaces=(
@@ -342,7 +335,10 @@ def cpp_workflow_contribution() -> ShellContribution:
                 "session.command",
                 order,
                 {"command": capability_id},
-                {"capability_id": capability_id},
+                {
+                    "capability_id": capability_id,
+                    "visible_when": "has_session",
+                },
             )
         )
     return ShellContribution(commands=tuple(commands))

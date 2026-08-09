@@ -1,7 +1,7 @@
 // GUI-local file-preview presentation model.
 //
 // These helpers project an already-loaded file preview ({ path, content })
-// into the display chrome the T3code file viewer shows: a project/dir/file
+// into the display chrome the reference implementation file viewer shows: a project/dir/file
 // breadcrumb trail, a code/markdown preview mode, a numbered code gutter, and
 // lightweight language/line metadata. This is GUI app-shell read-model work:
 // it never mutates files, writes transcript history, or touches Agent Core,
@@ -25,8 +25,8 @@ export function fileNameForPath(path, chrome = {}) {
   return parts[parts.length - 1] || normalized;
 }
 
-// Ported from reference/t3code/apps/web/src/components/files/filePath.ts so the
-// breadcrumb shape stays one-to-one with T3code.
+// Ported from reference/reference implementation/apps/web/src/components/files/filePath.ts so the
+// breadcrumb shape stays one-to-one with reference implementation.
 export function fileBreadcrumbs(projectName, relativePath, chrome = {}) {
   const project = String(projectName || "").trim() || chrome.defaultProjectLabel || "";
   const parts = normalizeFilePath(relativePath).split("/").filter(Boolean);
@@ -40,7 +40,7 @@ export function fileBreadcrumbs(projectName, relativePath, chrome = {}) {
   ];
 }
 
-// Ported from reference/t3code/apps/web/src/components/files/filePreviewMode.ts.
+// Ported from reference/reference implementation/apps/web/src/components/files/filePreviewMode.ts.
 export function isMarkdownPreviewFile(path) {
   return /\.(?:md|mdx)$/i.test(normalizeFilePath(path));
 }
@@ -100,7 +100,7 @@ export function numberFileLines(content) {
   return body.split("\n").map((line, index) => ({ number: index + 1, text: line }));
 }
 
-// Mirrors T3code's clampFileLine behavior for file-link reveal requests:
+// Mirrors reference implementation's clampFileLine behavior for file-link reveal requests:
 // invalid/no request means no reveal, otherwise clamp to the visible file range.
 export function fileRevealLine(content, requestedLine) {
   if (requestedLine === null || requestedLine === undefined || requestedLine === "") return null;

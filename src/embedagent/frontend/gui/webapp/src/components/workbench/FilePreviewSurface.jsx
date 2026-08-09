@@ -60,7 +60,7 @@ function FilePreviewCode({ content, revealLine, revealRequestId }) {
   }, [revealLine, revealRequestId]);
 
   return (
-    <div className="file-preview-code" data-testid="right-panel-file-content">
+    <div className="file-preview-code" data-testid="file-preview-content">
       <div className="file-preview-gutter" data-testid="file-preview-gutter" aria-hidden="true">
         {lines.map((line) => {
           const revealed = line.number === revealLine;
@@ -141,7 +141,7 @@ export default function FilePreviewSurface({
   };
 
   return (
-    <div className="right-panel-file-surface" data-testid="right-panel-file-surface" data-file-path={filePath}>
+    <div className="file-preview-surface" data-testid="file-preview-surface" data-file-path={filePath}>
       <div className="surface-subheader file-preview-subheader" data-surface-subheader>
         <div ref={breadcrumbRef} className="file-preview-breadcrumb-scroll" data-file-breadcrumbs>
           <FilePreviewBreadcrumbs
@@ -190,10 +190,10 @@ export default function FilePreviewSurface({
         </button>
       </div>
       {status === "loading" ? (
-        <div className="right-panel-file-loading">{filePreviewChrome.loadingMessage}</div>
+        <div className="file-preview-loading">{filePreviewChrome.loadingMessage}</div>
       ) : null}
       {status === "error" ? (
-        <div className="right-panel-file-error" role="alert">
+        <div className="file-preview-error" role="alert">
           <span>{filePreview?.error || filePreviewChrome.unavailableMessage}</span>
           {onReload ? (
             <button type="button" onClick={() => onReload(filePath)}>

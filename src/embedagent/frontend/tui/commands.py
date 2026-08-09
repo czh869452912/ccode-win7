@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
 
-from embedagent.frontend.tui.workbench import slash_name_strings
+from embedagent.frontend.tui.shell_state import slash_name_strings
 
 
 @dataclass

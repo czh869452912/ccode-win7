@@ -1,27 +1,20 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
 
+from embedagent.frontend.tui.contributions import render_contribution
 from embedagent.frontend.tui.controller import TerminalController
 from embedagent.frontend.tui.frontend_adapter import TUIFrontend
 from embedagent.frontend.tui.host import detect_host
 from embedagent.frontend.tui.layout import TerminalLayout
-from embedagent.frontend.tui.services import EditorService
 from embedagent.frontend.tui.state import TerminalState
 from embedagent.frontend.tui.theme import default_theme
 from embedagent.frontend.tui.views import (
     build_command_palette_text,
-    build_explorer_text,
     build_header_text,
-    build_inspector_text,
     build_prompt,
     build_timeline_text,
 )
-from embedagent.frontend.tui.workbench import WorkbenchState
-
-if TYPE_CHECKING:
-    pass
 
 
 class TerminalApp(object):
@@ -50,16 +43,15 @@ class TerminalApp(object):
         )
         self.create_pipe_input = create_pipe_input
         self.dummy_output = dummy_output
-        self.state = TerminalState(
+        self.state = TerminalState.from_shell_descriptor(
             workspace=workspace,
             initial_mode=initial_mode,
+            descriptor=runtime.shell_descriptor,
             session_limit=max(1, int(session_limit)),
             transcript_limit=max(40, int(transcript_limit)),
             capability=detect_host(),
-            workbench=WorkbenchState(runtime.shell_descriptor),
         )
         self.theme = default_theme()
-        self.editor_service = EditorService(runtime, workspace)
         self.pipe_input = None
         self._pipe_input_cm = None
         if self.headless and self.create_pipe_input is None:
@@ -76,11 +68,9 @@ class TerminalApp(object):
         self.layout = TerminalLayout(self)
         self.application = self.layout.application
         self.header = self.layout.header
-        self.explorer_panel = self.layout.explorer
         self.transcript = self.layout.main
-        self.editor_panel = self.layout.editor
-        self.side_panel = self.layout.inspector
         self.composer = self.layout.composer
+        self.status = self.layout.status
 
     @property
     def current_snapshot(self):
@@ -96,7 +86,7 @@ class TerminalApp(object):
 
     @property
     def transcript_lines(self):
-        return self.state.timeline.lines
+        return self.state.timeline.items
 
     @property
     def last_context_event(self):
@@ -117,19 +107,22 @@ class TerminalApp(object):
 
     def refresh_views(self) -> None:
         self.header.text = build_header_text(self.state)
-        self.explorer_panel.text = build_explorer_text(self.state)
         self.transcript.text = build_timeline_text(self.state)
-        if self.state.timeline.follow_output and self.state.main_view != "editor":
+        if self.state.timeline.follow_output:
             self.transcript.buffer.cursor_position = len(self.transcript.buffer.text)
-        inspector_text = build_inspector_text(
-            self.state, self.controller.current_summary, self.controller.latest_assistant_reply
-        )
-        self.side_panel.text = inspector_text
         self.composer.prompt = build_prompt(self.state)
         self.layout.command_palette.text = build_command_palette_text(self.state)
-        if self.state.main_view == "editor":
-            if self.editor_panel.text != self.state.editor.buffer.content:
-                self.editor_panel.text = self.state.editor.buffer.content
+        active_id = self.state.overlay.active_id
+        contribution = self.state.contributions.get(active_id)
+        self.layout.contribution.text = (
+            render_contribution(contribution) if contribution is not None else ""
+        )
+        snapshot = self.state.session.current_snapshot
+        self.status.text = "mode=%s  status=%s  session=%s" % (
+            self.state.session.current_mode or self.initial_mode,
+            snapshot.get("status") or "idle",
+            self.state.session.current_session_id[:12] or "-",
+        )
         self.application.invalidate()
 
     def _close_application_resources(self) -> None:

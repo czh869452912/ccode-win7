@@ -11,22 +11,8 @@ def _truncate_text(text: str, limit: int) -> str:
 
 def build_header_text(state: TerminalState) -> str:
     snapshot = state.session.current_snapshot
-    git_info = (
-        state.workspace_snapshot.get("git")
-        if isinstance(state.workspace_snapshot.get("git"), dict)
-        else {}
-    )
-    branch = str(git_info.get("branch") or "-")
-    dirty = int(git_info.get("dirty_count") or 0)
     last_error = state.session.last_error or str(snapshot.get("last_error") or "")
-    second_line = "host=%s  explorer=%s  surface=%s  main=%s  branch=%s  dirty=%s" % (
-        state.capability.host_mode,
-        state.explorer.tab,
-        state.workbench.active_surface,
-        state.main_view,
-        branch,
-        dirty,
-    )
+    second_line = "host=%s" % state.capability.host_mode
     pending = state.session.pending_interaction
     if pending is not None and pending.get("kind") == "permission":
         second_line += "  permission=waiting"
@@ -34,15 +20,15 @@ def build_header_text(state: TerminalState) -> str:
         second_line += "  user_input=waiting"
     if not state.timeline.follow_output:
         second_line += "  follow=off"
-    if state.workbench.command_palette.open:
+    if state.shell.command_palette.open:
         second_line += "  palette=open"
-    if state.editor.buffer.dirty:
-        second_line += "  editor=dirty"
+    if state.overlay.active_id:
+        second_line += "  overlay=%s" % state.overlay.active_id
     if last_error:
         second_line += "  error=%s" % _truncate_text(last_error, 64)
     return ("session=%s  mode=%s  status=%s  workspace=%s\n%s") % (
         str(snapshot.get("session_id") or "-")[:12],
-        snapshot.get("current_mode") or state.initial_mode,
+        state.session.current_mode or state.initial_mode,
         snapshot.get("status") or "idle",
         state.workspace,
         second_line,

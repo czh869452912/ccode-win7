@@ -4,7 +4,7 @@ import { createWorkspaceFilesController } from "../src/app-runtime/workspace-fil
 import { workspaceFilesCapabilityEnabled } from "../src/workspace-files/workspace-files-capability.js";
 
 const FILE_SURFACE_CAPABILITIES = {
-  surfaces: { right_panel: [{ id: "files", title: "Files" }] },
+  contributions: [{ id: "files", rendererKey: "file_reference" }],
 };
 const FILE_HINT_CAPABILITIES = {
   chrome: { composer: { hints: [{ id: "file", label: "@ files" }] } },
@@ -13,7 +13,7 @@ const FILE_HINT_CAPABILITIES = {
 export async function runWorkspaceFilesControllerTests() {
   assert.equal(workspaceFilesCapabilityEnabled(FILE_SURFACE_CAPABILITIES), true);
   assert.equal(workspaceFilesCapabilityEnabled(FILE_HINT_CAPABILITIES), true);
-  assert.equal(workspaceFilesCapabilityEnabled({ surfaces: { right_panel: [] } }), false);
+  assert.equal(workspaceFilesCapabilityEnabled({ contributions: [] }), false);
   assert.equal(workspaceFilesCapabilityEnabled(null), false);
 
   const calls = [];
@@ -55,7 +55,7 @@ export async function runWorkspaceFilesControllerTests() {
       },
     },
     dispatch: (action) => disabledActions.push(action),
-    getAppCapabilities: () => ({ surfaces: { right_panel: [] } }),
+    getAppCapabilities: () => ({ contributions: [] }),
   });
   assert.equal(await disabledController.loadFileChildren("."), null);
   assert.deepEqual(disabledCalls, []);

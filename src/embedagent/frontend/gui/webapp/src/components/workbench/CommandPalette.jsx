@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft } from "lucide-react";
 import {
   buildCommandPaletteRootGroups,
   buildCommandPaletteSubmenuGroups,
@@ -159,7 +160,7 @@ export default function CommandPalette({
         {viewKind === "submenu" ? (
           <div className="cmd-palette-submenu-header">
             <button type="button" className="cmd-palette-back" onClick={returnToRoot} data-testid="command-palette-back">
-              ←
+              <ChevronLeft size={16} />
             </button>
             <span>{title}</span>
           </div>

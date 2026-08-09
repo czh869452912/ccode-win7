@@ -8,7 +8,7 @@ import ComposerCommandMenu from "./composer/ComposerCommandMenu.jsx";
 import ComposerInteractionPanel from "./composer/ComposerInteractionPanel.jsx";
 import ComposerPrimaryActions from "./composer/ComposerPrimaryActions.jsx";
 import BranchToolbar from "./workbench/BranchToolbar.jsx";
-import { modeBadgeLabel, modeBadgeStyle } from "../session-runtime/mode-style.js";
+import { modeBadgeStyle } from "../session-runtime/mode-style.js";
 
 const COMPOSER_INPUT_MAX_HEIGHT = 160;
 
@@ -30,6 +30,7 @@ export default function Composer({
   isRunning,
   currentMode,
   modeCatalog = {},
+  onModeChange,
   commandGroupLabels = {},
   commands = [],
   fileTree = [],
@@ -204,11 +205,19 @@ export default function Composer({
           emptyText={interactionModel.menu.emptyText}
           chrome={commandMenuChrome}
         />
-        {currentMode && (
-          <span className="composer-mode-badge" style={modeBadgeStyle(currentMode, modeCatalog)}>
-            {modeBadgeLabel(currentMode, modeCatalog)}
-          </span>
-        )}
+        {currentMode ? (
+          <select
+            className="composer-mode-select"
+            style={modeBadgeStyle(currentMode, modeCatalog)}
+            value={currentMode}
+            onChange={(event) => onModeChange?.(event.target.value)}
+            aria-label="Mode"
+          >
+            {Object.values(modeCatalog).filter((mode) => mode?.id).map((mode) => (
+              <option value={mode.id} key={mode.id}>{mode.label || mode.id}</option>
+            ))}
+          </select>
+        ) : null}
         <textarea
           ref={textareaRef}
           value={textValue}

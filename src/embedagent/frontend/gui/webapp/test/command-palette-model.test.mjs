@@ -14,7 +14,7 @@ const commands = [
   { id: "surface.preview", group: "surface", label: "Open Preview", slash: "/preview", visibleWhen: "always", keywords: ["browser", "localhost"] },
   { id: "surface.diff", group: "surface", label: "Open Diff", slash: "/diff", visibleWhen: "always", keywords: ["changes"] },
   { id: "mode.build", group: "mode", label: "Mode: Build", slash: "/mode build", visibleWhen: "has_session" },
-  { id: "view.toggle_right_panel", group: "view", label: "Toggle Right Panel", slash: "", visibleWhen: "always" },
+  { id: "view.toggle_session_rail", group: "view", label: "Toggle Session Rail", slash: "", visibleWhen: "always" },
   { id: "workspace.refresh", group: "workspace", label: "Refresh Workspaces", slash: "", visibleWhen: "always", keywords: ["reload"] },
 ];
 
@@ -45,12 +45,12 @@ const keybindings = [
   { key: "mod+k", commandId: "palette.open", when: "not_palette" },
   { key: "mod+3", commandId: "surface.diff", when: "always" },
   { key: "mod+4", commandId: "surface.preview", when: "always" },
-  { key: "mod+b", commandId: "view.toggle_right_panel", when: "always" },
+  { key: "mod+b", commandId: "view.toggle_session_rail", when: "always" },
 ];
 
 const commandPalette = {
   groups: [
-    { id: "surface", title: "Panels", description: "Open declared workbench panels", order: 10, leading: "P", meta: "Group" },
+    { id: "surface", title: "Contributions", description: "Open registered contributions", order: 10, leading: "C", meta: "Group" },
     { id: "session", title: "Threads", description: "Create and resume threads", order: 20 },
     { id: "mode", title: "Modes", description: "Switch agent mode", order: 30 },
     { id: "view", title: "Layout", description: "Change workbench layout", order: 40 },
@@ -80,7 +80,7 @@ export function runCommandPaletteModelTests() {
   assert.equal(normalizePaletteQuery("  Diff  "), "diff");
   assert.equal(normalizePaletteQuery(null), "");
   assert.deepEqual(buildCommandGroupLabels(commandPalette), {
-    surface: "Panels",
+    surface: "Contributions",
     session: "Threads",
     mode: "Modes",
     view: "Layout",
@@ -123,12 +123,12 @@ export function runCommandPaletteModelTests() {
 
   const commandItems = root.find((group) => group.id === "commands").items;
   assert.equal(commandItems.some((item) => item.type === "submenu" && item.id === "submenu:surface"), true);
-  assert.equal(commandItems.find((item) => item.id === "submenu:surface").title, "Panels");
+  assert.equal(commandItems.find((item) => item.id === "submenu:surface").title, "Contributions");
   assert.equal(
     commandItems.find((item) => item.id === "submenu:surface").description,
-    "Open declared workbench panels",
+    "Open registered contributions",
   );
-  assert.equal(commandItems.find((item) => item.id === "submenu:surface").leading, "P");
+  assert.equal(commandItems.find((item) => item.id === "submenu:surface").leading, "C");
   assert.equal(commandItems.some((item) => item.type === "command" && item.commandId === "surface.preview"), true);
   assert.equal(
     commandItems.find((item) => item.commandId === "surface.preview").shortcut,
@@ -184,7 +184,7 @@ export function runCommandPaletteModelTests() {
     query: "browser",
   });
   assert.deepEqual(submenu.map((group) => group.id), ["surface"]);
-  assert.equal(submenu[0].title, "Panels");
+  assert.equal(submenu[0].title, "Contributions");
   assert.equal(submenu[0].items.length, 1);
   assert.equal(submenu[0].items[0].commandId, "surface.preview");
   assert.equal(submenu[0].items[0].meta, "/preview");
@@ -253,15 +253,15 @@ export function runCommandPaletteModelTests() {
   const surfaceNoCopyItems = flattenPaletteGroups(buildCommandPaletteRootGroups({
     commands: [
       { id: "surface.preview", group: "surface", label: "Show Preview", surface: "preview", slash: "" },
-      { id: "drawer.terminal", group: "surface", label: "Show Terminal", drawer: "terminal", slash: "" },
+      { id: "surface.terminal", group: "surface", label: "Show Terminal", surface: "terminal", slash: "" },
     ],
     commandPalette: {
-      groups: [{ id: "surface", title: "Panels", description: "", order: 1 }],
+      groups: [{ id: "surface", title: "Contributions", description: "", order: 1 }],
       labels: { commandsSection: "Actions" },
     },
   }));
   assert.equal(surfaceNoCopyItems.find((item) => item.commandId === "surface.preview").description, "");
-  assert.equal(surfaceNoCopyItems.find((item) => item.commandId === "drawer.terminal").description, "");
+  assert.equal(surfaceNoCopyItems.find((item) => item.commandId === "surface.terminal").description, "");
   const noLeadingRoot = buildCommandPaletteRootGroups({
     sessions: [{ session_id: "sess-leading", title: "Visible session" }],
     workspaces: [{ id: "ws-leading", label: "Visible workspace", path: "D:/visible" }],

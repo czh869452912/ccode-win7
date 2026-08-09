@@ -125,7 +125,7 @@ def test_tui_consumes_canonical_tool_events_and_failure_record():
         )
     )
 
-    assert app.state.timeline.lines == [
+    assert app.state.timeline.items == [
         "[tool] edit_file {'path': 'missing.c'}",
         "[observation] edit_file success=False kind=path_missing error=not found",
     ]
@@ -151,5 +151,5 @@ def test_tui_renders_one_error_line_for_one_session_error_event():
         )
     )
 
-    assert app.state.timeline.lines == ["[error] provider failed"]
+    assert app.state.timeline.items == ["[error] provider failed"]
     assert app.state.session.last_error == "provider failed"

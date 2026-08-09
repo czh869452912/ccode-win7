@@ -1,5 +1,5 @@
 import { normalizeSessionPayload } from "../state-helpers.js";
-import { normalizeHistoryActivities } from "../session-runtime/activity-state.js";
+import { normalizeHistoryActivities } from "../session-runtime/timeline/activity-grouping.js";
 import { normalizeCommandCapabilities } from "../session-runtime/command-capabilities.js";
 
 export const LOADER_REQUESTS = Object.freeze({

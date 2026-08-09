@@ -55,7 +55,7 @@ test("normalizeSessionPayload does not invent missing workflow state", () => {
     current_mode: "python-build",
   });
 
-  assert.equal(snapshot.workflow_state, "");
+  assert.deepEqual(snapshot.workflow_state, {});
 });
 
 test("resolveActivityAnchor prefers explicit, active, then pending local user turns", () => {

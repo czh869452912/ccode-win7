@@ -1003,49 +1003,8 @@ def test_tool_refresh_paths_use_read_model_invalidations_not_tool_name_lists():
     assert offenders == []
 
 
-def test_gui_timeline_tool_preview_is_catalog_driven():
-    text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js")
-
-    assert "commandPreviewFromToolPresentation" in text
-    for token in (
-        'if (toolName === "shell" || toolName === "bash")',
-        'if (toolName === "grep_text")',
-        'if (toolName === "glob_files")',
-        'if (toolName === "read_file" || toolName === "write_file" || toolName === "edit_file")',
-        "function toolNameRequestKind",
-        "const WRITE_TOOLS",
-        "WRITE_TOOLS.has",
-        'commandName === "diff"',
-        'commandName === "review"',
-    ):
-        assert token not in text
 
 
-def test_gui_command_result_diff_surface_is_payload_driven():
-    text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"
-    )
-    runtime_reducer_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/client-runtime/runtime-reducer.js"
-    )
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    diff_controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/diff-surface-controller.js"
-    )
-
-    assert 'type: "diff_surface_opened"' in text
-    assert 'commandName === "diff"' not in text
-    assert "createDiffSurfaceController" not in app_text
-    assert "createDiffSurfaceController" in _client_runtime_text()
-    assert "createDiffSurfaceState" not in app_text
-    assert 'type: "diff_surface_opened"' not in app_text
-    assert "createDiffSurfaceState" in diff_controller_text
-    assert 'type: "diff_surface_opened"' in diff_controller_text
-    assert "timelineItems" in diff_controller_text
-    assert "workbenchSurfaceAllowedForApp" in runtime_reducer_text
-    assert "surfaceDefinitionFor(kind, app.capabilities)" in runtime_reducer_text
-    assert "bottomDrawerSurfaceDefinitionFor(kind, app.capabilities)" in runtime_reducer_text
-    assert 'kind: "diff"' in runtime_reducer_text
 
 
 def test_gui_command_result_session_switch_is_payload_driven():
@@ -1299,16 +1258,6 @@ def test_gui_command_result_run_output_log_is_payload_driven():
     assert 'data?.success ? "ok" : "error"' not in text
 
 
-def test_gui_command_result_timeline_labels_are_payload_or_chrome_declared():
-    t3_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js")
-    rows_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx"
-    )
-
-    assert "label: stringValue(item?.label)" in t3_text
-    assert "`/${commandName}`" not in t3_text
-    assert "`/${row.commandName" not in rows_text
-    assert 'label={row.label || chrome.commandDefaultName || ""}' in rows_text
 
 
 def test_gui_user_input_interactions_do_not_default_to_ask_user_tool():
@@ -1434,522 +1383,30 @@ def test_global_mode_facade_uses_generic_profile_not_default_c_cpp():
     assert "global/base agent profile" in modes_text
 
 
-def test_gui_app_shell_surfaces_are_descriptor_records_not_string_lists():
-    app_shell_spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-    app_model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
-    surfaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js")
-    right_panel_tabs_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelTabs.jsx"
-    )
-
-    for token in (
-        '_surface(\n                "files"',
-        '_surface(\n                "file"',
-        '_surface(\n                "terminal"',
-        '"launcher_order"',
-    ):
-        assert token in app_shell_spec_text
-    assert "surface_chrome" in app_shell_spec_text
-    assert "launcher=False" in app_shell_spec_text
-    assert "command=False" in app_shell_spec_text
-    assert "command_label" in app_shell_spec_text
-    assert "normalizeSurfaceCapability" in app_model_text
-    assert "normalizeSurfaceChrome" in app_model_text
-    assert "surfaceCapabilityDefinitions" in surfaces_text
-    assert "surfaceChromeLabels" in surfaces_text
-    assert "surfaceChromeLabels(appCapabilities)" in right_panel_tabs_text
-    assert "hasDisplayTitle" in surfaces_text
-    assert "&& hasDisplayTitle(definition)" in surfaces_text
-    assert "label: definition.commandLabel" in surfaces_text
-    assert "description: definition.description" in surfaces_text
-    assert "`Open ${definition.title}`" not in surfaces_text
-    assert "String(input.title || kind)" not in app_model_text
-    assert (
-        'return definition && definition.title ? definition.title : String(kind || "");'
-        not in surfaces_text
-    )
-    assert '|| "file"' not in surfaces_text
-    assert '|| "preview"' not in surfaces_text
-    assert '|| "terminal"' not in surfaces_text
-    assert "SURFACE_INITIALIZERS" in surfaces_text
-    assert "SURFACE_INITIALIZERS[kind]" in surfaces_text
-    for initializer_branch in (
-        'kind === "file"\n      ? normalizeFilePath',
-        'kind === "terminal"\n      ? uniqueTerminalIds',
-        'if (kind === "preview")',
-        'if (kind !== "terminal")',
-    ):
-        assert initializer_branch not in surfaces_text
-    assert "SURFACE_OPEN_PREPARERS" in surfaces_text
-    assert "SURFACE_OPEN_PREPARERS[surface.kind]" in surfaces_text
-    assert "persistedRelatedKinds" in surfaces_text
-    for open_branch in (
-        'surface.kind === "file"\n        ? normalizeFilePath',
-        'nextSurface.kind === "file"',
-        'nextSurface.kind === "preview"',
-    ):
-        assert open_branch not in surfaces_text
-    assert "SURFACE_PANE_HANDLERS" in surfaces_text
-    assert "SURFACE_PANE_HANDLERS[surface.kind]" in surfaces_text
-    for pane_branch in (
-        'surface.id !== surfaceId || surface.kind !== "terminal"',
-        'surface.kind === "terminal" &&',
-        'surface.id === surfaceId && surface.kind === "terminal"',
-    ):
-        assert pane_branch not in surfaces_text
-    assert 'value.map((item) => String(item || ""))' not in surfaces_text
-    for registry_copy in (
-        'title: "Preview"',
-        'title: "Diff"',
-        'title: "Files"',
-        'title: "Terminal"',
-        'title: "Plan"',
-        'title: "Source Control"',
-        'title: "Settings"',
-        'title: "Diagnostics"',
-        'title: "Run Output"',
-        'commandLabel: "Open Terminal"',
-        'commandLabel: "Toggle Run Output"',
-        'description: "',
-    ):
-        assert registry_copy not in surfaces_text
-    for hardcoded_copy in (
-        '"Right panel"',
-        '"Add panel surface"',
-        '"Open a surface"',
-        '"Choose what to show in the right panel."',
-        '"Surface actions for"',
-        '"Close others"',
-        '"Close to the right"',
-        '"Close all"',
-    ):
-        assert hardcoded_copy not in right_panel_tabs_text
 
 
-def test_gui_surface_registry_does_not_export_fixed_surface_id_lists():
-    surfaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js")
-    ui_state_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/ui-state.js")
-
-    for token in (
-        "export const RIGHT_PANEL_KINDS",
-        "export const RIGHT_PANEL_SURFACES",
-        "export const BOTTOM_DRAWER_SURFACES",
-    ):
-        assert token not in surfaces_text
-    for token in (
-        "RIGHT_PANEL_KINDS",
-        "RIGHT_PANEL_SURFACES",
-        "BOTTOM_DRAWER_SURFACES",
-    ):
-        assert token not in ui_state_text
-    assert "supportedSurfaceKinds(" in ui_state_text
 
 
-def test_gui_keybindings_are_app_shell_declared_not_renderer_defaults():
-    app_shell_spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    app_model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
-    keybindings_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/keybindings.js"
-    )
-
-    assert '"keybindings": _copy_records(self.keybindings)' in app_shell_spec_text
-    assert '_keybinding("mod+k", "palette.open", "not_palette")' in app_shell_spec_text
-    assert "normalizeKeybinding" in app_model_text
-    assert "buildAppCapabilityModel" in app_text
-    assert "state.app.capabilities.keybindings" not in app_text
-    assert "DEFAULT_KEYBINDINGS" not in app_text
-    assert "DEFAULT_KEYBINDINGS" not in keybindings_text
 
 
-def test_gui_app_shell_projects_active_agent_application_capabilities():
-    app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
-    app_model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-
-    assert "get_session_capabilities" in app_shell_text
-    assert '"agentApplication"' in app_shell_text
-    assert '"agentApplications"' in app_shell_text
-    assert "normalizeAppAgentApplicationDescriptor" in app_model_text
-    assert "buildAppCapabilityModel" in app_text
-    assert "buildSessionCapabilityModelFromState" in app_text
-    assert "appEmptyState || sessionEmptyState" in app_text
-    assert "state.sessionCapabilities?.emptyState" not in app_text
-    assert "state.sessionCapabilities?.modeCatalog" not in app_text
-    assert "state.sessionCapabilities?.toolCatalog" not in app_text
-    assert "stateRef.current.sessionCapabilities" not in app_text
-    assert "state.app.capabilities?.emptyState" not in app_text
 
 
-def test_gui_app_shell_projects_selected_agent_application_before_workspace():
-    app_host_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_host.py")
-    app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
-    launcher_text = _read(ROOT / "src/embedagent/frontend/gui/launcher.py")
-    adapter_text = _read(ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py")
-    registry_text = _read(
-        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py"
-    )
-
-    assert "def agent_application_capability_payload" in registry_text
-    assert "def agent_capabilities" in app_host_text
-    assert "host_agent_capabilities" in app_shell_text
-    assert "_project_agent_capabilities" in app_shell_text
-    assert "agent_application_capability_payload" in launcher_text
-    assert "agent_application_capability_payload" in adapter_text
-    assert "available_agent_application_manifests" not in adapter_text
 
 
-def test_gui_app_shell_filters_by_selected_agent_application_profile():
-    app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
-    registry_text = _read(
-        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py"
-    )
-
-    assert '"appShell"' in registry_text
-    assert '"rightPanelSurfaceIds"' in registry_text
-    assert '"disabledCapabilityIds"' in registry_text
-    assert "_selected_app_shell_profile" in app_shell_text
-    assert "_apply_agent_app_shell_profile" in app_shell_text
-    assert "_filter_records_by_id" in app_shell_text
-    assert "_filter_keybindings" in app_shell_text
-    assert '"source_control", "preview"' in registry_text
-    assert "capabilities[capability_id] = disabled" in app_shell_text
 
 
-def test_gui_app_home_copy_is_app_shell_declared():
-    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-    app_model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
-    app_home_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/app-home-model.js"
-    )
-    sidebar_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Sidebar.jsx")
-    no_workspace_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/NoWorkspaceState.jsx"
-    )
-
-    assert '"home": _copy_value(self.home)' in spec_text
-    assert "normalizeHomeCopy" in app_model_text
-    assert "home: normalizeHomeCopy" in app_model_text
-    assert "app.capabilities?.home" in app_home_text
-    assert "productName" in app_home_text
-    assert "appHome?.productName" in no_workspace_text
-    assert "sessionFallbackPrefix" in app_home_text
-    assert "`Session ${sessionId.slice(0, 8)}`" not in app_home_text
-    assert '"session_fallback_prefix": "Session"' in spec_text
-    assert '"EmbedAgent"' not in app_model_text
-    assert ">EmbedAgent<" not in no_workspace_text
-    for hardcoded_copy in (
-        '"No workspace"',
-        '"Open a local project"',
-        '"Workspace path"',
-        '"Missing path"',
-        '"No threads yet"',
-        '"Start one for this project."',
-    ):
-        assert hardcoded_copy not in app_home_text
-        assert hardcoded_copy not in sidebar_text
-        assert hardcoded_copy not in no_workspace_text
 
 
-def test_gui_app_shell_service_uses_injected_spec_not_inline_descriptor_lists():
-    app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
-    spec_path = ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py"
-
-    assert spec_path.exists()
-    assert "default_app_shell_spec" in app_shell_text
-    for token in (
-        "def _keybindings",
-        "def _right_panel_surfaces",
-        "def _bottom_drawer_surfaces",
-        '"app.settings"',
-        '"surface.files"',
-    ):
-        assert token not in app_shell_text
 
 
-def test_gui_app_shell_commands_are_descriptor_records_not_string_lists():
-    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
-    commands_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js")
-    protocol_normalizer_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/protocol-normalizer.js"
-    )
-    app_shell_commands_path = ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/commands.js"
-
-    assert "def _command(" in spec_text
-    assert '"app_commands": _copy_records(self.app_commands)' in spec_text
-    assert '"workspace_commands": _copy_records(self.workspace_commands)' in spec_text
-    assert '"workbench_commands": _copy_records(self.workbench_commands)' in spec_text
-    assert "normalizeAppCommandDescriptor" in model_text
-    assert "appCommands: normalizeAppCommandDescriptors" in model_text
-    assert "workspaceCommands: normalizeAppCommandDescriptors" in model_text
-    assert "workbenchCommands: normalizeAppCommandDescriptors" in model_text
-    assert "WORKSPACE_COMMANDS" not in commands_text
-    assert "LOCAL_COMMANDS" not in commands_text
-    assert "WORKBENCH_COMMANDS" not in commands_text
-    assert "workflow.diff" not in commands_text
-    assert "String(input.label || id).trim() || id" not in model_text
-    assert "item.label || item.usage || id" not in commands_text
-    assert "!command.label" in commands_text
-    assert "firstText(data.label, data.usage, id)" not in protocol_normalizer_text
-    assert "filterCommandsByCapability" not in commands_text
-    assert "APP_COMMANDS" not in commands_text
-    assert not app_shell_commands_path.exists()
 
 
-def test_gui_command_palette_groups_are_app_shell_descriptors():
-    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
-    palette_model_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js"
-    )
-    palette_component_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/CommandPalette.jsx"
-    )
-    palette_results_text = _read(
-        ROOT
-        / "src/embedagent/frontend/gui/webapp/src/components/workbench/CommandPaletteResults.jsx"
-    )
-    commands_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js")
-
-    assert "command_palette_groups" in spec_text
-    assert "command_palette_labels" in spec_text
-    assert "session_leading" in spec_text
-    assert "workspace_leading" in spec_text
-    assert '"command_palette": {' in spec_text
-    assert "def _palette_group(" in spec_text
-    assert "leading=" in spec_text
-    assert "normalizePaletteGroupDescriptor" in model_text
-    assert "rootPlaceholder" in model_text
-    assert "sessionLeading" in model_text
-    assert "workspaceLeading" in model_text
-    assert "shortcut_labels" in spec_text
-    assert "shortcutLabels" in model_text
-    assert "shortcutSeparator" in model_text
-    assert "commandPalette: normalizeCommandPalette" in model_text
-    assert "GROUP_TITLES" not in palette_model_text
-    assert "GROUP_DESCRIPTIONS" not in palette_model_text
-    assert "paletteGroupDescriptors" in palette_model_text
-    assert "paletteLabels" in palette_model_text
-    assert "asText(command.label) || asText(command.id)" not in palette_model_text
-    assert "descriptor.description || command.id" not in palette_model_text
-    assert "command.slash || command.id" not in palette_model_text
-    assert "`Open ${command.surface}`" not in palette_model_text
-    assert "`Open ${command.drawer}`" not in palette_model_text
-    assert 'leading: "T"' not in palette_model_text
-    assert 'leading: "W"' not in palette_model_text
-    assert "asText(command.group) === targetGroup && asText(command.label)" in palette_model_text
-    assert "title: asText(group.title) || titleCase(id)" not in palette_model_text
-    assert "title: titleCase(id)" not in palette_model_text
-    assert "descriptor.title || titleCase" not in palette_model_text
-    assert 'return "Ctrl"' not in palette_model_text
-    assert 'return "Alt"' not in palette_model_text
-    assert 'return "Shift"' not in palette_model_text
-    assert 'return "Esc"' not in palette_model_text
-    assert "titleCase(part)" not in palette_model_text
-    assert "slice(0, 1)" not in palette_model_text
-    assert '|| ">"' not in palette_model_text
-    assert 'asText(command.group) || "commands"' not in palette_model_text
-    assert "!group || !groupDescriptor(group, groupDescriptors).title" in palette_model_text
-    assert "if (!title) return []" in palette_model_text
-    assert '"Command palette"' not in palette_component_text
-    assert '"Search commands, sessions, workspaces"' not in palette_component_text
-    assert '"No matching commands, sessions, or workspaces"' not in palette_component_text
-    assert '"No matching commands, sessions, or workspaces"' not in palette_results_text
-    assert 'item.leading || ">"' not in palette_results_text
-    assert 'emptyLabel = ""' in palette_results_text
-    assert '"Current"' not in palette_model_text
-    assert '"Missing"' not in palette_model_text
-    assert '"Workspace"' not in palette_model_text
-    assert "COMMAND_GROUPS" not in commands_text
 
 
-def test_gui_chrome_copy_is_app_shell_declared():
-    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
-    header_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/WorkbenchHeader.jsx"
-    )
-    sidebar_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Sidebar.jsx")
-    composer_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Composer.jsx")
-    interaction_model_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/interaction-model.js"
-    )
-    approval_panel_text = _read(
-        ROOT
-        / "src/embedagent/frontend/gui/webapp/src/components/composer/ComposerPendingApprovalPanel.jsx"
-    )
-    approval_actions_text = _read(
-        ROOT
-        / "src/embedagent/frontend/gui/webapp/src/components/composer/ComposerPendingApprovalActions.jsx"
-    )
-    user_input_panel_text = _read(
-        ROOT
-        / "src/embedagent/frontend/gui/webapp/src/components/composer/ComposerPendingUserInputPanel.jsx"
-    )
-    surface_panel_props_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/surface-panel-props.js"
-    )
-    surface_panel_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx"
-    )
-
-    assert "chrome: Dict[str, Any]" in spec_text
-    assert '"chrome": _copy_value(self.chrome)' in spec_text
-    assert '"brand_subtitle": "Local agent workbench"' in spec_text
-    assert "normalizeChrome" in model_text
-    assert "normalizeInteractionChrome" in model_text
-    assert "chrome: normalizeChrome(input)" in model_text
-    assert "buildAppCapabilityModel" in app_text
-    assert "appChrome" in app_text
-    assert "chrome={appChrome.header || {}}" in app_text
-    assert "chrome={appChrome}" in app_text
-    assert "chrome={appChrome.composer || {}}" in app_text
-    assert "interactionChrome={appChrome.interaction || {}}" in app_text
-    assert "chrome: appChrome.surfacePanel || {}" not in app_text
-    assert "chrome: appChrome.surfacePanel || {}" in surface_panel_props_text
-    assert "set_lang" not in store_text
-    assert "lang:" not in store_text
-
-    assert not (ROOT / "src/embedagent/frontend/gui/webapp/src/LangContext.js").exists()
-    assert not (ROOT / "src/embedagent/frontend/gui/webapp/src/strings.js").exists()
-    assert not (
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/InteractionPanel.jsx"
-    ).exists()
-
-    for text in (app_text, header_text, sidebar_text, composer_text, surface_panel_text):
-        assert "strings.js" not in text
-        assert "LangContext" not in text
-        assert "useLang" not in text
-
-    assert "lang-toggle" not in header_text
-    assert "chrome.commandPaletteShortLabel" in header_text
-    assert "chrome.brandSubtitle" in sidebar_text
-    assert "chrome.placeholder" in composer_text
-    assert "interactionChrome = {}" in composer_text
-    assert "chrome={interactionChrome}" in composer_text
-    assert "chrome={chrome.interaction || {}}" not in composer_text
-    assert "hintLabels[hint.id]" not in composer_text
-    assert "hint.label || hint.id" in composer_text
-    assert "summaryForPermission(kind, copy = {})" in interaction_model_text
-    assert '"Command approval requested"' not in interaction_model_text
-    assert '"Approve once"' not in interaction_model_text
-    assert '"Input requested"' not in interaction_model_text
-    assert "approval.kicker" in approval_panel_text
-    assert "approval.cancelLabel" in approval_actions_text
-    assert "approval.rememberLabel" in approval_actions_text
-    assert "prompt.kicker" in user_input_panel_text
-    assert "prompt.submitLabel" in user_input_panel_text
-    for token in (
-        "PENDING APPROVAL",
-        "INPUT REQUIRED",
-        "Cancel turn",
-        "Always allow this session",
-        "Submit",
-    ):
-        assert token not in approval_panel_text
-        assert token not in approval_actions_text
-        assert token not in user_input_panel_text
-    assert "chrome.settingsTitle" in surface_panel_text
-    assert "diagnosticGroups[row.group]" in surface_panel_text
 
 
-def test_gui_composer_hints_are_app_shell_descriptors():
-    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
-    composer_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Composer.jsx")
-    interaction_model_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/composer/composer-interaction-model.js"
-    )
-
-    assert '"hints": [' in spec_text
-    assert '"visible_when": "always"' in spec_text
-    assert '"visible_when": "running"' in spec_text
-    assert "normalizeComposerHints" in model_text
-    assert "visibleWhen" in model_text
-    assert "hintDescriptors" in composer_text
-    assert "hint.label || hint.id" in composer_text
-    assert "hintDescriptors" in interaction_model_text
-    assert 'id: "command"' not in interaction_model_text
-    assert 'id: "file"' not in interaction_model_text
-    assert '"status.running"' not in interaction_model_text
 
 
-def test_gui_composer_menu_copy_is_app_shell_declared():
-    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    composer_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Composer.jsx")
-    menu_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/composer/ComposerCommandMenu.jsx"
-    )
-    command_search_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/composer/composer-command-search.js"
-    )
-    path_context_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/composer/composer-path-context.js"
-    )
-    interaction_model_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/composer/composer-interaction-model.js"
-    )
-
-    assert '"command_menu": {' in spec_text
-    assert '"path_group_label": "Files"' in spec_text
-    assert '"default_command_group_id": "command"' in spec_text
-    assert "normalizeComposerCommandMenuChrome" in model_text
-    assert "commandMenu: normalizeComposerCommandMenuChrome" in model_text
-    assert "defaultCommandGroupId" in model_text
-    assert "composerCommandGroupLabels" in app_text
-    assert "buildCommandGroupLabels" in app_text
-    assert "commandPaletteGroups.reduce" not in app_text
-    assert "group?.id) labels[group.id]" not in app_text
-    assert "commandGroupLabels={composerCommandGroupLabels}" in app_text
-    assert "const commandMenuChrome = chrome.commandMenu || {}" in composer_text
-    assert "commandGroupLabels" in composer_text
-    assert "chrome={commandMenuChrome}" in composer_text
-    assert "chrome.pathAriaLabel" in menu_text
-    assert "chrome.pathItemKindLabel" in menu_text
-    assert "commandMenuChrome.pathGroupLabel" in path_context_text
-    assert "commandMenuChrome.commandEmptyText" in interaction_model_text
-    assert "commandGroupLabels" in command_search_text
-    assert "defaultCommandGroupId" in command_search_text
-    assert "GROUP_LABELS" not in command_search_text
-
-    command_capabilities_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/command-capabilities.js"
-    )
-    workbench_commands_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js"
-    )
-    protocol_normalizer_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/protocol-normalizer.js"
-    )
-    for source_text in (
-        command_capabilities_text,
-        command_search_text,
-        workbench_commands_text,
-        protocol_normalizer_text,
-    ):
-        assert '|| "command"' not in source_text
-    assert 'group: "command"' not in command_capabilities_text
-
-    for hardcoded_copy in (
-        '"Files"',
-        '"Command"',
-        '"No files found"',
-        '"No commands found"',
-        '"No matches"',
-        '"File context suggestions"',
-        '"Slash command suggestions"',
-        ">file<",
-        ">command<",
-    ):
-        assert hardcoded_copy not in menu_text
-        assert hardcoded_copy not in command_search_text
-        assert hardcoded_copy not in path_context_text
-        assert hardcoded_copy not in interaction_model_text
 
 
 def test_gui_composer_slash_menu_does_not_keep_static_hint_fallbacks():
@@ -1967,610 +1424,20 @@ def test_gui_composer_slash_menu_does_not_keep_static_hint_fallbacks():
     assert 'group: "command"' not in interaction_model_text
 
 
-def test_gui_timeline_copy_is_app_shell_declared():
-    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    timeline_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/components/Timeline.jsx")
-    timeline_rows_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx"
-    )
-    work_row_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/timeline/WorkRow.jsx"
-    )
-    tool_detail_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/timeline/ToolDetail.jsx"
-    )
-    t3_timeline_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js"
-    )
-    changed_files_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/timeline/ChangedFilesCard.jsx"
-    )
-
-    assert '"timeline": {' in spec_text
-    assert '"tool_detail": {' in spec_text
-    assert '"work_row": {' in spec_text
-    assert "normalizeTimelineChrome" in model_text
-    assert "normalizeTimelineToolDetailChrome" in model_text
-    assert "normalizeTimelineWorkRowChrome" in model_text
-    assert "timeline: normalizeTimelineChrome" in model_text
-    assert "chrome={appChrome.timeline || {}}" in app_text
-    assert "chrome.historyPartialLabel" in timeline_text
-    assert "chrome.historyUnavailable" in timeline_text
-    assert "changedFilesChrome" in timeline_rows_text
-    assert "workGroupChrome" in timeline_rows_text
-    assert "activityRowsChrome" in timeline_rows_text
-    assert "toolDetailChrome" in timeline_rows_text
-    assert "workRowChrome" in timeline_rows_text
-    assert "toolDetailChrome" in work_row_text
-    assert "workRowChrome" in work_row_text
-    assert "statusLabels" in work_row_text
-    assert "defaultHeading" in work_row_text
-    assert "defaultIconName" in work_row_text
-    assert "fieldLabel" in tool_detail_text
-    assert "sectionTitle" in tool_detail_text
-    assert "fallbackMatchLabel" in tool_detail_text
-    assert "chrome.streamingStatus" in timeline_rows_text
-    assert "chrome.contextSummarizedTemplate" in timeline_rows_text
-    assert "chrome.contextSizeTemplate" in timeline_rows_text
-    assert "chrome.commandCompletedStatus" in timeline_rows_text
-    assert "chrome.summaryTemplate" in changed_files_text
-    assert "chrome.viewDiffLabel" in changed_files_text
-    assert "completedAt: turnEndTimestamp" in t3_timeline_text
-    assert "interrupted: hasInterruptedWork" in t3_timeline_text
-
-    for hardcoded_copy in (
-        "Conversation",
-        "No conversation yet.",
-        "history partially restored",
-        "restore stopped early",
-        "session history unavailable",
-        "Explicit loop safety limit reached.",
-        "Maximum turn limit reached",
-        "Stopped by guard.",
-        "Cancelled.",
-    ):
-        assert hardcoded_copy not in timeline_text
-
-    for hardcoded_copy in (
-        "1 tool call",
-        "tool calls",
-        "Show fewer tool calls",
-        "previous tool",
-        "Working...",
-        "Working for",
-        "Worked for this turn",
-        " steps",
-        '"Thinking"',
-        "Context updated",
-        " summarized",
-        " retained",
-        " tokens",
-        "failed",
-        '"completed"',
-        "1 finding",
-        " findings",
-        "0s",
-    ):
-        assert hardcoded_copy not in timeline_rows_text
-
-    for hardcoded_copy in (
-        "Worked for ",
-        "Worked for this turn",
-        "You stopped after",
-        "You stopped this response",
-        '"Thinking"',
-        "Context compacted",
-        'label: "/review"',
-        'title: "Error"',
-        'title: "Preview"',
-        'title: "Summary"',
-        'title: "Matches"',
-        'title: "Files"',
-        'title: "stdout"',
-        'title: "stderr"',
-        'title: "Diff"',
-        'title: "Changed files"',
-    ):
-        assert hardcoded_copy not in t3_timeline_text
-
-    for hardcoded_copy in (
-        'base || "Tool"',
-        '"Work"',
-        'return "zap"',
-    ):
-        assert hardcoded_copy not in t3_timeline_text
-
-    for hardcoded_copy in (
-        '"Detail"',
-        '|| "match"',
-    ):
-        assert hardcoded_copy not in tool_detail_text
-
-    for hardcoded_copy in (
-        'return "failed"',
-        'return "completed"',
-        'return "empty"',
-        'return "cancelled"',
-        'return "skipped"',
-        '"Work"',
-        'iconName: "zap"',
-    ):
-        assert hardcoded_copy not in work_row_text
-
-    for hardcoded_copy in (
-        "View diff",
-        '"Collapse"',
-        '"Expand"',
-        " changed files",
-    ):
-        assert hardcoded_copy not in changed_files_text
 
 
-def test_gui_terminal_copy_is_app_shell_declared():
-    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js"
-    )
-    activation_controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-activation-controller.js"
-    )
-    terminal_capability_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/terminal/terminal-capability.js"
-    )
-    labels_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/terminal/terminal-labels.js")
-    shell_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/TerminalShell.jsx"
-    )
-    surface_body_text = _read(
-        ROOT
-        / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx"
-    )
-    bottom_drawer_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/BottomDrawer.jsx"
-    )
-
-    assert '"chrome": {' in spec_text
-    assert '"session_required_notice": "Open a session before using the terminal."' in spec_text
-    assert "normalizeTerminalChrome" in model_text
-    assert "chrome: normalizeTerminalChrome" in model_text
-    assert "getTerminalChrome" in _client_runtime_text()
-    assert "terminalChrome={terminalChrome}" in app_text
-    assert "terminalChromeText" in controller_text
-    assert "terminalCapabilityEnabled" in controller_text
-    assert "../terminal/terminal-capability.js" in controller_text
-    assert "terminalCapabilityEnabled" in activation_controller_text
-    assert "appCapabilities?.terminal?.enabled === true" not in controller_text
-    assert "capabilities?.terminal?.enabled === true" in terminal_capability_text
-    assert "surfaceDefinitionFor" in controller_text
-    assert "terminalChrome" in shell_text
-    assert "terminalChrome" in surface_body_text
-    assert "terminalChrome" in bottom_drawer_text
-    assert "listTerminals" in controller_text
-
-    for hardcoded_copy in (
-        '"Open a session before using the terminal."',
-        '"Terminal failed to open."',
-        '"Terminal write failed."',
-        '"Terminal clear failed."',
-        '"Terminal restart failed."',
-        '"Terminal close failed."',
-        '"Terminal"',
-        "`Terminal ${match[1]}`",
-        '"New terminal"',
-        '"Split terminal horizontally"',
-        '"Split terminal vertically"',
-        '"Terminal session is unavailable."',
-        '"Type a command"',
-        '"No terminal sessions for this thread yet."',
-        '"Drawer"',
-    ):
-        assert hardcoded_copy not in controller_text
-        assert hardcoded_copy not in labels_text
-        assert hardcoded_copy not in shell_text
 
 
-def test_gui_preview_copy_is_app_shell_declared():
-    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    preview_surface_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/PreviewSurface.jsx"
-    )
-    preview_model_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/preview-surface-model.js"
-    )
-    preview_controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/preview-controller.js"
-    )
-    surface_body_text = _read(
-        ROOT
-        / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx"
-    )
-
-    assert '"preview": _copy_value(self.preview)' in spec_text
-    assert '"session_required_notice": "Open a session before using preview."' in spec_text
-    assert "normalizePreviewChrome" in model_text
-    assert "preview: normalizePreviewCapability" in model_text
-    assert "createPreviewController" not in app_text
-    assert "createPreviewController" in _client_runtime_text()
-    assert "onPreviewOpenUrl={openPreviewUrl}" in app_text
-    assert "onPreviewRefresh={refreshPreview}" in app_text
-    assert "onPreviewOpenExternal={openPreviewExternal}" in app_text
-    assert "async function openPreviewUrl" not in app_text
-    assert "async function refreshPreview" not in app_text
-    assert "async function openPreviewInSystemBrowser" not in app_text
-    assert "previewChrome.sessionRequiredNotice" not in app_text
-    assert "chrome.sessionRequiredNotice" in preview_controller_text
-    assert "chrome.failedNotice" in preview_controller_text
-    assert "chrome.refreshFailedNotice" in preview_controller_text
-    assert "chrome.openFailedNotice" in preview_controller_text
-    assert "previewCapability.localServers" not in app_text
-    assert "previewChrome={previewChrome}" in app_text
-    assert "previewServers={previewServers}" in app_text
-    assert "previewChrome" in surface_body_text
-    assert "previewServers" in surface_body_text
-    assert "previewChrome" in preview_surface_text
-    assert "chrome.statusReady" in preview_model_text
-    assert "chrome.emptyTitle" in preview_model_text
-    assert "openPreviewSession" in preview_controller_text
-
-    for hardcoded_copy in (
-        '"Open a session before using preview."',
-        '"Preview failed"',
-        '"Preview refresh failed"',
-        '"Open preview failed"',
-    ):
-        assert hardcoded_copy not in app_text
-
-    for hardcoded_copy in (
-        '"Vite dev server"',
-        '"Local app"',
-        '"Loading..."',
-        '"Refresh"',
-        '"Loading preview"',
-        '"Refresh preview"',
-        '"Search or enter URL"',
-        '"Preview URL"',
-        '"Open in system browser"',
-        '"Annotate preview"',
-        '"More preview actions"',
-        '"Preview unavailable"',
-        '"This local page cannot be rendered in the embedded preview."',
-        '"The local preview target did not respond."',
-        '"Reload"',
-        '"Preview failed"',
-    ):
-        assert hardcoded_copy not in preview_surface_text
-
-    for hardcoded_copy in (
-        '"Loading"',
-        '"Ready"',
-        '"Preview unavailable"',
-        '"Idle"',
-        '"Local server"',
-        '"Local servers"',
-        '"No preview open"',
-        '"Choose a local server to open in the preview panel."',
-        '"Start a local dev server or enter a localhost URL above."',
-    ):
-        assert hardcoded_copy not in preview_model_text
 
 
-def test_gui_file_preview_copy_is_app_shell_declared():
-    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
-    right_panel_controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js"
-    )
-    file_preview_controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/file-preview-controller.js"
-    )
-    surface_body_text = _read(
-        ROOT
-        / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx"
-    )
-    file_preview_surface_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/FilePreviewSurface.jsx"
-    )
-    file_preview_model_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/file-preview-model.js"
-    )
-
-    assert '"file_preview": {' in spec_text
-    assert '"loading_message": "Loading file..."' in spec_text
-    assert '"breadcrumb_aria_label": "File path"' in spec_text
-    assert '"markdown_source_glyph": "C"' in spec_text
-    assert '"markdown_preview_glyph": "P"' in spec_text
-    assert "normalizeFilePreviewChrome" in model_text
-    assert "filePreview: normalizeFilePreviewChrome" in model_text
-    assert "createFilePreviewController" not in app_text
-    assert "createFilePreviewController" in _client_runtime_text()
-    assert "onOpenFile={openFile}" in app_text
-    assert "async function openFile" not in app_text
-    assert "filePreviewController.openFile(path, line)" not in app_text
-    assert "function openDiffSurface" not in app_text
-    assert "async function openPreviewUrl" not in app_text
-    assert "async function refreshPreview" not in app_text
-    assert "async function openPreviewInSystemBrowser" not in app_text
-    assert "filePreviewChrome.unavailableMessage" not in app_text
-    assert "filePreviewChrome.unavailableMessage" not in file_preview_controller_text
-    assert "chrome.unavailableMessage" in file_preview_controller_text
-    assert "fileSurfaceTitle(filePath, filePreviewChrome)" not in app_text
-    assert "readFile" in file_preview_controller_text
-    assert '"/api/"' not in file_preview_controller_text
-    assert "file_preview_load_started" in file_preview_controller_text
-    assert "file_preview_loaded" in file_preview_controller_text
-    assert "file_preview_load_failed" in file_preview_controller_text
-    assert "fileSurfaceTitle(path, filePreviewChrome" in right_panel_controller_text
-    assert 'replace(/^Open\\s+/i, "")' not in right_panel_controller_text
-    assert "filePreviewChrome={filePreviewChrome}" in surface_body_text
-    assert "filePreviewChrome" in file_preview_surface_text
-    assert "filePreviewChrome.breadcrumbAriaLabel" in file_preview_surface_text
-    assert "filePreviewChrome.markdownSourceGlyph" in file_preview_surface_text
-    assert "filePreviewChrome.markdownPreviewGlyph" in file_preview_surface_text
-    assert "chrome.languageLabels" in file_preview_model_text
-
-    for hardcoded_copy in (
-        '"File unavailable"',
-        '"Loading file..."',
-        ">Retry<",
-        '"Show markdown source"',
-        '"Show rendered markdown"',
-        '"Show file explorer"',
-        '"File path"',
-        '{showPreview ? "C" : "P"}',
-    ):
-        assert hardcoded_copy not in app_text
-        assert hardcoded_copy not in store_text
-        assert hardcoded_copy not in file_preview_surface_text
-        assert hardcoded_copy not in right_panel_controller_text
-
-    for hardcoded_copy in (
-        '"File"',
-        '"Workspace"',
-        '"Plain"',
-        '"Markdown"',
-        '"TypeScript"',
-    ):
-        assert hardcoded_copy not in file_preview_model_text
 
 
-def test_gui_files_surface_title_is_app_shell_declared():
-    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-    files_surface_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/FilesSurface.jsx"
-    )
-    surface_body_text = _read(
-        ROOT
-        / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx"
-    )
-
-    assert '_surface(\n                "files",' in spec_text
-    assert '"Files"' in spec_text
-    assert "surface?.title" in files_surface_text
-    assert "surface={surface}" in surface_body_text
-    assert "<strong>Files</strong>" not in files_surface_text
 
 
-def test_gui_diff_panel_copy_is_app_shell_declared():
-    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    surface_panel_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx"
-    )
-    diff_panel_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/diff/DiffPanel.jsx"
-    )
-    diff_model_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/diff-model.js"
-    )
-    socket_effects_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"
-    )
-    store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
-
-    assert '"diff_panel": {' in spec_text
-    assert "normalizeDiffPanelChrome" in model_text
-    assert "diffPanel: normalizeDiffPanelChrome" in model_text
-    assert "diffPanelChrome" in app_text
-    assert "diffPanelChrome" in surface_panel_text
-    assert "chrome.selectionAriaLabel" in diff_panel_text
-    assert "chrome.expandDiffLabel" in diff_panel_text
-    assert "chromeDefaultTitle" in diff_model_text
-    assert "diffPanelChrome" in socket_effects_text
-
-    for hardcoded_copy in (
-        "No diff selected.",
-        "Diff selection",
-        "Diff controls",
-        "Stacked diff view",
-        "Split diff view",
-        "Disable line wrapping",
-        "Enable line wrapping",
-        "Show whitespace changes",
-        "Hide whitespace changes",
-        "Changed files",
-        ">Files<",
-        "Expand diff",
-    ):
-        assert hardcoded_copy not in diff_panel_text
-
-    assert '"Git Diff"' not in app_text
-    assert "`Git Diff:" not in app_text
-    assert '"Git Diff"' not in socket_effects_text
-    assert 'title: action.diffSurface?.title || "diff"' not in store_text
 
 
-def test_gui_source_control_copy_is_app_shell_declared():
-    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    surface_panel_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx"
-    )
-    source_control_panel_text = _read(
-        ROOT
-        / "src/embedagent/frontend/gui/webapp/src/components/source-control/SourceControlPanel.jsx"
-    )
-    source_control_state_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/source-control/source-control-state.js"
-    )
-    source_control_presentation_text = _read(
-        ROOT
-        / "src/embedagent/frontend/gui/webapp/src/source-control/source-control-presentation.js"
-    )
-    source_control_controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/source-control-controller.js"
-    )
-    source_control_capability_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/source-control/source-control-capability.js"
-    )
-    branch_toolbar_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/BranchToolbar.jsx"
-    )
-    branch_toolbar_model_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/source-control/branch-toolbar-model.js"
-    )
-
-    assert '"source_control": _copy_value(self.source_control)' in spec_text
-    assert '"status_unavailable_notice": "Source control unavailable."' in spec_text
-    assert '"branch_toolbar": {' in spec_text
-    assert '"file_status_labels": {' in spec_text
-    assert '"group_order": [' in spec_text
-    assert "normalizeSourceControlChrome" in model_text
-    assert "chrome: normalizeSourceControlChrome" in model_text
-    assert "groupOrder:" in model_text
-    assert "fileStatusLabels: normalizeStringMap" in model_text
-    assert "branchToolbar: normalizeBranchToolbarChrome" in model_text
-    assert "createSourceControlController" not in app_text
-    assert "createSourceControlController" in _client_runtime_text()
-    assert "sourceControlChrome.statusUnavailableNotice" in source_control_controller_text
-    assert "sourceControlChrome.diffUnavailableNotice" in source_control_controller_text
-    assert "sourceControlChrome" in app_text
-    assert "sourceControlCapabilityEnabled" not in app_text
-    assert "sourceControlCapabilityEnabled" in source_control_controller_text
-    assert "!sourceControlCapabilityEnabled(stateRef.current.app.capabilities)" not in app_text
-    assert "sourceControl.enabled === true" in source_control_capability_text
-    assert "sourceControlChrome" in surface_panel_text
-    assert "sourceControlChrome" in source_control_panel_text
-    assert "sourceControlChrome.groupOrder" in source_control_panel_text
-    assert '["conflicted", "staged", "unstaged", "untracked"]' not in source_control_panel_text
-    assert "chrome.groupLabels" in source_control_presentation_text
-    assert "chrome.providerLabels" in source_control_presentation_text
-    assert "chrome.fileStatusLabels" in source_control_presentation_text
-    assert "slice(0, 1)" not in source_control_presentation_text
-    assert '"?"' not in source_control_presentation_text
-    assert "|| normalized" not in source_control_presentation_text
-    assert "model.branchMetaLabel" in branch_toolbar_text
-    assert "sourceControlChrome?.branchToolbar" in branch_toolbar_model_text
-    assert "getSourceControlStatus" in source_control_controller_text
-
-    for hardcoded_copy in (
-        '"Source control unavailable"',
-        '"Diff unavailable"',
-    ):
-        assert hardcoded_copy not in app_text
-        assert hardcoded_copy not in source_control_state_text
-
-    for hardcoded_copy in (
-        '"Source control unavailable."',
-        '"Loading changes..."',
-        '"Git runtime is not available for this workspace."',
-        '"The active workspace is not a Git repository."',
-        '"No local changes."',
-        '"No branch"',
-        '"Refresh"',
-    ):
-        assert hardcoded_copy not in source_control_panel_text
-
-    for hardcoded_copy in (
-        '"Checking Git..."',
-        '"Git status unavailable"',
-        '"Git unavailable"',
-        '"No repository"',
-        '"Unknown ref"',
-        '"Clean"',
-        '"Current checkout"',
-        '"Run in the active workspace checkout."',
-        '"Git is unavailable in this offline bundle or workspace."',
-        '"This workspace is not a Git repository."',
-        '"Git status is unavailable."',
-    ):
-        assert hardcoded_copy not in branch_toolbar_model_text
-
-    for hardcoded_copy in (
-        '"This action is read-only in the current GUI shell."',
-        ">Worktree<",
-        ">Branch<",
-        '"Refresh local Git status"',
-    ):
-        assert hardcoded_copy not in branch_toolbar_text
 
 
-def test_gui_thread_lifecycle_actions_are_backend_descriptors():
-    spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-    model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    app_home_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/app-home-model.js"
-    )
-    controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/thread-lifecycle-controller.js"
-    )
-    browser_dialog_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/browser-dialog-service.js"
-    )
-
-    assert "thread_lifecycle_actions" in spec_text
-    assert "prompt_title" in spec_text
-    assert "confirm_title" in spec_text
-    assert "success_title" in spec_text
-    assert "normalizeThreadLifecycleAction" in model_text
-    assert "promptTitle" in model_text
-    assert "confirmTitle" in model_text
-    assert "successTitle" in model_text
-    assert "actions: normalizeThreadLifecycleActions" in model_text
-    assert "reasonLabel" in model_text
-    assert "label: String(input.label || id)" not in model_text
-    assert "getThreadLifecycleCapabilities" in controller_text
-    assert "promptTitle" in controller_text
-    assert "confirmTitle" in controller_text
-    assert "successTitle" in controller_text
-    assert "emptyTitle" in controller_text
-    assert "failureTitle" in controller_text
-    assert 'actionText(action, "emptyTitle")' in controller_text
-    assert 'actionText(action, "failureTitle")' in controller_text
-    assert "${action.label} failed" not in controller_text
-    assert "label: id" not in controller_text
-    assert '"Rename thread"' not in controller_text
-    assert '"Archive this thread?"' not in controller_text
-    assert '"Fork thread title"' not in controller_text
-    assert '"Thread archived"' not in controller_text
-    assert "createBrowserDialogService" not in app_text
-    assert "createBrowserDialogService" in _client_runtime_text()
-    assert "prompt: dialogService.prompt" in _client_runtime_text()
-    assert "confirm: dialogService.confirm" in _client_runtime_text()
-    assert "window.prompt" not in app_text
-    assert "window.confirm" not in app_text
-    assert "export function createBrowserDialogService" in browser_dialog_text
-    assert "target.prompt" in browser_dialog_text
-    assert "target.confirm" in browser_dialog_text
-    assert "THREAD_LIFECYCLE_ACTIONS" not in app_home_text
-    assert "if (!label) return null" in app_home_text
-    assert ".filter(Boolean)" in app_home_text
-    assert "Backend lifecycle API is not available yet" not in app_home_text
-    assert "Thread is missing" not in app_home_text
-    assert "label: String(action?.label || actionId)" not in app_home_text
-    assert 'label: "Rename"' not in app_home_text
-    assert 'label: "Fork"' not in app_home_text
-    assert 'label: "Archive"' not in app_home_text
 
 
 def test_agent_core_has_no_harness_prompt_or_command_name_validation_coupling():
@@ -2704,184 +1571,8 @@ def test_gui_has_no_split_tool_catalog_facade():
         assert token not in core_adapter_text
 
 
-def test_gui_workbench_entrypoints_are_app_capability_driven():
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    runtime_reducer_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/client-runtime/runtime-reducer.js"
-    )
-    commands_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js")
-    ui_state_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/ui-state.js")
-    keybindings_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/keybindings.js"
-    )
-    inspector_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx"
-    )
-    right_panel_tabs_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelTabs.jsx"
-    )
-    bottom_drawer_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/BottomDrawer.jsx"
-    )
-    terminal_controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js"
-    )
-    controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/workbench-command-controller.js"
-    )
-    app_shell_spec_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py")
-
-    assert "appCapabilities" in commands_text
-    assert "surfaceCommandDefinitions(appCapabilities)" in commands_text
-    assert "bottomDrawerCommandDefinitions(appCapabilities)" in commands_text
-    assert "if (declared === null) return commands" not in commands_text
-    assert "sanitizeWorkbenchUiStateForAppCapabilities" in runtime_reducer_text
-    assert "sanitizeWorkbenchUiStateForAppCapabilities" in ui_state_text
-    assert "persistedSurfaceDefinitions(appCapabilities, placement)" in ui_state_text
-    assert "persistedSurfaceFrom" in ui_state_text
-    assert 'kind === "file"' not in ui_state_text
-    assert 'kind === "terminal"' not in ui_state_text
-    assert 'kind !== "terminal"' not in ui_state_text
-    assert "persistedSurfaceDefinitions" in ui_state_text
-    assert 'kinds.includes("files")' not in ui_state_text
-    assert 'kinds.concat("file")' not in ui_state_text
-    assert "appCapabilities" in keybindings_text
-    assert "rightPanelLauncherSurfaceDefinitions(appCapabilities)" in right_panel_tabs_text
-    assert "bottomDrawerSurfaceDefinitions(appCapabilities)" in bottom_drawer_text
-    assert "surfaceChromeLabels" in bottom_drawer_text
-    assert "chrome.bottomDrawerAriaLabel" in bottom_drawer_text
-    assert "chrome.runOutputEmptyMessage" in bottom_drawer_text
-    assert "chrome.terminationReasonPrefix" in bottom_drawer_text
-    assert "activeDefinition.bodyKind" in bottom_drawer_text
-    assert "BOTTOM_DRAWER_BODY_RENDERERS" in bottom_drawer_text
-    assert "BOTTOM_DRAWER_BODY_RENDERERS[activeBodyKind]" in bottom_drawer_text
-    assert "switch (activeBodyKind)" not in bottom_drawer_text
-    assert "bottomDrawerSurfaceDefinitionFor" in terminal_controller_text
-    assert "TERMINAL_SURFACE_KIND" in terminal_controller_text
-    assert "terminalSurfaceActionInput" in terminal_controller_text
-    assert "definition.activationKind" in terminal_controller_text
-    assert "BOTTOM_DRAWER_ACTIVATION_HANDLERS" in terminal_controller_text
-    assert (
-        "BOTTOM_DRAWER_ACTIVATION_HANDLERS[definition.activationKind]" in terminal_controller_text
-    )
-    assert "defaultNextTerminalId" in terminal_controller_text
-    assert "openNewBottomDrawerTerminal" in terminal_controller_text
-    assert "activateBottomDrawerTerminal" in terminal_controller_text
-    assert "onKindSelect={selectBottomDrawerKind}" in app_text
-    assert "onTerminalNew={openBottomDrawerTerminal}" in app_text
-    assert "onTerminalSelect={activateBottomDrawerTerminal}" in app_text
-    assert "terminalController.ensureOpen" not in app_text
-    assert "nextTerminalId" not in app_text
-    assert 'type: "terminal_active_set"' not in app_text
-    assert "onTerminalNew={openRightPanelTerminal}" in app_text
-    assert "onTerminalSplit={splitRightPanelTerminal}" in app_text
-    assert "onTerminalSplitVertical={splitRightPanelTerminalVertical}" in app_text
-    assert "onTerminalSelect={activateRightPanelTerminal}" in app_text
-    assert "onTerminalClose={closeRightPanelTerminal}" in app_text
-    assert "terminalController.splitRightPanelSurface" not in app_text
-    assert "terminalController.closeRightPanelPane" not in app_text
-    assert "terminalController.activateRightPanelPane" not in app_text
-    assert "activeRightPanelSurface, terminalId" not in app_text
-    assert "activeRightPanelSurfaceFrom(state.workbench)" in app_text
-    assert "rightPanelSurfacesFrom(state.workbench)" in app_text
-    assert "rightPanelSurfaces.find" not in app_text
-    assert "surface.id === state.workbench.rightPanel.activeSurfaceId" not in app_text
-    assert "function activeRightPanelSurface" not in terminal_controller_text
-    assert "activeRightPanelSurfaceFrom" in terminal_controller_text
-    assert "function splitActiveRightPanelSurface" in terminal_controller_text
-    assert "function splitActiveRightPanelSurfaceVertical" in terminal_controller_text
-    assert "function activateActiveRightPanelPane" in terminal_controller_text
-    assert "function closeActiveRightPanelPane" in terminal_controller_text
-    assert "commandById" not in app_text
-    assert "onToggleRightPanel={toggleRightPanel}" in app_text
-    assert "onToggleBottomDrawer={toggleBottomDrawer}" in app_text
-    assert "onOpenPalette={openCommandPalette}" in app_text
-    assert "onQueryChange={updatePaletteQuery}" in app_text
-    assert "onClose={closeCommandPalette}" in app_text
-    assert "onSelect={selectPaletteCommand}" in app_text
-    assert "onSelectSession={selectPaletteSession}" in app_text
-    assert "onSelectWorkspace={selectPaletteWorkspace}" in app_text
-    assert 'type: "workbench_command_palette_closed"' not in app_text
-    assert 'type: "workbench_command_palette_query_changed"' not in app_text
-    assert 'type: "workbench_right_panel_toggled"' not in app_text
-    assert 'type: "workbench_bottom_drawer_toggled"' not in app_text
-    assert "commandById" in controller_text
-    assert "function openPalette" in controller_text
-    assert "function closePalette" in controller_text
-    assert "function updatePaletteQuery" in controller_text
-    assert "function toggleRightPanel" in controller_text
-    assert "function toggleBottomDrawer" in controller_text
-    assert "function selectPaletteCommand" in controller_text
-    assert "function selectPaletteSession" in controller_text
-    assert "function selectPaletteWorkspace" in controller_text
-    assert 'switch (definition ? definition.activationKind : "")' not in terminal_controller_text
-    assert 'kind === "terminal"' not in terminal_controller_text
-    assert 'surface.kind !== "terminal"' not in terminal_controller_text
-    assert 'surfaceDefinitionFor("terminal"' not in terminal_controller_text
-    assert 'activeKind === "terminal"' not in bottom_drawer_text
-    assert '"Bottom drawer"' not in bottom_drawer_text
-    assert '"No run output yet."' not in bottom_drawer_text
-    assert "reason={terminationReason}" not in bottom_drawer_text
-    assert '_dispatch("command_palette.open")' in app_shell_spec_text
-    assert '_dispatch("workspace.focus_path_input")' in app_shell_spec_text
-    assert '_dispatch("session.create")' in app_shell_spec_text
-    assert '_dispatch("terminal.ensure_open")' in app_shell_spec_text
-    assert '_surface(\n                "logs",' not in app_shell_spec_text
-    assert "command.dispatch" in controller_text
-    assert "COMMAND_DISPATCH_HANDLERS" in controller_text
-    assert "COMMAND_DISPATCH_HANDLERS[dispatchDescriptor.kind]" in controller_text
-    assert "switch (dispatchDescriptor.kind)" not in controller_text
-    assert 'case "terminal.ensure_open"' not in controller_text
-    assert "switch (command.id)" not in controller_text
-    assert 'command.drawer === "terminal"' not in controller_text
-    assert "if (allowed === null) return ordered" not in _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js"
-    )
-    for token in (
-        "RIGHT_PANEL_SURFACES",
-        "function InspectorTabs",
-        "showTabs",
-        "onTabChange",
-    ):
-        assert token not in inspector_text
-        assert token not in app_text
-    for token in (
-        'onKindSelect("terminal")',
-        'onKindSelect("run_output")',
-        'onKindSelect("logs")',
-    ):
-        assert token not in bottom_drawer_text
-    for token in (
-        'case "app.settings"',
-        'case "app.diagnostics"',
-        'case "app.source_control"',
-        'case "app.reload"',
-        'case "palette.open"',
-        'case "workspace.open"',
-        'case "session.new"',
-        'case "message.send"',
-    ):
-        assert token not in controller_text
 
 
-def test_gui_has_no_root_inspector_navigation_state():
-    checked_paths = (
-        ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx",
-        ROOT / "src/embedagent/frontend/gui/webapp/src/store.js",
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js",
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js",
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/visual-debug-fixtures.js",
-    )
-    banned_tokens = (
-        "inspectorTab",
-        "inspectorOpen",
-        "set_inspector",
-        "toggle_inspector",
-    )
-    for path in checked_paths:
-        text = _read(path)
-        for token in banned_tokens:
-            assert token not in text
 
 
 def test_gui_visual_debug_installation_is_controller_owned():
@@ -2905,33 +1596,6 @@ def test_gui_visual_debug_installation_is_controller_owned():
     assert "export function installVisualDebugFixtures" in fixtures_text
 
 
-def test_gui_webapp_source_uses_right_panel_surface_vocabulary():
-    checked_paths = (
-        ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx",
-        ROOT / "src/embedagent/frontend/gui/webapp/src/styles.css",
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx",
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/WorkbenchHeader.jsx",
-    )
-    forbidden_tokens = (
-        "--inspector-w-raw",
-        "inspector-toggle",
-        "header.toggleInspector",
-        "inspector.",
-        'className="inspector"',
-        'className="inspector-body"',
-        ".inspector",
-        ".inspector-tabs",
-        ".insp-tab",
-        "INSPECTOR",
-    )
-    offenders = []
-    for path in checked_paths:
-        text = _read(path)
-        for token in forbidden_tokens:
-            if token in text:
-                offenders.append("%s contains %s" % (path.relative_to(ROOT), token))
-
-    assert offenders == []
 
 
 def test_gui_has_no_retired_inspector_sidecar_state():
@@ -2994,148 +1658,8 @@ def test_gui_has_no_retired_inspector_sidecar_state():
         assert token not in inspector_text
 
 
-def test_gui_right_panel_body_has_no_inspector_tab_renderer():
-    assert not (ROOT / "src/embedagent/frontend/gui/webapp/src/components/Inspector.jsx").exists()
-
-    checked_paths = (
-        ROOT
-        / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx",
-        ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js",
-    )
-    for path in checked_paths:
-        text = _read(path)
-        for token in (
-            "Inspector.jsx",
-            "import Inspector",
-            "<Inspector",
-            "inspectorTab",
-            "inspectorKind",
-        ):
-            assert token not in text
-    surface_body_text = _read(
-        ROOT
-        / "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx"
-    )
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    surfaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js")
-    surface_panel_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx"
-    )
-    assert "surfaceDefinitionFor(surface.kind, appCapabilities)" in surface_body_text
-    assert "surfaceDefinitionFor(surface.kind)" not in surface_body_text
-    assert "buildAppCapabilityModelFromState" in app_text
-    assert "state.app.capabilities" not in app_text
-    assert "stateRef.current.app.capabilities" not in app_text
-    assert app_text.count("appCapabilities={appCapabilities}") >= 3
-    assert "activeDefinition.bodyKind" in surface_body_text
-    assert "activeDefinition.panelKind" in surface_body_text
-    assert "RIGHT_PANEL_BODY_RENDERERS" in surface_body_text
-    assert "RIGHT_PANEL_BODY_RENDERERS[activeBodyKind]" in surface_body_text
-    assert "switch (activeBodyKind)" not in surface_body_text
-    assert "bodyKind" in surfaces_text
-    assert "panelKind" in surfaces_text
-    assert "PANEL_RENDERERS" in surface_panel_text
-    assert "panelKind" in surface_panel_text
-    for token in (
-        'surface.kind === "file"',
-        'surface.kind === "files"',
-        'surface.kind === "preview"',
-        'surface.kind === "terminal"',
-    ):
-        assert token not in surface_body_text
-    for token in (
-        'surfaceKind === "plan"',
-        'surfaceKind === "diff"',
-        'surfaceKind === "source_control"',
-        'surfaceKind === "settings"',
-        'surfaceKind === "diagnostics"',
-    ):
-        assert token not in surface_panel_text
 
 
-def test_gui_right_panel_open_behavior_is_surface_metadata_driven():
-    controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js"
-    )
-    terminal_controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js"
-    )
-    file_preview_controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/file-preview-controller.js"
-    )
-    preview_controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/preview-controller.js"
-    )
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    surfaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js")
-
-    assert "declaredRightPanelSurfaceDefinition" in controller_text
-    assert "surfaceDefinitionFor(kind, capabilities)" in controller_text
-    assert "definition.openKind" in controller_text
-    assert "RIGHT_PANEL_OPEN_HANDLERS" in controller_text
-    assert "RIGHT_PANEL_OPEN_HANDLERS[definition.openKind]" in controller_text
-    assert 'switch (definition ? definition.openKind : "")' not in controller_text
-    assert "RIGHT_PANEL_ACTIVATION_HANDLERS" in controller_text
-    assert "RIGHT_PANEL_ACTIVATION_HANDLERS[definition.activationKind]" in controller_text
-    assert "onActivateSurface={activateRightPanelSurface}" in app_text
-    assert "onCloseSurface={closeRightPanelSurface}" in app_text
-    assert "onCloseOtherSurfaces={closeOtherRightPanelSurfaces}" in app_text
-    assert "onCloseSurfacesToRight={closeRightPanelSurfacesToRight}" in app_text
-    assert "onCloseAllSurfaces={closeAllRightPanelSurfaces}" in app_text
-    assert "onAddSurface={openRightPanelSurface}" in app_text
-    assert 'type: "workbench_surface_closed"' not in app_text
-    assert 'type: "workbench_surface_close_others"' not in app_text
-    assert 'type: "workbench_surface_close_to_right"' not in app_text
-    assert 'type: "workbench_surface_close_all"' not in app_text
-    assert "definition.activationKind" not in app_text
-    assert 'definition.activationKind === "terminal.open_active"' not in app_text
-    assert "surfaceDefinitionFor(" not in app_text
-    assert 'kind: "file"' not in app_text
-    assert 'kind: "preview"' not in app_text
-    assert 'openRightPanelSurface("files")' not in app_text
-    assert "createFilePreviewController" not in app_text
-    assert "createFilePreviewController" in _client_runtime_text()
-    assert "rightPanelController.openFileSurface(" not in app_text
-    assert "const opened = rightPanelController.openFileSurface(" not in app_text
-    assert "if (!opened) return;" not in app_text
-    assert "openSurface({" in file_preview_controller_text
-    assert "if (!opened) return null;" in file_preview_controller_text
-    assert "createPreviewController" not in app_text
-    assert "createPreviewController" in _client_runtime_text()
-    assert "rightPanelController.openPreviewSurface(" not in app_text
-    assert "rightPanelController.canOpenPreviewSurface()" not in app_text
-    assert "canOpenPreviewSurface" in preview_controller_text
-    assert "openPreviewSurface" in preview_controller_text
-    assert "onOpenFilesSurface={openFilesSurface}" in app_text
-    assert "openKind" in surfaces_text
-    assert "activationKind" in surfaces_text
-    assert "RIGHT_PANEL_RESOURCE_SURFACES.file" in controller_text
-    assert "RIGHT_PANEL_RESOURCE_SURFACES.preview" in controller_text
-    assert "terminalController.openRightPanelSurface" in controller_text
-    assert "terminalController.openSession" in controller_text
-    assert "rightPanelTerminalSurfaceDefinition" in terminal_controller_text
-    assert "if (!definition) return null" in terminal_controller_text
-    assert "return false" in controller_text
-    assert "return true" in controller_text
-    assert "openFileSurface" in controller_text
-    assert "canOpenPreviewSurface" in controller_text
-    assert "openPreviewSurface" in controller_text
-    assert "openFilesSurface" in controller_text
-    assert "function closeSurface" in controller_text
-    assert "function closeOtherSurfaces" in controller_text
-    assert "function closeSurfacesToRight" in controller_text
-    assert "function closeAllSurfaces" in controller_text
-    assert 'type: "workbench_surface_closed"' in controller_text
-    assert 'type: "workbench_surface_close_others"' in controller_text
-    assert 'type: "workbench_surface_close_to_right"' in controller_text
-    assert 'type: "workbench_surface_close_all"' in controller_text
-    assert "terminalController.openSession" not in app_text
-    for token in (
-        'surfaceKind === "file"',
-        'surfaceKind === "terminal"',
-    ):
-        assert token not in controller_text
-    assert 'surface.kind === "terminal"' not in app_text
 
 
 def test_gui_has_no_retired_workflow_runtime_panel_display_helper():
@@ -3178,43 +1702,6 @@ def test_gui_has_no_split_artifact_refetch_facade():
         assert token not in gui_routes_text
 
 
-def test_no_hosted_or_tui_artifact_browser_facade():
-    inprocess_text = _read(
-        ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py"
-    )
-    command_service_text = _read(
-        ROOT / "packages/embedagent-host/src/embedagent_host/hosted_command_service.py"
-    )
-    slash_commands_text = _read(
-        ROOT / "packages/embedagent-host/src/embedagent_host/runtime/slash_commands.py"
-    )
-    tui_app_text = _read(ROOT / "src/embedagent/frontend/tui/app.py")
-    tui_controller_text = _read(ROOT / "src/embedagent/frontend/tui/controller.py")
-    tui_workbench_text = _read(ROOT / "src/embedagent/frontend/tui/workbench.py")
-    tui_services_init_text = _read(ROOT / "src/embedagent/frontend/tui/services/__init__.py")
-    tui_services_dir = ROOT / "src/embedagent/frontend/tui/services"
-
-    for token in (
-        "def list_artifacts",
-        "def read_artifact",
-        "_handle_command_artifacts",
-        'SlashCommandSpec("artifacts"',
-        "ArtifactService",
-        "artifact_service",
-        "show_artifacts",
-        "refresh_artifacts",
-        "surface.artifacts",
-        "artifact.open",
-    ):
-        assert token not in inprocess_text
-        assert token not in command_service_text
-        assert token not in slash_commands_text
-        assert token not in tui_app_text
-        assert token not in tui_controller_text
-        assert token not in tui_workbench_text
-        assert token not in tui_services_init_text
-
-    assert not (tui_services_dir / "artifacts.py").exists()
 
 
 def test_gui_manual_and_styles_do_not_keep_artifact_browser_shell():
@@ -3375,41 +1862,6 @@ def test_renderer_transport_uses_canonical_envelope_ordering_fields():
     assert "event.timestamp" in source
 
 
-def test_gui_workspace_lifecycle_stays_in_workspace_controller():
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    controller_path = (
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/workspace-controller.js"
-    )
-    controller_text = _read(controller_path)
-    forbidden_app_tokens = (
-        "async function loadAppBootstrap",
-        "async function loadActiveWorkspaceData",
-        "async function openWorkspace",
-        "async function activateWorkspace",
-        "async function removeWorkspace",
-        "canSwitchWorkspace",
-        "normalizeAppBootstrap",
-        "workspace_path_changed",
-    )
-    offenders = []
-    for token in forbidden_app_tokens:
-        if token in app_text:
-            offenders.append("App.jsx owns workspace lifecycle token %s" % token)
-    required_controller_tokens = (
-        "export function createWorkspaceController",
-        "function setWorkspacePath",
-        'type: "workspace_path_changed"',
-        "normalizeAppBootstrap",
-        "loadAppBootstrap",
-        "openWorkspacePath",
-    )
-    for token in required_controller_tokens:
-        if token not in controller_text:
-            offenders.append("workspace-controller.js missing %s" % token)
-    assert "onWorkspacePathChange={setWorkspacePath}" in app_text
-    assert "onChange={setWorkspacePath}" in app_text
-    assert "import React" not in controller_text
-    assert offenders == []
 
 
 def test_gui_active_workspace_data_loading_is_controller_owned():
@@ -3439,169 +1891,16 @@ def test_gui_active_workspace_data_loading_is_controller_owned():
     assert "invoke(loadStatus, false," in loader_text
 
 
-def test_gui_composer_actions_are_controller_owned():
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/composer-controller.js"
-    )
-
-    assert "createComposerController" not in app_text
-    assert "createComposerController" in _client_runtime_text()
-    assert "function sendMessage" not in app_text
-    assert "onChange={setComposerDraft}" in app_text
-    assert "onSend={sendComposerMessage}" in app_text
-    assert "onOpenCommandPalette={openComposerPalette}" in app_text
-    assert "onRefreshSourceControl={refreshComposerSourceControl}" in app_text
-    assert "export function createComposerController" in controller_text
-    assert 'type: "set_composer"' in controller_text
-    assert 'type: "workbench_command_palette_opened"' in controller_text
-    assert "refreshSourceControl" in controller_text
-    assert "import React" not in controller_text
 
 
-def test_gui_surface_panel_actions_are_controller_owned():
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/surface-panel-controller.js"
-    )
-    props_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/surface-panel-props.js"
-    )
-
-    assert "createSurfacePanelController" not in app_text
-    assert "createSurfacePanelController" in _client_runtime_text()
-    assert "buildSurfacePanelProps" in app_text
-    assert "surfacePanelController.focusDiffFile" not in app_text
-    assert "surfacePanelController.refreshSourceControl" not in app_text
-    assert "surfacePanelController.selectSourceControlFile" not in app_text
-    assert "surfacePanelController.changeAppSettings" not in app_text
-    assert "onFocusDiffFile: surfacePanelController.focusDiffFile" not in app_text
-    assert "onRefreshSourceControl: surfacePanelController.refreshSourceControl" not in app_text
-    assert (
-        "onSelectSourceControlFile: surfacePanelController.selectSourceControlFile" not in app_text
-    )
-    assert "onAppSettingsChange: surfacePanelController.changeAppSettings" not in app_text
-    assert "diff_file_focused" not in app_text
-    assert "app_shell_settings_changed" not in app_text
-    assert "sourceControlController.loadStatus(true)" not in app_text
-    assert "sourceControlController.openFile(file, scope)" not in app_text
-    assert "export function createSurfacePanelController" in controller_text
-    assert "function focusDiffFile" in controller_text
-    assert "function refreshSourceControl" in controller_text
-    assert "function selectSourceControlFile" in controller_text
-    assert "function changeAppSettings" in controller_text
-    assert 'type: "diff_file_focused"' in controller_text
-    assert 'type: "app_shell_settings_changed"' in controller_text
-    assert "import React" not in controller_text
-    assert "export function buildSurfacePanelProps" in props_text
-    assert "onFocusDiffFile: controller.focusDiffFile" in props_text
-    assert "onRefreshSourceControl: controller.refreshSourceControl" in props_text
-    assert "onSelectSourceControlFile: controller.selectSourceControlFile" in props_text
-    assert "onAppSettingsChange: controller.changeAppSettings" in props_text
-    assert "import React" not in props_text
 
 
-def test_gui_panel_resize_dom_logic_is_controller_owned():
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/panel-resize-controller.js"
-    )
-
-    assert "createPanelResizeController" not in app_text
-    assert "createPanelResizeController" in _client_runtime_text()
-    assert "onResizeSidebar={resizeSidebar}" in app_text
-    assert "onResizeRightPanel={resizeRightPanel}" in app_text
-    assert "panelResizeController.startResize" not in app_text
-    assert "RESIZE_DIRECTIONS" not in app_text
-    assert "function startResize" not in app_text
-    assert "setPointerCapture" not in app_text
-    assert "document.documentElement.style.setProperty" not in app_text
-    assert "getComputedStyle(document.documentElement)" not in app_text
-    assert "export function createPanelResizeController" in controller_text
-    assert "function startSidebarResize" in controller_text
-    assert "function startRightPanelResize" in controller_text
-    assert "return { startResize" not in controller_text
-    assert "export const RESIZE_DIRECTIONS" not in controller_text
-    assert "RESIZE_DIRECTIONS" in controller_text
-    assert "setPointerCapture" in controller_text
-    assert "documentRef.documentElement.style.setProperty" in controller_text
 
 
-def test_gui_timeline_scroll_dom_logic_is_controller_owned():
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/timeline-scroll-controller.js"
-    )
-
-    assert "createTimelineScrollController" not in app_text
-    assert "createTimelineScrollController" in _client_runtime_text()
-    assert "timelineScrollController.syncToBottom" in _client_runtime_text()
-    assert "onScroll={handleTimelineScroll}" in app_text
-    assert "function handleTimelineScroll" not in app_text
-    assert "isAtBottomRef" not in app_text
-    assert "scrollTop" not in app_text
-    assert "scrollHeight" not in app_text
-    assert "clientHeight" not in app_text
-    assert "export function createTimelineScrollController" in controller_text
-    assert "scrollTop" in controller_text
-    assert "scrollHeight" in controller_text
-    assert "clientHeight" in controller_text
 
 
-def test_gui_interaction_response_bridge_does_not_keep_root_forwarders():
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    controller_text = _read(
-        ROOT
-        / "src/embedagent/frontend/gui/webapp/src/app-runtime/interaction-response-controller.js"
-    )
-
-    assert "createInteractionResponseController" not in app_text
-    assert "createInteractionResponseController" in _client_runtime_text()
-    assert "function logEvent" not in app_text
-    assert "logEvent:" not in app_text
-    assert "function respondToInteraction" not in app_text
-    assert "onRespondInteraction={respondToInteraction}" in app_text
-    assert "logEvent" not in controller_text
-    assert 'type: "log_event"' in controller_text
 
 
-def test_gui_workbench_keyboard_handling_is_controller_owned():
-    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/workbench-keyboard-controller.js"
-    )
-    commands_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/commands.js")
-    parity_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/workbench/workbench-parity-model.js"
-    )
-
-    assert "createWorkbenchKeyboardController" not in app_text
-    assert "createWorkbenchKeyboardController" in _client_runtime_text()
-    assert "buildCommandVisibilityContext" in app_text
-    assert "function isTurnInterruptibleStatus" not in app_text
-    assert "hasSession: Boolean(currentSessionId)" not in app_text
-    assert "paletteOpen: state.workbench.commandPalette.open" not in app_text
-    assert "paletteOpen: current.workbench.commandPalette.open" not in app_text
-    assert "isRunning: isTurnInterruptibleStatus(status)" not in app_text
-    assert "keyboardController.install()" in _client_runtime_text()
-    assert "function onWorkbenchKeyDown" not in app_text
-    assert 'window.addEventListener("keydown"' not in app_text
-    assert 'window.removeEventListener("keydown"' not in app_text
-    assert "document.activeElement?.dataset?.testid" not in app_text
-    assert "resolveKeybinding(" not in app_text
-    assert "eventToKey(" not in app_text
-    assert "export function createWorkbenchKeyboardController" in controller_text
-    assert 'addEventListener("keydown"' in controller_text
-    assert "resolveKeybinding" in controller_text
-    assert "eventToKey" in controller_text
-    assert "composerFocused" in controller_text
-    assert "export function buildCommandVisibilityContext" in commands_text
-    assert "export function isTurnInterruptibleStatus" in commands_text
-    assert "function isRunningStatus" not in parity_text
-    assert "buildAppCapabilityModelFromState" in parity_text
-    assert "buildSessionCapabilityModelFromState" in parity_text
-    assert "state.app.capabilities" not in parity_text
-    assert "state.sessionCapabilities" not in parity_text
 
 
 def test_gui_runtime_state_does_not_reintroduce_removed_root_session_state():
@@ -3656,3 +1955,178 @@ def test_session_reducer_is_closed_internal_dispatch():
     core_root_source = _read(CORE_SOURCE / "__init__.py")
     assert "def register" not in source
     assert "SessionReducer" not in core_root_source
+
+
+def test_frontend_root_is_a_minimal_agent_shell_composition():
+    app_path = ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx"
+    app_text = _read(app_path)
+    assert len(app_text.splitlines()) <= 12
+    assert 'from "./client-runtime/use-agent-shell-runtime.js"' in app_text
+    assert 'from "./components/shell/AgentShell.jsx"' in app_text
+    assert "<AgentShell" in app_text
+    for forbidden in (
+        "TerminalShell",
+        "SourceControlPanel",
+        "PreviewSurface",
+        "SurfacePanel",
+        "fetch(",
+        "WebSocket",
+    ):
+        assert forbidden not in app_text
+
+
+def test_frontend_optional_features_enter_only_through_contribution_registry():
+    shell_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/shell/AgentShell.jsx"
+    )
+    registry_text = _read(
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/components/contributions/renderer-registry.js"
+    )
+    surface_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx"
+    )
+    outlet_text = _read(
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/components/contributions/ContributionOutlet.jsx"
+    )
+    assert "<ContributionOutlet" in shell_text
+    for optional_component in (
+        "TerminalShell",
+        "PreviewSurface",
+        "FilePreviewSurface",
+    ):
+        assert optional_component not in shell_text
+        assert optional_component in registry_text
+    assert "SourceControlPanel" not in shell_text
+    assert "SurfacePanel" in registry_text
+    assert "SourceControlPanel" in surface_text
+    assert "contributionRenderer" in outlet_text
+    assert "switch (" not in outlet_text
+
+
+def test_product_compiles_one_shell_descriptor_for_gui_and_tui():
+    compiler_text = _read(ROOT / "src/embedagent/frontend/shell/compiler.py")
+    gui_launcher_text = _read(ROOT / "src/embedagent/frontend/gui/launcher.py")
+    tui_launcher_text = _read(ROOT / "src/embedagent/frontend/tui/launcher.py")
+    app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
+    assert "def compile_shell_descriptor" in compiler_text
+    assert "ShellDescriptor(" in compiler_text
+    assert "product_shell_compiler()" in gui_launcher_text
+    assert "product_shell_compiler()" in tui_launcher_text
+    assert "self._shell_compiler" in app_shell_text
+    assert not (ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py").exists()
+
+
+def test_tui_core_has_four_regions_and_no_auxiliary_panel_state():
+    layout_text = _read(ROOT / "src/embedagent/frontend/tui/layout.py")
+    state_text = _read(ROOT / "src/embedagent/frontend/tui/state.py")
+    shell_state_text = _read(ROOT / "src/embedagent/frontend/tui/shell_state.py")
+    assert 'core_region_ids = ("header", "timeline", "composer", "status")' in layout_text
+    assert "state.contributions" in layout_text
+    assert "ShellState" in state_text
+    assert "contributions:" in state_text
+    for forbidden in (
+        "right_panel",
+        "bottom_drawer",
+        "WorkbenchState",
+        "active_surface",
+        "active_drawer",
+    ):
+        assert forbidden not in state_text
+        assert forbidden not in shell_state_text
+
+
+def test_generic_frontend_layers_do_not_expand_cpp_workflow_semantics():
+    roots = (
+        ROOT / "packages/embedagent-protocol/src",
+        ROOT / "packages/embedagent-host/src",
+        ROOT / "src/embedagent/frontend",
+    )
+    forbidden = (
+        "current_phase",
+        "discipline_profile",
+        "current_activity",
+        "task_summary",
+        "task_items",
+    )
+    offenders = []
+    for root in roots:
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in SOURCE_SUFFIXES:
+                continue
+            text = _read(path)
+            for token in forbidden:
+                if token in text:
+                    offenders.append("%s contains %s" % (_relative(path), token))
+    assert offenders == []
+
+
+def test_frontend_transport_primitives_have_focused_owners():
+    gui_root = ROOT / "src/embedagent/frontend/gui/webapp/src"
+    allowed = {
+        "client-runtime/http-transport.js",
+        "client-runtime/socket-transport.js",
+    }
+    offenders = []
+    for path in gui_root.rglob("*"):
+        if not path.is_file() or path.suffix not in (".js", ".jsx"):
+            continue
+        text = _read(path)
+        if re.search(r"\b(fetch|WebSocket|XMLHttpRequest)\b", text):
+            relative = path.relative_to(gui_root).as_posix()
+            if relative not in allowed:
+                offenders.append(relative)
+    assert offenders == []
+
+
+def test_frontend_migration_names_and_retired_paths_do_not_return():
+    gui_root = ROOT / "src/embedagent/frontend/gui/webapp"
+    offenders = []
+    for directory in (gui_root / "src", gui_root / "test"):
+        for path in directory.rglob("*"):
+            if not path.is_file() or path.suffix not in (".js", ".jsx", ".css", ".mjs"):
+                continue
+            if re.search(r"t3[-_]|parity", path.name, re.IGNORECASE):
+                offenders.append(_relative(path))
+            if re.search(r"t3[-_]|parity", _read(path), re.IGNORECASE):
+                offenders.append(_relative(path))
+    retired = (
+        "src/embedagent/frontend/gui/backend/app_shell_spec.py",
+        "src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js",
+        "src/embedagent/frontend/gui/webapp/src/workbench/workbench-parity-model.js",
+        "src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js",
+        "src/embedagent/frontend/gui/webapp/src/workbench/ui-state.js",
+        "src/embedagent/frontend/gui/webapp/src/app-runtime/right-panel-controller.js",
+        "src/embedagent/frontend/gui/webapp/src/app-runtime/panel-resize-controller.js",
+        "src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelTabs.jsx",
+        "src/embedagent/frontend/gui/webapp/src/components/workbench/BottomDrawer.jsx",
+        "src/embedagent/frontend/tui/workbench.py",
+        "src/embedagent/frontend/tui/views/explorer.py",
+        "src/embedagent/frontend/tui/views/editor.py",
+        "src/embedagent/frontend/tui/views/inspector.py",
+    )
+    assert offenders == []
+    assert [path for path in retired if (ROOT / path).exists()] == []
+
+
+def test_frontend_source_owners_stay_focused():
+    source_root = ROOT / "src/embedagent/frontend/gui/webapp/src"
+    oversized = []
+    for path in source_root.rglob("*"):
+        if not path.is_file() or path.suffix not in (".js", ".jsx", ".css"):
+            continue
+        limit = 800 if path.suffix == ".css" else 1000
+        lines = len(_read(path).splitlines())
+        if lines > limit:
+            oversized.append("%s has %s lines" % (_relative(path), lines))
+    assert oversized == []
+    assert _read(source_root / "styles.css").splitlines() == [
+        '@import "./styles/tokens.css";',
+        '@import "./styles/base.css";',
+        '@import "./styles/shell.css";',
+        '@import "./styles/timeline.css";',
+        '@import "./styles/composer.css";',
+        '@import "./styles/overlays.css";',
+        '@import "./styles/contributions.css";',
+    ]

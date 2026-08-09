@@ -15,7 +15,7 @@ export function runPreviewSurfaceSourceTests() {
   const previewSurfaceSource = readSource("components", "workbench", "PreviewSurface.jsx");
   const previewControllerSource = readSource("app-runtime", "preview-controller.js");
   const previewModelSource = readSource("session-runtime", "preview-surface-model.js");
-  const surfaceBodySource = readSource("components", "workbench", "RightPanelSurfaceBody.jsx");
+  const rendererRegistrySource = readSource("components", "contributions", "renderer-registry.js");
 
   assert.equal(appSource.includes("createPreviewController"), false);
   assert.equal(clientRuntimeSource.includes("createPreviewController"), true);
@@ -25,10 +25,8 @@ export function runPreviewSurfaceSourceTests() {
   assert.equal(previewControllerSource.includes("chrome.sessionRequiredNotice"), true);
   assert.equal(previewControllerSource.includes("chrome.refreshFailedNotice"), true);
   assert.equal(previewControllerSource.includes("chrome.openFailedNotice"), true);
-  assert.equal(appSource.includes("previewServers={previewServers}"), true);
+  assert.equal(rendererRegistrySource.includes("servers: contribution.data.previewServers"), true);
   assert.equal(appSource.includes("previewCapability.localServers"), false);
-  assert.equal(surfaceBodySource.includes("previewChrome"), true);
-  assert.equal(surfaceBodySource.includes("previewServers"), true);
   assert.equal(previewSurfaceSource.includes("previewChrome"), true);
   assert.equal(previewSurfaceSource.includes("buildPreviewRuntimeState({ snapshot, chrome: previewChrome })"), true);
   assert.equal(previewModelSource.includes("chrome.statusReady"), true);

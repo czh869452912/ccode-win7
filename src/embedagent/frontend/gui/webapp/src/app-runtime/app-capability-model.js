@@ -15,8 +15,6 @@ export function buildAppCapabilityModel(capabilities = null) {
   const terminalCapability = objectOrEmpty(appCapabilities.terminal);
   const sourceControlCapability = objectOrEmpty(appCapabilities.sourceControl);
   const previewCapability = objectOrEmpty(appCapabilities.preview);
-  const surfacesCapability = objectOrEmpty(appCapabilities.surfaces);
-  const surfaceChrome = objectOrEmpty(surfacesCapability.chrome);
 
   return {
     appCapabilities,
@@ -29,9 +27,9 @@ export function buildAppCapabilityModel(capabilities = null) {
     previewCapability,
     previewChrome: objectOrEmpty(previewCapability.chrome),
     previewServers: arrayOrEmpty(previewCapability.localServers),
-    surfaceChrome,
-    filePreviewChrome: objectOrEmpty(surfaceChrome.filePreview),
-    diffPanelChrome: objectOrEmpty(surfaceChrome.diffPanel),
+    contributions: arrayOrEmpty(appCapabilities.contributions),
+    filePreviewChrome: EMPTY_OBJECT,
+    diffPanelChrome: EMPTY_OBJECT,
     threadLifecycleCapabilities: objectOrEmpty(appCapabilities.threadLifecycle),
     emptyState: appCapabilities.emptyState || null,
   };

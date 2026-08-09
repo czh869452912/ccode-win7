@@ -45,15 +45,16 @@ export function runComposerIntegrationSourceTests() {
   assert.equal(interactionModelSource.includes("commandHints"), false);
   assert.equal(interactionModelSource.includes('group: "command"'), false);
 
-  const appSource = readSource("App.jsx");
-  assert.equal(appSource.includes("visibleCommands"), true);
-  assert.equal(appSource.includes("composerCommands"), true);
-  assert.equal(appSource.includes("commands={composerCommands}"), true);
-  assert.equal(appSource.includes("fileTree={state.fileTree}"), true);
+  const runtimeSource = readSource("client-runtime", "use-agent-shell-runtime.js");
+  const shellComposerSource = readSource("components", "shell", "SessionComposer.jsx");
+  assert.equal(runtimeSource.includes("visibleCommands"), true);
+  assert.equal(runtimeSource.includes("composerCommands"), true);
+  assert.equal(shellComposerSource.includes("commands={composer.commands}"), true);
+  assert.equal(shellComposerSource.includes("fileTree={composer.fileTree}"), true);
   assert.equal(
-    appSource.includes("interactionChrome={appChrome.interaction || {}}"),
+    shellComposerSource.includes("interactionChrome={{ ...INTERACTION_CHROME"),
     true,
   );
-  assert.equal(appSource.includes("EMPTY_COMMAND_HINTS"), false);
-  assert.equal(appSource.includes("commandHints"), false);
+  assert.equal(shellComposerSource.includes("EMPTY_COMMAND_HINTS"), false);
+  assert.equal(shellComposerSource.includes("commandHints"), false);
 }

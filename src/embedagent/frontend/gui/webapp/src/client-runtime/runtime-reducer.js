@@ -1,350 +1,99 @@
-import { injectChildren } from "../state-helpers.js";
-import { focusDiffFile } from "../session-runtime/diff-model.js";
-import { createComposerState, reduceComposerState } from "../composer/composer-state.js";
-import { createAppShellState } from "../app-shell/model.js";
-import { reduceAppShellState } from "../app-shell/reducer.js";
-import { createSourceControlState, reduceSourceControlState } from "../source-control/source-control-state.js";
-import { createTerminalState, reduceTerminalState } from "../terminal/terminal-state.js";
-import { createRunOutputState, reduceRunOutputState } from "../session-runtime/run-output-state.js";
-import { createThreadState, readActiveThreadId, reduceThreadState } from "../session-runtime/thread-state.js";
-import { emptyProtocolCapabilities } from "../session-runtime/protocol-normalizer.js";
-import {
-  ACTIVITY_ACTION_TYPES,
-  createActivityState,
-  reduceActivityState,
-} from "../session-runtime/activity-reducer.js";
-import {
-  bottomDrawerSurfaceDefinitionFor,
-  createWorkbenchState,
-  reduceWorkbenchState,
-  surfaceDefinitionFor,
-} from "../workbench/surfaces.js";
-import { sanitizeWorkbenchUiStateForAppCapabilities } from "../workbench/ui-state.js";
 import { resetWorkspaceScopedState } from "../app-workspaces.js";
+import { createAppState, reduceAppState } from "./reducers/app-reducer.js";
+import {
+  createContributionState,
+  reduceContributionState,
+} from "./reducers/contribution-reducer.js";
+import {
+  EMPTY_CAPABILITIES,
+  INITIAL_REQUESTED_MODE,
+  createSessionState,
+  isSessionAction,
+  reduceSessionState,
+} from "./reducers/session-reducer.js";
+import {
+  createTransportState,
+  isTransportAction,
+  reduceTransportState,
+} from "./reducers/transport-reducer.js";
 
-export const INITIAL_REQUESTED_MODE = "";
-export const EMPTY_CAPABILITIES = emptyProtocolCapabilities();
+export { EMPTY_CAPABILITIES, INITIAL_REQUESTED_MODE };
+
+const APP_ACTIONS = new Set([
+  "app_bootstrap_loaded", "workspace_path_changed", "workspace_activation_started",
+  "workspace_activation_failed", "app_shell_bootstrap_loaded",
+  "app_shell_workspace_switched", "app_shell_workspace_path_changed",
+  "app_shell_workspace_activation_started", "app_shell_workspace_activation_failed",
+  "app_shell_settings_changed",
+]);
+
+const CONTRIBUTION_ACTIONS = new Set([
+  "contribution_opened", "contribution_activated", "contribution_closed",
+  "contribution_close_others", "contribution_close_after", "contribution_close_all",
+  "contribution_terminal_split", "contribution_terminal_activated",
+  "contribution_terminal_closed", "command_palette_opened", "command_palette_closed",
+  "command_palette_query_changed",
+]);
 
 export const initialState = {
-  thread: createThreadState(),
-  snapshot: null,
-  composer: createComposerState(),
-  ...createActivityState(),
-  interactionNotice: null,
-  tasks: [],
-  plan: null,
-  filePreviewsByPath: {},
-  diffSurface: null,
-  fileTree: [],
-  sessionCapabilities: EMPTY_CAPABILITIES,
-  requestedMode: INITIAL_REQUESTED_MODE,
-  runOutput: createRunOutputState(),
-  workbench: createWorkbenchState(),
-  app: createAppShellState(),
-  sourceControl: createSourceControlState(),
-  terminal: createTerminalState(),
+  ...createSessionState(),
+  ...createTransportState(),
+  contribution: createContributionState(),
+  app: createAppState(),
 };
 
-function workbenchSurfaceAllowedForApp(state, action) {
-  const app = state.app || {};
-  if (!app.bootstrapLoaded) return true;
-  const placement = action.placement === "bottom" ? "bottom" : "right";
-  const kind = String(action.kind || "");
-  if (!kind) return false;
-  if (placement === "bottom") {
-    return Boolean(bottomDrawerSurfaceDefinitionFor(kind, app.capabilities));
-  }
-  return Boolean(surfaceDefinitionFor(kind, app.capabilities));
+function sessionSlice(state) {
+  const transportKeys = new Set(["app", "contribution", "sourceControl", "terminal"]);
+  return Object.fromEntries(Object.entries(state).filter(([key]) => !transportKeys.has(key)));
 }
 
-export function runtimeReducer(state, action) {
-  if (ACTIVITY_ACTION_TYPES.has(action.type)) {
-    const activityPatch = reduceActivityState(state, action);
-    const nextState = { ...state, ...activityPatch };
-    if (action.type === "local_user_message") {
-      return {
-        ...nextState,
-        composer: reduceComposerState(state.composer, {
-          ...action,
-          sessionId: action.sessionId || readActiveThreadId(state),
-        }),
-        interactionNotice: null,
-      };
-    }
-    if (action.type === "command_result") {
-      return nextState;
-    }
-    return nextState;
+export function runtimeReducer(state, action = {}) {
+  if (action.type === "workspace_switched") {
+    const reset = resetWorkspaceScopedState(state);
+    return {
+      ...reset,
+      app: reduceAppState(reset.app, action),
+      contribution: createContributionState(),
+    };
   }
 
-  switch (action.type) {
-    case "set_composer":
-      return {
-        ...state,
-        composer: reduceComposerState(state.composer, {
-          ...action,
-          sessionId: action.sessionId || readActiveThreadId(state),
-        }),
-      };
-    case "app_bootstrap_loaded": {
-      const app = reduceAppShellState(state.app, {
-        type: "app_shell_bootstrap_loaded",
-        bootstrap: action.bootstrap || {},
-      });
-      return {
-        ...state,
-        app,
-        workbench: sanitizeWorkbenchUiStateForAppCapabilities(state.workbench, app.capabilities),
-      };
-    }
-    case "workspace_path_changed":
-      return {
-        ...state,
-        app: reduceAppShellState(state.app, {
-          type: "app_shell_workspace_path_changed",
-          value: action.value,
-        }),
-      };
-    case "workspace_activation_started":
-      return {
-        ...state,
-        app: reduceAppShellState(state.app, {
-          type: "app_shell_workspace_activation_started",
-        }),
-      };
-    case "workspace_activation_failed":
-      return {
-        ...state,
-        app: reduceAppShellState(state.app, {
-          type: "app_shell_workspace_activation_failed",
-          error: action.error,
-        }),
-      };
-    case "workspace_switched": {
-      const reset = resetWorkspaceScopedState(state);
-      const app = reduceAppShellState(reset.app, {
-        type: "app_shell_workspace_switched",
-        bootstrap: action.bootstrap || {},
-      });
-      return {
-        ...reset,
-        app,
-        workbench: sanitizeWorkbenchUiStateForAppCapabilities(reset.workbench, app.capabilities),
-      };
-    }
-    case "app_shell_bootstrap_loaded": {
-      const app = reduceAppShellState(state.app, action);
-      return {
-        ...state,
-        app,
-        workbench: sanitizeWorkbenchUiStateForAppCapabilities(state.workbench, app.capabilities),
-      };
-    }
-    case "app_shell_workspace_switched": {
-      const app = reduceAppShellState(state.app, action);
-      return {
-        ...state,
-        app,
-        workbench: sanitizeWorkbenchUiStateForAppCapabilities(state.workbench, app.capabilities),
-      };
-    }
-    case "app_shell_workspace_path_changed":
-    case "app_shell_workspace_activation_started":
-    case "app_shell_workspace_activation_failed":
-    case "app_shell_settings_changed":
-      return {
-        ...state,
-        app: reduceAppShellState(state.app, action),
-      };
-    case "terminal_snapshot_loaded":
-    case "terminal_summaries_loaded":
-    case "terminal_event":
-    case "terminal_active_set":
-      return {
-        ...state,
-        terminal: reduceTerminalState(state.terminal, action),
-      };
-    case "source_control_reset":
-    case "source_control_load_started":
-    case "source_control_load_failed":
-    case "source_control_status_loaded":
-    case "source_control_file_selected":
-    case "source_control_diff_started":
-    case "source_control_diff_failed":
-    case "source_control_diff_loaded":
-      return {
-        ...state,
-        sourceControl: reduceSourceControlState(state.sourceControl, action),
-      };
-    case "sessions_loaded":
-      return { ...state, thread: reduceThreadState(state.thread, action) };
-    case "session_capabilities_loaded":
-      return {
-        ...state,
-        sessionCapabilities: action.capabilities || EMPTY_CAPABILITIES,
-      };
-    case "session_activated":
-      return {
-        ...state,
-        thread: reduceThreadState(state.thread, action),
-        snapshot: action.snapshot,
-        sessionCapabilities: action.capabilities || EMPTY_CAPABILITIES,
-        requestedMode: action.snapshot?.current_mode || state.requestedMode,
-        ...reduceActivityState(state, { type: "activity_reset", activities: action.activities }),
-        interactionNotice: null,
-        runOutput: reduceRunOutputState(state.runOutput, action),
-        plan: null,
-        tasks: Array.isArray(action.snapshot?.task_items) ? action.snapshot.task_items : [],
-        workbench: reduceWorkbenchState(state.workbench, {
-          type: "workbench_session_activated",
-          sessionId: action.sessionId,
-        }),
-      };
-    case "session_snapshot": {
-      const snapshot = action.snapshot;
-      if (!snapshot) return state;
-      return {
-        ...state,
-        thread: reduceThreadState(state.thread, action),
-        snapshot,
-        requestedMode: snapshot.current_mode || state.requestedMode,
-        tasks: Array.isArray(snapshot.task_items) ? snapshot.task_items : state.tasks,
-        interactionNotice:
-          snapshot.pending_interaction_valid && snapshot.pending_interaction
-            ? null
-            : state.interactionNotice,
-      };
-    }
-    case "file_preview_load_started": {
-      const path = String(action.path || "");
-      if (!path) return state;
-      return {
-        ...state,
-        filePreviewsByPath: {
-          ...state.filePreviewsByPath,
-          [path]: {
-            status: "loading",
-            path,
-            title: path,
-            content: "",
-            error: "",
-          },
-        },
-      };
-    }
-    case "file_preview_loaded": {
-      const path = String(action.path || "");
-      if (!path) return state;
-      const preview = action.preview || {};
-      return {
-        ...state,
-        filePreviewsByPath: {
-          ...state.filePreviewsByPath,
-          [path]: {
-            status: "loaded",
-            path,
-            title: String(preview.title || path),
-            content: String(preview.content || ""),
-            error: "",
-          },
-        },
-      };
-    }
-    case "file_preview_load_failed": {
-      const path = String(action.path || "");
-      if (!path) return state;
-      return {
-        ...state,
-        filePreviewsByPath: {
-          ...state.filePreviewsByPath,
-          [path]: {
-            status: "error",
-            path,
-            title: path,
-            content: "",
-            error: String(action.error || ""),
-          },
-        },
-      };
-    }
-    case "diff_surface_opened":
-      if (!workbenchSurfaceAllowedForApp(state, { placement: "right", kind: "diff" })) {
-        return state;
-      }
-      return {
-        ...state,
-        diffSurface: action.diffSurface || null,
-        workbench: reduceWorkbenchState(state.workbench, {
-          type: "workbench_surface_opened",
-          placement: "right",
-          kind: "diff",
-          title: action.diffSurface?.title || "",
-          resourceId: "current",
-        }),
-      };
-    case "diff_file_focused":
-      return {
-        ...state,
-        diffSurface: focusDiffFile(state.diffSurface, action.filePath || ""),
-      };
-    case "plan_loaded":
-      return {
-        ...state,
-        plan: action.plan,
-      };
-    case "interaction_notice_set":
-      return {
-        ...state,
-        interactionNotice: action.notice || null,
-      };
-    case "interaction_notice_clear":
-      return {
-        ...state,
-        interactionNotice: null,
-      };
-    case "file_tree_loaded":
-      return { ...state, fileTree: action.nodes };
-    case "file_children_loaded":
-      return { ...state, fileTree: injectChildren(state.fileTree, action.path, action.children) };
-    case "mode_requested":
-      return { ...state, requestedMode: action.mode };
-    case "log_event": {
-      return { ...state, runOutput: reduceRunOutputState(state.runOutput, action) };
-    }
-    case "workbench_surface_opened":
-      if (!workbenchSurfaceAllowedForApp(state, action)) {
-        return state;
-      }
-      return {
-        ...state,
-        workbench: reduceWorkbenchState(state.workbench, {
-          ...action,
-          sessionId: action.sessionId || readActiveThreadId(state) || state.workbench?.activeSessionKey,
-        }),
-      };
-    case "workbench_surface_activated":
-    case "workbench_surface_closed":
-    case "workbench_surface_close_others":
-    case "workbench_surface_close_to_right":
-    case "workbench_surface_close_all":
-    case "workbench_terminal_surface_split":
-    case "workbench_terminal_surface_terminal_activated":
-    case "workbench_terminal_surface_terminal_closed":
-    case "workbench_command_palette_opened":
-    case "workbench_command_palette_closed":
-    case "workbench_command_palette_query_changed":
-    case "workbench_right_panel_toggled":
-    case "workbench_bottom_drawer_toggled":
-      return {
-        ...state,
-        workbench: reduceWorkbenchState(state.workbench, {
-          ...action,
-          sessionId: action.sessionId || readActiveThreadId(state) || state.workbench?.activeSessionKey,
-        }),
-      };
-    default:
-      return state;
+  let next = state;
+  if (APP_ACTIONS.has(action.type)) {
+    next = { ...next, app: reduceAppState(next.app, action) };
   }
+  if (isSessionAction(action)) {
+    next = { ...next, ...reduceSessionState(sessionSlice(next), action) };
+  }
+  if (isTransportAction(action)) {
+    next = { ...next, ...reduceTransportState({
+      sourceControl: next.sourceControl,
+      terminal: next.terminal,
+    }, action) };
+  }
+  if (CONTRIBUTION_ACTIONS.has(action.type)) {
+    next = { ...next, contribution: reduceContributionState(next.contribution, action) };
+  }
+  if (action.type === "session_activated") {
+    next = {
+      ...next,
+      contribution: reduceContributionState(next.contribution, {
+        type: "contribution_session_activated",
+        sessionId: action.sessionId,
+      }),
+    };
+  } else if (action.type === "diff_surface_opened") {
+    next = {
+      ...next,
+      contribution: reduceContributionState(next.contribution, {
+        type: "contribution_opened",
+        kind: "diff",
+        label: action.diffSurface?.title || "",
+        rendererKey: "inline_diff",
+        resourceId: "current",
+      }),
+    };
+  }
+  return next;
 }
 
 export const STATUS_ICON = { running: "⋯", success: "✓", error: "✗" };

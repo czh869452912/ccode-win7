@@ -11,12 +11,12 @@ export default function FilesSurface({
   const nodes = Array.isArray(fileTree) ? fileTree : [];
   const title = String(surface?.title || "").trim();
   return (
-    <div className="right-panel-files-surface" data-testid="right-panel-files-surface">
-      <div className="right-panel-files-header">
+    <div className="files-contribution" data-testid="files-contribution">
+      <div className="files-contribution-header">
         <strong>{title}</strong>
         <span>{nodes.length}</span>
       </div>
-      <div className="right-panel-file-tree-scroll" data-testid="right-panel-file-tree-scroll">
+      <div className="files-contribution-tree" data-testid="files-contribution-tree">
         <Tree
           data={nodes}
           width={320}
@@ -47,7 +47,7 @@ export default function FilesSurface({
                   onOpenFile(node.data.path);
                 }
               }}
-              data-testid={`right-panel-file-node--${node.data.path}`}
+              data-testid={`files-contribution-node--${node.data.path}`}
             >
               <span className="tree-icon" aria-hidden="true">
                 {node.data.kind === "dir" ? (node.isOpen ? "v" : ">") : "."}

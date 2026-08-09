@@ -113,7 +113,7 @@ export async function runClientRuntimeTests() {
     "submitText",
     "respondToInteraction",
     "executeCommand",
-    "openContribution",
+    "dispatchAction",
   ]);
 
   await runtime.start();

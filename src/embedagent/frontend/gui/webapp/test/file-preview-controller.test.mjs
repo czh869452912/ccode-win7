@@ -18,10 +18,9 @@ export async function runFilePreviewControllerTests() {
       defaultFileTitle: "Document",
       unavailableMessage: "File unavailable",
     }),
-    rightPanelController: {
-      normalizeFileSurfacePath: (path) => String(path || "").replace(/\\/g, "/").replace(/^\/+/, ""),
-      fileSurfaceTitle: (path) => path.split("/").pop() || "Document",
-      openFileSurface: (request) => {
+    contributionController: {
+      normalizeFilePath: (path) => String(path || "").replace(/\\/g, "/").replace(/^\/+/, ""),
+      openFile: (request) => {
         openRequests.push(request);
         return true;
       },
@@ -52,10 +51,9 @@ export async function runFilePreviewControllerTests() {
         return {};
       },
     },
-    rightPanelController: {
-      normalizeFileSurfacePath: () => "src/blocked.c",
-      fileSurfaceTitle: () => "blocked.c",
-      openFileSurface: () => false,
+    contributionController: {
+      normalizeFilePath: () => "src/blocked.c",
+      openFile: () => false,
     },
   });
   assert.equal(await unavailableController.openFile("src/blocked.c"), null);
@@ -71,10 +69,9 @@ export async function runFilePreviewControllerTests() {
       },
     },
     getFilePreviewChrome: () => ({ unavailableMessage: "Cannot open file" }),
-    rightPanelController: {
-      normalizeFileSurfacePath: () => "src/missing.c",
-      fileSurfaceTitle: () => "missing.c",
-      openFileSurface: () => true,
+    contributionController: {
+      normalizeFilePath: () => "src/missing.c",
+      openFile: () => true,
     },
   });
   assert.equal(await failedController.openFile("src/missing.c"), null);
@@ -84,7 +81,7 @@ export async function runFilePreviewControllerTests() {
   ]);
 
   const missingProtocol = createFilePreviewController({
-    rightPanelController: { openFileSurface: () => true },
+    contributionController: { openFile: () => true },
   });
   assert.equal(await missingProtocol.openFile("src/main.c"), null);
 }

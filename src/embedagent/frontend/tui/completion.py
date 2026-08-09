@@ -18,7 +18,7 @@ class TerminalCompleter(Completer):
         stripped = text_before.lstrip()
         if stripped.startswith("/"):
             prefix = stripped[1:]
-            for name in command_names(state.workbench):
+            for name in command_names(state.shell):
                 if prefix and not name.startswith(prefix):
                     continue
                 yield Completion(name, start_position=-len(prefix), display="/" + name)
@@ -42,21 +42,16 @@ class TerminalCompleter(Completer):
     def _file_candidates(self, state) -> List[str]:
         values = []  # type: List[str]
         seen = set()  # type: Set[str]
-        for item in getattr(state.explorer, "items", []):
-            path = getattr(item, "path", "")
-            if path and path not in seen:
-                seen.add(path)
-                values.append(path)
-        if state.preview_path and state.preview_path not in seen:
-            seen.add(state.preview_path)
-            values.append(state.preview_path)
-        editor_path = getattr(getattr(state.editor, "buffer", None), "path", "")
-        if editor_path and editor_path not in seen:
-            seen.add(editor_path)
-            values.append(editor_path)
-        summary = getattr(getattr(state.session, "current_snapshot", {}), "get", None)
-        if callable(summary):
-            pass
+        for contribution in state.contributions.values():
+            if contribution.renderer_key != "file_reference":
+                continue
+            for item in contribution.data.get("items") or []:
+                if not isinstance(item, dict) or item.get("kind") != "file":
+                    continue
+                path = str(item.get("path") or "")
+                if path and path not in seen:
+                    seen.add(path)
+                    values.append(path)
         return values[:200]
 
     def _session_candidates(self, state) -> Iterable[str]:

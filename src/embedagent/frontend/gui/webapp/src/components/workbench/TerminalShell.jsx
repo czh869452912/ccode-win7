@@ -14,18 +14,14 @@ function terminalStatus(session) {
   return (session && session.status) || "closed";
 }
 
-function terminalIdsFor(owner, surface, terminal) {
-  if (owner === "right-panel") {
-    return Array.isArray(surface && surface.terminalIds)
-      ? surface.terminalIds
-      : [surface && (surface.activeTerminalId || surface.terminalId)].filter(Boolean);
-  }
-  return (terminal && terminal.terminalIds) || [];
+function terminalIdsFor(surface, terminal) {
+  if (Array.isArray(surface?.terminalIds)) return surface.terminalIds;
+  const surfaceId = surface?.activeTerminalId || surface?.terminalId;
+  return surfaceId ? [surfaceId] : (terminal?.terminalIds || []);
 }
 
-function activeTerminalFor(owner, surface, terminal, ids) {
-  if (owner === "right-panel") return String((surface && surface.activeTerminalId) || ids[0] || "");
-  return String((terminal && terminal.activeTerminalId) || ids[0] || "");
+function activeTerminalFor(surface, terminal, ids) {
+  return String(surface?.activeTerminalId || terminal?.activeTerminalId || ids[0] || "");
 }
 
 function TerminalPane({
@@ -89,7 +85,6 @@ function TerminalPane({
 }
 
 export default function TerminalShell({
-  owner,
   surface = null,
   terminal,
   onNew,
@@ -103,35 +98,23 @@ export default function TerminalShell({
   terminalChrome = {},
 }) {
   const [draftsById, setDraftsById] = useState({});
-  const terminalIds = terminalIdsFor(owner, surface, terminal);
-  const activeTerminalId = activeTerminalFor(owner, surface, terminal, terminalIds);
+  const terminalIds = terminalIdsFor(surface, terminal);
+  const activeTerminalId = activeTerminalFor(surface, terminal, terminalIds);
   const splitDirection = surface && surface.splitDirection === "vertical" ? "vertical" : "horizontal";
   const panes = useMemo(
     () => terminalIds.map((terminalId) => ({ terminalId, session: sessionFor(terminal, terminalId) })),
     [terminal, terminalIds],
   );
-  const isRightPanel = owner === "right-panel";
-  const isDrawer = owner === "drawer";
-
   return (
-    <section
-      className={`terminal-shell owner-${owner}`}
-      data-terminal-owner={owner}
-      data-testid={isRightPanel ? "right-panel-terminal-surface" : "terminal-drawer"}
-    >
+    <section className="terminal-shell" data-testid="terminal-contribution">
       <header className="terminal-shell-toolbar">
         <button type="button" onClick={onNew} title={terminalChrome.newTitle}>{terminalChrome.newLabel}</button>
-        {isRightPanel ? (
-          <>
-            <button type="button" onClick={onSplit} disabled={!activeTerminalId} title={terminalChrome.splitTitle}>
-              {terminalChrome.splitLabel}
-            </button>
-            <button type="button" onClick={onSplitVertical} disabled={!activeTerminalId} title={terminalChrome.splitVerticalTitle}>
-              {terminalChrome.splitVerticalLabel}
-            </button>
-          </>
-        ) : null}
-        {isDrawer ? <span className="terminal-shell-owner-label">{terminalChrome.drawerLabel}</span> : null}
+        <button type="button" onClick={onSplit} disabled={!activeTerminalId} title={terminalChrome.splitTitle}>
+          {terminalChrome.splitLabel}
+        </button>
+        <button type="button" onClick={onSplitVertical} disabled={!activeTerminalId} title={terminalChrome.splitVerticalTitle}>
+          {terminalChrome.splitVerticalLabel}
+        </button>
       </header>
       {panes.length > 0 ? (
         <div

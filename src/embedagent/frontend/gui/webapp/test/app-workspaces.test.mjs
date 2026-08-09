@@ -81,7 +81,6 @@ export function runAppWorkspaceTests() {
     composer: createComposerState(),
     snapshot: { session_id: "sess-1" },
     activities: [{ id: "row-1" }],
-    tasks: [{ id: 1 }],
     diffSurface: { title: "Diff" },
     fileTree: [{ id: "src" }],
     runOutput: [{ label: "old" }],
@@ -94,7 +93,7 @@ export function runAppWorkspaceTests() {
   assert.equal(readComposerDraft(reset), "");
   assert.equal(reset.snapshot, null);
   assert.deepEqual(reset.activities, []);
-  assert.deepEqual(reset.tasks, []);
+  assert.equal(Object.hasOwn(reset, "tasks"), false);
   assert.equal(reset.diffSurface, null);
   assert.deepEqual(reset.fileTree, []);
   assert.deepEqual(reset.runOutput, []);

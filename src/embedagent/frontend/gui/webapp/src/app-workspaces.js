@@ -31,7 +31,6 @@ export function resetWorkspaceScopedState(state = {}) {
     streamingReasoningId: "",
     thinkingActive: false,
     interactionNotice: null,
-    tasks: [],
     plan: null,
     filePreviewsByPath: {},
     diffSurface: null,

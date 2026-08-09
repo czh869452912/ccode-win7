@@ -71,14 +71,14 @@ export function runAppShellModelTests() {
   assert.equal(initial.bootstrapLoaded, false);
   assert.deepEqual(initial.shell.commands, []);
   assert.deepEqual(initial.capabilities.workbenchCommands, []);
-  assert.deepEqual(initial.capabilities.surfaces.rightPanel, []);
+  assert.deepEqual(initial.capabilities.contributions, []);
   assert.deepEqual(initial.capabilities.keybindings, []);
 
   const empty = normalizeAppBootstrap(appBootstrap());
   assert.equal(empty.bootstrapLoaded, true);
   assert.deepEqual(empty.shell.commands, []);
   assert.deepEqual(empty.capabilities.workbenchCommands, []);
-  assert.deepEqual(empty.capabilities.surfaces.rightPanel, []);
+  assert.deepEqual(empty.capabilities.contributions, []);
   assert.deepEqual(empty.capabilities.keybindings, []);
 
   const populated = normalizeAppBootstrap(appBootstrap({
@@ -116,7 +116,7 @@ export function runAppShellModelTests() {
     ["session.new"],
   );
   assert.deepEqual(
-    populated.capabilities.surfaces.rightPanel.map((item) => item.id),
+    populated.capabilities.contributions.map((item) => item.id),
     ["preview"],
   );
   assert.deepEqual(populated.capabilities.keybindings, [
