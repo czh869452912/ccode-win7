@@ -20,7 +20,7 @@ PORTABLE_PROJECT_DISTRIBUTIONS = (
     "embedagent",
 )
 
-_RUNTIME_CAPABILITY_RE = re.compile(r"^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9_-]*)+$")
+_RUNTIME_CAPABILITY_RE = re.compile(r"^[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)+$")
 _ASSURANCE_LEVELS = ("dev", "release")
 
 

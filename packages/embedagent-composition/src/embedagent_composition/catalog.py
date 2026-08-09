@@ -7,7 +7,7 @@ from typing import Dict, Tuple
 from .errors import CompositionError
 from .model import ComponentManifest
 
-_RUNTIME_REQUIREMENT_RE = re.compile(r"^[a-z][a-z0-9]*(?:\.[a-z][a-z0-9_-]*)+$")
+_RUNTIME_REQUIREMENT_RE = re.compile(r"^[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)+$")
 
 
 def _validate_asset_path(value: str) -> None:

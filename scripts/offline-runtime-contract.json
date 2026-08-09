@@ -1,11 +1,58 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "win7_evidence_schema_version": 1,
-  "description": "Runtime-invoked tools that must be present in the offline portable bundle.",
+  "description": "Target-aware runtime capabilities and release gates for offline portable bundles.",
+  "targets": {
+    "win7-x64-portable": {
+      "always_requires": [
+        "runtime.python"
+      ],
+      "always_gates": [
+        "runtime_contract"
+      ]
+    }
+  },
+  "launchers": [
+    {
+      "id": "cli",
+      "path": "embedagent.cmd"
+    },
+    {
+      "id": "tui",
+      "path": "embedagent-tui.cmd"
+    },
+    {
+      "id": "gui-command",
+      "path": "embedagent-gui.cmd"
+    },
+    {
+      "id": "gui-native-user",
+      "path": "EmbedAgent.exe"
+    },
+    {
+      "id": "gui-native-cli",
+      "path": "embedagent-gui.exe"
+    },
+    {
+      "id": "cli-smoke",
+      "path": "validate-cli-smoke.cmd"
+    },
+    {
+      "id": "cpp-smoke",
+      "path": "validate-cpp-smoke.cmd"
+    },
+    {
+      "id": "gui-smoke",
+      "path": "validate-gui-smoke.cmd"
+    }
+  ],
   "release_gates": [
     {
       "id": "runtime_contract",
-      "description": "Static and dynamic validation of every runtime-invoked bundled external tool declared by this contract.",
+      "description": "Static and dynamic validation of every selected bundled external runtime component.",
+      "applies_when": {
+        "all_of": []
+      },
       "validators": [
         "scripts/validate-offline-bundle.ps1",
         "scripts/check-bundle-dependencies.py"
@@ -13,10 +60,37 @@
       "allow_system_tool_fallback": false
     },
     {
+      "id": "win7_cli_smoke",
+      "description": "Target-machine CLI gate using only the bundled Python runtime and selected runtime components.",
+      "applies_when": {
+        "all_of": [
+          "shell.cli",
+          "assurance.release"
+        ]
+      },
+      "script": "tools/validation/validate-cli-smoke.py",
+      "launcher": "validate-cli-smoke.cmd",
+      "launcher_ids": [
+        "cli-smoke"
+      ],
+      "manual_on_win7": true,
+      "report_schema_version": 1,
+      "expected_runtime_source": "bundle"
+    },
+    {
       "id": "cpp_smoke_workspace",
       "description": "Compile the bundled C smoke workspace with the bundled Clang toolchain; release proof must not fall back to PATH.",
+      "applies_when": {
+        "all_of": [
+          "component.workflow.workflow-cpp",
+          "runtime.toolchain.clang"
+        ]
+      },
       "script": "tools/validation/validate-cpp-smoke.py",
       "launcher": "validate-cpp-smoke.cmd",
+      "launcher_ids": [
+        "cpp-smoke"
+      ],
       "workspace": "data/workspace-template",
       "required_tool": "clang",
       "allow_system_tool_fallback": false
@@ -24,8 +98,17 @@
     {
       "id": "gui_headless_smoke",
       "description": "Exercise GUI backend, session activation, task API, tool events, permission/user-input flows, and /review against the bundle.",
+      "applies_when": {
+        "all_of": [
+          "shell.gui",
+          "runtime.renderer.webview2"
+        ]
+      },
       "script": "tools/validation/validate-gui-smoke.py",
       "launcher": "validate-gui-smoke.cmd",
+      "launcher_ids": [
+        "gui-smoke"
+      ],
       "args": [
         "--require-fixed-webview2"
       ],
@@ -34,8 +117,18 @@
     {
       "id": "win7_windowed_gui_smoke",
       "description": "Manual target-machine gate for Windows 7 SP1 using bundled Fixed Version WebView2 109.",
+      "applies_when": {
+        "all_of": [
+          "shell.gui",
+          "runtime.renderer.webview2",
+          "assurance.release"
+        ]
+      },
       "script": "tools/validation/validate-gui-smoke.py",
       "launcher": "validate-gui-smoke.cmd",
+      "launcher_ids": [
+        "gui-smoke"
+      ],
       "args": [
         "--windowed",
         "--auto-close-seconds",
@@ -49,207 +142,333 @@
       "expected_runtime_source": "bundle"
     }
   ],
-  "required_tools": [
+  "runtime_components": [
     {
       "id": "python",
-      "component": "python_runtime",
-      "category": "runtime",
+      "provides": [
+        "runtime.python"
+      ],
+      "asset_ids": [
+        "python_embedded_x64"
+      ],
       "paths": [
         "runtime/python/python.exe"
       ],
-      "command_names": [
-        "python",
-        "python.exe"
+      "python_feature_ids": [],
+      "launcher_ids": [
+        "cli"
       ],
-      "dynamic_check": [
-        "--version"
-      ],
-      "notes": "Used by launchers and generated local validation recipes."
-    },
-    {
-      "id": "git",
-      "component": "mingit_portable",
-      "category": "vcs",
-      "alternatives": [
+      "managed_tools": [
         {
+          "id": "python",
+          "category": "runtime",
           "paths": [
-            "bin/git/cmd/git.exe"
-          ]
-        },
-        {
-          "paths": [
-            "bin/git/bin/git.exe"
-          ]
-        },
-        {
-          "paths": [
-            "bin/git/git.exe"
-          ]
+            "runtime/python/python.exe"
+          ],
+          "command_names": [
+            "python",
+            "python.exe"
+          ],
+          "dynamic_check": [
+            "--version"
+          ],
+          "notes": "Used by launchers and generated local validation recipes."
         }
-      ],
-      "command_names": [
-        "git",
-        "git.exe"
-      ],
-      "dynamic_check": [
-        "--version"
-      ],
-      "notes": "Used by built-in git tools and workspace intelligence."
+      ]
     },
     {
-      "id": "bash",
-      "component": "mingit_portable",
-      "category": "shell",
-      "alternatives": [
+      "id": "mingit",
+      "provides": [
+        "vcs.git",
+        "shell.bash"
+      ],
+      "asset_ids": [
+        "mingit_x64"
+      ],
+      "paths": [
+        "bin/git"
+      ],
+      "python_feature_ids": [],
+      "launcher_ids": [],
+      "managed_tools": [
         {
-          "paths": [
-            "bin/git/bin/bash.exe"
-          ]
+          "id": "git",
+          "category": "vcs",
+          "alternatives": [
+            {
+              "paths": [
+                "bin/git/cmd/git.exe"
+              ]
+            },
+            {
+              "paths": [
+                "bin/git/bin/git.exe"
+              ]
+            },
+            {
+              "paths": [
+                "bin/git/git.exe"
+              ]
+            }
+          ],
+          "command_names": [
+            "git",
+            "git.exe"
+          ],
+          "dynamic_check": [
+            "--version"
+          ],
+          "notes": "Used by built-in git tools and workspace intelligence."
         },
         {
-          "paths": [
-            "bin/git/usr/bin/bash.exe"
-          ]
-        },
-        {
-          "paths": [
-            "bin/git/bin/sh.exe"
-          ]
-        },
-        {
-          "paths": [
-            "bin/git/usr/bin/sh.exe"
-          ]
+          "id": "bash",
+          "category": "shell",
+          "alternatives": [
+            {
+              "paths": [
+                "bin/git/bin/bash.exe"
+              ]
+            },
+            {
+              "paths": [
+                "bin/git/usr/bin/bash.exe"
+              ]
+            },
+            {
+              "paths": [
+                "bin/git/bin/sh.exe"
+              ]
+            },
+            {
+              "paths": [
+                "bin/git/usr/bin/sh.exe"
+              ]
+            }
+          ],
+          "command_names": [
+            "bash",
+            "bash.exe",
+            "sh",
+            "sh.exe"
+          ],
+          "dynamic_check": [
+            "--version"
+          ],
+          "notes": "Used by the model-facing bash primitive for offline command execution."
         }
-      ],
-      "command_names": [
-        "bash",
-        "bash.exe",
-        "sh",
-        "sh.exe"
-      ],
-      "dynamic_check": [
-        "--version"
-      ],
-      "notes": "Used by the model-facing bash primitive for offline command execution."
+      ]
     },
     {
-      "id": "rg",
-      "component": "ripgrep",
-      "category": "search",
+      "id": "ripgrep",
+      "provides": [
+        "search.rg"
+      ],
+      "asset_ids": [
+        "ripgrep_x64"
+      ],
       "paths": [
         "bin/rg/rg.exe"
       ],
-      "command_names": [
-        "rg",
-        "rg.exe"
-      ],
-      "dynamic_check": [
-        "--version"
-      ],
-      "notes": "Used by search and discovery workflows."
+      "python_feature_ids": [],
+      "launcher_ids": [],
+      "managed_tools": [
+        {
+          "id": "rg",
+          "category": "search",
+          "paths": [
+            "bin/rg/rg.exe"
+          ],
+          "command_names": [
+            "rg",
+            "rg.exe"
+          ],
+          "dynamic_check": [
+            "--version"
+          ],
+          "notes": "Used by search and discovery workflows."
+        }
+      ]
     },
     {
       "id": "ctags",
-      "component": "universal_ctags",
-      "category": "symbols",
+      "provides": [
+        "symbols.ctags"
+      ],
+      "asset_ids": [
+        "universal_ctags_x64"
+      ],
       "paths": [
         "bin/ctags/ctags.exe"
       ],
-      "command_names": [
-        "ctags",
-        "ctags.exe"
-      ],
-      "dynamic_check": [
-        "--version"
-      ],
-      "notes": "Used by symbol intelligence."
+      "python_feature_ids": [],
+      "launcher_ids": [],
+      "managed_tools": [
+        {
+          "id": "ctags",
+          "category": "symbols",
+          "paths": [
+            "bin/ctags/ctags.exe"
+          ],
+          "command_names": [
+            "ctags",
+            "ctags.exe"
+          ],
+          "dynamic_check": [
+            "--version"
+          ],
+          "notes": "Used by symbol intelligence."
+        }
+      ]
     },
     {
       "id": "llvm",
-      "component": "llvm_clang_bundle",
-      "category": "toolchain",
+      "provides": [
+        "toolchain.clang"
+      ],
+      "asset_ids": [],
       "paths": [
         "bin/llvm/bin"
       ],
-      "command_names": [],
-      "children": [
+      "python_feature_ids": [],
+      "launcher_ids": [],
+      "managed_tools": [
         {
-          "id": "clang",
-          "path": "bin/llvm/bin/clang.exe",
-          "command_names": [
-            "clang",
-            "clang.exe"
+          "id": "llvm",
+          "category": "toolchain",
+          "paths": [
+            "bin/llvm/bin"
           ],
-          "dynamic_check": [
-            "--version"
-          ]
-        },
-        {
-          "id": "clangxx",
-          "path": "bin/llvm/bin/clang++.exe",
-          "command_names": [
-            "clang++",
-            "clang++.exe"
+          "command_names": [],
+          "children": [
+            {
+              "id": "clang",
+              "path": "bin/llvm/bin/clang.exe",
+              "command_names": [
+                "clang",
+                "clang.exe"
+              ],
+              "dynamic_check": [
+                "--version"
+              ]
+            },
+            {
+              "id": "clangxx",
+              "path": "bin/llvm/bin/clang++.exe",
+              "command_names": [
+                "clang++",
+                "clang++.exe"
+              ],
+              "dynamic_check": [
+                "--version"
+              ]
+            },
+            {
+              "id": "clang_cl",
+              "path": "bin/llvm/bin/clang-cl.exe",
+              "command_names": [
+                "clang-cl",
+                "clang-cl.exe"
+              ],
+              "dynamic_check": [
+                "--version"
+              ]
+            },
+            {
+              "id": "clang_tidy",
+              "path": "bin/llvm/bin/clang-tidy.exe",
+              "command_names": [
+                "clang-tidy",
+                "clang-tidy.exe"
+              ],
+              "dynamic_check": [
+                "--version"
+              ]
+            },
+            {
+              "id": "clang_analyzer",
+              "path": "bin/llvm/bin/clang-analyzer.bat",
+              "command_names": [
+                "clang-analyzer",
+                "clang-analyzer.bat"
+              ]
+            },
+            {
+              "id": "llvm_profdata",
+              "path": "bin/llvm/bin/llvm-profdata.exe",
+              "command_names": [
+                "llvm-profdata",
+                "llvm-profdata.exe"
+              ],
+              "dynamic_check": [
+                "--version"
+              ]
+            },
+            {
+              "id": "llvm_cov",
+              "path": "bin/llvm/bin/llvm-cov.exe",
+              "command_names": [
+                "llvm-cov",
+                "llvm-cov.exe"
+              ],
+              "dynamic_check": [
+                "--version"
+              ]
+            }
           ],
-          "dynamic_check": [
-            "--version"
-          ]
-        },
-        {
-          "id": "clang_cl",
-          "path": "bin/llvm/bin/clang-cl.exe",
-          "command_names": [
-            "clang-cl",
-            "clang-cl.exe"
-          ],
-          "dynamic_check": [
-            "--version"
-          ]
-        },
-        {
-          "id": "clang_tidy",
-          "path": "bin/llvm/bin/clang-tidy.exe",
-          "command_names": [
-            "clang-tidy",
-            "clang-tidy.exe"
-          ],
-          "dynamic_check": [
-            "--version"
-          ]
-        },
-        {
-          "id": "clang_analyzer",
-          "path": "bin/llvm/bin/clang-analyzer.bat",
-          "command_names": [
-            "clang-analyzer",
-            "clang-analyzer.bat"
-          ]
-        },
-        {
-          "id": "llvm_profdata",
-          "path": "bin/llvm/bin/llvm-profdata.exe",
-          "command_names": [
-            "llvm-profdata",
-            "llvm-profdata.exe"
-          ],
-          "dynamic_check": [
-            "--version"
-          ]
-        },
-        {
-          "id": "llvm_cov",
-          "path": "bin/llvm/bin/llvm-cov.exe",
-          "command_names": [
-            "llvm-cov",
-            "llvm-cov.exe"
-          ],
-          "dynamic_check": [
-            "--version"
-          ]
+          "notes": "Used by C/C++ build, static analysis, and coverage workflows."
         }
+      ]
+    },
+    {
+      "id": "tui-python",
+      "provides": [
+        "python-feature.tui"
       ],
-      "notes": "Used by C/C++ build, static analysis, and coverage workflows."
+      "asset_ids": [],
+      "paths": [],
+      "python_feature_ids": [
+        "tui"
+      ],
+      "launcher_ids": [
+        "tui"
+      ],
+      "managed_tools": []
+    },
+    {
+      "id": "gui-python",
+      "provides": [
+        "python-feature.gui"
+      ],
+      "asset_ids": [],
+      "paths": [],
+      "python_feature_ids": [
+        "gui"
+      ],
+      "launcher_ids": [
+        "gui-command"
+      ],
+      "managed_tools": []
+    },
+    {
+      "id": "webview2",
+      "provides": [
+        "renderer.webview2"
+      ],
+      "asset_ids": [
+        "webview2_fixed_runtime_x64"
+      ],
+      "paths": [
+        "runtime/webview2-fixed-runtime"
+      ],
+      "python_feature_ids": [],
+      "launcher_ids": [
+        "gui-native-user",
+        "gui-native-cli"
+      ],
+      "managed_tools": [],
+      "fixed_runtime_major": 109,
+      "expected_renderer": "edgechromium",
+      "allow_system_tool_fallback": false
     }
   ]
 }

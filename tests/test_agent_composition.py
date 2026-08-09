@@ -177,6 +177,20 @@ def test_shells_and_runtime_requirements_are_compiled_deterministically():
     ]
 
 
+def test_catalog_accepts_hyphenated_runtime_requirement_namespace():
+    catalog = ComponentCatalog()
+    catalog.register(
+        manifest(
+            "shell.tui",
+            "shell",
+            runtime_requirements=("python-feature.tui",),
+        )
+    )
+
+    frozen = catalog.freeze()
+    assert frozen.manifest("shell.tui").runtime_requirements == ("python-feature.tui",)
+
+
 @pytest.mark.parametrize(
     "requirement",
     ("", "Runtime.Python", "runtime python", "runtime/python", "runtime..python"),
