@@ -51,7 +51,8 @@ def main(argv=None):
     parser.add_argument("--project-root", required=True)
     parser.add_argument("--profile", required=True)
     parser.add_argument("--wheel-dir", required=True)
-    parser.add_argument("--gui-static-root", required=True)
+    parser.add_argument("--bundle-plan", required=True)
+    parser.add_argument("--gui-static-root")
     parser.add_argument("--asset-manifest", required=True)
     parser.add_argument("--runtime-contract", required=True)
     parser.add_argument("--output", required=True)
@@ -65,6 +66,7 @@ def main(argv=None):
         gui_static_root=args.gui_static_root,
         asset_manifest_path=args.asset_manifest,
         runtime_contract_path=args.runtime_contract,
+        bundle_plan_path=args.bundle_plan,
         tool_metadata={"identity_tool": "scripts/create-release-identity.py"},
     )
     output = Path(args.output)

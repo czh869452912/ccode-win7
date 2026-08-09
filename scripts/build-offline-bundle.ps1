@@ -463,6 +463,11 @@ $identityCopied = @(Copy-OptionalReleaseFile -Source $identitySourcePath -Destin
     (Join-Path $distBundleRoot 'manifests\release-identity.json'),
     (Join-Path $distBundleRoot 'manifests\evidence\release-identity.json')
 ))
+$evidencePlanPath = Join-Path $distBundleRoot 'manifests\evidence\bundle-plan.json'
+Copy-Item `
+    -LiteralPath (Join-Path $stagingBundleRoot 'manifests\bundle-plan.json') `
+    -Destination $evidencePlanPath `
+    -Force
 $schemaCopied = @(Copy-OptionalReleaseFile -Source $targetReportSchemaSource -Destinations @(
     (Join-Path $sourcesRoot 'target-report.schema.json'),
     (Join-Path $distBundleRoot 'manifests\evidence\target-report.schema.json')
@@ -485,6 +490,11 @@ $expectedHashesPath = Join-Path $distBundleRoot 'manifests\evidence\expected-bun
 $expectedHashes = [ordered]@{
     schema_version = 1
     artifact_name = $ArtifactName
+    flavor_id = [string]$bundlePlan.flavor_id
+    target_id = [string]$bundlePlan.target_id
+    bundle_plan_sha256 = [string]$planState.plan_sha256
+    agent_lock_sha256 = [string]$bundlePlan.agent_lock_sha256
+    gate_ids = @($bundlePlan.gate_ids)
     release_identity_sha256 = $(if (Test-Path -LiteralPath (Join-Path $distBundleRoot 'manifests\release-identity.json')) { (Get-FileHash -LiteralPath (Join-Path $distBundleRoot 'manifests\release-identity.json') -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null })
     bundle_sha256 = $null
     zip_sha256 = $null
@@ -555,6 +565,11 @@ $artifactHashesPath = Join-Path $sourcesRoot 'artifact-hashes.json'
 $artifactHashes = [ordered]@{
     schema_version = 1
     artifact_name = $ArtifactName
+    flavor_id = [string]$bundlePlan.flavor_id
+    target_id = [string]$bundlePlan.target_id
+    bundle_plan_sha256 = [string]$planState.plan_sha256
+    agent_lock_sha256 = [string]$bundlePlan.agent_lock_sha256
+    gate_ids = @($bundlePlan.gate_ids)
     bundle_sha256 = Get-BundleTreeSha256 -Root $distBundleRoot -ExcludedRelativePaths @('manifests/evidence/expected-bundle-hashes.json', 'manifests/cpp-smoke-report.json', 'manifests/evidence/win7-evidence.json', 'manifests/evidence/acceptance-report.json')
     zip_sha256 = $(if ($zipCreated) { (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null })
     identity_sha256 = $(if (Test-Path -LiteralPath (Join-Path $distBundleRoot 'manifests\release-identity.json')) { (Get-FileHash -LiteralPath (Join-Path $distBundleRoot 'manifests\release-identity.json') -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null })

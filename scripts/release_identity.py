@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from pathlib import Path
-from typing import Dict, Iterable, Mapping, Optional, Sequence, Tuple
+from typing import Mapping
 
 EXPECTED_DISTRIBUTIONS = (
     "embedagent-core",
@@ -116,6 +115,30 @@ def _optional_hash(path, tree=False, excluded_names=()):
     return sha256_tree(candidate, excluded_names) if tree else sha256_file(candidate)
 
 
+def _load_bundle_plan(path):
+    plan_path = Path(path)
+    if not plan_path.is_file():
+        raise ValueError("bundle plan does not exist: %s" % plan_path)
+    try:
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raise ValueError("bundle plan is invalid")
+    if not isinstance(plan, dict) or plan.get("schema_version") != 1:
+        raise ValueError("bundle plan must use schema version 1")
+    for field in ("flavor_id", "target_id", "agent_lock_sha256"):
+        if not isinstance(plan.get(field), str) or not plan[field]:
+            raise ValueError("bundle plan field is required: %s" % field)
+    for field in ("shell_ids", "gate_ids"):
+        values = plan.get(field)
+        if (
+            not isinstance(values, list)
+            or any(not isinstance(item, str) or not item for item in values)
+            or len(values) != len(set(values))
+        ):
+            raise ValueError("bundle plan array is invalid: %s" % field)
+    return plan
+
+
 def build_release_identity(
     source_revision,
     version,
@@ -124,6 +147,7 @@ def build_release_identity(
     gui_static_root,
     asset_manifest_path,
     runtime_contract_path,
+    bundle_plan_path,
     bundle_root=None,
     zip_path=None,
     tool_metadata=None,
@@ -131,14 +155,27 @@ def build_release_identity(
     normalized_wheels = _normalize_wheels(wheels)
     if not str(source_revision).strip() or not str(version).strip():
         raise ValueError("source revision and version are required")
+    plan = _load_bundle_plan(bundle_plan_path)
+    has_gui = "gui" in plan["shell_ids"]
+    if has_gui:
+        if gui_static_root is None or not Path(gui_static_root).is_dir():
+            raise ValueError("GUI static root is required by the bundle plan")
+        gui_static_sha256 = sha256_tree(gui_static_root)
+    else:
+        gui_static_sha256 = None
     identity = {
-        "schema_version": 1,
+        "schema_version": 2,
         "source_revision": str(source_revision).strip(),
         "version": str(version).strip(),
         "profile": str(profile).strip(),
+        "flavor_id": plan["flavor_id"],
+        "target_id": plan["target_id"],
+        "bundle_plan_sha256": sha256_file(bundle_plan_path),
+        "agent_lock_sha256": plan["agent_lock_sha256"],
+        "gate_ids": list(plan["gate_ids"]),
         "project_distributions": list(EXPECTED_DISTRIBUTIONS),
         "wheels": normalized_wheels,
-        "gui_static_sha256": _optional_hash(gui_static_root, tree=True),
+        "gui_static_sha256": gui_static_sha256,
         "asset_manifest_sha256": _optional_hash(asset_manifest_path),
         "runtime_contract_sha256": _optional_hash(runtime_contract_path),
         "bundle_sha256": _optional_hash(bundle_root, tree=True),

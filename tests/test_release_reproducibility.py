@@ -21,7 +21,12 @@ def _load_module():
     return module
 
 
-def _identity(wheel_hash="a" * 64):
+def _identity(
+    wheel_hash="a" * 64,
+    flavor_id="minimal-cli",
+    bundle_plan_sha256="e" * 64,
+    agent_lock_sha256="f" * 64,
+):
     names = (
         "embedagent-core",
         "embedagent-protocol",
@@ -31,10 +36,15 @@ def _identity(wheel_hash="a" * 64):
         "embedagent",
     )
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "source_revision": "same-revision",
         "version": "0.1.0",
         "profile": "release",
+        "flavor_id": flavor_id,
+        "target_id": "win7-x64-portable",
+        "bundle_plan_sha256": bundle_plan_sha256,
+        "agent_lock_sha256": agent_lock_sha256,
+        "gate_ids": ["runtime_contract", "win7_cli_smoke"],
         "project_distributions": list(names),
         "wheels": [
             {
@@ -72,6 +82,8 @@ def _write_run(root, generated_at, wheel_hash="a" * 64, secret=None):
     (root / "stable.txt").write_text("stable", encoding="utf-8")
     report = {
         "profile": "release",
+        "flavor": "minimal-cli",
+        "bundle_plan_sha256": "e" * 64,
         "source_revision": "same-revision",
         "execution_kind": "release",
         "config_origin": "production",
@@ -146,6 +158,37 @@ def test_wheel_hash_and_source_revision_mismatch_are_blocking(tmp_path):
     assert result["ok"] is False
     assert "report.source_revision" in result["mismatches"]
     assert any(item.startswith("identity.wheels") for item in result["mismatches"])
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("flavor_id", "cpp-desktop"),
+        ("bundle_plan_sha256", "1" * 64),
+        ("agent_lock_sha256", "2" * 64),
+    ],
+)
+def test_plan_identity_mismatch_is_blocking(tmp_path, field, value):
+    module = _load_module()
+    first_root = tmp_path / "run-a"
+    second_root = tmp_path / "run-b"
+    first_report = _write_run(first_root, "one")
+    second_report = _write_run(second_root, "two")
+    identity_path = second_root / "manifests" / "release-identity.json"
+    identity = json.loads(identity_path.read_text(encoding="utf-8"))
+    identity[field] = value
+    identity_path.write_text(json.dumps(identity), encoding="utf-8")
+
+    result = module.compare_release_runs(
+        first_report,
+        second_report,
+        first_root,
+        second_root,
+        fixture_path=FIXTURE,
+    )
+
+    assert result["ok"] is False
+    assert "identity.%s" % field in result["mismatches"]
 
 
 def test_cli_missing_report_is_safe_and_nonzero(tmp_path):

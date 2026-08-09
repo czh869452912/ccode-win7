@@ -5,16 +5,39 @@
   "required": [
     "schema_version",
     "release_identity_sha256",
+    "bundle_plan_sha256",
+    "gate_ids",
+    "gate_results",
     "machine",
-    "webview2",
-    "gui",
-    "cpp_smoke",
-    "command_exit_codes",
     "blocking_errors"
   ],
   "properties": {
     "schema_version": { "type": "integer", "const": 1 },
-    "release_identity_sha256": { "type": "string", "minLength": 64, "maxLength": 64 },
+    "release_identity_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "bundle_plan_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "gate_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "gate_results": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["ok"],
+        "properties": {
+          "ok": { "type": "boolean" },
+          "runtime_source": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
     "machine": {
       "type": "object",
       "required": ["os", "service_pack", "architecture"],
@@ -40,7 +63,12 @@
       "required": ["renderer", "windowed_smoke"],
       "properties": {
         "renderer": { "type": "string" },
-        "windowed_smoke": { "type": "string" }
+        "windowed_smoke": {
+          "oneOf": [
+            { "type": "boolean" },
+            { "type": "string" }
+          ]
+        }
       },
       "additionalProperties": true
     },
@@ -56,9 +84,28 @@
     },
     "command_exit_codes": {
       "type": "object",
+      "minProperties": 1,
       "additionalProperties": { "type": "integer" }
     },
     "blocking_errors": { "type": "array", "items": { "type": "string" } }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "gate_ids": { "contains": { "const": "win7_windowed_gui_smoke" } }
+        }
+      },
+      "then": { "required": ["webview2", "gui"] }
+    },
+    {
+      "if": {
+        "properties": {
+          "gate_ids": { "contains": { "const": "cpp_smoke_workspace" } }
+        }
+      },
+      "then": { "required": ["cpp_smoke"] }
+    }
+  ],
   "additionalProperties": true
 }

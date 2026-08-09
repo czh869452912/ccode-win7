@@ -27,10 +27,15 @@ def _load_module():
 @pytest.fixture
 def identity():
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "source_revision": "abc123",
         "version": "0.1.0",
         "profile": "release",
+        "flavor_id": "minimal-cli",
+        "target_id": "win7-x64-portable",
+        "bundle_plan_sha256": "e" * 64,
+        "agent_lock_sha256": "f" * 64,
+        "gate_ids": ["runtime_contract", "win7_cli_smoke"],
         "project_distributions": [
             "embedagent-core",
             "embedagent-protocol",
@@ -49,21 +54,16 @@ def valid_report(identity):
     return {
         "schema_version": 1,
         "release_identity_sha256": module.identity_sha256(identity),
+        "bundle_plan_sha256": identity["bundle_plan_sha256"],
+        "gate_ids": list(identity["gate_ids"]),
+        "gate_results": {
+            "runtime_contract": {"ok": True},
+            "win7_cli_smoke": {"ok": True, "runtime_source": "bundle"},
+        },
         "machine": {
             "os_name": "Microsoft Windows 7",
             "service_pack": "SP1",
             "architecture": "AMD64",
-        },
-        "gui": {
-            "renderer": "edgechromium",
-            "runtime_source": "bundle",
-            "webview2_major": 109,
-            "fixed_runtime_exists": True,
-        },
-        "cpp": {
-            "ok": True,
-            "runtime_source": "bundle",
-            "allow_system_tool_fallback": False,
         },
         "blocking_errors": [],
     }
@@ -77,13 +77,9 @@ def valid_report(identity):
             lambda report: report["machine"].update(os_name="Microsoft Windows 10"),
             "machine.os_name",
         ),
-        (lambda report: report["gui"].update(webview2_major=110), "gui.webview2_major"),
-        (lambda report: report["gui"].update(renderer="mshtml"), "gui.renderer"),
-        (lambda report: report["gui"].update(runtime_source="system"), "gui.runtime_source"),
-        (lambda report: report["cpp"].update(ok=False), "cpp.ok"),
         (
-            lambda report: report["cpp"].update(allow_system_tool_fallback=True),
-            "cpp.system_tool_fallback",
+            lambda report: report["gate_results"]["win7_cli_smoke"].update(runtime_source="system"),
+            "gate.win7_cli_smoke.runtime_source",
         ),
         (lambda report: report.update(blocking_errors=["failure"]), "blocking_errors.empty"),
     ],
@@ -105,6 +101,71 @@ def test_validate_report_accepts_complete_win7_report(identity, valid_report):
 
     assert result["status"] == "ACCEPTED"
     assert result["blocking_errors"] == []
+
+
+def test_validate_report_rejects_plan_hash_or_extra_claimed_gate(identity, valid_report):
+    module = _load_module()
+    wrong_hash = copy.deepcopy(valid_report)
+    wrong_hash["bundle_plan_sha256"] = "a" * 64
+    result = module.validate_report(identity, wrong_hash)
+    assert "bundle_plan.sha256" in result["blocking_errors"]
+
+    extra_gate = copy.deepcopy(valid_report)
+    extra_gate["gate_ids"].append("win7_windowed_gui_smoke")
+    extra_gate["gate_results"]["win7_windowed_gui_smoke"] = {"ok": True}
+    result = module.validate_report(identity, extra_gate)
+    assert "gate_ids.exact" in result["blocking_errors"]
+
+
+def test_desktop_report_requires_gui_and_cpp_gate_evidence(identity, valid_report):
+    module = _load_module()
+    desktop_identity = copy.deepcopy(identity)
+    desktop_identity.update(
+        flavor_id="cpp-desktop",
+        gate_ids=[
+            "cpp_smoke_workspace",
+            "gui_headless_smoke",
+            "runtime_contract",
+            "win7_cli_smoke",
+            "win7_windowed_gui_smoke",
+        ],
+    )
+    report = copy.deepcopy(valid_report)
+    report["release_identity_sha256"] = module.identity_sha256(desktop_identity)
+    report["gate_ids"] = list(desktop_identity["gate_ids"])
+    report["gate_results"].update(
+        {
+            "cpp_smoke_workspace": {"ok": True, "runtime_source": "bundle"},
+            "gui_headless_smoke": {"ok": True, "runtime_source": "bundle"},
+            "win7_windowed_gui_smoke": {"ok": True, "runtime_source": "bundle"},
+        }
+    )
+
+    missing_objects = module.validate_report(desktop_identity, report)
+    assert "gui.missing" in missing_objects["blocking_errors"]
+    assert "cpp.missing" in missing_objects["blocking_errors"]
+
+    report["gui"] = {
+        "renderer": "edgechromium",
+        "runtime_source": "bundle",
+        "webview2_major": 109,
+        "fixed_runtime_exists": True,
+        "windowed_smoke": "passed",
+    }
+    report["cpp_smoke"] = {
+        "ok": True,
+        "runtime_source": "bundle",
+        "allow_system_tool_fallback": False,
+    }
+    assert module.validate_report(desktop_identity, report)["status"] == "ACCEPTED"
+
+    extra_gate = copy.deepcopy(report)
+    extra_gate["gate_ids"].append("unexpected_gate")
+    extra_gate["gate_results"]["unexpected_gate"] = {"ok": True}
+    assert module.validate_report(desktop_identity, extra_gate)["status"] == "NOT_READY"
+
+    report.pop("gui")
+    assert module.validate_report(desktop_identity, report)["status"] == "NOT_READY"
 
 
 def test_cli_writes_acceptance_report(tmp_path, identity, valid_report):

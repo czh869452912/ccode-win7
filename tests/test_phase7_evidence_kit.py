@@ -37,17 +37,46 @@ def test_target_schema_requires_hash_bound_win7_results():
     schema = json.loads((ROOT / "scripts" / "target-report.schema.json").read_text())
 
     assert schema["properties"]["release_identity_sha256"]
+    assert schema["properties"]["bundle_plan_sha256"]
+    assert "gate_ids" in schema["required"]
+    assert "gate_results" in schema["required"]
     assert schema["properties"]["command_exit_codes"]
-    assert "cpp_smoke" in schema["required"]
-    assert "webview2" in schema["required"]
+    conditional_requirements = [item["then"]["required"] for item in schema["allOf"]]
+    assert ["webview2", "gui"] in conditional_requirements
+    assert ["cpp_smoke"] in conditional_requirements
 
 
 def test_validator_accepts_complete_structured_target_report():
     validator = _load_validator()
-    identity = {"schema_version": 1, "source_revision": "abc", "version": "0.1.0"}
+    gate_ids = [
+        "cpp_smoke_workspace",
+        "gui_headless_smoke",
+        "runtime_contract",
+        "win7_cli_smoke",
+        "win7_windowed_gui_smoke",
+    ]
+    identity = {
+        "schema_version": 2,
+        "source_revision": "abc",
+        "version": "0.1.0",
+        "flavor_id": "cpp-desktop",
+        "target_id": "win7-x64-portable",
+        "bundle_plan_sha256": "e" * 64,
+        "agent_lock_sha256": "f" * 64,
+        "gate_ids": gate_ids,
+    }
     report = {
         "schema_version": 1,
         "release_identity_sha256": validator.identity_sha256(identity),
+        "bundle_plan_sha256": identity["bundle_plan_sha256"],
+        "gate_ids": gate_ids,
+        "gate_results": {
+            gate_id: {
+                "ok": True,
+                **({} if gate_id == "runtime_contract" else {"runtime_source": "bundle"}),
+            }
+            for gate_id in gate_ids
+        },
         "machine": {
             "os": "Microsoft Windows 7",
             "service_pack": "SP1",

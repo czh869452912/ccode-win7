@@ -234,6 +234,9 @@ def test_bundle_build_carries_identity_and_stage_reports():
         "deps-report.json",
         "project_wheels",
         "wheel_hashes",
+        "bundle_plan_sha256",
+        "agent_lock_sha256",
+        "gate_ids",
         "source_mode",
     ):
         assert marker in script

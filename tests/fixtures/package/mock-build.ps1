@@ -50,10 +50,15 @@ $names = @(
     'embedagent'
 )
 $identity = [ordered]@{
-    schema_version = 1
+    schema_version = 2
     source_revision = ((& git -C $projectRoot rev-parse HEAD 2>$null | Out-String).Trim())
     version = '0.1.0'
     profile = 'release'
+    flavor_id = [string]$planState.plan.flavor_id
+    target_id = [string]$planState.plan.target_id
+    bundle_plan_sha256 = [string]$planState.plan_sha256
+    agent_lock_sha256 = [string]$planState.plan.agent_lock_sha256
+    gate_ids = @($planState.plan.gate_ids)
     project_distributions = $names
     wheels = @($names | ForEach-Object {
         [ordered]@{
@@ -62,7 +67,7 @@ $identity = [ordered]@{
             sha256 = ('a' * 64)
         }
     })
-    gui_static_sha256 = ('b' * 64)
+    gui_static_sha256 = $(if (@($planState.plan.shell_ids) -contains 'gui') { ('b' * 64) } else { $null })
     asset_manifest_sha256 = ('c' * 64)
     runtime_contract_sha256 = ('d' * 64)
     bundle_sha256 = $null
@@ -70,6 +75,12 @@ $identity = [ordered]@{
     tool_metadata = @{ python = '3.8' }
 }
 $identity | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $bundleRoot 'manifests\release-identity.json') -Encoding ASCII
+$evidenceRoot = Join-Path $bundleRoot 'manifests\evidence'
+New-Item -ItemType Directory -Path $evidenceRoot -Force | Out-Null
+Copy-Item `
+    -LiteralPath (Join-Path $bundleRoot 'manifests\bundle-plan.json') `
+    -Destination (Join-Path $evidenceRoot 'bundle-plan.json') `
+    -Force
 $sourcesRoot = Join-Path $distRoot ($ArtifactName + '-sources')
 New-Item -ItemType Directory -Path $sourcesRoot -Force | Out-Null
 foreach ($name in @('bundle-plan.json', 'agent.json', 'agent.lock.json')) {

@@ -159,6 +159,17 @@ def _validate_report(report, label, mismatches):
 def _validate_identity(identity, label, mismatches):
     if identity is None:
         return
+    if identity.get("schema_version") != 2:
+        mismatches.append("%s.schema_version" % label)
+    for field in (
+        "flavor_id",
+        "target_id",
+        "bundle_plan_sha256",
+        "agent_lock_sha256",
+        "gate_ids",
+    ):
+        if not identity.get(field):
+            mismatches.append("%s.%s" % (label, field))
     distributions = tuple(identity.get("project_distributions") or ())
     wheels = identity.get("wheels") or ()
     wheel_names = tuple(item.get("name") for item in wheels if isinstance(item, dict))
@@ -187,7 +198,7 @@ def compare_release_runs(
     _validate_report(second_report_value, "report.second", mismatches)
 
     if first_report_value and second_report_value:
-        for field in ("source_revision", "profile"):
+        for field in ("source_revision", "profile", "flavor", "bundle_plan_sha256"):
             if first_report_value.get(field) != second_report_value.get(field):
                 mismatches.append("report.%s" % field)
 
@@ -208,11 +219,23 @@ def compare_release_runs(
             mismatches.append("provenance.first.source_revision")
         if first_identity.get("profile") != first_report_value.get("profile"):
             mismatches.append("provenance.first.profile")
+        if first_identity.get("flavor_id") != first_report_value.get("flavor"):
+            mismatches.append("provenance.first.flavor")
+        if first_identity.get("bundle_plan_sha256") != first_report_value.get(
+            "bundle_plan_sha256"
+        ):
+            mismatches.append("provenance.first.bundle_plan_sha256")
     if second_identity and second_report_value:
         if second_identity.get("source_revision") != second_report_value.get("source_revision"):
             mismatches.append("provenance.second.source_revision")
         if second_identity.get("profile") != second_report_value.get("profile"):
             mismatches.append("provenance.second.profile")
+        if second_identity.get("flavor_id") != second_report_value.get("flavor"):
+            mismatches.append("provenance.second.flavor")
+        if second_identity.get("bundle_plan_sha256") != second_report_value.get(
+            "bundle_plan_sha256"
+        ):
+            mismatches.append("provenance.second.bundle_plan_sha256")
     if first_identity and second_identity:
         mismatches.extend(
             "identity.%s" % path

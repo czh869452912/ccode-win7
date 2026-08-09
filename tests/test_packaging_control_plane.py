@@ -1906,6 +1906,21 @@ class TestPackageOrchestration(unittest.TestCase):
         stage_names = [stage["name"] for stage in payload.get("stages", [])]
         self.assertNotIn("frontend_build", stage_names)
         self.assertNotIn("gui_launcher_build", stage_names)
+        bundle_root = Path(payload["artifact_root"])
+        identity = json.loads(
+            (bundle_root / "manifests" / "release-identity.json").read_text(encoding="utf-8")
+        )
+        manifest_plan = bundle_root / "manifests" / "bundle-plan.json"
+        evidence_plan = bundle_root / "manifests" / "evidence" / "bundle-plan.json"
+        self.assertEqual(identity["schema_version"], 2)
+        self.assertEqual(identity["flavor_id"], "minimal-cli")
+        self.assertEqual(identity["gate_ids"], ["runtime_contract", "win7_cli_smoke"])
+        self.assertIsNone(identity["gui_static_sha256"])
+        self.assertEqual(
+            identity["bundle_plan_sha256"],
+            hashlib.sha256(manifest_plan.read_bytes()).hexdigest(),
+        )
+        self.assertEqual(manifest_plan.read_bytes(), evidence_plan.read_bytes())
         tmp_dir.cleanup()
 
 

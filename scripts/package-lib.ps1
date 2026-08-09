@@ -1566,18 +1566,41 @@ function Invoke-ReleaseIdentity {
         '--project-root', $Context.project_root,
         '--profile', $Context.profile,
         '--wheel-dir', $wheelRoot,
-        '--gui-static-root', $guiStaticRoot,
+        '--bundle-plan', [string]$Context.bundle_plan_path,
         '--asset-manifest', $assetManifestPath,
         '--runtime-contract', $runtimeContractPath,
         '--output', $identityPath
     )
+    if (@($Context.bundle_plan.shell_ids) -contains 'gui') {
+        $arguments += @('--gui-static-root', $guiStaticRoot)
+    }
     $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $identityScript -Arguments $arguments
     $identity = Get-Content -LiteralPath $identityPath -Raw | ConvertFrom-Json
     if (@($identity.project_distributions).Count -ne 6 -or @($identity.wheels).Count -ne 6) {
         throw 'Release identity must contain exactly six project distributions and wheels.'
     }
+    if (
+        [int]$identity.schema_version -ne 2 -or
+        [string]$identity.flavor_id -ne [string]$Context.bundle_plan.flavor_id -or
+        [string]$identity.target_id -ne [string]$Context.bundle_plan.target_id -or
+        [string]$identity.bundle_plan_sha256 -ne [string]$Context.bundle_plan_sha256 -or
+        [string]$identity.agent_lock_sha256 -ne [string]$Context.bundle_plan.agent_lock_sha256 -or
+        (@($identity.gate_ids) -join '|') -ne (@($Context.bundle_plan.gate_ids) -join '|')
+    ) {
+        throw 'Release identity does not match the compiled bundle plan.'
+    }
+    $identityPlanPath = Join-Path (Split-Path -Parent $identityPath) 'bundle-plan.json'
+    if (([System.IO.Path]::GetFullPath($identityPlanPath)) -ne ([System.IO.Path]::GetFullPath([string]$Context.bundle_plan_path))) {
+        Copy-Item -LiteralPath ([string]$Context.bundle_plan_path) -Destination $identityPlanPath -Force
+    }
     return [ordered]@{
         path = $identityPath
+        bundle_plan_path = $identityPlanPath
+        flavor_id = $identity.flavor_id
+        target_id = $identity.target_id
+        bundle_plan_sha256 = $identity.bundle_plan_sha256
+        agent_lock_sha256 = $identity.agent_lock_sha256
+        gate_ids = @($identity.gate_ids)
         source_revision = $identity.source_revision
         version = $identity.version
         project_wheels = @($identity.wheels | ForEach-Object { $_.filename })
@@ -1590,6 +1613,12 @@ function Invoke-PackageAssemble {
     )
 
     Write-PackageLog "[assemble] Starting package assembly (profile: $($Context.profile))..."
+    $hasGuiShell = @($Context.bundle_plan.shell_ids) -contains 'gui'
+    if ($hasGuiShell) {
+        Invoke-FrontendBuild -Context $Context -Report $Report
+        if (@($Report.Value.blocking_issues).Count -gt 0) { return }
+    }
+
     $identityTimer = New-PackageStageTimer
     try {
         $identitySummary = Invoke-ReleaseIdentity -Context $Context
@@ -1600,12 +1629,6 @@ function Invoke-PackageAssemble {
     catch {
         Add-StageResult -Report $Report -Name 'release_identity' -Status 'fail' -ExitCode 1 -Summary @{ error = $_.Exception.Message } -StageTimer $identityTimer
         return
-    }
-
-    $hasGuiShell = @($Context.bundle_plan.shell_ids) -contains 'gui'
-    if ($hasGuiShell) {
-        Invoke-FrontendBuild -Context $Context -Report $Report
-        if (@($Report.Value.blocking_issues).Count -gt 0) { return }
     }
 
     $guiLauncherExePath = ''
@@ -1761,11 +1784,39 @@ function Invoke-PackageIdentityGate {
         if ($bundleHash -ne $sourceHash) {
             throw 'bundle and source release identities differ'
         }
+        $identity = Get-Content -LiteralPath $bundleIdentity -Raw | ConvertFrom-Json
+        if (
+            [int]$identity.schema_version -ne 2 -or
+            [string]$identity.flavor_id -ne [string]$Context.bundle_plan.flavor_id -or
+            [string]$identity.target_id -ne [string]$Context.bundle_plan.target_id -or
+            [string]$identity.bundle_plan_sha256 -ne [string]$Context.bundle_plan_sha256 -or
+            [string]$identity.agent_lock_sha256 -ne [string]$Context.bundle_plan.agent_lock_sha256 -or
+            (@($identity.gate_ids) -join '|') -ne (@($Context.bundle_plan.gate_ids) -join '|')
+        ) {
+            throw 'release identity does not match the compiled bundle plan'
+        }
+        $evidencePlan = Join-Path $BundleRoot 'manifests\evidence\bundle-plan.json'
+        if (-not (Test-Path -LiteralPath $evidencePlan -PathType Leaf)) {
+            throw 'bundle evidence plan is missing'
+        }
+        $evidencePlanHash = (Get-FileHash -LiteralPath $evidencePlan -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($evidencePlanHash -ne [string]$Context.bundle_plan_sha256) {
+            throw 'bundle evidence plan hash differs from the release identity'
+        }
         $artifactHashesPath = Join-Path $SourcesRoot 'artifact-hashes.json'
         if (Test-Path -LiteralPath $artifactHashesPath -PathType Leaf) {
             $artifactHashes = Get-Content -LiteralPath $artifactHashesPath -Raw | ConvertFrom-Json
             if ($artifactHashes.identity_sha256 -and ([string]$artifactHashes.identity_sha256).ToLowerInvariant() -ne $bundleHash) {
                 throw 'artifact-hashes identity_sha256 differs from the bundle identity'
+            }
+            if (
+                [string]$artifactHashes.flavor_id -ne [string]$Context.bundle_plan.flavor_id -or
+                [string]$artifactHashes.target_id -ne [string]$Context.bundle_plan.target_id -or
+                [string]$artifactHashes.bundle_plan_sha256 -ne [string]$Context.bundle_plan_sha256 -or
+                [string]$artifactHashes.agent_lock_sha256 -ne [string]$Context.bundle_plan.agent_lock_sha256 -or
+                (@($artifactHashes.gate_ids) -join '|') -ne (@($Context.bundle_plan.gate_ids) -join '|')
+            ) {
+                throw 'artifact-hashes does not match the compiled bundle plan'
             }
         }
         $summary.identity_sha256 = $bundleHash
