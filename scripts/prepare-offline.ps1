@@ -696,6 +696,12 @@ Write-Host "[prepare] Staging installed application distribution..."
 $stagedAppRoot = Join-Path $bundleRoot 'app\embedagent'
 Stage-Directory -Source $installedAppRoot -Destination $stagedAppRoot
 Remove-TransientPythonArtifacts -Root $stagedAppRoot
+if (-not $hasGui) {
+    $unselectedGuiRoot = Join-Path $stagedAppRoot 'frontend\gui'
+    if (Test-Path -LiteralPath $unselectedGuiRoot) {
+        Remove-Item -LiteralPath $unselectedGuiRoot -Recurse -Force
+    }
+}
 Write-Host "[prepare]   App code staged to $stagedAppRoot"
 
 Write-Host "[prepare] Staging documentation..."

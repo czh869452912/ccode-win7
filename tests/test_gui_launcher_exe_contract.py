@@ -1,3 +1,4 @@
+import json
 import unittest
 from pathlib import Path
 
@@ -56,25 +57,29 @@ class TestGuiLauncherExeContract(unittest.TestCase):
         self.assertIn("gui_launcher_exe", script)
         self.assertIn("EmbedAgent.exe", script)
         self.assertIn("embedagent-gui.exe", script)
-        self.assertIn("Generated embedagent.cmd, embedagent-tui.cmd, embedagent-gui.cmd", script)
+        self.assertIn("if ($hasGui)", script)
+        self.assertIn("Stage-GuiLauncherExe", script)
 
     def test_validate_offline_bundle_requires_native_gui_launchers(self):
         script = read(VALIDATE_SCRIPT)
+        contract = json.loads((ROOT / "scripts" / "offline-runtime-contract.json").read_text())
+        launchers = {item["id"]: item["path"] for item in contract["launchers"]}
 
-        self.assertIn("bundle.launcher.gui_exe_user", script)
-        self.assertIn("bundle.launcher.gui_exe_cli", script)
+        self.assertEqual(launchers["gui-native-user"], "EmbedAgent.exe")
+        self.assertEqual(launchers["gui-native-cli"], "embedagent-gui.exe")
+        self.assertIn("Get-ContractLauncherById", script)
         self.assertIn("dynamic.gui_launcher_exe_user", script)
         self.assertIn("dynamic.gui_launcher_exe_cli", script)
-        self.assertIn("EmbedAgent.exe --help", script)
-        self.assertIn("embedagent-gui.exe --help", script)
-        self.assertIn("embedagent-gui.cmd --help", script)
+        self.assertIn("-LauncherFile 'EmbedAgent.exe'", script)
+        self.assertIn("-LauncherFile 'embedagent-gui.exe'", script)
+        self.assertIn(".\\embedagent-gui.cmd --help", script)
 
     def test_dependency_checker_requires_native_gui_launchers(self):
         script = read(DEPENDENCY_CHECKER)
 
-        self.assertIn('"EmbedAgent.exe"', script)
-        self.assertIn('"embedagent-gui.exe"', script)
-        self.assertIn('"embedagent-gui.cmd"', script)
+        self.assertIn('plan.get("launcher_ids")', script)
+        self.assertIn('contract.get("launchers")', script)
+        self.assertIn("Selected launcher missing", script)
 
 
 if __name__ == "__main__":

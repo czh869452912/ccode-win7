@@ -1801,7 +1801,16 @@ function Invoke-PackageZipExtractionGate {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
         [System.IO.Compression.ZipFile]::ExtractToDirectory($ZipPath, $tempRoot)
-        $args = @('-BundleRoot', $tempRoot, '-SourcesRoot', $SourcesRoot, '-ZipPath', $ZipPath, '-SkipDynamicChecks', '-RequireComplete', '-JsonOutputPath', $reportPath)
+        $args = @(
+            '-BundleRoot', $tempRoot,
+            '-SourcesRoot', $SourcesRoot,
+            '-ZipPath', $ZipPath,
+            '-BundlePlanPath', [string]$Context.bundle_plan_path,
+            '-BundlePlanSha256', [string]$Context.bundle_plan_sha256,
+            '-SkipDynamicChecks',
+            '-RequireComplete',
+            '-JsonOutputPath', $reportPath
+        )
         $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $validationScript -Arguments $args
         $payload = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
         if (-not $payload.ok) {
@@ -1869,7 +1878,12 @@ function Invoke-PackageVerify {
 
     Write-PackageLog "[verify] Running validate-offline-bundle.ps1..."
     $verifyTimer = New-PackageStageTimer
-    $validateArgs = @('-BundleRoot', $bundleRoot, '-JsonOutputPath', $validateJson)
+    $validateArgs = @(
+        '-BundleRoot', $bundleRoot,
+        '-BundlePlanPath', [string]$Context.bundle_plan_path,
+        '-BundlePlanSha256', [string]$Context.bundle_plan_sha256,
+        '-JsonOutputPath', $validateJson
+    )
     if (-not [bool]$Context.profile_config.run_dynamic_checks) {
         $validateArgs += '-SkipDynamicChecks'
     }
@@ -1882,8 +1896,19 @@ function Invoke-PackageVerify {
         Write-PackageLog ("[verify]   validate: {0}" -f $(if ($validatePayload.ok) { "OK" } else { "FAIL" }))
 
         Write-PackageLog "[verify] Running check-bundle-dependencies.py..."
-        $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $checkScript -Arguments @($bundleRoot, '--json-report', $checkJson)
+        $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $checkScript -Arguments @(
+            $bundleRoot,
+            '--bundle-plan', [string]$Context.bundle_plan_path,
+            '--bundle-plan-sha256', [string]$Context.bundle_plan_sha256,
+            '--json-report', $checkJson
+        )
         $checkPayload = Get-Content -LiteralPath $checkJson -Raw | ConvertFrom-Json
+        if (
+            [string]$validatePayload.bundle_plan.sha256 -ne [string]$Context.bundle_plan_sha256 -or
+            [string]$checkPayload.bundle_plan.sha256 -ne [string]$Context.bundle_plan_sha256
+        ) {
+            throw 'Bundle validation reports do not match the package plan hash.'
+        }
         Write-PackageLog ("[verify]   dependencies: {0}" -f $(if ($checkPayload.ok) { "OK" } else { "FAIL" }))
     }
     catch {
@@ -1904,15 +1929,19 @@ function Invoke-PackageVerify {
             $localGatesOk = $false
         }
         $reportsRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.reports_root)
-        $guiScript = Join-Path $bundleRoot 'tools\validation\validate-gui-smoke.py'
-        $guiReport = Join-Path $reportsRoot 'gui-smoke.json'
-        if (-not (Invoke-PackageLocalGate -Context $Context -Report $Report -Name 'gui_headless_smoke' -ScriptPath $guiScript -Arguments @('--bundle-root', $bundleRoot, '--require-fixed-webview2') -ReportPath $guiReport)) {
-            $localGatesOk = $false
+        if (@($Context.bundle_plan.gate_ids) -contains 'gui_headless_smoke') {
+            $guiScript = Join-Path $bundleRoot 'tools\validation\validate-gui-smoke.py'
+            $guiReport = Join-Path $reportsRoot 'gui-smoke.json'
+            if (-not (Invoke-PackageLocalGate -Context $Context -Report $Report -Name 'gui_headless_smoke' -ScriptPath $guiScript -Arguments @('--bundle-root', $bundleRoot, '--require-fixed-webview2') -ReportPath $guiReport)) {
+                $localGatesOk = $false
+            }
         }
-        $cppScript = Join-Path $bundleRoot 'tools\validation\validate-cpp-smoke.py'
-        $cppReport = Join-Path $reportsRoot 'cpp-smoke.json'
-        if (-not (Invoke-PackageLocalGate -Context $Context -Report $Report -Name 'cpp_smoke' -ScriptPath $cppScript -Arguments @('--bundle-root', $bundleRoot, '--json-report', $cppReport) -ReportPath $cppReport)) {
-            $localGatesOk = $false
+        if (@($Context.bundle_plan.gate_ids) -contains 'cpp_smoke_workspace') {
+            $cppScript = Join-Path $bundleRoot 'tools\validation\validate-cpp-smoke.py'
+            $cppReport = Join-Path $reportsRoot 'cpp-smoke.json'
+            if (-not (Invoke-PackageLocalGate -Context $Context -Report $Report -Name 'cpp_smoke' -ScriptPath $cppScript -Arguments @('--bundle-root', $bundleRoot, '--json-report', $cppReport) -ReportPath $cppReport)) {
+                $localGatesOk = $false
+            }
         }
         try {
             Remove-PostSmokeTransientArtifacts -BundleRoot $bundleRoot

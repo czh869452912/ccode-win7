@@ -2,9 +2,19 @@
 param(
     [string]$BundleRoot = '',
     [string]$JsonOutputPath = '',
+    [string]$BundlePlanPath = '',
+    [string]$BundlePlanSha256 = '',
     [switch]$SkipDynamicChecks,
     [switch]$RequireComplete
 )
+
+if (-not (Test-Path -LiteralPath $BundlePlanPath -PathType Leaf)) {
+    throw 'mock validate expected BundlePlanPath'
+}
+$actualPlanSha256 = (Get-FileHash -LiteralPath $BundlePlanPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actualPlanSha256 -ne $BundlePlanSha256.ToLowerInvariant()) {
+    throw 'mock validate bundle plan hash mismatch'
+}
 
 $payload = [ordered]@{
     ok = $true
@@ -14,6 +24,11 @@ $payload = [ordered]@{
     fail_count = 0
     warn_count = 0
     pass_count = 1
+    bundle_plan = [ordered]@{
+        path = $BundlePlanPath
+        source_path = $BundlePlanPath
+        sha256 = $actualPlanSha256
+    }
     results = @(
         [ordered]@{
             level = 'pass'

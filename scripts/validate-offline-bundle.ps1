@@ -6,12 +6,16 @@ param(
     [string]$SourcesRoot = "",
     [string]$JsonOutputPath = "",
     [string]$RuntimeContractPath = "",
+    [string]$BundlePlanPath = "",
+    [string]$BundlePlanSha256 = "",
     [switch]$RequireComplete,
     [switch]$SkipDynamicChecks
 )
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
+
+. (Join-Path $PSScriptRoot 'package-lib.ps1')
 
 function Add-Result {
     param(
@@ -301,12 +305,17 @@ function Get-JsonPropertyValue {
 
 function Get-RuntimeContractManagedTools {
     param(
-        [object]$Contract
+        [object]$Contract,
+        [object[]]$RuntimeComponentIds = @()
     )
 
     $tools = @()
+    $selectAll = @($RuntimeComponentIds).Count -eq 0
     foreach ($component in @(Get-JsonPropertyValue -Object $Contract -Name 'runtime_components')) {
         if ($null -eq $component) {
+            continue
+        }
+        if (-not $selectAll -and -not (@($RuntimeComponentIds) -contains [string]$component.id)) {
             continue
         }
         foreach ($tool in @(Get-JsonPropertyValue -Object $component -Name 'managed_tools')) {
@@ -375,10 +384,11 @@ function Test-RuntimeContract {
     param(
         [System.Collections.ArrayList]$Results,
         [string]$BundleRoot,
-        [object]$Contract
+        [object]$Contract,
+        [object[]]$RuntimeComponentIds = @()
     )
 
-    foreach ($tool in @(Get-RuntimeContractManagedTools -Contract $Contract)) {
+    foreach ($tool in @(Get-RuntimeContractManagedTools -Contract $Contract -RuntimeComponentIds $RuntimeComponentIds)) {
         $toolId = [string]$tool.id
         $present = $false
         if (Test-JsonProperty -Object $tool -Name 'alternatives') {
@@ -419,10 +429,11 @@ function Invoke-RuntimeContractDynamicChecks {
     param(
         [System.Collections.ArrayList]$Results,
         [string]$BundleRoot,
-        [object]$Contract
+        [object]$Contract,
+        [object[]]$RuntimeComponentIds = @()
     )
 
-    foreach ($tool in @(Get-RuntimeContractManagedTools -Contract $Contract)) {
+    foreach ($tool in @(Get-RuntimeContractManagedTools -Contract $Contract -RuntimeComponentIds $RuntimeComponentIds)) {
         $toolId = [string]$tool.id
         if (Test-JsonProperty -Object $tool -Name 'dynamic_check') {
             $toolPath = Get-ContractPrimaryPath -BundleRoot $BundleRoot -Tool $tool
@@ -464,43 +475,131 @@ function Test-ReleaseGateAssets {
     param(
         [System.Collections.ArrayList]$Results,
         [string]$BundleRoot,
-        [object]$Contract
+        [object]$Contract,
+        [object[]]$GateIds
     )
 
-    $cppGate = Get-ReleaseGateById -Contract $Contract -Id 'cpp_smoke_workspace'
-    if ($null -eq $cppGate) {
-        $level = if ($RequireComplete) { 'fail' } else { 'warn' }
-        Add-Result -Results $Results -Level $level -Code 'release_gate.cpp_smoke_workspace.contract' -Message 'Runtime contract does not declare cpp_smoke_workspace release gate.'
-    }
-    else {
-        Test-StaticPath -Results $Results -Path (Join-Path $BundleRoot ([string]$cppGate.script).Replace('/', '\')) -Code 'release_gate.cpp_smoke_workspace.script' -Message 'C/C++ smoke validation script present.' -TreatAsCompleteGate $true
-        Test-StaticPath -Results $Results -Path (Join-Path $BundleRoot ([string]$cppGate.workspace).Replace('/', '\')) -Code 'release_gate.cpp_smoke_workspace.workspace' -Message 'C/C++ smoke workspace present.' -TreatAsCompleteGate $true
-        Test-StaticPath -Results $Results -Path (Join-Path $BundleRoot ([string]$cppGate.launcher).Replace('/', '\')) -Code 'release_gate.cpp_smoke_workspace.launcher' -Message 'C/C++ smoke launcher present.' -TreatAsCompleteGate $true
-    }
-
-    $guiGate = Get-ReleaseGateById -Contract $Contract -Id 'gui_headless_smoke'
-    if ($null -eq $guiGate) {
-        $level = if ($RequireComplete) { 'fail' } else { 'warn' }
-        Add-Result -Results $Results -Level $level -Code 'release_gate.gui_headless_smoke.contract' -Message 'Runtime contract does not declare gui_headless_smoke release gate.'
-    }
-    else {
-        Test-StaticPath -Results $Results -Path (Join-Path $BundleRoot ([string]$guiGate.script).Replace('/', '\')) -Code 'release_gate.gui_headless_smoke.script' -Message 'GUI smoke validation script present.' -TreatAsCompleteGate $true
-        Test-StaticPath -Results $Results -Path (Join-Path $BundleRoot ([string]$guiGate.launcher).Replace('/', '\')) -Code 'release_gate.gui_headless_smoke.launcher' -Message 'GUI smoke launcher present.' -TreatAsCompleteGate $true
-    }
-
-    $win7Gate = Get-ReleaseGateById -Contract $Contract -Id 'win7_windowed_gui_smoke'
-    if ($null -eq $win7Gate) {
-        $level = if ($RequireComplete) { 'fail' } else { 'warn' }
-        Add-Result -Results $Results -Level $level -Code 'release_gate.win7_windowed_gui_smoke.contract' -Message 'Runtime contract does not declare win7_windowed_gui_smoke release gate.'
-    }
-    else {
-        $expectedMajor = [int]$win7Gate.webview2_fixed_runtime_major
-        if ($expectedMajor -eq 109) {
-            Add-Result -Results $Results -Level 'pass' -Code 'release_gate.win7_windowed_gui_smoke.webview2_major' -Message 'Win7 GUI release gate expects WebView2 Fixed Version major 109.'
+    foreach ($gateId in @($GateIds)) {
+        $gate = Get-ReleaseGateById -Contract $Contract -Id ([string]$gateId)
+        if ($null -eq $gate) {
+            $level = if ($RequireComplete) { 'fail' } else { 'warn' }
+            Add-Result -Results $Results -Level $level -Code ('release_gate.' + [string]$gateId + '.contract') -Message ('Runtime contract does not declare selected release gate: {0}' -f $gateId)
+            continue
         }
-        else {
-            Add-Result -Results $Results -Level 'fail' -Code 'release_gate.win7_windowed_gui_smoke.webview2_major' -Message ('Win7 GUI release gate must expect WebView2 major 109, got {0}.' -f $expectedMajor)
+        foreach ($field in @('script', 'workspace', 'launcher')) {
+            if (-not (Test-JsonProperty -Object $gate -Name $field)) {
+                continue
+            }
+            $relativePath = [string](Get-JsonPropertyValue -Object $gate -Name $field)
+            if (-not $relativePath) {
+                continue
+            }
+            Test-StaticPath `
+                -Results $Results `
+                -Path (Join-Path $BundleRoot $relativePath.Replace('/', '\')) `
+                -Code ('release_gate.' + [string]$gateId + '.' + $field) `
+                -Message ('Selected release gate path present: {0}' -f $relativePath) `
+                -TreatAsCompleteGate $true
         }
+        if (Test-JsonProperty -Object $gate -Name 'webview2_fixed_runtime_major') {
+            $expectedMajor = [int](Get-JsonPropertyValue -Object $gate -Name 'webview2_fixed_runtime_major')
+            $level = if ($expectedMajor -eq 109) { 'pass' } else { 'fail' }
+            Add-Result -Results $Results -Level $level -Code ('release_gate.' + [string]$gateId + '.webview2_major') -Message ('Selected Win7 GUI gate expects WebView2 major {0}.' -f $expectedMajor)
+        }
+    }
+}
+
+function Get-ContractLauncherById {
+    param(
+        [object]$Contract,
+        [string]$Id
+    )
+
+    foreach ($launcher in @(Get-JsonPropertyValue -Object $Contract -Name 'launchers')) {
+        if ($null -ne $launcher -and [string]$launcher.id -eq $Id) {
+            return $launcher
+        }
+    }
+    return $null
+}
+
+function Get-RuntimeComponentKnownPaths {
+    param([object]$Component)
+
+    $paths = @((Get-JsonPropertyValue -Object $Component -Name 'paths'))
+    foreach ($tool in @(Get-JsonPropertyValue -Object $Component -Name 'managed_tools')) {
+        if ($null -eq $tool) { continue }
+        $paths += @((Get-JsonPropertyValue -Object $tool -Name 'paths'))
+        foreach ($alternative in @(Get-JsonPropertyValue -Object $tool -Name 'alternatives')) {
+            if ($null -ne $alternative) {
+                $paths += @((Get-JsonPropertyValue -Object $alternative -Name 'paths'))
+            }
+        }
+        foreach ($child in @(Get-JsonPropertyValue -Object $tool -Name 'children')) {
+            if ($null -ne $child -and (Test-JsonProperty -Object $child -Name 'path')) {
+                $paths += [string]$child.path
+            }
+        }
+    }
+    return @($paths | Where-Object { [string]$_ } | Select-Object -Unique)
+}
+
+function Test-UnplannedRuntimeContent {
+    param(
+        [System.Collections.ArrayList]$Results,
+        [string]$BundleRoot,
+        [object]$Contract,
+        [object]$Plan
+    )
+
+    $knownPaths = @{}
+    $plannedPaths = @{}
+    $selectedComponents = @($Plan.runtime_component_ids)
+    foreach ($component in @(Get-JsonPropertyValue -Object $Contract -Name 'runtime_components')) {
+        if ($null -eq $component) { continue }
+        foreach ($relativePath in @(Get-RuntimeComponentKnownPaths -Component $component)) {
+            $knownPaths[[string]$relativePath] = $true
+            if ($selectedComponents -contains [string]$component.id) {
+                $plannedPaths[[string]$relativePath] = $true
+            }
+        }
+    }
+    $selectedLaunchers = @($Plan.launcher_ids)
+    foreach ($launcher in @(Get-JsonPropertyValue -Object $Contract -Name 'launchers')) {
+        if ($null -eq $launcher -or -not [string]$launcher.path) { continue }
+        $relativePath = [string]$launcher.path
+        $knownPaths[$relativePath] = $true
+        if ($selectedLaunchers -contains [string]$launcher.id) {
+            $plannedPaths[$relativePath] = $true
+        }
+    }
+    $selectedGates = @($Plan.gate_ids)
+    foreach ($gate in @(Get-JsonPropertyValue -Object $Contract -Name 'release_gates')) {
+        if ($null -eq $gate) { continue }
+        foreach ($field in @('script', 'workspace', 'launcher')) {
+            $relativePath = [string](Get-JsonPropertyValue -Object $gate -Name $field)
+            if (-not $relativePath) { continue }
+            $knownPaths[$relativePath] = $true
+            if ($selectedGates -contains [string]$gate.id) {
+                $plannedPaths[$relativePath] = $true
+            }
+        }
+    }
+    foreach ($relativePath in @(
+        'app/embedagent/frontend/gui',
+        'runtime/webview2-fixed-runtime'
+    )) {
+        $knownPaths[$relativePath] = $true
+        if (@($Plan.shell_ids) -contains 'gui') {
+            $plannedPaths[$relativePath] = $true
+        }
+    }
+    foreach ($relativePath in @($knownPaths.Keys | Sort-Object)) {
+        if ($plannedPaths.ContainsKey($relativePath)) { continue }
+        $candidate = Join-Path $BundleRoot $relativePath.Replace('/', '\')
+        if (-not (Test-Path -LiteralPath $candidate)) { continue }
+        $level = if ($RequireComplete) { 'fail' } else { 'warn' }
+        Add-Result -Results $Results -Level $level -Code 'bundle.plan.unplanned' -Message ('Unplanned runtime content present: {0}' -f $relativePath)
     }
 }
 
@@ -819,6 +918,40 @@ $manifestPath = Join-Path $BundleRoot 'manifests\bundle-manifest.json'
 $checksumsPath = Join-Path $BundleRoot 'manifests\checksums.txt'
 $sourcesManifestPath = Join-Path $SourcesRoot 'assets-manifest.json'
 $sourcesChecksumsPath = Join-Path $SourcesRoot 'checksums.txt'
+$manifest = $null
+$bundlePlan = $null
+$bundlePlanHash = ''
+$embeddedPlanPath = Join-Path $BundleRoot 'manifests\bundle-plan.json'
+if (Test-Path -LiteralPath $manifestPath -PathType Leaf) {
+    try {
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+        Add-Result -Results $results -Level 'pass' -Code 'manifest.parse' -Message 'bundle-manifest.json parsed successfully.'
+        $manifestPlanHash = [string](Get-JsonPropertyValue -Object $manifest -Name 'bundle_plan_sha256')
+        $expectedPlanHash = if ($BundlePlanSha256) { $BundlePlanSha256 } else { $manifestPlanHash }
+        $embeddedPlanState = Read-VerifiedBundlePlan `
+            -ProjectRoot $projectRoot `
+            -BundlePlanPath $embeddedPlanPath `
+            -BundlePlanSha256 $expectedPlanHash `
+            -RuntimeContractPath $RuntimeContractPath
+        if ($BundlePlanPath) {
+            $sourcePlanState = Read-VerifiedBundlePlan `
+                -ProjectRoot $projectRoot `
+                -BundlePlanPath $BundlePlanPath `
+                -BundlePlanSha256 $BundlePlanSha256 `
+                -RuntimeContractPath $RuntimeContractPath
+            if ([string]$sourcePlanState.plan_sha256 -ne [string]$embeddedPlanState.plan_sha256) {
+                throw 'Embedded bundle plan does not match the supplied source plan.'
+            }
+        }
+        Assert-BundleManifestPlanBinding -Manifest $manifest -PlanState $embeddedPlanState -BundleRoot $BundleRoot
+        $bundlePlan = $embeddedPlanState.plan
+        $bundlePlanHash = [string]$embeddedPlanState.plan_sha256
+        Add-Result -Results $results -Level 'pass' -Code 'bundle.plan.binding' -Message 'Bundle plan, Agent lock, and bundle manifest are hash-bound.'
+    }
+    catch {
+        Add-Result -Results $results -Level 'fail' -Code 'bundle.plan.binding' -Message ('Bundle plan validation failed: {0}' -f $_.Exception.Message)
+    }
+}
 
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'app\embedagent') -Code 'bundle.app' -Message 'Application directory present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'config\config.json') -Code 'bundle.config' -Message 'Default config template present.' -TreatAsCompleteGate $true
@@ -826,36 +959,52 @@ Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'config\config.js
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'config\permission-rules.json') -Code 'bundle.permissions' -Message 'Default permission rules template present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path $manifestPath -Code 'bundle.manifest' -Message 'bundle-manifest.json present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path $checksumsPath -Code 'bundle.checksums' -Message 'checksums.txt present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent.cmd') -Code 'bundle.launcher.cli' -Message 'CLI launcher present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent-tui.cmd') -Code 'bundle.launcher.tui' -Message 'TUI launcher present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent-gui.cmd') -Code 'bundle.launcher.gui' -Message 'GUI launcher present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'EmbedAgent.exe') -Code 'bundle.launcher.gui_exe_user' -Message 'Native GUI user launcher present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent-gui.exe') -Code 'bundle.launcher.gui_exe_cli' -Message 'Native GUI CLI launcher present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'validate-gui-smoke.cmd') -Code 'bundle.launcher.gui_smoke' -Message 'GUI smoke launcher present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'validate-cpp-smoke.cmd') -Code 'bundle.launcher.cpp_smoke' -Message 'C/C++ smoke launcher present.' -TreatAsCompleteGate $true
-Validate-LauncherContract -Results $results -Path (Join-Path $BundleRoot 'embedagent.cmd') -Code 'bundle.launcher.cli_contract' -RequiredMarkers @(
-    'EMBEDAGENT_BUNDLE_ROOT',
-    '%BUNDLE_ROOT%bin\git\bin',
-    '%BUNDLE_ROOT%bin\llvm\libexec'
-) -LauncherName 'CLI'
-Validate-LauncherContract -Results $results -Path (Join-Path $BundleRoot 'embedagent-gui.cmd') -Code 'bundle.launcher.gui_contract' -RequiredMarkers @(
-    'EMBEDAGENT_BUNDLE_ROOT',
-    '%BUNDLE_ROOT%bin\git\bin',
-    '%BUNDLE_ROOT%bin\llvm\libexec'
-) -LauncherName 'GUI'
+Test-StaticPath -Results $results -Path $embeddedPlanPath -Code 'bundle.plan' -Message 'bundle-plan.json present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'manifests\agent.json') -Code 'bundle.agent' -Message 'agent.json present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'manifests\agent.lock.json') -Code 'bundle.agent_lock' -Message 'agent.lock.json present.' -TreatAsCompleteGate $true
+if ($null -ne $bundlePlan) {
+    foreach ($launcherId in @($bundlePlan.launcher_ids)) {
+        $launcherRecord = Get-ContractLauncherById -Contract $runtimeContract -Id ([string]$launcherId)
+        if ($null -eq $launcherRecord) {
+            Add-Result -Results $results -Level 'fail' -Code ('bundle.launcher.' + [string]$launcherId) -Message ('Selected launcher is absent from the runtime contract: {0}' -f $launcherId)
+            continue
+        }
+        Test-StaticPath `
+            -Results $results `
+            -Path (Join-Path $BundleRoot ([string]$launcherRecord.path).Replace('/', '\')) `
+            -Code ('bundle.launcher.' + [string]$launcherId) `
+            -Message ('Selected launcher present: {0}' -f $launcherRecord.path) `
+            -TreatAsCompleteGate $true
+    }
+    $launcherMarkers = @('EMBEDAGENT_BUNDLE_ROOT')
+    if (@($bundlePlan.runtime_component_ids) -contains 'mingit') { $launcherMarkers += '%BUNDLE_ROOT%bin\git\bin' }
+    if (@($bundlePlan.runtime_component_ids) -contains 'llvm') { $launcherMarkers += '%BUNDLE_ROOT%bin\llvm\libexec' }
+    Validate-LauncherContract -Results $results -Path (Join-Path $BundleRoot 'embedagent.cmd') -Code 'bundle.launcher.cli_contract' -RequiredMarkers $launcherMarkers -LauncherName 'CLI'
+    if (@($bundlePlan.shell_ids) -contains 'gui') {
+        Validate-LauncherContract -Results $results -Path (Join-Path $BundleRoot 'embedagent-gui.cmd') -Code 'bundle.launcher.gui_contract' -RequiredMarkers $launcherMarkers -LauncherName 'GUI'
+    }
+}
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'docs\intranet-deployment.md') -Code 'bundle.docs.intranet' -Message 'Intranet deployment guide present.' -TreatAsCompleteGate $false
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'docs\win7-gui-validation.md') -Code 'bundle.docs.win7_gui' -Message 'Win7 GUI validation guide present.' -TreatAsCompleteGate $false
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'app\embedagent\frontend\gui\static\index.html') -Code 'bundle.gui.index' -Message 'GUI index.html present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'app\embedagent\frontend\gui\static\assets') -Code 'bundle.gui.assets' -Message 'GUI built asset directory present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'app\embedagent\frontend\gui\static\assets\katex\katex.min.css') -Code 'bundle.gui.katex_css' -Message 'KaTeX CSS present (formula rendering, generated by npm run build).' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'runtime\webview2-fixed-runtime\msedgewebview2.exe') -Code 'bundle.gui.webview2_runtime' -Message 'Bundled Fixed Version WebView2 runtime present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'tools\validation\validate-gui-smoke.py') -Code 'bundle.gui.smoke_script' -Message 'GUI smoke validation script present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'tools\validation\validate-cpp-smoke.py') -Code 'bundle.cpp.smoke_script' -Message 'C/C++ smoke validation script present.' -TreatAsCompleteGate $true
+if ($null -ne $bundlePlan -and @($bundlePlan.shell_ids) -contains 'gui') {
+    Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'docs\win7-gui-validation.md') -Code 'bundle.docs.win7_gui' -Message 'Win7 GUI validation guide present.' -TreatAsCompleteGate $false
+    Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'app\embedagent\frontend\gui\static\index.html') -Code 'bundle.gui.index' -Message 'GUI index.html present.' -TreatAsCompleteGate $true
+    Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'app\embedagent\frontend\gui\static\assets') -Code 'bundle.gui.assets' -Message 'GUI built asset directory present.' -TreatAsCompleteGate $true
+    Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'app\embedagent\frontend\gui\static\assets\katex\katex.min.css') -Code 'bundle.gui.katex_css' -Message 'KaTeX CSS present (formula rendering, generated by npm run build).' -TreatAsCompleteGate $true
+    Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'runtime\webview2-fixed-runtime\msedgewebview2.exe') -Code 'bundle.gui.webview2_runtime' -Message 'Bundled Fixed Version WebView2 runtime present.' -TreatAsCompleteGate $true
+}
 Test-StaticPath -Results $results -Path $SourcesRoot -Code 'sources.root' -Message 'Sources seed directory present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path $sourcesManifestPath -Code 'sources.manifest' -Message 'assets-manifest.json present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path $sourcesChecksumsPath -Code 'sources.checksums' -Message 'sources checksums.txt present.' -TreatAsCompleteGate $true
-Test-RuntimeContract -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract
-Test-ReleaseGateAssets -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract
+if ($null -ne $bundlePlan) {
+    Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'bundle-plan.json') -Code 'sources.bundle_plan' -Message 'Sources bundle-plan.json present.' -TreatAsCompleteGate $true
+    Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'agent.json') -Code 'sources.agent' -Message 'Sources agent.json present.' -TreatAsCompleteGate $true
+    Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'agent.lock.json') -Code 'sources.agent_lock' -Message 'Sources agent.lock.json present.' -TreatAsCompleteGate $true
+}
+if ($null -ne $bundlePlan) {
+    Test-RuntimeContract -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract -RuntimeComponentIds @($bundlePlan.runtime_component_ids)
+    Test-ReleaseGateAssets -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract -GateIds @($bundlePlan.gate_ids)
+    Test-UnplannedRuntimeContent -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract -Plan $bundlePlan
+}
 
 if (Test-Path -LiteralPath $ZipPath) {
     Add-Result -Results $results -Level 'pass' -Code 'bundle.zip' -Message ('Zip artifact present: {0}' -f $ZipPath)
@@ -863,17 +1012,6 @@ if (Test-Path -LiteralPath $ZipPath) {
 else {
     $level = if ($RequireComplete) { 'fail' } else { 'warn' }
     Add-Result -Results $results -Level $level -Code 'bundle.zip' -Message ('Zip artifact missing: {0}' -f $ZipPath)
-}
-
-$manifest = $null
-if (Test-Path -LiteralPath $manifestPath) {
-    try {
-        $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-        Add-Result -Results $results -Level 'pass' -Code 'manifest.parse' -Message 'bundle-manifest.json parsed successfully.'
-    }
-    catch {
-        Add-Result -Results $results -Level 'fail' -Code 'manifest.parse' -Message ('Failed to parse bundle-manifest.json: {0}' -f $_.Exception.Message)
-    }
 }
 
 if ($manifest -ne $null) {
@@ -902,49 +1040,68 @@ $pythonExe = Join-Path $BundleRoot 'runtime\python\python.exe'
 $gitExe = Get-GitExecutablePath -BundleRoot $BundleRoot
 $ripgrepExe = Join-Path $BundleRoot 'bin\rg\rg.exe'
 $ctagsExe = Join-Path $BundleRoot 'bin\ctags\ctags.exe'
-Test-StaticPath -Results $results -Path $pythonExe -Code 'python.exe' -Message 'Bundled python.exe present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'manifests\licenses\python-3.8.10.txt') -Code 'python.license' -Message 'Python license notice present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'manifests\licenses\mingit-2.46.2.windows.1.txt') -Code 'mingit.license' -Message 'MinGit license notice present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path $ripgrepExe -Code 'ripgrep.exe' -Message 'Bundled rg.exe present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path $ctagsExe -Code 'ctags.exe' -Message 'Bundled ctags.exe present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'manifests\licenses\ripgrep-14.1.1.txt') -Code 'ripgrep.license' -Message 'ripgrep license notice present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'manifests\licenses\ctags-p6.2.20251116.0.txt') -Code 'ctags.license' -Message 'ctags license notice present.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'archives\python-3.8.10-embed-amd64.zip') -Code 'sources.python_archive' -Message 'Python source archive present in sources seed.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'archives\MinGit-2.46.2-64-bit.zip') -Code 'sources.mingit_archive' -Message 'MinGit source archive present in sources seed.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'archives\ripgrep-14.1.1-x86_64-pc-windows-msvc.zip') -Code 'sources.ripgrep_archive' -Message 'ripgrep source archive present in sources seed.' -TreatAsCompleteGate $true
-Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'archives\ctags-p6.2.20251116.0-x64.zip') -Code 'sources.ctags_archive' -Message 'ctags source archive present in sources seed.' -TreatAsCompleteGate $true
-
-if ($gitExe) {
-    Add-Result -Results $results -Level 'pass' -Code 'git.exe' -Message ('Bundled git.exe present: {0}' -f $gitExe)
+$selectedRuntimeComponentIds = if ($null -ne $bundlePlan) { @($bundlePlan.runtime_component_ids) } else { @() }
+if ($selectedRuntimeComponentIds -contains 'python') {
+    Test-StaticPath -Results $results -Path $pythonExe -Code 'python.exe' -Message 'Bundled python.exe present.' -TreatAsCompleteGate $true
+    Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'manifests\licenses\python-3.8.10.txt') -Code 'python.license' -Message 'Python license notice present.' -TreatAsCompleteGate $true
+    Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'archives\python-3.8.10-embed-amd64.zip') -Code 'sources.python_archive' -Message 'Python source archive present in sources seed.' -TreatAsCompleteGate $true
 }
-else {
-    $level = if ($RequireComplete) { 'fail' } else { 'warn' }
-    Add-Result -Results $results -Level $level -Code 'git.exe' -Message 'Bundled git.exe not found in expected locations.'
+if ($selectedRuntimeComponentIds -contains 'mingit') {
+    Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'manifests\licenses\mingit-2.46.2.windows.1.txt') -Code 'mingit.license' -Message 'MinGit license notice present.' -TreatAsCompleteGate $true
+    Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'archives\MinGit-2.46.2-64-bit.zip') -Code 'sources.mingit_archive' -Message 'MinGit source archive present in sources seed.' -TreatAsCompleteGate $true
+    if ($gitExe) {
+        Add-Result -Results $results -Level 'pass' -Code 'git.exe' -Message ('Bundled git.exe present: {0}' -f $gitExe)
+    }
+    else {
+        $level = if ($RequireComplete) { 'fail' } else { 'warn' }
+        Add-Result -Results $results -Level $level -Code 'git.exe' -Message 'Bundled git.exe not found in expected locations.'
+    }
+}
+if ($selectedRuntimeComponentIds -contains 'ripgrep') {
+    Test-StaticPath -Results $results -Path $ripgrepExe -Code 'ripgrep.exe' -Message 'Bundled rg.exe present.' -TreatAsCompleteGate $true
+    Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'manifests\licenses\ripgrep-14.1.1.txt') -Code 'ripgrep.license' -Message 'ripgrep license notice present.' -TreatAsCompleteGate $true
+    Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'archives\ripgrep-14.1.1-x86_64-pc-windows-msvc.zip') -Code 'sources.ripgrep_archive' -Message 'ripgrep source archive present in sources seed.' -TreatAsCompleteGate $true
+}
+if ($selectedRuntimeComponentIds -contains 'ctags') {
+    Test-StaticPath -Results $results -Path $ctagsExe -Code 'ctags.exe' -Message 'Bundled ctags.exe present.' -TreatAsCompleteGate $true
+    Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'manifests\licenses\ctags-p6.2.20251116.0.txt') -Code 'ctags.license' -Message 'ctags license notice present.' -TreatAsCompleteGate $true
+    Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'archives\ctags-p6.2.20251116.0-x64.zip') -Code 'sources.ctags_archive' -Message 'ctags source archive present in sources seed.' -TreatAsCompleteGate $true
 }
 
-if (Test-Path -LiteralPath (Join-Path $BundleRoot 'runtime\python')) {
+if ($selectedRuntimeComponentIds -contains 'python' -and (Test-Path -LiteralPath (Join-Path $BundleRoot 'runtime\python'))) {
     Validate-PthFile -Results $results -PythonRoot (Join-Path $BundleRoot 'runtime\python')
 }
 Test-NoEditableBundleLinks -Results $results -SitePackagesRoot (Join-Path $BundleRoot 'runtime\site-packages')
 Test-ReleaseArtifactContract -Results $results -Manifest $manifest -BundleRoot $BundleRoot -SourcesRoot $SourcesRoot -ZipPath $ZipPath
 
 if (-not $SkipDynamicChecks) {
-    Invoke-RuntimeContractDynamicChecks -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract
-    Invoke-CppSmokeGate -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract
-    Invoke-CommandCheck -Results $results -FilePath $pythonExe -Arguments @('--version') -Code 'dynamic.python' -TreatAsCompleteGate $true
-    if ($gitExe) {
-        Invoke-CommandCheck -Results $results -FilePath $gitExe -Arguments @('--version') -Code 'dynamic.git' -TreatAsCompleteGate $true
+    Invoke-RuntimeContractDynamicChecks -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract -RuntimeComponentIds $selectedRuntimeComponentIds
+    if ($null -ne $bundlePlan -and @($bundlePlan.gate_ids) -contains 'cpp_smoke_workspace') {
+        Invoke-CppSmokeGate -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract
     }
-    else {
-        $level = if ($RequireComplete) { 'fail' } else { 'warn' }
-        Add-Result -Results $results -Level $level -Code 'dynamic.git' -Message 'Skipped git version check because git.exe was not found in the bundle.'
+    if ($selectedRuntimeComponentIds -contains 'python') {
+        Invoke-CommandCheck -Results $results -FilePath $pythonExe -Arguments @('--version') -Code 'dynamic.python' -TreatAsCompleteGate $true
     }
-    Invoke-CommandCheck -Results $results -FilePath $ripgrepExe -Arguments @('--version') -Code 'dynamic.ripgrep' -TreatAsCompleteGate $true
-    Invoke-CommandCheck -Results $results -FilePath $ctagsExe -Arguments @('--version') -Code 'dynamic.ctags' -TreatAsCompleteGate $true
+    if ($selectedRuntimeComponentIds -contains 'mingit') {
+        if ($gitExe) {
+            Invoke-CommandCheck -Results $results -FilePath $gitExe -Arguments @('--version') -Code 'dynamic.git' -TreatAsCompleteGate $true
+        }
+        else {
+            $level = if ($RequireComplete) { 'fail' } else { 'warn' }
+            Add-Result -Results $results -Level $level -Code 'dynamic.git' -Message 'Skipped git version check because git.exe was not found in the bundle.'
+        }
+    }
+    if ($selectedRuntimeComponentIds -contains 'ripgrep') {
+        Invoke-CommandCheck -Results $results -FilePath $ripgrepExe -Arguments @('--version') -Code 'dynamic.ripgrep' -TreatAsCompleteGate $true
+    }
+    if ($selectedRuntimeComponentIds -contains 'ctags') {
+        Invoke-CommandCheck -Results $results -FilePath $ctagsExe -Arguments @('--version') -Code 'dynamic.ctags' -TreatAsCompleteGate $true
+    }
 
-    # Dynamic checks: EmbedAgent.exe --help and embedagent-gui.exe --help.
-    Invoke-GuiHelpCheck -Results $results -BundleRoot $BundleRoot -LauncherFile 'EmbedAgent.exe' -Code 'dynamic.gui_launcher_exe_user'
-    Invoke-GuiHelpCheck -Results $results -BundleRoot $BundleRoot -LauncherFile 'embedagent-gui.exe' -Code 'dynamic.gui_launcher_exe_cli'
+    if ($null -ne $bundlePlan -and @($bundlePlan.shell_ids) -contains 'gui') {
+        Invoke-GuiHelpCheck -Results $results -BundleRoot $BundleRoot -LauncherFile 'EmbedAgent.exe' -Code 'dynamic.gui_launcher_exe_user'
+        Invoke-GuiHelpCheck -Results $results -BundleRoot $BundleRoot -LauncherFile 'embedagent-gui.exe' -Code 'dynamic.gui_launcher_exe_cli'
+    }
 
     $launcher = Join-Path $BundleRoot 'embedagent.cmd'
     if (Test-Path -LiteralPath $launcher) {
@@ -1010,6 +1167,11 @@ $summaryPayload = [ordered]@{
     runtime_contract = [ordered]@{
         path = $RuntimeContractPath
         schema_version = $runtimeContract.schema_version
+    }
+    bundle_plan = [ordered]@{
+        path = $embeddedPlanPath
+        source_path = $BundlePlanPath
+        sha256 = $bundlePlanHash
     }
     pass_count = $passCount
     warn_count = $warnCount

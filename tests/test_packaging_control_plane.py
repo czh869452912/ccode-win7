@@ -44,6 +44,74 @@ def _write_export_bundle_plan(root, feature_ids=("gui", "tui")):
     return path
 
 
+def _write_compiled_bundle_plan(bundle_root, flavor="cpp-desktop"):
+    with tempfile.TemporaryDirectory() as tmp:
+        output_dir = Path(tmp) / "plan"
+        report_path = Path(tmp) / "report.json"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "compile-bundle-plan.py"),
+                "--flavor",
+                flavor,
+                "--target",
+                "win7-x64-portable",
+                "--assurance",
+                "release",
+                "--runtime-contract",
+                str(RUNTIME_CONTRACT),
+                "--asset-manifest",
+                str(ROOT / "scripts" / "offline-assets.json"),
+                "--output-dir",
+                str(output_dir),
+                "--json-report",
+                str(report_path),
+            ],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise AssertionError(result.stdout + result.stderr)
+        manifest_root = Path(bundle_root) / "manifests"
+        manifest_root.mkdir(parents=True, exist_ok=True)
+        for name in ("bundle-plan.json", "agent.json", "agent.lock.json"):
+            shutil.copyfile(str(output_dir / name), str(manifest_root / name))
+    plan_path = Path(bundle_root) / "manifests" / "bundle-plan.json"
+    return (
+        json.loads(plan_path.read_text(encoding="ascii")),
+        hashlib.sha256(plan_path.read_bytes()).hexdigest(),
+    )
+
+
+def _bind_bundle_to_plan(bundle_root, flavor="cpp-desktop"):
+    bundle_root = Path(bundle_root)
+    plan, plan_hash = _write_compiled_bundle_plan(bundle_root, flavor)
+    manifest_path = bundle_root / "manifests" / "bundle-manifest.json"
+    manifest = {}
+    if manifest_path.is_file():
+        manifest = json.loads(manifest_path.read_text(encoding="ascii"))
+    manifest.update(
+        {
+            "schema_version": 2,
+            "artifact_name": plan["artifact_name"],
+            "flavor_id": plan["flavor_id"],
+            "bundle_plan_sha256": plan_hash,
+            "agent_lock_sha256": plan["agent_lock_sha256"],
+            "allowed_agent_application_ids": plan["allowed_agent_application_ids"],
+            "shell_ids": plan["shell_ids"],
+            "runtime_component_ids": plan["runtime_component_ids"],
+            "resolved_asset_ids": plan["asset_ids"],
+            "python_feature_ids": plan["python_feature_ids"],
+            "staged_launcher_ids": plan["launcher_ids"],
+            "gate_ids": plan["gate_ids"],
+            "components": manifest.get("components", []),
+        }
+    )
+    manifest_path.write_text(json.dumps(manifest), encoding="ascii")
+    return plan, plan_hash
+
+
 def _write_isolated_mock_config(root, dynamic=False):
     config = json.loads(MOCK_CONFIG.read_text(encoding="utf-8"))
     config["metadata"] = {"config_origin": "fixture"}
@@ -496,6 +564,18 @@ class TestPrepareOfflineContract(unittest.TestCase):
         }
         for profile in payload["profiles"].values():
             self.assertFalse(retired.intersection(profile))
+
+    def test_package_local_release_gates_are_selected_by_bundle_plan(self):
+        script = LIB.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "if (@($Context.bundle_plan.gate_ids) -contains 'gui_headless_smoke')",
+            script,
+        )
+        self.assertIn(
+            "if (@($Context.bundle_plan.gate_ids) -contains 'cpp_smoke_workspace')",
+            script,
+        )
 
     def test_prepare_offline_uses_current_default_mode(self):
         script = self._script_text()
@@ -1080,6 +1160,7 @@ class TestStageJsonReports(unittest.TestCase):
                 "runtime/site-packages/extra_a/__init__.py",
                 "runtime/site-packages/extra_b/__init__.py",
                 "runtime/site-packages/extra_c/__init__.py",
+                "runtime/webview2-fixed-runtime/msedgewebview2.exe",
                 "bin/git/cmd/git.exe",
                 "bin/git/bin/bash.exe",
                 "bin/rg/rg.exe",
@@ -1116,11 +1197,22 @@ class TestStageJsonReports(unittest.TestCase):
                 target = bundle_root / Path(path)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text("{}", encoding="ascii")
+            plan, plan_hash = _write_compiled_bundle_plan(bundle_root)
             (bundle_root / "manifests" / "bundle-manifest.json").write_text(
                 json.dumps(
                     {
                         "schema_version": 2,
                         "artifact_name": "mock",
+                        "flavor_id": plan["flavor_id"],
+                        "bundle_plan_sha256": plan_hash,
+                        "agent_lock_sha256": plan["agent_lock_sha256"],
+                        "allowed_agent_application_ids": plan["allowed_agent_application_ids"],
+                        "shell_ids": plan["shell_ids"],
+                        "runtime_component_ids": plan["runtime_component_ids"],
+                        "resolved_asset_ids": plan["asset_ids"],
+                        "python_feature_ids": plan["python_feature_ids"],
+                        "staged_launcher_ids": plan["launcher_ids"],
+                        "gate_ids": plan["gate_ids"],
                         "components": [],
                     }
                 ),
@@ -1142,6 +1234,7 @@ class TestStageJsonReports(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             payload = json.loads(report_path.read_text(encoding="utf-8"))
             self.assertTrue(payload["ok"])
+            self.assertEqual(payload["bundle_plan"]["sha256"], plan_hash)
 
     def test_export_verify_only_writes_json_report(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1241,6 +1334,7 @@ class TestStageJsonReports(unittest.TestCase):
             (bundle_root / "app" / "embedagent").mkdir(parents=True)
             (bundle_root / "runtime" / "python").mkdir(parents=True)
             (bundle_root / "bin" / "llvm" / "bin").mkdir(parents=True)
+            _bind_bundle_to_plan(bundle_root)
             sources_root.mkdir()
             json_path = Path(tmp) / "validate-report.json"
             result = subprocess.run(
@@ -1275,6 +1369,7 @@ class TestStageJsonReports(unittest.TestCase):
             bundle_root = Path(tmp) / "bundle"
             sources_root = Path(tmp) / "sources"
             bundle_root.mkdir()
+            _bind_bundle_to_plan(bundle_root)
             sources_root.mkdir()
             json_path = Path(tmp) / "validate-report.json"
             result = subprocess.run(
@@ -1301,8 +1396,8 @@ class TestStageJsonReports(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             payload = json.loads(json_path.read_text(encoding="utf-8"))
             result_codes = [item["code"] for item in payload["results"]]
-            self.assertIn("bundle.launcher.gui_exe_user", result_codes)
-            self.assertIn("bundle.launcher.gui_exe_cli", result_codes)
+            self.assertIn("bundle.launcher.gui-native-user", result_codes)
+            self.assertIn("bundle.launcher.gui-native-cli", result_codes)
 
     def test_validate_offline_bundle_passes_static_runtime_contract_for_mock_bundle(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1325,6 +1420,7 @@ class TestStageJsonReports(unittest.TestCase):
                 target = bundle_root / Path(path)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text("stub", encoding="ascii")
+            _bind_bundle_to_plan(bundle_root)
             sources_root.mkdir()
             json_path = Path(tmp) / "validate-report.json"
             result = subprocess.run(
@@ -1360,6 +1456,7 @@ class TestStageJsonReports(unittest.TestCase):
             bundle_root = Path(tmp) / "bundle"
             sources_root = Path(tmp) / "sources"
             bundle_root.mkdir()
+            _bind_bundle_to_plan(bundle_root)
             sources_root.mkdir()
             json_path = Path(tmp) / "validate-report.json"
             result = subprocess.run(
@@ -1400,6 +1497,7 @@ class TestStageJsonReports(unittest.TestCase):
                 '@echo off\nset "BUNDLE_ROOT=%~dp0"\n',
                 encoding="ascii",
             )
+            _bind_bundle_to_plan(bundle_root)
             json_path = Path(tmp) / "validate-report.json"
             result = subprocess.run(
                 [
