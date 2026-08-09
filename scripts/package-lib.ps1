@@ -283,6 +283,353 @@ function New-PackageContextReport {
     }
 }
 
+function Assert-BundlePlanArray {
+    param(
+        [object]$Plan,
+        [string]$Name
+    )
+
+    if (-not ($Plan.PSObject.Properties.Name -contains $Name)) {
+        throw "Bundle plan is missing required array: $Name"
+    }
+    $seen = @{}
+    foreach ($item in @($Plan.$Name)) {
+        $value = [string]$item
+        if (-not $value) {
+            throw "Bundle plan array contains an empty value: $Name"
+        }
+        if ($seen.ContainsKey($value)) {
+            throw "Bundle plan array contains a duplicate value: $Name=$value"
+        }
+        $seen[$value] = $true
+    }
+}
+
+function Assert-KnownBundlePlanIds {
+    param(
+        [string]$Name,
+        [object[]]$Values,
+        [object[]]$KnownValues
+    )
+
+    $known = @{}
+    foreach ($item in @($KnownValues)) {
+        $known[[string]$item] = $true
+    }
+    foreach ($item in @($Values)) {
+        $value = [string]$item
+        if (-not $known.ContainsKey($value)) {
+            throw "Bundle plan contains unknown $Name id: $value"
+        }
+    }
+}
+
+function Assert-ExactBundlePlanIds {
+    param(
+        [string]$Name,
+        [object[]]$Actual,
+        [string[]]$Expected
+    )
+
+    if (@($Actual).Count -ne @($Expected).Count) {
+        throw "Bundle plan must contain exactly $($Expected.Count) $Name ids."
+    }
+    for ($index = 0; $index -lt $Expected.Count; $index++) {
+        if ([string]$Actual[$index] -ne $Expected[$index]) {
+            throw "Bundle plan $Name ids do not match the required distribution order."
+        }
+    }
+}
+
+function Assert-SameBundlePlanIdSet {
+    param(
+        [string]$Name,
+        [object[]]$Actual,
+        [object[]]$Expected
+    )
+
+    $actualValues = @($Actual | ForEach-Object { [string]$_ } | Select-Object -Unique)
+    $expectedValues = @($Expected | ForEach-Object { [string]$_ } | Select-Object -Unique)
+    if ($actualValues.Count -ne $expectedValues.Count) {
+        throw "Bundle plan $Name ids do not match the runtime contract closure."
+    }
+    foreach ($value in $expectedValues) {
+        if (-not ($actualValues -contains $value)) {
+            throw "Bundle plan $Name ids do not match the runtime contract closure."
+        }
+    }
+}
+
+function Read-VerifiedBundlePlan {
+    param(
+        [string]$ProjectRoot,
+        [string]$BundlePlanPath,
+        [string]$BundlePlanSha256,
+        [string]$AssetManifestPath = 'scripts\offline-assets.json',
+        [string]$RuntimeContractPath = 'scripts\offline-runtime-contract.json'
+    )
+
+    if (-not $BundlePlanPath) {
+        throw 'BundlePlanPath is required.'
+    }
+    $resolvedPlanPath = if ([System.IO.Path]::IsPathRooted($BundlePlanPath)) {
+        $BundlePlanPath
+    }
+    else {
+        Join-Path $ProjectRoot $BundlePlanPath
+    }
+    if (-not (Test-Path -LiteralPath $resolvedPlanPath -PathType Leaf)) {
+        throw "Bundle plan not found: $resolvedPlanPath"
+    }
+    if (-not $BundlePlanSha256 -or $BundlePlanSha256 -notmatch '^[0-9a-fA-F]{64}$') {
+        throw 'BundlePlanSha256 must be a 64-character SHA-256 value.'
+    }
+    $actualPlanSha256 = (Get-FileHash -LiteralPath $resolvedPlanPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualPlanSha256 -ne $BundlePlanSha256.ToLowerInvariant()) {
+        throw 'Bundle plan hash mismatch.'
+    }
+
+    $bundlePlan = Get-Content -LiteralPath $resolvedPlanPath -Raw | ConvertFrom-Json
+    if ([int]$bundlePlan.schema_version -ne 1) {
+        throw 'Unsupported bundle plan schema version.'
+    }
+    foreach ($field in @(
+        'allowed_agent_application_ids',
+        'asset_ids',
+        'component_ids',
+        'gate_ids',
+        'launcher_ids',
+        'plan_fact_ids',
+        'project_distribution_ids',
+        'python_feature_ids',
+        'runtime_capability_ids',
+        'runtime_component_ids',
+        'shell_ids'
+    )) {
+        Assert-BundlePlanArray -Plan $bundlePlan -Name $field
+    }
+    foreach ($field in @(
+        'agent_id',
+        'agent_lock_sha256',
+        'artifact_name',
+        'assurance',
+        'config_template_id',
+        'flavor_id',
+        'runtime_contract_sha256',
+        'target_id'
+    )) {
+        if (-not ($bundlePlan.PSObject.Properties.Name -contains $field) -or -not [string]$bundlePlan.$field) {
+            throw "Bundle plan is missing required field: $field"
+        }
+    }
+
+    $projectDistributions = @(
+        'embedagent-core',
+        'embedagent-protocol',
+        'embedagent-host',
+        'embedagent-composition',
+        'embedagent-workflow-cpp',
+        'embedagent'
+    )
+    Assert-ExactBundlePlanIds `
+        -Name 'project distribution' `
+        -Actual @($bundlePlan.project_distribution_ids) `
+        -Expected $projectDistributions
+
+    $resolvedRuntimeContractPath = if ([System.IO.Path]::IsPathRooted($RuntimeContractPath)) {
+        $RuntimeContractPath
+    }
+    else {
+        Join-Path $ProjectRoot $RuntimeContractPath
+    }
+    if (-not (Test-Path -LiteralPath $resolvedRuntimeContractPath -PathType Leaf)) {
+        throw "Runtime contract not found: $resolvedRuntimeContractPath"
+    }
+    $runtimeContract = Get-Content -LiteralPath $resolvedRuntimeContractPath -Raw | ConvertFrom-Json
+    if ([int]$runtimeContract.schema_version -ne 2) {
+        throw 'Unsupported offline runtime contract schema version.'
+    }
+
+    $resolvedAssetManifestPath = if ([System.IO.Path]::IsPathRooted($AssetManifestPath)) {
+        $AssetManifestPath
+    }
+    else {
+        Join-Path $ProjectRoot $AssetManifestPath
+    }
+    if (-not (Test-Path -LiteralPath $resolvedAssetManifestPath -PathType Leaf)) {
+        throw "Asset manifest not found: $resolvedAssetManifestPath"
+    }
+    $assetManifest = Get-Content -LiteralPath $resolvedAssetManifestPath -Raw | ConvertFrom-Json
+
+    $knownLaunchers = @($runtimeContract.launchers | ForEach-Object { [string]$_.id })
+    $knownGates = @($runtimeContract.release_gates | ForEach-Object { [string]$_.id })
+    $knownRuntimeComponents = @($runtimeContract.runtime_components | ForEach-Object { [string]$_.id })
+    $knownFeatures = @()
+    foreach ($component in @($runtimeContract.runtime_components)) {
+        $knownFeatures += @($component.python_feature_ids | ForEach-Object { [string]$_ })
+    }
+    $knownAssets = @($assetManifest.assets | ForEach-Object { [string]$_.id })
+    Assert-KnownBundlePlanIds -Name 'shell' -Values @($bundlePlan.shell_ids) -KnownValues @('cli', 'tui', 'gui')
+    Assert-KnownBundlePlanIds -Name 'launcher' -Values @($bundlePlan.launcher_ids) -KnownValues $knownLaunchers
+    Assert-KnownBundlePlanIds -Name 'asset' -Values @($bundlePlan.asset_ids) -KnownValues $knownAssets
+    Assert-KnownBundlePlanIds -Name 'Python feature' -Values @($bundlePlan.python_feature_ids) -KnownValues $knownFeatures
+    Assert-KnownBundlePlanIds -Name 'gate' -Values @($bundlePlan.gate_ids) -KnownValues $knownGates
+    Assert-KnownBundlePlanIds -Name 'runtime component' -Values @($bundlePlan.runtime_component_ids) -KnownValues $knownRuntimeComponents
+
+    if ([string]$bundlePlan.target_id -notin @($runtimeContract.targets.PSObject.Properties.Name)) {
+        throw "Bundle plan contains unknown target id: $($bundlePlan.target_id)"
+    }
+    if ([string]$bundlePlan.assurance -notin @('dev', 'release')) {
+        throw "Bundle plan contains unknown assurance: $($bundlePlan.assurance)"
+    }
+    $selectedRuntimeComponents = @($runtimeContract.runtime_components | Where-Object {
+        @($bundlePlan.runtime_component_ids) -contains [string]$_.id
+    })
+    $expectedAssets = @()
+    $expectedFeatures = @()
+    $expectedCapabilities = @()
+    $expectedLaunchers = @()
+    foreach ($component in $selectedRuntimeComponents) {
+        $expectedAssets += @($component.asset_ids)
+        $expectedFeatures += @($component.python_feature_ids)
+        $expectedCapabilities += @($component.provides)
+        $expectedLaunchers += @($component.launcher_ids)
+    }
+    foreach ($gate in @($runtimeContract.release_gates | Where-Object {
+        @($bundlePlan.gate_ids) -contains [string]$_.id
+    })) {
+        if ($gate.PSObject.Properties.Name -contains 'launcher_ids') {
+            $expectedLaunchers += @($gate.launcher_ids)
+        }
+    }
+    Assert-SameBundlePlanIdSet -Name 'asset' -Actual @($bundlePlan.asset_ids) -Expected $expectedAssets
+    Assert-SameBundlePlanIdSet -Name 'Python feature' -Actual @($bundlePlan.python_feature_ids) -Expected $expectedFeatures
+    Assert-SameBundlePlanIdSet -Name 'runtime capability' -Actual @($bundlePlan.runtime_capability_ids) -Expected $expectedCapabilities
+    Assert-SameBundlePlanIdSet -Name 'launcher' -Actual @($bundlePlan.launcher_ids) -Expected $expectedLaunchers
+    $expectedShells = @($bundlePlan.component_ids | Where-Object { ([string]$_).StartsWith('shell.') } | ForEach-Object {
+        ([string]$_).Substring('shell.'.Length)
+    })
+    Assert-SameBundlePlanIdSet -Name 'shell' -Actual @($bundlePlan.shell_ids) -Expected $expectedShells
+    if (-not (@($bundlePlan.shell_ids) -contains 'cli') -or -not (@($bundlePlan.launcher_ids) -contains 'cli')) {
+        throw 'Every offline bundle plan must select the CLI shell and launcher.'
+    }
+    if (-not (@($bundlePlan.allowed_agent_application_ids) -contains [string]$bundlePlan.agent_id)) {
+        throw 'Bundle plan must allow its compiled Agent application id.'
+    }
+
+    $planDirectory = Split-Path -Parent $resolvedPlanPath
+    $agentManifestPath = Join-Path $planDirectory 'agent.json'
+    $agentLockPath = Join-Path $planDirectory 'agent.lock.json'
+    foreach ($path in @($agentManifestPath, $agentLockPath)) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "Compiled Agent manifest not found: $path"
+        }
+    }
+    $actualAgentLockSha256 = (Get-FileHash -LiteralPath $agentLockPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualAgentLockSha256 -ne [string]$bundlePlan.agent_lock_sha256) {
+        throw 'Bundle plan Agent lock hash mismatch.'
+    }
+    $agentManifest = Get-Content -LiteralPath $agentManifestPath -Raw | ConvertFrom-Json
+    $agentLock = Get-Content -LiteralPath $agentLockPath -Raw | ConvertFrom-Json
+    if (
+        [int]$agentManifest.schema_version -ne 1 -or
+        [int]$agentLock.schema_version -ne 1 -or
+        [string]$agentManifest.agent_id -ne [string]$bundlePlan.agent_id -or
+        [string]$agentLock.agent_id -ne [string]$bundlePlan.agent_id
+    ) {
+        throw 'Compiled Agent manifests do not match the bundle plan.'
+    }
+    Assert-SameBundlePlanIdSet `
+        -Name 'Agent manifest component' `
+        -Actual @($agentManifest.components | ForEach-Object { [string]$_.component_id }) `
+        -Expected @($bundlePlan.component_ids)
+    Assert-SameBundlePlanIdSet `
+        -Name 'Agent lock component' `
+        -Actual @($agentLock.components | ForEach-Object { [string]$_.component_id }) `
+        -Expected @($bundlePlan.component_ids)
+
+    return [ordered]@{
+        plan = $bundlePlan
+        plan_path = (Resolve-Path -LiteralPath $resolvedPlanPath).Path
+        plan_sha256 = $actualPlanSha256
+        agent_manifest_path = (Resolve-Path -LiteralPath $agentManifestPath).Path
+        agent_lock_path = (Resolve-Path -LiteralPath $agentLockPath).Path
+        runtime_contract = $runtimeContract
+        runtime_contract_path = (Resolve-Path -LiteralPath $resolvedRuntimeContractPath).Path
+        asset_manifest = $assetManifest
+        asset_manifest_path = (Resolve-Path -LiteralPath $resolvedAssetManifestPath).Path
+    }
+}
+
+function Assert-BundleManifestPlanBinding {
+    param(
+        [object]$Manifest,
+        [System.Collections.IDictionary]$PlanState,
+        [string]$BundleRoot
+    )
+
+    $plan = $PlanState.plan
+    foreach ($binding in @(
+        @('flavor_id', 'flavor_id'),
+        @('bundle_plan_sha256', 'plan_sha256'),
+        @('agent_lock_sha256', 'agent_lock_sha256')
+    )) {
+        $manifestField = [string]$binding[0]
+        $planField = [string]$binding[1]
+        $expected = if ($binding[1] -eq 'plan_sha256') {
+            [string]$PlanState.plan_sha256
+        }
+        else {
+            [string]$plan.$planField
+        }
+        if (-not ($Manifest.PSObject.Properties.Name -contains $manifestField) -or [string]$Manifest.$manifestField -ne $expected) {
+            throw "Staging manifest does not match bundle plan field: $manifestField"
+        }
+    }
+    foreach ($binding in @(
+        @('allowed_agent_application_ids', 'allowed_agent_application_ids'),
+        @('shell_ids', 'shell_ids'),
+        @('runtime_component_ids', 'runtime_component_ids'),
+        @('resolved_asset_ids', 'asset_ids'),
+        @('python_feature_ids', 'python_feature_ids'),
+        @('staged_launcher_ids', 'launcher_ids'),
+        @('gate_ids', 'gate_ids')
+    )) {
+        $manifestField = [string]$binding[0]
+        $planField = [string]$binding[1]
+        if (-not ($Manifest.PSObject.Properties.Name -contains $manifestField)) {
+            throw "Staging manifest is missing bundle plan field: $manifestField"
+        }
+        $actual = @($Manifest.$manifestField)
+        $expected = @($plan.$planField)
+        if ($actual.Count -ne $expected.Count) {
+            throw "Staging manifest does not match bundle plan field: $manifestField"
+        }
+        for ($index = 0; $index -lt $expected.Count; $index++) {
+            if ([string]$actual[$index] -ne [string]$expected[$index]) {
+                throw "Staging manifest does not match bundle plan field: $manifestField"
+            }
+        }
+    }
+
+    $stagedPlanPath = Join-Path $BundleRoot 'manifests\bundle-plan.json'
+    $stagedAgentPath = Join-Path $BundleRoot 'manifests\agent.json'
+    $stagedAgentLockPath = Join-Path $BundleRoot 'manifests\agent.lock.json'
+    foreach ($path in @($stagedPlanPath, $stagedAgentPath, $stagedAgentLockPath)) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "Staging bundle is missing compiled plan or Agent manifest: $path"
+        }
+    }
+    $stagedPlanSha256 = (Get-FileHash -LiteralPath $stagedPlanPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $stagedAgentLockSha256 = (Get-FileHash -LiteralPath $stagedAgentLockPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($stagedPlanSha256 -ne [string]$PlanState.plan_sha256) {
+        throw 'Staged bundle plan hash mismatch.'
+    }
+    if ($stagedAgentLockSha256 -ne [string]$plan.agent_lock_sha256) {
+        throw 'Staged Agent lock hash mismatch.'
+    }
+}
+
 function Resolve-PackageBundlePlan {
     param(
         [string]$ProjectRoot,
@@ -1281,7 +1628,11 @@ function Invoke-PackageAssemble {
     if ($Context.config.paths.PSObject.Properties.Name -contains 'release_identity') {
         $releaseIdentityPath = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.release_identity)
     }
-    $prepareArgs = @('-BuildRoot', $buildRoot)
+    $prepareArgs = @(
+        '-BuildRoot', $buildRoot,
+        '-BundlePlanPath', [string]$Context.bundle_plan_path,
+        '-BundlePlanSha256', [string]$Context.bundle_plan_sha256
+    )
     if ($assetCacheRoot) {
         $prepareArgs += @('-AssetCacheRoot', $assetCacheRoot)
     }
@@ -1305,7 +1656,12 @@ function Invoke-PackageAssemble {
         $prepareArgs += $sitePackagesRoot
     }
 
-    $buildArgs = @('-ArtifactName', [string]$Context.artifact_name, '-BuildRoot', $buildRoot)
+    $buildArgs = @(
+        '-ArtifactName', [string]$Context.artifact_name,
+        '-BuildRoot', $buildRoot,
+        '-BundlePlanPath', [string]$Context.bundle_plan_path,
+        '-BundlePlanSha256', [string]$Context.bundle_plan_sha256
+    )
     if ($assetCacheRoot) {
         $buildArgs += @('-AssetCacheRoot', $assetCacheRoot)
     }

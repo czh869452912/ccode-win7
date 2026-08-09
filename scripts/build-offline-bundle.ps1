@@ -2,6 +2,8 @@
 param(
     [string]$ArtifactName = 'embedagent-win7-x64',
     [string]$AssetManifestPath = 'scripts/offline-assets.json',
+    [string]$BundlePlanPath = "",
+    [string]$BundlePlanSha256 = "",
     [switch]$RunPrepare,
     [switch]$PrepareSkipBuild,
     [switch]$AllowDownload,
@@ -187,6 +189,8 @@ function Invoke-PrepareOffline {
     param(
         [string]$PrepareScript,
         [string]$AssetManifestPath,
+        [string]$BundlePlanPath,
+        [string]$BundlePlanSha256,
         [string[]]$AssetIds,
         [bool]$PrepareSkipBuild,
         [bool]$AllowDownload,
@@ -204,6 +208,8 @@ function Invoke-PrepareOffline {
 
     $prepareParams = @{
         AssetManifestPath = $AssetManifestPath
+        BundlePlanPath = $BundlePlanPath
+        BundlePlanSha256 = $BundlePlanSha256
     }
     if (@($AssetIds).Count -gt 0) {
         $prepareParams.AssetIds = $AssetIds
@@ -285,7 +291,17 @@ function Create-BundleZip {
 
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $assetManifestResolved = if ([System.IO.Path]::IsPathRooted($AssetManifestPath)) { $AssetManifestPath } else { Join-Path $projectRoot $AssetManifestPath }
+$planState = Read-VerifiedBundlePlan `
+    -ProjectRoot $projectRoot `
+    -BundlePlanPath $BundlePlanPath `
+    -BundlePlanSha256 $BundlePlanSha256 `
+    -AssetManifestPath $assetManifestResolved
+$bundlePlan = $planState.plan
 $normalizedAssetIds = Normalize-AssetIds -AssetIds $AssetIds
+if (($normalizedAssetIds -join '|') -ne (@($bundlePlan.asset_ids) -join '|')) {
+    throw 'AssetIds do not match the verified bundle plan.'
+}
+$hasGui = @($bundlePlan.shell_ids) -contains 'gui'
 $buildRoot = if ($BuildRoot) {
     if ([System.IO.Path]::IsPathRooted($BuildRoot)) { $BuildRoot } else { Join-Path $projectRoot $BuildRoot }
 }
@@ -318,6 +334,8 @@ if ($shouldPrepare) {
     Invoke-PrepareOffline `
         -PrepareScript $prepareScript `
         -AssetManifestPath $assetManifestResolved `
+        -BundlePlanPath $BundlePlanPath `
+        -BundlePlanSha256 $BundlePlanSha256 `
         -AssetIds $normalizedAssetIds `
         -PrepareSkipBuild ([bool]$PrepareSkipBuild) `
         -AllowDownload ([bool]$AllowDownload) `
@@ -338,10 +356,12 @@ if (-not (Test-Path -LiteralPath $stagingBundleRoot)) {
 }
 
 Write-Host "[build] Validating staging bundle..."
-$stagingGuiStatus = Get-GuiBundleAssetStatus -BundleRoot $stagingBundleRoot
-if (-not $stagingGuiStatus.ok) {
-    $missingLabel = @($stagingGuiStatus.missing) -join ', '
-    throw ('Staging bundle is missing required GUI static assets. Missing={0}; StaticRoot={1}. Re-run build-offline-bundle.ps1 with -RunPrepare or rebuild the GUI frontend first.' -f $missingLabel, $stagingGuiStatus.static_root)
+if ($hasGui) {
+    $stagingGuiStatus = Get-GuiBundleAssetStatus -BundleRoot $stagingBundleRoot
+    if (-not $stagingGuiStatus.ok) {
+        $missingLabel = @($stagingGuiStatus.missing) -join ', '
+        throw ('Staging bundle is missing required GUI static assets. Missing={0}; StaticRoot={1}. Re-run build-offline-bundle.ps1 with -RunPrepare or rebuild the GUI frontend first.' -f $missingLabel, $stagingGuiStatus.static_root)
+    }
 }
 Write-Host "[build]   Staging bundle OK"
 
@@ -349,6 +369,8 @@ $stagingManifestPath = Join-Path $stagingBundleRoot 'manifests\bundle-manifest.j
 if (-not (Test-Path -LiteralPath $stagingManifestPath)) {
     throw "Staging manifest not found: $stagingManifestPath"
 }
+$stagingManifest = Get-Content -LiteralPath $stagingManifestPath -Raw | ConvertFrom-Json
+Assert-BundleManifestPlanBinding -Manifest $stagingManifest -PlanState $planState -BundleRoot $stagingBundleRoot
 
 Write-Host "[build] Cleaning dist directory..."
 Remove-IfExists -Root $distRoot -Target $distBundleRoot
@@ -378,6 +400,12 @@ Write-BundleChecksums -Root $distBundleRoot -ChecksumPath $distChecksumsPath
 Write-Host "[build] Preparing sources archive..."
 Ensure-Directory -Path $sourcesRoot
 Ensure-Directory -Path $sourcesArchivesRoot
+foreach ($name in @('bundle-plan.json', 'agent.json', 'agent.lock.json')) {
+    Copy-Item `
+        -LiteralPath (Join-Path $stagingBundleRoot ('manifests\' + $name)) `
+        -Destination (Join-Path $sourcesRoot $name) `
+        -Force
+}
 
 if (-not (Test-Path -LiteralPath $pythonWheelsSourceRoot)) {
     throw "Checked Python wheelhouse not found: $pythonWheelsSourceRoot"

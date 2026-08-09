@@ -500,7 +500,13 @@ class TestPrepareOfflineContract(unittest.TestCase):
     def test_prepare_offline_uses_current_default_mode(self):
         script = self._script_text()
         self.assertNotIn('"default_mode": "code"', script)
-        self.assertIn('"default_mode": "explore"', script)
+        self.assertIn("config\\bundle-flavors", script)
+        for name in ("minimal-cli", "cpp-desktop"):
+            template = json.loads(
+                (ROOT / "config" / "bundle-flavors" / (name + ".json")).read_text(encoding="utf-8")
+            )
+            self.assertEqual(template["default_mode"], "explore")
+            self.assertNotIn("api_key", template)
         self.assertNotIn('"max_turns": 8', script)
         self.assertNotIn('"max_turns": null', script)
 

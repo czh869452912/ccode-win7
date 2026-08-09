@@ -2,6 +2,8 @@
 param(
     [string]$AssetManifestPath = "scripts/offline-assets.json",
     [string[]]$AssetIds = @(),
+    [string]$BundlePlanPath = "",
+    [string]$BundlePlanSha256 = "",
     [switch]$AllowDownload,
     [string]$PythonRuntimeRoot = "",
     [string]$SitePackagesRoot = "",
@@ -579,6 +581,35 @@ function Resolve-AssetForStaging {
 
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $assetManifestResolved = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $AssetManifestPath
+$planState = Read-VerifiedBundlePlan `
+    -ProjectRoot $projectRoot `
+    -BundlePlanPath $BundlePlanPath `
+    -BundlePlanSha256 $BundlePlanSha256 `
+    -AssetManifestPath $assetManifestResolved
+$bundlePlan = $planState.plan
+$normalizedAssetIds = Normalize-AssetIds -AssetIds $AssetIds
+if (($normalizedAssetIds -join '|') -ne (@($bundlePlan.asset_ids) -join '|')) {
+    throw 'AssetIds do not match the verified bundle plan.'
+}
+$requestedAssetIds = @($bundlePlan.asset_ids)
+$assetManifest = $planState.asset_manifest
+$hasTui = @($bundlePlan.shell_ids) -contains 'tui'
+$hasGui = @($bundlePlan.shell_ids) -contains 'gui'
+$hasCppGate = @($bundlePlan.gate_ids) -contains 'cpp_smoke_workspace'
+$hasGuiGate = @($bundlePlan.gate_ids) -contains 'gui_headless_smoke'
+$hasCliSmokeGate = @($bundlePlan.gate_ids) -contains 'win7_cli_smoke'
+$hasPythonRuntime = @($bundlePlan.runtime_component_ids) -contains 'python'
+$hasMinGit = @($bundlePlan.runtime_component_ids) -contains 'mingit'
+$hasRipgrep = @($bundlePlan.runtime_component_ids) -contains 'ripgrep'
+$hasCtags = @($bundlePlan.runtime_component_ids) -contains 'ctags'
+$configTemplatePath = Join-Path $projectRoot ('config\bundle-flavors\{0}.json' -f [string]$bundlePlan.config_template_id)
+if (-not (Test-Path -LiteralPath $configTemplatePath -PathType Leaf)) {
+    throw "Bundle config template not found: $configTemplatePath"
+}
+$configTemplate = Get-Content -LiteralPath $configTemplatePath -Raw | ConvertFrom-Json
+if ($configTemplate.PSObject.Properties.Name -contains 'api_key') {
+    throw 'Bundle config templates must not contain an api_key property.'
+}
 $buildRoot = if ($BuildRoot) {
     if ([System.IO.Path]::IsPathRooted($BuildRoot)) { $BuildRoot } else { Join-Path $projectRoot $BuildRoot }
 }
@@ -609,36 +640,41 @@ Reset-Directory -Root $stagingRoot -Target $bundleRoot
 $paths = @(
     'app',
     'bin',
-    'bin\git',
-    'bin\rg',
-    'bin\ctags',
-    'bin\llvm',
     'config',
     'data',
-    'data\workspace-template',
     'docs',
     'manifests',
     'manifests\licenses',
     'runtime',
-    'runtime\python',
     'runtime\site-packages',
-    'runtime\webview2-fixed-runtime',
     'tools',
     'tools\validation'
 )
+if ($hasPythonRuntime) { $paths += 'runtime\python' }
+if ($hasMinGit) { $paths += 'bin\git' }
+if ($hasRipgrep) { $paths += 'bin\rg' }
+if ($hasCtags) { $paths += 'bin\ctags' }
+if (@($bundlePlan.runtime_component_ids) -contains 'llvm') { $paths += 'bin\llvm' }
+if (@($bundlePlan.runtime_component_ids) -contains 'webview2') { $paths += 'runtime\webview2-fixed-runtime' }
+if ($hasCppGate) { $paths += 'data\workspace-template' }
 Write-Host "[prepare] Creating bundle directory structure ($($paths.Count) paths)..."
 foreach ($relative in $paths) {
     Ensure-Directory -Path (Join-Path $bundleRoot $relative)
 }
+Stage-File -Source $planState.plan_path -Destination (Join-Path $bundleRoot 'manifests\bundle-plan.json')
+Stage-File -Source $planState.agent_manifest_path -Destination (Join-Path $bundleRoot 'manifests\agent.json')
+Stage-File -Source $planState.agent_lock_path -Destination (Join-Path $bundleRoot 'manifests\agent.lock.json')
 
-Write-Host "[prepare] Ensuring GUI frontend assets..."
-$guiFrontendStatus = Ensure-GuiFrontendAssets -ProjectRoot $projectRoot
-if (-not $guiFrontendStatus.ok) {
-    $missingLabel = @($guiFrontendStatus.missing) -join ', '
-    $reason = [string]$guiFrontendStatus.reason
-    throw ('GUI static assets are incomplete and could not be prepared. Reason={0}; Missing={1}; StaticRoot={2}' -f $reason, $missingLabel, $guiFrontendStatus.static_root)
+if ($hasGui) {
+    Write-Host "[prepare] Ensuring GUI frontend assets..."
+    $guiFrontendStatus = Ensure-GuiFrontendAssets -ProjectRoot $projectRoot
+    if (-not $guiFrontendStatus.ok) {
+        $missingLabel = @($guiFrontendStatus.missing) -join ', '
+        $reason = [string]$guiFrontendStatus.reason
+        throw ('GUI static assets are incomplete and could not be prepared. Reason={0}; Missing={1}; StaticRoot={2}' -f $reason, $missingLabel, $guiFrontendStatus.static_root)
+    }
+    Write-Host "[prepare]   GUI assets: $($guiFrontendStatus.mode) (ok=$($guiFrontendStatus.ok))"
 }
-Write-Host "[prepare]   GUI assets: $($guiFrontendStatus.mode) (ok=$($guiFrontendStatus.ok))"
 
 if (-not $SitePackagesRoot) {
     $candidateSitePackages = Join-Path $projectRoot 'build\offline-cache\site-packages-export\site-packages'
@@ -652,7 +688,7 @@ if (-not $installedAppRoot -or -not (Test-Path -LiteralPath $installedAppRoot)) 
     throw 'Installed embedagent distribution not found. Run package.ps1 deps or provide -SitePackagesRoot from export-dependencies.py.'
 }
 $installedGuiStaticRoot = Join-Path $installedAppRoot 'frontend\gui\static'
-if (-not (Test-Path -LiteralPath $installedGuiStaticRoot)) {
+if ($hasGui -and -not (Test-Path -LiteralPath $installedGuiStaticRoot)) {
     throw "Installed embedagent distribution is missing frontend\gui\static: $installedGuiStaticRoot"
 }
 
@@ -677,18 +713,23 @@ if (Test-Path -LiteralPath $preflightGuide) {
 if (Test-Path -LiteralPath $intranetGuide) {
     Stage-File -Source $intranetGuide -Destination (Join-Path $bundleRoot 'docs\intranet-deployment.md')
 }
-if (Test-Path -LiteralPath $win7GuiGuide) {
+if ($hasGui -and (Test-Path -LiteralPath $win7GuiGuide)) {
     Stage-File -Source $win7GuiGuide -Destination (Join-Path $bundleRoot 'docs\win7-gui-validation.md')
 }
 
 $guiSmokeScript = Join-Path $projectRoot 'scripts\validate-gui-smoke.py'
-if (Test-Path -LiteralPath $guiSmokeScript) {
+if ($hasGuiGate -and (Test-Path -LiteralPath $guiSmokeScript)) {
     Stage-File -Source $guiSmokeScript -Destination (Join-Path $bundleRoot 'tools\validation\validate-gui-smoke.py')
 }
 $cppSmokeScript = Join-Path $projectRoot 'scripts\validate-cpp-smoke.py'
-if (Test-Path -LiteralPath $cppSmokeScript) {
+if ($hasCppGate -and (Test-Path -LiteralPath $cppSmokeScript)) {
     Stage-File -Source $cppSmokeScript -Destination (Join-Path $bundleRoot 'tools\validation\validate-cpp-smoke.py')
-}$releaseEvidenceScript = Join-Path $projectRoot 'scripts\validate-release-evidence.py'
+}
+$cliSmokeScript = Join-Path $projectRoot 'scripts\validate-cli-smoke.py'
+if ($hasCliSmokeGate -and (Test-Path -LiteralPath $cliSmokeScript)) {
+    Stage-File -Source $cliSmokeScript -Destination (Join-Path $bundleRoot 'tools\validation\validate-cli-smoke.py')
+}
+$releaseEvidenceScript = Join-Path $projectRoot 'scripts\validate-release-evidence.py'
 if (Test-Path -LiteralPath $releaseEvidenceScript) {
     Stage-File -Source $releaseEvidenceScript -Destination (Join-Path $bundleRoot 'tools\validation\validate-release-evidence.py')
 }$releaseIdentityHelper = Join-Path $projectRoot 'scripts\release_identity.py'
@@ -700,32 +741,8 @@ if (Test-Path -LiteralPath $win7Runbook) {
     Stage-File -Source $win7Runbook -Destination (Join-Path $bundleRoot 'manifests\evidence\win7-runbook.md')
 }
 
-$defaultConfig = @'
-{
-  "_comment": "EmbedAgent Configuration - Update for your internal LLM service",
-  "base_url": "http://192.168.1.100:8000/v1",
-  "api_key": "sk-internal",
-  "model": "qwen3.5-coder",
-  "timeout": 120,
-  "max_context_tokens": 32000,
-  "reserve_output_tokens": 3000,
-  "chars_per_token": 3.0,
-  "default_mode": "explore"
-}
-'@
-Write-TextFile -Path (Join-Path $bundleRoot 'config\config.json.template') -Content ($defaultConfig.Trim() + "`r`n")
-
-# Also create a minimal config.json for quick start
-$minimalConfig = @'
-{
-  "base_url": "http://192.168.1.100:8000/v1",
-  "api_key": "",
-  "model": "",
-  "timeout": 120,
-  "default_mode": "explore"
-}
-'@
-Write-TextFile -Path (Join-Path $bundleRoot 'config\config.json') -Content ($minimalConfig.Trim() + "`r`n")
+Stage-File -Source $configTemplatePath -Destination (Join-Path $bundleRoot 'config\config.json')
+Stage-File -Source $configTemplatePath -Destination (Join-Path $bundleRoot 'config\config.json.template')
 
 $defaultPermissionRules = @'
 {
@@ -735,6 +752,7 @@ $defaultPermissionRules = @'
 '@
 Write-TextFile -Path (Join-Path $bundleRoot 'config\permission-rules.json') -Content ($defaultPermissionRules.Trim() + "`r`n")
 
+if ($hasCppGate) {
 $workspaceTemplateReadme = @'
 # EmbedAgent Offline C Smoke Workspace
 
@@ -770,8 +788,25 @@ int main(void)
 }
 '@
 Write-TextFile -Path (Join-Path $bundleRoot 'data\workspace-template\main.c') -Content ($workspaceTemplateMain.Trim() + "`r`n")
+}
 
-$launcherCli = @'
+$runtimePathEntries = @()
+if ($hasMinGit) {
+    $runtimePathEntries += @('%BUNDLE_ROOT%bin\git\cmd', '%BUNDLE_ROOT%bin\git\bin')
+}
+if ($hasRipgrep) { $runtimePathEntries += '%BUNDLE_ROOT%bin\rg' }
+if ($hasCtags) { $runtimePathEntries += '%BUNDLE_ROOT%bin\ctags' }
+if (@($bundlePlan.runtime_component_ids) -contains 'llvm') {
+    $runtimePathEntries += @('%BUNDLE_ROOT%bin\llvm\bin', '%BUNDLE_ROOT%bin\llvm\libexec')
+}
+$runtimePath = if ($runtimePathEntries.Count -gt 0) {
+    ($runtimePathEntries -join ';') + ';%PATH%'
+}
+else {
+    '%PATH%'
+}
+
+$launcherCli = @"
 @echo off
 setlocal
 set "BUNDLE_ROOT=%~dp0"
@@ -779,19 +814,22 @@ set "EMBEDAGENT_BUNDLE_ROOT=%BUNDLE_ROOT%"
 set "PYTHONHOME=%BUNDLE_ROOT%runtime\python"
 set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\site-packages"
 set "PYTHONNOUSERSITE=1"
-set "PATH=%BUNDLE_ROOT%bin\git\cmd;%BUNDLE_ROOT%bin\git\bin;%BUNDLE_ROOT%bin\rg;%BUNDLE_ROOT%bin\ctags;%BUNDLE_ROOT%bin\llvm\bin;%BUNDLE_ROOT%bin\llvm\libexec;%PATH%"
+set "PATH=$runtimePath"
 "%BUNDLE_ROOT%runtime\python\python.exe" -m embedagent %*
-'@
+"@
 Write-TextFile -Path (Join-Path $bundleRoot 'embedagent.cmd') -Content ($launcherCli.Trim() + "`r`n")
 
+if ($hasTui) {
 $launcherTui = @'
 @echo off
 setlocal
 call "%~dp0embedagent.cmd" --tui %*
 '@
 Write-TextFile -Path (Join-Path $bundleRoot 'embedagent-tui.cmd') -Content ($launcherTui.Trim() + "`r`n")
+}
 
-$launcherGui = @'
+if ($hasGui) {
+$launcherGui = @"
 @echo off
 setlocal
 
@@ -801,7 +839,7 @@ set "PYTHONHOME=%BUNDLE_ROOT%runtime\python"
 set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\site-packages"
 set "PYTHONNOUSERSITE=1"
 
-set "PATH=%BUNDLE_ROOT%bin\git\cmd;%BUNDLE_ROOT%bin\git\bin;%BUNDLE_ROOT%bin\rg;%BUNDLE_ROOT%bin\ctags;%BUNDLE_ROOT%bin\llvm\bin;%BUNDLE_ROOT%bin\llvm\libexec;%PATH%"
+set "PATH=$runtimePath"
 
 if not defined EMBEDAGENT_HOME (
     set "EMBEDAGENT_HOME=%USERPROFILE%\.embedagent"
@@ -819,9 +857,11 @@ if not exist "%BUNDLE_ROOT%runtime\webview2-fixed-runtime\msedgewebview2.exe" (
 )
 
 "%PYTHONHOME%\python.exe" "%BUNDLE_ROOT%app\embedagent\frontend\gui\launcher.py" %*
-'@
+"@
 Write-TextFile -Path (Join-Path $bundleRoot 'embedagent-gui.cmd') -Content ($launcherGui.Trim() + "`r`n")
+}
 
+if ($hasGuiGate) {
 $launcherGuiSmoke = @'
 @echo off
 setlocal
@@ -832,7 +872,9 @@ set "PYTHONNOUSERSITE=1"
 "%PYTHONHOME%\python.exe" "%BUNDLE_ROOT%tools\validation\validate-gui-smoke.py" --bundle-root "%BUNDLE_ROOT%" --require-fixed-webview2 %*
 '@
 Write-TextFile -Path (Join-Path $bundleRoot 'validate-gui-smoke.cmd') -Content ($launcherGuiSmoke.Trim() + "`r`n")
+}
 
+if ($hasCppGate) {
 $launcherCppSmoke = @'
 @echo off
 setlocal
@@ -843,6 +885,20 @@ set "PYTHONNOUSERSITE=1"
 "%PYTHONHOME%\python.exe" "%BUNDLE_ROOT%tools\validation\validate-cpp-smoke.py" --bundle-root "%BUNDLE_ROOT%" %*
 '@
 Write-TextFile -Path (Join-Path $bundleRoot 'validate-cpp-smoke.cmd') -Content ($launcherCppSmoke.Trim() + "`r`n")
+}
+
+if ($hasCliSmokeGate) {
+$launcherCliSmoke = @'
+@echo off
+setlocal
+set "BUNDLE_ROOT=%~dp0"
+set "PYTHONHOME=%BUNDLE_ROOT%runtime\python"
+set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\site-packages"
+set "PYTHONNOUSERSITE=1"
+"%PYTHONHOME%\python.exe" "%BUNDLE_ROOT%tools\validation\validate-cli-smoke.py" --bundle-root "%BUNDLE_ROOT%" %*
+'@
+Write-TextFile -Path (Join-Path $bundleRoot 'validate-cli-smoke.cmd') -Content ($launcherCliSmoke.Trim() + "`r`n")
+}
 
 $licensesReadme = @'
 Third-party license notices for bundled assets are written here during prepare.
@@ -852,12 +908,9 @@ Write-TextFile -Path (Join-Path $licenseDir 'README.txt') -Content ($licensesRea
 Write-Host "[prepare] Generating config templates and launcher scripts..."
 
 $defaultLlvmRoot = Join-Path $projectRoot 'toolchains\llvm\current'
-if (-not $LlvmRoot -and (Test-Path -LiteralPath $defaultLlvmRoot)) {
+if ($hasCppGate -and -not $LlvmRoot -and (Test-Path -LiteralPath $defaultLlvmRoot)) {
     $LlvmRoot = $defaultLlvmRoot
 }
-$normalizedAssetIds = Normalize-AssetIds -AssetIds $AssetIds
-$assetManifest = Load-AssetManifest -ManifestPath $assetManifestResolved
-$requestedAssetIds = @($normalizedAssetIds)
 $resolvedAssets = @()
 $components = @()
 
@@ -868,14 +921,19 @@ $ctagsResolved = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $CtagsPath
 $webView2RuntimePath = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $WebView2RuntimeRoot
 $llvmPath = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $LlvmRoot
 $guiLauncherExeResolved = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $GuiLauncherExePath
-$guiLauncherResult = Stage-GuiLauncherExe -Source $guiLauncherExeResolved -BundleRoot $bundleRoot
+$guiLauncherResult = $null
+if ($hasGui) {
+    $guiLauncherResult = Stage-GuiLauncherExe -Source $guiLauncherExeResolved -BundleRoot $bundleRoot
+}
 
 $components += New-ComponentRecord -Name 'app_code' -StagedPath 'app\embedagent' -Required $true -Status 'staged' -SourcePath $installedAppRoot -Notes 'Copied from the wheel-installed product distribution while preserving the GUI static layout.' -AssetId ''
-$components += New-ComponentRecord -Name 'docs_bundle' -StagedPath 'docs' -Required $true -Status 'staged' -SourcePath (Join-Path $projectRoot 'docs') -Notes 'Copied configuration, preflight, intranet, and Win7 GUI validation docs.' -AssetId ''
+$components += New-ComponentRecord -Name 'docs_bundle' -StagedPath 'docs' -Required $true -Status 'staged' -SourcePath (Join-Path $projectRoot 'docs') -Notes 'Copied common deployment documentation plus shell-specific guides selected by the bundle plan.' -AssetId ''
 $components += New-ComponentRecord -Name 'config_templates' -StagedPath 'config' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated default config and permission rules templates.' -AssetId ''
-$components += New-ComponentRecord -Name 'launcher_scripts' -StagedPath '.' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated embedagent.cmd, embedagent-tui.cmd, embedagent-gui.cmd, validate-gui-smoke.cmd, and validate-cpp-smoke.cmd.' -AssetId ''
-$components += New-ComponentRecord -Name 'gui_launcher_exe' -StagedPath 'EmbedAgent.exe;embedagent-gui.exe' -Required $true -Status $guiLauncherResult.status -SourcePath $guiLauncherResult.source_path -Notes $guiLauncherResult.notes -AssetId ''
-$components += New-ComponentRecord -Name 'validation_tools' -StagedPath 'tools\validation' -Required $true -Status 'staged' -SourcePath $guiSmokeScript -Notes 'Copied bundle-local GUI, C/C++ smoke, and release-evidence validation scripts.' -AssetId ''
+$components += New-ComponentRecord -Name 'launcher_scripts' -StagedPath '.' -Required $true -Status 'staged' -SourcePath '' -Notes ('Generated launchers selected by the bundle plan: ' + (@($bundlePlan.launcher_ids) -join ', ')) -AssetId ''
+if ($hasGui) {
+    $components += New-ComponentRecord -Name 'gui_launcher_exe' -StagedPath 'EmbedAgent.exe;embedagent-gui.exe' -Required $true -Status $guiLauncherResult.status -SourcePath $guiLauncherResult.source_path -Notes $guiLauncherResult.notes -AssetId ''
+}
+$components += New-ComponentRecord -Name 'validation_tools' -StagedPath 'tools\validation' -Required $true -Status 'staged' -SourcePath '' -Notes ('Copied validators selected by release gates: ' + (@($bundlePlan.gate_ids) -join ', ')) -AssetId ''
 
 Write-Host "[prepare] Resolving runtime assets..."
 Write-Host "[prepare]   Requested assets: $($requestedAssetIds -join ', ')"
@@ -949,6 +1007,7 @@ else {
     $components += New-ComponentRecord -Name 'python_packages' -StagedPath 'runtime\site-packages' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -SitePackagesRoot or rely on a future export step.' -AssetId ''
 }
 
+if ($hasMinGit) {
 Write-Host "[prepare]   mingit_portable..."
 $useMinGitAsset = $requestedAssetIds -contains 'mingit_x64'
 if ($useMinGitAsset) {
@@ -985,7 +1044,9 @@ elseif ($minGitPath) {
 else {
     $components += New-ComponentRecord -Name 'mingit_portable' -StagedPath 'bin\git' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -MinGitRoot or request mingit_x64 via -AssetIds.' -AssetId ''
 }
+}
 
+if ($hasRipgrep) {
 Write-Host "[prepare]   ripgrep..."
 $useRipgrepAsset = $requestedAssetIds -contains 'ripgrep_x64'
 if ($useRipgrepAsset) {
@@ -1027,7 +1088,9 @@ elseif ($ripgrepResolved) {
 else {
     $components += New-ComponentRecord -Name 'ripgrep' -StagedPath 'bin\rg' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -RipgrepPath or request ripgrep_x64 via -AssetIds.' -AssetId ''
 }
+}
 
+if ($hasCtags) {
 Write-Host "[prepare]   universal_ctags..."
 $useCtagsAsset = $requestedAssetIds -contains 'universal_ctags_x64'
 if ($useCtagsAsset) {
@@ -1069,7 +1132,9 @@ elseif ($ctagsResolved) {
 else {
     $components += New-ComponentRecord -Name 'universal_ctags' -StagedPath 'bin\ctags' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -CtagsPath or request universal_ctags_x64 via -AssetIds.' -AssetId ''
 }
+}
 
+if ($hasGui) {
 Write-Host "[prepare]   webview2_fixed_runtime..."
 $useWebView2Asset = $requestedAssetIds -contains 'webview2_fixed_runtime_x64'
 if ($useWebView2Asset) {
@@ -1106,7 +1171,9 @@ elseif ($webView2RuntimePath) {
 else {
     $components += New-ComponentRecord -Name 'webview2_fixed_runtime' -StagedPath 'runtime\webview2-fixed-runtime' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -WebView2RuntimeRoot or request webview2_fixed_runtime_x64 via -AssetIds.' -AssetId ''
 }
+}
 
+if ($hasCppGate) {
 Write-Host "[prepare]   llvm_clang_bundle..."
 if ($llvmPath) {
     if (-not $SkipBuild) {
@@ -1118,6 +1185,7 @@ if ($llvmPath) {
 }
 else {
     $components += New-ComponentRecord -Name 'llvm_clang_bundle' -StagedPath 'bin\llvm' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -LlvmRoot to stage the LLVM/Clang bundle.' -AssetId ''
+}
 }
 
 $projectWheelMetadata = [ordered]@{
@@ -1149,6 +1217,16 @@ $summary = [ordered]@{
 
 $manifest = [ordered]@{
     schema_version = 2
+    flavor_id = [string]$bundlePlan.flavor_id
+    bundle_plan_sha256 = [string]$planState.plan_sha256
+    agent_lock_sha256 = [string]$bundlePlan.agent_lock_sha256
+    allowed_agent_application_ids = @($bundlePlan.allowed_agent_application_ids)
+    shell_ids = @($bundlePlan.shell_ids)
+    runtime_component_ids = @($bundlePlan.runtime_component_ids)
+    resolved_asset_ids = @($bundlePlan.asset_ids)
+    python_feature_ids = @($bundlePlan.python_feature_ids)
+    staged_launcher_ids = @($bundlePlan.launcher_ids)
+    gate_ids = @($bundlePlan.gate_ids)
     generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
     project_root = $projectRoot
     build_root = $buildRoot
