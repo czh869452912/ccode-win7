@@ -1,4 +1,6 @@
+import asyncio
 import importlib.util
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +17,100 @@ def _load_smoke_module():
 class FakeProcess:
     def __init__(self, returncode=None):
         self.returncode = returncode
+
+
+class FakeWebSocket:
+    def __init__(self, payloads):
+        self.payloads = [json.dumps(payload) for payload in payloads]
+
+    async def recv(self):
+        return self.payloads.pop(0)
+
+
+def test_consume_collects_assistant_delta_from_canonical_session_event():
+    smoke = _load_smoke_module()
+    summary = {
+        "stream_deltas": [],
+        "session_statuses": [],
+        "tool_events": [],
+        "command_results": [],
+        "permission_requests": 0,
+        "user_input_requests": 0,
+        "session_transitions": [],
+    }
+    websocket = FakeWebSocket(
+        [
+            {
+                "type": "session_event",
+                "data": {
+                    "session_id": "session-1",
+                    "event_kind": "assistant.delta",
+                    "payload": {"text": "canonical reply"},
+                },
+            },
+            {
+                "type": "session_event",
+                "data": {
+                    "session_id": "session-1",
+                    "event_kind": "session.finished",
+                    "payload": {},
+                },
+            },
+        ]
+    )
+
+    asyncio.run(smoke._consume_until_idle(websocket, "session-1", summary, ""))
+
+    assert summary["stream_deltas"] == ["canonical reply"]
+
+
+def test_consume_collects_command_result_from_canonical_session_event():
+    smoke = _load_smoke_module()
+    summary = {
+        "stream_deltas": [],
+        "session_statuses": [],
+        "tool_events": [],
+        "command_results": [],
+        "permission_requests": 0,
+        "user_input_requests": 0,
+        "session_transitions": [],
+    }
+    websocket = FakeWebSocket(
+        [
+            {
+                "type": "session_event",
+                "data": {
+                    "session_id": "session-1",
+                    "event_kind": "command.result",
+                    "payload": {
+                        "command_name": "review",
+                        "success": True,
+                        "message": "review complete",
+                        "data": {"review": {}},
+                    },
+                },
+            },
+            {
+                "type": "session_event",
+                "data": {
+                    "session_id": "session-1",
+                    "event_kind": "transition.recorded",
+                    "payload": {"reason": "command_result"},
+                },
+            },
+        ]
+    )
+
+    asyncio.run(smoke._consume_until_idle(websocket, "session-1", summary, ""))
+
+    assert summary["command_results"] == [
+        {
+            "command_name": "review",
+            "success": True,
+            "message": "review complete",
+            "data": {"review": {}},
+        }
+    ]
 
 
 def test_failure_payload_contains_exit_and_log_tails(tmp_path):

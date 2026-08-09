@@ -47,6 +47,16 @@ class TestGuiSmokeContract(unittest.TestCase):
         self.assertIn('"session_event"', text)
         self.assertIn('"transition.recorded"', text)
         self.assertIn("/interactions/%s/respond", text)
+        for retired_branch in (
+            'if msg_type == "stream_delta"',
+            'if msg_type == "tool_start"',
+            'if msg_type == "tool_finish"',
+            'if msg_type == "command_result"',
+            'if msg_type == "permission_request"',
+            'if msg_type == "user_input_request"',
+            'if msg_type == "session_status"',
+        ):
+            self.assertNotIn(retired_branch, text)
 
     def test_fixed_webview2_path_version_detection(self):
         smoke = _load_smoke_script()

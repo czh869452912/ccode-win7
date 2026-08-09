@@ -454,8 +454,6 @@ async def _consume_until_idle(
     summary: Dict[str, object],
     api_root: str,
 ) -> None:
-    saw_running = False
-    saw_command_result = False
     seen_types = []
     seen_event_kinds = []
     deadline = time.time() + 20.0
@@ -473,10 +471,7 @@ async def _consume_until_idle(
         if msg_type not in seen_types:
             seen_types.append(msg_type)
         data = payload.get("data") or {}
-        snapshot = (
-            data.get("session_snapshot") if isinstance(data.get("session_snapshot"), dict) else {}
-        )
-        target_session = str(snapshot.get("session_id") or data.get("session_id") or "")
+        target_session = str(data.get("session_id") or "")
         if target_session and target_session != session_id:
             continue
 
@@ -486,7 +481,18 @@ async def _consume_until_idle(
                 seen_event_kinds.append(event_kind)
             event_payload = data.get("payload")
             event_payload = event_payload if isinstance(event_payload, dict) else {}
-            if event_kind == "tool.started":
+            if event_kind == "assistant.delta":
+                summary["stream_deltas"].append(str(event_payload.get("text") or ""))
+            elif event_kind == "command.result":
+                summary["command_results"].append(
+                    {
+                        "command_name": event_payload.get("command_name"),
+                        "success": bool(event_payload.get("success")),
+                        "message": event_payload.get("message") or "",
+                        "data": event_payload.get("data") or {},
+                    }
+                )
+            elif event_kind == "tool.started":
                 summary["tool_events"].append(
                     {
                         "type": "tool_start",
@@ -512,6 +518,12 @@ async def _consume_until_idle(
                 await asyncio.get_event_loop().run_in_executor(
                     None, _respond_to_interaction, api_root, session_id, event_payload, False
                 )
+            elif event_kind == "session.status":
+                event_snapshot = event_payload.get("session_snapshot")
+                event_snapshot = event_snapshot if isinstance(event_snapshot, dict) else {}
+                summary["session_statuses"].append(
+                    str(event_payload.get("status") or event_snapshot.get("status") or "")
+                )
             elif event_kind == "session.finished":
                 return
             elif event_kind == "transition.recorded":
@@ -527,56 +539,6 @@ async def _consume_until_idle(
                 ):
                     return
             continue
-
-        if msg_type == "stream_delta":
-            summary["stream_deltas"].append(str(data.get("text") or ""))
-        elif msg_type == "tool_start":
-            summary["tool_events"].append(
-                {
-                    "type": "tool_start",
-                    "call_id": data.get("call_id"),
-                    "tool_name": data.get("tool_name"),
-                }
-            )
-        elif msg_type == "tool_finish":
-            summary["tool_events"].append(
-                {
-                    "type": "tool_finish",
-                    "call_id": data.get("call_id"),
-                    "tool_name": data.get("tool_name"),
-                }
-            )
-        elif msg_type == "command_result":
-            saw_command_result = True
-            summary["command_results"].append(
-                {
-                    "command_name": data.get("command_name"),
-                    "success": bool(data.get("success")),
-                    "message": data.get("message") or "",
-                    "data": data.get("data") or {},
-                }
-            )
-            if not saw_running:
-                return
-        elif msg_type == "permission_request":
-            summary["permission_requests"] += 1
-            await asyncio.get_event_loop().run_in_executor(
-                None, _respond_to_interaction, api_root, session_id, data, True
-            )
-        elif msg_type == "user_input_request":
-            summary["user_input_requests"] += 1
-            await asyncio.get_event_loop().run_in_executor(
-                None, _respond_to_interaction, api_root, session_id, data, False
-            )
-        elif msg_type == "session_status":
-            status = str(data.get("status") or snapshot.get("status") or "")
-            summary["session_statuses"].append(status)
-            if status == "running":
-                saw_running = True
-            if saw_running and status == "idle":
-                return
-            if saw_command_result and status == "idle":
-                return
     raise RuntimeError("Timed out waiting for session to return to idle")
 
 
