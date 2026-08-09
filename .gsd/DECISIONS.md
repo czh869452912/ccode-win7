@@ -40,3 +40,25 @@ aliases; Host mutable Core `Session` ownership was removed; and architecture,
 full Python, six-distribution isolation, lint, and GUI gates passed. Clean
 Windows 7/WebView2 bundle acceptance and real C/C++ project validation remain
 separate external gates.
+
+## 2026-08-09: Official Bundle Recipes Compile To One Immutable Plan
+
+**Status:** Accepted; implementation pending
+
+Adopt a small official bundle recipe registry with `minimal-cli` and
+`cpp-desktop` as the first flavors. Keep flavor (product contents) orthogonal to
+profile (build and validation assurance). Each flavor compiles through the
+trusted Agent component catalog and the single offline runtime contract into
+one immutable, hash-bound bundle plan consumed by dependency export, staging,
+validation, release identity, and evidence selection.
+
+Portable offline flavors continue to build, check, and wheel-only install the
+exact six project distributions. Flavor configuration cannot enumerate wheels,
+runtime assets, binary paths, or release gates. `minimal-cli` reduces shells,
+third-party features, external assets, launchers, and applicable evidence while
+keeping the six-distribution invariant; `cpp-desktop` preserves the current
+full C/C++ desktop contract. Arbitrary product-definition packaging remains
+private until the production catalog and fail-closed plan validation are proven.
+
+The detailed design is recorded in
+`docs/superpowers/specs/2026-08-09-configurable-agent-bundle-flavors-design.md`.
