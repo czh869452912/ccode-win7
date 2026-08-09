@@ -5,12 +5,12 @@
 > 状态：`active`
 > 类型：`platform implementation`
 > 负责人：`GUI maintainers`
-> 最后同步日期：`2026-08-03`
+> 最后同步日期：`2026-08-09`
 > 对应代码范围：`src/embedagent/frontend/gui/`
 
 ## 1. Purpose And Boundary
 
-GUI 是 `CoreInterface` / `FrontendCallbacks` 之上的可注册图形 shell 实现。它由 Python app host 和 local HTTP/WebSocket backend、React workbench renderer、`pywebview` launcher 组成。shell 消费 backend 声明的 app/session capabilities、commands、surfaces、tools 和 generic workflow projection，不内建某个 Agent 应用的能力集。
+GUI 是 `CoreInterface` / `FrontendCallbacks` 之上的可注册图形 shell 实现。它由 Python app host 和 local HTTP/WebSocket backend、React renderer、`pywebview` launcher 组成。shell 消费 product-compiled `ShellDescriptor`、session capabilities、tool metadata 和 generic workflow projection，不内建某个 Agent 应用的能力集。
 
 GUI 不拥有 Agent Core policy、session history、workflow transition、permission decision、tool activation 或 application registry。产品 launcher 将 core factory、agent capabilities、文案和默认组合注入 GUI。
 
@@ -21,11 +21,12 @@ GUI 不拥有 Agent Core policy、session history、workflow transition、permis
 | `launcher.py` | 解析启动选项，接收产品组合，启动 local backend 和 webview |
 | `backend/app_host.py` | workspace registry，按 workspace 创建/切换 `CoreInterface`，绑定 frontend callback |
 | `backend/server.py`, routes/services | HTTP/WebSocket 协议、session/app bootstrap、files、preview、terminal、source control |
-| `backend/app_shell*.py` | backend-owned commands/surfaces/capability shell descriptors |
+| `backend/app_shell.py` | 将 product-compiled `ShellDescriptor` 放入 app bootstrap；不维护本地 catalog |
 | `webapp/src/client-runtime/` | 唯一 shell effect owner；组合 HTTP/WebSocket transports、strict protocol adapter、controllers、lifecycle 和 close |
 | `webapp/src/app-runtime/` | 由 `ClientRuntime` 组合的 controller/effect orchestration；不声明 endpoint，不直接调用 transport |
-| `webapp/src/session-runtime/` | pure session/activity/read-model reducers |
-| `webapp/src/workbench/`, `components/` | renderer-local registries、UI state 和 visual surfaces |
+| `webapp/src/session-runtime/` | pure session/activity/read-model projection；timeline 按 activity、tool 和 diff 分属聚焦模块 |
+| `webapp/src/components/shell/` | session rail、timeline、composer、interaction overlay 和 status 的最小核心布局 |
+| `webapp/src/components/contributions/` | 可选 secondary surface 的 renderer registry 与单一 outlet |
 
 ```mermaid
 flowchart LR
@@ -35,7 +36,7 @@ flowchart LR
     C -->|SessionEventEnvelope| W["WebSocket frontend"]
     W --> PA["strict ProtocolAdapter"]
     PA --> R["ClientRuntime + reducers"]
-    R --> U["capability-driven workbench"]
+    R --> U["minimal Agent shell"]
 ```
 
 ## 3. Registration And Workspace Hosting
@@ -61,17 +62,19 @@ Host 在 event publication 同步边界内捕获 bootstrap cursor。sequence gap
 
 session transport controller 拥有 socket callbacks、retry timer、recovery promise 和 activation abort。`close()` 先关闭生命周期并递增 token，再取消 timer 和 bootstrap、解绑 socket callbacks；陈旧的 `onopen`、`onclose` 或已保存 timer 均不能重启 transport。关闭后的 controller 不可复用，重新连接必须构造新实例。
 
-## 5. Capability-Driven Workbench
+## 5. Minimal Shell And Contributions
 
-backend descriptors 拥有 modes、commands、tools、applications、workflow packages、surfaces、empty-state copy 和 chrome metadata。React 读模型计算当前可见 commands/surfaces，renderer-local registry 只将通用 kind 映射为 component/handler。
+最小 GUI 始终只由 session navigation、连续 timeline、composer/mode/command、blocking interaction 和 compact status 组成。移除全部 secondary surfaces 后，仍能创建/切换会话、发送/停止、响应 permission/user input、观察 tool lifecycle 和恢复状态。
 
-右面板、底部 drawer、command palette、timeline row 和 tool detail 的可见性由 descriptors 与 catalog metadata 驱动。所有 terminal、source-control、preview、file 和 session 操作都经 `ClientRuntime` 的 named protocol methods；renderer 不以 application id、tool name 或 product name 推测能力。当前开放差距是 GUI/TUI 尚未消费同一 product-compiled shell descriptor，renderer-local fallback catalog 将在共享注册切换中删除。
+product-compiled descriptors 拥有 commands、surfaces、keybindings、timeline items 和 interaction renderer keys。React 的冻结 shell selector 只生成 renderer-ready 投影；`App` 只绑定 `ClientRuntime` 并渲染 `AgentShell`。command palette 是核心 overlay。terminal、source control、preview、file browser 和独立 diff view 只有在 descriptor 注册 secondary surface 时，才通过单一 `ContributionOutlet` 和 build-time renderer registry 出现；它们不占用永久宽度或高度。
+
+文件引用、diff、workflow summary 和 tool lifecycle 优先出现在连续 timeline 内。可选贡献面只提供更深查看或专用交互，不成为 session truth。未知 renderer key 在 descriptor 编译/验证阶段失败，不在 React 中以 fallback 猜测。
 
 ## 6. State Ownership
 
 backend-owned：session status、history、workflow、pending interaction、permission context、capabilities、workspace files、source-control 和 terminal service state。
 
-GUI-owned：active panel/tab、panel size、collapsed rows、scroll anchor、draft、command menu、正在提交的 request ids、preview selection 和其他可丢失展示状态。持久化 renderer UI state 不得包含会话真相或 approval secrets。
+GUI-owned：session rail 折叠、timeline scroll anchor、draft、command palette、当前 contribution id、正在提交的 request ids、preview selection 和其他可丢失展示状态。不存在永久 panel/drawer state。持久化 renderer UI state 不得包含会话真相或 approval secrets。
 
 ## 7. Interaction And Safety
 
@@ -91,6 +94,8 @@ webapp 构建目标与 Windows 7 可用的 Chromium/WebView runtime 能力对齐
 - `src/embedagent/frontend/gui/webapp/test/client-runtime.test.mjs`
 - `src/embedagent/frontend/gui/webapp/test/protocol-adapter.test.mjs`
 - `src/embedagent/frontend/gui/webapp/test/protocol-envelope.test.mjs`
+- `src/embedagent/frontend/gui/webapp/test/agent-shell-source.test.mjs`
+- `src/embedagent/frontend/gui/webapp/test/shell-selectors.test.mjs`
 - `src/embedagent/frontend/gui/webapp`: `npm test`, `npm run build`
 
 webapp source 变更后必须提交 `src/embedagent/frontend/gui/static/` 生成资产。实机 Windows 7/browser runtime 验收属于 release evidence，不能由本地前端测试替代。

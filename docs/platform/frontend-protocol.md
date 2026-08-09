@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform contract`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-03`
+> 最后同步日期：`2026-08-09`
 > 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `packages/embedagent-host/src/embedagent_host/runtime/session_event_protocol.py`, `src/embedagent/core/adapter.py`, `src/embedagent/frontend/`
 
 ## 1. Truth Layers
@@ -15,7 +15,7 @@
 | Layer | Purpose | Truth rule |
 |---|---|---|
 | app bootstrap | 产品名、workspace registry、commands、surfaces、shell diagnostics | 只是 shell metadata，不是 session truth |
-| session bootstrap | 激活 session id，返回 thread、snapshot、history、capabilities、workflow、integrity、`event_cursor` | 来自 transcript-backed hosted projection；cursor 由 Host live stream 拥有 |
+| session bootstrap | 激活 session id，返回 thread、snapshot、history、capabilities、integrity、`event_cursor` | 来自 transcript-backed hosted projection；generic workflow 只在 snapshot 的 `workflow_state` 中；cursor 由 Host live stream 拥有 |
 | session event stream | 运行中增量事件 | 只能通过 canonical `SessionEventEnvelope` |
 
 前端 local state 只拥有布局、选中、折叠、draft、scroll 和输入中交互等展示状态。它不拥有 session history、workflow、permission、tool activation、capability availability 或 restore policy。
@@ -66,7 +66,7 @@ GUI 的 `/api/sessions/{id}/bootstrap` 与 TUI 的 `HostedSessionHost.get_sessio
 - frozen session snapshot；
 - `history.activities` 和 integrity summary；
 - session capability snapshot；
-- generic `workflow` projection；
+- snapshot 内的 generic `workflow_state`；
 - non-negative `event_cursor`，表示该 projection 在 Host live event stream 中对应的 high-water mark。
 
 `SessionHistoryAssembler` 拥有 history DTO 序列化，`SessionSnapshotProjector` 拥有 snapshot。GUI/TUI 不从 replay tail、app bootstrap 或自己保存的 timeline 重建 session。
@@ -88,13 +88,13 @@ shell 在请求 bootstrap 前启动新的 activation generation，并缓冲该 s
 - model profiles；
 - empty-state metadata。
 
-app bootstrap 可声明 surfaces、commands 和 workspace state。shell 必须从 descriptor/capability registry 计算可见性、标签、排序、dispatch 和 renderer key；不以产品名、应用 id、工具名或 command id 分支重建 backend policy。
+app bootstrap 携带 product-compiled `ShellDescriptor` 和 workspace state。shell 必须从 descriptor/capability registry 计算可见性、标签、排序、dispatch 和 renderer key；不以产品名、应用 id、工具名或 command id 分支重建 backend policy。GUI 和 TUI 不维护平行 command/surface catalog。
 
 renderer-local registry 只声明当前 shell 支持哪些通用 component/handler/renderer kinds。它是展示实现表，不是 capability source。未支持的 descriptor 必须显式隐藏并产生受控 diagnostics，不得以 generic fallback 补入未注册的应用能力。
 
 ## 6. Generic Workflow Projection
 
-`workflow` 是通用、命名空间可扩展的读模型。shell 可显示 summary、items、activity 和 metadata，但不解释上层应用内部类或在前端推进状态。新应用通过 backend projection 和 descriptors 参与，不要求协议硬编码其专有词汇。
+`SessionSnapshot.workflow_state` 是通用、命名空间可扩展的读模型容器。shell 可通过注册 renderer 显示 `workflow_state["workflow"]` 中的 summary、items、activity 和 metadata，但不解释上层应用内部类或在前端推进状态。新应用通过 workflow projection 和 descriptors 参与，不要求协议硬编码其专有词汇。
 
 ## 7. Interactions
 

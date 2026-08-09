@@ -5,12 +5,12 @@
 > 状态：`active`
 > 类型：`platform implementation`
 > 负责人：`TUI maintainers`
-> 最后同步日期：`2026-08-03`
+> 最后同步日期：`2026-08-09`
 > 对应代码范围：`src/embedagent/frontend/tui/`
 
 ## 1. Purpose And Boundary
 
-TUI 是公开 Hosted Session 边界之上的终端 shell 实现，使用 `prompt_toolkit` 和 `rich` 提供键盘优先、低颜色可回退的 workbench。`TerminalRuntime` 将 `HostedSessionHost` 公开方法适配为与 GUI 相同的 canonical bootstrap/envelope 语义；command、mode、surface 与 task workbench 仍由本地固定 catalog 驱动，尚未完成与 GUI 共用产品注册真相的切换。
+TUI 是公开 Hosted Session 边界之上的终端 shell 实现，使用 `prompt_toolkit` 和 `rich` 提供键盘优先、低颜色可回退的最小 Agent 体验。`TerminalRuntime` 将 `HostedSessionHost` 公开方法适配为与 GUI 相同的 canonical bootstrap/envelope 语义；TUI 与 GUI 消费同一个 product-compiled `ShellDescriptor`，不维护本地产品 catalog。
 
 ## 2. Architecture
 
@@ -20,10 +20,10 @@ TUI 是公开 Hosted Session 边界之上的终端 shell 实现，使用 `prompt
 | `runtime.py` | 唯一 Host/effect owner；session activation、bootstrap cursor、event buffering/gap recovery、interaction/session/workspace calls 和 close |
 | `app.py` | `TerminalApp` 生命周期、runtime action binding 和组件容器 |
 | `frontend_adapter.py` | `TUIFrontend` 将 canonical `SessionEventEnvelope` 投影到 reducer |
-| `controller.py`, `commands.py` | 用户输入、runtime action dispatch 和当前本地 command catalog |
+| `controller.py`, `commands.py`, `shell_state.py` | 用户输入、runtime action dispatch 和 descriptor-backed command/keybinding 投影 |
 | `state.py`, `reducer.py` | 可丢失终端投影与纯状态转换 |
-| `workbench.py`, `layout.py`, `views/` | 当前固定 workbench catalog、layout、overlays、panels 和 rendering；descriptor cutover 尚未完成 |
-| `services/editor.py` | 只拥有 editor buffer/diff presentation；文件副作用仍经 `TerminalRuntime` |
+| `layout.py`, `views/` | header、timeline、composer、status 四区布局及 command/interaction overlays |
+| `contributions.py` | 已注册 secondary surface 的 renderer-key 映射；不拥有 capability policy |
 
 ```mermaid
 flowchart LR
@@ -44,17 +44,15 @@ flowchart LR
 
 bootstrap history 替换 terminal projection；terminal buffer 不是可恢复 transcript。close 后 runtime 拒绝新操作并忽略晚到事件。
 
-## 4. Current Registration Gap
+## 4. Minimal Shell And Contributions
 
-command palette、mode selector、explorer 和 inspector 当前从 `WORKBENCH_COMMANDS`、`RIGHT_PANEL_SURFACES` 及 controller command branches 计算，不是 backend descriptor 的投影。`workflow.diff`、tasks explorer 等 product/application 能力也仍直接出现在 TUI shell 中。
+TUI 固定核心只有 header、scrollable timeline、replaceable composer/interaction region 和一行 status。command palette 与 blocking interaction 以 overlay 出现。`TerminalState` 从 `ShellDescriptor` 初始化命令、快捷键和已注册的 secondary contributions；空 descriptor 不创建 explorer、editor、inspector、terminal、source-control、task 或 preview 状态。
 
-当前收敛切片将由 product composition 注入唯一 shell descriptor，并让 TUI 只保留通用 renderer/handler registry。切换时必须删除固定 catalog 和 fallback，不保留双注册路径。
-
-raw console 或低颜色 host 下必须保持可操作。终端支持差异是 presentation fallback，不是第二套产品能力。
+secondary contribution 通过 `ContributionState` 和 renderer registry 覆盖显示，不占用永久宽度或高度。删除 descriptor 会同时删除其命令、快捷键、状态和视图。raw console 或低颜色 host 下必须保持核心操作可用；终端支持差异是 presentation fallback，不是第二套产品能力。
 
 ## 5. State And Interactions
 
-`TerminalState` 只保存当前 snapshot 投影、展示行、selection、layout、draft、last error 和 pending interaction。permission/user-input response 通过 `TerminalRuntime.respond_to_interaction(...)` 提交，仅在 resolved event 或后续 bootstrap/snapshot 到达后清除 pending state。
+`TerminalState` 只保存 session、timeline、composer、status、overlay、descriptor-backed shell state 和按 id 注册的 contribution state。permission/user-input response 通过 `TerminalRuntime.respond_to_interaction(...)` 提交，仅在 resolved event 或后续 bootstrap/snapshot 到达后清除 pending state。
 
 reducer 保持纯函数，不导入 Host 对象、执行工具或修改权限规则。
 

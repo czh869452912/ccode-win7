@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`application authority`
 > 负责人：`C/C++ workflow maintainers`
-> 最后同步日期：`2026-08-01`
+> 最后同步日期：`2026-08-09`
 > 对应代码范围：`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`, `src/embedagent/product_catalog.py`
 
 ## 1. Purpose And Boundary
@@ -67,7 +67,7 @@ flowchart LR
 - `metadata.current_phase`；
 - `metadata.discipline_profile`。
 
-`Session.workflow_state["workflow"]` 是通用读模型，不是另一个 `TaskGraph`。前端只消费 `task_summary`、`task_items`、`current_phase`、`discipline_profile` 和 `current_activity`，不导入 C/C++ 内部类，也不根据 UI local state 推进 phase。
+`Session.workflow_state["workflow"]` 是通用读模型，不是另一个 `TaskGraph`。前端把它当作 summary/items/activity/metadata 结构交给注册 renderer，不读取扁平 `task_summary`、`task_items`、`current_phase`、`discipline_profile` 或 `current_activity` 字段，不导入 C/C++ 内部类，也不根据 UI local state 推进 phase。
 
 ## 5. Tools And Packs
 

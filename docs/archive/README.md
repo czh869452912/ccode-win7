@@ -3,7 +3,7 @@
 > 状态：`archive`
 > 类型：`reference`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-08-03`
+> 最后同步日期：`2026-08-09`
 > 对应代码范围：`docs/archive/`
 
 ## 1. Purpose
@@ -27,7 +27,7 @@ Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md` 
 - `documentation-navigation-system/`
 - `documentation-domain-separation/`
 - `enterprise-boundary-foundation/`
-- `frontend-shell-convergence-foundation/`
+- `frontend-shell-convergence/`
 - `gui-agent-bridge-review-fixes/`
 - `interaction-response-async/`
 - `gui-app-runtime-boundary/`

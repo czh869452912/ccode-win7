@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`product authority`
 > 负责人：`EmbedAgent product maintainers`
-> 最后同步日期：`2026-08-03`
+> 最后同步日期：`2026-08-09`
 > 对应代码范围：`src/embedagent/`, `packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py`, `packages/embedagent-composition/src/embedagent_composition/`
 
 ## 1. Purpose And Boundary
@@ -74,11 +74,13 @@ flowchart TD
 
 ## 4. Shell Injection
 
-GUI/TUI 的目标边界都是平台级注册 shell。产品层只选择启动哪个 shell，并注入 core factory、application registry、app capabilities、product copy 和 bundled runtime 路径。shell 不得反向读取 `product_catalog.py` 的应用细节以作为 UI policy。
+GUI/TUI 都是平台级注册 shell。产品层选择启动 shell，并注入 core/host factory、application registry、product metadata 和 bundled runtime 路径。shell 不得反向读取应用 catalog 的细节作为 UI policy。
 
-产品 app-shell descriptors 可对 commands、surfaces、keybindings、palette groups 和 disabled capabilities 做选择。这些是组合 metadata，不改变 shell 支持的 generic renderer/handler contract。
+产品维护一个 `ShellContributionRegistry`：generic contribution 定义最小 session/timeline/composer/interaction 能力，selected application 只追加其 commands、surfaces、tool presentation、timeline item 和 interaction records。`compile_shell_descriptor(...)` 合并两层记录，按当前 session capabilities 过滤 application commands，校验唯一 id/order、dispatch kind、renderer key 和 keybinding target，并产出 schema version 1 的 `ShellDescriptor`。
 
-当前 GUI 已消费大部分 app-shell descriptors，TUI 仍使用本地固定 catalog；两者尚未共享同一编译结果。前端收敛切片负责建立 product-owned descriptor compiler，并在 GUI/TUI 同步切换时删除旧 catalog 和 fallback。
+GUI app bootstrap 与 TUI launcher 调用同一个 product shell compiler。两者没有本地固定 catalog、兼容 fallback 或第二条注册路径。renderer registry 只声明该 shell 构建实际支持的通用 renderer key；它不是产品能力真相。
+
+EmbedAgent 默认组合注册最小核心以及 desktop files、terminal、source control、preview 等可选 contributions，并为 C/C++ 应用注册其 application commands。删除任一可选 contribution 不得影响最小 Agent shell 的 session 主干。
 
 ## 5. Configuration And Offline Defaults
 

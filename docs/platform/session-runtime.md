@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform authority`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-02`
+> 最后同步日期：`2026-08-09`
 > 对应代码范围：`packages/embedagent-core/src/embedagent_core/session*.py`, `packages/embedagent-host/src/embedagent_host/runtime/session_*.py`, `packages/embedagent-host/src/embedagent_host/runtime/transcript_store.py`
 
 ## 1. Purpose And Scope
@@ -86,7 +86,7 @@ sequenceDiagram
 
 ## 6. Generic Workflow Carrier
 
-`Session.workflow_state` 是平台级通用载体。扩展可通过已声明的 reducer/patch 合约维护其命名空间；Core 只持久化和投影该状态，不解释某个上层应用的任务语义。前端只消费 snapshot 中的投影，不能回写或从 UI local state 恢复工作流。
+`Session.workflow_state` 是平台级通用载体。扩展可通过已声明的 reducer/patch 合约维护其命名空间；Core 只持久化和投影该状态，不解释某个上层应用的任务语义。Host 将整个容器投影为 `SessionSnapshot.workflow_state`，不再展开应用字段；前端只通过注册 renderer 消费 `workflow_state["workflow"]`，不能回写或从 UI local state 恢复工作流。
 
 ## 7. Verification
 

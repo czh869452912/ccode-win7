@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`architecture`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-08-01`
+> 最后同步日期：`2026-08-09`
 
 ## Purpose
 
@@ -85,7 +85,9 @@ Workspace skills, prompts, and recipes are reloadable data resources. Enabled pr
 
 Host owns generic concrete runtime services and managed-session projections. Platform protocol owns the registrable CLI/TUI/GUI contracts and shell behavior; those implementations currently ship in the product distribution. Product owns configuration/bootstrap, the default application catalog, product policies, shell selection, and offline assets. The product may compose all lower distributions; lower distributions never call back into product namespaces.
 
-Frontend behavior is backend-declared through protocol DTOs and capability projections. Shells may render modes, commands, surfaces, thread actions, tool presentation, and workflow read models, but they do not own activation, permission, restore, extension loading, session history, or workflow policy. Missing backend labels or values remain missing rather than being synthesized from product-specific defaults.
+Frontend behavior is product-compiled and backend-declared through protocol DTOs and capability projections. GUI and TUI consume the same `ShellDescriptor`; the stable core is session navigation, one continuous timeline, composer/modes/commands, blocking interactions, and status. Terminal, source control, preview, file browser, and dedicated diff views are optional registered contributions and never become permanent layout or session truth.
+
+Shells may render modes, commands, surfaces, thread actions, tool presentation, and `SessionSnapshot.workflow_state["workflow"]`, but they do not own activation, permission, restore, extension loading, session history, or workflow policy. Protocol and Host do not flatten C/C++ phase/task semantics. Missing declarations remain missing rather than being synthesized from product-specific defaults.
 
 ## Offline Runtime And Release Evidence
 

@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform authority`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-03`
+> 最后同步日期：`2026-08-09`
 > 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `src/embedagent/core/`
 
 ## 1. Purpose And Boundary
@@ -36,18 +36,18 @@
 - activity：`Message`, `ToolCall`, `ToolResult`, `CommandResult`, `InteractionActivity`；
 - workspace：`WorkspaceInfo`, `DiffPreview`, `RuntimeEnvironmentSnapshot`。
 
-`SessionBootstrap` 是唯一详细会话 bootstrap DTO；已不存在并行 detail DTO。当前 `SessionSnapshot` 仍包含 `current_phase`、`discipline_profile`、`current_activity`、`task_summary` 和 `task_items` 等上层 workflow 展开字段，后续应用边界切片将让消费者只读取 generic `workflow`，并删除这些字段及其 Host/frontend 映射。
+`SessionBootstrap` 是唯一详细会话 bootstrap DTO；已不存在并行 detail DTO。`SessionSnapshot.workflow_state` 是唯一通用 workflow carrier，协议不展开 phase、discipline、task 或 activity 等应用字段。应用需要给 UI 的读模型位于 `workflow_state["workflow"]`，协议只验证其 JSON-safe 容器，不解释内容。
 
-DTO 可以携带通用 `workflow` 字典和 capability metadata，但协议发行包不导入任何应用实现。
+DTO 可以携带通用 workflow state 和 capability metadata，但协议发行包不导入任何应用实现。
 
 ## 4. Current Wire Schema
 
-当前 wire schema version 是整数 `1`。`AppBootstrap`、`SessionBootstrap`、`ShellDescriptor` 和 `CapabilitySnapshot` 构造时拒绝其他版本；GUI strict protocol normalizer 对 bootstrap、capability 和 `SessionEventEnvelope` 同样只接受 version `1` 与 `snake_case` keys。app-shell registration 的内部 view projection 不定义 wire shape，并将在共享注册切换中由 product-compiled descriptor 取代。
+当前 wire schema version 是整数 `1`。`AppBootstrap`、`SessionBootstrap`、`ShellDescriptor` 和 `CapabilitySnapshot` 构造时拒绝其他版本；GUI strict protocol normalizer 对 bootstrap、capability 和 `SessionEventEnvelope` 同样只接受 version `1` 与 `snake_case` keys。product composition 编译一个 `ShellDescriptor`，GUI/TUI 消费同一结构；renderer view projection 不定义第二套 wire shape。
 
 | Root DTO | Exact current root keys |
 |---|---|
 | `AppBootstrap` | `schema_version`, `app`, `workspaces`, `active_workspace`, `has_active_workspace`, `shell`, `settings`, `diagnostics`, `last_error`；workspace 删除响应可额外包含 `removed` |
-| `SessionBootstrap` | `schema_version`, `event_cursor`, `thread`, `snapshot`, `history`, `capabilities`, `workflow`, `plan`, `permission_context` |
+| `SessionBootstrap` | `schema_version`, `event_cursor`, `thread`, `snapshot`, `history`, `capabilities`, `plan`, `permission_context` |
 | `CapabilitySnapshot` | `schema_version`, `modes`, `commands`, `tools`, `workflow_packages`, `agent_application`, `agent_applications`, `resources`, `model_profiles`, `empty_state` |
 | `SessionEventEnvelope` | `schema_version`, `event_id`, `session_id`, `sequence`, `event_kind`, `timestamp`, `payload` |
 
