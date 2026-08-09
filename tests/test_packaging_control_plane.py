@@ -668,6 +668,25 @@ class TestPrepareOfflineContract(unittest.TestCase):
             validator,
         )
 
+    def test_package_verify_passes_flavor_specific_artifact_paths(self):
+        script = LIB.read_text(encoding="utf-8")
+
+        self.assertIn("'-ArtifactName', [string]$Context.artifact_name", script)
+        self.assertIn("'-SourcesRoot', $sourcesRoot", script)
+        self.assertIn("'-ZipPath', $zipPath", script)
+        self.assertIn(
+            "$report.evidence_root = Join-Path ([string]$Context.artifact_root)",
+            script,
+        )
+        self.assertIn(
+            "$Context.command -in @('release', 'verify')",
+            script,
+        )
+        self.assertIn(
+            "$Context.command -notin @('release', 'verify')",
+            script,
+        )
+
     def test_cli_smoke_report_is_excluded_from_bundle_identity_hashes(self):
         expected_path = "manifests/cli-smoke-report.json"
 

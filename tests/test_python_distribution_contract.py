@@ -42,18 +42,22 @@ WORKSPACE_DISTRIBUTIONS = (
 )
 
 ROOT_DEPENDENCIES = [
-    "prompt-toolkit==3.0.52",
-    "rich==14.3.3",
-    "pywebview>=4.0",
-    "fastapi>=0.100",
-    "uvicorn[standard]>=0.23",
-    "websockets>=11.0",
     "embedagent-core==0.1.0",
     "embedagent-protocol==0.1.0",
     "embedagent-host==0.1.0",
     "embedagent-composition==0.1.0",
     "embedagent-workflow-cpp==0.1.0",
 ]
+
+ROOT_OPTIONAL_DEPENDENCIES = {
+    "tui": ["prompt-toolkit==3.0.52", "rich==14.3.3"],
+    "gui": [
+        "pywebview>=4.0",
+        "fastapi>=0.100",
+        "uvicorn[standard]>=0.23",
+        "websockets>=11.0",
+    ],
+}
 
 PACKAGE_LAYOUTS = (
     (Path("packages/embedagent-core/pyproject.toml"), "embedagent_core*"),
@@ -102,12 +106,17 @@ VALID_WHEEL_DEPENDENCIES = {
     "embedagent-composition": (),
     "embedagent-workflow-cpp": ("embedagent-core ==0.1.0",),
     "embedagent": (
-        "prompt-toolkit ==3.0.52",
         "embedagent-core ==0.1.0",
         "embedagent-protocol ==0.1.0",
         "embedagent-host ==0.1.0",
         "embedagent-composition ==0.1.0",
         "embedagent-workflow-cpp ==0.1.0",
+        "prompt-toolkit ==3.0.52 ; extra == 'tui'",
+        "rich ==14.3.3 ; extra == 'tui'",
+        "pywebview >=4.0 ; extra == 'gui'",
+        "fastapi >=0.100 ; extra == 'gui'",
+        "uvicorn[standard] >=0.23 ; extra == 'gui'",
+        "websockets >=11.0 ; extra == 'gui'",
     ),
 }
 
@@ -135,6 +144,7 @@ def test_root_distribution_composes_exact_product_dependencies():
 
     assert root_project["name"] == "embedagent"
     assert root_project["dependencies"] == ROOT_DEPENDENCIES
+    assert root_project["optional-dependencies"] == ROOT_OPTIONAL_DEPENDENCIES
 
 
 def test_root_distribution_owns_only_product_package():

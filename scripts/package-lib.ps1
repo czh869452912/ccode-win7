@@ -1087,6 +1087,8 @@ function Get-PackageDoctorChecks {
     $projectRoot = [string]$Context.project_root
     $config = $Context.config
     $configPath = [string]$Context.config_path
+    $hasGuiShell = @($Context.bundle_plan.shell_ids) -contains 'gui'
+    $hasLlvm = @($Context.bundle_plan.runtime_component_ids) -contains 'llvm'
     $checks += New-PackageDoctorCheck -Name 'config' -Code 'config' -Ok (Test-Path -LiteralPath $configPath) -Blocking $releaseBlocking -Path $configPath
     $assetManifestPath = Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.paths.asset_manifest)
     $checks += New-PackageDoctorCheck -Name 'asset_manifest' -Code 'asset_manifest' -Ok (Test-Path -LiteralPath $assetManifestPath) -Blocking $releaseBlocking -Path $assetManifestPath
@@ -1094,30 +1096,34 @@ function Get-PackageDoctorChecks {
     $toolingPaths = @(
         (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.compile_bundle_plan)),
         (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.export_dependencies)),
-        (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.build_gui_launcher)),
         (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.prepare_bundle)),
         (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.build_bundle)),
         (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.validate_bundle)),
         (Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.check_dependencies))
     )
+    if ($hasGuiShell) {
+        $toolingPaths += Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.tooling.build_gui_launcher)
+    }
     foreach ($toolPath in $toolingPaths) {
         $toolName = [System.IO.Path]::GetFileName($toolPath)
         $checks += New-PackageDoctorCheck -Name ('tool:' + $toolName) -Code ('tool.' + $toolName) -Ok (Test-Path -LiteralPath $toolPath) -Blocking $releaseBlocking -Path $toolPath
     }
 
-    $npmOk = $false
-    $npmVersion = ''
-    try {
-        $npmVersion = (& npm --version 2>&1 | Out-String).Trim()
-        $npmOk = ($LASTEXITCODE -eq 0) -and ($npmVersion -ne '')
-    }
-    catch {
+    if ($hasGuiShell) {
         $npmOk = $false
+        $npmVersion = ''
+        try {
+            $npmVersion = (& npm --version 2>&1 | Out-String).Trim()
+            $npmOk = ($LASTEXITCODE -eq 0) -and ($npmVersion -ne '')
+        }
+        catch {
+            $npmOk = $false
+        }
+        $prebuiltFrontendStatus = Get-GuiFrontendAssetStatus -ProjectRoot $projectRoot
+        $prebuiltFrontendOk = [bool]$prebuiltFrontendStatus.ok
+        $npmPath = if ($npmOk) { 'npm (' + $npmVersion + ')' } else { [string]$prebuiltFrontendStatus.static_root }
+        $checks += New-PackageDoctorCheck -Name 'runtime:npm' -Code 'runtime.npm' -Ok ($npmOk -or $prebuiltFrontendOk) -Blocking $releaseBlocking -Path $npmPath
     }
-    $prebuiltFrontendStatus = Get-GuiFrontendAssetStatus -ProjectRoot $projectRoot
-    $prebuiltFrontendOk = [bool]$prebuiltFrontendStatus.ok
-    $npmPath = if ($npmOk) { 'npm (' + $npmVersion + ')' } else { [string]$prebuiltFrontendStatus.static_root }
-    $checks += New-PackageDoctorCheck -Name 'runtime:npm' -Code 'runtime.npm' -Ok ($npmOk -or $prebuiltFrontendOk) -Blocking $releaseBlocking -Path $npmPath
 
     $pythonPath = ''
     $pythonVersion = ''
@@ -1155,20 +1161,14 @@ function Get-PackageDoctorChecks {
         $checks += New-PackageDoctorCheck -Name ('asset:' + $assetId) -Code ('asset.cache.' + $assetId) -Ok $cacheOk -Blocking $releaseBlocking -Path $cachePath
     }
 
-    $webviewAsset = @($assetManifest.assets | Where-Object { [string]$_.id -eq 'webview2_fixed_runtime_x64' }) | Select-Object -First 1
-    $webviewPath = if ($webviewAsset) { Join-Path $cacheRoot ([string]$webviewAsset.cache_relpath) } else { Join-Path $cacheRoot 'webview2' }
-    $webviewOk = [bool]$webviewAsset -and (Test-Path -LiteralPath $webviewPath -PathType Leaf)
-    if ($Context.allow_download -and -not $webviewOk) {
-        $webviewOk = $true
-    }
-    $checks += New-PackageDoctorCheck -Name 'asset:webview2_fixed_runtime_x64' -Code 'asset.cache.webview2_fixed_runtime_x64' -Ok $webviewOk -Blocking $releaseBlocking -Path $webviewPath
-
-    $llvmRoot = Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.paths.llvm_root)
-    $llvmMain = Join-Path $llvmRoot 'bin\clang.exe'
-    $checks += New-PackageDoctorCheck -Name 'toolchain:llvm' -Code 'toolchain.llvm' -Ok (Test-Path -LiteralPath $llvmMain -PathType Leaf) -Blocking $releaseBlocking -Path $llvmMain
-    foreach ($childName in @('clang.exe', 'clang++.exe', 'clang-cl.exe', 'clang-tidy.exe', 'clang-analyzer.bat', 'llvm-profdata.exe', 'llvm-cov.exe')) {
-        $childPath = Join-Path $llvmRoot ('bin\' + $childName)
-        $checks += New-PackageDoctorCheck -Name ('toolchain:llvm:' + $childName) -Code ('toolchain.llvm.' + $childName) -Ok (Test-Path -LiteralPath $childPath -PathType Leaf) -Blocking $releaseBlocking -Path $childPath
+    if ($hasLlvm) {
+        $llvmRoot = Resolve-ConfigPath -ProjectRoot $projectRoot -Path ([string]$config.paths.llvm_root)
+        $llvmMain = Join-Path $llvmRoot 'bin\clang.exe'
+        $checks += New-PackageDoctorCheck -Name 'toolchain:llvm' -Code 'toolchain.llvm' -Ok (Test-Path -LiteralPath $llvmMain -PathType Leaf) -Blocking $releaseBlocking -Path $llvmMain
+        foreach ($childName in @('clang.exe', 'clang++.exe', 'clang-cl.exe', 'clang-tidy.exe', 'clang-analyzer.bat', 'llvm-profdata.exe', 'llvm-cov.exe')) {
+            $childPath = Join-Path $llvmRoot ('bin\' + $childName)
+            $checks += New-PackageDoctorCheck -Name ('toolchain:llvm:' + $childName) -Code ('toolchain.llvm.' + $childName) -Ok (Test-Path -LiteralPath $childPath -PathType Leaf) -Blocking $releaseBlocking -Path $childPath
+        }
     }
 
     $distributionNames = @($Context.bundle_plan.project_distribution_ids)
@@ -1929,11 +1929,18 @@ function Invoke-PackageVerify {
     $checkScript = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.check_dependencies)
     $validateJson = New-ReportPath -Context $Context -StageName 'validate'
     $checkJson = New-ReportPath -Context $Context -StageName 'check'
+    $artifactParent = Split-Path -Parent $bundleRoot
+    $artifactLeaf = Split-Path -Leaf $bundleRoot
+    $sourcesRoot = Join-Path $artifactParent ($artifactLeaf + '-sources')
+    $zipPath = Join-Path $artifactParent ($artifactLeaf + '.zip')
 
     Write-PackageLog "[verify] Running validate-offline-bundle.ps1..."
     $verifyTimer = New-PackageStageTimer
     $validateArgs = @(
+        '-ArtifactName', [string]$Context.artifact_name,
         '-BundleRoot', $bundleRoot,
+        '-SourcesRoot', $sourcesRoot,
+        '-ZipPath', $zipPath,
         '-BundlePlanPath', [string]$Context.bundle_plan_path,
         '-BundlePlanSha256', [string]$Context.bundle_plan_sha256,
         '-JsonOutputPath', $validateJson
@@ -1978,7 +1985,6 @@ function Invoke-PackageVerify {
     $localGatesOk = $true
     $strictRelease = ($Context.config.paths.PSObject.Properties.Name -contains 'release_identity') -and [bool]$Context.profile_config.run_dynamic_checks
     if ($strictRelease) {
-        $sourcesRoot = Join-Path (Split-Path -Parent $bundleRoot) ((Split-Path -Leaf $bundleRoot) + '-sources')
         if (-not (Invoke-PackageIdentityGate -Context $Context -Report $Report.Value -BundleRoot $bundleRoot -SourcesRoot $sourcesRoot)) {
             $localGatesOk = $false
         }
@@ -2004,7 +2010,6 @@ function Invoke-PackageVerify {
             Write-PackageLog ("[verify]   transient cleanup FAILED: {0}" -f $_.Exception.Message)
             $localGatesOk = $false
         }
-        $zipPath = Join-Path (Split-Path -Parent $bundleRoot) ((Split-Path -Leaf $bundleRoot) + '.zip')
         if (-not (Invoke-PackageZipExtractionGate -Context $Context -Report $Report.Value -BundleRoot $bundleRoot -SourcesRoot $sourcesRoot -ZipPath $zipPath)) {
             $localGatesOk = $false
         }
@@ -2276,14 +2281,17 @@ function Invoke-PackageCommand {
     if ($identityConfigured -and ($Context.execution_kind -ne 'release' -or $Context.config_origin -ne 'production' -or $Context.profile -ne 'release')) {
         $identityConfigured = $false
     }
-    if ($identityConfigured -and $report.final_status -eq 'READY') {
+    if ($Context.command -notin @('release', 'verify')) {
+        $report.artifact_status = 'provisional'
+        $report.publishable = $false
+    }
+    if ($identityConfigured -and $Context.command -in @('release', 'verify') -and $report.final_status -eq 'READY') {
         $report.final_status = 'TARGET_READY'
         $report.release_state = 'TARGET_READY'
         $report.acceptance_status = 'PENDING_WIN7'
         $report.artifact_status = 'target-ready'
         $report.publishable = $false
-        $targetBundleRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.dist_bundle_root)
-        $report.evidence_root = Join-Path $targetBundleRoot 'manifests\evidence'
+        $report.evidence_root = Join-Path ([string]$Context.artifact_root) 'manifests\evidence'
     }
     $null = Write-PackageReport -Context $Context -Report $report
     $statusStr = $report.command_status

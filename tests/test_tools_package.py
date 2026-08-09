@@ -1146,12 +1146,19 @@ class TestRuntimeContractAlignment(unittest.TestCase):
         with open(contract_path, "r", encoding="utf-8") as handle:
             return json.load(handle)
 
+    def _managed_tools(self, payload):
+        return [
+            tool
+            for component in payload["runtime_components"]
+            for tool in component.get("managed_tools") or []
+        ]
+
     def test_runtime_contract_matches_managed_tool_keys(self):
         payload = self._load_contract()
         from embedagent_host.runtime.tools._base import MANAGED_RUNTIME_TOOL_KEYS
 
         self.assertEqual(
-            [item["id"] for item in payload["required_tools"]],
+            [item["id"] for item in self._managed_tools(payload)],
             list(MANAGED_RUNTIME_TOOL_KEYS),
         )
 
@@ -1160,7 +1167,7 @@ class TestRuntimeContractAlignment(unittest.TestCase):
         ctx = ToolContext(self.workspace)
 
         names = []
-        for item in payload["required_tools"]:
+        for item in self._managed_tools(payload):
             names.extend(item.get("command_names") or [])
             for child in item.get("children") or []:
                 names.extend(child.get("command_names") or [])

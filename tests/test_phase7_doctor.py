@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from embedagent_composition import PORTABLE_PROJECT_DISTRIBUTIONS
 
 pytestmark = pytest.mark.release
 
@@ -27,18 +28,21 @@ def _powershell_exe():
     raise RuntimeError("PowerShell is required for package doctor tests")
 
 
-def _doctor(profile):
+def _doctor(profile, flavor=None):
+    command = [
+        _powershell_exe(),
+        "-NoProfile",
+        "-File",
+        str(PACKAGE_SCRIPT),
+        "doctor",
+        "-Profile",
+        profile,
+        "-Json",
+    ]
+    if flavor is not None:
+        command.extend(("-Flavor", flavor))
     result = subprocess.run(
-        [
-            _powershell_exe(),
-            "-NoProfile",
-            "-File",
-            str(PACKAGE_SCRIPT),
-            "doctor",
-            "-Profile",
-            profile,
-            "-Json",
-        ],
+        command,
         cwd=str(ROOT),
         capture_output=True,
         text=True,
@@ -52,14 +56,15 @@ def _doctor(profile):
     return report
 
 
-def test_release_config_declares_identity_evidence_and_distribution_contract():
+def test_release_config_keeps_assurance_separate_from_distribution_contract():
     config = json.loads(CONFIG.read_text(encoding="utf-8"))
 
     assert config["paths"]["release_identity"] == "manifests/release-identity.json"
     assert config["paths"]["release_evidence_root"] == "manifests/evidence"
     release = config["profiles"]["release"]
     assert release["minimum_free_bytes"] == 8589934592
-    assert release["required_project_distributions"] == [
+    assert "required_project_distributions" not in release
+    assert list(PORTABLE_PROJECT_DISTRIBUTIONS) == [
         "embedagent-core",
         "embedagent-protocol",
         "embedagent-host",
@@ -84,6 +89,23 @@ def test_release_doctor_projects_structured_runtime_and_asset_checks():
     ):
         assert code in checks
         assert {"code", "ok", "blocking"}.issubset(checks[code])
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-only: requires PowerShell")
+def test_minimal_release_doctor_omits_desktop_only_prerequisites():
+    report = _doctor("release", "minimal-cli")
+    codes = {item["code"] for item in report["doctor_checks"]}
+
+    assert {
+        "asset.cache.python_embedded_x64",
+        "asset.cache.mingit_x64",
+        "asset.cache.ripgrep_x64",
+        "asset.cache.universal_ctags_x64",
+    }.issubset(codes)
+    assert "tool.build-gui-launcher.ps1" not in codes
+    assert "runtime.npm" not in codes
+    assert "asset.cache.webview2_fixed_runtime_x64" not in codes
+    assert "toolchain.llvm" not in codes
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-only: requires PowerShell")

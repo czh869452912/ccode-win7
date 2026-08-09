@@ -1,6 +1,9 @@
 [CmdletBinding()]
 param(
+    [string]$ArtifactName = '',
     [string]$BundleRoot = '',
+    [string]$SourcesRoot = '',
+    [string]$ZipPath = '',
     [string]$JsonOutputPath = '',
     [string]$BundlePlanPath = '',
     [string]$BundlePlanSha256 = '',
@@ -8,6 +11,15 @@ param(
     [switch]$RequireComplete
 )
 
+if ((Split-Path -Leaf $BundleRoot) -ne $ArtifactName) {
+    throw 'mock validate artifact name mismatch'
+}
+if ($SourcesRoot -ne ($BundleRoot + '-sources')) {
+    throw 'mock validate sources root mismatch'
+}
+if ($ZipPath -ne ($BundleRoot + '.zip')) {
+    throw 'mock validate zip path mismatch'
+}
 if (-not (Test-Path -LiteralPath $BundlePlanPath -PathType Leaf)) {
     throw 'mock validate expected BundlePlanPath'
 }
