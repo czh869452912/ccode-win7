@@ -1070,7 +1070,13 @@ function Invoke-PackageDeps {
     else {
         Join-Path $Context.project_root 'build\offline-cache\uv'
     }
-    $arguments = @('--output-dir', $outputRoot, '--json-report', $jsonPath, '--cache-dir', $uvCacheRoot)
+    $arguments = @(
+        '--output-dir', $outputRoot,
+        '--json-report', $jsonPath,
+        '--cache-dir', $uvCacheRoot,
+        '--bundle-plan', [string]$Context.bundle_plan_path,
+        '--bundle-plan-sha256', [string]$Context.bundle_plan_sha256
+    )
     $offlineDependencyBuild = $false
     if ($Context.profile_config.PSObject.Properties.Name -contains 'offline_dependency_build') {
         $offlineDependencyBuild = [bool]$Context.profile_config.offline_dependency_build

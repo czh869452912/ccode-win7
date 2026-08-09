@@ -9,13 +9,6 @@ description = "Offline-first agentic coding platform with a generic Agent Core a
 readme = "README.md"
 requires-python = ">=3.8,<3.9"
 dependencies = [
-    "prompt-toolkit==3.0.52",
-    "rich==14.3.3",
-    # GUI dependencies
-    "pywebview>=4.0",
-    "fastapi>=0.100",
-    "uvicorn[standard]>=0.23",
-    "websockets>=11.0",
     "embedagent-core==0.1.0",
     "embedagent-protocol==0.1.0",
     "embedagent-host==0.1.0",
@@ -24,10 +17,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# 纯 CLI/TUI 版本（无 GUI）
-cli = [
+tui = [
     "prompt-toolkit==3.0.52",
     "rich==14.3.3",
+]
+gui = [
+    "pywebview>=4.0",
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.23",
+    "websockets>=11.0",
 ]
 
 [project.scripts]
@@ -118,8 +116,14 @@ show_missing = true
 [dependency-groups]
 dev = [
     "black==24.8.0",
+    "fastapi>=0.100",
+    "prompt-toolkit==3.0.52",
+    "pywebview>=4.0",
     "pytest>=8.3.5",
     "pytest-cov>=4.0,<6.0",
+    "rich==14.3.3",
     "ruff>=0.15.12",
     "tomli==2.4.1",
+    "uvicorn[standard]>=0.23",
+    "websockets>=11.0",
 ]

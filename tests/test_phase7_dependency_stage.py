@@ -1,3 +1,4 @@
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -60,3 +61,41 @@ def test_export_report_contains_exact_project_wheel_set(tmp_path):
 
     assert payload["project_distributions"] == list(module.PROJECT_DISTRIBUTIONS)
     assert len(payload["project_wheels"]) == 6
+
+
+def test_bundle_plan_loads_selected_features_and_verifies_hash(tmp_path):
+    module = _load_exporter()
+    plan = {
+        "schema_version": 1,
+        "flavor_id": "cpp-desktop",
+        "python_feature_ids": ["gui", "tui"],
+        "project_distribution_ids": list(module.PROJECT_DISTRIBUTIONS),
+    }
+    path = tmp_path / "bundle-plan.json"
+    path.write_text(json.dumps(plan, sort_keys=True, separators=(",", ":")), encoding="ascii")
+    expected_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+
+    loaded, actual_hash, features = module.load_bundle_plan(str(path), expected_hash)
+
+    assert loaded == plan
+    assert actual_hash == expected_hash
+    assert features == ("gui", "tui")
+
+
+def test_bundle_plan_rejects_hash_mismatch(tmp_path):
+    module = _load_exporter()
+    path = tmp_path / "bundle-plan.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "flavor_id": "minimal-cli",
+                "python_feature_ids": [],
+                "project_distribution_ids": list(module.PROJECT_DISTRIBUTIONS),
+            }
+        ),
+        encoding="ascii",
+    )
+
+    with pytest.raises(ValueError, match="bundle plan hash mismatch"):
+        module.load_bundle_plan(str(path), "0" * 64)

@@ -48,6 +48,7 @@ PROJECT_DISTRIBUTIONS = (
     "embedagent-workflow-cpp",
     "embedagent",
 )
+PYTHON_FEATURES = frozenset(("gui", "tui"))
 
 
 def find_uv():
@@ -57,24 +58,33 @@ def find_uv():
     return sh.which("uv")
 
 
-def get_all_dependencies(project_root: str) -> List[str]:
-    """Get full pinned dependency list from uv.lock or pip freeze."""
+def _validated_feature_ids(feature_ids: Tuple[str, ...]) -> Tuple[str, ...]:
+    normalized = tuple(sorted(set(str(item or "").strip() for item in feature_ids)))
+    if any(not item or item not in PYTHON_FEATURES for item in normalized):
+        raise ValueError("unknown python feature")
+    return normalized
+
+
+def get_all_dependencies(project_root: str, feature_ids: Tuple[str, ...] = ()) -> List[str]:
+    """Export only the locked third-party features selected by the bundle plan."""
+    features = _validated_feature_ids(feature_ids)
     uv = find_uv()
     lock_file = Path(project_root) / "uv.lock"
 
     if uv and lock_file.exists():
         print("Using uv export from uv.lock...")
-        result = _run(
-            [
-                uv,
-                "export",
-                "--no-hashes",
-                "--format",
-                "requirements-txt",
-                "--no-emit-workspace",
-            ],
-            cwd=project_root,
-        )
+        command = [
+            uv,
+            "export",
+            "--no-hashes",
+            "--format",
+            "requirements-txt",
+            "--no-emit-workspace",
+            "--no-dev",
+        ]
+        for feature_id in features:
+            command.extend(("--extra", feature_id))
+        result = _run(command, cwd=project_root)
         deps = []
         for line in result.stdout.splitlines():
             line = line.strip()
@@ -89,15 +99,7 @@ def get_all_dependencies(project_root: str) -> List[str]:
             deps.append(line)
         return deps
 
-    # Fallback: pip freeze
-    print("uv not found or no uv.lock, falling back to pip freeze...")
-    result = _run([sys.executable, "-m", "pip", "freeze", "--all"], cwd=project_root)
-    deps = []
-    for line in result.stdout.splitlines():
-        line = line.strip()
-        if line and not line.startswith("#"):
-            deps.append(line)
-    return deps
+    raise RuntimeError("uv and uv.lock are required for plan-selected dependency export")
 
 
 def build_project_wheels(
@@ -198,6 +200,27 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def load_bundle_plan(path: str, expected_sha256: str = ""):
+    if not path:
+        raise ValueError("bundle plan is required")
+    plan_path = Path(path)
+    if not plan_path.is_file():
+        raise ValueError("bundle plan not found")
+    plan_sha256 = _sha256_file(plan_path)
+    if expected_sha256 and plan_sha256 != str(expected_sha256).strip().lower():
+        raise ValueError("bundle plan hash mismatch")
+    payload = json.loads(plan_path.read_text(encoding="ascii"))
+    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+        raise ValueError("unsupported bundle plan")
+    if tuple(payload.get("project_distribution_ids") or ()) != PROJECT_DISTRIBUTIONS:
+        raise ValueError("bundle plan project distributions mismatch")
+    feature_ids = _validated_feature_ids(tuple(payload.get("python_feature_ids") or ()))
+    flavor_id = str(payload.get("flavor_id") or "").strip()
+    if not flavor_id:
+        raise ValueError("bundle plan flavor is required")
+    return payload, plan_sha256, feature_ids
+
+
 def clean_export_root(output_dir: Path) -> Path:
     root = Path(output_dir)
     if root.exists():
@@ -229,6 +252,9 @@ def export_site_packages(
     python_version: str = "3.8",
     cache_dir: str = "",
     offline: bool = False,
+    feature_ids: Tuple[str, ...] = (),
+    flavor_id: str = "",
+    bundle_plan_sha256: str = "",
 ) -> None:
     """Export complete site-packages for offline use."""
     if cache_dir:
@@ -238,7 +264,8 @@ def export_site_packages(
     output_path = clean_export_root(Path(output_dir))
 
     print("Step 1: Getting full dependency list...")
-    deps = get_all_dependencies(project_root)
+    features = _validated_feature_ids(feature_ids)
+    deps = get_all_dependencies(project_root, features)
     print(f"Found {len(deps)} packages")
 
     # Write pinned requirements
@@ -356,6 +383,9 @@ def export_site_packages(
             ]
         ),
         "requirements": deps,
+        "flavor_id": flavor_id,
+        "bundle_plan_sha256": bundle_plan_sha256,
+        "python_feature_ids": list(features),
         "project_distributions": list(PROJECT_DISTRIBUTIONS),
         "project_wheels": [path.name for path in project_wheels],
         "wheel_hashes": {path.name: _sha256_file(path) for path in project_wheels},
@@ -366,30 +396,40 @@ def export_site_packages(
     print(f"Written manifest to {manifest_file}")
 
 
-def verify_site_packages(site_packages_dir: str) -> Tuple[bool, List[str]]:
+def verify_site_packages(
+    site_packages_dir: str,
+    feature_ids: Tuple[str, ...] = (),
+) -> Tuple[bool, List[str]]:
     """Verify critical packages are present."""
     sp = Path(site_packages_dir)
     critical_packages = [
-        "prompt_toolkit",
-        "rich",
-        "webview",
-        "fastapi",
-        "uvicorn",
-        "websockets",
-        "starlette",
-        "pydantic",
-        "anyio",
-        "click",
-        "h11",
-        "idna",
-        "sniffio",
-        "typing_extensions",
         "embedagent_core",
         "embedagent_protocol",
         "embedagent_host",
         "embedagent_composition",
+        "embedagent_workflow_cpp",
         "embedagent",
     ]
+    features = _validated_feature_ids(feature_ids)
+    if "tui" in features:
+        critical_packages.extend(("prompt_toolkit", "rich"))
+    if "gui" in features:
+        critical_packages.extend(
+            (
+                "webview",
+                "fastapi",
+                "uvicorn",
+                "websockets",
+                "starlette",
+                "pydantic",
+                "anyio",
+                "click",
+                "h11",
+                "idna",
+                "sniffio",
+                "typing_extensions",
+            )
+        )
 
     missing = []
     for pkg in critical_packages:
@@ -449,10 +489,25 @@ def main():
         action="store_true",
         help="Disable network access during project wheel builds",
     )
+    parser.add_argument(
+        "--bundle-plan",
+        default="",
+        help="Compiled bundle plan selecting Python dependency features",
+    )
+    parser.add_argument(
+        "--bundle-plan-sha256",
+        default="",
+        help="Expected SHA-256 of the compiled bundle plan",
+    )
 
     args = parser.parse_args()
 
     try:
+        plan, plan_sha256, feature_ids = load_bundle_plan(
+            args.bundle_plan,
+            args.bundle_plan_sha256,
+        )
+        flavor_id = str(plan["flavor_id"])
         if args.verify_only:
             site_packages = Path(args.output_dir) / "site-packages"
             if not site_packages.exists():
@@ -464,7 +519,7 @@ def main():
                 write_json_report(args.json_report, payload)
                 print(f"Site-packages not found: {site_packages}")
                 sys.exit(1)
-            success, missing = verify_site_packages(str(site_packages))
+            success, missing = verify_site_packages(str(site_packages), feature_ids)
             write_json_report(
                 args.json_report,
                 {
@@ -472,6 +527,9 @@ def main():
                     "mode": "verify-only",
                     "site_packages_root": str(site_packages),
                     "missing_packages": missing,
+                    "flavor_id": flavor_id,
+                    "bundle_plan_sha256": plan_sha256,
+                    "python_feature_ids": list(feature_ids),
                 },
             )
             sys.exit(0 if success else 1)
@@ -482,11 +540,17 @@ def main():
             args.python_version,
             cache_dir=args.cache_dir,
             offline=args.offline,
+            feature_ids=feature_ids,
+            flavor_id=flavor_id,
+            bundle_plan_sha256=plan_sha256,
         )
 
         site_packages = Path(args.output_dir) / "site-packages"
         if site_packages.exists():
-            success, missing = verify_site_packages(str(site_packages))
+            success, missing = verify_site_packages(str(site_packages), feature_ids)
+            manifest = json.loads(
+                (Path(args.output_dir) / "site-packages-manifest.json").read_text(encoding="utf-8")
+            )
             write_json_report(
                 args.json_report,
                 {
@@ -496,17 +560,12 @@ def main():
                     "site_packages_root": str(site_packages),
                     "requirements_file": str(Path(args.output_dir) / "requirements-pinned.txt"),
                     "wheelhouse": str(Path(args.output_dir) / "wheels"),
+                    "flavor_id": flavor_id,
+                    "bundle_plan_sha256": plan_sha256,
+                    "python_feature_ids": list(feature_ids),
                     "project_distributions": list(PROJECT_DISTRIBUTIONS),
-                    "project_wheels": json.loads(
-                        (Path(args.output_dir) / "site-packages-manifest.json").read_text(
-                            encoding="utf-8"
-                        )
-                    ).get("project_wheels", []),
-                    "wheel_hashes": json.loads(
-                        (Path(args.output_dir) / "site-packages-manifest.json").read_text(
-                            encoding="utf-8"
-                        )
-                    ).get("wheel_hashes", {}),
+                    "project_wheels": manifest.get("project_wheels", []),
+                    "wheel_hashes": manifest.get("wheel_hashes", {}),
                     "missing_packages": missing,
                 },
             )

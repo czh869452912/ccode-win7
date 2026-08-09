@@ -25,6 +25,25 @@ RUNTIME_CONTRACT = ROOT / "scripts" / "offline-runtime-contract.json"
 MOCK_CONFIG = ROOT / "tests" / "fixtures" / "package" / "mock-config.json"
 
 
+def _write_export_bundle_plan(root, feature_ids=("gui", "tui")):
+    payload = {
+        "schema_version": 1,
+        "flavor_id": "tests",
+        "python_feature_ids": list(feature_ids),
+        "project_distribution_ids": [
+            "embedagent-core",
+            "embedagent-protocol",
+            "embedagent-host",
+            "embedagent-composition",
+            "embedagent-workflow-cpp",
+            "embedagent",
+        ],
+    }
+    path = Path(root) / "bundle-plan.json"
+    path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":")), encoding="ascii")
+    return path
+
+
 def _write_isolated_mock_config(root, dynamic=False):
     config = json.loads(MOCK_CONFIG.read_text(encoding="utf-8"))
     config["metadata"] = {"config_origin": "fixture"}
@@ -1121,6 +1140,7 @@ class TestStageJsonReports(unittest.TestCase):
     def test_export_verify_only_writes_json_report(self):
         with tempfile.TemporaryDirectory() as tmp:
             export_root = Path(tmp)
+            bundle_plan = _write_export_bundle_plan(export_root)
             site_packages = export_root / "site-packages"
             site_packages.mkdir()
             for name in [
@@ -1154,6 +1174,8 @@ class TestStageJsonReports(unittest.TestCase):
                     "--output-dir",
                     str(export_root),
                     "--verify-only",
+                    "--bundle-plan",
+                    str(bundle_plan),
                     "--json-report",
                     str(report_path),
                 ],
@@ -1498,6 +1520,7 @@ class TestStageJsonReports(unittest.TestCase):
     def test_export_failure_writes_json_report(self):
         with tempfile.TemporaryDirectory() as tmp:
             temp_root = Path(tmp)
+            bundle_plan = _write_export_bundle_plan(temp_root, ())
             report_path = temp_root / "export-failure-report.json"
             result = subprocess.run(
                 [
@@ -1507,6 +1530,8 @@ class TestStageJsonReports(unittest.TestCase):
                     str(temp_root / "out"),
                     "--project-root",
                     str(temp_root / "missing-project"),
+                    "--bundle-plan",
+                    str(bundle_plan),
                     "--json-report",
                     str(report_path),
                 ],

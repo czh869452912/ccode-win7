@@ -163,16 +163,16 @@ dependencies = [
     { name = "embedagent-host" },
     { name = "embedagent-protocol" },
     { name = "embedagent-workflow-cpp" },
-    { name = "fastapi" },
-    { name = "prompt-toolkit" },
-    { name = "pywebview" },
-    { name = "rich" },
-    { name = "uvicorn", extra = ["standard"] },
-    { name = "websockets" },
 ]
 
 [package.optional-dependencies]
-cli = [
+gui = [
+    { name = "fastapi" },
+    { name = "pywebview" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "websockets" },
+]
+tui = [
     { name = "prompt-toolkit" },
     { name = "rich" },
 ]
@@ -180,10 +180,16 @@ cli = [
 [package.dev-dependencies]
 dev = [
     { name = "black" },
+    { name = "fastapi" },
+    { name = "prompt-toolkit" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "pywebview" },
+    { name = "rich" },
     { name = "ruff" },
     { name = "tomli" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "websockets" },
 ]
 
 [package.metadata]
@@ -193,24 +199,28 @@ requires-dist = [
     { name = "embedagent-host", editable = "packages/embedagent-host" },
     { name = "embedagent-protocol", editable = "packages/embedagent-protocol" },
     { name = "embedagent-workflow-cpp", editable = "packages/embedagent-workflow-cpp" },
-    { name = "fastapi", specifier = ">=0.100" },
-    { name = "prompt-toolkit", specifier = "==3.0.52" },
-    { name = "prompt-toolkit", marker = "extra == 'cli'", specifier = "==3.0.52" },
-    { name = "pywebview", specifier = ">=4.0" },
-    { name = "rich", specifier = "==14.3.3" },
-    { name = "rich", marker = "extra == 'cli'", specifier = "==14.3.3" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.23" },
-    { name = "websockets", specifier = ">=11.0" },
+    { name = "fastapi", marker = "extra == 'gui'", specifier = ">=0.100" },
+    { name = "prompt-toolkit", marker = "extra == 'tui'", specifier = "==3.0.52" },
+    { name = "pywebview", marker = "extra == 'gui'", specifier = ">=4.0" },
+    { name = "rich", marker = "extra == 'tui'", specifier = "==14.3.3" },
+    { name = "uvicorn", extras = ["standard"], marker = "extra == 'gui'", specifier = ">=0.23" },
+    { name = "websockets", marker = "extra == 'gui'", specifier = ">=11.0" },
 ]
-provides-extras = ["cli"]
+provides-extras = ["tui", "gui"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "black", specifier = "==24.8.0" },
+    { name = "fastapi", specifier = ">=0.100" },
+    { name = "prompt-toolkit", specifier = "==3.0.52" },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "pytest-cov", specifier = ">=4.0,<6.0" },
+    { name = "pywebview", specifier = ">=4.0" },
+    { name = "rich", specifier = "==14.3.3" },
     { name = "ruff", specifier = ">=0.15.12" },
     { name = "tomli", specifier = "==2.4.1" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.23" },
+    { name = "websockets", specifier = ">=11.0" },
 ]
 
 [[package]]

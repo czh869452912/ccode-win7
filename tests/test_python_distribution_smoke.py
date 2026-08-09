@@ -24,6 +24,40 @@ def _load_script(path, module_name):
     return module
 
 
+def test_dependency_export_uses_only_plan_selected_features(tmp_path, monkeypatch):
+    del tmp_path
+    exporter = _load_script(EXPORT_SCRIPT, "feature_selected_export")
+    calls = []
+    monkeypatch.setattr(exporter, "find_uv", lambda: "uv")
+    monkeypatch.setattr(
+        exporter,
+        "_run",
+        lambda cmd, cwd=None, check=True: calls.append(cmd)
+        or subprocess.CompletedProcess(cmd, 0, stdout="fastapi==0.116.1\n", stderr=""),
+    )
+
+    deps = exporter.get_all_dependencies(str(ROOT), ("gui", "tui"))
+
+    assert deps == ["fastapi==0.116.1"]
+    export_command = calls[0]
+    assert export_command.count("--extra") == 2
+    assert export_command[export_command.index("--extra") + 1] == "gui"
+    second_extra = export_command.index("--extra", export_command.index("--extra") + 1)
+    assert export_command[second_extra + 1] == "tui"
+    assert "--no-dev" in export_command
+
+
+def test_dependency_export_rejects_unknown_python_feature_before_uv(monkeypatch):
+    exporter = _load_script(EXPORT_SCRIPT, "unknown_feature_export")
+    called = []
+    monkeypatch.setattr(exporter, "find_uv", lambda: called.append(True) or "uv")
+
+    with pytest.raises(ValueError, match="^unknown python feature$"):
+        exporter.get_all_dependencies(str(ROOT), ("remote-marketplace",))
+
+    assert called == []
+
+
 def _create_junction(link, target):
     result = subprocess.run(
         [
@@ -410,7 +444,7 @@ def test_export_dependencies_supports_external_output_directory(tmp_path, monkey
     output = tmp_path / "external-export"
     sibling = tmp_path / "keep.txt"
     sibling.write_text("keep", encoding="ascii")
-    monkeypatch.setattr(exporter, "get_all_dependencies", lambda _root: [])
+    monkeypatch.setattr(exporter, "get_all_dependencies", lambda _root, _features=(): [])
     original_run = exporter._run
 
     def run_without_third_party_install(command, cwd=None, check=True):
