@@ -9,6 +9,7 @@
 ## CLI And Frontend Convergence
 
 - `docs/superpowers/specs/2026-08-13-cli-client-runtime-convergence-design.md`
+- `docs/superpowers/plans/2026-08-13-cli-client-runtime-convergence.md`
 
 ## Closure Rule
 
