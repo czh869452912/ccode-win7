@@ -189,6 +189,33 @@ class TestMerge(unittest.TestCase):
 
 
 class TestLoadConfig(unittest.TestCase):
+    def test_user_config_is_loaded_before_project_config(self):
+        with tempfile.TemporaryDirectory() as root:
+            user_home = os.path.join(root, "user")
+            workspace = os.path.join(root, "workspace")
+            user_config_dir = os.path.join(user_home, ".embedagent")
+            project_config_dir = os.path.join(workspace, ".embedagent")
+            os.makedirs(user_config_dir)
+            os.makedirs(project_config_dir)
+            with open(os.path.join(user_config_dir, "config.json"), "w") as handle:
+                json.dump(
+                    {
+                        "model": "user-model",
+                        "base_url": "http://user/v1",
+                        "approve_writes": True,
+                    },
+                    handle,
+                )
+            with open(os.path.join(project_config_dir, "config.json"), "w") as handle:
+                json.dump({"model": "project-model"}, handle)
+
+            with patch("embedagent.config.os.path.expanduser", return_value=user_home):
+                cfg = load_config(workspace)
+
+            self.assertEqual(cfg.model, "project-model")
+            self.assertEqual(cfg.base_url, "http://user/v1")
+            self.assertTrue(cfg.approve_writes)
+
     def test_no_config_files_returns_defaults(self):
         with tempfile.TemporaryDirectory() as workspace:
             with tempfile.TemporaryDirectory() as user_config_dir, patch(

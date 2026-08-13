@@ -81,16 +81,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--approve-all",
         action="store_true",
+        default=None,
         help="自动批准所有需要确认的操作。",
     )
     parser.add_argument(
         "--approve-writes",
         action="store_true",
+        default=None,
         help="自动批准文件写入操作。",
     )
     parser.add_argument(
         "--approve-commands",
         action="store_true",
+        default=None,
         help="自动批准命令和工具链执行操作。",
     )
     parser.add_argument(

@@ -96,6 +96,18 @@ class TestTuiLauncher(unittest.TestCase):
         self.assertNotIn("TimelineService", app_text)
         self.assertNotIn("WorkspaceService", app_text)
 
+    def test_shell_launchers_delegate_configuration_loading(self):
+        paths = (
+            "src/embedagent/cli.py",
+            "src/embedagent/frontend/tui/launcher.py",
+            "src/embedagent/frontend/gui/launcher.py",
+        )
+        for path in paths:
+            with self.subTest(path=path), open(path, "r", encoding="utf-8") as handle:
+                source = handle.read()
+            self.assertNotIn("from embedagent.config import load_config", source)
+            self.assertNotIn("load_config(", source)
+
 
 if __name__ == "__main__":
     unittest.main()

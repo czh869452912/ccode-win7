@@ -33,10 +33,10 @@ def launch_tui(
     model: Optional[str] = None,
     timeout: Optional[float] = None,
     max_turns: Optional[int] = None,
-    approve_all: bool = False,
-    approve_writes: bool = False,
-    approve_commands: bool = False,
-    permission_rules: str = "",
+    approve_all: Optional[bool] = None,
+    approve_writes: Optional[bool] = None,
+    approve_commands: Optional[bool] = None,
+    permission_rules: Optional[str] = None,
     agent_application_id: Optional[str] = None,
 ):
     """启动 TUI。"""
@@ -110,10 +110,23 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional model/tool loop safety limit; omit for open continuation",
     )
-    parser.add_argument("--approve-all", action="store_true", help="Auto-approve all risky actions")
-    parser.add_argument("--approve-writes", action="store_true", help="Auto-approve file writes")
     parser.add_argument(
-        "--approve-commands", action="store_true", help="Auto-approve commands and toolchain runs"
+        "--approve-all",
+        action="store_true",
+        default=None,
+        help="Auto-approve all risky actions",
+    )
+    parser.add_argument(
+        "--approve-writes",
+        action="store_true",
+        default=None,
+        help="Auto-approve file writes",
+    )
+    parser.add_argument(
+        "--approve-commands",
+        action="store_true",
+        default=None,
+        help="Auto-approve commands and toolchain runs",
     )
     parser.add_argument("--permission-rules", default="", help="Permission rules file path")
     parser.add_argument(

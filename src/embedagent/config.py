@@ -35,7 +35,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-_USER_CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".embedagent")
+_USER_CONFIG_DIR = None  # type: Optional[str]
 _PROJECT_CONFIG_RELPATH = os.path.join(".embedagent", "config.json")
 
 
@@ -57,6 +57,10 @@ class AppConfig:
     default_mode: Optional[str] = None
     agent_application_id: Optional[str] = None
     allow_system_tool_fallback: Optional[bool] = None
+    approve_all: Optional[bool] = None
+    approve_writes: Optional[bool] = None
+    approve_commands: Optional[bool] = None
+    permission_rules: Optional[str] = None
     # 每个模式的可写路径 glob 覆盖
     mode_writable_globs: Dict[str, List[str]] = field(default_factory=dict)
     mode_extra_writable_globs: Dict[str, List[str]] = field(default_factory=dict)
@@ -104,6 +108,10 @@ def _merge(base: AppConfig, overrides: dict) -> AppConfig:
         "default_mode",
         "agent_application_id",
         "allow_system_tool_fallback",
+        "approve_all",
+        "approve_writes",
+        "approve_commands",
+        "permission_rules",
     )
     merged_globs = dict(base.mode_writable_globs)
     merged_extra_globs = dict(base.mode_extra_writable_globs)
@@ -144,7 +152,8 @@ def load_config(workspace: str) -> AppConfig:
     """
     cfg = AppConfig()
 
-    user_config_path = os.path.join(_USER_CONFIG_DIR, "config.json")
+    user_config_dir = _USER_CONFIG_DIR or os.path.join(os.path.expanduser("~"), ".embedagent")
+    user_config_path = os.path.join(user_config_dir, "config.json")
     if os.path.isfile(user_config_path):
         cfg = _merge(cfg, _load_json_file(user_config_path))
 

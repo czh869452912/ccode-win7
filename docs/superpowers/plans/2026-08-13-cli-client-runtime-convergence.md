@@ -54,7 +54,7 @@ offline packaging, six-wheel distribution checks.
 - Modify: `tests/test_session_event_protocol.py`
 - Modify: `tests/test_protocol_package_imports.py`
 
-- [ ] **Step 1: Write failing DTO and port-contract tests.**
+- [x] **Step 1: Write failing DTO and port-contract tests.**
 
   Add tests that deserialize `ThreadShell`, `CapabilitySnapshot`, and
   `SessionBootstrap`; reject the wrong schema version, negative cursor, or malformed nested
@@ -81,7 +81,7 @@ offline packaging, six-wheel distribution checks.
       }
   ```
 
-- [ ] **Step 2: Run the protocol tests and confirm the imports or factories fail.**
+- [x] **Step 2: Run the protocol tests and confirm the imports or factories fail.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_protocol_package_imports.py
@@ -92,7 +92,7 @@ offline packaging, six-wheel distribution checks.
   Expected: failure because focused ports, closed failure categories, and nested
   `from_dict()` factories do not exist.
 
-- [ ] **Step 3: Implement factories, failure categories, and focused ABCs.**
+- [x] **Step 3: Implement factories, failure categories, and focused ABCs.**
 
   The new module must expose only workflow-neutral operations. Use existing DTOs wherever
   they already express the result; use JSON-safe mappings only for workspace projections
@@ -140,7 +140,7 @@ offline packaging, six-wheel distribution checks.
   `FrontendWorkspacePort`. Do not place application selection or workspace registry policy
   on either port.
 
-- [ ] **Step 4: Run the focused tests to green.**
+- [x] **Step 4: Run the focused tests to green.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_protocol_package_imports.py
@@ -148,7 +148,7 @@ offline packaging, six-wheel distribution checks.
   uv run python scripts/test-suite.py tdd tests/test_session_event_protocol.py
   ```
 
-- [ ] **Step 5: Commit the protocol contract.**
+- [x] **Step 5: Commit the protocol contract.**
 
   ```powershell
   git add packages/embedagent-protocol/src/embedagent_protocol/frontend_ports.py packages/embedagent-protocol/src/embedagent_protocol/app_protocol.py packages/embedagent-protocol/src/embedagent_protocol/session_events.py packages/embedagent-protocol/src/embedagent_protocol/__init__.py tests/test_protocol_package_imports.py tests/test_agent_app_protocol.py tests/test_session_event_protocol.py
@@ -167,7 +167,7 @@ offline packaging, six-wheel distribution checks.
 - Modify: `tests/test_tui_launcher.py`
 - Modify: `tests/test_gui_launcher_app_mode.py`
 
-- [ ] **Step 1: Add a full precedence matrix and launcher ownership tests.**
+- [x] **Step 1: Add a full precedence matrix and launcher ownership tests.**
 
   Cover absent values and each collision in this exact low-to-high order:
 
@@ -179,7 +179,7 @@ offline packaging, six-wheel distribution checks.
   `EMBEDAGENT_MODEL`, and assert that an explicit `LaunchOverrides(model=...)` wins. Add
   source scans proving CLI, TUI, and GUI launchers do not import or call `load_config()`.
 
-- [ ] **Step 2: Run the launch-config tests and observe the environment collision fail.**
+- [x] **Step 2: Run the launch-config tests and observe the environment collision fail.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_hosted_launch_config.py
@@ -188,7 +188,7 @@ offline packaging, six-wheel distribution checks.
 
   Expected: file configuration currently wins over `EMBEDAGENT_*`.
 
-- [ ] **Step 3: Make product configuration composition explicit.**
+- [x] **Step 3: Make product configuration composition explicit.**
 
   Keep JSON file merging in `embedagent.config`, with user loaded before workspace. Resolve
   scalar launch values in Host as:
@@ -209,7 +209,7 @@ offline packaging, six-wheel distribution checks.
   limits. Represent boolean overrides as `Optional[bool]`; `False` must be an explicit value,
   not confused with “unspecified”. Keep model validation before provider or port creation.
 
-- [ ] **Step 4: Run all config and launcher ownership tests.**
+- [x] **Step 4: Run all config and launcher ownership tests.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_hosted_launch_config.py
@@ -218,7 +218,7 @@ offline packaging, six-wheel distribution checks.
   uv run python scripts/test-suite.py tdd tests/test_gui_launcher_app_mode.py
   ```
 
-- [ ] **Step 5: Commit the precedence fix.**
+- [x] **Step 5: Commit the precedence fix.**
 
   ```powershell
   git add packages/embedagent-host/src/embedagent_host/hosted/launch_config.py src/embedagent/config.py src/embedagent/hosted.py tests/test_hosted_launch_config.py tests/test_product_host_composition.py tests/test_tui_launcher.py tests/test_gui_launcher_app_mode.py
