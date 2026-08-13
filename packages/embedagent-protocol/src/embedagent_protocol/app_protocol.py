@@ -564,12 +564,19 @@ class SessionBootstrap:
         payload = _require_mapping(value, "session_bootstrap")
         history = _require_mapping(payload.get("history", {}), "history")
         activities = _require_list(history.get("activities", []), "history.activities")
+        restored_activities = []
+        for item in activities:
+            activity = _require_mapping(item, "activity")
+            if activity.get("request_id"):
+                restored_activities.append(InteractionActivity.from_dict(activity))
+            else:
+                restored_activities.append(activity)
         return cls(
             schema_version=payload.get("schema_version"),
             event_cursor=payload.get("event_cursor"),
             thread=ThreadShell.from_dict(payload.get("thread")),
             snapshot=_require_mapping(payload.get("snapshot"), "snapshot"),
-            activities=[InteractionActivity.from_dict(item) for item in activities],
+            activities=restored_activities,
             capabilities=CapabilitySnapshot.from_dict(payload.get("capabilities")),
             integrity=_require_mapping(history.get("integrity", {}), "history.integrity"),
             plan=(

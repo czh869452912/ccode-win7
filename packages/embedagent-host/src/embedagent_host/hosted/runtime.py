@@ -3,7 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from embedagent_core.permissions import PermissionPolicy
+from embedagent_protocol import FrontendSessionPort, FrontendWorkspacePort
 
+from embedagent_host.frontend_ports import (
+    InProcessFrontendSessionPort,
+    InProcessFrontendWorkspacePort,
+)
 from embedagent_host.hosted.launch_config import LaunchConfig
 from embedagent_host.hosted.session_host import HostedSessionHost
 from embedagent_host.inprocess_adapter import InProcessAdapter
@@ -17,17 +22,23 @@ from embedagent_host.runtime.tools import ToolRuntime
 @dataclass
 class HostedRuntime(object):
     launch_config: LaunchConfig
+    session: FrontendSessionPort
+    workspace: FrontendWorkspacePort
     session_host: HostedSessionHost
 
 
 def create_hosted_runtime(
     launch_config: LaunchConfig,
+    event_sink=None,
     event_handler=None,
     agent_application_registry=None,
     command_sanitizer_factory=None,
     bundle_root_resolver=None,
     system_prompt_builder=None,
 ) -> HostedRuntime:
+    if event_sink is not None and event_handler is not None:
+        raise ValueError("event_sink and event_handler are mutually exclusive")
+    bound_event_handler = event_sink.on_session_event if event_sink is not None else event_handler
     client = OpenAICompatibleClient(
         base_url=launch_config.base_url,
         api_key=launch_config.api_key,
@@ -61,11 +72,13 @@ def create_hosted_runtime(
             system_prompt_builder=system_prompt_builder,
         ),
         context_manager=context_manager,
-        event_handler=event_handler,
+        event_handler=bound_event_handler,
         agent_application_id=launch_config.agent_application_id,
         agent_application_registry=agent_application_registry,
     )
     return HostedRuntime(
         launch_config=launch_config,
+        session=InProcessFrontendSessionPort(adapter),
+        workspace=InProcessFrontendWorkspacePort(adapter),
         session_host=HostedSessionHost(adapter=adapter),
     )

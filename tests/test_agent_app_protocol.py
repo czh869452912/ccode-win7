@@ -280,6 +280,34 @@ class AgentAppProtocolTests(unittest.TestCase):
                 with self.assertRaises((TypeError, ValueError)):
                     SessionBootstrap.from_dict(payload)
 
+    def test_session_bootstrap_preserves_generic_history_activities(self):
+        payload = SessionBootstrap(
+            schema_version=1,
+            event_cursor=1,
+            thread=ThreadShell(
+                id="s-1",
+                title="Session",
+                archived=False,
+                current_mode="build",
+                status="idle",
+                updated_at="2026-08-13T00:00:00Z",
+            ),
+            snapshot={"session_id": "s-1"},
+            activities=[
+                {
+                    "id": "user-turn-1",
+                    "kind": "user",
+                    "turn_id": "turn-1",
+                    "content": "hello",
+                }
+            ],
+            capabilities=CapabilitySnapshot(schema_version=1),
+        ).to_dict()
+
+        restored = SessionBootstrap.from_dict(payload)
+
+        self.assertEqual(restored.activities, payload["history"]["activities"])
+
     def test_app_bootstrap_contains_one_versioned_shell_descriptor(self):
         shell = ShellDescriptor(
             schema_version=1,

@@ -8,6 +8,7 @@ from embedagent_host.hosted.launch_config import (
 from embedagent_host.hosted.runtime import create_hosted_runtime
 from embedagent_host.hosted.session_host import HostedSessionHost
 from embedagent_host.runtime.command_sanitizer import CommandSanitizer
+from embedagent_protocol import FrontendSessionPort, FrontendWorkspacePort
 
 from embedagent.config import AppConfig
 from embedagent.hosted import resolve_launch_config as resolve_product_launch_config
@@ -35,7 +36,7 @@ def _config(tmp_path):
     )
 
 
-def test_create_hosted_runtime_builds_session_host(tmp_path, monkeypatch):
+def test_create_hosted_runtime_builds_frontend_port_set(tmp_path, monkeypatch):
     client_cls = MagicMock(return_value=MagicMock(name="client"))
     tools_cls = MagicMock(return_value=MagicMock(name="tools"))
     context_cls = MagicMock(return_value=MagicMock(name="context_manager"))
@@ -47,9 +48,13 @@ def test_create_hosted_runtime_builds_session_host(tmp_path, monkeypatch):
     monkeypatch.setattr("embedagent_host.hosted.runtime.PermissionPolicy", policy_cls)
     monkeypatch.setattr("embedagent_host.hosted.runtime.InProcessAdapter", adapter_cls)
 
-    runtime = create_hosted_runtime(_config(tmp_path))
+    sink = MagicMock()
+    runtime = create_hosted_runtime(_config(tmp_path), event_sink=sink)
 
-    assert isinstance(runtime.session_host, HostedSessionHost)
+    assert isinstance(runtime.session, FrontendSessionPort)
+    assert isinstance(runtime.workspace, FrontendWorkspacePort)
+    assert not hasattr(runtime.session, "adapter")
+    assert not hasattr(runtime.workspace, "adapter")
     client_cls.assert_called_once_with(
         base_url="http://configured/v1",
         api_key="sk-configured",
@@ -61,6 +66,8 @@ def test_create_hosted_runtime_builds_session_host(tmp_path, monkeypatch):
     policy_cls.assert_called_once()
     adapter_cls.assert_called_once()
     assert adapter_cls.call_args.kwargs["agent_application_id"] == "tests.python"
+    handler = adapter_cls.call_args.kwargs["event_handler"]
+    assert handler is sink.on_session_event
 
 
 def test_generic_hosted_runtime_preserves_permanent_command_denials(tmp_path):

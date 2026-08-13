@@ -45,6 +45,7 @@ def resolve_launch_config(workspace: str, overrides: LaunchOverrides) -> LaunchC
 
 def create_hosted_runtime(
     launch_config: LaunchConfig,
+    event_sink: Any = None,
     event_handler: Any = None,
 ) -> HostedRuntime:
     policy = _current_bundle_policy()
@@ -54,6 +55,7 @@ def create_hosted_runtime(
     allowed_ids = policy.allowed_agent_application_ids if policy.bundled else None
     return create_generic_hosted_runtime(
         launch_config,
+        event_sink=event_sink,
         event_handler=event_handler,
         agent_application_registry=product_agent_application_registry(allowed_ids),
         command_sanitizer_factory=get_command_sanitizer,

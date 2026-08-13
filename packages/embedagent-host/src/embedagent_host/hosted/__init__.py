@@ -1,3 +1,7 @@
+from embedagent_host.frontend_ports import (
+    InProcessFrontendSessionPort,
+    InProcessFrontendWorkspacePort,
+)
 from embedagent_host.hosted.launch_config import (
     LaunchConfig,
     LaunchOverrides,
@@ -9,6 +13,8 @@ from embedagent_host.hosted.session_host import HostedSessionHost
 __all__ = [
     "HostedRuntime",
     "HostedSessionHost",
+    "InProcessFrontendSessionPort",
+    "InProcessFrontendWorkspacePort",
     "LaunchConfig",
     "LaunchOverrides",
     "create_hosted_runtime",

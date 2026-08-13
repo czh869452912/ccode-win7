@@ -238,7 +238,7 @@ offline packaging, six-wheel distribution checks.
 - Modify: `tests/test_hosted_runtime.py`
 - Modify: `tests/test_host_package_composition.py`
 
-- [ ] **Step 1: Write failing tests for one bound sink and private adapter ownership.**
+- [x] **Step 1: Write failing tests for one bound sink and private adapter ownership.**
 
   Use a recording `SessionEventSink`, construct a port set once, create and activate a
   session, and assert every event arrives as a `SessionEventEnvelope`. Assert neither the
@@ -253,14 +253,14 @@ offline packaging, six-wheel distribution checks.
   assert not hasattr(runtime.session, "adapter")
   ```
 
-- [ ] **Step 2: Run the new Host tests and confirm the port set is absent.**
+- [x] **Step 2: Run the new Host tests and confirm the port set is absent.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_host_frontend_ports.py
   uv run python scripts/test-suite.py tdd tests/test_hosted_runtime.py
   ```
 
-- [ ] **Step 3: Add private in-process implementations and change runtime composition.**
+- [x] **Step 3: Add private in-process implementations and change runtime composition.**
 
   `HostedRuntime` must expose `launch_config`, `session`, and `workspace`. Store the adapter
   only as a private implementation detail in the port objects. Convert adapter dictionaries
@@ -286,7 +286,7 @@ offline packaging, six-wheel distribution checks.
   `_sink_handler` may adapt the Host internal call once during this task; it must accept one
   envelope and never reconstruct it. Task 4 removes the internal legacy signature.
 
-- [ ] **Step 4: Run Host and distribution tests.**
+- [x] **Step 4: Run Host and distribution tests.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_host_frontend_ports.py
@@ -294,7 +294,7 @@ offline packaging, six-wheel distribution checks.
   uv run python scripts/test-suite.py tdd tests/test_host_package_composition.py
   ```
 
-- [ ] **Step 5: Commit the Host port set.**
+- [x] **Step 5: Commit the Host port set.**
 
   ```powershell
   git add packages/embedagent-host/src/embedagent_host/frontend_ports.py packages/embedagent-host/src/embedagent_host/hosted/runtime.py packages/embedagent-host/src/embedagent_host/hosted/__init__.py packages/embedagent-host/src/embedagent_host/__init__.py src/embedagent/hosted.py tests/test_host_frontend_ports.py tests/test_hosted_runtime.py tests/test_host_package_composition.py
