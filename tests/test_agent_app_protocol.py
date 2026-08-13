@@ -200,6 +200,86 @@ class AgentAppProtocolTests(unittest.TestCase):
         self.assertEqual(payload["thread"]["current_mode"], "build")
         self.assertNotIn("currentMode", json.dumps(payload))
 
+    def test_session_bootstrap_round_trips_from_strict_wire_payload(self):
+        payload = SessionBootstrap(
+            schema_version=1,
+            event_cursor=4,
+            thread=ThreadShell(
+                id="s-1",
+                title="Session",
+                archived=False,
+                current_mode="build",
+                status="idle",
+                updated_at="2026-08-03T00:00:00Z",
+            ),
+            snapshot={"session_id": "s-1", "workflow_state": {}},
+            activities=[
+                InteractionActivity(
+                    id="act-1",
+                    kind="input.requested",
+                    request_id="input-1",
+                    turn_id="turn-1",
+                    created_at="2026-08-03T00:00:00Z",
+                    payload={"question": "Continue?"},
+                )
+            ],
+            capabilities=CapabilitySnapshot(
+                schema_version=1,
+                modes=[ModeDescriptor(id="build", label="Build")],
+                commands=[
+                    CommandDescriptor(
+                        id="session.cancel",
+                        label="Cancel",
+                        group="session",
+                        dispatch={"kind": "session.cancel"},
+                    )
+                ],
+            ),
+            integrity={"status": "healthy"},
+            permission_context={"categories": ["read"]},
+        ).to_dict()
+
+        restored = SessionBootstrap.from_dict(payload)
+
+        self.assertIsInstance(restored.thread, ThreadShell)
+        self.assertIsInstance(restored.capabilities, CapabilitySnapshot)
+        self.assertIsInstance(restored.capabilities.modes[0], ModeDescriptor)
+        self.assertIsInstance(restored.capabilities.commands[0], CommandDescriptor)
+        self.assertIsInstance(restored.activities[0], InteractionActivity)
+        self.assertEqual(restored.to_dict(), payload)
+
+    def test_session_bootstrap_from_dict_rejects_invalid_nested_shapes(self):
+        valid = SessionBootstrap(
+            schema_version=1,
+            event_cursor=0,
+            thread=ThreadShell(
+                id="s-1",
+                title="Session",
+                archived=False,
+                current_mode="build",
+                status="idle",
+                updated_at="2026-08-03T00:00:00Z",
+            ),
+            snapshot={"session_id": "s-1"},
+            activities=[],
+            capabilities=CapabilitySnapshot(schema_version=1),
+        ).to_dict()
+        invalid_payloads = []
+        for key, value in (
+            ("schema_version", 2),
+            ("event_cursor", -1),
+            ("thread", []),
+            ("capabilities", []),
+        ):
+            payload = dict(valid)
+            payload[key] = value
+            invalid_payloads.append(payload)
+
+        for payload in invalid_payloads:
+            with self.subTest(payload=payload):
+                with self.assertRaises((TypeError, ValueError)):
+                    SessionBootstrap.from_dict(payload)
+
     def test_app_bootstrap_contains_one_versioned_shell_descriptor(self):
         shell = ShellDescriptor(
             schema_version=1,

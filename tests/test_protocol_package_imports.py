@@ -1,4 +1,5 @@
 import ast
+import inspect
 import os
 import shutil
 import subprocess
@@ -50,14 +51,23 @@ import sys
 
 root = pathlib.Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(root))
-from embedagent_protocol import CoreInterface, PermissionContext, SessionBootstrap, ShellDescriptor
+from embedagent_protocol import (
+    FrontendSessionPort,
+    FrontendWorkspacePort,
+    PermissionContext,
+    SessionBootstrap,
+    SessionEventSink,
+    ShellDescriptor,
+)
 import embedagent_protocol
 
 package_file = pathlib.Path(embedagent_protocol.__file__).resolve()
 assert root in package_file.parents, package_file
-assert CoreInterface is not None
+assert FrontendSessionPort is not None
+assert FrontendWorkspacePort is not None
 assert PermissionContext is not None
 assert SessionBootstrap is not None
+assert SessionEventSink is not None
 assert ShellDescriptor is not None
 for module_name in sys.modules:
     assert module_name != "embedagent"
@@ -76,6 +86,25 @@ for module_name in sys.modules:
                 check=False,
             )
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_frontend_ports_have_focused_callback_free_signatures(self):
+        from embedagent_protocol import FrontendSessionPort, SessionEventSink
+
+        submit = inspect.signature(FrontendSessionPort.submit_user_message)
+        sink = inspect.signature(SessionEventSink.on_session_event)
+
+        self.assertEqual(
+            list(submit.parameters),
+            ["self", "session_id", "text", "stream"],
+        )
+        self.assertEqual(list(sink.parameters), ["self", "envelope"])
+        forbidden = {"event_handler", "permission_resolver", "user_input_resolver"}
+        for method_name, member in inspect.getmembers(
+            FrontendSessionPort,
+            predicate=inspect.isfunction,
+        ):
+            with self.subTest(method=method_name):
+                self.assertTrue(forbidden.isdisjoint(inspect.signature(member).parameters))
 
     def test_protocol_source_is_owned_only_by_workspace_distribution(self):
         self.assertTrue(os.path.isdir(PROTOCOL_SOURCE))

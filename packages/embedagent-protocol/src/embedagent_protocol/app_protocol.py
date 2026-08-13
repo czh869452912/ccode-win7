@@ -348,6 +348,50 @@ class CapabilitySnapshot:
             "empty_state": _require_mapping(self.empty_state, "capabilities.empty_state"),
         }
 
+    @classmethod
+    def from_dict(cls, value: Dict[str, Any]) -> "CapabilitySnapshot":
+        payload = _require_mapping(value, "capabilities")
+        agent_application = payload.get("agent_application")
+        return cls(
+            schema_version=payload.get("schema_version"),
+            modes=[
+                ModeDescriptor(**_require_mapping(item, "mode"))
+                for item in payload.get("modes", [])
+            ],
+            commands=[
+                CommandDescriptor(**_require_mapping(item, "command"))
+                for item in payload.get("commands", [])
+            ],
+            tools=[
+                ToolPresentation(**_require_mapping(item, "tool_presentation"))
+                for item in payload.get("tools", [])
+            ],
+            workflow_packages=[
+                WorkflowPackageDescriptor(**_require_mapping(item, "workflow_package"))
+                for item in payload.get("workflow_packages", [])
+            ],
+            agent_application=(
+                AgentApplicationDescriptor(
+                    **_require_mapping(agent_application, "agent_application")
+                )
+                if isinstance(agent_application, dict) and agent_application
+                else None
+            ),
+            agent_applications=[
+                AgentApplicationDescriptor(**_require_mapping(item, "agent_application"))
+                for item in payload.get("agent_applications", [])
+            ],
+            resources=_require_list(payload.get("resources", []), "capabilities.resources"),
+            model_profiles=_require_list(
+                payload.get("model_profiles", []),
+                "capabilities.model_profiles",
+            ),
+            empty_state=_require_mapping(
+                payload.get("empty_state", {}),
+                "capabilities.empty_state",
+            ),
+        )
+
 
 @dataclass
 class ShellDescriptor:
@@ -416,6 +460,19 @@ class ThreadShell:
             "pending_interaction": bool(self.pending_interaction),
         }
 
+    @classmethod
+    def from_dict(cls, value: Dict[str, Any]) -> "ThreadShell":
+        payload = _require_mapping(value, "thread")
+        return cls(
+            id=payload.get("id"),
+            title=payload.get("title", ""),
+            archived=payload.get("archived", False),
+            current_mode=payload.get("current_mode", ""),
+            status=payload.get("status", ""),
+            updated_at=payload.get("updated_at", ""),
+            pending_interaction=payload.get("pending_interaction", False),
+        )
+
 
 @dataclass
 class InteractionActivity:
@@ -441,6 +498,18 @@ class InteractionActivity:
             "created_at": self.created_at,
             "payload": _require_mapping(self.payload, "activity.payload"),
         }
+
+    @classmethod
+    def from_dict(cls, value: Dict[str, Any]) -> "InteractionActivity":
+        payload = _require_mapping(value, "activity")
+        return cls(
+            id=payload.get("id"),
+            kind=payload.get("kind"),
+            request_id=payload.get("request_id"),
+            turn_id=payload.get("turn_id", ""),
+            created_at=payload.get("created_at", ""),
+            payload=_require_mapping(payload.get("payload", {}), "activity.payload"),
+        )
 
 
 @dataclass
@@ -489,6 +558,30 @@ class SessionBootstrap:
                 "permission_context",
             ),
         }
+
+    @classmethod
+    def from_dict(cls, value: Dict[str, Any]) -> "SessionBootstrap":
+        payload = _require_mapping(value, "session_bootstrap")
+        history = _require_mapping(payload.get("history", {}), "history")
+        activities = _require_list(history.get("activities", []), "history.activities")
+        return cls(
+            schema_version=payload.get("schema_version"),
+            event_cursor=payload.get("event_cursor"),
+            thread=ThreadShell.from_dict(payload.get("thread")),
+            snapshot=_require_mapping(payload.get("snapshot"), "snapshot"),
+            activities=[InteractionActivity.from_dict(item) for item in activities],
+            capabilities=CapabilitySnapshot.from_dict(payload.get("capabilities")),
+            integrity=_require_mapping(history.get("integrity", {}), "history.integrity"),
+            plan=(
+                _require_mapping(payload.get("plan"), "plan")
+                if payload.get("plan") is not None
+                else None
+            ),
+            permission_context=_require_mapping(
+                payload.get("permission_context", {}),
+                "permission_context",
+            ),
+        )
 
 
 @dataclass

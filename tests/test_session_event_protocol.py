@@ -4,7 +4,25 @@ import threading
 import pytest
 from embedagent_host.runtime.services.event_emitter import EventEmitter
 from embedagent_host.runtime.session_event_protocol import SessionEventEncoder
-from embedagent_protocol import FailureRecord, SessionEventEnvelope
+from embedagent_protocol import (
+    FRONTEND_FAILURE_CODES,
+    FailureRecord,
+    SessionEventEnvelope,
+)
+
+
+def test_frontend_failure_codes_are_closed():
+    assert set(FRONTEND_FAILURE_CODES) == {
+        "usage_error",
+        "configuration_error",
+        "session_not_found",
+        "interaction_required",
+        "permission_denied",
+        "provider_error",
+        "runtime_error",
+        "cancelled",
+        "protocol_error",
+    }
 
 
 def test_session_event_envelope_is_json_safe():

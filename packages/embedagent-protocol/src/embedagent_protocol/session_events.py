@@ -5,6 +5,18 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Dict, Mapping
 
+FRONTEND_FAILURE_CODES = (
+    "usage_error",
+    "configuration_error",
+    "session_not_found",
+    "interaction_required",
+    "permission_denied",
+    "provider_error",
+    "runtime_error",
+    "cancelled",
+    "protocol_error",
+)
+
 
 def _required_text(value: Any, field_name: str) -> str:
     if not isinstance(value, str):
