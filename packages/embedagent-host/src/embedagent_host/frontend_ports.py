@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import difflib
+from dataclasses import asdict, is_dataclass
 from typing import Any, Callable, Dict, List, Optional
 
 from embedagent_protocol import (
@@ -32,6 +33,21 @@ def _mapping(value: Any) -> Dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError("frontend projection must be a mapping")
     return dict(value)
+
+
+def _dto_mapping(value: Any, field_name: str) -> Dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    to_dict = getattr(value, "to_dict", None)
+    if callable(to_dict):
+        payload = to_dict()
+        if isinstance(payload, dict):
+            return dict(payload)
+    if is_dataclass(value):
+        payload = asdict(value)
+        if isinstance(payload, dict):
+            return payload
+    raise ValueError("%s must be a mapping or protocol DTO" % field_name)
 
 
 def _records(value: Any, field_name: str) -> List[Dict[str, Any]]:
@@ -184,8 +200,11 @@ def session_bootstrap(value: Any) -> SessionBootstrap:
         activities=list(history.get("activities") or []),
         capabilities=capability_snapshot(data.get("capabilities") or {}),
         integrity=dict(history.get("integrity") or {}),
-        plan=(dict(data.get("plan")) if isinstance(data.get("plan"), dict) else None),
-        permission_context=dict(data.get("permission_context") or {}),
+        plan=(_dto_mapping(data.get("plan"), "plan") if data.get("plan") is not None else None),
+        permission_context=_dto_mapping(
+            data.get("permission_context") or {},
+            "permission_context",
+        ),
     )
 
 

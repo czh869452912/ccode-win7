@@ -11,7 +11,8 @@ import threading
 from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional, Set
 
-from embedagent_protocol import CoreInterface, FrontendCallbacks, SessionEventEnvelope
+from embedagent_host.frontend_errors import FrontendPortError
+from embedagent_protocol import SessionEventEnvelope, SessionEventSink
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,11 +20,13 @@ from fastapi.staticfiles import StaticFiles
 from embedagent.frontend.gui.backend.app_host import (
     GUIAppHost,
     NoActiveWorkspaceError,
-    SingleWorkspaceAppHost,
 )
 from embedagent.frontend.gui.backend.app_shell import AppShellService
 from embedagent.frontend.gui.backend.bridge import ThreadsafeAsyncDispatcher
-from embedagent.frontend.gui.backend.http_errors import translate_value_error
+from embedagent.frontend.gui.backend.http_errors import (
+    frontend_port_http_error,
+    translate_value_error,
+)
 from embedagent.frontend.gui.backend.preview_service import PreviewService
 from embedagent.frontend.gui.backend.source_control_service import SourceControlService
 from embedagent.frontend.gui.backend.terminal_service import TerminalService
@@ -31,7 +34,7 @@ from embedagent.frontend.gui.backend.terminal_service import TerminalService
 _LOGGER = logging.getLogger(__name__)
 
 
-class WebSocketFrontend(FrontendCallbacks):
+class WebSocketFrontend(SessionEventSink):
     """
     WebSocket 前端适配器
     将 Core 的回调转换为 WebSocket 消息发送给前端
@@ -89,23 +92,22 @@ class GUIBackend:
 
     def __init__(
         self,
-        core: Optional[CoreInterface] = None,
         static_dir: str = "",
         app_host: Optional[GUIAppHost] = None,
+        frontend: Optional[SessionEventSink] = None,
         host_diagnostics: Optional[Dict[str, Any]] = None,
         shell_compiler: Any = None,
         terminal_service: Optional[Any] = None,
         source_control_service: Optional[Any] = None,
         preview_service: Optional[Any] = None,
     ):
-        if core is None and app_host is None:
-            raise ValueError("core_or_app_host_required")
+        if app_host is None:
+            raise ValueError("app_host_required")
         if not callable(shell_compiler):
             raise ValueError("shell_compiler_required")
         self.static_dir = static_dir
-        self.frontend = WebSocketFrontend()
-        self.app_host = app_host if app_host is not None else SingleWorkspaceAppHost(core)
-        self.app_host.bind_frontend(self.frontend)
+        self.frontend = frontend if frontend is not None else WebSocketFrontend()
+        self.app_host = app_host
         self.app_shell = AppShellService(
             self.app_host,
             shell_compiler=shell_compiler,
@@ -125,22 +127,30 @@ class GUIBackend:
         self.app = self._create_app()
         self._current_session_id: Optional[str] = None
 
-    def _call_core(self, func, *args, **kwargs):
+    def _call_port(self, func, *args, **kwargs):
         try:
             return func(*args, **kwargs)
         except NoActiveWorkspaceError:
             raise HTTPException(status_code=409, detail="no_active_workspace")
+        except FrontendPortError as exc:
+            raise frontend_port_http_error(exc)
         except ValueError as exc:
             raise translate_value_error(exc)
 
-    def _require_core(self) -> CoreInterface:
+    def _require_session_port(self):
         try:
-            return self.app_host.require_core()
+            return self.app_host.require_session_port()
+        except NoActiveWorkspaceError:
+            raise HTTPException(status_code=409, detail="no_active_workspace")
+
+    def _require_workspace_port(self):
+        try:
+            return self.app_host.require_workspace_port()
         except NoActiveWorkspaceError:
             raise HTTPException(status_code=409, detail="no_active_workspace")
 
     def _terminal(self) -> Any:
-        self._require_core()
+        self._require_workspace_port()
         host_state = self.app_host.bootstrap()
         active_workspace = (
             host_state.get("active_workspace") if isinstance(host_state, dict) else None
@@ -168,7 +178,7 @@ class GUIBackend:
         return self.terminal_service
 
     def _active_workspace_path(self) -> str:
-        self._require_core()
+        self._require_workspace_port()
         host_state = self.app_host.bootstrap()
         active_workspace = (
             host_state.get("active_workspace") if isinstance(host_state, dict) else None

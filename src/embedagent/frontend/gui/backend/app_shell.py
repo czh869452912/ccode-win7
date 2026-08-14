@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from typing import Any, Callable, Dict, Optional
 
-from embedagent_protocol import ShellDescriptor
+from embedagent_protocol import CapabilitySnapshot, ShellDescriptor
 
 from embedagent.frontend.gui.backend.protocol_payloads import serialize_session_capabilities
 
@@ -119,14 +119,16 @@ class AppShellService(object):
         return descriptor
 
     def _agent_capabilities(self) -> Dict[str, Any]:
-        current_core = getattr(self._app_host, "current_core", None)
-        core = current_core() if callable(current_core) else None
-        get_session_capabilities = getattr(core, "get_session_capabilities", None)
+        current_session_port = getattr(self._app_host, "current_session_port", None)
+        session_port = current_session_port() if callable(current_session_port) else None
+        get_session_capabilities = getattr(session_port, "get_session_capabilities", None)
         if callable(get_session_capabilities):
             try:
                 source = get_session_capabilities("")
             except (OSError, RuntimeError, TypeError, ValueError, AttributeError):
-                source = {}
+                source = None
+            if isinstance(source, CapabilitySnapshot):
+                return source.to_dict()
             if isinstance(source, dict) and source:
                 return serialize_session_capabilities(source)
         host_agent_capabilities = getattr(self._app_host, "agent_capabilities", None)
@@ -155,10 +157,8 @@ class AppShellService(object):
             safe_host = {}
         workspaces = list(raw_payload.get("workspaces") or [])
         active_workspace = raw_payload.get("active_workspace")
-        current_core = getattr(self._app_host, "current_core", None)
-        active_core_present = False
-        if callable(current_core):
-            active_core_present = current_core() is not None
+        current_ports = getattr(self._app_host, "current_ports", None)
+        active_ports_present = bool(callable(current_ports) and current_ports() is not None)
         host = dict(safe_host.get("host") or {})
         if "platform" not in host:
             host["platform"] = sys.platform
@@ -176,6 +176,6 @@ class AppShellService(object):
                 ),
             },
             "active_core": {
-                "present": bool(active_core_present),
+                "present": active_ports_present,
             },
         }

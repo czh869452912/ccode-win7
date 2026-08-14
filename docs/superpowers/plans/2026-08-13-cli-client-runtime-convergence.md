@@ -583,7 +583,7 @@ offline packaging, six-wheel distribution checks.
   uv run python scripts/test-suite.py tdd tests/test_tui_timeline_activities.py
   ```
 
-- [ ] **Step 6: Commit the TUI migration.**
+- [x] **Step 6: Commit the TUI migration.**
 
   ```powershell
   git add src/embedagent/frontend/tui/bootstrap.py src/embedagent/frontend/tui/controller.py src/embedagent/frontend/tui/frontend_adapter.py src/embedagent/frontend/tui/host.py src/embedagent/frontend/tui/runtime.py tests/test_tui_runtime.py tests/test_tui_launcher.py tests/test_tui_activity_timeline.py tests/test_tui_timeline_activities.py
@@ -606,7 +606,7 @@ offline packaging, six-wheel distribution checks.
 - Modify: `tests/test_gui_session_events.py`
 - Modify: `tests/test_gui_workspace_registry.py`
 
-- [ ] **Step 1: Add failing backend tests for protocol identity.**
+- [x] **Step 1: Add failing backend tests for protocol identity.**
 
   Assert HTTP routes call `FrontendSessionPort`/`FrontendWorkspacePort`, bootstrap payloads
   equal the strict DTO output, and WebSocket forwarding is exactly:
@@ -618,7 +618,7 @@ offline packaging, six-wheel distribution checks.
   Add a source assertion that backend code does not import `CoreInterface` or
   `AgentCoreAdapter`.
 
-- [ ] **Step 2: Run backend tests and observe facade imports fail the new contract.**
+- [x] **Step 2: Run backend tests and observe facade imports fail the new contract.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_gui_app_host.py
@@ -626,14 +626,14 @@ offline packaging, six-wheel distribution checks.
   uv run python scripts/test-suite.py tdd tests/test_gui_session_events.py
   ```
 
-- [ ] **Step 3: Inject the focused port set into GUI app host and routes.**
+- [x] **Step 3: Inject the focused port set into GUI app host and routes.**
 
   Bind the WebSocket bridge as the Host event sink at workspace port-set construction.
   Workspace switching closes the previous port set, then creates one for the selected
   workspace. Routes must preserve protocol names and payloads instead of adding GUI-specific
   session translations.
 
-- [ ] **Step 4: Run all backend and workspace tests.**
+- [x] **Step 4: Run all backend and workspace tests.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_gui_app_host.py
@@ -642,7 +642,7 @@ offline packaging, six-wheel distribution checks.
   uv run python scripts/test-suite.py tdd tests/test_gui_workspace_registry.py
   ```
 
-- [ ] **Step 5: Commit the GUI backend migration.**
+- [x] **Step 5: Commit the GUI backend migration.**
 
   ```powershell
   git add src/embedagent/frontend/gui/backend/app_host.py src/embedagent/frontend/gui/backend/bridge.py src/embedagent/frontend/gui/backend/routes_sessions.py src/embedagent/frontend/gui/backend/routes_app.py src/embedagent/frontend/gui/backend/server.py src/embedagent/frontend/gui/backend/workspace_registry.py src/embedagent/frontend/gui/launcher.py tests/test_gui_app_host.py tests/test_gui_backend_api.py tests/test_gui_session_events.py tests/test_gui_workspace_registry.py

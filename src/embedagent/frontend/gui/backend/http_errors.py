@@ -1,6 +1,20 @@
 from __future__ import annotations
 
+from embedagent_host.frontend_errors import FrontendPortError
 from fastapi import HTTPException
+
+
+def frontend_port_http_error(exc: FrontendPortError) -> HTTPException:
+    code = exc.failure.code
+    if code == "session_not_found":
+        return HTTPException(status_code=404, detail=code)
+    if code == "interaction_required":
+        return HTTPException(status_code=409, detail=code)
+    if code in ("permission_denied", "cancelled"):
+        return HTTPException(status_code=409, detail=code)
+    if code in ("provider_error", "runtime_error"):
+        return HTTPException(status_code=502, detail=code)
+    return HTTPException(status_code=422, detail=code)
 
 
 def translate_value_error(exc: ValueError) -> HTTPException:

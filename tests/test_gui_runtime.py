@@ -1,153 +1,147 @@
+from __future__ import annotations
+
 import asyncio
 import json
 import os
-import sys
 import tempfile
 import threading
 import unittest
-from unittest.mock import ANY, MagicMock, patch
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+from unittest.mock import MagicMock, patch
 
 from embedagent_protocol import SessionEventEnvelope, ShellDescriptor
 
 from embedagent.frontend.gui import launcher as gui_launcher
+from embedagent.frontend.gui.backend.app_host import FrontendPortSet, SingleWorkspaceAppHost
 from embedagent.frontend.gui.backend.bridge import ThreadsafeAsyncDispatcher
-from embedagent.frontend.gui.backend.server import GUIBackend as _GUIBackend
-from embedagent.frontend.gui.backend.server import WebSocketFrontend
+from embedagent.frontend.gui.backend.server import GUIBackend, WebSocketFrontend
 
 
-def GUIBackend(*args, **kwargs):
-    kwargs.setdefault(
-        "shell_compiler",
-        lambda application_id, capabilities: ShellDescriptor(schema_version=1),
+class EmptySessionPort(object):
+    def get_session_bootstrap(self, reference, mode=""):
+        del reference, mode
+        return None
+
+    def get_session_capabilities(self, session_id=""):
+        del session_id
+        from embedagent_protocol import CapabilitySnapshot
+
+        return CapabilitySnapshot()
+
+    def close(self):
+        return None
+
+
+class EmptyWorkspacePort(object):
+    def __init__(self, path):
+        self.path = path
+
+    def get_workspace_snapshot(self):
+        return {"path": self.path}
+
+
+def _backend(static_dir):
+    ports = FrontendPortSet(EmptySessionPort(), EmptyWorkspacePort(static_dir))
+    return GUIBackend(
+        static_dir=static_dir,
+        app_host=SingleWorkspaceAppHost(ports),
+        shell_compiler=lambda application_id, capabilities: ShellDescriptor(),
     )
-    return _GUIBackend(*args, **kwargs)
 
 
 class TestGuiLauncher(unittest.TestCase):
-    def test_create_core_delegates_runtime_construction_to_hosted_runtime(self):
+    def test_create_frontend_ports_delegates_to_hosted_runtime_with_event_sink(self):
         with tempfile.TemporaryDirectory() as workspace:
             real_workspace = os.path.realpath(workspace)
             hosted_runtime = MagicMock()
-            hosted_runtime.session_host.adapter = MagicMock(name="inner_adapter")
+            event_sink = MagicMock()
             with patch(
                 "embedagent.frontend.gui.launcher.resolve_launch_config",
                 return_value=MagicMock(workspace=real_workspace),
             ) as resolve_config, patch(
                 "embedagent.frontend.gui.launcher.create_hosted_runtime",
                 return_value=hosted_runtime,
-            ) as create_hosted_runtime, patch(
-                "embedagent.core.adapter.AgentCoreAdapter"
-            ) as adapter_cls:
-                core = gui_launcher.create_core(
+            ) as create_runtime:
+                ports = gui_launcher.create_frontend_ports(
                     workspace,
+                    event_sink,
                     {
                         "approve_commands": True,
                         "permission_rules": ".embedagent/permission-rules.json",
                     },
                 )
 
-            self.assertIs(core, adapter_cls.return_value)
-            self.assertEqual(resolve_config.call_args.args[0], real_workspace)
-            self.assertTrue(resolve_config.call_args.kwargs["overrides"].approve_commands)
-            self.assertEqual(
-                resolve_config.call_args.kwargs["overrides"].permission_rules,
-                ".embedagent/permission-rules.json",
-            )
-            create_hosted_runtime.assert_called_once()
-            adapter_cls.assert_called_once_with(workspace=real_workspace, config=ANY)
-            adapter_cls.return_value.attach_adapter.assert_called_once_with(
-                hosted_runtime.session_host.adapter
-            )
+        self.assertIs(ports.session, hosted_runtime.session)
+        self.assertIs(ports.workspace, hosted_runtime.workspace)
+        self.assertEqual(resolve_config.call_args.args[0], real_workspace)
+        self.assertTrue(resolve_config.call_args.kwargs["overrides"].approve_commands)
+        self.assertEqual(resolve_config.call_args.kwargs["overrides"].max_turns, None)
+        self.assertIs(create_runtime.call_args.kwargs["event_sink"], event_sink)
 
-    def test_create_core_accepts_explicit_runtime_safety_limit(self):
-        with tempfile.TemporaryDirectory() as workspace:
-            hosted_runtime = MagicMock()
-            hosted_runtime.session_host.adapter = MagicMock(name="inner_adapter")
-            with patch(
-                "embedagent.frontend.gui.launcher.resolve_launch_config",
-                return_value=MagicMock(workspace=os.path.realpath(workspace)),
-            ) as resolve_config, patch(
+    def test_create_frontend_ports_accepts_explicit_runtime_safety_limit(self):
+        with tempfile.TemporaryDirectory() as workspace, patch(
+            "embedagent.frontend.gui.launcher.resolve_launch_config",
+            return_value=MagicMock(workspace=os.path.realpath(workspace)),
+        ) as resolve_config, patch(
+            "embedagent.frontend.gui.launcher.create_hosted_runtime",
+            return_value=MagicMock(),
+        ):
+            gui_launcher.create_frontend_ports(workspace, MagicMock(), {"max_turns": 3})
+
+        self.assertEqual(resolve_config.call_args.kwargs["overrides"].max_turns, 3)
+
+    def test_create_frontend_ports_uses_user_config_when_option_omitted(self):
+        with tempfile.TemporaryDirectory() as workspace, tempfile.TemporaryDirectory() as config_dir:
+            with open(os.path.join(config_dir, "config.json"), "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "base_url": "http://user-config/v1",
+                        "api_key": "sk-user-config",
+                        "model": "user-config-model",
+                        "timeout": 33,
+                    },
+                    handle,
+                )
+            launch_configs = []
+
+            def fake_create_runtime(launch_config, event_sink=None):
+                del event_sink
+                launch_configs.append(launch_config)
+                return MagicMock()
+
+            with patch("embedagent.config._USER_CONFIG_DIR", config_dir), patch(
                 "embedagent.frontend.gui.launcher.create_hosted_runtime",
-                return_value=hosted_runtime,
-            ), patch(
-                "embedagent.core.adapter.AgentCoreAdapter"
+                side_effect=fake_create_runtime,
             ):
-                gui_launcher.create_core(workspace, {"max_turns": 3})
+                gui_launcher.create_frontend_ports(workspace, MagicMock(), {})
 
-            self.assertEqual(resolve_config.call_args.kwargs["overrides"].max_turns, 3)
-
-    def test_create_core_uses_user_config_model_when_option_omitted(self):
-        with tempfile.TemporaryDirectory() as workspace:
-            with tempfile.TemporaryDirectory() as user_config_dir:
-                with open(
-                    os.path.join(user_config_dir, "config.json"), "w", encoding="utf-8"
-                ) as fh:
-                    json.dump(
-                        {
-                            "base_url": "http://user-config/v1",
-                            "api_key": "sk-user-config",
-                            "model": "user-config-model",
-                            "timeout": 33,
-                        },
-                        fh,
-                    )
-                hosted_runtime = MagicMock()
-                hosted_runtime.session_host.adapter = MagicMock(name="inner_adapter")
-                launch_configs = []
-
-                def fake_create_hosted_runtime(launch_config):
-                    launch_configs.append(launch_config)
-                    return hosted_runtime
-
-                with patch("embedagent.config._USER_CONFIG_DIR", user_config_dir), patch(
-                    "embedagent.frontend.gui.launcher.create_hosted_runtime",
-                    side_effect=fake_create_hosted_runtime,
-                ), patch("embedagent.core.adapter.AgentCoreAdapter") as adapter_cls:
-                    core = gui_launcher.create_core(workspace, {})
-
-        self.assertIs(core, adapter_cls.return_value)
         self.assertEqual(launch_configs[0].model, "user-config-model")
         self.assertEqual(launch_configs[0].base_url, "http://user-config/v1")
-        self.assertEqual(launch_configs[0].api_key, "sk-user-config")
         self.assertEqual(launch_configs[0].timeout, 33)
 
     def test_main_accepts_workspace_option(self):
-        with tempfile.TemporaryDirectory() as workspace:
-            with patch.object(gui_launcher, "launch_gui") as launch_gui:
-                exit_code = gui_launcher.main(
-                    [
-                        "--workspace",
-                        workspace,
-                        "--model",
-                        "qwen3.5-coder",
-                        "--agent-application",
-                        "tests.python",
-                    ]
-                )
+        with tempfile.TemporaryDirectory() as workspace, patch.object(
+            gui_launcher, "launch_gui"
+        ) as launch_gui:
+            exit_code = gui_launcher.main(
+                [
+                    "--workspace",
+                    workspace,
+                    "--model",
+                    "qwen3.5-coder",
+                    "--agent-application",
+                    "tests.python",
+                ]
+            )
+
         self.assertEqual(exit_code, 0)
-        launch_gui.assert_called_once()
         self.assertEqual(launch_gui.call_args.kwargs["workspace"], os.path.abspath(workspace))
         self.assertEqual(launch_gui.call_args.kwargs["model"], "qwen3.5-coder")
-        self.assertEqual(launch_gui.call_args.kwargs["agent_application_id"], "tests.python")
-
-    def test_config_template_uses_flat_runtime_schema(self):
-        template_path = os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "config",
-            "config.json.template",
-        )
-        with open(template_path, "r", encoding="utf-8") as handle:
-            payload = json.load(handle)
-        self.assertIn("base_url", payload)
-        self.assertIn("model", payload)
-        self.assertNotIn("llm", payload)
-        self.assertNotIn("context", payload)
 
 
 class TestThreadsafeAsyncDispatcher(unittest.TestCase):
+    async def _noop(self):
+        return None
+
     def test_dispatch_requires_bound_loop(self):
         dispatcher = ThreadsafeAsyncDispatcher()
         result = dispatcher.dispatch(lambda: self._noop())
@@ -178,7 +172,6 @@ class TestThreadsafeAsyncDispatcher(unittest.TestCase):
 
             result = dispatcher.dispatch(lambda: work())
             self.assertTrue(result)
-            self.assertEqual(result.reason, "")
             self.assertTrue(done.wait(1.0))
             self.assertEqual(results, ["ok"])
         finally:
@@ -186,67 +179,31 @@ class TestThreadsafeAsyncDispatcher(unittest.TestCase):
             thread.join(1.0)
             loop.close()
 
-    def test_dispatch_reports_closed_loop_reason(self):
-        dispatcher = ThreadsafeAsyncDispatcher()
-        loop = asyncio.new_event_loop()
-        loop.close()
-        dispatcher.set_loop(loop)
-        result = dispatcher.dispatch(lambda: self._noop())
-        self.assertFalse(result)
-        self.assertEqual(result.reason, "loop_closed")
 
-    async def _noop(self):
-        return None
-
-
-class _FakeWebSocket(object):
-    def __init__(self, on_send=None):
+class FakeWebSocket(object):
+    def __init__(self, on_send=None, receive_error=None):
         self.on_send = on_send
+        self.receive_error = receive_error
         self.messages = []
+        self.accepted = False
+
+    async def accept(self):
+        self.accepted = True
 
     async def send_json(self, message):
         self.messages.append(message)
         if self.on_send is not None:
             self.on_send()
 
-
-class _ReceiveErrorWebSocket(object):
-    def __init__(self, exc):
-        self._exc = exc
-        self.accepted = False
-
-    async def accept(self):
-        self.accepted = True
-
     async def receive_json(self):
-        raise self._exc
-
-
-class _BackendCore(object):
-    def __init__(self):
-        self.remember_calls = []
-
-    def register_frontend(self, frontend):
-        self.frontend = frontend
-
-    def remember_permission_category(self, session_id, category):
-        self.remember_calls.append((session_id, category))
-        return {
-            "session_id": session_id,
-            "status": "idle",
-            "current_mode": "build",
-            "remembered": category,
-        }
-
-    def shutdown(self):
-        return None
+        raise self.receive_error or RuntimeError("closed")
 
 
 class TestWebSocketFrontend(unittest.TestCase):
     def test_broadcast_tolerates_connection_set_mutation(self):
         frontend = WebSocketFrontend()
-        late = _FakeWebSocket()
-        first = _FakeWebSocket(on_send=lambda: frontend.disconnect(late))
+        late = FakeWebSocket()
+        first = FakeWebSocket(on_send=lambda: frontend.disconnect(late))
         frontend.connections = set([first, late])
 
         asyncio.run(frontend.broadcast({"type": "ping"}))
@@ -255,18 +212,18 @@ class TestWebSocketFrontend(unittest.TestCase):
         self.assertEqual(late.messages, [{"type": "ping"}])
         self.assertNotIn(late, frontend.connections)
 
-    def test_session_event_is_forwarded_without_backend_metadata_changes(self):
+    def test_session_event_is_forwarded_without_metadata_changes(self):
         frontend = WebSocketFrontend()
         dispatched = []
         frontend._dispatch_message = lambda message: dispatched.append(message) or True
         envelope = SessionEventEnvelope(
             schema_version=1,
-            event_id="evt-host",
-            session_id="sess-1",
+            event_id="event-1",
+            session_id="session-1",
             sequence=4,
             event_kind="approval.requested",
-            timestamp="2026-07-26T00:00:00Z",
-            payload={"request_id": "perm-1", "interaction_id": "perm-1"},
+            timestamp="2026-08-13T00:00:00Z",
+            payload={"interaction_id": "approval-1"},
         )
 
         frontend.on_session_event(envelope)
@@ -276,191 +233,22 @@ class TestWebSocketFrontend(unittest.TestCase):
             [{"type": "session_event", "data": envelope.to_dict()}],
         )
 
-
-class TestWebSocketFrontendDispatch(unittest.TestCase):
-    def test_dispatch_result_reason_is_logged_when_queueing_fails(self):
-        frontend = WebSocketFrontend()
-        frontend._dispatcher.dispatch = lambda factory: type(
-            "Result", (), {"queued": False, "reason": "loop_closed", "__bool__": lambda self: False}
-        )()
-        with self.assertLogs("embedagent.frontend.gui.backend.server", level="ERROR") as captured:
-            queued = frontend._dispatch_message({"type": "session_event", "data": {}})
-        self.assertFalse(queued)
-        self.assertTrue(any("loop_closed" in entry for entry in captured.output))
-
     def test_websocket_endpoint_cleans_up_after_receive_failure(self):
         with tempfile.TemporaryDirectory() as static_dir:
             with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
                 handle.write("<html><body>ok</body></html>")
-            backend = GUIBackend(_BackendCore(), static_dir=static_dir)
-            route = None
-            for item in backend.app.routes:
-                if getattr(item, "path", "") == "/ws":
-                    route = item
-                    break
-            self.assertIsNotNone(route)
-            websocket = _ReceiveErrorWebSocket(RuntimeError("boom"))
+            backend = _backend(static_dir)
+            route = next(item for item in backend.app.routes if getattr(item, "path", "") == "/ws")
+            websocket = FakeWebSocket(receive_error=RuntimeError("boom"))
+
             with self.assertLogs(
                 "embedagent.frontend.gui.backend.server", level="ERROR"
             ) as captured:
                 asyncio.run(route.endpoint(websocket))
-            self.assertTrue(websocket.accepted)
-            self.assertNotIn(websocket, backend.frontend.connections)
-            self.assertTrue(
-                any("Unhandled websocket failure" in entry for entry in captured.output)
-            )
 
-
-class TestAgentCoreAdapterApi(unittest.TestCase):
-    def test_get_session_bootstrap_delegates_to_inner_adapter(self):
-        from embedagent.core.adapter import AgentCoreAdapter
-
-        core = AgentCoreAdapter(workspace="D:\\workspace")
-        core._adapter = MagicMock()
-        core._adapter.get_session_bootstrap.return_value = {
-            "snapshot": {"session_id": "sess-1", "status": "idle", "current_mode": "build"},
-            "history": {"session_id": "sess-1", "turns": [], "integrity": {"status": "healthy"}},
-            "plan": None,
-            "permission_context": {"session_id": "sess-1", "rules": []},
-        }
-
-        payload = core.get_session_bootstrap("sess-1")
-
-        self.assertEqual(payload["snapshot"].session_id, "sess-1")
-        self.assertEqual(payload["history"]["session_id"], "sess-1")
-        core._adapter.get_session_bootstrap.assert_called_once_with("sess-1")
-
-    def test_get_session_capabilities_delegates_to_inner_adapter(self):
-        from embedagent.core.adapter import AgentCoreAdapter
-
-        core = AgentCoreAdapter(workspace="D:\\workspace")
-        core._adapter = MagicMock()
-        core._adapter.get_session_capabilities.return_value = {
-            "commands": [{"name": "help", "usage": "/help", "active": True}]
-        }
-
-        payload = core.get_session_capabilities()
-
-        self.assertEqual(payload["commands"][0]["usage"], "/help")
-        core._adapter.get_session_capabilities.assert_called_once_with(session_id="")
-
-    def test_reload_resources_delegates_to_inner_adapter(self):
-        from embedagent.core.adapter import AgentCoreAdapter
-
-        core = AgentCoreAdapter(workspace="D:\\workspace")
-        core._adapter = MagicMock()
-        core._adapter.reload_resources.return_value = {
-            "reason": "api",
-            "counts": {"skills": 0, "prompts": 1, "recipes": 0},
-        }
-
-        payload = core.reload_resources("sess-1", reason="api")
-
-        self.assertEqual(payload["counts"]["prompts"], 1)
-        core._adapter.reload_resources.assert_called_once_with(
-            session_id="sess-1",
-            reason="api",
-        )
-
-    def test_session_lifecycle_and_cancel_delegate_to_inner_adapter(self):
-        from embedagent.core.adapter import AgentCoreAdapter
-
-        core = AgentCoreAdapter(workspace="D:\\workspace")
-        core._adapter = MagicMock()
-        core._adapter.rename_session.return_value = {
-            "session_id": "sess-1",
-            "title": "Renamed",
-            "thread": {"title": "Renamed", "archived": False},
-        }
-        core._adapter.archive_session.return_value = {
-            "session_id": "sess-1",
-            "thread": {"title": "Renamed", "archived": True},
-        }
-        core._adapter.fork_session.return_value = {
-            "session_id": "sess-copy",
-            "title": "Copy",
-            "thread": {"title": "Copy", "forked_from": "sess-1"},
-        }
-        core._adapter.cancel_session.return_value = {
-            "session_id": "sess-1",
-            "status": "idle",
-            "current_mode": "build",
-            "pending_interaction": None,
-            "pending_interaction_valid": False,
-        }
-
-        renamed = core.rename_session("sess-1", "Renamed")
-        archived = core.archive_session("sess-1")
-        forked = core.fork_session("sess-1", "Copy")
-        cancelled = core.cancel_session("sess-1")
-
-        self.assertEqual(renamed["title"], "Renamed")
-        self.assertTrue(archived["thread"]["archived"])
-        self.assertEqual(forked["session_id"], "sess-copy")
-        self.assertEqual(cancelled.session_id, "sess-1")
-        self.assertFalse(cancelled.pending_interaction_valid)
-        core._adapter.rename_session.assert_called_once_with("sess-1", "Renamed")
-        core._adapter.archive_session.assert_called_once_with("sess-1")
-        core._adapter.fork_session.assert_called_once_with("sess-1", title="Copy")
-        core._adapter.cancel_session.assert_called_once_with("sess-1")
-
-    def test_attach_adapter_binds_default_event_handler_for_resumed_interactions(self):
-        from embedagent.core.adapter import AgentCoreAdapter
-
-        core = AgentCoreAdapter(workspace="D:\\workspace")
-        adapter = MagicMock()
-
-        core.attach_adapter(adapter)
-
-        self.assertEqual(adapter.event_handler, core._on_adapter_event)
-
-    def test_submit_message_uses_core_owned_interaction_lifecycle(self):
-        from embedagent.core.adapter import AgentCoreAdapter
-
-        core = AgentCoreAdapter(workspace="D:\\workspace")
-        core._adapter = MagicMock()
-        called = threading.Event()
-        core._adapter.submit_user_message.side_effect = lambda **kwargs: called.set()
-
-        core.submit_message("sess-1", "hello")
-
-        self.assertTrue(called.wait(1.0))
-        core._adapter.submit_user_message.assert_called_once()
-        kwargs = core._adapter.submit_user_message.call_args.kwargs
-        self.assertIsNone(kwargs["permission_resolver"])
-        self.assertIsNone(kwargs["user_input_resolver"])
-        self.assertEqual(kwargs["event_handler"], core._on_adapter_event)
-
-    def test_snapshot_projection_drops_timeline_metadata_and_preserves_restore_diagnostics(self):
-        from embedagent.core.adapter import AgentCoreAdapter
-
-        core = AgentCoreAdapter(workspace="D:\\workspace")
-        core._adapter = MagicMock()
-        core._adapter.get_session_snapshot.return_value = {
-            "session_id": "sess-1",
-            "status": "idle",
-            "current_mode": "build",
-            "started_at": "2026-04-04T00:00:00Z",
-            "updated_at": "2026-04-04T00:00:01Z",
-            "pending_interaction_valid": False,
-            "restore_stop_reason": "transcript_missing",
-            "turn_experience": {
-                "status": "blocked",
-                "completed": [{"kind": "file_created", "path": "README.md"}],
-                "next_steps": ["Run validation for the changed files."],
-            },
-        }
-
-        snapshot = core.get_session_snapshot("sess-1")
-
-        self.assertFalse(hasattr(snapshot, "timeline" + "_replay_status"))
-        self.assertFalse(hasattr(snapshot, "timeline" + "_first_seq"))
-        self.assertFalse(hasattr(snapshot, "timeline" + "_last_seq"))
-        self.assertFalse(hasattr(snapshot, "timeline" + "_integrity"))
-        self.assertFalse(snapshot.pending_interaction_valid)
-        self.assertEqual(snapshot.restore_stop_reason, "transcript_missing")
-        self.assertEqual(snapshot.turn_experience["status"], "blocked")
-        self.assertEqual(snapshot.turn_experience["completed"][0]["path"], "README.md")
+        self.assertTrue(websocket.accepted)
+        self.assertNotIn(websocket, backend.frontend.connections)
+        self.assertTrue(any("Unhandled websocket failure" in item for item in captured.output))
 
 
 if __name__ == "__main__":

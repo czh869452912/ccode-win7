@@ -3,13 +3,15 @@ import tempfile
 import unittest
 
 from embedagent_protocol import (
+    AgentApplicationDescriptor,
+    CapabilitySnapshot,
     CommandDescriptor,
     KeybindingDescriptor,
     ShellDescriptor,
     SurfaceDescriptor,
 )
 
-from embedagent.frontend.gui.backend.app_host import GUIAppHost
+from embedagent.frontend.gui.backend.app_host import FrontendPortSet, GUIAppHost
 from embedagent.frontend.gui.backend.app_shell import AppShellService
 from embedagent.frontend.gui.backend.protocol_payloads import serialize_app_bootstrap
 from embedagent.frontend.gui.backend.workspace_registry import WorkspaceRegistry
@@ -23,18 +25,14 @@ class _FakeFrontend(object):
         self.messages.append(message)
         return True
 
+    def on_session_event(self, envelope):
+        del envelope
 
-class _FakeCore(object):
+
+class _FakePorts(object):
     def __init__(self, workspace):
         self.workspace = workspace
-        self.frontend = None
-        self.shutdown_calls = 0
-
-    def register_frontend(self, frontend):
-        self.frontend = frontend
-
-    def shutdown(self):
-        self.shutdown_calls += 1
+        self.closed = False
 
     def list_sessions(self, limit=10):
         raise AssertionError("app shell must not read session history")
@@ -43,10 +41,14 @@ class _FakeCore(object):
         raise AssertionError("app shell must not read session bootstrap")
 
     def get_session_capabilities(self, session_id=""):
-        return _agent_capabilities()
+        del session_id
+        return _capability_snapshot()
 
     def get_workspace_snapshot(self):
         return {"path": self.workspace}
+
+    def close(self):
+        self.closed = True
 
 
 def _agent_capabilities():
@@ -84,6 +86,35 @@ def _agent_capabilities():
     }
 
 
+def _capability_snapshot():
+    application = AgentApplicationDescriptor(
+        id="tests.python",
+        label="Python Agent",
+        profile_id="tests.python.profile",
+        workflow_package_ids=[],
+        active=True,
+    )
+    return CapabilitySnapshot(
+        commands=[
+            CommandDescriptor(
+                id="review",
+                label="/review",
+                group="builtin",
+                dispatch={},
+                summary="Review changes",
+                source_type="builtin",
+                source_id="slash_commands",
+            )
+        ],
+        agent_application=application,
+        agent_applications=[application],
+        empty_state={
+            "scenario_label": "Python workspace",
+            "primary": "Open a Python project",
+        },
+    )
+
+
 def _descriptor():
     return ShellDescriptor(
         schema_version=1,
@@ -109,18 +140,20 @@ def _descriptor():
 
 class TestGuiAppShellService(unittest.TestCase):
     def _service(self, registry, created, shell_compiler=None, host_diagnostics=None):
-        def factory(path):
-            core = _FakeCore(path)
-            created.append(core)
-            return core
+        frontend = _FakeFrontend()
+
+        def factory(path, event_sink):
+            port = _FakePorts(path)
+            ports = FrontendPortSet(session=port, workspace=port)
+            created.append((ports, event_sink))
+            return ports
 
         host = GUIAppHost(
-            core_factory=factory,
+            port_factory=factory,
+            event_sink=frontend,
             registry=registry,
             agent_capabilities=_agent_capabilities(),
         )
-        frontend = _FakeFrontend()
-        host.bind_frontend(frontend)
         calls = []
 
         def compiler(application_id, capabilities):
@@ -190,9 +223,9 @@ class TestGuiAppShellService(unittest.TestCase):
         self.assertEqual(opened["shell"], _descriptor().to_dict())
         self.assertEqual(removed["shell"], _descriptor().to_dict())
         self.assertGreaterEqual(len(calls), 2)
-        self.assertIs(created[0].frontend, frontend)
-        self.assertIsNone(host.current_core())
-        self.assertEqual(created[0].shutdown_calls, 1)
+        self.assertIs(created[0][1], frontend)
+        self.assertIsNone(host.current_ports())
+        self.assertTrue(created[0][0].session.closed)
 
     def test_bootstrap_excludes_history_and_secret_diagnostics(self):
         with tempfile.TemporaryDirectory() as root:

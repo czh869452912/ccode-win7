@@ -42,10 +42,12 @@ def check_dependencies():
     return True
 
 
-def create_core(workspace: str, config: Optional[Dict[str, Any]] = None):
-    """创建 Agent Core 实例"""
-    # 延迟导入以避免循环依赖
-    from embedagent.core.adapter import AgentCoreAdapter
+def create_frontend_ports(
+    workspace: str,
+    event_sink,
+    config: Optional[Dict[str, Any]] = None,
+):
+    from embedagent.frontend.gui.backend.app_host import FrontendPortSet
 
     options = dict(config or {})
     workspace = os.path.realpath(workspace)
@@ -64,11 +66,8 @@ def create_core(workspace: str, config: Optional[Dict[str, Any]] = None):
             agent_application_id=options.get("agent_application_id") or None,
         ),
     )
-    runtime = create_hosted_runtime(launch_config)
-
-    core = AgentCoreAdapter(workspace=workspace, config=options)
-    core.attach_adapter(runtime.session_host.adapter)
-    return core
+    runtime = create_hosted_runtime(launch_config, event_sink=event_sink)
+    return FrontendPortSet(session=runtime.session, workspace=runtime.workspace)
 
 
 def _resolve_initial_workspace(workspace_option: str = "", workspace_arg: str = "") -> str:
@@ -323,20 +322,23 @@ def launch_gui(
         from embedagent_host.runtime.agent_applications import agent_application_capability_payload
 
         from embedagent.frontend.gui.backend.app_host import GUIAppHost
-        from embedagent.frontend.gui.backend.server import GUIBackend
+        from embedagent.frontend.gui.backend.server import GUIBackend, WebSocketFrontend
         from embedagent.product_catalog import (
             product_agent_application_registry,
             product_shell_compiler,
         )
 
-        def core_factory(path: str):
-            _LOGGER.info("Initializing Agent Core for workspace: %s", path)
-            return create_core(path, runtime_config)
+        frontend = WebSocketFrontend()
+
+        def port_factory(path: str, event_sink):
+            _LOGGER.info("Initializing frontend ports for workspace: %s", path)
+            return create_frontend_ports(path, event_sink, runtime_config)
 
         allowed_ids = bundle_policy.allowed_agent_application_ids if bundle_policy.bundled else None
         agent_application_registry = product_agent_application_registry(allowed_ids)
         app_host = GUIAppHost(
-            core_factory=core_factory,
+            port_factory=port_factory,
+            event_sink=frontend,
             agent_capabilities=agent_application_capability_payload(
                 agent_application_id or "",
                 registry=agent_application_registry,
@@ -346,6 +348,7 @@ def launch_gui(
             core=None,
             static_dir=static_dir,
             app_host=app_host,
+            frontend=frontend,
             host_diagnostics=host_diagnostics,
             shell_compiler=product_shell_compiler(),
         )

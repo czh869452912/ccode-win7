@@ -4,13 +4,14 @@ import sys
 import tempfile
 import unittest
 
-from embedagent_protocol import ShellDescriptor
+from embedagent_protocol import CapabilitySnapshot, ShellDescriptor
 from fastapi import HTTPException
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.frontend.gui.backend.app_host import GUIAppHost
+from embedagent.frontend.gui.backend.app_host import FrontendPortSet, GUIAppHost
 from embedagent.frontend.gui.backend.server import GUIBackend as _GUIBackend
+from embedagent.frontend.gui.backend.server import WebSocketFrontend
 from embedagent.frontend.gui.backend.workspace_registry import WorkspaceRegistry
 
 
@@ -29,22 +30,23 @@ def route(app, path, method):
     raise AssertionError("route not found: %s %s" % (method, path))
 
 
-class FakeCore(object):
+class FakePorts(object):
     def __init__(self, workspace):
         self.workspace = workspace
-        self.frontend = None
 
-    def register_frontend(self, frontend):
-        self.frontend = frontend
-
-    def shutdown(self):
+    def get_session_bootstrap(self, reference, mode=""):
+        del reference, mode
         return None
 
-    def list_sessions(self, limit=10):
-        return []
+    def get_session_capabilities(self, session_id=""):
+        del session_id
+        return CapabilitySnapshot()
 
     def get_workspace_snapshot(self):
         return {"path": self.workspace}
+
+    def close(self):
+        return None
 
 
 class FakeSourceControlService(object):
@@ -85,9 +87,15 @@ class GuiSourceControlApiTests(unittest.TestCase):
         with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
             handle.write("<html><body>ok</body></html>")
         registry = WorkspaceRegistry(storage_path=os.path.join(workspace, "workspaces.json"))
-        host = GUIAppHost(core_factory=lambda path: FakeCore(path), registry=registry)
+        frontend = WebSocketFrontend()
+        host = GUIAppHost(
+            port_factory=lambda path, event_sink: FrontendPortSet(FakePorts(path), FakePorts(path)),
+            event_sink=frontend,
+            registry=registry,
+        )
         backend = GUIBackend(
             app_host=host,
+            frontend=frontend,
             static_dir=static_dir,
             source_control_service=service,
         )
@@ -125,9 +133,17 @@ class GuiSourceControlApiTests(unittest.TestCase):
             with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
                 handle.write("<html><body>ok</body></html>")
             registry = WorkspaceRegistry(storage_path=os.path.join(workspace, "workspaces.json"))
-            host = GUIAppHost(core_factory=lambda path: FakeCore(path), registry=registry)
+            frontend = WebSocketFrontend()
+            host = GUIAppHost(
+                port_factory=lambda path, event_sink: FrontendPortSet(
+                    FakePorts(path), FakePorts(path)
+                ),
+                event_sink=frontend,
+                registry=registry,
+            )
             backend = GUIBackend(
                 app_host=host,
+                frontend=frontend,
                 static_dir=static_dir,
                 source_control_service=FakeSourceControlService(),
             )

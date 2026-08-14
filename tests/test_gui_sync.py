@@ -1,79 +1,80 @@
-"""Tests for GUI read-model invalidation sync callbacks."""
+"""Integration coverage for GUI interaction responses through focused ports."""
 
+from __future__ import annotations
+
+import asyncio
 import os
 import shutil
-import sys
 import tempfile
 import time
 import unittest
 
 import pytest
-
-sys.path.insert(0, os.path.dirname(__file__))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-
 from embedagent_core.permissions import PermissionPolicy
+from embedagent_host.frontend_ports import (
+    InProcessFrontendSessionPort,
+    InProcessFrontendWorkspacePort,
+)
+from embedagent_host.inprocess_adapter import InProcessAdapter
+from embedagent_host.runtime.session_store import SessionSummaryStore
 from embedagent_host.runtime.tools import ToolRuntime
+from embedagent_protocol import ShellDescriptor
+from test_inprocess_adapter_frontend_api import AskUserClient
+
+from embedagent.frontend.gui.backend.app_host import FrontendPortSet, SingleWorkspaceAppHost
+from embedagent.frontend.gui.backend.server import GUIBackend, WebSocketFrontend
+from embedagent.product_catalog import product_agent_application_registry
 
 
 @pytest.mark.gui
 class TestGuiSync(unittest.TestCase):
-    def test_gui_backend_route_resolves_core_pending_input_interaction(self):
-        import asyncio
-
-        from embedagent_protocol import ShellDescriptor
-        from test_inprocess_adapter_frontend_api import AskUserClient
-
-        from embedagent.core.adapter import AgentCoreAdapter
-        from embedagent.frontend.gui.backend.server import GUIBackend
-
+    def test_gui_backend_route_resolves_pending_input_interaction(self):
         workspace = tempfile.mkdtemp(prefix="gui-sync-")
         static_dir = tempfile.mkdtemp(prefix="gui-sync-static-")
         try:
             with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
                 handle.write("<html><body>ok</body></html>")
-            tools = ToolRuntime(workspace)
-            core = AgentCoreAdapter(workspace=workspace)
-            core.initialize(
+            frontend = WebSocketFrontend()
+            adapter = InProcessAdapter(
                 client=AskUserClient(),
-                tools=tools,
+                tools=ToolRuntime(workspace),
                 max_turns=8,
                 permission_policy=PermissionPolicy(auto_approve_all=True, workspace=workspace),
+                summary_store=SessionSummaryStore(workspace),
+                event_sink=frontend,
+                agent_application_registry=product_agent_application_registry(),
             )
+            session = InProcessFrontendSessionPort(adapter)
+            ports = FrontendPortSet(session, InProcessFrontendWorkspacePort(adapter))
             backend = GUIBackend(
-                core,
                 static_dir=static_dir,
-                shell_compiler=lambda application_id, capabilities: ShellDescriptor(
-                    schema_version=1
-                ),
+                app_host=SingleWorkspaceAppHost(ports),
+                frontend=frontend,
+                shell_compiler=lambda application_id, capabilities: ShellDescriptor(),
             )
-            backend.frontend._dispatch_message = lambda message: True
+            frontend._dispatch_message = lambda message: True
 
-            snapshot = core.create_session("spec")
-            session_id = snapshot.session_id
+            created = session.create_session("spec")
+            session_id = created.thread.id
+            session.submit_user_message(session_id, "请继续", True)
 
-            core.submit_message(session_id, "请继续")
             deadline = time.time() + 3.0
             interaction_id = ""
             while time.time() < deadline:
-                current_snapshot = core.get_session_snapshot(session_id)
-                pending = current_snapshot.pending_interaction or {}
+                snapshot = session.get_session_bootstrap(session_id).snapshot
+                pending = snapshot.get("pending_interaction") or {}
                 if pending.get("kind") == "user_input":
                     interaction_id = str(pending.get("interaction_id") or "")
                     break
                 time.sleep(0.02)
 
             self.assertTrue(interaction_id)
-            route = None
-            for item in backend.app.routes:
-                if getattr(
-                    item, "path", ""
-                ) == "/api/sessions/{session_id}/interactions/{interaction_id}/respond" and "POST" in getattr(
-                    item, "methods", set()
-                ):
-                    route = item
-                    break
-            self.assertIsNotNone(route)
+            route = next(
+                item
+                for item in backend.app.routes
+                if getattr(item, "path", "")
+                == "/api/sessions/{session_id}/interactions/{interaction_id}/respond"
+            )
             asyncio.run(
                 route.endpoint(
                     session_id,
@@ -83,18 +84,18 @@ class TestGuiSync(unittest.TestCase):
             )
 
             deadline = time.time() + 3.0
-            current_snapshot = None
+            current = None
             while time.time() < deadline:
-                current_snapshot = core.get_session_snapshot(session_id)
+                current = session.get_session_bootstrap(session_id).snapshot
                 if (
-                    current_snapshot.pending_interaction is None
-                    and current_snapshot.current_mode == "debug"
+                    current.get("pending_interaction") is None
+                    and current.get("current_mode") == "debug"
                 ):
                     break
                 time.sleep(0.02)
-            self.assertIsNotNone(current_snapshot)
-            self.assertIsNone(current_snapshot.pending_interaction)
-            self.assertEqual(current_snapshot.current_mode, "debug")
+            self.assertIsNotNone(current)
+            self.assertIsNone(current.get("pending_interaction"))
+            self.assertEqual(current.get("current_mode"), "debug")
         finally:
             shutil.rmtree(workspace, ignore_errors=True)
             shutil.rmtree(static_dir, ignore_errors=True)

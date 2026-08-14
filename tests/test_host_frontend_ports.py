@@ -16,7 +16,12 @@ from embedagent_host.frontend_ports import (
 from embedagent_host.hosted_command_service import HostedCommandService
 from embedagent_host.hosted_interaction_service import HostedInteractionService
 from embedagent_host.inprocess_adapter import InProcessAdapter
-from embedagent_protocol import CapabilitySnapshot, SessionBootstrap, ThreadShell
+from embedagent_protocol import (
+    CapabilitySnapshot,
+    PermissionContext,
+    SessionBootstrap,
+    ThreadShell,
+)
 
 
 def _capabilities():
@@ -94,7 +99,12 @@ def test_session_port_returns_strict_protocol_dtos_without_exposing_adapter():
     adapter = MagicMock()
     adapter.list_sessions.return_value = [_summary()]
     adapter.summary_store.load_summary.return_value = _summary()
-    adapter.get_session_bootstrap.return_value = _bootstrap()
+    bootstrap = _bootstrap()
+    bootstrap["permission_context"] = PermissionContext(
+        session_id="s-1",
+        rules_path="",
+    )
+    adapter.get_session_bootstrap.return_value = bootstrap
     adapter.get_session_capabilities.return_value = _capabilities()
     adapter.create_session.return_value = {"session_id": "s-1"}
     adapter.resume_session.return_value = {"session_id": "s-1"}
@@ -108,7 +118,9 @@ def test_session_port_returns_strict_protocol_dtos_without_exposing_adapter():
 
     assert isinstance(port.list_sessions()[0], ThreadShell)
     assert isinstance(port.get_session_capabilities(), CapabilitySnapshot)
-    assert isinstance(port.get_session_bootstrap("s-1"), SessionBootstrap)
+    loaded = port.get_session_bootstrap("s-1")
+    assert isinstance(loaded, SessionBootstrap)
+    assert loaded.permission_context["session_id"] == "s-1"
     assert isinstance(port.create_session("build"), SessionBootstrap)
     assert isinstance(port.resume_session("latest", "build"), SessionBootstrap)
     assert isinstance(port.rename_session("s-1", "Renamed"), ThreadShell)
