@@ -31,9 +31,9 @@ function application(state, accepted, reason = "") {
   return { state, accepted, reason };
 }
 
-function validEnvelope(event) {
+export function isSessionEventEnvelope(event) {
   if (!event || typeof event !== "object") return false;
-  if (!Number.isInteger(event.schema_version) || event.schema_version <= 0) return false;
+  if (event.schema_version !== 1) return false;
   if (!String(event.event_id || "").trim()) return false;
   if (!String(event.session_id || "").trim()) return false;
   if (!Number.isInteger(event.sequence) || event.sequence <= 0) return false;
@@ -50,7 +50,7 @@ function validEnvelope(event) {
 }
 
 export function applySessionTransportEvent(state, event) {
-  if (!validEnvelope(event)) {
+  if (!isSessionEventEnvelope(event)) {
     return application(
       {
         ...state,
@@ -115,7 +115,7 @@ export function beginSessionTransportBootstrap(state, sessionId) {
 }
 
 export function bufferSessionTransportEvent(state, event) {
-  if (!validEnvelope(event)) {
+  if (!isSessionEventEnvelope(event)) {
     return {
       ...state,
       reloadState: "degraded",

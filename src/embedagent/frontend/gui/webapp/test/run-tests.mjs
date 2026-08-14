@@ -38,6 +38,7 @@ import { runRespondingRequestIdsHandleTests } from "./responding-request-ids-han
 import { runRunOutputStateTests } from "./run-output-state.test.mjs";
 import { runSessionActivationControllerTests } from "./session-activation-controller.test.mjs";
 import { runSessionCapabilityModelTests } from "./session-capability-model.test.mjs";
+import { runSessionClientRuntimeContractTests } from "./session-client-runtime-contract.test.mjs";
 import { runSessionControllerTests } from "./session-controller.test.mjs";
 import { runSessionListControllerTests } from "./session-list-controller.test.mjs";
 import { runSessionLoadersTests } from "./session-loaders.test.mjs";
@@ -94,7 +95,8 @@ async function main() {
   const asynchronous = [
     runActiveWorkspaceDataLoaderTests, runClientRuntimeTests, runFilePreviewControllerTests,
     runHttpTransportTests, runInitialAppLoadControllerTests, runInteractionResponseControllerTests,
-    runPreviewControllerTests, runSessionActivationControllerTests, runSessionControllerTests,
+    runPreviewControllerTests, runSessionActivationControllerTests, runSessionClientRuntimeContractTests,
+    runSessionControllerTests,
     runSessionListControllerTests, runSessionLoadersTests, runSessionTransportControllerTests,
     runSessionTransportHandleTests, runSocketEffectExecutorTests, runSourceControlControllerTests,
     runTerminalControllerTests, runThreadLifecycleControllerTests, runVisualDebugRunnerTests,

@@ -659,12 +659,12 @@ offline packaging, six-wheel distribution checks.
 - Modify: `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
 - Reuse: `tests/fixtures/session_client_runtime/contract.json`
 
-- [ ] **Step 1: Register a JavaScript runner for the shared fixture.**
+- [x] **Step 1: Register a JavaScript runner for the shared fixture.**
 
   Resolve the fixture from repository root without copying it into the webapp. Assert the
   exact expected action sequence for every case and deep-freeze dispatched actions in tests.
 
-- [ ] **Step 2: Run the Node suite and confirm the module is missing.**
+- [x] **Step 2: Run the Node suite and confirm the module is missing.**
 
   ```powershell
   Push-Location src/embedagent/frontend/gui/webapp
@@ -672,7 +672,7 @@ offline packaging, six-wheel distribution checks.
   Pop-Location
   ```
 
-- [ ] **Step 3: Implement the same observable state machine in JavaScript.**
+- [x] **Step 3: Implement the same observable state machine in JavaScript.**
 
   ```javascript
   export class SessionClientRuntime {
@@ -695,7 +695,7 @@ offline packaging, six-wheel distribution checks.
   Keep browser APIs, workspace controllers, dialogs, keyboard behavior, terminals, preview,
   and source control out of this class.
 
-- [ ] **Step 4: Run Node tests to green.**
+- [x] **Step 4: Run Node tests to green.**
 
   ```powershell
   Push-Location src/embedagent/frontend/gui/webapp
@@ -703,7 +703,7 @@ offline packaging, six-wheel distribution checks.
   Pop-Location
   ```
 
-- [ ] **Step 5: Commit the browser session runtime.**
+- [x] **Step 5: Commit the browser session runtime.**
 
   ```powershell
   git add src/embedagent/frontend/gui/webapp tests/fixtures/session_client_runtime/contract.json
