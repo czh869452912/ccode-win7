@@ -773,7 +773,7 @@ offline packaging, six-wheel distribution checks.
 - Create: `tests/test_cli_parser.py`
 - Create: `tests/test_cli_result.py`
 
-- [ ] **Step 1: Replace old CLI tests with the approved grammar.**
+- [x] **Step 1: Replace old CLI tests with the approved grammar.**
 
   Cover only:
 
@@ -787,7 +787,7 @@ offline packaging, six-wheel distribution checks.
   parser output is immutable and `main(argv)` returns an integer without calling
   `sys.exit()` internally.
 
-- [ ] **Step 2: Add the exact final-result and exit-code tests.**
+- [x] **Step 2: Add the exact final-result and exit-code tests.**
 
   ```python
   assert CliResult.completed("s1", "ok").to_dict() == {
@@ -804,7 +804,7 @@ offline packaging, six-wheel distribution checks.
   Assert completed `0`, blocked/interaction/permission `2`, usage/config `3`,
   provider/runtime/protocol `4`, and cancelled `130`.
 
-- [ ] **Step 3: Run parser/result tests and confirm old CLI fails.**
+- [x] **Step 3: Run parser/result tests and confirm old CLI fails.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_cli_parser.py
@@ -812,7 +812,7 @@ offline packaging, six-wheel distribution checks.
   uv run python scripts/test-suite.py tdd tests/test_cli_hosted_entrypoint.py
   ```
 
-- [ ] **Step 4: Create the CLI package and composition shell.**
+- [x] **Step 4: Create the CLI package and composition shell.**
 
   Use subparsers with `required=True`. Common launch flags construct only
   `LaunchOverrides`. `app.main()` resolves bundle policy, launch config, application,
@@ -831,14 +831,14 @@ offline packaging, six-wheel distribution checks.
   Keep the existing entry point `embedagent.cli:main` valid through package export. Do not
   import TUI or GUI.
 
-- [ ] **Step 5: Run parser/result tests to green.**
+- [x] **Step 5: Run parser/result tests to green.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_cli_parser.py
   uv run python scripts/test-suite.py tdd tests/test_cli_result.py
   ```
 
-- [ ] **Step 6: Commit the CLI contract.**
+- [x] **Step 6: Commit the CLI contract.**
 
   ```powershell
   git add src/embedagent/cli tests/test_cli_parser.py tests/test_cli_result.py tests/test_cli_hosted_entrypoint.py

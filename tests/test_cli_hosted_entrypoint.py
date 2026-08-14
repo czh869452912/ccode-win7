@@ -1,197 +1,124 @@
-import json
+from dataclasses import FrozenInstanceError
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-
-from embedagent import cli
-from embedagent.config import AppConfig
+from embedagent_protocol import CapabilitySnapshot, ShellDescriptor
 
 
-def _use_user_config(tmp_path, monkeypatch):
-    user_config_dir = tmp_path / "user-config"
-    user_config_dir.mkdir()
-    config_path = user_config_dir / "config.json"
-    config_path.write_text(
-        json.dumps(
-            {
-                "base_url": "http://user-config/v1",
-                "api_key": "sk-user-config",
-                "model": "user-config-model",
-                "timeout": 33,
-            }
-        ),
-        encoding="utf-8",
-    )
-    monkeypatch.setattr("embedagent.config._USER_CONFIG_DIR", str(user_config_dir))
-    monkeypatch.delenv("EMBEDAGENT_BASE_URL", raising=False)
-    monkeypatch.delenv("EMBEDAGENT_API_KEY", raising=False)
-    monkeypatch.delenv("EMBEDAGENT_MODEL", raising=False)
-    monkeypatch.delenv("EMBEDAGENT_TIMEOUT", raising=False)
-    return str(user_config_dir)
-
-
-def test_cli_uses_hosted_config_model_for_non_tui_turn(tmp_path, monkeypatch):
-    monkeypatch.setattr(
-        "embedagent.hosted.load_config",
-        lambda workspace: AppConfig(
-            base_url="http://configured/v1",
-            api_key="sk-configured",
-            model="configured-model",
-            timeout=45,
-        ),
-    )
-    runtime = MagicMock()
-    runtime.session_host.create_session.return_value = {"session_id": "s1"}
-    launch_configs = []
-
-    def fake_create_hosted_runtime(launch_config, event_handler=None):
-        launch_configs.append(launch_config)
-        return runtime
-
-    monkeypatch.setattr(
-        "embedagent.cli.create_hosted_runtime",
-        fake_create_hosted_runtime,
+def _capabilities():
+    return CapabilitySnapshot(
+        schema_version=1,
+        modes=[],
+        commands=[],
+        tools=[],
+        workflow_packages=[],
+        agent_application=None,
+        agent_applications=[],
+        resources=[],
+        model_profiles=[],
+        empty_state={},
     )
 
-    exit_code = cli.main(
-        [
-            "--workspace",
-            str(tmp_path),
-            "--agent-application",
-            "tests.python",
-            "--no-stream",
-            "hello",
-        ]
+
+class FakeSessionPort(object):
+    def __init__(self):
+        self.closed = False
+
+    def get_session_bootstrap(self, reference, mode=""):
+        raise AssertionError("bootstrap must not load during composition")
+
+    def get_session_capabilities(self, session_id=""):
+        assert session_id == ""
+        return _capabilities()
+
+    def close(self):
+        self.closed = True
+
+
+def test_cli_application_composes_focused_ports_and_shared_runtime(tmp_path, monkeypatch):
+    from embedagent.cli.app import CliApplication
+    from embedagent.cli.parser import build_parser
+
+    options = build_parser().parse_args(
+        ["run", "--workspace", str(tmp_path), "--model", "test-model", "hello"]
     )
-
-    assert exit_code == 0
-    assert launch_configs[0].base_url == "http://configured/v1"
-    assert launch_configs[0].api_key == "sk-configured"
-    assert launch_configs[0].model == "configured-model"
-    assert launch_configs[0].timeout == 45
-    assert launch_configs[0].agent_application_id == "tests.python"
-    runtime.session_host.create_session.assert_called_once()
-    runtime.session_host.submit_user_message.assert_called_once()
-
-
-def test_cli_architecture_guard_blocks_direct_runtime_construction():
-    with open("src/embedagent/cli.py", "r", encoding="utf-8") as fh:
-        text = fh.read()
-    blocked = [
-        "OpenAICompatibleClient(",
-        "ToolRuntime(",
-        "ContextManager(",
-        "PermissionPolicy(",
-        "InProcessAdapter(",
-    ]
-    for needle in blocked:
-        assert needle not in text
-
-
-def test_cli_requires_cli_shell_before_resolving_launch_config(tmp_path, monkeypatch):
     policy = MagicMock()
-    policy.require_shell.side_effect = ValueError("cli is not included in bundle flavor gui-only")
-    resolve = MagicMock()
-    monkeypatch.setattr("embedagent.cli.load_current_bundle_policy", lambda path: policy)
-    monkeypatch.setattr("embedagent.cli.resolve_launch_config", resolve)
-    monkeypatch.setattr("embedagent.cli.initialize_modes", lambda workspace: None)
+    policy.bundled = False
+    policy.allowed_agent_application_ids = ()
+    launch_config = SimpleNamespace(
+        workspace=str(tmp_path),
+        agent_application_id="tests.python",
+    )
+    session = FakeSessionPort()
+    hosted = SimpleNamespace(session=session, workspace=object())
+    created = []
+    compiler = MagicMock(return_value=ShellDescriptor(schema_version=1))
+    registry = MagicMock()
+    registry.record_by_id.return_value = SimpleNamespace(application_id="tests.python")
 
-    with pytest.raises(SystemExit):
-        cli.main(["--workspace", str(tmp_path), "--model", "test-model", "hello"])
+    monkeypatch.setattr("embedagent.cli.app.load_current_bundle_policy", lambda path: policy)
+    monkeypatch.setattr(
+        "embedagent.cli.app.resolve_launch_config",
+        lambda workspace, overrides: launch_config,
+    )
+    monkeypatch.setattr(
+        "embedagent.cli.app.create_hosted_runtime",
+        lambda config, event_sink: created.append((config, event_sink)) or hosted,
+    )
+    monkeypatch.setattr(
+        "embedagent.cli.app.product_agent_application_registry", lambda ids: registry
+    )
+    monkeypatch.setattr("embedagent.cli.app.product_shell_compiler", lambda: compiler)
+
+    application = CliApplication.from_options(options)
+
+    policy.require_shell.assert_called_once_with("cli")
+    assert created == [(launch_config, application.client_runtime)]
+    assert application.session_port is session
+    assert application.workspace_port is hosted.workspace
+    assert application.shell_descriptor == ShellDescriptor(schema_version=1)
+    compiler.assert_called_once_with("tests.python", _capabilities().to_dict())
+    with pytest.raises(FrozenInstanceError):
+        application.options = options
+
+    application.close()
+    assert session.closed is True
+
+
+def test_cli_checks_bundle_policy_before_resolving_config(tmp_path, monkeypatch):
+    from embedagent.cli.app import CliApplication
+    from embedagent.cli.parser import build_parser
+
+    options = build_parser().parse_args(["sessions", "list", "--workspace", str(tmp_path)])
+    policy = MagicMock()
+    policy.require_shell.side_effect = ValueError("cli unavailable")
+    resolve = MagicMock()
+    monkeypatch.setattr("embedagent.cli.app.load_current_bundle_policy", lambda path: policy)
+    monkeypatch.setattr("embedagent.cli.app.resolve_launch_config", resolve)
+
+    with pytest.raises(ValueError, match="cli unavailable"):
+        CliApplication.from_options(options)
 
     policy.require_shell.assert_called_once_with("cli")
     resolve.assert_not_called()
 
 
-def test_cli_returns_blocked_outcome_exit_code_and_diagnostic(tmp_path, monkeypatch, capsys):
-    _use_user_config(tmp_path, monkeypatch)
-    runtime = MagicMock()
-    runtime.session_host.create_session.return_value = {"session_id": "s1"}
-    launch_configs = []
+def test_cli_sources_do_not_import_other_shells_or_construct_host_internals():
+    from pathlib import Path
 
-    def submit_user_message(**kwargs):
-        handler = kwargs["event_handler"]
-        handler(
-            "session_finished",
-            "s1",
-            {
-                "final_text": "I stopped before finishing.",
-                "turn_experience": {
-                    "status": "blocked",
-                    "completed": [{"kind": "file_created", "path": "README.md"}],
-                    "unverified": [
-                        {
-                            "kind": "validation_missing",
-                            "message": "Created files have not been validated.",
-                        }
-                    ],
-                    "next_steps": ["Run validation for the changed files."],
-                    "blocker": {"reason": "guard_stop", "message": "repeated no-progress action"},
-                },
-                "outcome": {
-                    "kind": "blocked",
-                    "reason": "guard_stop",
-                    "message": "repeated no-progress action",
-                    "exit_code": 2,
-                    "is_success": False,
-                },
-            },
-        )
-
-    runtime.session_host.submit_user_message.side_effect = submit_user_message
-    monkeypatch.setattr(
-        "embedagent.cli.create_hosted_runtime",
-        lambda launch_config, event_handler=None: launch_configs.append(launch_config) or runtime,
+    source = "\n".join(
+        path.read_text(encoding="utf-8") for path in Path("src/embedagent/cli").glob("*.py")
     )
-
-    exit_code = cli.main(["--workspace", str(tmp_path), "--no-stream", "hello"])
-
-    captured = capsys.readouterr()
-    assert exit_code == 2
-    assert "I stopped before finishing." in captured.out
-    assert "[blocked] guard_stop: repeated no-progress action" in captured.err
-    assert "Done:" in captured.err
-    assert "file_created README.md" in captured.err
-    assert "Unverified:" in captured.err
-    assert "validation_missing Created files have not been validated." in captured.err
-    assert "Next:" in captured.err
-    assert "Run validation for the changed files." in captured.err
-    assert launch_configs[0].model == "user-config-model"
-    assert launch_configs[0].base_url == "http://user-config/v1"
-
-
-def test_cli_completed_outcome_returns_success(tmp_path, monkeypatch, capsys):
-    _use_user_config(tmp_path, monkeypatch)
-    runtime = MagicMock()
-    runtime.session_host.create_session.return_value = {"session_id": "s1"}
-    launch_configs = []
-
-    def submit_user_message(**kwargs):
-        kwargs["event_handler"](
-            "session_finished",
-            "s1",
-            {
-                "final_text": "Done.",
-                "outcome": {
-                    "kind": "completed",
-                    "reason": "completed",
-                    "message": "",
-                    "exit_code": 0,
-                    "is_success": True,
-                },
-            },
-        )
-
-    runtime.session_host.submit_user_message.side_effect = submit_user_message
-    monkeypatch.setattr(
-        "embedagent.cli.create_hosted_runtime",
-        lambda launch_config, event_handler=None: launch_configs.append(launch_config) or runtime,
-    )
-
-    exit_code = cli.main(["--workspace", str(tmp_path), "--no-stream", "hello"])
-
-    captured = capsys.readouterr()
-    assert exit_code == 0
-    assert captured.out == "Done.\n"
-    assert "[completed]" not in captured.err
-    assert launch_configs[0].model == "user-config-model"
+    for forbidden in (
+        "embedagent.frontend.tui",
+        "embedagent.frontend.gui",
+        "OpenAICompatibleClient(",
+        "ToolRuntime(",
+        "ContextManager(",
+        "PermissionPolicy(",
+        "InProcessAdapter(",
+        "session_host",
+        "load_config(",
+    ):
+        assert forbidden not in source

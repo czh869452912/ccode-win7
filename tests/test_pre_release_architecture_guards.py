@@ -375,7 +375,7 @@ def test_no_session_view_clear_uses_timeline_payload():
 
 
 def test_cli_shell_does_not_construct_hosted_runtime_dependencies():
-    text = _read(ROOT / "src/embedagent/cli.py")
+    text = "\n".join(_read(path) for path in sorted((ROOT / "src/embedagent/cli").glob("*.py")))
     blocked = (
         "OpenAICompatibleClient(",
         "ToolRuntime(",

@@ -110,7 +110,7 @@ class TestTuiLauncher(unittest.TestCase):
 
     def test_shell_launchers_delegate_configuration_loading(self):
         paths = (
-            "src/embedagent/cli.py",
+            "src/embedagent/cli/app.py",
             "src/embedagent/frontend/tui/launcher.py",
             "src/embedagent/frontend/gui/launcher.py",
         )
