@@ -1,9 +1,21 @@
+import inspect
+from concurrent.futures import CancelledError
 from unittest.mock import MagicMock
 
+import pytest
+from embedagent_core.model import ModelClientError
+from embedagent_host.frontend_errors import (
+    FrontendPortError,
+    SessionNotFoundError,
+    failure_for_exception,
+)
 from embedagent_host.frontend_ports import (
     InProcessFrontendSessionPort,
     InProcessFrontendWorkspacePort,
 )
+from embedagent_host.hosted_command_service import HostedCommandService
+from embedagent_host.hosted_interaction_service import HostedInteractionService
+from embedagent_host.inprocess_adapter import InProcessAdapter
 from embedagent_protocol import CapabilitySnapshot, SessionBootstrap, ThreadShell
 
 
@@ -118,6 +130,54 @@ def test_session_port_submission_has_no_callback_or_wait_surface():
         stream=False,
         wait=False,
     )
+
+
+def test_host_execution_signatures_have_no_frontend_callbacks():
+    forbidden = {"event_handler", "permission_resolver", "user_input_resolver"}
+    methods = (
+        InProcessAdapter.__init__,
+        InProcessAdapter.create_session,
+        InProcessAdapter.resume_session,
+        InProcessAdapter.submit_user_message,
+        InProcessAdapter._run_turn,
+        HostedCommandService.dispatch,
+        HostedInteractionService.__init__,
+    )
+    for method in methods:
+        assert forbidden.isdisjoint(inspect.signature(method).parameters)
+
+
+def test_host_failure_classification_uses_exception_types_not_messages():
+    cases = (
+        (ModelClientError("任意服务错误"), "provider_error"),
+        (SessionNotFoundError("missing"), "session_not_found"),
+        (CancelledError("任意取消文本"), "cancelled"),
+        (ValueError("任意协议错误"), "protocol_error"),
+        (RuntimeError("任意运行时错误"), "runtime_error"),
+    )
+
+    for error, expected_code in cases:
+        assert failure_for_exception(error, source="session").code == expected_code
+
+
+@pytest.mark.parametrize(
+    "error,expected_code",
+    (
+        (ModelClientError("provider text"), "provider_error"),
+        (SessionNotFoundError("missing"), "session_not_found"),
+        (CancelledError("cancel text"), "cancelled"),
+        (TypeError("protocol text"), "protocol_error"),
+    ),
+)
+def test_session_port_exposes_structured_failure(error, expected_code):
+    adapter = MagicMock()
+    adapter.get_session_bootstrap.side_effect = error
+    port = InProcessFrontendSessionPort(adapter)
+
+    with pytest.raises(FrontendPortError) as raised:
+        port.get_session_bootstrap("s-1")
+
+    assert raised.value.failure.code == expected_code
 
 
 def test_workspace_port_delegates_json_safe_workspace_operations():

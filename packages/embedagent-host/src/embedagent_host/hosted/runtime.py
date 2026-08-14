@@ -3,7 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from embedagent_core.permissions import PermissionPolicy
-from embedagent_protocol import FrontendSessionPort, FrontendWorkspacePort
+from embedagent_protocol import (
+    FrontendSessionPort,
+    FrontendWorkspacePort,
+    SessionEventEnvelope,
+    SessionEventSink,
+)
 
 from embedagent_host.frontend_ports import (
     InProcessFrontendSessionPort,
@@ -27,6 +32,14 @@ class HostedRuntime(object):
     session_host: HostedSessionHost
 
 
+class _CallableEventSink(SessionEventSink):
+    def __init__(self, handler) -> None:
+        self._handler = handler
+
+    def on_session_event(self, envelope: SessionEventEnvelope) -> None:
+        self._handler(envelope)
+
+
 def create_hosted_runtime(
     launch_config: LaunchConfig,
     event_sink=None,
@@ -38,7 +51,9 @@ def create_hosted_runtime(
 ) -> HostedRuntime:
     if event_sink is not None and event_handler is not None:
         raise ValueError("event_sink and event_handler are mutually exclusive")
-    bound_event_handler = event_sink.on_session_event if event_sink is not None else event_handler
+    bound_event_sink = event_sink
+    if bound_event_sink is None and event_handler is not None:
+        bound_event_sink = _CallableEventSink(event_handler)
     client = OpenAICompatibleClient(
         base_url=launch_config.base_url,
         api_key=launch_config.api_key,
@@ -72,7 +87,7 @@ def create_hosted_runtime(
             system_prompt_builder=system_prompt_builder,
         ),
         context_manager=context_manager,
-        event_handler=bound_event_handler,
+        event_sink=bound_event_sink,
         agent_application_id=launch_config.agent_application_id,
         agent_application_registry=agent_application_registry,
     )

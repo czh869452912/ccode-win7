@@ -22,6 +22,14 @@ from embedagent_host.runtime.tools import ToolRuntime
 ROOT = Path(__file__).resolve().parents[1]
 
 
+class RecordingSink(object):
+    def __init__(self, events):
+        self._events = events
+
+    def on_session_event(self, envelope):
+        self._events.append((envelope.event_kind, envelope.payload))
+
+
 def _wait_for_session_settled(adapter, session_id, timeout=5.0):
     deadline = time.time() + timeout
     snapshot = adapter.get_session_snapshot(session_id)
@@ -99,10 +107,11 @@ class AskUserClient(DoneClient):
         return AssistantReply(content="done", actions=[], finish_reason="stop")
 
 
-def _adapter(tmp_path):
+def _adapter(tmp_path, events=None):
     return InProcessAdapter(
         client=DoneClient(),
         tools=ToolRuntime(str(tmp_path)),
+        event_sink=RecordingSink(events) if events is not None else None,
     )
 
 
@@ -287,10 +296,10 @@ def test_agent_result_exposes_generic_turn_completion_fields(tmp_path):
 
 
 def test_sync_post_submit_projection_failure_sets_error_and_emits_session_error(tmp_path):
-    adapter = _adapter(tmp_path)
+    events = []
+    adapter = _adapter(tmp_path, events)
     created = adapter.create_session("build")
     state = adapter._require_session(created["session_id"])
-    events = []
 
     def fail_projection(*args, **kwargs):
         del args, kwargs
@@ -303,7 +312,6 @@ def test_sync_post_submit_projection_failure_sets_error_and_emits_session_error(
             "hello",
             stream=False,
             wait=True,
-            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
     except RuntimeError as exc:
         assert str(exc) == "post-submit projection failed"
@@ -314,13 +322,15 @@ def test_sync_post_submit_projection_failure_sets_error_and_emits_session_error(
     assert state.active_thread is None
     assert state.last_error == "post-submit projection failed"
     assert [name for name, payload in events if name == "session.error"] == ["session.error"]
+    failure = [payload["failure"] for name, payload in events if name == "session.error"][0]
+    assert failure["code"] == "runtime_error"
 
 
 def test_worker_post_submit_projection_failure_clears_thread_and_reports_error(tmp_path):
-    adapter = _adapter(tmp_path)
+    events = []
+    adapter = _adapter(tmp_path, events)
     created = adapter.create_session("build")
     state = adapter._require_session(created["session_id"])
-    events = []
 
     def fail_projection(*args, **kwargs):
         del args, kwargs
@@ -332,7 +342,6 @@ def test_worker_post_submit_projection_failure_clears_thread_and_reports_error(t
         "hello",
         stream=False,
         wait=False,
-        event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
     )
     deadline = time.time() + 3.0
     while time.time() < deadline and (
@@ -460,6 +469,7 @@ def test_permission_wait_emits_final_waiting_status(tmp_path):
         client=PermissionClient(),
         tools=ToolRuntime(str(tmp_path)),
         permission_policy=PermissionPolicy(auto_approve_all=False, workspace=str(tmp_path)),
+        event_sink=RecordingSink(events),
     )
     session_id = adapter.create_session("build")["session_id"]
     adapter.submit_user_message(
@@ -467,7 +477,6 @@ def test_permission_wait_emits_final_waiting_status(tmp_path):
         "write",
         stream=False,
         wait=False,
-        event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
     )
     deadline = time.time() + 3.0
     while time.time() < deadline and not any(
@@ -494,6 +503,7 @@ def test_user_input_wait_emits_final_waiting_status(tmp_path):
         client=AskUserClient(),
         tools=ToolRuntime(str(tmp_path)),
         permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
+        event_sink=RecordingSink(events),
     )
     session_id = adapter.create_session("spec")["session_id"]
     adapter.submit_user_message(
@@ -501,7 +511,6 @@ def test_user_input_wait_emits_final_waiting_status(tmp_path):
         "ask",
         stream=False,
         wait=False,
-        event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
     )
     deadline = time.time() + 3.0
     while time.time() < deadline and not any(

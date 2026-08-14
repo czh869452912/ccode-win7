@@ -19,8 +19,19 @@ from embedagent.product_catalog import product_agent_application_registry
 _COUNTER = count(1)
 
 
+class _EventSink(object):
+    def __init__(self, handler):
+        self._handler = handler
+
+    def on_session_event(self, envelope):
+        self._handler(envelope)
+
+
 def _product_adapter(*args, **kwargs):
     kwargs.setdefault("agent_application_registry", product_agent_application_registry())
+    event_handler = kwargs.pop("event_handler", None)
+    if event_handler is not None:
+        kwargs["event_sink"] = _EventSink(event_handler)
     return InProcessAdapter(*args, **kwargs)
 
 
@@ -274,21 +285,21 @@ class TestLocalResources(unittest.TestCase):
             "Use compiler evidence and cite files.\n",
         )
         client = CapturingClient()
+        events = []
         adapter = _product_adapter(
             client=client,
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
-        events = []
 
         adapter.submit_user_message(
             session_id=session_id,
             text="/skill:code-review focus on ownership",
             stream=False,
             wait=True,
-            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
 
         self.assertTrue(client.messages)
@@ -311,21 +322,21 @@ class TestLocalResources(unittest.TestCase):
             "# Triage Prompt\n\nCollect logs and summarize the failure.\n",
         )
         client = CapturingClient()
+        events = []
         adapter = _product_adapter(
             client=client,
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
-        events = []
 
         adapter.submit_user_message(
             session_id=session_id,
             text="/prompt:triage focus on startup",
             stream=False,
             wait=True,
-            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
 
         self.assertTrue(client.messages)
@@ -613,10 +624,12 @@ class TestLocalResources(unittest.TestCase):
         self.assertEqual(resource_revision["counts"]["skills"], 1)
 
     def test_slash_resources_reload_emits_command_result(self):
+        events = []
         adapter = _product_adapter(
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
@@ -624,14 +637,12 @@ class TestLocalResources(unittest.TestCase):
             os.path.join(self.workspace, ".embedagent", "skills", "local.md"),
             "# Local Skill\n",
         )
-        events = []
 
         adapter.submit_user_message(
             session_id=session_id,
             text="/resources reload",
             stream=False,
             wait=True,
-            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
 
         command_results = [
@@ -766,22 +777,22 @@ class TestLocalResources(unittest.TestCase):
             "---\n"
             "# Private Audit\n",
         )
+        events = []
         adapter = _product_adapter(
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
         adapter.reload_resources(reason="test")
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
-        events = []
 
         adapter.submit_user_message(
             session_id=session_id,
             text="/help",
             stream=False,
             wait=True,
-            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
         command_results = [
             payload for event_name, payload in events if event_name == "command.result"
@@ -811,22 +822,22 @@ class TestLocalResources(unittest.TestCase):
             os.path.join(self.workspace, ".embedagent", "prompts", "triage.md"),
             "# Triage Prompt\n\nCollect logs and summarize the failure.\n",
         )
+        events = []
         adapter = _product_adapter(
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
         adapter.reload_resources(reason="test")
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
-        events = []
 
         adapter.submit_user_message(
             session_id=session_id,
             text="/help",
             stream=False,
             wait=True,
-            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
         )
         command_results = [
             payload for event_name, payload in events if event_name == "command.result"

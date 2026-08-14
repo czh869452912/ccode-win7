@@ -16,58 +16,32 @@ from embedagent_workflow_cpp.extension import CHarnessWorkflowExtension
 
 class TestEventEmitter(unittest.TestCase):
     def setUp(self):
-        self.emitter = EventEmitter()
+        self.calls = []
+        self.sink = SimpleNamespace(on_session_event=self.calls.append)
+        self.emitter = EventEmitter(self.sink)
 
-    def test_emit_calls_registered_handlers(self):
-        calls = []
-
-        def handler(envelope):
-            calls.append(envelope)
-
-        self.emitter.add_handler("test_event", handler)
-        self.emitter.emit(None, "test_event", "sess1", {"key": "value"})
-        self.assertEqual(len(calls), 1)
-        self.assertEqual(calls[0].event_kind, "test.event")
-        self.assertEqual(calls[0].session_id, "sess1")
-        self.assertEqual(calls[0].payload, {"key": "value"})
+    def test_emit_calls_bound_sink(self):
+        self.emitter.emit("test_event", "sess1", {"key": "value"})
+        self.assertEqual(len(self.calls), 1)
+        self.assertEqual(self.calls[0].event_kind, "test.event")
+        self.assertEqual(self.calls[0].session_id, "sess1")
+        self.assertEqual(self.calls[0].payload, {"key": "value"})
 
     def test_handler_exception_isolated(self):
-        calls = []
-
         def bad_handler(envelope):
+            del envelope
             raise RuntimeError("boom")
 
-        def good_handler(envelope):
-            calls.append(envelope)
+        emitter = EventEmitter(SimpleNamespace(on_session_event=bad_handler))
+        emitter.emit("test_event", "sess1", {"key": "value"})
 
-        self.emitter.add_handler("test_event", bad_handler)
-        self.emitter.add_handler("test_event", good_handler)
-        self.emitter.emit(None, "test_event", "sess1", {"key": "value"})
-        self.assertEqual(len(calls), 1)
-
-    def test_add_remove_handler(self):
-        calls = []
-
-        def handler(envelope):
-            calls.append(envelope)
-
-        self.emitter.add_handler("test_event", handler)
-        self.emitter.emit(None, "test_event", "sess1", {"key": "value"})
-        self.assertEqual(len(calls), 1)
-
-        self.emitter.remove_handler("test_event", handler)
-        self.emitter.emit(None, "test_event", "sess1", {"key": "value"})
-        self.assertEqual(len(calls), 1)
+    def test_sink_is_construction_bound(self):
+        self.assertFalse(hasattr(self.emitter, "add_handler"))
+        self.assertFalse(hasattr(self.emitter, "remove_handler"))
 
     def test_global_handler(self):
-        calls = []
-
-        def handler(envelope):
-            calls.append(envelope)
-
-        self.emitter.add_handler(None, handler)
-        self.emitter.emit(None, "any_event", "sess1", {"key": "value"})
-        self.assertEqual(len(calls), 1)
+        self.emitter.emit("any_event", "sess1", {"key": "value"})
+        self.assertEqual(len(self.calls), 1)
 
 
 class TestWorkspaceFileService(unittest.TestCase):

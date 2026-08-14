@@ -75,7 +75,6 @@ class HarnessTaskProjectionTests(unittest.TestCase):
             text="build the project",
             stream=False,
             wait=True,
-            permission_resolver=lambda ticket: True,
         )
 
         payload = self.adapter.list_tasks(session_id=session_id)

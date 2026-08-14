@@ -66,8 +66,7 @@ def test_create_hosted_runtime_builds_frontend_port_set(tmp_path, monkeypatch):
     policy_cls.assert_called_once()
     adapter_cls.assert_called_once()
     assert adapter_cls.call_args.kwargs["agent_application_id"] == "tests.python"
-    handler = adapter_cls.call_args.kwargs["event_handler"]
-    assert handler is sink.on_session_event
+    assert adapter_cls.call_args.kwargs["event_sink"] is sink
 
 
 def test_generic_hosted_runtime_preserves_permanent_command_denials(tmp_path):
@@ -167,8 +166,8 @@ def test_session_host_delegates_session_operations():
 
     adapter.list_sessions.assert_called_once_with(limit=1)
     adapter.summary_store.load_summary.assert_called_once_with("latest")
-    adapter.create_session.assert_called_once_with("build", event_handler=None)
-    adapter.resume_session.assert_called_once_with("latest", "build", event_handler=None)
+    adapter.create_session.assert_called_once_with("build")
+    adapter.resume_session.assert_called_once_with("latest", "build")
     adapter.get_session_bootstrap.assert_called_once_with("s1")
     adapter.set_session_mode.assert_called_once_with("s1", "verify")
     adapter.respond_to_interaction.assert_called_once_with(
@@ -182,9 +181,6 @@ def test_session_host_delegates_session_operations():
         text="hello",
         stream=False,
         wait=True,
-        permission_resolver=None,
-        user_input_resolver=None,
-        event_handler=None,
     )
     adapter.list_tasks.assert_called_once_with(session_id="s1")
     adapter.get_workspace_snapshot.assert_called_once_with()

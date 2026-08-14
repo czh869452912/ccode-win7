@@ -36,7 +36,8 @@ from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 from embedagent_host.runtime.plan_store import PlanStore
 from embedagent_host.runtime.project_extensions import load_project_extensions
 from embedagent_host.runtime.project_memory import ProjectMemoryStore
-from embedagent_protocol import PermissionContext, PlanSnapshot
+from embedagent_protocol import PermissionContext, PlanSnapshot, SessionEventSink
+from embedagent_host.frontend_errors import SessionNotFoundError, failure_for_exception
 from embedagent_host.hosted_command_service import HostedCommandService
 from embedagent_host.hosted_interaction_service import (
     HostedInteractionService,
@@ -61,7 +62,6 @@ from embedagent_host.runtime.services import (
 )
 from embedagent_host.runtime.session_projection import SessionProjectionService
 from embedagent_host.runtime.session_maintenance import HostedSessionMaintenance
-from embedagent_host.runtime.session_event_protocol import SessionEventHandler
 from embedagent_host.runtime.skill_index import build_skill_index
 from embedagent_host.runtime.slash_commands import (
     SlashCommandRegistry,
@@ -221,7 +221,7 @@ class InProcessAdapter(object):
         context_manager: Optional[ContextManager] = None,
         memory_maintenance: Optional[MemoryMaintenance] = None,
         maintenance_interval: int = 4,
-        event_handler: Optional[SessionEventHandler] = None,
+        event_sink: Optional[SessionEventSink] = None,
         agent_application_id: str = "",
         agent_application: Optional[Any] = None,
         agent_application_registry: Optional[Any] = None,
@@ -246,7 +246,6 @@ class InProcessAdapter(object):
             project_memory_store=self.project_memory_store,
             tool_result_store=self.tools.tool_result_store,
         )
-        self.event_handler = event_handler
         self.plan_store = PlanStore(self.tools.workspace)
         self.command_registry = SlashCommandRegistry()
         self.transcript_store = TranscriptStore(self.tools.workspace)
@@ -309,7 +308,7 @@ class InProcessAdapter(object):
         remembered_setter(self._remembered_categories_for_session)
 
         self.agent = self._build_agent()
-        self._event_emitter = EventEmitter()
+        self._event_emitter = EventEmitter(event_sink)
         self._workspace_files = WorkspaceFileService(
             self.tools.workspace,
             getattr(self.tools, "_ctx", None),
@@ -356,7 +355,6 @@ class InProcessAdapter(object):
             run_turn=self._run_turn,
             get_session_snapshot=lambda session_id: self.get_session_snapshot(session_id),
             notify_status=self._notify_status,
-            default_event_handler=lambda: self.event_handler,
             emit_event=self._emit,
         )
         self.command_service = HostedCommandService(
@@ -745,7 +743,6 @@ class InProcessAdapter(object):
     def create_session(
         self,
         mode: str = "",
-        event_handler: Optional[SessionEventHandler] = None,
     ) -> Dict[str, Any]:
         current_mode = self._mode_runtime_policy.require_mode(
             mode or self._mode_runtime_policy.default_mode()
@@ -761,17 +758,14 @@ class InProcessAdapter(object):
             self._refresh_reducer_state(state)
         self._persist_state(state)
         snapshot = self.get_session_snapshot(state.session_id)
-        self._emit(
-            event_handler, "session_created", state.session_id, {"session_snapshot": snapshot}
-        )
-        self._notify_status(event_handler, state)
+        self._emit("session_created", state.session_id, {"session_snapshot": snapshot})
+        self._notify_status(state)
         return snapshot
 
     def resume_session(
         self,
         reference: str,
         mode: str = "",
-        event_handler: Optional[SessionEventHandler] = None,
     ) -> Dict[str, Any]:
         state = self._session_lifecycle.restore_session_state(reference, mode)
         pending = state.history.get("current_interaction")
@@ -796,12 +790,11 @@ class InProcessAdapter(object):
             state.updated_at = _utc_now()
         snapshot = self.get_session_snapshot(state.session_id)
         self._emit(
-            event_handler,
             "session_resumed",
             state.session_id,
             {"session_snapshot": snapshot, "resume_ref": snapshot.get("summary_ref")},
         )
-        self._notify_status(event_handler, state)
+        self._notify_status(state)
         return snapshot
 
     def _ensure_session_active(self, reference: str, mode: str = "") -> ManagedSession:
@@ -1007,9 +1000,6 @@ class InProcessAdapter(object):
         text: str,
         stream: bool = True,
         wait: bool = True,
-        permission_resolver: Optional[PermissionResolver] = None,
-        user_input_resolver: Optional[UserInputResolver] = None,
-        event_handler: Optional[SessionEventHandler] = None,
     ) -> Dict[str, Any]:
         state = self._require_session(session_id)
         with state.lock:
@@ -1025,16 +1015,14 @@ class InProcessAdapter(object):
             state.current_command_step_index = 0
         if command_turn_id:
             self._emit(
-                event_handler,
                 "turn_start",
                 session_id,
                 {"turn_id": command_turn_id, "user_text": text},
             )
-        dispatch = self.command_service.dispatch(state, text, event_handler, permission_resolver)
+        dispatch = self.command_service.dispatch(state, text)
         if dispatch.get("handled") and not dispatch.get("continue_with_text"):
             if command_turn_id:
                 self._emit(
-                    event_handler,
                     "turn_end",
                     session_id,
                     {
@@ -1071,8 +1059,8 @@ class InProcessAdapter(object):
             "stream": stream,
             "turn_id": command_turn_id,
         }
-        self._emit_with_snapshot(event_handler, "turn_started", state, payload)
-        self._notify_status(event_handler, state)
+        self._emit_with_snapshot("turn_started", state, payload)
+        self._notify_status(state)
         if wait:
             current_thread = threading.current_thread()
             with state.lock:
@@ -1083,9 +1071,6 @@ class InProcessAdapter(object):
                     state=state,
                     text=text_to_run,
                     stream=stream,
-                    permission_resolver=permission_resolver,
-                    user_input_resolver=user_input_resolver,
-                    event_handler=event_handler,
                     turn_id=command_turn_id or "",
                     emit_turn_start=not bool(command_turn_id),
                 )
@@ -1101,9 +1086,6 @@ class InProcessAdapter(object):
                 "state": state,
                 "text": text_to_run,
                 "stream": stream,
-                "permission_resolver": permission_resolver,
-                "user_input_resolver": user_input_resolver,
-                "event_handler": event_handler,
                 "turn_id": command_turn_id or "",
                 "emit_turn_start": not bool(command_turn_id),
             },
@@ -1165,12 +1147,11 @@ class InProcessAdapter(object):
         self._persist_state(state)
         snapshot = self.get_session_snapshot(session_id)
         self._emit(
-            self.event_handler,
             "mode_changed",
             session_id,
             {"mode": current_mode, "session_snapshot": snapshot},
         )
-        self._notify_status(None, state)
+        self._notify_status(state)
         return snapshot
 
     def cancel_session(self, session_id: str) -> Dict[str, Any]:
@@ -1209,15 +1190,12 @@ class InProcessAdapter(object):
                 state=state,
                 text="",
                 stream=True,
-                permission_resolver=None,
-                user_input_resolver=None,
-                event_handler=self.event_handler,
                 interaction_resolution=pending_resolution,
                 resume_pending=True,
                 stop_event=cancel_event,
             )
         snapshot = self.get_session_snapshot(session_id)
-        self._notify_status(None, state)
+        self._notify_status(state)
         return snapshot
 
     def _run_turn(
@@ -1225,9 +1203,6 @@ class InProcessAdapter(object):
         state: ManagedSession,
         text: str,
         stream: bool,
-        permission_resolver: Optional[PermissionResolver],
-        user_input_resolver: Optional[UserInputResolver],
-        event_handler: Optional[SessionEventHandler],
         interaction_resolution: Optional[Dict[str, Any]] = None,
         resume_pending: bool = False,
         stop_event: Optional[threading.Event] = None,
@@ -1262,14 +1237,11 @@ class InProcessAdapter(object):
             if thinking_state["active"] == active:
                 return
             thinking_state["active"] = active
-            self._emit_with_snapshot(
-                event_handler, "thinking_state", state, {"active": active, "reason": reason}
-            )
+            self._emit_with_snapshot("thinking_state", state, {"active": active, "reason": reason})
 
         def on_text_delta(delta: str) -> None:
             set_thinking(False, "assistant_text")
             self._emit(
-                event_handler,
                 "assistant_delta",
                 session_id,
                 {
@@ -1282,7 +1254,6 @@ class InProcessAdapter(object):
 
         def on_reasoning_delta(delta: str) -> None:
             self._emit(
-                event_handler,
                 "reasoning_delta",
                 session_id,
                 {
@@ -1298,7 +1269,6 @@ class InProcessAdapter(object):
             current_step["step_index"] = step_index
             set_thinking(True, "step_started")
             self._emit(
-                event_handler,
                 "step_start",
                 session_id,
                 {"turn_id": turn_id, "step_id": step_id, "step_index": step_index},
@@ -1307,7 +1277,6 @@ class InProcessAdapter(object):
         def on_step_finish(step_index: int, reply: AssistantReply, status: str) -> None:
             set_thinking(False, "step_finished")
             self._emit(
-                event_handler,
                 "step_end",
                 session_id,
                 {
@@ -1331,7 +1300,7 @@ class InProcessAdapter(object):
                 "step_index": current_step["step_index"],
             }
             payload.update(self._tool_event_metadata(action.name))
-            self._emit(event_handler, "tool_started", session_id, payload)
+            self._emit("tool_started", session_id, payload)
 
         def on_tool_finish(action: Action, observation: Observation) -> None:
             payload = {
@@ -1345,13 +1314,12 @@ class InProcessAdapter(object):
                 "step_index": current_step["step_index"],
             }
             payload.update(self._tool_event_metadata(action.name))
-            self._emit_with_snapshot(event_handler, "tool_finished", state, payload)
+            self._emit_with_snapshot("tool_finished", state, payload)
 
         def on_context_event(payload: Dict[str, Any]) -> None:
             pipeline_steps = list(payload.get("pipelineSteps") or [])
             if "reactive_compact_retry" in pipeline_steps:
                 self._emit_with_snapshot(
-                    event_handler,
                     "compact_retry",
                     state,
                     {
@@ -1370,7 +1338,6 @@ class InProcessAdapter(object):
             ):
                 return
             self._emit_with_snapshot(
-                event_handler,
                 "context_compacted",
                 state,
                 {
@@ -1393,7 +1360,6 @@ class InProcessAdapter(object):
                 step_index=current_step["step_index"],
             )
             self._emit(
-                event_handler,
                 "permission_required",
                 session_id,
                 {
@@ -1403,10 +1369,6 @@ class InProcessAdapter(object):
                     "step_index": ticket.step_index,
                 },
             )
-            if permission_resolver is not None:
-                approved = bool(permission_resolver(ticket.to_dict()))
-                self.interaction_service.clear_pending_interaction(state)
-                return approved
             return None
 
         def user_input_handler(request: UserInputRequest) -> Optional[UserInputResponse]:
@@ -1418,7 +1380,6 @@ class InProcessAdapter(object):
                 step_index=current_step["step_index"],
             )
             self._emit(
-                event_handler,
                 "user_input_required",
                 session_id,
                 {
@@ -1428,22 +1389,11 @@ class InProcessAdapter(object):
                     "step_index": ticket.step_index,
                 },
             )
-            if user_input_resolver is not None:
-                payload = user_input_resolver(ticket.to_dict()) or {}
-                self.interaction_service.clear_pending_interaction(state)
-                return UserInputResponse(
-                    answer=str(payload.get("answer") or ""),
-                    selected_index=payload.get("selected_index"),
-                    selected_mode=str(payload.get("selected_mode") or ""),
-                    selected_option_text=str(payload.get("selected_option_text") or ""),
-                )
             return None
 
         try:
             if emit_turn_start:
-                self._emit(
-                    event_handler, "turn_start", session_id, {"turn_id": turn_id, "user_text": text}
-                )
+                self._emit("turn_start", session_id, {"turn_id": turn_id, "user_text": text})
             set_thinking(True, "turn_started")
             observer = _HostedTurnObserver(
                 {
@@ -1488,6 +1438,7 @@ class InProcessAdapter(object):
                 self._rebuild_host_session_projection(state)
         except (OSError, RuntimeError, ValueError, TypeError) as exc:
             set_thinking(False, "session_error")
+            failure = failure_for_exception(exc, source="session")
             with state.lock:
                 is_worker_thread = (
                     state.active_thread_is_worker
@@ -1500,18 +1451,19 @@ class InProcessAdapter(object):
                 state.pending_resolution_claim_id = ""
                 state.updated_at = _utc_now()
             self._emit_with_snapshot(
-                event_handler,
                 "session_error",
                 state,
                 {
                     "error": str(exc),
+                    "failure": failure.to_dict(),
+                    "status": "error",
                     "phase": "loop",
                     "turn_id": turn_id,
                     "step_id": current_step["step_id"],
                     "step_index": current_step["step_index"],
                 },
             )
-            self._notify_status(event_handler, state)
+            self._notify_status(state)
             if is_worker_thread:
                 return
             raise
@@ -1526,7 +1478,7 @@ class InProcessAdapter(object):
                 state.updated_at = _utc_now()
                 state.active_thread = None
                 state.active_thread_is_worker = False
-            self._notify_status(event_handler, state)
+            self._notify_status(state)
             return
         with state.lock:
             state.last_assistant_message = public_result.final_text
@@ -1538,7 +1490,6 @@ class InProcessAdapter(object):
             state.pending_resolution_claim_id = ""
             state.updated_at = _utc_now()
         self._emit(
-            event_handler,
             "turn_end",
             session_id,
             {
@@ -1555,7 +1506,6 @@ class InProcessAdapter(object):
         set_thinking(False, "session_finished")
         snapshot = self.get_session_snapshot(session_id)
         self._emit(
-            event_handler,
             "session_finished",
             session_id,
             {
@@ -1569,7 +1519,7 @@ class InProcessAdapter(object):
                 "error": public_result.termination_message,
             },
         )
-        self._notify_status(event_handler, state)
+        self._notify_status(state)
         return
 
     def _persist_state(self, state: ManagedSession) -> None:
@@ -1582,32 +1532,24 @@ class InProcessAdapter(object):
         with self._lock:
             state = self._sessions.get(session_id)
         if state is None:
-            raise ValueError("session_id 不存在：%s" % session_id)
+            raise SessionNotFoundError(session_id)
         return state
 
     def _emit(
         self,
-        event_handler: Optional[SessionEventHandler],
         event_name: str,
         session_id: str,
         payload: Dict[str, Any],
     ) -> None:
-        self._event_emitter.emit(
-            event_handler or self.event_handler,
-            event_name,
-            session_id,
-            payload,
-        )
+        self._event_emitter.emit(event_name, session_id, payload)
 
     def _emit_with_snapshot(
         self,
-        event_handler: Optional[SessionEventHandler],
         event_name: str,
         state: ManagedSession,
         payload: Dict[str, Any],
     ) -> None:
         self._event_emitter.emit_with_snapshot(
-            event_handler or self.event_handler,
             event_name,
             state.session_id,
             payload,
@@ -1616,11 +1558,9 @@ class InProcessAdapter(object):
 
     def _notify_status(
         self,
-        event_handler: Optional[SessionEventHandler],
         state: ManagedSession,
     ) -> None:
         self._event_emitter.notify_status(
-            event_handler or self.event_handler,
             state.session_id,
             lambda: self.get_session_snapshot(state.session_id),
         )

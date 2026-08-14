@@ -10,7 +10,6 @@ from typing import Any, Callable, Dict, Optional
 from embedagent_core.interaction import UserInputRequest, UserInputResponse
 from embedagent_core.permissions import PermissionRequest
 
-from embedagent_host.runtime.session_event_protocol import SessionEventHandler
 from embedagent_host.runtime.session_runtime import ManagedSession
 
 UserInputResolver = Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]
@@ -205,17 +204,13 @@ class HostedInteractionService(object):
         require_session: Callable[[str], ManagedSession],
         run_turn: Callable[..., None],
         get_session_snapshot: Callable[[str], Dict[str, Any]],
-        notify_status: Callable[[Optional[SessionEventHandler], ManagedSession], None],
-        default_event_handler: Callable[[], Optional[SessionEventHandler]],
-        emit_event: Optional[
-            Callable[[Optional[SessionEventHandler], str, str, Dict[str, Any]], None]
-        ] = None,
+        notify_status: Callable[[ManagedSession], None],
+        emit_event: Optional[Callable[[str, str, Dict[str, Any]], None]] = None,
     ) -> None:
         self._require_session = require_session
         self._run_turn = run_turn
         self._get_session_snapshot = get_session_snapshot
         self._notify_status = notify_status
-        self._default_event_handler = default_event_handler
         self._emit_event = emit_event
 
     def _emit_resolution_event(
@@ -227,7 +222,6 @@ class HostedInteractionService(object):
             had_pending_event = state.pending_event is not None
         event_name = "permission_resolved" if ticket.kind == "permission" else "user_input_resolved"
         self._emit_event(
-            self._default_event_handler(),
             event_name,
             state.session_id,
             {
@@ -250,7 +244,6 @@ class HostedInteractionService(object):
         if self._emit_event is None:
             return
         self._emit_event(
-            self._default_event_handler(),
             "interaction_resume_%s" % phase,
             state.session_id,
             {
@@ -504,9 +497,6 @@ class HostedInteractionService(object):
                 state=state,
                 text="",
                 stream=True,
-                permission_resolver=None,
-                user_input_resolver=None,
-                event_handler=self._default_event_handler(),
                 interaction_resolution=dict(interaction_resolution or {}),
                 resume_pending=True,
             )
@@ -531,7 +521,7 @@ class HostedInteractionService(object):
                     state.active_thread = None
                     state.active_thread_is_worker = False
                     state.updated_at = _utc_now()
-            self._notify_status(None, state)
+            self._notify_status(state)
         finally:
             with state.lock:
                 if state.resume_thread is threading.current_thread():
@@ -607,7 +597,7 @@ class HostedInteractionService(object):
                 command_wait = True
         if command_wait:
             self._emit_resolution_event(state, ticket)
-            self._notify_status(None, state)
+            self._notify_status(state)
             return self._accepted_response(state, ticket)
         if decision == "cancel":
             with state.lock:
@@ -618,7 +608,7 @@ class HostedInteractionService(object):
                 interaction_resolution={"approved": False, "cancelled": True},
             )
             self._emit_resolution_event(state, ticket)
-            self._notify_status(None, state)
+            self._notify_status(state)
             return self._accepted_response(state, ticket)
         self._start_resume_worker(
             state,
@@ -626,7 +616,7 @@ class HostedInteractionService(object):
             interaction_resolution={"approved": bool(approved)},
         )
         self._emit_resolution_event(state, ticket)
-        self._notify_status(None, state)
+        self._notify_status(state)
         return self._accepted_response(state, ticket)
 
     def _respond_to_user_input(
@@ -644,7 +634,7 @@ class HostedInteractionService(object):
                 command_wait = True
         if command_wait:
             self._emit_resolution_event(state, ticket)
-            self._notify_status(None, state)
+            self._notify_status(state)
             return self._accepted_response(state, ticket)
         self._start_resume_worker(
             state,
@@ -657,5 +647,5 @@ class HostedInteractionService(object):
             },
         )
         self._emit_resolution_event(state, ticket)
-        self._notify_status(None, state)
+        self._notify_status(state)
         return self._accepted_response(state, ticket)

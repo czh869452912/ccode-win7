@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
-
-from embedagent_host.runtime.session_event_protocol import SessionEventHandler
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -22,15 +20,11 @@ class HostedSessionHost(object):
     def get_session_capabilities(self, session_id: str = "") -> Dict[str, object]:
         return self.adapter.get_session_capabilities(session_id)
 
-    def create_session(
-        self, mode: str, event_handler: Optional[SessionEventHandler] = None
-    ) -> Dict[str, object]:
-        return self.adapter.create_session(mode, event_handler=event_handler)
+    def create_session(self, mode: str) -> Dict[str, object]:
+        return self.adapter.create_session(mode)
 
-    def resume_session(
-        self, reference: str, mode: str, event_handler: Optional[SessionEventHandler] = None
-    ) -> Dict[str, object]:
-        return self.adapter.resume_session(reference, mode, event_handler=event_handler)
+    def resume_session(self, reference: str, mode: str) -> Dict[str, object]:
+        return self.adapter.resume_session(reference, mode)
 
     def set_session_mode(self, session_id: str, mode: str) -> Dict[str, object]:
         return self.adapter.set_session_mode(session_id, mode)
@@ -61,18 +55,12 @@ class HostedSessionHost(object):
         text: str,
         stream: bool,
         wait: bool,
-        permission_resolver=None,
-        user_input_resolver=None,
-        event_handler: Optional[SessionEventHandler] = None,
     ) -> Dict[str, object]:
         return self.adapter.submit_user_message(
             session_id=session_id,
             text=text,
             stream=stream,
             wait=wait,
-            permission_resolver=permission_resolver,
-            user_input_resolver=user_input_resolver,
-            event_handler=event_handler,
         )
 
     def list_tasks(self, session_id: str = "") -> Dict[str, object]:

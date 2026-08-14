@@ -53,8 +53,7 @@ def test_pending_interaction_claim_rejects_duplicate_resolution():
         require_session=lambda session_id: state,
         run_turn=lambda **kwargs: None,
         get_session_snapshot=lambda session_id: {"status": "running"},
-        notify_status=lambda event_handler, current_state: None,
-        default_event_handler=lambda: None,
+        notify_status=lambda current_state: None,
     )
 
     assert service._claim_pending_interaction(state, ticket) is None

@@ -11,6 +11,14 @@ from embedagent_protocol import (
 )
 
 
+class RecordingSink(object):
+    def __init__(self):
+        self.events = []
+
+    def on_session_event(self, envelope):
+        self.events.append(envelope)
+
+
 def test_frontend_failure_codes_are_closed():
     assert set(FRONTEND_FAILURE_CODES) == {
         "usage_error",
@@ -118,29 +126,24 @@ def test_host_encoder_normalizes_interaction_and_failed_tool_payloads():
     }
 
 
-def test_event_emitter_sends_one_envelope_instance_to_every_handler():
-    emitter = EventEmitter()
-    first = []
-    second = []
-    emitter.add_handler(None, first.append)
-    emitter.add_handler("turn_start", second.append)
+def test_event_emitter_sends_one_envelope_to_bound_sink():
+    sink = RecordingSink()
+    emitter = EventEmitter(sink)
 
     emitter.emit(
-        None,
         "turn_start",
         "s-1",
         {"turn_id": "turn-1"},
     )
 
-    assert first[0] is second[0]
-    assert first[0].event_kind == "turn.started"
+    assert len(sink.events) == 1
+    assert sink.events[0].event_kind == "turn.started"
 
 
 def test_event_emitter_capture_returns_projection_and_current_cursor_atomically():
-    emitter = EventEmitter()
-    received = []
-    emitter.add_handler(None, received.append)
-    emitter.emit(None, "turn_start", "s-1", {"turn_id": "turn-1"})
+    sink = RecordingSink()
+    emitter = EventEmitter(sink)
+    emitter.emit("turn_start", "s-1", {"turn_id": "turn-1"})
 
     captured = emitter.capture("s-1", lambda: {"snapshot": {"status": "idle"}})
 
@@ -166,7 +169,6 @@ def test_event_emitter_capture_excludes_publication_blocked_behind_capture():
     assert entered.wait(1.0)
     event_thread = threading.Thread(
         target=lambda: emitter.emit(
-            None,
             "turn_start",
             "s-1",
             {"turn_id": "turn-1"},
@@ -179,3 +181,25 @@ def test_event_emitter_capture_excludes_publication_blocked_behind_capture():
 
     assert captured[0]["event_cursor"] == 0
     assert emitter.current_cursor("s-1") == 1
+
+
+def test_session_error_keeps_structured_failure_payload():
+    encoder = SessionEventEncoder()
+
+    event = encoder.encode(
+        "s-1",
+        "session_error",
+        {
+            "status": "error",
+            "failure": FailureRecord(
+                code="provider_error",
+                message="service unavailable",
+                retryable=True,
+                source="provider",
+            ).to_dict(),
+        },
+    )
+
+    assert event.event_kind == "session.error"
+    assert event.payload["status"] == "error"
+    assert event.payload["failure"]["code"] == "provider_error"

@@ -16,7 +16,6 @@ from embedagent_protocol import CommandResult, PlanSnapshot
 
 from embedagent_host.runtime.prompts import expand_prompt_invocation
 from embedagent_host.runtime.review_command import ReviewCommandService
-from embedagent_host.runtime.session_event_protocol import SessionEventHandler
 from embedagent_host.runtime.session_runtime import ManagedSession, apply_hosted_projection
 from embedagent_host.runtime.skills import expand_skill_invocation
 from embedagent_host.runtime.slash_command_service import SlashCommandService
@@ -26,8 +25,6 @@ from embedagent_host.runtime.slash_commands import (
     parse_slash_command,
     resource_command_specs,
 )
-
-PermissionResolver = Callable[[Dict[str, Any]], bool]
 
 
 def _utc_now() -> str:
@@ -65,11 +62,9 @@ class HostedCommandService(object):
         list_tasks: Callable[..., Dict[str, Any]],
         get_permission_context: Callable[[str], Any],
         history_loader: Callable[[str], Dict[str, Any]],
-        emit: Callable[[Optional[SessionEventHandler], str, str, Dict[str, Any]], None],
-        emit_with_snapshot: Callable[
-            [Optional[SessionEventHandler], str, ManagedSession, Dict[str, Any]], None
-        ],
-        notify_status: Callable[[Optional[SessionEventHandler], ManagedSession], None],
+        emit: Callable[[str, str, Dict[str, Any]], None],
+        emit_with_snapshot: Callable[[str, ManagedSession, Dict[str, Any]], None],
+        notify_status: Callable[[ManagedSession], None],
         persist_state: Callable[[ManagedSession], None],
         refresh_workflow_state: Callable[[ManagedSession], None],
         tool_event_metadata: Callable[[str], Dict[str, Any]],
@@ -123,20 +118,17 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         text: str,
-        event_handler: Optional[SessionEventHandler],
-        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         parsed = parse_slash_command(text)
         if parsed is None:
             return {"handled": False, "continue_with_text": text}
         if parsed.name.startswith("skill:"):
-            return self._dispatch_skill_command(state, parsed, event_handler)
+            return self._dispatch_skill_command(state, parsed)
         if parsed.name.startswith("prompt:"):
-            return self._dispatch_prompt_command(state, parsed, event_handler)
+            return self._dispatch_prompt_command(state, parsed)
         spec = self.command_registry.get(parsed.name)
         if spec is None:
             self.emit_command_result(
-                event_handler,
                 state,
                 CommandResult(
                     command_name=parsed.name,
@@ -156,7 +148,6 @@ class HostedCommandService(object):
         handler = self._slash_commands.handler_for(parsed.name)
         if not callable(handler):
             self.emit_command_result(
-                event_handler,
                 state,
                 CommandResult(
                     command_name=parsed.name,
@@ -166,11 +157,10 @@ class HostedCommandService(object):
                 ),
             )
             return {"handled": True, "continue_with_text": ""}
-        return handler(state, parsed, event_handler, permission_resolver)
+        return handler(state, parsed)
 
     def emit_command_result(
         self,
-        event_handler: Optional[SessionEventHandler],
         state: ManagedSession,
         result: CommandResult,
     ) -> None:
@@ -199,13 +189,12 @@ class HostedCommandService(object):
             "step_id": result.step_id or state.current_command_step_id,
             "step_index": result.step_index or state.current_command_step_index,
         }
-        self._emit_with_snapshot(event_handler, "command_result", state, payload)
+        self._emit_with_snapshot("command_result", state, payload)
 
     def _dispatch_skill_command(
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[SessionEventHandler],
     ) -> Dict[str, Any]:
         resources = self.tools.local_resources()
         expanded_text, error = expand_skill_invocation(
@@ -213,7 +202,6 @@ class HostedCommandService(object):
         )
         if error:
             self.emit_command_result(
-                event_handler,
                 state,
                 CommandResult(
                     command_name=parsed.name,
@@ -229,7 +217,6 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[SessionEventHandler],
     ) -> Dict[str, Any]:
         resources = self.tools.local_resources()
         expanded_text, error = expand_prompt_invocation(
@@ -237,7 +224,6 @@ class HostedCommandService(object):
         )
         if error:
             self.emit_command_result(
-                event_handler,
                 state,
                 CommandResult(
                     command_name=parsed.name,
@@ -253,12 +239,9 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[SessionEventHandler],
-        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         resources = self.tools.local_resources()
         self.emit_command_result(
-            event_handler,
             state,
             CommandResult(
                 command_name="help",
@@ -282,12 +265,9 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[SessionEventHandler],
-        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         if not parsed.args:
             self.emit_command_result(
-                event_handler,
                 state,
                 CommandResult(
                     command_name="mode",
@@ -307,7 +287,6 @@ class HostedCommandService(object):
         if remainder:
             message += " 继续处理后续消息。"
         self.emit_command_result(
-            event_handler,
             state,
             CommandResult(
                 command_name="mode",
@@ -322,8 +301,6 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[SessionEventHandler],
-        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         sessions = self._list_sessions(limit=10)
         lines = ["## Recent Sessions", ""]
@@ -346,7 +323,6 @@ class HostedCommandService(object):
                     )
                 )
         self.emit_command_result(
-            event_handler,
             state,
             CommandResult(
                 command_name="sessions",
@@ -361,14 +337,11 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[SessionEventHandler],
-        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         reference = parsed.args[0] if parsed.args else "latest"
         mode = parsed.args[1] if len(parsed.args) > 1 else state.current_mode
-        snapshot = self._resume_session(reference, mode, event_handler=event_handler)
+        snapshot = self._resume_session(reference, mode)
         self.emit_command_result(
-            event_handler,
             self._require_session(str(snapshot.get("session_id") or "")),
             CommandResult(
                 command_name="resume",
@@ -386,8 +359,6 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[SessionEventHandler],
-        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         payload = self._get_workspace_snapshot()
         git_payload = payload.get("git") if isinstance(payload.get("git"), dict) else {}
@@ -404,7 +375,6 @@ class HostedCommandService(object):
             "- recipes: %s" % int(recipe_payload.get("count") or 0),
         ]
         self.emit_command_result(
-            event_handler,
             state,
             CommandResult(
                 command_name="workspace",
@@ -419,8 +389,6 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[SessionEventHandler],
-        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         payload = self._list_workspace_recipes()
         items = payload.get("items") or []
@@ -440,7 +408,6 @@ class HostedCommandService(object):
                     )
                 )
         self.emit_command_result(
-            event_handler,
             state,
             CommandResult(
                 command_name="recipes",
@@ -455,8 +422,6 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[SessionEventHandler],
-        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         action = parsed.args[0] if parsed.args else "list"
         if str(action or "").strip().lower() == "reload":
@@ -483,7 +448,6 @@ class HostedCommandService(object):
             "- diagnostics: %s" % int(counts.get("diagnostics") or 0),
         ]
         self.emit_command_result(
-            event_handler,
             state,
             CommandResult(
                 command_name="resources",
@@ -498,12 +462,9 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[SessionEventHandler],
-        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         if not parsed.args:
             self.emit_command_result(
-                event_handler,
                 state,
                 CommandResult(
                     command_name="run",
@@ -525,7 +486,6 @@ class HostedCommandService(object):
                 break
         if matched is None:
             self.emit_command_result(
-                event_handler,
                 state,
                 CommandResult(
                     command_name="run",
@@ -540,8 +500,6 @@ class HostedCommandService(object):
             command_text="/run %s" % parsed.raw_args,
             tool_name=str(matched.get("tool_name") or ""),
             arguments={"recipe_id": recipe_id, "target": target, "profile": profile},
-            permission_resolver=permission_resolver,
-            event_handler=event_handler,
         )
         success = bool(observation.success)
         message = (
@@ -555,7 +513,6 @@ class HostedCommandService(object):
         payload["target"] = target
         payload["profile"] = profile
         self.emit_command_result(
-            event_handler,
             state,
             CommandResult(
                 command_name="run",
@@ -570,11 +527,8 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[SessionEventHandler],
-        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         self.emit_command_result(
-            event_handler,
             state,
             CommandResult(
                 command_name="clear",
@@ -589,8 +543,6 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[SessionEventHandler],
-        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         payload = self._list_tasks(session_id=state.session_id)
         lines = ["## Session Tasks", ""]
@@ -604,7 +556,6 @@ class HostedCommandService(object):
                 prefix = "[x]" if item.get("done") else "[ ]"
                 lines.append("- %s %s" % (prefix, str(item.get("content") or "")))
         self.emit_command_result(
-            event_handler,
             state,
             CommandResult(
                 command_name="tasks",
@@ -619,8 +570,6 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[SessionEventHandler],
-        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         observation = self.tools.execute("git_diff", {"path": ".", "scope": "working"})
         diff_text = ""
@@ -635,7 +584,6 @@ class HostedCommandService(object):
         else:
             message = "## Git Diff\n\n- changed files: %s" % file_count
         self.emit_command_result(
-            event_handler,
             state,
             CommandResult(
                 command_name="diff",
@@ -650,8 +598,6 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[SessionEventHandler],
-        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         context = self._get_permission_context(state.session_id)
         lines = [
@@ -662,7 +608,6 @@ class HostedCommandService(object):
             "- rule count: %s" % len(context.rules),
         ]
         self.emit_command_result(
-            event_handler,
             state,
             CommandResult(
                 command_name="permissions",
@@ -686,8 +631,6 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[SessionEventHandler],
-        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         current = self.plan_store.load(state.session_id)
         if parsed.raw_args:
@@ -703,9 +646,8 @@ class HostedCommandService(object):
                 state.workflow_state = "plan"
                 state.active_plan_ref = current.path
                 state.updated_at = _utc_now()
-            self._emit_plan_updated(event_handler, state, current)
+            self._emit_plan_updated(state, current)
             self.emit_command_result(
-                event_handler,
                 state,
                 CommandResult(
                     command_name="plan",
@@ -726,9 +668,8 @@ class HostedCommandService(object):
             with state.lock:
                 state.workflow_state = "plan"
                 state.active_plan_ref = current.path
-        self._emit_plan_updated(event_handler, state, current)
+        self._emit_plan_updated(state, current)
         self.emit_command_result(
-            event_handler,
             state,
             CommandResult(
                 command_name="plan",
@@ -743,14 +684,11 @@ class HostedCommandService(object):
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
-        event_handler: Optional[SessionEventHandler],
-        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         history = self._history_loader(state.session_id)
         review = self.review_command.build_payload_from_history(history, limit=400)
         lines = self.review_command.markdown_lines(review)
         self.emit_command_result(
-            event_handler,
             state,
             CommandResult(
                 command_name="review",
@@ -769,8 +707,6 @@ class HostedCommandService(object):
         command_text: str,
         tool_name: str,
         arguments: Dict[str, Any],
-        permission_resolver: Optional[PermissionResolver],
-        event_handler: Optional[SessionEventHandler],
     ) -> Observation:
         action = Action(
             name=tool_name,
@@ -781,7 +717,7 @@ class HostedCommandService(object):
         with state.lock:
             state.status = "running"
             state.updated_at = _utc_now()
-        self._notify_status(event_handler, state)
+        self._notify_status(state)
         current_step = {"step_id": "", "step_index": 0}
 
         def on_step_start(step_id: str, step_index: int) -> None:
@@ -791,7 +727,6 @@ class HostedCommandService(object):
                 state.current_command_step_id = step_id
                 state.current_command_step_index = step_index
             self._emit(
-                event_handler,
                 "step_start",
                 state.session_id,
                 {"turn_id": turn_id, "step_id": step_id, "step_index": step_index},
@@ -799,7 +734,6 @@ class HostedCommandService(object):
 
         def on_step_finish(step_index: int, reply: AssistantReply, status: str) -> None:
             self._emit(
-                event_handler,
                 "step_end",
                 state.session_id,
                 {
@@ -822,7 +756,7 @@ class HostedCommandService(object):
                 "step_index": current_step["step_index"],
             }
             payload.update(self._tool_event_metadata(start_action.name))
-            self._emit(event_handler, "tool_started", state.session_id, payload)
+            self._emit("tool_started", state.session_id, payload)
 
         def on_tool_finish(finished_action: Action, observation: Observation) -> None:
             payload = {
@@ -836,7 +770,7 @@ class HostedCommandService(object):
                 "step_index": current_step["step_index"],
             }
             payload.update(self._tool_event_metadata(finished_action.name))
-            self._emit_with_snapshot(event_handler, "tool_finished", state, payload)
+            self._emit_with_snapshot("tool_finished", state, payload)
 
         pending_ticket = {"value": None}
 
@@ -849,22 +783,6 @@ class HostedCommandService(object):
                 step_index=current_step["step_index"],
             )
             pending_ticket["value"] = ticket
-            if permission_resolver is not None:
-                self._emit_with_snapshot(
-                    event_handler,
-                    "permission_required",
-                    state,
-                    {
-                        "permission": ticket.to_dict(),
-                        "turn_id": ticket.turn_id,
-                        "step_id": ticket.step_id,
-                        "step_index": ticket.step_index,
-                    },
-                )
-                self._notify_status(event_handler, state)
-                approved = bool(permission_resolver(ticket.to_dict()))
-                self._clear_pending_interaction(state)
-                return approved
             with state.lock:
                 state.pending_event = threading.Event()
             return None
@@ -890,10 +808,7 @@ class HostedCommandService(object):
         with state.lock:
             apply_hosted_projection(state, result.projection)
         observation = _observation_from_payload(result.observation)
-        if (
-            result.termination_reason in ("permission_wait", "user_input_wait")
-            and permission_resolver is None
-        ):
+        if result.termination_reason in ("permission_wait", "user_input_wait"):
             with state.lock:
                 state.status = "waiting_permission"
                 state.updated_at = _utc_now()
@@ -901,7 +816,6 @@ class HostedCommandService(object):
             ticket = pending_ticket.get("value")
             if ticket is not None:
                 self._emit_with_snapshot(
-                    event_handler,
                     "permission_required",
                     state,
                     {
@@ -911,7 +825,7 @@ class HostedCommandService(object):
                         "step_index": ticket.step_index,
                     },
                 )
-            self._notify_status(event_handler, state)
+            self._notify_status(state)
             if event is not None:
                 event.wait()
             approved = False
@@ -962,7 +876,6 @@ class HostedCommandService(object):
             state.current_command_step_id = current_step["step_id"]
             state.current_command_step_index = current_step["step_index"]
         self._emit(
-            event_handler,
             "turn_end",
             state.session_id,
             {
@@ -981,17 +894,15 @@ class HostedCommandService(object):
             },
         )
         self._persist_state(state)
-        self._notify_status(event_handler, state)
+        self._notify_status(state)
         return observation
 
     def _emit_plan_updated(
         self,
-        event_handler: Optional[SessionEventHandler],
         state: ManagedSession,
         plan: PlanSnapshot,
     ) -> None:
         self._emit_with_snapshot(
-            event_handler,
             "plan_updated",
             state,
             {"plan": self._plan_to_dict(plan)},

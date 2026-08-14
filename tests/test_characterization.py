@@ -6,6 +6,7 @@ future refactoring.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -63,14 +64,10 @@ class TestEventEmissionChain(object):
     """Characterization tests for event emission behavior."""
 
     def test_emit_calls_handlers(self, fresh_container):
-        emitter = EventEmitter()
         called_with = []
 
-        def handler(envelope):
-            called_with.append(envelope)
-
-        emitter.add_handler("test_event", handler)
-        emitter.emit(None, "test_event", "sess-1", {"key": "value"})
+        emitter = EventEmitter(SimpleNamespace(on_session_event=called_with.append))
+        emitter.emit("test_event", "sess-1", {"key": "value"})
 
         assert len(called_with) == 1
         assert called_with[0].event_kind == "test.event"
@@ -78,20 +75,12 @@ class TestEventEmissionChain(object):
         assert called_with[0].payload == {"key": "value"}
 
     def test_handler_exception_isolated(self, fresh_container):
-        emitter = EventEmitter()
-        second_called = []
-
         def bad_handler(envelope):
+            del envelope
             raise RuntimeError("boom")
 
-        def good_handler(envelope):
-            second_called.append(envelope)
-
-        emitter.add_handler("test_event", bad_handler)
-        emitter.add_handler("test_event", good_handler)
-        emitter.emit(None, "test_event", "sess-1", {})  # should not raise
-
-        assert len(second_called) == 1
+        emitter = EventEmitter(SimpleNamespace(on_session_event=bad_handler))
+        emitter.emit("test_event", "sess-1", {})
 
 
 class TestWorkspaceBoundary(object):

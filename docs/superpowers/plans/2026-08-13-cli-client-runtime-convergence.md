@@ -322,7 +322,7 @@ offline packaging, six-wheel distribution checks.
 - Modify: `tests/test_local_resources.py`
 - Modify: `tests/test_gui_streaming.py`
 
-- [ ] **Step 1: Add failing tests for canonical sink calls and typed failures.**
+- [x] **Step 1: Add failing tests for canonical sink calls and typed failures.**
 
   Assert that `InProcessAdapter.create_session`, `resume_session`, and
   `submit_user_message` do not contain `event_handler`, `permission_resolver`, or
@@ -331,7 +331,7 @@ offline packaging, six-wheel distribution checks.
   session, cancellation, and protocol errors and assert the returned `FailureRecord.code`
   without checking localized message text.
 
-- [ ] **Step 2: Run the focused tests and confirm legacy parameters remain.**
+- [x] **Step 2: Run the focused tests and confirm legacy parameters remain.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_host_frontend_ports.py
@@ -339,7 +339,7 @@ offline packaging, six-wheel distribution checks.
   uv run python scripts/test-suite.py tdd tests/test_session_event_protocol.py
   ```
 
-- [ ] **Step 3: Make the event emitter envelope-only.**
+- [x] **Step 3: Make the event emitter envelope-only.**
 
   Bind the sink at adapter construction and change the emitter core to:
 
@@ -364,7 +364,7 @@ offline packaging, six-wheel distribution checks.
   is represented by Host state and canonical events; only `respond_to_interaction()` resolves
   it.
 
-- [ ] **Step 4: Add structured Host exception translation.**
+- [x] **Step 4: Add structured Host exception translation.**
 
   Implement a Host-owned `FrontendPortError` carrying a protocol `FailureRecord`. Map known
   exception types or explicit outcome states to the closed categories. Do not inspect
@@ -379,7 +379,7 @@ offline packaging, six-wheel distribution checks.
 
   Session error envelopes must carry `failure.to_dict()` and a stable outcome status.
 
-- [ ] **Step 5: Run event, interaction, and stream tests.**
+- [x] **Step 5: Run event, interaction, and stream tests.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_session_event_protocol.py
@@ -393,7 +393,7 @@ offline packaging, six-wheel distribution checks.
   uv run python scripts/test-suite.py tdd tests/test_gui_streaming.py
   ```
 
-- [ ] **Step 6: Commit the Host convergence.**
+- [x] **Step 6: Commit the Host convergence.**
 
   ```powershell
   git add packages/embedagent-host/src/embedagent_host/inprocess_adapter.py packages/embedagent-host/src/embedagent_host/runtime/session_event_protocol.py packages/embedagent-host/src/embedagent_host/runtime/services/event_emitter.py packages/embedagent-host/src/embedagent_host/hosted_command_service.py packages/embedagent-host/src/embedagent_host/hosted_interaction_service.py packages/embedagent-host/src/embedagent_host/frontend_ports.py packages/embedagent-host/src/embedagent_host/frontend_errors.py tests/test_session_event_protocol.py tests/test_hosted_interaction_service.py tests/test_host_frontend_ports.py tests/test_inprocess_adapter_frontend_api.py tests/test_c_cpp_workflow_task_projection.py tests/test_agent_runtime_integration.py tests/test_host_agent_facade.py tests/test_local_resources.py tests/test_gui_streaming.py

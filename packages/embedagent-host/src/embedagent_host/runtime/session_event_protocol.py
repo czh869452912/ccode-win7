@@ -3,11 +3,9 @@ from __future__ import annotations
 import threading
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Mapping
+from typing import Any, Dict, Mapping
 
 from embedagent_protocol import FailureRecord, SessionEventEnvelope
-
-SessionEventHandler = Callable[[SessionEventEnvelope], None]
 
 _EVENT_KIND_MAP = {
     "turn_start": "turn.started",

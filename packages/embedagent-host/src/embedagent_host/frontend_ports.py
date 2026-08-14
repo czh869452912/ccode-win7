@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import difflib
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from embedagent_protocol import (
     AgentApplicationDescriptor,
@@ -15,6 +15,17 @@ from embedagent_protocol import (
     ToolPresentation,
     WorkflowPackageDescriptor,
 )
+
+from embedagent_host.frontend_errors import FrontendPortError, failure_for_exception
+
+
+def _frontend_call(source: str, operation: Callable[[], Any]) -> Any:
+    try:
+        return operation()
+    except FrontendPortError:
+        raise
+    except Exception as exc:
+        raise FrontendPortError(failure_for_exception(exc, source=source)) from exc
 
 
 def _mapping(value: Any) -> Dict[str, Any]:
@@ -183,42 +194,109 @@ class InProcessFrontendSessionPort(FrontendSessionPort):
         self._adapter = adapter
 
     def list_sessions(self, limit: int = 10) -> List[ThreadShell]:
-        return [thread_shell(item) for item in self._adapter.list_sessions(limit=limit)]
+        return _frontend_call(
+            "session",
+            lambda: [thread_shell(item) for item in self._adapter.list_sessions(limit=limit)],
+        )
 
     def load_session_summary(self, reference: str) -> Dict[str, Any]:
-        return dict(self._adapter.summary_store.load_summary(reference))
+        return _frontend_call(
+            "session",
+            lambda: dict(self._adapter.summary_store.load_summary(reference)),
+        )
 
     def get_session_bootstrap(self, reference: str, mode: str = "") -> SessionBootstrap:
-        return session_bootstrap(self._adapter.get_session_bootstrap(reference, mode))
+        return _frontend_call(
+            "session",
+            lambda: session_bootstrap(self._adapter.get_session_bootstrap(reference, mode)),
+        )
 
     def get_session_capabilities(self, session_id: str = "") -> CapabilitySnapshot:
-        return capability_snapshot(self._adapter.get_session_capabilities(session_id))
+        return _frontend_call(
+            "session",
+            lambda: capability_snapshot(self._adapter.get_session_capabilities(session_id)),
+        )
 
     def create_session(self, mode: str) -> SessionBootstrap:
-        snapshot = self._adapter.create_session(mode)
-        return self.get_session_bootstrap(str(snapshot.get("session_id") or ""))
+        def create() -> SessionBootstrap:
+            snapshot = self._adapter.create_session(mode)
+            return self.get_session_bootstrap(str(snapshot.get("session_id") or ""))
+
+        return _frontend_call("session", create)
 
     def resume_session(self, reference: str, mode: str) -> SessionBootstrap:
-        snapshot = self._adapter.resume_session(reference, mode)
-        return self.get_session_bootstrap(str(snapshot.get("session_id") or ""))
+        def resume() -> SessionBootstrap:
+            snapshot = self._adapter.resume_session(reference, mode)
+            return self.get_session_bootstrap(str(snapshot.get("session_id") or ""))
+
+        return _frontend_call("session", resume)
 
     def submit_user_message(self, session_id: str, text: str, stream: bool) -> None:
-        self._adapter.submit_user_message(
-            session_id=session_id,
-            text=text,
-            stream=stream,
-            wait=False,
+        _frontend_call(
+            "session",
+            lambda: self._adapter.submit_user_message(
+                session_id=session_id,
+                text=text,
+                stream=stream,
+                wait=False,
+            ),
         )
 
     def cancel_session(self, session_id: str) -> SessionBootstrap:
+        return _frontend_call(
+            "session",
+            lambda: self._cancel_and_bootstrap(session_id),
+        )
+
+    def set_session_mode(self, session_id: str, mode: str) -> SessionBootstrap:
+        return _frontend_call(
+            "session",
+            lambda: self._set_mode_and_bootstrap(session_id, mode),
+        )
+
+    def respond_to_interaction(
+        self,
+        session_id: str,
+        interaction_id: str,
+        payload: Dict[str, Any],
+    ) -> SessionBootstrap:
+        return _frontend_call(
+            "session",
+            lambda: self._respond_and_bootstrap(session_id, interaction_id, payload),
+        )
+
+    def rename_session(self, session_id: str, title: str) -> ThreadShell:
+        return _frontend_call(
+            "session",
+            lambda: thread_shell(self._adapter.rename_session(session_id, title)),
+        )
+
+    def archive_session(self, session_id: str) -> ThreadShell:
+        return _frontend_call(
+            "session",
+            lambda: thread_shell(self._adapter.archive_session(session_id)),
+        )
+
+    def fork_session(self, session_id: str, title: str = "") -> ThreadShell:
+        return _frontend_call(
+            "session",
+            lambda: thread_shell(self._adapter.fork_session(session_id, title)),
+        )
+
+    def close(self) -> None:
+        shutdown = getattr(self._adapter, "shutdown", None)
+        if callable(shutdown):
+            _frontend_call("session", shutdown)
+
+    def _cancel_and_bootstrap(self, session_id: str) -> SessionBootstrap:
         self._adapter.cancel_session(session_id)
         return self.get_session_bootstrap(session_id)
 
-    def set_session_mode(self, session_id: str, mode: str) -> SessionBootstrap:
+    def _set_mode_and_bootstrap(self, session_id: str, mode: str) -> SessionBootstrap:
         self._adapter.set_session_mode(session_id, mode)
         return self.get_session_bootstrap(session_id)
 
-    def respond_to_interaction(
+    def _respond_and_bootstrap(
         self,
         session_id: str,
         interaction_id: str,
@@ -227,27 +305,16 @@ class InProcessFrontendSessionPort(FrontendSessionPort):
         self._adapter.respond_to_interaction(session_id, interaction_id, payload)
         return self.get_session_bootstrap(session_id)
 
-    def rename_session(self, session_id: str, title: str) -> ThreadShell:
-        return thread_shell(self._adapter.rename_session(session_id, title))
-
-    def archive_session(self, session_id: str) -> ThreadShell:
-        return thread_shell(self._adapter.archive_session(session_id))
-
-    def fork_session(self, session_id: str, title: str = "") -> ThreadShell:
-        return thread_shell(self._adapter.fork_session(session_id, title))
-
-    def close(self) -> None:
-        shutdown = getattr(self._adapter, "shutdown", None)
-        if callable(shutdown):
-            shutdown()
-
 
 class InProcessFrontendWorkspacePort(FrontendWorkspacePort):
     def __init__(self, adapter: Any) -> None:
         self._adapter = adapter
 
     def get_workspace_snapshot(self) -> Dict[str, Any]:
-        return dict(self._adapter.get_workspace_snapshot())
+        return _frontend_call(
+            "workspace",
+            lambda: dict(self._adapter.get_workspace_snapshot()),
+        )
 
     def list_workspace_tree(
         self,
@@ -255,28 +322,39 @@ class InProcessFrontendWorkspacePort(FrontendWorkspacePort):
         max_depth: int = 3,
         limit: int = 200,
     ) -> Dict[str, Any]:
-        return dict(
-            self._adapter.list_workspace_tree(
-                path=path,
-                max_depth=max_depth,
-                limit=limit,
-            )
+        return _frontend_call(
+            "workspace",
+            lambda: dict(
+                self._adapter.list_workspace_tree(
+                    path=path,
+                    max_depth=max_depth,
+                    limit=limit,
+                )
+            ),
         )
 
     def list_file_children(self, path: str = ".", limit: int = 200) -> List[Dict[str, Any]]:
-        payload = self._adapter.list_workspace_children(path, limit)
-        return list(payload.get("items") or [])
+        return _frontend_call(
+            "workspace",
+            lambda: list(self._adapter.list_workspace_children(path, limit).get("items") or []),
+        )
 
     def read_file(self, path: str) -> Dict[str, Any]:
-        return dict(self._adapter.read_workspace_file(path))
+        return _frontend_call(
+            "workspace",
+            lambda: dict(self._adapter.read_workspace_file(path)),
+        )
 
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
-        return dict(self._adapter.write_workspace_file(path, content))
+        return _frontend_call(
+            "workspace",
+            lambda: dict(self._adapter.write_workspace_file(path, content)),
+        )
 
     def get_diff_preview(self, path: str, new_content: str) -> Dict[str, Any]:
         try:
             old_content = str(self.read_file(path).get("content") or "")
-        except (OSError, TypeError, ValueError):
+        except (FrontendPortError, OSError, TypeError, ValueError):
             old_content = ""
         unified_diff = "".join(
             difflib.unified_diff(
@@ -295,4 +373,7 @@ class InProcessFrontendWorkspacePort(FrontendWorkspacePort):
         }
 
     def reload_resources(self, session_id: str = "", reason: str = "api") -> Dict[str, Any]:
-        return dict(self._adapter.reload_resources(session_id=session_id, reason=reason))
+        return _frontend_call(
+            "workspace",
+            lambda: dict(self._adapter.reload_resources(session_id=session_id, reason=reason)),
+        )
