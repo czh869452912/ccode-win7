@@ -94,7 +94,12 @@ class TestNoBareExceptBlocks:
                 "ValueError",
                 "TypeError",
             ],
-            "src/embedagent/core/adapter.py": ["OSError", "ValueError"],
+            "src/embedagent/frontend/runtime/session_client_runtime.py": [
+                "OSError",
+                "RuntimeError",
+                "TypeError",
+                "ValueError",
+            ],
             "packages/embedagent-host/src/embedagent_host/runtime/tools/discovery_ops.py": [
                 "OSError",
                 "UnicodeDecodeError",

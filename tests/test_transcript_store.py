@@ -54,6 +54,18 @@ class TestTranscriptStore(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
+    def _require_symlink_capability(self, target, target_is_directory):
+        probe_path = os.path.join(self.workspace, ".symlink-capability-probe")
+        try:
+            os.symlink(target, probe_path, target_is_directory=target_is_directory)
+        except (NotImplementedError, OSError) as exc:
+            self.skipTest("symlink creation unavailable: %s" % exc)
+        else:
+            if target_is_directory:
+                os.rmdir(probe_path)
+            else:
+                os.remove(probe_path)
+
     @unittest.skipUnless(os.name == "nt", "Windows workspace handle contract")
     def test_constructor_rejects_missing_workspace_without_creating_it(self):
         missing_workspace = os.path.join(self.workspace, "missing-workspace")
@@ -472,6 +484,7 @@ class TestTranscriptStore(unittest.TestCase):
         outside_transcript = os.path.join(outside_dir, "transcript.jsonl")
         os.makedirs(session_dir)
         os.makedirs(outside_dir)
+        self._require_symlink_capability(outside_dir, target_is_directory=True)
         original_resolve = store.resolve_transcript_path
         replaced = [False]
 
@@ -503,6 +516,7 @@ class TestTranscriptStore(unittest.TestCase):
         outside_dir = os.path.join(self.workspace, "outside-root-race")
         first_component = os.path.join(self.workspace, ".embedagent")
         os.makedirs(outside_dir)
+        self._require_symlink_capability(outside_dir, target_is_directory=True)
         original_mkdir = os.mkdir
         redirected = [False]
 
@@ -538,6 +552,7 @@ class TestTranscriptStore(unittest.TestCase):
         os.makedirs(session_dir)
         with open(outside_path, "wb") as handle:
             handle.write(b"DO-NOT-TOUCH")
+        self._require_symlink_capability(outside_path, target_is_directory=False)
         original_resolve = store.resolve_transcript_path
         replaced = [False]
 

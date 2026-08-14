@@ -163,7 +163,7 @@ class SessionClientRuntime(SessionEventSink):
         try:
             bootstrap = port.get_session_bootstrap(session_id, mode)
             self._validate_bootstrap(bootstrap, session_id)
-        except Exception as exc:
+        except (OSError, RuntimeError, TypeError, ValueError) as exc:
             self._fail_generation(generation, session_id, _failure_for_error(exc))
             return None
         if not self._install_bootstrap(generation, session_id, bootstrap, reason):
@@ -250,7 +250,7 @@ class SessionClientRuntime(SessionEventSink):
             self._condition.notify_all()
         try:
             port.submit_user_message(selected_session_id, str(text), bool(stream))
-        except Exception as exc:
+        except (OSError, RuntimeError, TypeError, ValueError) as exc:
             failure = _failure_for_error(exc)
             self._fail_generation(self.generation, selected_session_id, failure)
             raise
@@ -427,7 +427,7 @@ class SessionClientRuntime(SessionEventSink):
             port = self._require_session_port()
             bootstrap = port.get_session_bootstrap(session_id, "")
             self._validate_bootstrap(bootstrap, session_id)
-        except Exception as exc:
+        except (OSError, RuntimeError, TypeError, ValueError) as exc:
             self._fail_generation(generation, session_id, _failure_for_error(exc))
             return
         self._install_bootstrap(generation, session_id, bootstrap, "recovery")

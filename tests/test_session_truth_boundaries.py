@@ -10,7 +10,9 @@ HOST_SOURCE = ROOT / "packages" / "embedagent-host" / "src" / "embedagent_host"
 CORE_SOURCE = ROOT / "packages" / "embedagent-core" / "src" / "embedagent_core"
 GUI_SOURCE = ROOT / "src" / "embedagent" / "frontend" / "gui" / "backend"
 TUI_SOURCE = ROOT / "src" / "embedagent" / "frontend" / "tui"
-TUI_RUNTIME_SOURCE = TUI_SOURCE / "runtime.py"
+CLIENT_RUNTIME_SOURCE = (
+    ROOT / "src" / "embedagent" / "frontend" / "runtime" / "session_client_runtime.py"
+)
 TUI_CONTROLLER_SOURCE = TUI_SOURCE / "controller.py"
 
 
@@ -47,11 +49,12 @@ def test_history_projection_is_transcript_backed_and_bootstrap_owned():
     assert "timeline_store" not in history_source
 
 
-def test_tui_runtime_owns_bootstrap_history_projection_only():
-    runtime_source = _read(TUI_RUNTIME_SOURCE)
+def test_shared_client_runtime_owns_bootstrap_history_projection_only():
+    runtime_source = _read(CLIENT_RUNTIME_SOURCE)
     controller_source = _read(TUI_CONTROLLER_SOURCE)
 
     assert "get_session_bootstrap" in runtime_source
+    assert '"bootstrap": bootstrap.to_dict()' in runtime_source
     assert 'payload.get("history")' in controller_source
     assert not (TUI_SOURCE / "services" / "timeline.py").exists()
     for source in (runtime_source, controller_source):

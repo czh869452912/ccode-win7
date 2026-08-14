@@ -64,7 +64,7 @@ class CliApplication(object):
                 workspace_port=hosted.workspace,
                 shell_descriptor=descriptor,
             )
-        except Exception:
+        except (ImportError, OSError, RuntimeError, TypeError, ValueError):
             client_runtime.close()
             raise
 
