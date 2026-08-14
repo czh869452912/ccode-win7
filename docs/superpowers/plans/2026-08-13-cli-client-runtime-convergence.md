@@ -410,7 +410,7 @@ offline packaging, six-wheel distribution checks.
 - Create: `src/embedagent/frontend/runtime/session_client_runtime.py`
 - Create: `src/embedagent/frontend/runtime/runtime_actions.py`
 
-- [ ] **Step 1: Add one credential-free observable contract fixture.**
+- [x] **Step 1: Add one credential-free observable contract fixture.**
 
   Each case contains `initial`, ordered `operations`, and expected frozen `actions`. Include
   normal activation, activation buffering, duplicate event, one sequence gap recovery,
@@ -437,13 +437,13 @@ offline packaging, six-wheel distribution checks.
   }
   ```
 
-- [ ] **Step 2: Write the Python fixture runner and see it fail on missing runtime.**
+- [x] **Step 2: Write the Python fixture runner and see it fail on missing runtime.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_session_client_runtime_contract.py
   ```
 
-- [ ] **Step 3: Implement the minimal Python state machine.**
+- [x] **Step 3: Implement the minimal Python state machine.**
 
   Keep only active session id, cursor, generation, activation buffer, request state, and
   closed/failed lifecycle. Use an `RLock` plus `Condition` for event delivery; do not copy
@@ -471,13 +471,13 @@ offline packaging, six-wheel distribution checks.
   A gap calls the current generation's bootstrap transport once. A second gap or failed
   recovery emits `protocol_failed` and enters terminal `failed`.
 
-- [ ] **Step 4: Run the Python contract tests to green.**
+- [x] **Step 4: Run the Python contract tests to green.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_session_client_runtime_contract.py
   ```
 
-- [ ] **Step 5: Commit the fixture and Python runtime kernel.**
+- [x] **Step 5: Commit the fixture and Python runtime kernel.**
 
   ```powershell
   git add tests/fixtures/session_client_runtime tests/test_session_client_runtime_contract.py src/embedagent/frontend/runtime
