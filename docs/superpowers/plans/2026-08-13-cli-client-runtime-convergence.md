@@ -493,21 +493,21 @@ offline packaging, six-wheel distribution checks.
 - Modify: `tests/test_session_client_runtime_contract.py`
 - Create: `tests/test_session_client_commands.py`
 
-- [ ] **Step 1: Add failing tests for command resolution and terminal outcomes.**
+- [x] **Step 1: Add failing tests for command resolution and terminal outcomes.**
 
   Test that commands are discovered from `ShellDescriptor`, unavailable commands remain
   unavailable, dispatch uses the descriptor's declared kind and arguments, and no application
   id, workflow type, or tool name is recognized by hard-coded branches. Test runtime waiting
   for completed, blocked, failed, cancelled, and timeout outcomes.
 
-- [ ] **Step 2: Run the tests and confirm dispatcher/wait APIs are missing.**
+- [x] **Step 2: Run the tests and confirm dispatcher/wait APIs are missing.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_session_client_commands.py
   uv run python scripts/test-suite.py tdd tests/test_session_client_runtime_contract.py
   ```
 
-- [ ] **Step 3: Implement generic dispatch and condition-based waiting.**
+- [x] **Step 3: Implement generic dispatch and condition-based waiting.**
 
   ```python
   def resolve_command(shell: ShellDescriptor, name: str) -> CommandDescriptor:
@@ -521,14 +521,14 @@ offline packaging, six-wheel distribution checks.
   The runtime emits immutable actions for renderer consumption and derives terminal outcomes
   only from bootstrap/event structure. It must never match English or Chinese text.
 
-- [ ] **Step 4: Run both runtime test files to green.**
+- [x] **Step 4: Run both runtime test files to green.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_session_client_commands.py
   uv run python scripts/test-suite.py tdd tests/test_session_client_runtime_contract.py
   ```
 
-- [ ] **Step 5: Commit the shared Python runtime surface.**
+- [x] **Step 5: Commit the shared Python runtime surface.**
 
   ```powershell
   git add src/embedagent/frontend/runtime tests/test_session_client_commands.py tests/test_session_client_runtime_contract.py
