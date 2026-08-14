@@ -49,6 +49,27 @@ def _backend(static_dir):
 
 
 class TestGuiLauncher(unittest.TestCase):
+    def test_launch_gui_constructs_backend_through_current_frontend_ports(self):
+        backend_type = MagicMock(side_effect=RuntimeError("stop after backend construction"))
+        with patch.object(gui_launcher, "check_dependencies", return_value=True), patch.object(
+            gui_launcher,
+            "_configure_webview_runtime",
+            return_value={
+                "runtime_path": "",
+                "runtime_source": "test",
+                "bundle_required": False,
+            },
+        ), patch(
+            "embedagent.frontend.gui.backend.server.GUIBackend",
+            backend_type,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "stop after backend construction"):
+                gui_launcher.launch_gui(headless=True)
+
+        self.assertNotIn("core", backend_type.call_args.kwargs)
+        self.assertIn("app_host", backend_type.call_args.kwargs)
+        self.assertIn("frontend", backend_type.call_args.kwargs)
+
     def test_create_frontend_ports_delegates_to_hosted_runtime_with_event_sink(self):
         with tempfile.TemporaryDirectory() as workspace:
             real_workspace = os.path.realpath(workspace)

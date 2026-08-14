@@ -20,7 +20,7 @@ def load_tui_dependencies():
         from rich.console import Console
     except ImportError as exc:
         raise TUIUnavailableError(
-            "TUI 依赖未安装。请先安装 `prompt_toolkit` 与 `rich` 后再运行 `--tui`。"
+            "TUI 依赖未安装。请安装 `prompt_toolkit` 与 `rich` 后运行 `embedagent-tui`。"
         ) from exc
     return {
         "create_pipe_input": create_pipe_input,

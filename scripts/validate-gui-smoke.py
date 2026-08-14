@@ -86,6 +86,26 @@ def _process_exit_details(process):
     return getattr(process, "returncode", None)
 
 
+def _terminate_process_tree(process) -> None:
+    if process is None or _process_exit_details(process) is not None:
+        return
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        process.wait(timeout=10.0)
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=10.0)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=10.0)
+
+
 def _failure_payload(failure, process, stdout_path, stderr_path, checks):
     return {
         "ok": False,
@@ -391,6 +411,14 @@ def _json_request(
         raise RuntimeError("HTTP %d: %s" % (exc.code, detail[:500]))
 
 
+def _session_id_from_bootstrap(value: Dict[str, object]) -> str:
+    thread = value.get("thread") if isinstance(value, dict) else None
+    session_id = str(thread.get("id") or "").strip() if isinstance(thread, dict) else ""
+    if not session_id:
+        raise RuntimeError("GUI session creation returned no thread.id")
+    return session_id
+
+
 def _respond_to_interaction(
     api_root: str, session_id: str, event_payload: Dict[str, object], approval: bool
 ) -> None:
@@ -565,9 +593,7 @@ async def _exercise_gui(gui_port: int) -> Dict[str, object]:
     }
     async with websockets.connect(websocket_url) as websocket:
         session = _json_request(api_root + "/api/sessions?mode=build", method="POST")
-        session_id = str(session.get("session_id") or "")
-        if not session_id:
-            raise RuntimeError("GUI session creation returned no session_id")
+        session_id = _session_id_from_bootstrap(session)
         _json_request(
             api_root + "/api/sessions/%s/message" % session_id,
             method="POST",
@@ -610,7 +636,7 @@ async def _exercise_gui(gui_port: int) -> Dict[str, object]:
 
         first_bootstrap = _json_request(api_root + "/api/sessions/%s/bootstrap" % session_id)
         second_session = _json_request(api_root + "/api/sessions?mode=build", method="POST")
-        second_session_id = str(second_session.get("session_id") or "")
+        second_session_id = _session_id_from_bootstrap(second_session)
         second_bootstrap = _json_request(
             api_root + "/api/sessions/%s/bootstrap" % second_session_id
         )
@@ -796,134 +822,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--diagnostic-dir", default="", help="Directory for launcher stdout/stderr")
     parser.add_argument("--startup-timeout", type=float, default=20.0)
     return parser
-
-
-def _legacy_main(argv: Optional[List[str]] = None) -> int:
-    args = build_parser().parse_args(argv)
-    bundle_root = os.path.realpath(args.bundle_root) if args.bundle_root else ""
-    fixed_webview2 = {}
-    if args.require_fixed_webview2:
-        if not bundle_root:
-            raise RuntimeError("--require-fixed-webview2 requires --bundle-root")
-        fixed_webview2 = _fixed_webview2_report(bundle_root)
-        if not fixed_webview2.get("exists"):
-            raise RuntimeError(
-                "Bundled Fixed Version WebView2 runtime is missing: %s"
-                % fixed_webview2.get("runtime_exe")
-            )
-        if fixed_webview2.get("runtime_major") != fixed_webview2.get("expected_runtime_major"):
-            raise RuntimeError(
-                "Bundled Fixed Version WebView2 major is not %s: %s"
-                % (
-                    fixed_webview2.get("expected_runtime_major"),
-                    fixed_webview2.get("runtime_major"),
-                )
-            )
-
-    model_port = _free_port()
-    gui_port = _free_port()
-    model_server = ThreadingHTTPServer(("127.0.0.1", model_port), FakeOpenAIHandler)
-    server_thread = threading.Thread(target=model_server.serve_forever)
-    server_thread.daemon = True
-    server_thread.start()
-
-    process = None
-    workspace_dir = (
-        os.path.realpath(args.workspace)
-        if args.workspace
-        else tempfile.mkdtemp(prefix="embedagent-gui-smoke-")
-    )
-    if not os.path.isdir(workspace_dir):
-        os.makedirs(workspace_dir)
-    try:
-        launch = _build_command(bundle_root or None, workspace_dir, model_port, gui_port)
-        renderer_report_path = os.path.join(workspace_dir, "renderer-report.json")
-        launch["command"] += ["--renderer-report", renderer_report_path]
-        if args.windowed:
-            launch["command"] += ["--auto-close-seconds", str(args.auto_close_seconds)]
-        else:
-            launch["command"].append("--headless")
-        process = subprocess.Popen(
-            launch["command"],
-            cwd=str(launch["cwd"]),
-            env=launch["env"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        _wait_for_http("http://127.0.0.1:%d/" % gui_port, timeout=20.0)
-        summary = asyncio.run(_exercise_gui(gui_port))
-        if "GUI smoke reply" not in summary.get("assistant_text", ""):
-            raise RuntimeError("GUI smoke did not receive assistant stream text: %s" % summary)
-        if not FakeOpenAIHandler.requests_seen:
-            raise RuntimeError("Fake model server did not receive any request")
-        if summary.get("permission_requests", 0) < 1 or summary.get("user_input_requests", 0) < 1:
-            raise RuntimeError(
-                "GUI smoke did not exercise permission/user-input flows: %s" % summary
-            )
-        tool_event_types = [item.get("type") for item in summary.get("tool_events", [])]
-        if "tool_start" not in tool_event_types or "tool_finish" not in tool_event_types:
-            raise RuntimeError("GUI smoke did not exercise tool events: %s" % summary)
-        review_commands = [
-            item
-            for item in summary.get("command_results", [])
-            if item.get("command_name") == "review"
-        ]
-        if not review_commands or not review_commands[0].get("success"):
-            raise RuntimeError("GUI smoke did not exercise /review workflow: %s" % summary)
-        if "first_session_task_items" not in summary or "second_session_task_items" not in summary:
-            raise RuntimeError("GUI smoke bootstrap task projection check failed: %s" % summary)
-        renderer_report = {}
-        if os.path.isfile(renderer_report_path):
-            with open(renderer_report_path, "r", encoding="utf-8") as handle:
-                renderer_report = json.load(handle)
-        if bundle_root and renderer_report.get("runtime_source") != "bundle":
-            raise RuntimeError(
-                "Bundle GUI did not use bundled Chromium runtime: %s" % renderer_report
-            )
-        if args.require_fixed_webview2:
-            if renderer_report.get("renderer") != "edgechromium":
-                raise RuntimeError(
-                    "Bundle GUI did not use edgechromium renderer: %s" % renderer_report
-                )
-            if renderer_report.get("runtime_source") != "bundle":
-                raise RuntimeError(
-                    "Bundle GUI did not use bundled WebView2 runtime: %s" % renderer_report
-                )
-        print(
-            json.dumps(
-                {
-                    "bundle_root": bundle_root or "",
-                    "workspace": workspace_dir,
-                    "gui_port": gui_port,
-                    "model_port": model_port,
-                    "assistant_text": summary.get("assistant_text"),
-                    "session_statuses": summary.get("session_statuses"),
-                    "tool_events": summary.get("tool_events"),
-                    "command_results": summary.get("command_results"),
-                    "model_requests": len(FakeOpenAIHandler.requests_seen),
-                    "renderer_report": renderer_report,
-                    "fixed_webview2": fixed_webview2,
-                },
-                ensure_ascii=False,
-                indent=2,
-            )
-        )
-        return 0
-    finally:
-        model_server.shutdown()
-        model_server.server_close()
-        if process is not None:
-            process.terminate()
-            try:
-                process.wait(timeout=10.0)
-            except subprocess.TimeoutExpired:
-                subprocess.run(
-                    ["taskkill", "/F", "/T", "/PID", str(process.pid)],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                )
-                process.wait(timeout=10.0)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -1122,18 +1020,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         if model_server is not None:
             model_server.shutdown()
             model_server.server_close()
-        if process is not None:
-            process.terminate()
-            try:
-                process.wait(timeout=10.0)
-            except subprocess.TimeoutExpired:
-                subprocess.run(
-                    ["taskkill", "/F", "/T", "/PID", str(process.pid)],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                )
-                process.wait(timeout=10.0)
+        _terminate_process_tree(process)
         if stdout_handle:
             stdout_handle.close()
         if stderr_handle:

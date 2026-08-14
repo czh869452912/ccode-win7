@@ -100,6 +100,7 @@ class TestGuiSmokeContract(unittest.TestCase):
     def test_smoke_script_exposes_structured_diagnostics(self):
         text = self._script_text()
 
+        self.assertNotIn("def _legacy_main", text)
         for marker in (
             "--json-report",
             "--diagnostic-dir",

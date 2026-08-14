@@ -345,7 +345,6 @@ def launch_gui(
             ),
         )
         backend = GUIBackend(
-            core=None,
             static_dir=static_dir,
             app_host=app_host,
             frontend=frontend,

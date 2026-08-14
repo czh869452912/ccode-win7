@@ -2,6 +2,7 @@ import asyncio
 import importlib.util
 import json
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "validate-gui-smoke.py"
@@ -25,6 +26,18 @@ class FakeWebSocket:
 
     async def recv(self):
         return self.payloads.pop(0)
+
+
+def test_session_id_comes_only_from_strict_bootstrap_thread():
+    smoke = _load_smoke_module()
+
+    assert smoke._session_id_from_bootstrap({"thread": {"id": "session-1"}}) == "session-1"
+    try:
+        smoke._session_id_from_bootstrap({"session_id": "retired-shape"})
+    except RuntimeError as exc:
+        assert str(exc) == "GUI session creation returned no thread.id"
+    else:
+        raise AssertionError("expected retired session response shape to be rejected")
 
 
 def test_consume_collects_assistant_delta_from_canonical_session_event():
@@ -137,6 +150,25 @@ def test_process_exit_details_short_circuits_running_process():
 
     assert smoke._process_exit_details(FakeProcess(None)) is None
     assert smoke._process_exit_details(FakeProcess(7)) == 7
+
+
+def test_windows_cleanup_terminates_the_native_launcher_process_tree():
+    smoke = _load_smoke_module()
+    process = MagicMock(pid=42, returncode=None)
+    with patch.object(smoke.os, "name", "nt"), patch.object(
+        smoke.subprocess,
+        "run",
+    ) as run:
+        smoke._terminate_process_tree(process)
+
+    run.assert_called_once_with(
+        ["taskkill", "/F", "/T", "/PID", "42"],
+        stdout=smoke.subprocess.PIPE,
+        stderr=smoke.subprocess.PIPE,
+        text=True,
+    )
+    process.terminate.assert_not_called()
+    process.wait.assert_called_once_with(timeout=10.0)
 
 
 def test_failure_payload_redacts_sensitive_details(tmp_path):
