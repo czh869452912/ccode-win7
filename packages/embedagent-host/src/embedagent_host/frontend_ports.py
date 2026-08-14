@@ -17,7 +17,11 @@ from embedagent_protocol import (
     WorkflowPackageDescriptor,
 )
 
-from embedagent_host.frontend_errors import FrontendPortError, failure_for_exception
+from embedagent_host.frontend_errors import (
+    FrontendPortError,
+    SessionNotFoundError,
+    failure_for_exception,
+)
 
 
 def _frontend_call(source: str, operation: Callable[[], Any]) -> Any:
@@ -219,9 +223,16 @@ class InProcessFrontendSessionPort(FrontendSessionPort):
         )
 
     def load_session_summary(self, reference: str) -> Dict[str, Any]:
+        def load() -> Dict[str, Any]:
+            try:
+                summary = self._adapter.summary_store.load_summary(reference)
+            except ValueError as exc:
+                raise SessionNotFoundError(reference) from exc
+            return dict(summary)
+
         return _frontend_call(
             "session",
-            lambda: dict(self._adapter.summary_store.load_summary(reference)),
+            load,
         )
 
     def get_session_bootstrap(self, reference: str, mode: str = "") -> SessionBootstrap:

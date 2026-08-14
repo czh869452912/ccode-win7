@@ -144,6 +144,23 @@ def test_session_port_submission_has_no_callback_or_wait_surface():
     )
 
 
+def test_session_port_classifies_missing_summary_without_message_parsing():
+    adapter = MagicMock()
+    adapter.summary_store.load_summary.side_effect = ValueError("localized missing message")
+    port = InProcessFrontendSessionPort(adapter)
+
+    with pytest.raises(FrontendPortError) as raised:
+        port.load_session_summary("missing")
+
+    assert raised.value.failure.code == "session_not_found"
+
+    adapter.summary_store.load_summary.side_effect = None
+    adapter.summary_store.load_summary.return_value = [["invalid projection"]]
+    with pytest.raises(FrontendPortError) as invalid:
+        port.load_session_summary("session-1")
+    assert invalid.value.failure.code == "protocol_error"
+
+
 def test_host_execution_signatures_have_no_frontend_callbacks():
     forbidden = {"event_handler", "permission_resolver", "user_input_resolver"}
     methods = (

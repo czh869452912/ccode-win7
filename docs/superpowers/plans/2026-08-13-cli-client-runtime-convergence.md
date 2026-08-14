@@ -905,31 +905,31 @@ offline packaging, six-wheel distribution checks.
 - Modify: `src/embedagent/cli/app.py`
 - Create: `tests/test_cli_sessions.py`
 
-- [ ] **Step 1: Add tests for list/show/rename/archive/fork.**
+- [x] **Step 1: Add tests for list/show/rename/archive/fork.**
 
   Test text and JSON projections, limit handling, missing references, title validation, and
   fork's optional title. Assert these commands never submit a turn, respond to an
   interaction, or activate the common session runtime.
 
-- [ ] **Step 2: Run the tests and confirm the command handler is missing.**
+- [x] **Step 2: Run the tests and confirm the command handler is missing.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_cli_sessions.py
   ```
 
-- [ ] **Step 3: Implement thin management handlers over `FrontendSessionPort`.**
+- [x] **Step 3: Implement thin management handlers over `FrontendSessionPort`.**
 
   Human output must use stable columns/labels and no localized string parsing. JSON output
   serializes strict DTO/projection data directly. `show` uses the non-activating summary
   operation, not session bootstrap.
 
-- [ ] **Step 4: Run the sessions tests to green.**
+- [x] **Step 4: Run the sessions tests to green.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_cli_sessions.py
   ```
 
-- [ ] **Step 5: Commit session management.**
+- [x] **Step 5: Commit session management.**
 
   ```powershell
   git add src/embedagent/cli tests/test_cli_sessions.py
