@@ -128,6 +128,29 @@ def test_cli_application_routes_run_and_closes_shared_runtime(tmp_path, monkeypa
     runtime.close.assert_called_once_with()
 
 
+def test_cli_application_routes_chat_and_closes_shared_runtime(tmp_path, monkeypatch):
+    from embedagent.cli.app import CliApplication
+    from embedagent.cli.parser import build_parser
+
+    options = build_parser().parse_args(["chat", "--workspace", str(tmp_path)])
+    runtime = MagicMock()
+    application = CliApplication(
+        options=options,
+        launch_config=SimpleNamespace(),
+        client_runtime=runtime,
+        session_port=MagicMock(),
+        workspace_port=MagicMock(),
+        shell_descriptor=ShellDescriptor(schema_version=1),
+    )
+    handler = MagicMock(return_value=0)
+    monkeypatch.setattr("embedagent.cli.chat.run_chat_command", handler)
+
+    assert application.run() == 0
+
+    handler.assert_called_once_with(application)
+    runtime.close.assert_called_once_with()
+
+
 def test_run_json_uses_result_contract_for_composition_failure(monkeypatch, capsys):
     import json
 

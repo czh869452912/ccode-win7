@@ -68,8 +68,39 @@ class FakeSessionPort(object):
     def submit_user_message(self, session_id, text, stream):
         self.submissions.append((session_id, text, stream))
 
+    def respond_to_interaction(self, session_id, interaction_id, payload):
+        del session_id, interaction_id, payload
+        return self.bootstrap
+
     def close(self):
         self.closed = True
+
+
+class ImmediateInteractionPort(FakeSessionPort):
+    def __init__(self, runtime):
+        super().__init__()
+        self.runtime = runtime
+
+    def respond_to_interaction(self, session_id, interaction_id, payload):
+        del session_id, interaction_id, payload
+        self.runtime.on_session_event(
+            _event(
+                "approval.resolved",
+                {"interaction_id": "approval-1", "request_id": "approval-1"},
+                sequence=3,
+            )
+        )
+        self.runtime.on_session_event(
+            _event(
+                "session.finished",
+                {
+                    "final_text": "done",
+                    "outcome": {"kind": "completed", "reason": "completed"},
+                },
+                sequence=4,
+            )
+        )
+        return _bootstrap(cursor=4)
 
 
 def _shell():
@@ -156,7 +187,7 @@ def test_runtime_command_source_has_no_application_workflow_or_tool_branches():
 
 
 @pytest.mark.parametrize(
-    "event,expected_status,expected_failure",
+    "event,expected_status,expected_failure,expected_lifecycle",
     (
         (
             _event(
@@ -168,6 +199,7 @@ def test_runtime_command_source_has_no_application_workflow_or_tool_branches():
             ),
             "completed",
             None,
+            "ready",
         ),
         (
             _event(
@@ -176,6 +208,7 @@ def test_runtime_command_source_has_no_application_workflow_or_tool_branches():
             ),
             "blocked",
             "interaction_required",
+            "waiting_interaction",
         ),
         (
             _event(
@@ -192,6 +225,7 @@ def test_runtime_command_source_has_no_application_workflow_or_tool_branches():
             ),
             "failed",
             "provider_error",
+            "failed",
         ),
         (
             _event(
@@ -203,11 +237,18 @@ def test_runtime_command_source_has_no_application_workflow_or_tool_branches():
             ),
             "cancelled",
             "cancelled",
+            "ready",
         ),
     ),
 )
-def test_runtime_waits_for_structured_terminal_outcomes(event, expected_status, expected_failure):
+def test_runtime_waits_for_structured_terminal_outcomes(
+    event,
+    expected_status,
+    expected_failure,
+    expected_lifecycle,
+):
     runtime, _port = _runtime()
+    runtime.submit_user_message("session-1", "test", stream=True)
 
     runtime.on_session_event(event)
     result = runtime.wait_for_terminal(timeout_s=0).to_dict()
@@ -215,6 +256,7 @@ def test_runtime_waits_for_structured_terminal_outcomes(event, expected_status, 
     assert result["status"] == expected_status
     failure = result.get("failure")
     assert (failure or {}).get("code") == expected_failure
+    assert runtime.lifecycle == expected_lifecycle
 
 
 def test_runtime_wait_uses_condition_and_returns_timeout():
@@ -242,3 +284,77 @@ def test_runtime_wait_uses_condition_and_returns_timeout():
     timed_out = other.wait_for_terminal(timeout_s=0.01).to_dict()
     assert timed_out["status"] == "timeout"
     assert timed_out["failure"]["code"] == "runtime_error"
+
+
+def test_interaction_response_preserves_terminal_event_arriving_before_bootstrap():
+    runtime = SessionClientRuntime()
+    port = ImmediateInteractionPort(runtime)
+    runtime.bind_session_port(port)
+    runtime.activate_session("session-1")
+    runtime.on_session_event(
+        _event(
+            "approval.requested",
+            {"interaction_id": "approval-1", "request_id": "approval-1"},
+            sequence=2,
+        )
+    )
+    assert runtime.wait_for_terminal(timeout_s=0).to_dict()["status"] == "blocked"
+
+    runtime.respond_to_interaction("session-1", "approval-1", {"decision": "accept"})
+    result = runtime.wait_for_terminal(timeout_s=0).to_dict()
+
+    assert result["status"] == "completed"
+    assert result["final_text"] == "done"
+    assert runtime.event_cursor == 4
+    assert runtime.lifecycle == "ready"
+
+
+def test_interaction_response_discards_old_blocked_outcome_while_resume_is_pending():
+    runtime, port = _runtime()
+    runtime.on_session_event(
+        _event(
+            "approval.requested",
+            {"interaction_id": "approval-1", "request_id": "approval-1"},
+            sequence=2,
+        )
+    )
+    assert runtime.wait_for_terminal(timeout_s=0).to_dict()["status"] == "blocked"
+    port.bootstrap = _bootstrap(cursor=2)
+
+    runtime.respond_to_interaction("session-1", "approval-1", {"decision": "accept"})
+
+    pending = runtime.wait_for_terminal(timeout_s=0).to_dict()
+    assert pending["status"] == "timeout"
+    runtime.on_session_event(
+        _event(
+            "session.finished",
+            {"final_text": "later", "outcome": {"kind": "completed"}},
+            sequence=3,
+        )
+    )
+    assert runtime.wait_for_terminal(timeout_s=0).to_dict()["final_text"] == "later"
+
+
+def test_runtime_installs_failed_lifecycle_from_error_bootstrap():
+    runtime = SessionClientRuntime()
+    port = FakeSessionPort()
+    port.bootstrap = SessionBootstrap(
+        schema_version=1,
+        event_cursor=1,
+        thread=ThreadShell(
+            id="session-1",
+            title="Session",
+            archived=False,
+            current_mode="build",
+            status="error",
+            updated_at="2026-08-13T00:00:00Z",
+        ),
+        snapshot={"session_id": "session-1", "status": "error"},
+        activities=[],
+        capabilities=CapabilitySnapshot(),
+    )
+    runtime.bind_session_port(port)
+
+    runtime.activate_session("session-1")
+
+    assert runtime.lifecycle == "failed"

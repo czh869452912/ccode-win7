@@ -30,6 +30,7 @@ _INTERACTION_FINISH_EVENTS = frozenset(
         "user-input.response.failed",
     )
 )
+_RESET_TERMINAL = object()
 
 
 def _required_session_id(value: Any) -> str:
@@ -363,12 +364,17 @@ class SessionClientRuntime(SessionEventSink):
         with self._condition:
             self._assert_operable()
             port = self._require_session_port()
+            previous_terminal = self._terminal_outcome
         bootstrap = port.respond_to_interaction(
             _required_session_id(session_id),
             str(interaction_id or ""),
             dict(payload),
         )
-        return self._install_returned_bootstrap(bootstrap, "interaction_response")
+        return self._install_returned_bootstrap(
+            bootstrap,
+            "interaction_response",
+            discard_terminal=previous_terminal,
+        )
 
     def cancel_session(self, session_id: str) -> SessionBootstrap:
         with self._condition:
@@ -432,13 +438,14 @@ class SessionClientRuntime(SessionEventSink):
         session_id: str,
         bootstrap: SessionBootstrap,
         reason: str,
+        terminal_outcome: Optional[RuntimeAction] = None,
     ) -> bool:
         with self._condition:
             if self._lifecycle == "closed" or generation != self._generation:
                 return False
             self._event_cursor = bootstrap.event_cursor
             self._lifecycle = self._bootstrap_lifecycle(bootstrap)
-            self._terminal_outcome = None
+            self._terminal_outcome = terminal_outcome
             self._activating = False
             self._recovering = False
             buffered = sorted(self._buffered_events, key=lambda item: item.sequence)
@@ -497,6 +504,8 @@ class SessionClientRuntime(SessionEventSink):
 
     def _bootstrap_lifecycle(self, bootstrap: SessionBootstrap) -> str:
         status = str(bootstrap.snapshot.get("status") or "")
+        if status in ("error", "failed"):
+            return "failed"
         if bootstrap.thread.pending_interaction or status in (
             "waiting_permission",
             "waiting_user_input",
@@ -508,6 +517,8 @@ class SessionClientRuntime(SessionEventSink):
         if event_kind in _INTERACTION_REQUEST_EVENTS:
             self._lifecycle = "waiting_interaction"
         elif event_kind in _INTERACTION_FINISH_EVENTS:
+            self._lifecycle = "ready"
+        elif event_kind == "session.finished":
             self._lifecycle = "ready"
         elif event_kind == "session.error":
             self._lifecycle = "failed"
@@ -599,6 +610,7 @@ class SessionClientRuntime(SessionEventSink):
         self,
         bootstrap: SessionBootstrap,
         reason: str,
+        discard_terminal: Any = _RESET_TERMINAL,
     ) -> SessionBootstrap:
         if not isinstance(bootstrap, SessionBootstrap):
             raise TypeError("session port must return a SessionBootstrap")
@@ -606,6 +618,13 @@ class SessionClientRuntime(SessionEventSink):
         self._validate_bootstrap(bootstrap, session_id)
         with self._condition:
             self._assert_operable()
+            observed_terminal = self._terminal_outcome
+            if discard_terminal is _RESET_TERMINAL:
+                retained_terminal = None
+            else:
+                retained_terminal = (
+                    observed_terminal if observed_terminal is not discard_terminal else None
+                )
             self._generation += 1
             generation = self._generation
             self._active_session_id = session_id
@@ -616,7 +635,13 @@ class SessionClientRuntime(SessionEventSink):
             self._recovery_attempted = False
             self._buffered_events = []
             self._terminal_outcome = None
-        self._install_bootstrap(generation, session_id, bootstrap, reason)
+        self._install_bootstrap(
+            generation,
+            session_id,
+            bootstrap,
+            reason,
+            terminal_outcome=retained_terminal,
+        )
         return bootstrap
 
     def _assert_operable(self) -> None:

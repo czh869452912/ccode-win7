@@ -947,26 +947,26 @@ offline packaging, six-wheel distribution checks.
 - Create: `tests/test_cli_chat.py`
 - Create: `tests/test_cli_interaction.py`
 
-- [ ] **Step 1: Add scripted chat tests.**
+- [x] **Step 1: Add scripted chat tests.**
 
   Use injected input/output streams. Cover ordinary turns, create/resume, activation history
   rendering, `/help`, `/exit`, descriptor-backed slash commands, unknown command, permission
   choice, user input, EOF, running-turn `Ctrl+C`, idle interrupt, and repeated interrupt.
   Assert the chat object owns no history/session/workflow/task truth.
 
-- [ ] **Step 2: Add generic interaction descriptor tests.**
+- [x] **Step 2: Add generic interaction descriptor tests.**
 
   Resolve prompt, choices, default, validation, and payload construction from
   `InteractionDescriptor`. Do not branch on C/C++ types, tool names, or application id.
 
-- [ ] **Step 3: Run the tests and confirm chat modules are missing.**
+- [x] **Step 3: Run the tests and confirm chat modules are missing.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_cli_chat.py
   uv run python scripts/test-suite.py tdd tests/test_cli_interaction.py
   ```
 
-- [ ] **Step 4: Implement the persistent loop and generic renderer.**
+- [x] **Step 4: Implement the persistent loop and generic renderer.**
 
   `/help` and `/exit` are the only local slash commands. Every other slash command resolves
   through the current `ShellDescriptor`. Runtime actions drive output; interaction answers
@@ -986,7 +986,7 @@ offline packaging, six-wheel distribution checks.
       dispatch_chat_input(runtime, shell, command)
   ```
 
-- [ ] **Step 5: Run all CLI tests to green.**
+- [x] **Step 5: Run all CLI tests to green.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_cli_chat.py
@@ -996,7 +996,7 @@ offline packaging, six-wheel distribution checks.
   uv run python scripts/test-suite.py tdd tests/test_cli_hosted_entrypoint.py
   ```
 
-- [ ] **Step 6: Commit interactive chat.**
+- [x] **Step 6: Commit interactive chat.**
 
   ```powershell
   git add src/embedagent/cli tests/test_cli_chat.py tests/test_cli_interaction.py tests/test_cli_run.py tests/test_cli_sessions.py tests/test_cli_hosted_entrypoint.py
