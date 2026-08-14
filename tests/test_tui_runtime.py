@@ -174,7 +174,6 @@ def test_tui_has_no_private_host_or_duplicate_session_runtime():
 
     assert not (tui_root / "runtime.py").exists()
     for forbidden in (
-        "HostedSessionHost",
         ".adapter",
         "_event_cursor",
         "_generation",

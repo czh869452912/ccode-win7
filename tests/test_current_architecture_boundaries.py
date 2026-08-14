@@ -74,6 +74,16 @@ def test_retired_core_runtime_paths_do_not_exist(path):
     assert not (ROOT / path).exists()
 
 
+def test_retired_frontend_boundary_paths_do_not_exist():
+    retired = (
+        "packages/embedagent-host/src/embedagent_host/hosted/session_host.py",
+        "src/embedagent/core/adapter.py",
+        "src/embedagent/core/__init__.py",
+        "tests/test_core_adapter_shutdown.py",
+    )
+    assert [path for path in retired if (ROOT / path).exists()] == []
+
+
 def test_session_transaction_stays_transport_and_projection_only():
     transaction = CORE_SOURCE / "session_transaction.py"
     imported = _imported_modules(transaction)
@@ -212,19 +222,12 @@ class TestPublicImports(object):
         assert not hasattr(modes, "MODE" + "_REGISTRY")
         assert "explore" in modes.get_mode_registry()
 
-    def test_core_adapter_legacy_accessor_removed(self):
-        import embedagent.core.adapter as adapter
+    def test_product_inprocess_adapter_accessor_is_explicit(self):
+        from embedagent_host.inprocess_adapter import InProcessAdapter
 
-        assert not hasattr(adapter, "_inprocess" + "_adapter")
-        assert not hasattr(adapter, "_get_adapter" + "_class")
-        assert adapter.get_inprocess_adapter() is not None
+        from embedagent.hosted import get_inprocess_adapter
 
-    def test_core_adapter_snapshot_does_not_inject_default_mode(self):
-        from embedagent.core.adapter import _session_snapshot_from_dict
-
-        snapshot = _session_snapshot_from_dict({})
-
-        assert snapshot.current_mode == ""
+        assert get_inprocess_adapter() is InProcessAdapter
 
 
 class TestInProcessAdapterBoundaries(object):
@@ -395,7 +398,7 @@ def test_no_compatibility_reexports_for_core_extraction():
     def test_get_inprocess_adapter_returns_class(self):
         from embedagent_host.inprocess_adapter import InProcessAdapter
 
-        from embedagent.core.adapter import get_inprocess_adapter
+        from embedagent.hosted import get_inprocess_adapter
 
         result = get_inprocess_adapter()
         assert result is InProcessAdapter

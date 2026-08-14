@@ -6,13 +6,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Dict
 
-from embedagent_protocol import FrontendCallbacks, SessionEventEnvelope
+from embedagent_protocol import SessionEventEnvelope
 
 if TYPE_CHECKING:
     from embedagent.frontend.tui.app import TerminalApp
 
 
-class TUIFrontend(FrontendCallbacks):
+class TUIFrontend(object):
     def __init__(self, app: "TerminalApp", assembler=None):
         del assembler
         self.app = app

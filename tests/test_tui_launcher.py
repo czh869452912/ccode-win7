@@ -96,7 +96,6 @@ class TestTuiLauncher(unittest.TestCase):
         self.assertIn("runtime.bind_dispatch(app.controller.on_runtime_action)", text)
         self.assertNotIn("TerminalRuntime", text)
         self.assertNotIn("session_host", text)
-        self.assertNotIn("session_host.adapter", text)
 
         with open("src/embedagent/frontend/tui/app.py", "r", encoding="utf-8") as fh:
             app_text = fh.read()

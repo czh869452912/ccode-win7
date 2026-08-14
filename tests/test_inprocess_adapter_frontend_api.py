@@ -35,9 +35,6 @@ class _EventSink(object):
 
 def _product_adapter(*args, **kwargs):
     kwargs.setdefault("agent_application_registry", product_agent_application_registry())
-    event_handler = kwargs.pop("event_handler", None)
-    if event_handler is not None:
-        kwargs["event_sink"] = _EventSink(event_handler)
     return InProcessAdapter(*args, **kwargs)
 
 
@@ -599,7 +596,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=_capture_events(self.events),
+            event_sink=_EventSink(_capture_events(self.events)),
         )
         os.makedirs(os.path.join(self.workspace, "src", "pkg"))
         with open(
@@ -1281,7 +1278,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             client=CompactRetryClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=_capture_events(events),
+            event_sink=_EventSink(_capture_events(events)),
         )
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
@@ -1552,7 +1549,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             client=GuardStopClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=_capture_events(events),
+            event_sink=_EventSink(_capture_events(events)),
         )
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
@@ -2100,7 +2097,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=handle,
+            event_sink=_EventSink(handle),
         )
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
@@ -2143,7 +2140,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             client=FakeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=_capture_full_events(emitted),
+            event_sink=_EventSink(_capture_full_events(emitted)),
         )
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
@@ -2439,7 +2436,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=_capture_events(events),
+            event_sink=_EventSink(_capture_events(events)),
         )
         snapshot = adapter.create_session("build")
         adapter.submit_user_message(
@@ -2467,7 +2464,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             client=MissingEditClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=_capture_events(events),
+            event_sink=_EventSink(_capture_events(events)),
         )
         snapshot = adapter.create_session("build")
         adapter.submit_user_message(
@@ -2493,7 +2490,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=_capture_events(events),
+            event_sink=_EventSink(_capture_events(events)),
         )
         snapshot = adapter.create_session("build")
         adapter.submit_user_message(
@@ -2518,7 +2515,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             client=AskUserClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=_capture_event_kinds(events),
+            event_sink=_EventSink(_capture_event_kinds(events)),
         )
         snapshot = adapter.create_session("spec")
         session_id = str(snapshot.get("session_id") or "")
@@ -2571,7 +2568,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             client=AskUserClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=on_event,
+            event_sink=_EventSink(on_event),
         )
         snapshot = adapter.create_session("spec")
         session_id = str(snapshot.get("session_id") or "")
@@ -2603,7 +2600,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             client=AskUserClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=_capture_events(events),
+            event_sink=_EventSink(_capture_events(events)),
         )
         snapshot = adapter.create_session("spec")
         session_id = str(snapshot.get("session_id") or "")
@@ -2646,7 +2643,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             client=DelayedResumeAskUserClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=_capture_full_events(events),
+            event_sink=_EventSink(_capture_full_events(events)),
         )
         snapshot = adapter.create_session("spec")
         session_id = str(snapshot.get("session_id") or "")

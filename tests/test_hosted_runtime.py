@@ -6,8 +6,8 @@ from embedagent_host.hosted.launch_config import (
     LaunchOverrides,
 )
 from embedagent_host.hosted.runtime import create_hosted_runtime
-from embedagent_host.hosted.session_host import HostedSessionHost
 from embedagent_host.runtime.command_sanitizer import CommandSanitizer
+from embedagent_host.runtime.tools import ToolRuntime
 from embedagent_protocol import FrontendSessionPort, FrontendWorkspacePort
 
 from embedagent.config import AppConfig
@@ -55,6 +55,7 @@ def test_create_hosted_runtime_builds_frontend_port_set(tmp_path, monkeypatch):
     assert isinstance(runtime.workspace, FrontendWorkspacePort)
     assert not hasattr(runtime.session, "adapter")
     assert not hasattr(runtime.workspace, "adapter")
+    assert not hasattr(runtime, "session_host")
     client_cls.assert_called_once_with(
         base_url="http://configured/v1",
         api_key="sk-configured",
@@ -69,25 +70,11 @@ def test_create_hosted_runtime_builds_frontend_port_set(tmp_path, monkeypatch):
     assert adapter_cls.call_args.kwargs["event_sink"] is sink
 
 
-def test_generic_hosted_runtime_preserves_permanent_command_denials(tmp_path):
-    config = LaunchConfig(
-        workspace=str(tmp_path),
-        app_config=SimpleNamespace(),
-        base_url="http://localhost/v1",
-        api_key="",
-        model="test-model",
-        timeout=1,
-        max_turns=None,
-        approve_all=True,
-        approve_writes=False,
-        approve_commands=False,
-        permission_rules="",
-        agent_application_id="",
-    )
-    runtime = create_hosted_runtime(config)
+def test_generic_tool_runtime_preserves_permanent_command_denials(tmp_path):
+    tools = ToolRuntime(str(tmp_path), app_config=SimpleNamespace())
 
     for command in ("init 0", "init 6", "su -l", "su - root", "rm -rf build"):
-        observation = runtime.session_host.adapter.tools.execute(
+        observation = tools.execute(
             "bash",
             {"command": command},
         )
@@ -118,76 +105,3 @@ def test_resolve_launch_config_projects_agent_application_id(tmp_path, monkeypat
     )
 
     assert launch_config.agent_application_id == "override.python"
-
-
-def test_session_host_delegates_session_operations():
-    adapter = MagicMock()
-    adapter.summary_store.load_summary.return_value = {"session_id": "s1"}
-    adapter.list_sessions.return_value = [{"session_id": "s1"}]
-    adapter.create_session.return_value = {"session_id": "s2"}
-    adapter.resume_session.return_value = {"session_id": "s1"}
-    adapter.get_session_bootstrap.return_value = {"event_cursor": 3}
-    adapter.set_session_mode.return_value = {"session_id": "s1", "current_mode": "verify"}
-    adapter.respond_to_interaction.return_value = {"session_id": "s1", "status": "running"}
-    adapter.cancel_session.return_value = {"session_id": "s1", "status": "idle"}
-    adapter.submit_user_message.return_value = {"session_id": "s1", "status": "running"}
-    adapter.list_tasks.return_value = {"session_id": "s1", "tasks": []}
-    adapter.get_workspace_snapshot.return_value = {"workspace": "D:/work"}
-    adapter.list_workspace_tree.return_value = {"root": ".", "items": []}
-    adapter.read_workspace_file.return_value = {"path": "README.md", "content": "text"}
-    adapter.write_workspace_file.return_value = {"path": "README.md", "content": "changed"}
-    host = HostedSessionHost(adapter=adapter)
-
-    assert host.list_sessions(limit=1) == [{"session_id": "s1"}]
-    assert host.load_session_summary("latest") == {"session_id": "s1"}
-    assert host.create_session(mode="build") == {"session_id": "s2"}
-    assert host.resume_session(reference="latest", mode="build") == {"session_id": "s1"}
-    assert host.get_session_bootstrap("s1") == {"event_cursor": 3}
-    assert host.set_session_mode("s1", "verify")["current_mode"] == "verify"
-    assert host.respond_to_interaction("s1", "i1", {"decision": "accept"}) == {
-        "session_id": "s1",
-        "status": "running",
-    }
-    assert host.cancel_session("s1") == {"session_id": "s1", "status": "idle"}
-    assert host.submit_user_message(
-        session_id="s1",
-        text="hello",
-        stream=False,
-        wait=True,
-    ) == {"session_id": "s1", "status": "running"}
-    assert host.list_tasks("s1") == {"session_id": "s1", "tasks": []}
-    assert host.get_workspace_snapshot() == {"workspace": "D:/work"}
-    assert host.list_workspace_tree(path=".", max_depth=2, limit=20) == {
-        "root": ".",
-        "items": [],
-    }
-    assert host.read_workspace_file("README.md")["content"] == "text"
-    assert host.write_workspace_file("README.md", "changed")["content"] == "changed"
-
-    adapter.list_sessions.assert_called_once_with(limit=1)
-    adapter.summary_store.load_summary.assert_called_once_with("latest")
-    adapter.create_session.assert_called_once_with("build")
-    adapter.resume_session.assert_called_once_with("latest", "build")
-    adapter.get_session_bootstrap.assert_called_once_with("s1")
-    adapter.set_session_mode.assert_called_once_with("s1", "verify")
-    adapter.respond_to_interaction.assert_called_once_with(
-        "s1",
-        "i1",
-        {"decision": "accept"},
-    )
-    adapter.cancel_session.assert_called_once_with("s1")
-    adapter.submit_user_message.assert_called_once_with(
-        session_id="s1",
-        text="hello",
-        stream=False,
-        wait=True,
-    )
-    adapter.list_tasks.assert_called_once_with(session_id="s1")
-    adapter.get_workspace_snapshot.assert_called_once_with()
-    adapter.list_workspace_tree.assert_called_once_with(
-        path=".",
-        max_depth=2,
-        limit=20,
-    )
-    adapter.read_workspace_file.assert_called_once_with("README.md")
-    adapter.write_workspace_file.assert_called_once_with("README.md", "changed")

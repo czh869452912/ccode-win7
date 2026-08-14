@@ -29,9 +29,6 @@ class _EventSink(object):
 
 def _product_adapter(*args, **kwargs):
     kwargs.setdefault("agent_application_registry", product_agent_application_registry())
-    event_handler = kwargs.pop("event_handler", None)
-    if event_handler is not None:
-        kwargs["event_sink"] = _EventSink(event_handler)
     return InProcessAdapter(*args, **kwargs)
 
 
@@ -290,7 +287,9 @@ class TestLocalResources(unittest.TestCase):
             client=client,
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
+            event_sink=_EventSink(
+                lambda envelope: events.append((envelope.event_kind, envelope.payload))
+            ),
         )
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
@@ -327,7 +326,9 @@ class TestLocalResources(unittest.TestCase):
             client=client,
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
+            event_sink=_EventSink(
+                lambda envelope: events.append((envelope.event_kind, envelope.payload))
+            ),
         )
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
@@ -629,7 +630,9 @@ class TestLocalResources(unittest.TestCase):
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
+            event_sink=_EventSink(
+                lambda envelope: events.append((envelope.event_kind, envelope.payload))
+            ),
         )
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
@@ -782,7 +785,9 @@ class TestLocalResources(unittest.TestCase):
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
+            event_sink=_EventSink(
+                lambda envelope: events.append((envelope.event_kind, envelope.payload))
+            ),
         )
         adapter.reload_resources(reason="test")
         snapshot = adapter.create_session("build")
@@ -827,7 +832,9 @@ class TestLocalResources(unittest.TestCase):
             client=FakeClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            event_handler=lambda envelope: events.append((envelope.event_kind, envelope.payload)),
+            event_sink=_EventSink(
+                lambda envelope: events.append((envelope.event_kind, envelope.payload))
+            ),
         )
         adapter.reload_resources(reason="test")
         snapshot = adapter.create_session("build")

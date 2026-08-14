@@ -166,8 +166,6 @@ def test_gui_backend_sources_have_no_retired_core_facade():
         )
     )
     for forbidden in (
-        "CoreInterface",
-        "AgentCoreAdapter",
         "session_host",
         ".adapter",
         "require_core",

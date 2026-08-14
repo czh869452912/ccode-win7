@@ -7,7 +7,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent_host.runtime.session_runtime import ManagedSession
 
-from embedagent.core.adapter import _session_snapshot_from_dict
 from embedagent.frontend.gui.backend.protocol_payloads import (
     serialize_app_bootstrap,
     serialize_session_bootstrap,
@@ -142,11 +141,6 @@ class GuiProtocolProjectionTests(unittest.TestCase):
                     "capabilities": {"modes": ["build"]},
                 }
             )
-
-    def test_core_adapter_does_not_invent_missing_workflow_state(self):
-        snapshot = _session_snapshot_from_dict({})
-
-        self.assertEqual(snapshot.workflow_state, {})
 
     def test_managed_session_defaults_to_empty_workflow_state(self):
         managed = ManagedSession(session_id="sess-managed", current_mode="")

@@ -88,11 +88,11 @@ class TestCommandSanitizerIsolation(object):
 
 
 class TestInProcessAdapterIsolation(object):
-    """Tests for core/adapter.py global state elimination."""
+    """Tests for product composition global state isolation."""
 
     def test_adapter_singleton_by_default(self):
         """get_inprocess_adapter() returns same instance by default."""
-        from embedagent.core.adapter import get_inprocess_adapter
+        from embedagent.hosted import get_inprocess_adapter
 
         # This returns the class, not an instance
         a1 = get_inprocess_adapter()
@@ -103,7 +103,7 @@ class TestInProcessAdapterIsolation(object):
         """get_inprocess_adapter(fresh=True) returns the InProcessAdapter class."""
         from embedagent_host.inprocess_adapter import InProcessAdapter
 
-        from embedagent.core.adapter import get_inprocess_adapter
+        from embedagent.hosted import get_inprocess_adapter
 
         a1 = get_inprocess_adapter(fresh=True)
         a2 = get_inprocess_adapter(fresh=True)

@@ -6,7 +6,7 @@ import threading
 import uuid
 from dataclasses import replace
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from embedagent_core import Agent, AgentPorts, InteractionReply, RuntimeDefinition, UserTurn
 from embedagent_core.capabilities import (
@@ -131,10 +131,6 @@ def _should_emit_context_compacted(result: object) -> bool:
     return bool(
         "auto_compact_threshold" in pipeline_steps or "reactive_compact_retry" in pipeline_steps
     )
-
-
-PermissionResolver = Callable[[Dict[str, Any]], bool]
-UserInputResolver = Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]
 
 
 class _HostedTurnObserver(object):

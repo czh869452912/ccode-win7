@@ -46,24 +46,25 @@ def test_workspace_recipes_load_json_missing_file():
     assert result == {}
 
 
-def test_core_adapter_read_file_missing(tmp_path):
-    """Verify core_adapter handles missing file gracefully."""
+def test_workspace_port_diff_preview_handles_missing_file(tmp_path):
+    """Verify the focused workspace port handles a missing source file."""
     from embedagent_core.permissions import PermissionPolicy
+    from embedagent_host.frontend_ports import InProcessFrontendWorkspacePort
+    from embedagent_host.inprocess_adapter import InProcessAdapter
     from embedagent_host.runtime.tools import ToolRuntime
-
-    from embedagent.core.adapter import AgentCoreAdapter
 
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    adapter = AgentCoreAdapter(str(workspace))
-    adapter.initialize(
+    runtime_adapter = InProcessAdapter(
         client=object(),
         tools=ToolRuntime(str(workspace)),
         max_turns=8,
         permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(workspace)),
     )
-    result = adapter.get_diff_preview("missing.txt", "new content")
-    assert result.path == "missing.txt"
+    result = InProcessFrontendWorkspacePort(runtime_adapter).get_diff_preview(
+        "missing.txt", "new content"
+    )
+    assert result["path"] == "missing.txt"
 
 
 def test_all_modified_modules_importable():

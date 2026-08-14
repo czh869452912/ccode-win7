@@ -8,13 +8,14 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+
 from embedagent_protocol import (
     CommandResult,
-    FrontendCallbacks,
     Message,
     MessageType,
     PlanSnapshot,
     SessionEventEnvelope,
+    SessionEventSink,
     SessionSnapshot,
     SessionStatus,
     ToolCall,
@@ -23,10 +24,8 @@ from embedagent_protocol import (
     WorkspaceInfo,
 )
 
-from embedagent.core.adapter import _session_snapshot_from_dict
 
-
-class MockFrontend(FrontendCallbacks):
+class MockEventSink(SessionEventSink):
     def __init__(self):
         self.events = []
 
@@ -34,9 +33,9 @@ class MockFrontend(FrontendCallbacks):
         self.events.append(envelope)
 
 
-class TestFrontendCallbacks(unittest.TestCase):
-    def test_frontend_protocol_exposes_one_session_event_callback(self):
-        self.assertIn("on_session_event", FrontendCallbacks.__dict__)
+class TestSessionEventSink(unittest.TestCase):
+    def test_frontend_protocol_exposes_one_session_event_sink_method(self):
+        self.assertIn("on_session_event", SessionEventSink.__dict__)
         for legacy_name in (
             "on_message",
             "on_tool_start",
@@ -44,10 +43,10 @@ class TestFrontendCallbacks(unittest.TestCase):
             "on_session_status_change",
             "on_command_result",
         ):
-            self.assertNotIn(legacy_name, FrontendCallbacks.__dict__)
+            self.assertNotIn(legacy_name, SessionEventSink.__dict__)
 
     def test_frontend_receives_protocol_envelope(self):
-        frontend = MockFrontend()
+        frontend = MockEventSink()
         envelope = SessionEventEnvelope(
             1,
             "evt-1",
@@ -82,40 +81,6 @@ class TestProtocol(unittest.TestCase):
         )
         self.assertEqual(snap.session_id, "sess_001")
         self.assertEqual(snap.status, SessionStatus.IDLE)
-
-    def test_session_snapshot_from_dict_preserves_compaction_state(self):
-        snap = _session_snapshot_from_dict(
-            {
-                "session_id": "sess_001",
-                "status": "idle",
-                "current_mode": "build",
-                "started_at": "2026-03-30T10:00:00",
-                "updated_at": "2026-03-30T10:00:00",
-                "compaction_state": {
-                    "boundary_count": 1,
-                    "latest_boundary_id": "cb-1",
-                },
-            }
-        )
-        self.assertEqual(snap.compaction_state["boundary_count"], 1)
-        self.assertEqual(snap.compaction_state["latest_boundary_id"], "cb-1")
-
-    def test_session_snapshot_from_dict_preserves_recovery_state(self):
-        snap = _session_snapshot_from_dict(
-            {
-                "session_id": "sess_001",
-                "status": "idle",
-                "current_mode": "build",
-                "started_at": "2026-03-30T10:00:00",
-                "updated_at": "2026-03-30T10:00:00",
-                "recovery_state": {
-                    "marker_count": 1,
-                    "latest_marker_id": "rm-1",
-                },
-            }
-        )
-        self.assertEqual(snap.recovery_state["marker_count"], 1)
-        self.assertEqual(snap.recovery_state["latest_marker_id"], "rm-1")
 
     def test_tool_call(self):
         call = ToolCall(tool_name="read_file", arguments={"path": "test.py"}, call_id="call_001")
@@ -195,15 +160,6 @@ class TestFrontendGUIImport(unittest.TestCase):
         from embedagent.frontend.gui import launch_gui
 
         self.assertIsNotNone(launch_gui)
-
-
-class TestCoreAdapterImport(unittest.TestCase):
-    """Test Core adapter imports"""
-
-    def test_import_adapter(self):
-        from embedagent.core import AgentCoreAdapter
-
-        self.assertIsNotNone(AgentCoreAdapter)
 
 
 if __name__ == "__main__":

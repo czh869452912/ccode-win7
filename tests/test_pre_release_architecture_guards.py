@@ -38,7 +38,6 @@ SESSION_MUTABLE_FIELDS = {
 ACTIVE_SOURCE_FILES = [
     PROTOCOL_SOURCE / "__init__.py",
     ROOT / "packages/embedagent-host/src/embedagent_host/runtime/session_projector.py",
-    ROOT / "src/embedagent/core/adapter.py",
     ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py",
     ROOT / "src/embedagent/frontend/gui/backend/server.py",
     ROOT / "src/embedagent/frontend/gui/webapp/src/state-helpers.js",
@@ -288,7 +287,6 @@ def test_no_timeline_replay_snapshot_contract_in_active_source():
 def test_no_session_timeline_api_in_active_source():
     files = [
         PROTOCOL_SOURCE / "__init__.py",
-        ROOT / "src/embedagent/core/adapter.py",
         ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py",
         ROOT / "src/embedagent/frontend/runtime/session_client_runtime.py",
     ]
@@ -453,7 +451,6 @@ def test_no_timeline_reload_route_or_metadata_in_active_gui_backend():
     files = [
         ROOT / "src/embedagent/frontend/gui/backend/server.py",
         ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py",
-        ROOT / "src/embedagent/core/adapter.py",
     ]
     offenders = []
     for path in files:
@@ -542,16 +539,6 @@ def test_session_snapshot_contract_uses_single_pending_interaction_payload():
             '"pending_user_input"',
         ),
         ROOT
-        / "src/embedagent/core/adapter.py": (
-            "def _permission_request_from_snapshot",
-            "def _user_input_request_from_snapshot",
-            '"has_pending_user_input"',
-            '"has_pending_input"',
-            '"pending_permission"',
-            '"pending_user_input"',
-            '"pending_input"',
-        ),
-        ROOT
         / "src/embedagent/frontend/gui/backend/protocol_payloads.py": (
             '"has_pending_permission"',
             '"has_pending_input"',
@@ -603,7 +590,6 @@ def test_hosted_runtime_uses_single_pending_interaction_state():
         ROOT / "packages/embedagent-host/src/embedagent_host/runtime/session_runtime.py",
         ROOT / "packages/embedagent-host/src/embedagent_host/hosted_interaction_service.py",
         ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py",
-        ROOT / "src/embedagent/core/adapter.py",
         ROOT / "packages/embedagent-host/src/embedagent_host/runtime/session_projector.py",
         ROOT / "packages/embedagent-host/src/embedagent_host/hosted_command_service.py",
         ROOT / "src/embedagent/frontend/gui/backend/server.py",
@@ -638,7 +624,6 @@ def test_hosted_runtime_uses_single_pending_interaction_state():
 
 def test_product_interfaces_expose_only_unified_interaction_response():
     files = [
-        ROOT / "src/embedagent/core/adapter.py",
         PROTOCOL_SOURCE / "__init__.py",
         ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py",
         ROOT / "packages/embedagent-host/src/embedagent_host/hosted_interaction_service.py",
@@ -1415,7 +1400,6 @@ def test_gui_default_mode_is_backend_declared():
     )
     gui_routes_text = _read(ROOT / "src/embedagent/frontend/gui/backend/routes_sessions.py")
     gui_protocol_text = _read(ROOT / "src/embedagent/frontend/gui/backend/protocol_payloads.py")
-    core_adapter_text = _read(ROOT / "src/embedagent/core/adapter.py")
 
     assert 'DEFAULT_MODE = "explore"' not in store_text
     assert 'defaultMode = "explore"' not in state_helpers_text
@@ -1424,8 +1408,6 @@ def test_gui_default_mode_is_backend_declared():
     assert 'session.current_mode || session.mode || "explore"' not in command_palette_text
     assert "DEFAULT_MODE" not in gui_routes_text
     assert "DEFAULT_MODE" not in gui_protocol_text
-    assert "DEFAULT_MODE" not in core_adapter_text
-    assert 'current_mode=snapshot.get("current_mode") or' not in core_adapter_text
 
 
 def test_gui_tool_presentation_is_catalog_driven():
@@ -1486,16 +1468,14 @@ def test_gui_has_no_split_task_or_recipe_refetch_contracts():
         assert token not in styles_text
 
 
-def test_gui_core_interface_has_no_split_task_or_recipe_facade():
+def test_frontend_protocol_has_no_split_task_or_recipe_facade():
     protocol_text = _read(PROTOCOL_SOURCE / "__init__.py")
-    core_adapter_text = _read(ROOT / "src/embedagent/core/adapter.py")
 
     for token in (
         "def list_workspace_recipes",
         "def list_tasks",
     ):
         assert token not in protocol_text
-        assert token not in core_adapter_text
 
 
 def test_gui_has_no_split_tool_catalog_facade():
@@ -1504,7 +1484,6 @@ def test_gui_has_no_split_tool_catalog_facade():
     app_workspaces_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-workspaces.js")
     routes_text = _read(ROOT / "src/embedagent/frontend/gui/backend/routes_sessions.py")
     protocol_text = _read(PROTOCOL_SOURCE / "__init__.py")
-    core_adapter_text = _read(ROOT / "src/embedagent/core/adapter.py")
 
     for token in (
         "/api/tool-catalog",
@@ -1519,7 +1498,6 @@ def test_gui_has_no_split_tool_catalog_facade():
         assert token not in app_workspaces_text
         assert token not in routes_text
         assert token not in protocol_text
-        assert token not in core_adapter_text
 
 
 def test_gui_visual_debug_installation_is_controller_owned():
@@ -1625,7 +1603,6 @@ def test_gui_has_no_retired_workflow_runtime_panel_display_helper():
 
 def test_gui_has_no_split_artifact_refetch_facade():
     protocol_text = _read(PROTOCOL_SOURCE / "__init__.py")
-    core_adapter_text = _read(ROOT / "src/embedagent/core/adapter.py")
     gui_server_text = _read(ROOT / "src/embedagent/frontend/gui/backend/server.py")
     gui_routes_text = _read(ROOT / "src/embedagent/frontend/gui/backend/routes_sessions.py")
 
@@ -1638,7 +1615,6 @@ def test_gui_has_no_split_artifact_refetch_facade():
         "def read_artifact",
     ):
         assert token not in protocol_text
-        assert token not in core_adapter_text
         assert token not in gui_server_text
         assert token not in gui_routes_text
 
@@ -1984,6 +1960,80 @@ def test_generic_frontend_layers_do_not_expand_cpp_workflow_semantics():
             for token in forbidden:
                 if token in text:
                     offenders.append("%s contains %s" % (_relative(path), token))
+    assert offenders == []
+
+
+def test_retired_frontend_facades_and_callback_injection_are_absent():
+    source_files = _source_files_under(
+        "packages/embedagent-protocol/src",
+        "packages/embedagent-host/src",
+        "src/embedagent",
+        suffixes=(".py",),
+    )
+    forbidden_tokens = (
+        "CoreInterface",
+        "FrontendCallbacks",
+        "AgentCoreAdapter",
+        "HostedSessionHost",
+        "session_host.adapter",
+        "permission_resolver",
+        "user_input_resolver",
+    )
+    forbidden_patterns = (
+        re.compile(r"\bevent_handler\s*="),
+        re.compile(
+            r"def\s+on_event\s*\(\s*(?:self\s*,\s*)?event_name\s*,\s*session_id\s*,\s*payload"
+        ),
+    )
+    offenders = []
+    for path in source_files:
+        source = _read(path)
+        relative = _relative(path)
+        for token in forbidden_tokens:
+            if token in source:
+                offenders.append("%s contains %s" % (relative, token))
+        for pattern in forbidden_patterns:
+            if pattern.search(source):
+                offenders.append("%s matches %s" % (relative, pattern.pattern))
+    assert offenders == []
+
+
+def test_shared_client_runtimes_do_not_branch_on_product_semantics():
+    files = _source_files_under(
+        "src/embedagent/frontend/runtime",
+        "src/embedagent/frontend/gui/webapp/src/client-runtime",
+        "src/embedagent/frontend/gui/webapp/src/session-runtime/session-client-runtime.js",
+        suffixes=(".py", ".js", ".jsx"),
+    )
+    semantic_names = (
+        "agent_application_id",
+        "applicationId",
+        "workflow_type",
+        "workflowType",
+        "read_file",
+        "list_dir",
+        "glob_files",
+        "grep_text",
+        "write_file",
+        "edit_file",
+        "author_local_capability",
+        "bash",
+        "ask_user",
+        "list_recipes",
+        "run_recipe",
+        "report_quality_v2",
+        "record_failing_evidence",
+        "task_status",
+    )
+    comparison = re.compile(
+        r"(?:==|===|!=|!==)\s*[\"'](%s)[\"']|[\"'](%s)[\"']\s*(?:==|===|!=|!==)"
+        % ("|".join(semantic_names), "|".join(semantic_names))
+    )
+    offenders = []
+    for path in files:
+        source = _read(path)
+        if comparison.search(source):
+            offenders.append(_relative(path))
     assert offenders == []
 
 

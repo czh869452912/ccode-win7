@@ -6,8 +6,6 @@ from embedagent_core.permissions import PermissionPolicy
 from embedagent_protocol import (
     FrontendSessionPort,
     FrontendWorkspacePort,
-    SessionEventEnvelope,
-    SessionEventSink,
 )
 
 from embedagent_host.frontend_ports import (
@@ -15,7 +13,6 @@ from embedagent_host.frontend_ports import (
     InProcessFrontendWorkspacePort,
 )
 from embedagent_host.hosted.launch_config import LaunchConfig
-from embedagent_host.hosted.session_host import HostedSessionHost
 from embedagent_host.inprocess_adapter import InProcessAdapter
 from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
 from embedagent_host.runtime.context import ContextManager, make_context_config
@@ -29,31 +26,16 @@ class HostedRuntime(object):
     launch_config: LaunchConfig
     session: FrontendSessionPort
     workspace: FrontendWorkspacePort
-    session_host: HostedSessionHost
-
-
-class _CallableEventSink(SessionEventSink):
-    def __init__(self, handler) -> None:
-        self._handler = handler
-
-    def on_session_event(self, envelope: SessionEventEnvelope) -> None:
-        self._handler(envelope)
 
 
 def create_hosted_runtime(
     launch_config: LaunchConfig,
     event_sink=None,
-    event_handler=None,
     agent_application_registry=None,
     command_sanitizer_factory=None,
     bundle_root_resolver=None,
     system_prompt_builder=None,
 ) -> HostedRuntime:
-    if event_sink is not None and event_handler is not None:
-        raise ValueError("event_sink and event_handler are mutually exclusive")
-    bound_event_sink = event_sink
-    if bound_event_sink is None and event_handler is not None:
-        bound_event_sink = _CallableEventSink(event_handler)
     client = OpenAICompatibleClient(
         base_url=launch_config.base_url,
         api_key=launch_config.api_key,
@@ -87,7 +69,7 @@ def create_hosted_runtime(
             system_prompt_builder=system_prompt_builder,
         ),
         context_manager=context_manager,
-        event_sink=bound_event_sink,
+        event_sink=event_sink,
         agent_application_id=launch_config.agent_application_id,
         agent_application_registry=agent_application_registry,
     )
@@ -95,5 +77,4 @@ def create_hosted_runtime(
         launch_config=launch_config,
         session=InProcessFrontendSessionPort(adapter),
         workspace=InProcessFrontendWorkspacePort(adapter),
-        session_host=HostedSessionHost(adapter=adapter),
     )
