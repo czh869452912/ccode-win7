@@ -549,20 +549,20 @@ offline packaging, six-wheel distribution checks.
 - Modify: `tests/test_tui_activity_timeline.py`
 - Modify: `tests/test_tui_timeline_activities.py`
 
-- [ ] **Step 1: Rewrite TUI tests against the common runtime.**
+- [x] **Step 1: Rewrite TUI tests against the common runtime.**
 
   Keep renderer/reducer assertions, but instantiate `SessionClientRuntime` with fake focused
   ports and canonical envelopes. Add a source assertion that TUI files do not import
   `HostedSessionHost`, access `.adapter`, or define another cursor/generation recovery loop.
 
-- [ ] **Step 2: Run the TUI tests and confirm old runtime coupling fails.**
+- [x] **Step 2: Run the TUI tests and confirm old runtime coupling fails.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_tui_runtime.py
   uv run python scripts/test-suite.py tdd tests/test_tui_launcher.py
   ```
 
-- [ ] **Step 3: Rewire TUI bootstrap and controller.**
+- [x] **Step 3: Rewire TUI bootstrap and controller.**
 
   Product composition constructs the client runtime first, creates the Host port set with
   that runtime as the event sink, then calls `bind_session_port()` exactly once with the
@@ -570,11 +570,11 @@ offline packaging, six-wheel distribution checks.
   `ShellDescriptor` to TUI composition. TUI controllers consume `RuntimeAction`; only
   layout, draft input, selection, and presentation remain TUI-owned.
 
-- [ ] **Step 4: Delete `TerminalRuntime` and its duplicated synchronization code.**
+- [x] **Step 4: Delete `TerminalRuntime` and its duplicated synchronization code.**
 
   Move no forwarding alias into `tui.__init__`. Update imports directly.
 
-- [ ] **Step 5: Run all focused TUI tests.**
+- [x] **Step 5: Run all focused TUI tests.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_tui_runtime.py

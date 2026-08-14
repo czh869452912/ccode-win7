@@ -25,8 +25,7 @@ class TestTuiLauncher(unittest.TestCase):
         resolve_config.assert_not_called()
 
     def test_launch_tui_uses_hosted_runtime_factory(self):
-        runtime = MagicMock()
-        runtime.session_host.get_session_capabilities.return_value = {}
+        hosted_runtime = MagicMock()
         descriptor = ShellDescriptor()
         application_registry = MagicMock()
         application_registry.record_by_id.return_value.application_id = "tests.python"
@@ -40,8 +39,10 @@ class TestTuiLauncher(unittest.TestCase):
                 ),
             ) as resolve_config, patch(
                 "embedagent.frontend.tui.launcher.create_hosted_runtime",
-                return_value=runtime,
+                return_value=hosted_runtime,
             ) as create_runtime, patch(
+                "embedagent.frontend.tui.launcher.SessionClientRuntime",
+            ) as runtime_type, patch(
                 "embedagent.frontend.tui.launcher.product_agent_application_registry",
                 return_value=application_registry,
             ), patch(
@@ -51,6 +52,9 @@ class TestTuiLauncher(unittest.TestCase):
                 "embedagent.frontend.tui.launcher.run_tui",
                 return_value=0,
             ) as run_tui:
+                runtime_type.return_value.get_session_capabilities.return_value.to_dict.return_value = (
+                    {}
+                )
                 exit_code = tui_launcher.launch_tui(
                     workspace=workspace,
                     max_turns=3,
@@ -65,9 +69,14 @@ class TestTuiLauncher(unittest.TestCase):
             "tests.python",
         )
         create_runtime.assert_called_once()
+        client_runtime = runtime_type.return_value
+        self.assertIs(create_runtime.call_args.kwargs["event_sink"], client_runtime)
+        client_runtime.bind_session_port.assert_called_once_with(hosted_runtime.session)
         compiler.assert_called_once_with("tests.python", {})
         self.assertIs(run_tui.call_args.kwargs["shell_descriptor"], descriptor)
-        self.assertIs(run_tui.call_args.kwargs["session_host"], runtime.session_host)
+        self.assertIs(run_tui.call_args.kwargs["runtime"], client_runtime)
+        self.assertIs(run_tui.call_args.kwargs["workspace_port"], hosted_runtime.workspace)
+        client_runtime.close.assert_called_once_with()
 
     def test_tui_bootstrap_architecture_guard_blocks_direct_runtime_construction(self):
         with open("src/embedagent/frontend/tui/bootstrap.py", "r", encoding="utf-8") as fh:
@@ -82,15 +91,18 @@ class TestTuiLauncher(unittest.TestCase):
         ]
         for needle in blocked:
             self.assertNotIn(needle, text)
-        self.assertIn(
-            "TerminalRuntime(session_host, shell_descriptor, dispatch=action_dispatch)", text
-        )
         self.assertIn("runtime=runtime", text)
+        self.assertIn("workspace_port=workspace_port", text)
+        self.assertIn("runtime.bind_dispatch(app.controller.on_runtime_action)", text)
+        self.assertNotIn("TerminalRuntime", text)
+        self.assertNotIn("session_host", text)
         self.assertNotIn("session_host.adapter", text)
 
         with open("src/embedagent/frontend/tui/app.py", "r", encoding="utf-8") as fh:
             app_text = fh.read()
         self.assertIn("self.runtime = runtime", app_text)
+        self.assertIn("self.workspace_port = workspace_port", app_text)
+        self.assertIn("self.shell_descriptor = shell_descriptor", app_text)
         self.assertNotIn("self.adapter", app_text)
         self.assertNotIn("SessionService", app_text)
         self.assertNotIn("TimelineService", app_text)

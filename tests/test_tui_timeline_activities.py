@@ -3,6 +3,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent.frontend.runtime import RuntimeAction
 from embedagent.frontend.tui.controller import TerminalController
 from embedagent.frontend.tui.state import TerminalState
 from embedagent.frontend.tui.views.header import build_header_text
@@ -28,7 +29,7 @@ class FakeRuntime(object):
                 "latest_assistant_reply": "Parser inspected.",
             },
         }
-        self.dispatch({"type": "session_activated", "bootstrap": bootstrap})
+        self.dispatch(RuntimeAction("session_activated", {"bootstrap": bootstrap}))
         return bootstrap
 
 

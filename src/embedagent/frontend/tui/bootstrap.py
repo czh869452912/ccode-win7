@@ -2,26 +2,14 @@ from __future__ import annotations
 
 import os
 
+from embedagent_protocol import ShellDescriptor
+
+from embedagent.frontend.runtime import SessionClientRuntime
 from embedagent.modes import DEFAULT_MODE
 
 
 class TUIUnavailableError(RuntimeError):
     pass
-
-
-class _RuntimeActionDispatch(object):
-    def __init__(self) -> None:
-        self._handler = None
-
-    def bind(self, handler) -> None:
-        if self._handler is not None:
-            raise RuntimeError("terminal_runtime_dispatch_already_bound")
-        self._handler = handler
-
-    def __call__(self, action) -> None:
-        if self._handler is None:
-            raise RuntimeError("terminal_runtime_dispatch_not_bound")
-        self._handler(action)
 
 
 def load_tui_dependencies():
@@ -43,22 +31,26 @@ def load_tui_dependencies():
 
 
 def run_tui(
-    session_host,
+    runtime: SessionClientRuntime,
+    workspace_port,
     workspace: str,
     mode: str,
     resume: str,
-    shell_descriptor,
+    shell_descriptor: ShellDescriptor,
     initial_message: str = "",
 ) -> int:
+    if not isinstance(runtime, SessionClientRuntime):
+        raise TypeError("runtime must be a SessionClientRuntime")
+    if not isinstance(shell_descriptor, ShellDescriptor):
+        raise TypeError("shell_descriptor must be a ShellDescriptor")
     deps = load_tui_dependencies()
     from embedagent.frontend.tui.app import TerminalApp
-    from embedagent.frontend.tui.runtime import TerminalRuntime
 
-    action_dispatch = _RuntimeActionDispatch()
-    runtime = TerminalRuntime(session_host, shell_descriptor, dispatch=action_dispatch)
     try:
         app = TerminalApp(
             runtime=runtime,
+            workspace_port=workspace_port,
+            shell_descriptor=shell_descriptor,
             workspace=os.path.realpath(workspace),
             initial_mode=mode or DEFAULT_MODE,
             resume_reference=resume,
@@ -67,11 +59,9 @@ def run_tui(
             create_pipe_input=deps["create_pipe_input"],
             dummy_output=deps["DummyOutput"](),
         )
-        action_dispatch.bind(app.controller.on_runtime_action)
+        runtime.bind_dispatch(app.controller.on_runtime_action)
         return app.run()
     except deps["NoConsoleScreenBufferError"] as exc:
         raise TUIUnavailableError(
             "当前终端不支持全屏 TUI。请在 cmd.exe、Windows Terminal 或支持控制台缓冲区的终端中运行。"
         ) from exc
-    finally:
-        runtime.close()

@@ -5,6 +5,7 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from embedagent_protocol import (
+    CapabilitySnapshot,
     FailureRecord,
     FrontendSessionPort,
     SessionBootstrap,
@@ -63,7 +64,9 @@ class SessionClientRuntime(SessionEventSink):
         self,
         dispatch: Optional[Callable[[RuntimeAction], None]] = None,
     ) -> None:
-        self._dispatch = dispatch if callable(dispatch) else lambda action: None
+        if dispatch is not None and not callable(dispatch):
+            raise TypeError("dispatch must be callable")
+        self._dispatch = dispatch
         self._lock = threading.RLock()
         self._condition = threading.Condition(self._lock)
         self._session_port = None  # type: Optional[FrontendSessionPort]
@@ -107,6 +110,33 @@ class SessionClientRuntime(SessionEventSink):
             if self._session_port is not None:
                 raise RuntimeError("session port is already bound")
             self._session_port = session_port
+
+    def bind_dispatch(self, dispatch: Callable[[RuntimeAction], None]) -> None:
+        if not callable(dispatch):
+            raise TypeError("dispatch must be callable")
+        with self._condition:
+            self._assert_operable()
+            if self._dispatch is not None:
+                raise RuntimeError("runtime dispatch is already bound")
+            self._dispatch = dispatch
+
+    def list_sessions(self, limit: int = 10) -> List[ThreadShell]:
+        with self._condition:
+            self._assert_operable()
+            port = self._require_session_port()
+        return port.list_sessions(limit=max(1, int(limit)))
+
+    def load_session_summary(self, reference: str) -> Dict[str, Any]:
+        with self._condition:
+            self._assert_operable()
+            port = self._require_session_port()
+        return port.load_session_summary(str(reference or ""))
+
+    def get_session_capabilities(self, session_id: str = "") -> CapabilitySnapshot:
+        with self._condition:
+            self._assert_operable()
+            port = self._require_session_port()
+        return port.get_session_capabilities(str(session_id or ""))
 
     def activate_session(
         self,
@@ -200,7 +230,7 @@ class SessionClientRuntime(SessionEventSink):
             self._recover_generation(generation, session_id)
             return
         if action is not None:
-            self._dispatch(action)
+            self._dispatch_action(action)
 
     def submit_user_message(
         self,
@@ -268,7 +298,7 @@ class SessionClientRuntime(SessionEventSink):
                 raise ValueError("shell_command_argument_required:mode")
             return self.set_session_mode(self.active_session_id, values[0])
         if kind in ("shell.surface", "workspace.open", "interaction.respond"):
-            self._dispatch(
+            self._dispatch_action(
                 RuntimeAction(
                     "shell_command",
                     {
@@ -384,7 +414,7 @@ class SessionClientRuntime(SessionEventSink):
             self._condition.notify_all()
         if port is not None:
             port.close()
-        self._dispatch(RuntimeAction("runtime_closed", {}))
+        self._dispatch_action(RuntimeAction("runtime_closed", {}))
 
     def _recover_generation(self, generation: int, session_id: str) -> None:
         try:
@@ -414,7 +444,7 @@ class SessionClientRuntime(SessionEventSink):
             buffered = sorted(self._buffered_events, key=lambda item: item.sequence)
             self._buffered_events = []
             self._condition.notify_all()
-        self._dispatch(
+        self._dispatch_action(
             RuntimeAction(
                 "session_activated",
                 {
@@ -445,7 +475,7 @@ class SessionClientRuntime(SessionEventSink):
             self._buffered_events = []
             self._terminal_outcome = self._outcome_action("failed", failure=failure)
             self._condition.notify_all()
-        self._dispatch(
+        self._dispatch_action(
             RuntimeAction(
                 "protocol_failed",
                 {
@@ -594,6 +624,11 @@ class SessionClientRuntime(SessionEventSink):
             raise RuntimeError("runtime_closed")
         if self._lifecycle == "failed":
             raise RuntimeError("runtime_failed")
+
+    def _dispatch_action(self, action: RuntimeAction) -> None:
+        dispatch = self._dispatch
+        if dispatch is not None:
+            dispatch(action)
 
     def _require_session_port(self) -> FrontendSessionPort:
         if self._session_port is None:

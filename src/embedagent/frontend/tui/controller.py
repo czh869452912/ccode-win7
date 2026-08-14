@@ -5,6 +5,8 @@ from typing import Dict
 from embedagent_protocol import SessionEventEnvelope
 
 import embedagent.frontend.tui.reducer as reducer
+from embedagent.frontend.runtime import RuntimeAction
+from embedagent.frontend.runtime.commands import resolve_command
 from embedagent.frontend.tui.commands import parse_command
 from embedagent.frontend.tui.views.timeline import format_activity_records
 
@@ -90,12 +92,18 @@ class TerminalController(object):
     def handle_command(self, text: str) -> None:
         parsed = parse_command(text)
         try:
-            command = self.owner.runtime.resolve_command(parsed.name)
+            command = resolve_command(
+                self.owner.shell_descriptor,
+                parsed.name,
+                self._availability(),
+            )
             if str(command.dispatch.get("kind") or "") == "session.command":
                 reducer.append_line(self.owner.state, "user> %s" % text)
-            self.owner.runtime.execute_command(
+            self.owner.runtime.dispatch_command(
+                self.owner.shell_descriptor,
                 command.id,
                 parsed.args,
+                availability=self._availability(),
                 default_mode=self.owner.initial_mode,
             )
             self._after_shell_command(command.dispatch)
@@ -164,31 +172,56 @@ class TerminalController(object):
         if not command.id:
             return
         try:
-            self.owner.runtime.execute_command(command.id, [], default_mode=self.owner.initial_mode)
+            self.owner.runtime.dispatch_command(
+                self.owner.shell_descriptor,
+                command.id,
+                [],
+                availability=self._availability(),
+                default_mode=self.owner.initial_mode,
+            )
             self._after_shell_command(command.dispatch)
         except (RuntimeError, ValueError, TypeError) as exc:
             reducer.set_last_error(self.owner.state, str(exc))
             reducer.append_line(self.owner.state, "[error] %s" % exc)
         self.owner.refresh_views()
 
-    def on_runtime_action(self, action: Dict[str, object]) -> None:
-        action_type = str(action.get("type") or "") if isinstance(action, dict) else ""
+    def on_runtime_action(self, action: RuntimeAction) -> None:
+        if not isinstance(action, RuntimeAction):
+            raise TypeError("action must be a RuntimeAction")
+        value = action.to_dict()
+        action_type = action.kind
         if action_type == "session_activated":
-            self._install_session_bootstrap(action.get("bootstrap"))
-            return
-        if action_type == "shell_surface":
-            self._activate_shell_surface(action.get("surface"))
+            self._install_session_bootstrap(value.get("bootstrap"))
             return
         if action_type == "shell_command":
+            self._handle_shell_command(value)
+            return
+        if action_type == "protocol_failed":
+            failure = value.get("failure") if isinstance(value.get("failure"), dict) else {}
+            message = str(failure.get("message") or failure.get("code") or "protocol failed")
+            reducer.set_last_error(self.owner.state, message)
+            reducer.append_line(self.owner.state, "[error] %s" % message)
+            self.owner.refresh_views()
             return
         if action_type != "session_event":
             return
-        envelope = SessionEventEnvelope.from_dict(action.get("event") or {})
+        envelope = SessionEventEnvelope.from_dict(value.get("event") or {})
         self.owner.frontend.on_session_event(envelope)
         if envelope.event_kind == "session.finished":
             self.refresh_sessions()
             self.refresh_session_projection()
         self.owner.refresh_views()
+
+    def _handle_shell_command(self, action: Dict[str, object]) -> None:
+        dispatch = action.get("dispatch") if isinstance(action.get("dispatch"), dict) else {}
+        if str(dispatch.get("kind") or "") != "shell.surface":
+            return
+        surface_id = str(dispatch.get("surface_id") or "")
+        for surface in self.owner.shell_descriptor.surfaces:
+            if surface.id == surface_id:
+                self._activate_shell_surface(surface.to_dict())
+                return
+        raise ValueError("unknown_shell_surface:%s" % surface_id)
 
     def _activate_shell_surface(self, value) -> None:
         surface = dict(value or {}) if isinstance(value, dict) else {}
@@ -210,7 +243,7 @@ class TerminalController(object):
         if contribution is None:
             return
         if renderer_key == "file_reference":
-            contribution.data = self.owner.runtime.list_workspace_tree(
+            contribution.data = self.owner.workspace_port.list_workspace_tree(
                 path=".", max_depth=3, limit=200
             )
 
@@ -234,11 +267,21 @@ class TerminalController(object):
         self.owner.refresh_views()
 
     def refresh_sessions(self) -> None:
-        self.owner.state.session.session_items = self.owner.runtime.list_sessions(
-            self.owner.state.session_limit
-        )
+        self.owner.state.session.session_items = [
+            item.to_dict()
+            for item in self.owner.runtime.list_sessions(self.owner.state.session_limit)
+        ]
 
     def refresh_session_projection(self) -> None:
         session_id = self.owner.state.session.current_session_id
         if session_id:
             self.owner.runtime.activate_session(session_id, reason="refresh")
+
+    def _availability(self) -> Dict[str, object]:
+        status = str(self.owner.state.session.current_snapshot.get("status") or "")
+        return {
+            "has_session": bool(self.owner.state.session.current_session_id),
+            "has_workspace": bool(self.owner.workspace),
+            "running": status in ("running", "submitting"),
+            "has_interaction": self.owner.state.session.pending_interaction is not None,
+        }

@@ -1,255 +1,183 @@
 from __future__ import annotations
 
-import pytest
-from embedagent_protocol import CommandDescriptor, SessionEventEnvelope, ShellDescriptor
+from pathlib import Path
 
-from embedagent.frontend.tui.runtime import TerminalRuntime
+from embedagent_protocol import (
+    CapabilitySnapshot,
+    CommandDescriptor,
+    SessionBootstrap,
+    ShellDescriptor,
+    SurfaceDescriptor,
+    ThreadShell,
+)
 
-SHELL = ShellDescriptor()
+from embedagent.frontend.runtime import SessionClientRuntime
+from embedagent.frontend.tui.controller import TerminalController
+from embedagent.frontend.tui.state import TerminalState
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
-def bootstrap_payload(session_id="s-1", event_cursor=0):
-    return {
-        "event_cursor": event_cursor,
-        "thread": {"session_id": session_id},
-        "snapshot": {
+def _thread(session_id="session-1", mode="build"):
+    return ThreadShell(
+        id=session_id,
+        title="Session",
+        archived=False,
+        current_mode=mode,
+        status="idle",
+        updated_at="2026-08-13T00:00:00Z",
+    )
+
+
+def _bootstrap(session_id="session-1", mode="build"):
+    return SessionBootstrap(
+        schema_version=1,
+        event_cursor=0,
+        thread=_thread(session_id, mode),
+        snapshot={
             "session_id": session_id,
-            "current_mode": "explore",
+            "current_mode": mode,
             "status": "idle",
         },
-        "history": {"session_id": session_id, "activities": []},
-        "capabilities": {},
-        "workflow": {},
-        "integrity": {},
-    }
-
-
-def session_event(session_id, sequence, event_id):
-    return SessionEventEnvelope(
-        schema_version=1,
-        event_id=event_id,
-        session_id=session_id,
-        sequence=sequence,
-        event_kind="assistant.delta",
-        timestamp="2026-08-03T00:00:00Z",
-        payload={"text": event_id},
+        activities=[{"kind": "assistant", "content": "Ready.", "status": "completed"}],
+        capabilities=CapabilitySnapshot(),
     )
 
 
-class FakeHostedSessionHost(object):
-    def __init__(self, bootstraps=None):
-        self.bootstraps = list(bootstraps or [bootstrap_payload()])
-        self.bootstrap_calls = []
-        self.event_handler = None
-        self.during_bootstrap = None
+class FakeSessionPort(object):
+    def __init__(self):
         self.submissions = []
-        self.lifecycle_calls = []
+        self.closed = False
 
     def list_sessions(self, limit=10):
-        return [{"session_id": "s-1"}][:limit]
+        return [_thread()][:limit]
 
-    def create_session(self, mode, event_handler=None):
-        self.event_handler = event_handler
-        return {"session_id": "s-1", "current_mode": mode}
+    def get_session_bootstrap(self, reference, mode=""):
+        return _bootstrap(reference, mode or "build")
 
-    def resume_session(self, reference, mode, event_handler=None):
-        self.event_handler = event_handler
-        return {"session_id": reference, "current_mode": mode}
+    def get_session_capabilities(self, session_id=""):
+        del session_id
+        return CapabilitySnapshot()
 
-    def get_session_bootstrap(self, session_id):
-        self.bootstrap_calls.append(session_id)
-        if self.during_bootstrap is not None:
-            callback, self.during_bootstrap = self.during_bootstrap, None
-            callback()
-        if len(self.bootstraps) > 1:
-            return self.bootstraps.pop(0)
-        return self.bootstraps[0]
+    def create_session(self, mode):
+        return _bootstrap(mode=mode)
 
-    def set_session_mode(self, session_id, mode):
-        return {"session_id": session_id, "current_mode": mode}
+    def resume_session(self, reference, mode):
+        return _bootstrap("session-1" if reference == "latest" else reference, mode)
 
-    def submit_user_message(self, **kwargs):
-        self.event_handler = kwargs["event_handler"]
-        self.submissions.append(kwargs)
-        return None
+    def submit_user_message(self, session_id, text, stream):
+        self.submissions.append((session_id, text, stream))
 
     def respond_to_interaction(self, session_id, interaction_id, payload):
-        return {"session_id": session_id, "interaction_id": interaction_id, "payload": payload}
+        del interaction_id, payload
+        return _bootstrap(session_id)
 
-    def cancel_session(self, session_id):
-        return {"session_id": session_id, "status": "cancelled"}
+    def close(self):
+        self.closed = True
 
-    def rename_session(self, session_id, title):
-        self.lifecycle_calls.append(("rename", session_id, title))
-        return {"session_id": session_id, "title": title}
 
-    def archive_session(self, session_id):
-        self.lifecycle_calls.append(("archive", session_id))
-        return {"session_id": session_id, "archived": True}
-
-    def fork_session(self, session_id, title=""):
-        self.lifecycle_calls.append(("fork", session_id, title))
-        return {"session_id": "s-2", "title": title}
-
-    def load_session_summary(self, reference):
-        return {"reference": reference}
-
-    def list_tasks(self, session_id=""):
-        return {"session_id": session_id, "tasks": []}
-
-    def get_workspace_snapshot(self):
-        return {"workspace": "D:/work"}
+class FakeWorkspacePort(object):
+    def __init__(self):
+        self.tree_calls = []
 
     def list_workspace_tree(self, path=".", max_depth=3, limit=200):
-        return {"root": path, "items": [], "max_depth": max_depth, "limit": limit}
-
-    def read_workspace_file(self, path):
-        return {"path": path, "content": ""}
-
-    def write_workspace_file(self, path, content):
-        return {"path": path, "content": content}
+        self.tree_calls.append((path, max_depth, limit))
+        return {"root": path, "items": [{"kind": "file", "path": "src/main.c"}]}
 
 
-def test_terminal_runtime_installs_bootstrap_cursor_and_applies_contiguous_event():
-    host = FakeHostedSessionHost([bootstrap_payload(event_cursor=2)])
-    actions = []
-    runtime = TerminalRuntime(host, SHELL, dispatch=actions.append)
+SHELL = ShellDescriptor(
+    commands=[
+        CommandDescriptor(
+            id="workflow.inspect",
+            label="Inspect",
+            group="workflow",
+            dispatch={"kind": "session.command", "command": "inspect"},
+            availability={"visible_when": "has_session"},
+        ),
+        CommandDescriptor(
+            id="workspace.files",
+            label="Files",
+            group="workspace",
+            dispatch={"kind": "shell.surface", "surface_id": "workspace.files"},
+            availability={"visible_when": "has_workspace"},
+        ),
+    ],
+    surfaces=[
+        SurfaceDescriptor(
+            id="workspace.files",
+            label="Files",
+            placement="secondary",
+            renderer_key="file_reference",
+        )
+    ],
+)
 
-    runtime.activate_session("s-1")
-    runtime.on_session_event(session_event("s-1", 3, "evt-3"))
 
-    assert runtime.selected_session_id == "s-1"
-    assert runtime.event_cursor == 3
-    assert [item["type"] for item in actions] == ["session_activated", "session_event"]
-    assert actions[1]["event"]["event_id"] == "evt-3"
+class FakeOwner(object):
+    def __init__(self, runtime, workspace_port):
+        self.runtime = runtime
+        self.workspace_port = workspace_port
+        self.shell_descriptor = SHELL
+        self.initial_mode = "build"
+        self.resume_reference = ""
+        self.initial_message = ""
+        self.workspace = "."
+        self.state = TerminalState.from_shell_descriptor(".", "build", SHELL)
+        self.frontend = None
+        self.refresh_count = 0
 
-
-def test_terminal_runtime_buffers_live_event_while_bootstrap_is_loading():
-    host = FakeHostedSessionHost([bootstrap_payload(event_cursor=2)])
-    actions = []
-    runtime = TerminalRuntime(host, SHELL, dispatch=actions.append)
-    host.during_bootstrap = lambda: runtime.on_session_event(session_event("s-1", 3, "buffered"))
-
-    runtime.activate_session("s-1")
-
-    assert runtime.event_cursor == 3
-    assert [item["type"] for item in actions] == ["session_activated", "session_event"]
-    assert actions[-1]["event"]["event_id"] == "buffered"
+    def refresh_views(self):
+        self.refresh_count += 1
 
 
-def test_terminal_runtime_accepts_only_canonical_envelopes_and_selected_session():
-    actions = []
-    runtime = TerminalRuntime(
-        FakeHostedSessionHost([bootstrap_payload(event_cursor=2)]),
-        SHELL,
-        dispatch=actions.append,
+def _controller():
+    runtime = SessionClientRuntime()
+    session_port = FakeSessionPort()
+    workspace_port = FakeWorkspacePort()
+    runtime.bind_session_port(session_port)
+    owner = FakeOwner(runtime, workspace_port)
+    controller = TerminalController(owner)
+    runtime.bind_dispatch(controller.on_runtime_action)
+    return controller, owner, session_port, workspace_port
+
+
+def test_tui_controller_consumes_runtime_actions_and_descriptor_commands():
+    controller, owner, session_port, _workspace_port = _controller()
+
+    controller.start()
+    controller.handle_command("/inspect src/main.c")
+
+    assert owner.state.session.current_session_id == "session-1"
+    assert owner.state.timeline.items == ["assistant> Ready.", "user> /inspect src/main.c"]
+    assert owner.state.session.session_items[0]["id"] == "session-1"
+    assert session_port.submissions == [("session-1", "/inspect src/main.c", True)]
+
+
+def test_tui_routes_workspace_surface_through_focused_workspace_port():
+    controller, owner, _session_port, workspace_port = _controller()
+    controller.start()
+
+    controller.execute_shell_command("workspace.files")
+
+    assert workspace_port.tree_calls == [(".", 3, 200)]
+    assert owner.state.overlay.active_id == "workspace.files"
+    assert owner.state.contributions["workspace.files"].data["items"][0]["path"] == ("src/main.c")
+
+
+def test_tui_has_no_private_host_or_duplicate_session_runtime():
+    tui_root = ROOT / "src/embedagent/frontend/tui"
+    sources = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in tui_root.rglob("*.py")
+        if path.name != "runtime.py"
     )
-    runtime.activate_session("s-1")
 
-    with pytest.raises(TypeError):
-        runtime.on_session_event("assistant_delta", "s-1", {"text": "legacy"})
-
-    runtime.on_session_event(session_event("s-2", 3, "other-session"))
-    runtime.on_session_event(session_event("s-1", 2, "duplicate"))
-    assert [item["type"] for item in actions] == ["session_activated"]
-
-
-def test_terminal_runtime_recovers_sequence_gap_from_current_bootstrap():
-    host = FakeHostedSessionHost(
-        [bootstrap_payload(event_cursor=2), bootstrap_payload(event_cursor=4)]
-    )
-    actions = []
-    runtime = TerminalRuntime(host, SHELL, dispatch=actions.append)
-    runtime.activate_session("s-1")
-
-    runtime.on_session_event(session_event("s-1", 4, "evt-4"))
-
-    assert host.bootstrap_calls == ["s-1", "s-1"]
-    assert runtime.event_cursor == 4
-    assert [item["type"] for item in actions] == ["session_activated", "session_activated"]
-    assert actions[-1]["reason"] == "recovery"
-
-
-def test_terminal_runtime_rejects_operations_and_ignores_events_after_close():
-    actions = []
-    runtime = TerminalRuntime(FakeHostedSessionHost(), SHELL, dispatch=actions.append)
-    runtime.activate_session("s-1")
-    runtime.close()
-
-    with pytest.raises(RuntimeError, match="terminal_runtime_closed"):
-        runtime.list_sessions()
-    runtime.on_session_event(session_event("s-1", 1, "late"))
-    assert [item["type"] for item in actions] == ["session_activated"]
-
-
-def test_terminal_runtime_requires_complete_host_boundary():
-    with pytest.raises(TypeError, match="host_method_missing:list_sessions"):
-        TerminalRuntime(object(), SHELL, dispatch=lambda action: None)
-
-
-def test_terminal_runtime_requires_compiled_shell_descriptor():
-    with pytest.raises(TypeError, match="shell_descriptor"):
-        TerminalRuntime(FakeHostedSessionHost(), {}, dispatch=lambda action: None)
-
-
-def test_terminal_runtime_resolves_and_executes_only_descriptor_commands():
-    descriptor = ShellDescriptor(
-        commands=[
-            CommandDescriptor(
-                id="workflow.inspect",
-                label="Inspect",
-                group="workflow",
-                dispatch={"kind": "session.command", "command": "inspect"},
-            )
-        ]
-    )
-    host = FakeHostedSessionHost()
-    runtime = TerminalRuntime(host, descriptor, dispatch=lambda action: None)
-    runtime.create_session("build")
-
-    command = runtime.resolve_command("inspect")
-    assert command.id == "workflow.inspect"
-    runtime.execute_command(command.id, ["src/main.c"], default_mode="build")
-
-    assert host.submissions[-1]["text"] == "/inspect src/main.c"
-    with pytest.raises(ValueError, match="unknown_shell_command"):
-        runtime.execute_command("workflow.missing", [], default_mode="build")
-
-
-def test_terminal_runtime_executes_session_lifecycle_dispatches():
-    descriptor = ShellDescriptor(
-        commands=[
-            CommandDescriptor(
-                id="session.rename",
-                label="Rename",
-                group="session",
-                dispatch={"kind": "session.rename"},
-            ),
-            CommandDescriptor(
-                id="session.archive",
-                label="Archive",
-                group="session",
-                dispatch={"kind": "session.archive"},
-            ),
-            CommandDescriptor(
-                id="session.fork",
-                label="Fork",
-                group="session",
-                dispatch={"kind": "session.fork"},
-            ),
-        ]
-    )
-    host = FakeHostedSessionHost([bootstrap_payload(), bootstrap_payload("s-2")])
-    runtime = TerminalRuntime(host, descriptor, dispatch=lambda action: None)
-    runtime.create_session("build")
-
-    runtime.execute_command("session.rename", ["New", "Title"], default_mode="build")
-    runtime.execute_command("session.archive", [], default_mode="build")
-    runtime.execute_command("session.fork", ["Forked"], default_mode="build")
-
-    assert host.lifecycle_calls == [
-        ("rename", "s-1", "New Title"),
-        ("archive", "s-1"),
-        ("fork", "s-1", "Forked"),
-    ]
-    assert runtime.selected_session_id == "s-2"
+    assert not (tui_root / "runtime.py").exists()
+    for forbidden in (
+        "HostedSessionHost",
+        ".adapter",
+        "_event_cursor",
+        "_generation",
+        "_recovering",
+    ):
+        assert forbidden not in sources

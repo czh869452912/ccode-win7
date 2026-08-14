@@ -12,6 +12,7 @@ import sys
 from typing import Optional
 
 from embedagent.bundle_policy import load_current_bundle_policy
+from embedagent.frontend.runtime import SessionClientRuntime
 from embedagent.frontend.tui.bootstrap import TUIUnavailableError, run_tui
 from embedagent.hosted import LaunchOverrides, create_hosted_runtime, resolve_launch_config
 from embedagent.product_catalog import (
@@ -58,24 +59,26 @@ def launch_tui(
             agent_application_id=agent_application_id,
         ),
     )
-    runtime = create_hosted_runtime(launch_config)
-    allowed_ids = bundle_policy.allowed_agent_application_ids if bundle_policy.bundled else None
-    application_record = product_agent_application_registry(allowed_ids).record_by_id(
-        launch_config.agent_application_id
-    )
-    shell_descriptor = product_shell_compiler()(
-        application_record.application_id,
-        runtime.session_host.get_session_capabilities(""),
-    )
-
     previous_headless = os.environ.get("EMBEDAGENT_TUI_HEADLESS")
-    if headless:
-        os.environ["EMBEDAGENT_TUI_HEADLESS"] = "1"
-    else:
-        os.environ.pop("EMBEDAGENT_TUI_HEADLESS", None)
+    client_runtime = SessionClientRuntime()
     try:
+        runtime = create_hosted_runtime(launch_config, event_sink=client_runtime)
+        client_runtime.bind_session_port(runtime.session)
+        allowed_ids = bundle_policy.allowed_agent_application_ids if bundle_policy.bundled else None
+        application_record = product_agent_application_registry(allowed_ids).record_by_id(
+            launch_config.agent_application_id
+        )
+        shell_descriptor = product_shell_compiler()(
+            application_record.application_id,
+            client_runtime.get_session_capabilities("").to_dict(),
+        )
+        if headless:
+            os.environ["EMBEDAGENT_TUI_HEADLESS"] = "1"
+        else:
+            os.environ.pop("EMBEDAGENT_TUI_HEADLESS", None)
         return run_tui(
-            session_host=runtime.session_host,
+            runtime=client_runtime,
+            workspace_port=runtime.workspace,
             workspace=launch_config.workspace,
             mode=mode,
             resume=resume,
@@ -83,10 +86,13 @@ def launch_tui(
             shell_descriptor=shell_descriptor,
         )
     finally:
-        if previous_headless is None:
-            os.environ.pop("EMBEDAGENT_TUI_HEADLESS", None)
-        else:
-            os.environ["EMBEDAGENT_TUI_HEADLESS"] = previous_headless
+        try:
+            client_runtime.close()
+        finally:
+            if previous_headless is None:
+                os.environ.pop("EMBEDAGENT_TUI_HEADLESS", None)
+            else:
+                os.environ["EMBEDAGENT_TUI_HEADLESS"] = previous_headless
 
 
 def build_parser() -> argparse.ArgumentParser:

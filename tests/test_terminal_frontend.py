@@ -46,7 +46,7 @@ class TestTerminalFrontendModules(unittest.TestCase):
             ]
         }
         self.state.session.session_items = [
-            {"session_id": "sess-001", "current_mode": "build"},
+            {"id": "sess-001", "current_mode": "build"},
         ]
         self.completer = TerminalCompleter(lambda: self.state)
 

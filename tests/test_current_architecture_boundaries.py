@@ -780,7 +780,7 @@ def test_tui_rendering_layers_do_not_import_host_implementation():
     assert offenders == []
 
 
-def test_terminal_runtime_is_the_only_tui_host_call_owner():
+def test_tui_uses_shared_runtime_and_owns_no_host_calls():
     tui_root = ROOT / "src/embedagent/frontend/tui"
     host_call_pattern = re.compile(r"\bself\._host\.")
     owners = {
@@ -789,8 +789,9 @@ def test_terminal_runtime_is_the_only_tui_host_call_owner():
         if host_call_pattern.search(_read(path))
     }
 
-    assert owners == {"runtime.py"}
-    runtime_source = _read(tui_root / "runtime.py")
-    assert "SessionEventEnvelope" in runtime_source
-    assert "def on_session_event(self, envelope: SessionEventEnvelope)" in runtime_source
-    assert "session_host.adapter" not in runtime_source
+    assert owners == set()
+    assert not (tui_root / "runtime.py").exists()
+    bootstrap_source = _read(tui_root / "bootstrap.py")
+    controller_source = _read(tui_root / "controller.py")
+    assert "SessionClientRuntime" in bootstrap_source
+    assert "RuntimeAction" in controller_source

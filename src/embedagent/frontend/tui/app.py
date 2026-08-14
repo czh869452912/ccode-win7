@@ -21,6 +21,8 @@ class TerminalApp(object):
     def __init__(
         self,
         runtime,
+        workspace_port,
+        shell_descriptor,
         workspace: str,
         initial_mode: str,
         resume_reference: str = "",
@@ -32,6 +34,8 @@ class TerminalApp(object):
         dummy_output=None,
     ) -> None:
         self.runtime = runtime
+        self.workspace_port = workspace_port
+        self.shell_descriptor = shell_descriptor
         self.workspace = workspace
         self.initial_mode = initial_mode
         self.resume_reference = resume_reference
@@ -46,7 +50,7 @@ class TerminalApp(object):
         self.state = TerminalState.from_shell_descriptor(
             workspace=workspace,
             initial_mode=initial_mode,
-            descriptor=runtime.shell_descriptor,
+            descriptor=shell_descriptor,
             session_limit=max(1, int(session_limit)),
             transcript_limit=max(40, int(transcript_limit)),
             capability=detect_host(),
@@ -126,7 +130,6 @@ class TerminalApp(object):
         self.application.invalidate()
 
     def _close_application_resources(self) -> None:
-        self.runtime.close()
         if self._pipe_input_cm is None:
             return
         try:

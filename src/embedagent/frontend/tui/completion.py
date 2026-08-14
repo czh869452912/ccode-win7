@@ -57,6 +57,6 @@ class TerminalCompleter(Completer):
     def _session_candidates(self, state) -> Iterable[str]:
         for item in getattr(state.session, "session_items", []):
             if isinstance(item, dict):
-                session_id = str(item.get("session_id") or "")
+                session_id = str(item.get("id") or "")
                 if session_id:
                     yield session_id
