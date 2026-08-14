@@ -94,6 +94,53 @@ class CliResult(object):
             status = "failed"
         return cls(session_id, status, exit_code, "", {}, failure)
 
+    @classmethod
+    def from_runtime_outcome(cls, action: Any) -> "CliResult":
+        session_id = ""
+        try:
+            value = action.to_dict()
+            if not isinstance(value, Mapping) or value.get("kind") != "terminal_outcome":
+                raise ValueError("runtime outcome must be terminal_outcome")
+            session_id = str(value.get("session_id") or "")
+            status = str(value.get("status") or "")
+            final_text = str(value.get("final_text") or "")
+            outcome = value.get("outcome")
+            if not isinstance(outcome, Mapping):
+                raise TypeError("runtime outcome must contain an outcome mapping")
+            failure_value = value.get("failure")
+            failure = FailureRecord.from_dict(failure_value) if failure_value is not None else None
+            if status == "completed":
+                if failure is not None:
+                    raise ValueError("completed runtime outcome must not contain a failure")
+                return cls.completed(session_id, final_text, outcome)
+            if failure is None:
+                raise ValueError("non-completed runtime outcome must contain a failure")
+            exit_code = exit_code_for_failure(failure.code)
+            if exit_code == 2:
+                result_status = "blocked"
+            elif exit_code == 130:
+                result_status = "cancelled"
+            else:
+                result_status = "failed"
+            return cls(
+                session_id,
+                result_status,
+                exit_code,
+                final_text,
+                outcome,
+                failure,
+            )
+        except (AttributeError, TypeError, ValueError):
+            return cls.from_failure(
+                session_id,
+                FailureRecord(
+                    code="protocol_error",
+                    message="client runtime returned an invalid terminal outcome",
+                    retryable=False,
+                    source="cli",
+                ),
+            )
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "schema_version": self.schema_version,

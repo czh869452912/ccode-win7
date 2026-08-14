@@ -855,21 +855,21 @@ offline packaging, six-wheel distribution checks.
 - Create: `tests/test_cli_run.py`
 - Modify: `tests/test_cli_hosted_entrypoint.py`
 
-- [ ] **Step 1: Add fake-port tests for every terminal state.**
+- [x] **Step 1: Add fake-port tests for every terminal state.**
 
   Drive the real Python client runtime with canonical envelopes. Cover create and resume,
   completed final text, pending permission, pending user input, provider failure, runtime
   failure, protocol failure, cancellation, JSON output, and stdout/stderr separation. Assert
   run never calls `input()` or `respond_to_interaction()`.
 
-- [ ] **Step 2: Run the tests and confirm `run` is not implemented.**
+- [x] **Step 2: Run the tests and confirm `run` is not implemented.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_cli_run.py
   uv run python scripts/test-suite.py tdd tests/test_cli_hosted_entrypoint.py
   ```
 
-- [ ] **Step 3: Implement one-shot policy over the common runtime.**
+- [x] **Step 3: Implement one-shot policy over the common runtime.**
 
   ```python
   def execute_run(context: CliContext, options: RunOptions) -> CliResult:
@@ -883,14 +883,14 @@ offline packaging, six-wheel distribution checks.
   stderr. In JSON mode serialize one `CliResult` with stable key order and a trailing newline.
   Leave pending Host interactions untouched and return blocked.
 
-- [ ] **Step 4: Run the `run` tests to green.**
+- [x] **Step 4: Run the `run` tests to green.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_cli_run.py
   uv run python scripts/test-suite.py tdd tests/test_cli_hosted_entrypoint.py
   ```
 
-- [ ] **Step 5: Commit one-shot execution.**
+- [x] **Step 5: Commit one-shot execution.**
 
   ```powershell
   git add src/embedagent/cli tests/test_cli_run.py tests/test_cli_hosted_entrypoint.py

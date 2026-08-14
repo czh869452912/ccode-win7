@@ -14,7 +14,8 @@ from embedagent_protocol import (
 from embedagent.bundle_policy import load_current_bundle_policy
 from embedagent.cli.options import CliOptions
 from embedagent.cli.parser import build_parser
-from embedagent.cli.result import write_failure
+from embedagent.cli.renderer import write_result
+from embedagent.cli.result import CliResult, write_failure
 from embedagent.frontend.runtime import SessionClientRuntime
 from embedagent.hosted import create_hosted_runtime, resolve_launch_config
 from embedagent.product_catalog import (
@@ -99,10 +100,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         return CliApplication.from_options(options).run()
     except FrontendPortError as exc:
-        return write_failure(exc.failure)
+        failure = exc.failure
     except ValueError:
-        return write_failure(_failure("configuration_error", "cli"))
+        failure = _failure("configuration_error", "cli")
     except KeyboardInterrupt:
-        return write_failure(_failure("cancelled", "cli"))
+        failure = _failure("cancelled", "cli")
     except (ImportError, RuntimeError, TypeError):
-        return write_failure(_failure("runtime_error", "cli"))
+        failure = _failure("runtime_error", "cli")
+    if options.output == "json":
+        return write_result(CliResult.from_failure("", failure), output="json")
+    return write_failure(failure)

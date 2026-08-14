@@ -3,7 +3,8 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from embedagent_protocol import CapabilitySnapshot, ShellDescriptor
+from embedagent_host import FrontendPortError
+from embedagent_protocol import CapabilitySnapshot, FailureRecord, ShellDescriptor
 
 
 def _capabilities():
@@ -102,6 +103,53 @@ def test_cli_checks_bundle_policy_before_resolving_config(tmp_path, monkeypatch)
 
     policy.require_shell.assert_called_once_with("cli")
     resolve.assert_not_called()
+
+
+def test_cli_application_routes_run_and_closes_shared_runtime(tmp_path, monkeypatch):
+    from embedagent.cli.app import CliApplication
+    from embedagent.cli.parser import build_parser
+
+    options = build_parser().parse_args(["run", "--workspace", str(tmp_path), "hello"])
+    runtime = MagicMock()
+    application = CliApplication(
+        options=options,
+        launch_config=SimpleNamespace(),
+        client_runtime=runtime,
+        session_port=MagicMock(),
+        workspace_port=MagicMock(),
+        shell_descriptor=ShellDescriptor(schema_version=1),
+    )
+    handler = MagicMock(return_value=17)
+    monkeypatch.setattr("embedagent.cli.run.run_command", handler)
+
+    assert application.run() == 17
+
+    handler.assert_called_once_with(application)
+    runtime.close.assert_called_once_with()
+
+
+def test_run_json_uses_result_contract_for_composition_failure(monkeypatch, capsys):
+    import json
+
+    from embedagent.cli import app as cli_app
+
+    failure = FailureRecord(
+        code="provider_error",
+        message="provider unavailable",
+        retryable=True,
+        source="provider",
+    )
+    monkeypatch.setattr(
+        cli_app.CliApplication,
+        "from_options",
+        classmethod(lambda cls, options: (_ for _ in ()).throw(FrontendPortError(failure))),
+    )
+
+    assert cli_app.main(["run", "--output", "json", "hello"]) == 4
+
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    assert json.loads(captured.out)["failure"] == failure.to_dict()
 
 
 def test_cli_sources_do_not_import_other_shells_or_construct_host_internals():
