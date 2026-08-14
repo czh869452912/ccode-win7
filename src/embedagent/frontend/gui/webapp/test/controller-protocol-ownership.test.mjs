@@ -8,7 +8,6 @@ const SOURCE_ROOT = path.join(WEBAPP_ROOT, "src");
 const CONTROLLERS = [
   "file-preview-controller.js",
   "interaction-response-controller.js",
-  "session-activation-controller.js",
   "session-controller.js",
   "session-list-controller.js",
   "session-loaders.js",

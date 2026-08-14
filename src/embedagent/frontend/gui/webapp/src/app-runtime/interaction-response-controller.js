@@ -16,20 +16,18 @@ function interactionLogDetail(interaction, payload) {
 export function createInteractionResponseController({
   protocol,
   dispatch,
-  normalizeSessionPayload,
   getCurrentSessionId,
   getCurrentInteraction,
   getRespondingRequestIds,
   setRespondingRequestIds,
   loadSession,
+  installSessionBootstrap,
 } = {}) {
   const send = typeof dispatch === "function" ? dispatch : () => {};
   const respond =
     protocol && typeof protocol.respondToInteraction === "function"
       ? protocol.respondToInteraction.bind(protocol)
       : null;
-  const normalize =
-    typeof normalizeSessionPayload === "function" ? normalizeSessionPayload : (payload) => payload;
   const readSessionId = typeof getCurrentSessionId === "function" ? getCurrentSessionId : () => "";
   const readInteraction =
     typeof getCurrentInteraction === "function" ? getCurrentInteraction : () => null;
@@ -38,6 +36,8 @@ export function createInteractionResponseController({
   const writeRespondingIds =
     typeof setRespondingRequestIds === "function" ? setRespondingRequestIds : () => {};
   const reloadSession = typeof loadSession === "function" ? loadSession : () => Promise.resolve();
+  const installBootstrap =
+    typeof installSessionBootstrap === "function" ? installSessionBootstrap : null;
 
   function respondingIds() {
     const value = readRespondingIds();
@@ -71,16 +71,12 @@ export function createInteractionResponseController({
 
     markResponding(interactionId);
     send({ type: "interaction_notice_clear" });
-    let keepResponding = false;
     try {
       const response = await respond(sessionId, interactionId, payload || {});
-      if (response?.status === "accepted") {
-        keepResponding = true;
-      } else if (response?.snapshot) {
-        send({ type: "session_snapshot", snapshot: normalize(response.snapshot) });
-      } else {
-        await reloadSession(sessionId);
+      if (!installBootstrap || !response?.thread?.id) {
+        throw new Error("invalid_session_bootstrap_response");
       }
+      await installBootstrap(response, "interaction_response");
       send({
         type: "log_event",
         label: "interaction_response",
@@ -106,7 +102,7 @@ export function createInteractionResponseController({
       }
       throw error;
     } finally {
-      if (!keepResponding) clearResponding(interactionId);
+      clearResponding(interactionId);
     }
   }
 

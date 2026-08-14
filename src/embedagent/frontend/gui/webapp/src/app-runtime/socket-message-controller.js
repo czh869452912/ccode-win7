@@ -17,9 +17,6 @@ function readMessageInput(messageOrType, data) {
 export function createSocketMessageController({
   dispatch,
   executeLoaderRequest,
-  getSessionTransportController,
-  getSessionTransportState,
-  getCurrentSessionId,
   clearRespondingRequestId,
   getDiffPanelChrome,
   makeId,
@@ -28,10 +25,6 @@ export function createSocketMessageController({
   deriveEffects,
   executeEffects,
 } = {}) {
-  const readCurrentSessionId =
-    typeof getCurrentSessionId === "function" ? getCurrentSessionId : () => "";
-  const readTransportState =
-    typeof getSessionTransportState === "function" ? getSessionTransportState : () => null;
   const readDiffPanelChrome =
     typeof getDiffPanelChrome === "function" ? getDiffPanelChrome : () => ({});
   const buildEffects =
@@ -44,8 +37,6 @@ export function createSocketMessageController({
       : createSocketEffectExecutor({
           dispatch,
           executeLoaderRequest,
-          getSessionTransportController,
-          getCurrentSessionId,
           clearRespondingRequestId,
         });
 
@@ -54,8 +45,6 @@ export function createSocketMessageController({
     return buildEffects({
         type: message.type,
         data: message.data,
-        currentSessionId: readCurrentSessionId(),
-        sessionTransport: readTransportState(),
         makeId,
         nowIso,
         diffPanelChrome: readDiffPanelChrome(),
@@ -63,8 +52,12 @@ export function createSocketMessageController({
   }
 
   function handleMessage(messageOrType, data) {
+    const message = readMessageInput(messageOrType, data);
+    if (message.type === "session_event") {
+      throw new Error("session_event_requires_runtime_acceptance");
+    }
     return schedule(() => {
-      const effects = deriveMessageEffects(messageOrType, data);
+      const effects = deriveMessageEffects(message.type, message.data);
       applyEffects(effects);
       return effects;
     });
@@ -73,12 +66,8 @@ export function createSocketMessageController({
   function handleAcceptedSessionEvent(envelope) {
     return schedule(() => {
       const effects = deriveMessageEffects("session_event", envelope);
-      const acceptedEffects = {
-        ...effects,
-        transportEvents: [],
-      };
-      applyEffects(acceptedEffects);
-      return acceptedEffects;
+      applyEffects(effects);
+      return effects;
     });
   }
 

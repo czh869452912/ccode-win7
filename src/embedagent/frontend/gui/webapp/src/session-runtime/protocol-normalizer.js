@@ -514,7 +514,6 @@ export function normalizeSessionBootstrap(value) {
       "snapshot",
       "history",
       "capabilities",
-      "workflow",
       "plan",
       "permission_context",
     ]),
@@ -538,7 +537,6 @@ export function normalizeSessionBootstrap(value) {
       integrity: mapping(history.integrity, scope, "history.integrity"),
     }),
     capabilities: normalizeProtocolCapabilities(data.capabilities),
-    workflow: mapping(data.workflow, scope, "workflow"),
     plan,
     permissionContext: mapping(data.permission_context, scope, "permission_context"),
   });

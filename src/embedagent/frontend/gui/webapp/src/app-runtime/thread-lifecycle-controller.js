@@ -75,7 +75,7 @@ export function createThreadLifecycleController({
     if (title === null) return;
     const payload = await forkSession(sessionId, String(title || "").trim());
     await loadSessions();
-    if (payload.session_id) await loadSession(payload.session_id);
+    if (payload.id) await loadSession(payload.id);
   }
 
   async function handleThreadLifecycleAction(actionId, sessionId) {

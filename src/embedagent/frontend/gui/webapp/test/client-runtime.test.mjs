@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { createClientRuntime } from "../src/client-runtime/client-runtime.js";
+import { createBrowserAppRuntime } from "../src/app-runtime/browser-app-runtime.js";
 import { initialState } from "../src/client-runtime/runtime-reducer.js";
 
 function appBootstrap() {
@@ -66,8 +66,9 @@ function createBrowserHarness() {
 export async function runClientRuntimeTests() {
   const calls = [];
   let socketCloseCalls = 0;
+  let receiveSocketMessage = () => {};
   const channel = {
-    onMessage() { return () => {}; },
+    onMessage(callback) { receiveSocketMessage = callback; return () => {}; },
     onStateChange() { return () => {}; },
     close() { socketCloseCalls += 1; },
   };
@@ -79,11 +80,33 @@ export async function runClientRuntimeTests() {
     listSessions: async () => ({ sessions: [] }),
     loadSessionCapabilities: async () => ({}),
     loadSessionBootstrap: async (sessionId) => ({
+      schema_version: 1,
       event_cursor: 0,
+      thread: {
+        id: sessionId,
+        title: "Session",
+        archived: false,
+        current_mode: "explore",
+        status: "idle",
+        updated_at: "2026-08-13T00:00:00Z",
+        pending_interaction: false,
+      },
       snapshot: { session_id: sessionId, status: "idle", current_mode: "explore" },
       history: { activities: [], integrity: {} },
-      capabilities: {},
+      capabilities: {
+        schema_version: 1,
+        modes: [],
+        commands: [],
+        tools: [],
+        workflow_packages: [],
+        agent_application: {},
+        agent_applications: [],
+        resources: [],
+        model_profiles: [],
+        empty_state: {},
+      },
       plan: null,
+      permission_context: {},
     }),
     createSession: async () => ({ session_id: "s-new", status: "idle" }),
     setSessionMode: async () => ({}),
@@ -93,7 +116,7 @@ export async function runClientRuntimeTests() {
   };
   const browser = createBrowserHarness();
   const actions = [];
-  const runtime = createClientRuntime({
+  const runtime = createBrowserAppRuntime({
     protocol,
     dispatch: actions.push.bind(actions),
     getState: () => initialState,
@@ -121,16 +144,34 @@ export async function runClientRuntimeTests() {
   assert.deepEqual(calls, ["loadAppBootstrap"]);
   assert.equal(browser.listenerCount(), 1);
 
+  await runtime.actions.selectSession("s-1");
+  assert.equal(actions.some((action) => action.type === "session_activated"), true);
+  receiveSocketMessage({
+    type: "session_event",
+    data: {
+      schema_version: 1,
+      event_id: "event-1",
+      session_id: "s-1",
+      sequence: 1,
+      event_kind: "assistant.delta",
+      timestamp: "2026-08-13T00:00:01Z",
+      payload: { text: "hello" },
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(actions.some((action) => action.type === "assistant_delta"), true);
+
   runtime.close();
   runtime.close();
   assert.equal(socketCloseCalls, 1);
   assert.equal(browser.listenerCount(), 0);
   assert.equal(browser.pendingTimerCount(), 0);
-  await assert.rejects(runtime.actions.selectSession("s-1"), /client_runtime_closed/);
+  await assert.rejects(runtime.actions.selectSession("s-1"), /browser_app_runtime_closed/);
 
   let resolveLateBootstrap;
   const lateActions = [];
-  const lateRuntime = createClientRuntime({
+  const lateRuntime = createBrowserAppRuntime({
     protocol: {
       ...protocol,
       loadAppBootstrap: () => new Promise((resolve) => { resolveLateBootstrap = resolve; }),

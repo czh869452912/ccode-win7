@@ -1,12 +1,9 @@
 import assert from "node:assert/strict";
 
 import {
-  applySessionTransportEvent,
-  beginSessionTransportBootstrap,
-  bufferSessionTransportEvent,
   capRetryAttempt,
   createSessionTransportState,
-  installSessionTransportBootstrap,
+  isSessionEventEnvelope,
   projectTransportView,
 } from "../src/session-runtime/session-transport-state.js";
 import { buildSessionActivityRuntime } from "../src/session-runtime/activity-state.js";
@@ -24,86 +21,7 @@ function envelope(sessionId, sequence, eventId) {
 }
 
 export function runSessionRuntimeTests() {
-  const initial = createSessionTransportState({ sessionId: "sess-1", phase: "live" });
-  const firstApplication = applySessionTransportEvent(initial, {
-    schema_version: 1,
-    session_id: "sess-1",
-    event_id: "evt-1",
-    sequence: 1,
-    event_kind: "turn.started",
-    timestamp: "2026-04-04T00:00:00Z",
-    payload: { turn_id: "turn-1", user_text: "hello" },
-  });
-  const gap = applySessionTransportEvent(firstApplication.state, {
-    schema_version: 1,
-    session_id: "sess-1",
-    event_id: "evt-3",
-    sequence: 3,
-    event_kind: "step.started",
-    timestamp: "2026-04-04T00:00:01Z",
-    payload: { turn_id: "turn-1", step_id: "step-1" },
-  });
-  assert.equal(gap.state.reloadState, "reload_required");
-  assert.equal(gap.accepted, false);
-  assert.deepEqual(gap.state.bufferedEvents.map((item) => item.sequence), [3]);
-  const recoveryBuffer = beginSessionTransportBootstrap(gap.state, "sess-1");
-  assert.deepEqual(
-    recoveryBuffer.bufferedEvents.map((item) => item.sequence),
-    [3],
-  );
-
-  let buffering = beginSessionTransportBootstrap(createSessionTransportState(), "s-1");
-  assert.equal(buffering.phase, "buffering");
-  assert.equal(buffering.generation, 1);
-  buffering = bufferSessionTransportEvent(buffering, envelope("s-1", 3, "evt-3"));
-  buffering = bufferSessionTransportEvent(buffering, envelope("s-1", 2, "evt-2"));
-  buffering = bufferSessionTransportEvent(buffering, envelope("s-2", 4, "other"));
-  const installed = installSessionTransportBootstrap(buffering, {
-    sessionId: "s-1",
-    generation: buffering.generation,
-    eventCursor: 1,
-  });
-
-  assert.equal(installed.state.phase, "live");
-  assert.equal(installed.state.lastAppliedSeq, 3);
-  assert.deepEqual(
-    installed.applied.map((item) => item.sequence),
-    [2, 3],
-  );
-  assert.equal(installed.state.bufferedEvents.length, 0);
-
-  let gappedBuffer = beginSessionTransportBootstrap(createSessionTransportState(), "s-1");
-  gappedBuffer = bufferSessionTransportEvent(gappedBuffer, envelope("s-1", 2, "evt-2"));
-  gappedBuffer = bufferSessionTransportEvent(gappedBuffer, envelope("s-1", 4, "evt-4"));
-  const gappedInstall = installSessionTransportBootstrap(gappedBuffer, {
-    sessionId: "s-1",
-    generation: gappedBuffer.generation,
-    eventCursor: 1,
-  });
-
-  assert.equal(gappedInstall.state.reloadState, "reload_required");
-  assert.deepEqual(
-    gappedInstall.applied.map((item) => item.sequence),
-    [2],
-  );
-  assert.deepEqual(
-    gappedInstall.state.bufferedEvents.map((item) => item.sequence),
-    [4],
-  );
-
-  const gapFromZero = applySessionTransportEvent(
-    createSessionTransportState({ sessionId: "s-1", phase: "live" }),
-    envelope("s-1", 3, "evt-gap-zero"),
-  );
-  assert.equal(gapFromZero.reason, "sequence_gap");
-
-  const stale = applySessionTransportEvent(
-    createSessionTransportState({ sessionId: "s-1", phase: "live", eventCursor: 3 }),
-    envelope("s-1", 2, "evt-late"),
-  );
-  assert.equal(stale.reason, "stale_sequence");
-  assert.equal(stale.state.lastAppliedSeq, 3);
-  assert.equal(stale.state.reloadState, "healthy");
+  assert.equal(isSessionEventEnvelope(envelope("s-1", 1, "evt-1")), true);
 
   const runtime = buildSessionActivityRuntime({
     snapshot: {
@@ -319,7 +237,7 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(detachedRuntime.timelineView[0].trailingTurnItems[0].id, "detached-tool");
 
-  const malformedTransport = applySessionTransportEvent(createSessionTransportState(), {
+  const malformedEnvelope = isSessionEventEnvelope({
     schema_version: 1,
     session_id: "sess-1",
     event_id: "evt-bad",
@@ -328,8 +246,7 @@ export function runSessionRuntimeTests() {
     timestamp: "2026-04-04T00:02:00Z",
     payload: null,
   });
-  assert.equal(malformedTransport.state.reloadState, "degraded");
-  assert.equal(malformedTransport.reason, "invalid_envelope");
+  assert.equal(malformedEnvelope, false);
 
   const retryState = capRetryAttempt(200);
   assert.equal(retryState, 20);

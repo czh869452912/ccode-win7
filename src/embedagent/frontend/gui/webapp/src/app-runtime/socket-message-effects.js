@@ -7,7 +7,7 @@ const CAPABILITIES_INVALIDATION = "capabilities";
 const SOURCE_CONTROL_INVALIDATION = "source_control";
 
 function emptyEffects() {
-  return { actions: [], transportEvents: [], loaderRequests: [] };
+  return { actions: [], loaderRequests: [] };
 }
 
 function text(value) {
@@ -302,9 +302,7 @@ export function deriveSocketMessageEffects({
     return effects;
   }
   if (type === "session_event") {
-    const effects = sessionEventEffects(payload, { diffPanelChrome });
-    effects.transportEvents.push(payload);
-    return effects;
+    return sessionEventEffects(payload, { diffPanelChrome });
   }
   return emptyEffects();
 }

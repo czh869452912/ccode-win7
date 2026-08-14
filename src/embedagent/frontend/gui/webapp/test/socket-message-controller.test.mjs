@@ -5,100 +5,43 @@ import { createSocketMessageController } from "../src/app-runtime/socket-message
 export function runSocketMessageControllerTests() {
   const deriveInputs = [];
   const executedEffects = [];
-  const expectedEffects = {
-    actions: [{ type: "session_snapshot", snapshot: { session_id: "sess-active" } }],
-    transportEvents: [],
-    loaderRequests: [],
-  };
   const controller = createSocketMessageController({
-    getCurrentSessionId: () => "sess-active",
-    getSessionTransportState: () => ({ lastAppliedSeq: 4 }),
     getDiffPanelChrome: () => ({ defaultTitle: "Command Diff" }),
-    makeId: (prefix) => `${prefix}-stable`,
-    nowIso: () => "2026-07-05T00:00:00.000Z",
     deriveEffects: (input) => {
       deriveInputs.push(input);
-      return expectedEffects;
+      return { actions: [{ type: input.type }], loaderRequests: [] };
     },
     executeEffects: (effects) => executedEffects.push(effects),
   });
 
-  const returnedEffects = controller.handleMessage({
-    type: "session_event",
-    data: { event_id: "evt-1", event_kind: "turn.started" },
-  });
+  assert.throws(
+    () => controller.handleMessage({ type: "session_event", data: {} }),
+    /session_event_requires_runtime_acceptance/,
+  );
 
-  assert.equal(returnedEffects, expectedEffects);
-  assert.deepEqual(executedEffects, [expectedEffects]);
-  assert.equal(deriveInputs.length, 1);
-  assert.equal(deriveInputs[0].type, "session_event");
-  assert.deepEqual(deriveInputs[0].data, {
-    event_id: "evt-1",
-    event_kind: "turn.started",
-  });
-  assert.equal(deriveInputs[0].currentSessionId, "sess-active");
-  assert.deepEqual(deriveInputs[0].sessionTransport, { lastAppliedSeq: 4 });
-  assert.deepEqual(deriveInputs[0].diffPanelChrome, { defaultTitle: "Command Diff" });
-  assert.equal(deriveInputs[0].makeId("cmd"), "cmd-stable");
-  assert.equal(deriveInputs[0].nowIso(), "2026-07-05T00:00:00.000Z");
+  const terminalEffects = controller.handleMessage("terminal_event", { event: { line: "ready" } });
+  assert.deepEqual(terminalEffects.actions, [{ type: "terminal_event" }]);
+  assert.equal(deriveInputs[0].type, "terminal_event");
 
-  const acceptedEffects = [];
-  const acceptedController = createSocketMessageController({
-    deriveEffects: ({ data }) => ({
-      actions: [{ type: "step_started", stepId: data.payload.step_id }],
-      transportEvents: [data],
-      loaderRequests: [{ name: "load_sessions" }],
-    }),
-    executeEffects: (effects) => acceptedEffects.push(effects),
-  });
-  acceptedController.handleAcceptedSessionEvent({
+  const accepted = controller.handleAcceptedSessionEvent({
     event_id: "evt-accepted",
     event_kind: "step.started",
     payload: { step_id: "step-accepted" },
   });
-  assert.deepEqual(acceptedEffects, [
-    {
-      actions: [{ type: "step_started", stepId: "step-accepted" }],
-      transportEvents: [],
-      loaderRequests: [{ name: "load_sessions" }],
-    },
-  ]);
-
-  const tupleControllerInputs = [];
-  const tupleController = createSocketMessageController({
-    deriveEffects: (input) => {
-      tupleControllerInputs.push(input);
-      return { actions: [], transportEvents: [], loaderRequests: [] };
-    },
-    executeEffects: () => {},
-  });
-  tupleController.handleMessage("terminal_event", { event: { line: "ready" } });
-  assert.equal(tupleControllerInputs[0].type, "terminal_event");
-  assert.deepEqual(tupleControllerInputs[0].data, { event: { line: "ready" } });
+  assert.deepEqual(accepted.actions, [{ type: "session_event" }]);
+  assert.deepEqual(executedEffects, [terminalEffects, accepted]);
 
   const scheduledCallbacks = [];
-  const scheduledEffects = {
-    actions: [{ type: "log_event", event: { id: "evt-scheduled" } }],
-    transportEvents: [],
-    loaderRequests: [],
-  };
   const scheduledController = createSocketMessageController({
-    scheduleMessage: (callback) => {
+    scheduleMessage(callback) {
       scheduledCallbacks.push(callback);
       return "scheduled";
     },
-    deriveEffects: () => scheduledEffects,
+    deriveEffects: ({ type }) => ({ actions: [{ type }], loaderRequests: [] }),
     executeEffects: (effects) => executedEffects.push(effects),
   });
-
-  const scheduledResult = scheduledController.handleMessage({
-    type: "session_event",
-    data: { event_id: "evt-scheduled" },
-  });
-
-  assert.equal(scheduledResult, "scheduled");
+  assert.equal(scheduledController.handleMessage("terminal_event", {}), "scheduled");
   assert.equal(scheduledCallbacks.length, 1);
-  assert.deepEqual(executedEffects, [expectedEffects]);
   scheduledCallbacks[0]();
-  assert.deepEqual(executedEffects, [expectedEffects, scheduledEffects]);
+  assert.equal(executedEffects.at(-1).actions[0].type, "terminal_event");
 }

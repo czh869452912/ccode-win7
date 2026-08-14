@@ -10,11 +10,25 @@ function deferred() {
   return { promise, resolve };
 }
 
+function bootstrap(sessionId) {
+  return {
+    schema_version: 1,
+    event_cursor: 3,
+    thread: { id: sessionId },
+    snapshot: { session_id: sessionId, status: "idle", current_mode: "build" },
+    history: { activities: [], integrity: {} },
+    capabilities: {},
+    plan: null,
+    permission_context: {},
+  };
+}
+
 export async function runInteractionResponseControllerTests() {
   let respondingIds = [];
   const calls = [];
   const dispatches = [];
   const pendingResponse = deferred();
+  const installed = [];
   const controller = createInteractionResponseController({
     protocol: {
       respondToInteraction: async (sessionId, interactionId, response) => {
@@ -23,7 +37,6 @@ export async function runInteractionResponseControllerTests() {
       },
     },
     dispatch: (action) => dispatches.push(action),
-    normalizeSessionPayload: (payload) => ({ ...payload, normalized: true }),
     getCurrentSessionId: () => "sess-1",
     getCurrentInteraction: () => ({ interactionId: "ask-1", kind: "user_input" }),
     getRespondingRequestIds: () => respondingIds,
@@ -33,6 +46,7 @@ export async function runInteractionResponseControllerTests() {
     loadSession: async () => {
       throw new Error("loadSession should not run on resolved response");
     },
+    installSessionBootstrap: async (value, reason) => installed.push([value.thread.id, reason]),
   });
 
   const first = controller.respondToInteraction({ answers: { answer: "yes" } });
@@ -40,21 +54,10 @@ export async function runInteractionResponseControllerTests() {
   assert.equal(await controller.respondToInteraction({ answers: { answer: "again" } }), null);
   assert.equal(calls.length, 1);
 
-  pendingResponse.resolve({
-    session_id: "sess-1",
-    interaction_id: "ask-1",
-    status: "resolved",
-    snapshot: {
-      session_id: "sess-1",
-      status: "idle",
-      current_mode: "build",
-      pending_interaction_valid: false,
-      pending_interaction: null,
-    },
-  });
+  pendingResponse.resolve(bootstrap("sess-1"));
   const response = await first;
 
-  assert.equal(response.status, "resolved");
+  assert.equal(response.thread.id, "sess-1");
   assert.deepEqual(respondingIds, []);
   assert.deepEqual(calls[0], {
     sessionId: "sess-1",
@@ -62,42 +65,12 @@ export async function runInteractionResponseControllerTests() {
     response: { answers: { answer: "yes" } },
   });
   assert.equal(dispatches[0].type, "interaction_notice_clear");
-  assert.equal(dispatches[1].type, "session_snapshot");
-  assert.equal(dispatches[1].snapshot.normalized, true);
-  assert.deepEqual(dispatches[2], {
+  assert.deepEqual(installed, [["sess-1", "interaction_response"]]);
+  assert.deepEqual(dispatches[1], {
     type: "log_event",
     label: "interaction_response",
     detail: "yes",
   });
-
-  respondingIds = [];
-  let acceptedReloads = 0;
-  const acceptedDispatches = [];
-  const acceptedController = createInteractionResponseController({
-    protocol: {
-      respondToInteraction: async () => ({
-        session_id: "sess-1",
-        interaction_id: "ask-accepted",
-        status: "accepted",
-        snapshot: null,
-      }),
-    },
-    dispatch: (action) => acceptedDispatches.push(action),
-    getCurrentSessionId: () => "sess-1",
-    getCurrentInteraction: () => ({ interactionId: "ask-accepted", kind: "user_input" }),
-    getRespondingRequestIds: () => respondingIds,
-    setRespondingRequestIds: (value) => {
-      respondingIds = typeof value === "function" ? value(respondingIds) : value;
-    },
-    loadSession: async () => {
-      acceptedReloads += 1;
-    },
-  });
-  const accepted = await acceptedController.respondToInteraction({ answers: { answer: "yes" } });
-  assert.equal(accepted.status, "accepted");
-  assert.equal(acceptedReloads, 0);
-  assert.equal(acceptedDispatches.some((action) => action.type === "session_snapshot"), false);
-  assert.deepEqual(respondingIds, ["ask-accepted"]);
 
   let loadedSession = "";
   respondingIds = [];
@@ -111,7 +84,6 @@ export async function runInteractionResponseControllerTests() {
       },
     },
     dispatch: (action) => dispatches.push(action),
-    normalizeSessionPayload: (payload) => payload,
     getCurrentSessionId: () => "sess-1",
     getCurrentInteraction: () => ({ interaction_id: "ask-2", kind: "user_input" }),
     getRespondingRequestIds: () => respondingIds,

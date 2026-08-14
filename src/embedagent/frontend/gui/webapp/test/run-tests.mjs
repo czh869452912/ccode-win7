@@ -7,6 +7,7 @@ import { runAppCompositionTests } from "./app-composition.test.mjs";
 import { runAppShellModelTests } from "./app-shell-model.test.mjs";
 import { runAppWorkspaceTests } from "./app-workspaces.test.mjs";
 import { runBrowserDialogServiceTests } from "./browser-dialog-service.test.mjs";
+import { runBrowserAppRuntimeBoundaryTests } from "./browser-app-runtime-boundary.test.mjs";
 import { runClientRuntimeTests } from "./client-runtime.test.mjs";
 import { runCommandCapabilitiesTests } from "./command-capabilities.test.mjs";
 import { runCommandPaletteModelTests } from "./command-palette-model.test.mjs";
@@ -36,7 +37,6 @@ import { runPreviewSurfaceSourceTests } from "./preview-surface-source.test.mjs"
 import { runProtocolNormalizerTests } from "./protocol-normalizer.test.mjs";
 import { runRespondingRequestIdsHandleTests } from "./responding-request-ids-handle.test.mjs";
 import { runRunOutputStateTests } from "./run-output-state.test.mjs";
-import { runSessionActivationControllerTests } from "./session-activation-controller.test.mjs";
 import { runSessionCapabilityModelTests } from "./session-capability-model.test.mjs";
 import { runSessionClientRuntimeContractTests } from "./session-client-runtime-contract.test.mjs";
 import { runSessionControllerTests } from "./session-controller.test.mjs";
@@ -44,7 +44,6 @@ import { runSessionListControllerTests } from "./session-list-controller.test.mj
 import { runSessionLoadersTests } from "./session-loaders.test.mjs";
 import { runSessionRuntimeTests } from "./session-runtime.test.mjs";
 import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
-import { runSessionTransportHandleTests } from "./session-transport-handle.test.mjs";
 import { runShellSelectorTests } from "./shell-selectors.test.mjs";
 import { runSocketEffectExecutorTests } from "./socket-effect-executor.test.mjs";
 import { runSocketMessageControllerTests } from "./socket-message-controller.test.mjs";
@@ -74,7 +73,7 @@ async function main() {
   const synchronous = [
     runAgentShellSourceTests, runAppCapabilityModelTests, runAppCompositionTests,
     runAppShellModelTests, runAppWorkspaceTests, runActivityStateTests,
-    runActivityTimelineTests, runBrowserDialogServiceTests, runCommandCapabilitiesTests,
+    runActivityTimelineTests, runBrowserAppRuntimeBoundaryTests, runBrowserDialogServiceTests,
     runCommandPaletteModelTests, runCommandPaletteSourceTests, runComposerCommandSearchTests,
     runComposerComponentsSourceTests, runComposerIntegrationSourceTests,
     runComposerInteractionModelTests, runComposerPathContextTests, runComposerStateTests,
@@ -95,10 +94,10 @@ async function main() {
   const asynchronous = [
     runActiveWorkspaceDataLoaderTests, runClientRuntimeTests, runFilePreviewControllerTests,
     runHttpTransportTests, runInitialAppLoadControllerTests, runInteractionResponseControllerTests,
-    runPreviewControllerTests, runSessionActivationControllerTests, runSessionClientRuntimeContractTests,
+    runPreviewControllerTests, runSessionClientRuntimeContractTests,
     runSessionControllerTests,
     runSessionListControllerTests, runSessionLoadersTests, runSessionTransportControllerTests,
-    runSessionTransportHandleTests, runSocketEffectExecutorTests, runSourceControlControllerTests,
+    runSocketEffectExecutorTests, runSourceControlControllerTests,
     runTerminalControllerTests, runThreadLifecycleControllerTests, runVisualDebugRunnerTests,
     runWorkbenchCommandControllerTests, runWorkspaceControllerTests, runWorkspaceFilesControllerTests,
   ];

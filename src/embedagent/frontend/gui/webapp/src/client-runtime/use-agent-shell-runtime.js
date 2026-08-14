@@ -9,7 +9,7 @@ import { buildSessionActivityRuntime } from "../session-runtime/activity-state.j
 import { buildComposerCommandsFromCapabilities } from "../session-runtime/command-capabilities.js";
 import { createSessionTransportState } from "../session-runtime/session-transport-state.js";
 import { readActiveThreadId, readThreadHistoryIntegrity } from "../session-runtime/thread-state.js";
-import { createClientRuntime } from "./client-runtime.js";
+import { createBrowserAppRuntime } from "../app-runtime/browser-app-runtime.js";
 import { INITIAL_REQUESTED_MODE, initialState, runtimeReducer } from "./runtime-reducer.js";
 import { selectAgentShellView } from "./shell-selectors.js";
 
@@ -50,8 +50,8 @@ export function useAgentShellRuntime(protocol) {
   );
   runtimeStateRef.current = activityRuntime;
 
-  const clientRuntime = useMemo(
-    () => createClientRuntime({
+  const browserAppRuntime = useMemo(
+    () => createBrowserAppRuntime({
       protocol,
       dispatch,
       getState: () => stateRef.current,
@@ -70,12 +70,12 @@ export function useAgentShellRuntime(protocol) {
     }),
     [protocol],
   );
-  const clientActions = clientRuntime.actions;
+  const clientActions = browserAppRuntime.actions;
 
   useEffect(() => {
-    void clientRuntime.start();
-    return () => clientRuntime.close();
-  }, [clientRuntime]);
+    void browserAppRuntime.start();
+    return () => browserAppRuntime.close();
+  }, [browserAppRuntime]);
 
   useEffect(() => {
     void clientActions.dispatchAction(

@@ -722,13 +722,13 @@ offline packaging, six-wheel distribution checks.
 - Modify: `src/embedagent/frontend/gui/webapp/test/client-runtime-reducers.test.mjs`
 - Modify: `src/embedagent/frontend/gui/webapp/test/session-runtime.test.mjs`
 
-- [ ] **Step 1: Add responsibility-boundary tests.**
+- [x] **Step 1: Add responsibility-boundary tests.**
 
   Assert `SessionClientRuntime` has no DOM/window/workspace/terminal/preview/source-control
   references. Assert `BrowserAppRuntime` composes it and owns the existing browser-only
   controllers. Update integration tests to instantiate `BrowserAppRuntime`.
 
-- [ ] **Step 2: Run `npm test` and confirm the old monolith violates the boundary.**
+- [x] **Step 2: Run `npm test` and confirm the old monolith violates the boundary.**
 
   ```powershell
   Push-Location src/embedagent/frontend/gui/webapp
@@ -736,14 +736,14 @@ offline packaging, six-wheel distribution checks.
   Pop-Location
   ```
 
-- [ ] **Step 3: Move browser orchestration and narrow the old module.**
+- [x] **Step 3: Move browser orchestration and narrow the old module.**
 
   `browser-app-runtime.js` owns controller construction and lifecycle. Delete the old
   `ClientRuntime` export after all imports move; do not retain it as an alias. The React hook
   creates `BrowserAppRuntime`, while session activation/events flow through the common
   runtime.
 
-- [ ] **Step 4: Run tests and build generated static assets.**
+- [x] **Step 4: Run tests and build generated static assets.**
 
   ```powershell
   Push-Location src/embedagent/frontend/gui/webapp
@@ -752,7 +752,7 @@ offline packaging, six-wheel distribution checks.
   Pop-Location
   ```
 
-- [ ] **Step 5: Commit source and generated static assets.**
+- [x] **Step 5: Commit source and generated static assets.**
 
   ```powershell
   git add src/embedagent/frontend/gui/webapp src/embedagent/frontend/gui/static

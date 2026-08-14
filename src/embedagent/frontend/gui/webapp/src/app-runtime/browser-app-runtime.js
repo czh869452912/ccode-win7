@@ -1,44 +1,44 @@
-import { normalizeSessionPayload } from "../state-helpers.js";
+import { SessionClientRuntime } from "../session-runtime/session-client-runtime.js";
 import { createSessionTransportState } from "../session-runtime/session-transport-state.js";
 import { buildSessionCapabilityModelFromState } from "../session-runtime/session-capability-model.js";
 import { readComposerDraft } from "../composer/composer-state.js";
 import { readActiveThreadId, readThreadSessions } from "../session-runtime/thread-state.js";
 import { buildAppCapabilityModelFromState } from "../app-runtime/app-capability-model.js";
-import { createActiveWorkspaceDataLoader } from "../app-runtime/active-workspace-data-loader.js";
-import { createBrowserDialogService } from "../app-runtime/browser-dialog-service.js";
-import { createComposerController } from "../app-runtime/composer-controller.js";
-import { createContributionController } from "../app-runtime/contribution-controller.js";
-import { createDiffSurfaceController } from "../app-runtime/diff-surface-controller.js";
-import { createFilePreviewController } from "../app-runtime/file-preview-controller.js";
-import { createInitialAppLoadController } from "../app-runtime/initial-app-load-controller.js";
-import { createInteractionResponseController } from "../app-runtime/interaction-response-controller.js";
+import { createActiveWorkspaceDataLoader } from "./active-workspace-data-loader.js";
+import { createBrowserDialogService } from "./browser-dialog-service.js";
+import { createComposerController } from "./composer-controller.js";
+import { createContributionController } from "./contribution-controller.js";
+import { createDiffSurfaceController } from "./diff-surface-controller.js";
+import { createFilePreviewController } from "./file-preview-controller.js";
+import { createInitialAppLoadController } from "./initial-app-load-controller.js";
+import { createInteractionResponseController } from "./interaction-response-controller.js";
 import {
   createLoaderRequestExecutor,
   createSessionCommandCapabilityLoader,
-} from "../app-runtime/session-loaders.js";
-import { createPreviewController } from "../app-runtime/preview-controller.js";
-import { createRespondingRequestIdsHandle } from "../app-runtime/responding-request-ids-handle.js";
-import { createSessionActivationController } from "../app-runtime/session-activation-controller.js";
-import { createSessionController } from "../app-runtime/session-controller.js";
-import { createSessionListController } from "../app-runtime/session-list-controller.js";
-import { createSessionTransportController } from "../app-runtime/session-transport-controller.js";
-import { createSessionTransportHandle } from "../app-runtime/session-transport-handle.js";
-import { createSocketMessageController } from "../app-runtime/socket-message-controller.js";
-import { createSourceControlController } from "../app-runtime/source-control-controller.js";
-import { createTerminalController } from "../app-runtime/terminal-controller.js";
-import { createThreadLifecycleController } from "../app-runtime/thread-lifecycle-controller.js";
-import { createTimelineScrollController } from "../app-runtime/timeline-scroll-controller.js";
-import { createVisualDebugController } from "../app-runtime/visual-debug-controller.js";
-import { createWorkbenchCommandController } from "../app-runtime/workbench-command-controller.js";
-import { createWorkbenchKeyboardController } from "../app-runtime/workbench-keyboard-controller.js";
-import { createWorkspaceController } from "../app-runtime/workspace-controller.js";
-import { createWorkspaceFilesController } from "../app-runtime/workspace-files-controller.js";
+  deriveSessionActivation,
+} from "./session-loaders.js";
+import { createPreviewController } from "./preview-controller.js";
+import { createRespondingRequestIdsHandle } from "./responding-request-ids-handle.js";
+import { createSessionController } from "./session-controller.js";
+import { createSessionListController } from "./session-list-controller.js";
+import { createSessionTransportController } from "./session-transport-controller.js";
+import { createSocketMessageController } from "./socket-message-controller.js";
+import { createSourceControlController } from "./source-control-controller.js";
+import { createTerminalController } from "./terminal-controller.js";
+import { createThreadLifecycleController } from "./thread-lifecycle-controller.js";
+import { createTimelineScrollController } from "./timeline-scroll-controller.js";
+import { createVisualDebugController } from "./visual-debug-controller.js";
+import { createWorkbenchCommandController } from "./workbench-command-controller.js";
+import { createWorkbenchKeyboardController } from "./workbench-keyboard-controller.js";
+import { createWorkspaceController } from "./workspace-controller.js";
+import { createWorkspaceFilesController } from "./workspace-files-controller.js";
+import { terminalCapabilityEnabled } from "../terminal/terminal-capability.js";
 import {
   buildCommandVisibilityContext,
   isTurnInterruptibleStatus,
 } from "../workbench/commands.js";
 
-const CLOSED_ERROR = "client_runtime_closed";
+const CLOSED_ERROR = "browser_app_runtime_closed";
 
 function noop() {}
 
@@ -85,7 +85,7 @@ function actionKey(request) {
   return kind && action ? `${kind}.${action}` : "";
 }
 
-export function createClientRuntime({
+export function createBrowserAppRuntime({
   protocol,
   dispatch,
   getState,
@@ -108,6 +108,7 @@ export function createClientRuntime({
   let keyboardCleanup = null;
   let visualDebugCleanup = null;
   let sessionTransportController = null;
+  let socketMessageController = null;
 
   function send(action) {
     if (!closed) dispatchAction(action);
@@ -126,10 +127,86 @@ export function createClientRuntime({
     return id;
   }
 
-  const sessionTransportHandle = createSessionTransportHandle({
-    initialTransport: createSessionTransportState(),
-    setTransport: onSessionTransportChange,
+  let sessionTransportState = createSessionTransportState();
+  const writeSessionTransport =
+    typeof onSessionTransportChange === "function" ? onSessionTransportChange : noop;
+
+  function readSessionTransport() {
+    return sessionTransportState;
+  }
+
+  function updateSessionTransport(update) {
+    sessionTransportState = typeof update === "function"
+      ? update(sessionTransportState)
+      : sessionTransportState;
+    writeSessionTransport(sessionTransportState);
+    return sessionTransportState;
+  }
+
+  function projectSessionRuntime(action) {
+    updateSessionTransport((current) => ({
+      ...current,
+      sessionId: sessionRuntime.sessionId,
+      generation: sessionRuntime.generation,
+      phase: sessionRuntime.lifecycle,
+      lastAppliedSeq: sessionRuntime.cursor,
+      reloadState: action.kind === "protocol_failed" ? "degraded" : "healthy",
+    }));
+    if (action.kind === "session_activated") {
+      const activation = deriveSessionActivation(action.bootstrap, action.session_id, {
+        defaultMode,
+      });
+      send({
+        type: "session_activated",
+        sessionId: activation.sessionId,
+        snapshot: activation.snapshot,
+        activities: activation.activities,
+        historyIntegrity: activation.historyIntegrity,
+        capabilities: activation.capabilities,
+      });
+      send({ type: "plan_loaded", plan: activation.plan });
+      if (
+        typeof protocol?.listTerminals === "function" &&
+        terminalCapabilityEnabled(readAppModel().appCapabilities)
+      ) {
+        const generation = action.generation;
+        void Promise.resolve(protocol.listTerminals(action.session_id))
+          .then((payload) => {
+            if (!closed && sessionRuntime.generation === generation) {
+              send({ type: "terminal_summaries_loaded", terminals: payload?.terminals || [] });
+            }
+          })
+          .catch(() => {
+            if (!closed && sessionRuntime.generation === generation) {
+              send({ type: "terminal_summaries_loaded", terminals: [] });
+            }
+          });
+      }
+      return;
+    }
+    if (action.kind === "session_event") {
+      socketMessageController?.handleAcceptedSessionEvent(action.event);
+      return;
+    }
+    if (action.kind === "protocol_failed") {
+      send({
+        type: "interaction_notice_set",
+        notice: {
+          kind: "protocol_error",
+          detail: action.failure?.message || action.failure?.code || "session_protocol_failed",
+        },
+      });
+    }
+  }
+
+  const sessionRuntime = new SessionClientRuntime({
+    transport: protocol,
+    dispatch: projectSessionRuntime,
   });
+  const loadSession = (sessionId, options = {}) =>
+    sessionRuntime.activateSession(sessionId, options);
+  const installSessionBootstrap = (bootstrap, reason) =>
+    sessionRuntime.installSessionBootstrap(bootstrap, reason);
   const respondingRequestIdsHandle = createRespondingRequestIdsHandle({
     initialRequestIds: [],
     setRequestIds: onRespondingRequestIdsChange,
@@ -188,7 +265,6 @@ export function createClientRuntime({
     getRuntimeState: readActivityRuntime,
     getDiffPanelChrome: () => readAppModel().diffPanelChrome,
   });
-  let loadSession = () => Promise.resolve({ stale: true });
   const activeWorkspaceDataLoader = createActiveWorkspaceDataLoader({
     getAppCapabilities: () => readAppModel().appCapabilities,
     loadSessions: sessionListController.loadSessions,
@@ -206,13 +282,12 @@ export function createClientRuntime({
   const sessionController = createSessionController({
     protocol,
     dispatch: send,
-    normalizeSessionPayload,
     getCurrentSessionId: () => readActiveThreadId(readState()),
     getCurrentMode: () => readState().snapshot?.current_mode || readState().requestedMode,
     hasActiveWorkspace: () => Boolean(readState().app?.hasActiveWorkspace),
     markTimelineBottom: timelineScrollController.markFollowingBottom,
     loadSessions: sessionListController.loadSessions,
-    loadSession: (...args) => loadSession(...args),
+    installSessionBootstrap,
   });
   const dialogService = createBrowserDialogService({
     windowObject: browserRuntime.windowObject,
@@ -221,7 +296,7 @@ export function createClientRuntime({
     protocol,
     dispatch: send,
     loadSessions: sessionListController.loadSessions,
-    loadSession: (...args) => loadSession(...args),
+    loadSession,
     getThreadSessions: () => readThreadSessions(readState()),
     getThreadLifecycleCapabilities: () => readAppModel().threadLifecycleCapabilities,
     prompt: dialogService.prompt,
@@ -243,7 +318,7 @@ export function createClientRuntime({
     getSessionCapabilities: () => readSessionModel().sessionCapabilities,
     getAppCapabilities: () => readAppModel().appCapabilities,
     createSession: sessionController.createSession,
-    loadSession: (...args) => loadSession(...args),
+    loadSession,
     activateWorkspace: workspaceController.activateWorkspace,
     cancelSession: sessionController.cancelSession,
     renameSession: (sessionId, command) => threadLifecycleController.renameThread(
@@ -267,48 +342,47 @@ export function createClientRuntime({
     loadAppBootstrap: workspaceController.loadAppBootstrap,
     loadActiveWorkspaceData: workspaceController.loadActiveWorkspaceData,
     loadSessions: sessionListController.loadSessions,
-    loadSession: (...args) => loadSession(...args),
+    loadSession,
     loadFileChildren: workspaceFilesController.loadFileChildren,
     loadSourceControl: sourceControlController.refreshStatus,
     loadSessionCommandCapabilities,
   });
-  const socketMessageController = createSocketMessageController({
+  socketMessageController = createSocketMessageController({
     dispatch: send,
     executeLoaderRequest,
-    getSessionTransportController: () => sessionTransportController,
-    getSessionTransportState: sessionTransportHandle.read,
-    getCurrentSessionId: () => readActiveThreadId(readState()),
     clearRespondingRequestId: respondingRequestIdsHandle.clear,
     getDiffPanelChrome: () => readAppModel().diffPanelChrome,
     scheduleMessage: browserRuntime.scheduleMessage,
   });
-  loadSession = createSessionActivationController({
-    protocol,
-    dispatch: send,
-    defaultMode,
-    getTransportState: sessionTransportHandle.read,
-    updateTransportState: sessionTransportHandle.update,
-    dispatchAcceptedSessionEvent: socketMessageController.handleAcceptedSessionEvent,
-    getAppCapabilities: () => readAppModel().appCapabilities,
-  });
   sessionTransportController = createSessionTransportController({
     protocol,
     getCurrentSessionId: () => readActiveThreadId(readState()),
-    getTransportState: sessionTransportHandle.read,
-    updateTransportState: sessionTransportHandle.update,
+    getTransportState: readSessionTransport,
+    updateTransportState: updateSessionTransport,
     loadSession,
-    handleMessage: socketMessageController.handleMessage,
+    handleMessage(message) {
+      if (message?.type === "session_event") {
+        void sessionRuntime.acceptSessionEvent(message.data).catch((error) => {
+          send({
+            type: "interaction_notice_set",
+            notice: { kind: "protocol_error", detail: error?.message || String(error) },
+          });
+        });
+        return;
+      }
+      socketMessageController.handleMessage(message);
+    },
     timer: browserRuntime.timer,
   });
   const interactionResponseController = createInteractionResponseController({
     protocol,
     dispatch: send,
-    normalizeSessionPayload,
     getCurrentSessionId: () => readActiveThreadId(readState()),
     getCurrentInteraction: () => readActivityRuntime().currentInteraction || null,
     getRespondingRequestIds: respondingRequestIdsHandle.read,
     setRespondingRequestIds: respondingRequestIdsHandle.set,
     loadSession,
+    installSessionBootstrap,
   });
   const keyboardController = createWorkbenchKeyboardController({
     windowObject: browserRuntime.windowObject,
@@ -464,6 +538,7 @@ export function createClientRuntime({
     if (closed) return;
     closed = true;
     sessionTransportController.close();
+    sessionRuntime.close();
     if (typeof keyboardCleanup === "function") keyboardCleanup();
     if (typeof visualDebugCleanup === "function") visualDebugCleanup();
     keyboardCleanup = null;

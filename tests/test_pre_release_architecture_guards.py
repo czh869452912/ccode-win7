@@ -53,8 +53,8 @@ def _read(path):
     return path.read_text(encoding="utf-8")
 
 
-def _client_runtime_text():
-    return _read(ROOT / "src/embedagent/frontend/gui/webapp/src/client-runtime/client-runtime.js")
+def _browser_app_runtime_text():
+    return _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/browser-app-runtime.js")
 
 
 def _relative(path):
@@ -1019,8 +1019,8 @@ def test_gui_session_list_loading_is_controller_owned():
     )
 
     assert "createSessionListController" not in app_text
-    assert "createSessionListController" in _client_runtime_text()
-    assert "sessionListController.loadSessions" in _client_runtime_text()
+    assert "createSessionListController" in _browser_app_runtime_text()
+    assert "sessionListController.loadSessions" in _browser_app_runtime_text()
     assert "async function loadSessions" not in app_text
     assert 'fetchJson("/api/sessions")' not in app_text
     assert 'type: "sessions_loaded"' not in app_text
@@ -1030,26 +1030,27 @@ def test_gui_session_list_loading_is_controller_owned():
     assert 'type: "sessions_loaded"' in controller_text
 
 
-def test_gui_session_activation_bootstrap_is_controller_handle_owned():
+def test_gui_session_activation_bootstrap_is_session_runtime_owned():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    controller_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-activation-controller.js"
+    browser_text = _browser_app_runtime_text()
+    runtime_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/session-client-runtime.js"
     )
 
-    assert "createSessionActivationController" not in app_text
-    assert "createSessionActivationController" in _client_runtime_text()
-    assert "loadSession = createSessionActivationController" in _client_runtime_text()
+    assert "SessionClientRuntime" not in app_text
+    assert "new SessionClientRuntime" in browser_text
+    assert "sessionRuntime.activateSession" in browser_text
     assert "async function loadSession" not in app_text
     assert "deriveSessionActivation" not in app_text
-    assert "export function createSessionActivationController" in controller_text
-    assert 'type: "session_activated"' in controller_text
-    assert 'type: "terminal_summaries_loaded"' in controller_text
-    assert "beginSessionTransportBootstrap" in controller_text
-    assert "installSessionTransportBootstrap" in controller_text
-    assert "dispatchAcceptedSessionEvent" in controller_text
-    assert "activeRequest" in controller_text
-    assert "getTransportState: sessionTransportHandle.read" in _client_runtime_text()
-    assert "updateTransportState: sessionTransportHandle.update" in _client_runtime_text()
+    assert "deriveSessionActivation" in browser_text
+    assert 'type: "session_activated"' in browser_text
+    assert 'type: "terminal_summaries_loaded"' in browser_text
+    assert "async activateSession" in runtime_text
+    assert "async installSessionBootstrap" in runtime_text
+    assert "recoveryAttempted" in runtime_text
+    assert not (
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-activation-controller.js"
+    ).exists()
 
 
 def test_gui_transports_and_protocol_are_composed_outside_app():
@@ -1127,12 +1128,12 @@ def test_gui_initial_app_load_is_controller_owned():
     )
 
     assert "createInitialAppLoadController" not in app_text
-    assert "createInitialAppLoadController" in _client_runtime_text()
+    assert "createInitialAppLoadController" in _browser_app_runtime_text()
     assert "loadAppBootstrap();" not in app_text
     assert "loadSessionCommandCapabilities({ fetchJson, dispatch }).catch" not in app_text
     assert "createSessionCommandCapabilityLoader" not in app_text
-    assert "createSessionCommandCapabilityLoader" in _client_runtime_text()
-    assert "loadSessionCommandCapabilities" in _client_runtime_text()
+    assert "createSessionCommandCapabilityLoader" in _browser_app_runtime_text()
+    assert "loadSessionCommandCapabilities" in _browser_app_runtime_text()
     assert "loadSessionCommandCapabilities({ fetchJson, dispatch })" not in app_text
     assert "export function createInitialAppLoadController" in controller_text
     assert "bootstrapResult" in controller_text
@@ -1150,7 +1151,7 @@ def test_gui_socket_effect_execution_is_controller_owned():
     )
 
     assert "createSocketMessageController" not in app_text
-    assert "createSocketMessageController" in _client_runtime_text()
+    assert "createSocketMessageController" in _browser_app_runtime_text()
     assert "createSocketEffectExecutor" not in app_text
     assert "const executeSocketEffects = createSocketEffectExecutor" not in app_text
     assert "function handleSocketMessage" not in app_text
@@ -1159,14 +1160,11 @@ def test_gui_socket_effect_execution_is_controller_owned():
     assert "transportEvents.length" not in app_text
     assert 'nextTransport.reloadState === "reload_required"' not in app_text
     assert "for (const action of effects.actions" not in app_text
-    assert "handleMessage: socketMessageController.handleMessage" in _client_runtime_text()
+    assert "sessionRuntime.acceptSessionEvent" in _browser_app_runtime_text()
     assert "startTransition(() => socketMessageController.handleMessage" not in app_text
     assert "handleMessage: (message) =>" not in app_text
-    assert "scheduleMessage: browserRuntime.scheduleMessage" in _client_runtime_text()
-    assert (
-        "dispatchAcceptedSessionEvent: socketMessageController.handleAcceptedSessionEvent"
-        in _client_runtime_text()
-    )
+    assert "scheduleMessage: browserRuntime.scheduleMessage" in _browser_app_runtime_text()
+    assert "socketMessageController?.handleAcceptedSessionEvent" in _browser_app_runtime_text()
     assert "export function createSocketMessageController" in controller_text
     assert "deriveSocketMessageEffects" in controller_text
     assert "createSocketEffectExecutor" in controller_text
@@ -1176,35 +1174,34 @@ def test_gui_socket_effect_execution_is_controller_owned():
     assert "export function createSocketEffectExecutor" in executor_text
     assert "applySessionTransportEvent" not in executor_text
     assert 'typeof loadSession === "function"' not in executor_text
-    assert "recover(currentSessionId)" in executor_text
+    assert "transportEvents" not in executor_text
     assert "executeLoaderRequest" in executor_text
 
 
-def test_gui_session_transport_state_bridge_is_handle_owned():
+def test_gui_session_transport_projection_is_browser_runtime_owned():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
-    handle_text = _read(
+    browser_text = _browser_app_runtime_text()
+    handle_path = (
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-transport-handle.js"
     )
 
     assert "createSessionTransportHandle" not in app_text
-    assert "createSessionTransportHandle" in _client_runtime_text()
+    assert "createSessionTransportHandle" not in browser_text
     assert "sessionTransportRef" not in app_text
     assert "function replaceSessionTransport" not in app_text
     assert "function updateSessionTransport" not in app_text
     assert "function createRuntimeSessionTransport" not in app_text
-    assert "export function createSessionTransportHandle" in handle_text
-    assert "createRuntimeTransport" in handle_text
-    assert "function replace" in handle_text
-    assert "function update" in handle_text
-    assert "function sync" in handle_text
-    assert "createSessionTransportState" in handle_text
+    assert "function updateSessionTransport" in browser_text
+    assert "projectSessionRuntime" in browser_text
+    assert "createSessionTransportState" in browser_text
+    assert not handle_path.exists()
 
 
 def test_gui_session_transport_has_single_cursor_and_recovery_owner():
     adapter_text = _read(ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py")
     payload_text = _read(ROOT / "src/embedagent/frontend/gui/backend/protocol_payloads.py")
-    activation_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-activation-controller.js"
+    runtime_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/session-client-runtime.js"
     )
     transport_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-transport-controller.js"
@@ -1215,14 +1212,16 @@ def test_gui_session_transport_has_single_cursor_and_recovery_owner():
 
     assert "self._event_emitter.capture(" in adapter_text
     assert "event_cursor=event_cursor" in payload_text
-    assert "installSessionTransportBootstrap" in activation_text
-    assert "dispatchAcceptedSessionEvent" in activation_text
+    assert "this.cursor" in runtime_text
+    assert "this.generation" in runtime_text
+    assert "this.recoveryAttempted" in runtime_text
     assert "lastAppliedSeq: Number(state?.lastAppliedSeq" not in transport_text
     assert "clearTimeout" in transport_text
     assert "token += 1" in transport_text
-    assert "loadSessionBootstrap.abort" in transport_text
+    assert "applyEvent" not in transport_text
+    assert "function recover" not in transport_text
     assert 'typeof loadSession === "function"' not in executor_text
-    assert "recover(currentSessionId)" in executor_text
+    assert "transportEvents" not in executor_text
 
 
 def test_gui_responding_request_ids_bridge_is_handle_owned():
@@ -1232,7 +1231,7 @@ def test_gui_responding_request_ids_bridge_is_handle_owned():
     )
 
     assert "createRespondingRequestIdsHandle" not in app_text
-    assert "createRespondingRequestIdsHandle" in _client_runtime_text()
+    assert "createRespondingRequestIdsHandle" in _browser_app_runtime_text()
     assert "respondingRequestIdsRef" not in app_text
     assert "function setRespondingRequestIds" not in app_text
     assert "setRespondingRequestIdsState(normalized)" not in app_text
@@ -1533,7 +1532,7 @@ def test_gui_visual_debug_installation_is_controller_owned():
     )
 
     assert "createVisualDebugController" not in app_text
-    assert "createVisualDebugController" in _client_runtime_text()
+    assert "createVisualDebugController" in _browser_app_runtime_text()
     assert "installVisualDebugFixtures" not in app_text
     assert "__EMBEDAGENT_VISUAL_DEBUG__" not in app_text
     assert "window.location.search" not in app_text
@@ -1553,8 +1552,8 @@ def test_gui_has_no_retired_inspector_sidecar_state():
     loaders_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-loaders.js"
     )
-    activation_text = _read(
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-activation-controller.js"
+    session_runtime_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/session-client-runtime.js"
     )
     socket_effects_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"
@@ -1579,7 +1578,7 @@ def test_gui_has_no_retired_inspector_sidecar_state():
         assert token not in app_text
         assert token not in store_text
         assert token not in loaders_text
-        assert token not in activation_text
+        assert token not in session_runtime_text
         assert token not in socket_effects_text
         assert token not in interaction_text
 
@@ -1726,7 +1725,7 @@ def test_gui_session_activity_source_state_uses_activity_vocabulary():
         "src/embedagent/frontend/gui/webapp/src/app-runtime/session-loaders.js": (
             "timeline: normalizeHistoryActivities",
         ),
-        "src/embedagent/frontend/gui/webapp/src/app-runtime/session-activation-controller.js": (
+        "src/embedagent/frontend/gui/webapp/src/app-runtime/browser-app-runtime.js": (
             "activation.timeline",
             "timeline: activation.",
         ),
@@ -1809,15 +1808,15 @@ def test_gui_active_workspace_data_loading_is_controller_owned():
     )
 
     assert "createActiveWorkspaceDataLoader" not in app_text
-    assert "createActiveWorkspaceDataLoader" in _client_runtime_text()
+    assert "createActiveWorkspaceDataLoader" in _browser_app_runtime_text()
     assert (
         "loadWorkspaceData: activeWorkspaceDataLoader.loadActiveWorkspaceData"
-        in _client_runtime_text()
+        in _browser_app_runtime_text()
     )
     assert "Promise.all([" not in app_text
     assert 'loadFileChildren(".", { appCapabilities' not in app_text
     assert "sourceControlController.loadStatus(false, assumeWorkspace" not in app_text
-    assert "loadStatus: sourceControlController.loadStatus" in _client_runtime_text()
+    assert "loadStatus: sourceControlController.loadStatus" in _browser_app_runtime_text()
     assert "loadStatus: (refresh, assumeWorkspace, appCapabilities)" not in app_text
     assert (
         "sourceControlController.loadStatus(refresh, assumeWorkspace, appCapabilities)"

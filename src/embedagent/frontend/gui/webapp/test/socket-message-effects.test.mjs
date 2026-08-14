@@ -6,10 +6,7 @@ import {
   createActivityState,
   reduceActivityState,
 } from "../src/session-runtime/activity-reducer.js";
-import {
-  applySessionTransportEvent,
-  createSessionTransportState,
-} from "../src/session-runtime/session-transport-state.js";
+import { createSessionTransportState } from "../src/session-runtime/session-transport-state.js";
 import { summarizeChangedFiles } from "../src/session-runtime/timeline/diff-activity.js";
 
 function envelope(eventKind, payload, sequence = 1) {
@@ -118,7 +115,6 @@ export function runSocketMessageEffectsTests() {
   });
   assert.deepEqual(noCommandLog.actions.map((action) => action.type), ["command_result"]);
 
-  let transport = createSessionTransportState();
   let activity = createActivityState();
   let pendingInteraction = null;
   const sequence = [
@@ -197,10 +193,7 @@ export function runSocketMessageEffectsTests() {
   ];
 
   for (const event of sequence) {
-    const application = applySessionTransportEvent(transport, event);
-    assert.equal(application.accepted, true);
-    transport = application.state;
-    const effects = derive("session_event", event, { sessionTransport: transport });
+    const effects = derive("session_event", event);
     for (const action of effects.actions) {
       activity = reduceActivityState(activity, action);
       if (action.type === "interaction_requested") pendingInteraction = action;
@@ -210,7 +203,6 @@ export function runSocketMessageEffectsTests() {
 
   const toolRow = activity.activities.find((item) => item.kind === "tool");
   const diffSummary = summarizeChangedFiles([toolRow]);
-  assert.equal(transport.lastAppliedSeq, 6);
   assert.equal(toolRow.status, "failed");
   assert.equal(toolRow.failure.code, "path_missing");
   assert.equal(pendingInteraction, null);
@@ -237,7 +229,6 @@ export function runSocketMessageEffectsTests() {
   ]) {
     assert.deepEqual(derive(legacyType, { value: true }), {
       actions: [],
-      transportEvents: [],
       loaderRequests: [],
     });
   }

@@ -13,6 +13,26 @@ const INTERACTION_FINISH_EVENTS = new Set([
 
 class ProtocolError extends Error {}
 
+const BOOTSTRAP_KEYS = new Set([
+  "schema_version",
+  "event_cursor",
+  "thread",
+  "snapshot",
+  "history",
+  "capabilities",
+  "plan",
+  "permission_context",
+]);
+const THREAD_KEYS = new Set([
+  "id",
+  "title",
+  "archived",
+  "current_mode",
+  "status",
+  "updated_at",
+  "pending_interaction",
+]);
+
 function record(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -44,6 +64,9 @@ function frozenCopy(value) {
 
 function validateBootstrap(value, sessionId) {
   if (!record(value)) throw new ProtocolError("invalid session bootstrap");
+  if (Object.keys(value).some((key) => !BOOTSTRAP_KEYS.has(key))) {
+    throw new ProtocolError("invalid session bootstrap field");
+  }
   if (value.schema_version !== 1) {
     throw new ProtocolError("unsupported session bootstrap schema");
   }
@@ -53,11 +76,28 @@ function validateBootstrap(value, sessionId) {
   if (!record(value.thread) || !record(value.snapshot)) {
     throw new ProtocolError("invalid session bootstrap projection");
   }
+  if (Object.keys(value.thread).some((key) => !THREAD_KEYS.has(key))) {
+    throw new ProtocolError("invalid session thread field");
+  }
+  if (
+    typeof value.thread.id !== "string" ||
+    typeof value.thread.title !== "string" ||
+    typeof value.thread.archived !== "boolean" ||
+    typeof value.thread.current_mode !== "string" ||
+    typeof value.thread.status !== "string" ||
+    typeof value.thread.updated_at !== "string" ||
+    typeof value.thread.pending_interaction !== "boolean"
+  ) {
+    throw new ProtocolError("invalid session thread");
+  }
   if (!record(value.history) || !Array.isArray(value.history.activities)) {
     throw new ProtocolError("invalid session bootstrap history");
   }
   if (!record(value.history.integrity) || !record(value.capabilities)) {
     throw new ProtocolError("invalid session bootstrap capabilities");
+  }
+  if (value.capabilities.schema_version !== 1) {
+    throw new ProtocolError("invalid session capabilities schema");
   }
   if (value.plan !== null && !record(value.plan)) {
     throw new ProtocolError("invalid session bootstrap plan");
@@ -135,6 +175,28 @@ export class SessionClientRuntime {
       ))
         ? validated
         : null;
+    } catch (error) {
+      this.#failGeneration(generation, sessionId, failureFor(error));
+      return null;
+    }
+  }
+
+  async installSessionBootstrap(value, reason = "activate") {
+    this.#assertOperable();
+    const sessionId = requiredSessionId(value?.thread?.id);
+    this.generation += 1;
+    const generation = this.generation;
+    this.sessionId = sessionId;
+    this.cursor = 0;
+    this.lifecycle = "activating";
+    this.activating = true;
+    this.recovering = false;
+    this.recoveryAttempted = false;
+    this.activationBuffer = [];
+    try {
+      const bootstrap = validateBootstrap(value, sessionId);
+      await this.#installBootstrap(generation, sessionId, bootstrap, reason);
+      return bootstrap;
     } catch (error) {
       this.#failGeneration(generation, sessionId, failureFor(error));
       return null;

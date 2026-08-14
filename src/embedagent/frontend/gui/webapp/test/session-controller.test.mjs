@@ -12,31 +12,37 @@ function requiredProtocol(overrides = {}) {
   };
 }
 
+function bootstrap(sessionId, mode = "build") {
+  return {
+    schema_version: 1,
+    event_cursor: 0,
+    thread: { id: sessionId },
+    snapshot: { session_id: sessionId, status: "idle", current_mode: mode },
+    history: { activities: [], integrity: {} },
+    capabilities: {},
+    plan: null,
+    permission_context: {},
+  };
+}
+
 export async function runSessionControllerTests() {
   const calls = [];
   const actions = [];
-  const loadedSessions = [];
+  const installed = [];
   const controller = createSessionController({
     protocol: requiredProtocol({
       createSession: async (mode) => {
         calls.push(["createSession", mode]);
-        return { session_id: "sess-new", status: "idle", current_mode: mode || "agent-default" };
+        return bootstrap("sess-new", mode || "agent-default");
       },
     }),
     dispatch: (action) => actions.push(action),
-    normalizeSessionPayload: (payload) => ({
-      session_id: payload.session_id,
-      status: payload.status || "idle",
-      current_mode: payload.current_mode || "explore",
-    }),
     getCurrentSessionId: () => "",
     getCurrentMode: () => "debug",
     hasActiveWorkspace: () => true,
     loadSessions: async () => calls.push(["loadSessions"]),
-    loadSession: async (sessionId) => {
-      loadedSessions.push(sessionId);
-      calls.push(["loadSession", sessionId]);
-    },
+    loadSession: async () => { throw new Error("create must install its returned bootstrap"); },
+    installSessionBootstrap: async (value, reason) => installed.push([value.thread.id, reason]),
   });
 
   assert.equal(await controller.createSession("debug"), "sess-new");
@@ -45,7 +51,7 @@ export async function runSessionControllerTests() {
     calls.filter((call) => call[0] === "createSession"),
     [["createSession", "debug"], ["createSession", ""]],
   );
-  assert.deepEqual(loadedSessions, ["sess-new", "sess-new"]);
+  assert.deepEqual(installed, [["sess-new", "create"], ["sess-new", "create"]]);
   assert.equal(actions.some((action) => action.type === "session_activated"), false);
 
   const cancelActions = [];
@@ -53,37 +59,25 @@ export async function runSessionControllerTests() {
     protocol: requiredProtocol({
       cancelSession: async (sessionId) => {
         calls.push(["cancelSession", sessionId]);
-        return {
-          session_id: "sess-cancel",
-          status: "idle",
-          current_mode: "build",
-          pending_interaction: null,
-          pending_interaction_valid: false,
-        };
+        return bootstrap("sess-cancel");
       },
     }),
     dispatch: (action) => cancelActions.push(action),
-    normalizeSessionPayload: (payload) => ({
-      session_id: payload.session_id,
-      status: payload.status || "idle",
-      current_mode: payload.current_mode || "explore",
-      pending_interaction: payload.pending_interaction || null,
-      pending_interaction_valid: Boolean(payload.pending_interaction_valid),
-    }),
     getCurrentSessionId: () => "sess-cancel",
     getCurrentMode: () => "build",
     hasActiveWorkspace: () => true,
     loadSessions: async () => {},
     loadSession: async () => {},
+    installSessionBootstrap: async (value, reason) => installed.push([value.thread.id, reason]),
   });
 
   await cancelController.cancelSession();
   assert.deepEqual(cancelActions[0], { type: "stream_completed" });
-  assert.equal(cancelActions[1].type, "session_snapshot");
-  assert.equal(cancelActions[1].snapshot.session_id, "sess-cancel");
+  assert.equal(cancelActions.length, 1);
+  assert.deepEqual(installed.at(-1), ["sess-cancel", "cancel"]);
 
   assert.throws(
-    () => createSessionController({ protocol: {}, normalizeSessionPayload() {} }),
+    () => createSessionController({ protocol: {}, installSessionBootstrap() {} }),
     /protocol_method_missing:createSession/,
   );
 }

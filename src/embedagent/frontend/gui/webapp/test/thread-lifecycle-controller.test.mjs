@@ -53,7 +53,7 @@ function createHarness({ promptValues = [], confirmValues = [], actions = defaul
     },
     forkSession: async (sessionId, title) => {
       calls.protocol.push({ name: "forkSession", args: [sessionId, title] });
-      return { session_id: "sess-forked" };
+      return { id: "sess-forked" };
     },
   };
   const controller = createThreadLifecycleController({

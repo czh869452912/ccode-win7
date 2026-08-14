@@ -7,8 +7,8 @@ const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 
 export function runAppCompositionTests() {
   const appSource = fs.readFileSync(path.join(WEBAPP_ROOT, "src", "App.jsx"), "utf8");
-  const clientRuntimeSource = fs.readFileSync(
-    path.join(WEBAPP_ROOT, "src", "client-runtime", "client-runtime.js"), "utf8");
+  const browserRuntimeSource = fs.readFileSync(
+    path.join(WEBAPP_ROOT, "src", "app-runtime", "browser-app-runtime.js"), "utf8");
   const shellRuntimeSource = fs.readFileSync(
     path.join(WEBAPP_ROOT, "src", "client-runtime", "use-agent-shell-runtime.js"), "utf8");
   assert.equal(appSource.includes("fetch("), false);
@@ -23,7 +23,7 @@ export function runAppCompositionTests() {
   assert.equal(appSource.includes("createClientRuntime"), false);
   assert.equal(appSource.includes("useAgentShellRuntime"), true);
   assert.equal(appSource.includes("<AgentShell"), true);
-  assert.equal(shellRuntimeSource.includes("createClientRuntime"), true);
+  assert.equal(shellRuntimeSource.includes("createBrowserAppRuntime"), true);
   for (const factory of [
     "createComposerController",
     "createSessionController",
@@ -33,7 +33,7 @@ export function runAppCompositionTests() {
     "createWorkspaceController",
   ]) {
     assert.equal(appSource.includes(factory), false, factory);
-    assert.equal(clientRuntimeSource.includes(factory), true, factory);
+    assert.equal(browserRuntimeSource.includes(factory), true, factory);
   }
   const appRuntimeImports = appSource.match(/from "\.\/app-runtime\/[^"]+"/g) || [];
   assert.deepEqual(appRuntimeImports, []);
