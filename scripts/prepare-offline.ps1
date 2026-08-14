@@ -826,11 +826,17 @@ set "PATH=$runtimePath"
 Write-TextFile -Path (Join-Path $bundleRoot 'embedagent.cmd') -Content ($launcherCli.Trim() + "`r`n")
 
 if ($hasTui) {
-$launcherTui = @'
+$launcherTui = @"
 @echo off
 setlocal
-call "%~dp0embedagent.cmd" --tui %*
-'@
+set "BUNDLE_ROOT=%~dp0"
+set "EMBEDAGENT_BUNDLE_ROOT=%BUNDLE_ROOT%"
+set "PYTHONHOME=%BUNDLE_ROOT%runtime\python"
+set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\site-packages"
+set "PYTHONNOUSERSITE=1"
+set "PATH=$runtimePath"
+"%PYTHONHOME%\python.exe" -m embedagent.frontend.tui.launcher %*
+"@
 Write-TextFile -Path (Join-Path $bundleRoot 'embedagent-tui.cmd') -Content ($launcherTui.Trim() + "`r`n")
 }
 

@@ -157,6 +157,30 @@ def test_root_distribution_owns_only_product_package():
     }
 
 
+def test_product_source_owns_current_cli_without_retired_frontend_facades():
+    cli_root = ROOT / "src" / "embedagent" / "cli"
+
+    assert {path.name for path in cli_root.glob("*.py")} >= {
+        "app.py",
+        "chat.py",
+        "interaction.py",
+        "parser.py",
+        "result.py",
+        "run.py",
+        "sessions.py",
+    }
+    assert not (ROOT / "src" / "embedagent" / "core" / "adapter.py").exists()
+    assert not (
+        ROOT
+        / "packages"
+        / "embedagent-host"
+        / "src"
+        / "embedagent_host"
+        / "hosted"
+        / "session_host.py"
+    ).exists()
+
+
 def test_uv_workspace_members_and_sources_are_exact():
     root = _read_pyproject(Path("pyproject.toml"))
 

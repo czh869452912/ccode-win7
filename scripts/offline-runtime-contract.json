@@ -74,8 +74,21 @@
         "cli-smoke"
       ],
       "manual_on_win7": true,
-      "report_schema_version": 1,
-      "expected_runtime_source": "bundle"
+      "report_schema_version": 2,
+      "expected_runtime_source": "bundle",
+      "command_launcher": "embedagent.cmd",
+      "allow_system_tool_fallback": false,
+      "scenario_ids": [
+        "run_json",
+        "chat_completion",
+        "chat_permission",
+        "chat_user_input",
+        "sessions_list",
+        "sessions_show",
+        "run_resume",
+        "blocked_permission",
+        "blocked_user_input"
+      ]
     },
     {
       "id": "cpp_smoke_workspace",

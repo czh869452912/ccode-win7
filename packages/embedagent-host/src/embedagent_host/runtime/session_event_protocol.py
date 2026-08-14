@@ -55,6 +55,7 @@ def _interaction_payload(event_name: str, payload: Dict[str, Any]) -> Dict[str, 
         or data.get("interaction_id")
         or permission.get("permission_id")
         or permission.get("request_id")
+        or permission.get("interaction_id")
         or request.get("request_id")
         or request.get("permission_id")
         or user_input.get("request_id")

@@ -20,7 +20,14 @@ from typing import Dict, List, Tuple
 
 
 def _run(cmd: List[str], cwd: str = None, check: bool = True) -> subprocess.CompletedProcess:
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=cwd,
+    )
     if check and result.returncode != 0:
         raise RuntimeError(
             "Command failed: {0}\n{1}".format(

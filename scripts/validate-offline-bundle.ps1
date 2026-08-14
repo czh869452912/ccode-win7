@@ -671,20 +671,20 @@ function Invoke-CliSmokeGate {
             return
         }
         $report = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
-        $requiredFlags = @(
-            'session_created',
-            'tool_completed',
-            'permission_interaction_completed',
-            'user_input_interaction_completed',
-            'session_restored'
-        )
+        $requiredScenarios = @($cliGate.scenario_ids)
         $valid = [bool]$report.ok
         $valid = $valid -and ([int]$report.schema_version -eq [int]$cliGate.report_schema_version)
         $valid = $valid -and ([string]$report.runtime_source -eq [string]$cliGate.expected_runtime_source)
         $valid = $valid -and ([string]$report.flavor_id -eq [string]$Plan.flavor_id)
         $valid = $valid -and (@($Plan.allowed_agent_application_ids) -contains [string]$report.agent_application_id)
-        foreach ($flag in $requiredFlags) {
-            $valid = $valid -and [bool](Get-JsonPropertyValue -Object $report -Name $flag)
+        $valid = $valid -and ([string]$report.command_launcher -eq [string]$cliGate.command_launcher)
+        $valid = $valid -and (
+            [bool]$report.system_tool_fallback_allowed -eq [bool]$cliGate.allow_system_tool_fallback
+        )
+        foreach ($scenarioId in $requiredScenarios) {
+            $valid = $valid -and [bool](
+                Get-JsonPropertyValue -Object $report.scenarios -Name ([string]$scenarioId)
+            )
         }
         if ($valid) {
             Add-Result -Results $Results -Level 'pass' -Code 'dynamic.release_gate.win7_cli_smoke' -Message ('CLI smoke gate passed. Report: {0}' -f $reportPath)

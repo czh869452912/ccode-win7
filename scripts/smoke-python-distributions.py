@@ -96,10 +96,16 @@ SCENARIOS = (
             "import embedagent_host\n"
             "import embedagent_protocol\n"
             "import embedagent_workflow_cpp\n"
+            "from embedagent.cli import build_parser\n"
             "product_file = os.path.realpath(embedagent.__file__)\n"
             "venv_root = os.path.realpath(sys.prefix)\n"
             "inside_venv = os.path.commonpath((venv_root, product_file)) == venv_root\n"
-            "raise SystemExit(0 if inside_venv else 1)\n"
+            'run = build_parser().parse_args(["run", "smoke"])\n'
+            'chat = build_parser().parse_args(["chat"])\n'
+            'sessions = build_parser().parse_args(["sessions", "list"])\n'
+            "cli_ok = run.command == 'run' and chat.command == 'chat' "
+            "and sessions.sessions_action == 'list'\n"
+            "raise SystemExit(0 if inside_venv and cli_ok else 1)\n"
         ),
     },
 )
@@ -188,6 +194,8 @@ def _run(command, timeout, environment, cwd):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
             env=environment,
             cwd=str(cwd),

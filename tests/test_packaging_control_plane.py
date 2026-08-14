@@ -526,6 +526,35 @@ class TestRuntimeBundleContract(unittest.TestCase):
         self.assertEqual(win7_gate["expected_renderer"], "edgechromium")
         self.assertEqual(win7_gate["expected_runtime_source"], "bundle")
 
+        cli_gate = [item for item in gates if item["id"] == "win7_cli_smoke"][0]
+        self.assertEqual(cli_gate["command_launcher"], "embedagent.cmd")
+        self.assertFalse(cli_gate["allow_system_tool_fallback"])
+        self.assertEqual(
+            cli_gate["scenario_ids"],
+            [
+                "run_json",
+                "chat_completion",
+                "chat_permission",
+                "chat_user_input",
+                "sessions_list",
+                "sessions_show",
+                "run_resume",
+                "blocked_permission",
+                "blocked_user_input",
+            ],
+        )
+
+    def test_cli_smoke_drives_only_the_staged_command_launcher(self):
+        source = CLI_SMOKE_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertIn('"embedagent.cmd"', source)
+        self.assertIn("def _invoke_cli(", source)
+        self.assertIn("subprocess.run(", source)
+        self.assertNotIn("from embedagent", source)
+        self.assertNotIn("import embedagent", source)
+        self.assertNotIn("create_hosted_runtime", source)
+        self.assertNotIn("session_host", source)
+
     def test_runtime_contract_lists_current_llvm_children(self):
         payload = json.loads(RUNTIME_CONTRACT.read_text(encoding="utf-8"))
         llvm_component = [item for item in payload["runtime_components"] if item["id"] == "llvm"][0]
@@ -548,86 +577,120 @@ class TestRuntimeBundleContract(unittest.TestCase):
 
 @unittest.skipIf(sys.platform != "win32", "Windows-only: requires bundled python.exe")
 class TestCliSmokeGate(unittest.TestCase):
-    def test_cli_smoke_runs_from_bundle_python_and_restores_session(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            test_root = Path(tmp)
-            bundle_root = test_root / "bundle"
-            workspace = test_root / "workspace"
-            python_root = bundle_root / "runtime" / "python"
-            python_root.mkdir(parents=True)
-            (bundle_root / "app" / "embedagent").mkdir(parents=True)
-            (bundle_root / "bin").mkdir()
-            workspace.mkdir()
-            (workspace / "README.md").write_text("CLI smoke fixture\n", encoding="ascii")
-            shutil.copyfile(sys.executable, python_root / "python.exe")
-            (python_root / "pyvenv.cfg").write_text(
-                "home = {0}\ninclude-system-site-packages = false\nversion = {1}\n".format(
-                    sys.base_prefix,
-                    ".".join(str(item) for item in sys.version_info[:3]),
-                ),
-                encoding="ascii",
-            )
-            plan, plan_hash = _write_compiled_bundle_plan(bundle_root, "minimal-cli")
-            (bundle_root / "manifests" / "bundle-manifest.json").write_text(
-                json.dumps(
-                    {
-                        "schema_version": 2,
-                        "flavor_id": plan["flavor_id"],
-                        "bundle_plan_sha256": plan_hash,
-                    },
-                    sort_keys=True,
-                    separators=(",", ":"),
-                ),
-                encoding="ascii",
-            )
-            report_path = test_root / "cli-smoke-report.json"
-            env = os.environ.copy()
-            env.pop("PYTHONHOME", None)
-            env["EMBEDAGENT_BUNDLE_ROOT"] = str(bundle_root)
-            env["PYTHONPATH"] = os.pathsep.join(
-                [
-                    str(ROOT / "src"),
-                    str(ROOT / "packages" / "embedagent-core" / "src"),
-                    str(ROOT / "packages" / "embedagent-protocol" / "src"),
-                    str(ROOT / "packages" / "embedagent-host" / "src"),
-                    str(ROOT / "packages" / "embedagent-composition" / "src"),
-                    str(ROOT / "packages" / "embedagent-workflow-cpp" / "src"),
-                ]
-            )
+    def test_cli_smoke_crosses_staged_launcher_for_both_flavors(self):
+        expected_applications = {
+            "minimal-cli": "embedagent.generic",
+            "cpp-desktop": "embedagent.default_c_cpp",
+        }
+        for flavor, expected_application in expected_applications.items():
+            with self.subTest(flavor=flavor), tempfile.TemporaryDirectory() as tmp:
+                test_root = Path(tmp)
+                bundle_root = test_root / "bundle"
+                workspace_parent = test_root / "workspaces"
+                python_root = bundle_root / "runtime" / "python"
+                site_packages = bundle_root / "runtime" / "site-packages"
+                python_root.mkdir(parents=True)
+                site_packages.mkdir(parents=True)
+                workspace_parent.mkdir()
+                shutil.copytree(
+                    str(ROOT / "src" / "embedagent"),
+                    str(bundle_root / "app" / "embedagent"),
+                )
+                for project, package in (
+                    ("embedagent-core", "embedagent_core"),
+                    ("embedagent-protocol", "embedagent_protocol"),
+                    ("embedagent-host", "embedagent_host"),
+                    ("embedagent-composition", "embedagent_composition"),
+                    ("embedagent-workflow-cpp", "embedagent_workflow_cpp"),
+                ):
+                    shutil.copytree(
+                        str(ROOT / "packages" / project / "src" / package),
+                        str(site_packages / package),
+                    )
+                shutil.copyfile(sys.executable, python_root / "python.exe")
+                (python_root / "pyvenv.cfg").write_text(
+                    "home = {0}\ninclude-system-site-packages = false\nversion = {1}\n".format(
+                        sys.base_prefix,
+                        ".".join(str(item) for item in sys.version_info[:3]),
+                    ),
+                    encoding="ascii",
+                )
+                (bundle_root / "embedagent.cmd").write_text(
+                    "@echo off\n"
+                    "setlocal\n"
+                    'set "BUNDLE_ROOT=%~dp0"\n'
+                    'set "EMBEDAGENT_BUNDLE_ROOT=%BUNDLE_ROOT%"\n'
+                    'set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\\site-packages"\n'
+                    'set "PYTHONNOUSERSITE=1"\n'
+                    '"%BUNDLE_ROOT%runtime\\python\\python.exe" -m embedagent %*\n',
+                    encoding="ascii",
+                )
+                plan, plan_hash = _write_compiled_bundle_plan(bundle_root, flavor)
+                (bundle_root / "manifests" / "bundle-manifest.json").write_text(
+                    json.dumps(
+                        {
+                            "schema_version": 2,
+                            "flavor_id": plan["flavor_id"],
+                            "bundle_plan_sha256": plan_hash,
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                    encoding="ascii",
+                )
+                report_path = test_root / "cli-smoke-report.json"
+                env = os.environ.copy()
+                env.pop("PYTHONHOME", None)
+                env.pop("PYTHONPATH", None)
 
-            result = subprocess.run(
-                [
-                    str(python_root / "python.exe"),
-                    str(CLI_SMOKE_SCRIPT),
-                    "--bundle-root",
-                    str(bundle_root),
-                    "--workspace",
-                    str(workspace),
-                    "--json-report",
-                    str(report_path),
-                ],
-                cwd=str(bundle_root),
-                capture_output=True,
-                text=True,
-                env=env,
-                timeout=30,
-            )
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertEqual(
-                json.loads(report_path.read_text(encoding="ascii")),
-                {
-                    "agent_application_id": "embedagent.generic",
-                    "flavor_id": "minimal-cli",
-                    "ok": True,
-                    "permission_interaction_completed": True,
-                    "runtime_source": "bundle",
-                    "schema_version": 1,
-                    "session_created": True,
-                    "session_restored": True,
-                    "tool_completed": True,
-                    "user_input_interaction_completed": True,
-                },
-            )
+                result = subprocess.run(
+                    [
+                        str(python_root / "python.exe"),
+                        str(CLI_SMOKE_SCRIPT),
+                        "--bundle-root",
+                        str(bundle_root),
+                        "--workspace",
+                        str(workspace_parent),
+                        "--json-report",
+                        str(report_path),
+                    ],
+                    cwd=str(bundle_root),
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=60,
+                )
+                report_text = (
+                    report_path.read_text(encoding="ascii") if report_path.is_file() else ""
+                )
+                self.assertEqual(
+                    result.returncode,
+                    0,
+                    result.stdout + result.stderr + report_text,
+                )
+                self.assertEqual(
+                    json.loads(report_path.read_text(encoding="ascii")),
+                    {
+                        "agent_application_id": expected_application,
+                        "command_launcher": "embedagent.cmd",
+                        "flavor_id": flavor,
+                        "ok": True,
+                        "runtime_source": "bundle",
+                        "scenarios": {
+                            "blocked_permission": True,
+                            "blocked_user_input": True,
+                            "chat_completion": True,
+                            "chat_permission": True,
+                            "chat_user_input": True,
+                            "run_json": True,
+                            "run_resume": True,
+                            "sessions_list": True,
+                            "sessions_show": True,
+                        },
+                        "schema_version": 2,
+                        "system_tool_fallback_allowed": False,
+                    },
+                )
 
 
 class TestPrepareOfflineContract(unittest.TestCase):
@@ -710,6 +773,12 @@ class TestPrepareOfflineContract(unittest.TestCase):
             self.assertNotIn("api_key", template)
         self.assertNotIn('"max_turns": 8', script)
         self.assertNotIn('"max_turns": null', script)
+
+    def test_tui_launcher_does_not_route_through_cli_compatibility_flags(self):
+        script = self._script_text()
+
+        self.assertNotIn('call "%~dp0embedagent.cmd" --tui', script)
+        self.assertIn("-m embedagent.frontend.tui.launcher", script)
 
     def test_prepare_offline_stages_real_c_workspace_template(self):
         script = self._script_text()

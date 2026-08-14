@@ -118,6 +118,10 @@ def test_smoke_scenarios_cover_independent_and_composed_stacks():
     )
     assert "embedagent.__file__" in smoke.SCENARIOS[5]["probe"]
     assert "sys.prefix" in smoke.SCENARIOS[5]["probe"]
+    assert "from embedagent.cli import build_parser" in smoke.SCENARIOS[5]["probe"]
+    assert 'parse_args(["run", "smoke"])' in smoke.SCENARIOS[5]["probe"]
+    assert 'parse_args(["chat"])' in smoke.SCENARIOS[5]["probe"]
+    assert 'parse_args(["sessions", "list"])' in smoke.SCENARIOS[5]["probe"]
 
 
 def test_smoke_install_command_is_strictly_offline(tmp_path):
@@ -403,6 +407,8 @@ def test_external_wheelhouse_build_check_and_smoke_preserve_siblings(tmp_path):
         cwd=str(ROOT),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=120,
     )
     assert build.returncode == 0, build.stdout + build.stderr
@@ -416,6 +422,8 @@ def test_external_wheelhouse_build_check_and_smoke_preserve_siblings(tmp_path):
         cwd=str(ROOT),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=30,
     )
     assert check.returncode == 0, check.stdout + check.stderr
@@ -431,6 +439,8 @@ def test_external_wheelhouse_build_check_and_smoke_preserve_siblings(tmp_path):
         cwd=str(ROOT),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=120,
     )
     assert smoke.returncode == 0, smoke.stdout + smoke.stderr
@@ -671,10 +681,33 @@ _publish_module(
         "def cpp_runtime_definition():\n    return None\n",
         dependencies=("embedagent-core ==0.1.0",),
     )
+    product_fixture = """
+import argparse
+import sys
+import types
+
+
+def build_parser():
+    parser = argparse.ArgumentParser()
+    commands = parser.add_subparsers(dest="command", required=True)
+    run = commands.add_parser("run")
+    run.add_argument("task")
+    commands.add_parser("chat")
+    sessions = commands.add_parser("sessions")
+    session_commands = sessions.add_subparsers(dest="sessions_action", required=True)
+    session_commands.add_parser("list")
+    return parser
+
+
+cli = types.ModuleType(__name__ + ".cli")
+cli.build_parser = build_parser
+sys.modules[cli.__name__] = cli
+"""
     _write_installable_wheel(
         dist_dir,
         "embedagent",
         "embedagent",
+        product_fixture,
         dependencies=(
             "embedagent-core ==0.1.0",
             "embedagent-protocol ==0.1.0",

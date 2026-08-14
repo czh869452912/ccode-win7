@@ -101,7 +101,7 @@ def test_host_encoder_normalizes_interaction_and_failed_tool_payloads():
     interaction = encoder.encode(
         "s-1",
         "permission_required",
-        {"permission": {"permission_id": "perm-1", "tool_name": "edit_file"}},
+        {"permission": {"interaction_id": "perm-1", "tool_name": "edit_file"}},
     )
     failed = encoder.encode(
         "s-1",
