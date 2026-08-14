@@ -78,7 +78,7 @@
 
 ```powershell
 embedagent.cmd --help
-embedagent.cmd --list-sessions --workspace .\workspace-smoke
+embedagent.cmd sessions list --workspace .\workspace-smoke
 validate-cli-smoke.cmd --json-report cli-smoke.json
 bin\rg\rg.exe --version
 bin\ctags\ctags.exe --version

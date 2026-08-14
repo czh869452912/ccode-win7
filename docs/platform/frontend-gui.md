@@ -5,25 +5,26 @@
 > 状态：`active`
 > 类型：`platform implementation`
 > 负责人：`GUI maintainers`
-> 最后同步日期：`2026-08-09`
+> 最后同步日期：`2026-08-14`
 > 对应代码范围：`src/embedagent/frontend/gui/`
 
 ## 1. Purpose And Boundary
 
-GUI 是 `CoreInterface` / `FrontendCallbacks` 之上的可注册图形 shell 实现。它由 Python app host 和 local HTTP/WebSocket backend、React renderer、`pywebview` launcher 组成。shell 消费 product-compiled `ShellDescriptor`、session capabilities、tool metadata 和 generic workflow projection，不内建某个 Agent 应用的能力集。
+GUI 是聚焦 frontend ports 之上的可注册图形 shell。它由 Python app host、local HTTP/WebSocket backend、React renderer 和 `pywebview` launcher 组成。shell 消费 product-compiled `ShellDescriptor`、session capabilities、tool metadata 和 generic workflow projection，不内建某个 Agent 应用的能力集。
 
-GUI 不拥有 Agent Core policy、session history、workflow transition、permission decision、tool activation 或 application registry。产品 launcher 将 core factory、agent capabilities、文案和默认组合注入 GUI。
+GUI 不拥有 Agent Core policy、session history、workflow transition、permission decision、tool activation 或 application registry。产品 launcher 将 port factory、agent capabilities、shell compiler、文案和默认组合注入 GUI。
 
 ## 2. Architecture
 
 | Layer | Ownership |
 |---|---|
 | `launcher.py` | 解析启动选项，接收产品组合，启动 local backend 和 webview |
-| `backend/app_host.py` | workspace registry，按 workspace 创建/切换 `CoreInterface`，绑定 frontend callback |
+| `backend/app_host.py` | workspace registry，按 workspace 创建/切换 `FrontendPortSet(session, workspace)`，将 event sink 传给 port factory |
 | `backend/server.py`, routes/services | HTTP/WebSocket 协议、session/app bootstrap、files、preview、terminal、source control |
 | `backend/app_shell.py` | 将 product-compiled `ShellDescriptor` 放入 app bootstrap；不维护本地 catalog |
-| `webapp/src/client-runtime/` | 唯一 shell effect owner；组合 HTTP/WebSocket transports、strict protocol adapter、controllers、lifecycle 和 close |
-| `webapp/src/app-runtime/` | 由 `ClientRuntime` 组合的 controller/effect orchestration；不声明 endpoint，不直接调用 transport |
+| `webapp/src/client-runtime/` | HTTP/WebSocket transports、strict protocol adapter、runtime reducer 和 React binding |
+| `webapp/src/session-runtime/session-client-runtime.js` | transport-neutral session activation、cursor、event ordering/recovery、interaction、descriptor dispatch 和 close |
+| `webapp/src/app-runtime/browser-app-runtime.js` | browser-only controller/effect orchestration；组合 `SessionClientRuntime`，不成为跨 shell 合同 |
 | `webapp/src/session-runtime/` | pure session/activity/read-model projection；timeline 按 activity、tool 和 diff 分属聚焦模块 |
 | `webapp/src/components/shell/` | session rail、timeline、composer、interaction overlay 和 status 的最小核心布局 |
 | `webapp/src/components/contributions/` | 可选 secondary surface 的 renderer registry 与单一 outlet |
@@ -32,24 +33,25 @@ GUI 不拥有 Agent Core policy、session history、workflow transition、permis
 flowchart LR
     P["product composition"] --> L["GUI launcher"]
     L --> H["GUIAppHost"]
-    H --> C["CoreInterface per workspace"]
-    C -->|SessionEventEnvelope| W["WebSocket frontend"]
+    H --> C["focused port set per workspace"]
+    C -->|SessionEventEnvelope| W["WebSocket event sink"]
     W --> PA["strict ProtocolAdapter"]
-    PA --> R["ClientRuntime + reducers"]
+    PA --> S["JavaScript SessionClientRuntime"]
+    S --> R["BrowserAppRuntime + reducers"]
     R --> U["minimal Agent shell"]
 ```
 
 ## 3. Registration And Workspace Hosting
 
-`GUIAppHost` 构造时接收 `core_factory`、可选 `WorkspaceRegistry` 和 agent capability snapshot。`bind_frontend(...)` 将 WebSocket frontend 注册到当前 core；切换 workspace 时构造新 core、重新绑定 callback、关闭旧 core，并广播 workspace change。
+`GUIAppHost` 构造时接收 `port_factory(workspace, event_sink)`、一个 `SessionEventSink`、可选 `WorkspaceRegistry` 和 agent capability snapshot。切换 workspace 时关闭旧 port set、用同一个 sink 构造新 port set，并广播 workspace change。app host 只公开聚焦 session/workspace ports，不暴露内部 adapter。
 
-app host 可以是 multi-workspace 或 `SingleWorkspaceAppHost`。新产品可注入不同 core/application catalog，不需更改 GUI reducer 或增加 product-name branches。
+app host 可以是 multi-workspace 或 `SingleWorkspaceAppHost`。新产品可注入不同 application registry 与 port composition，不需更改 GUI reducer 或增加 product-name branches。
 
 ## 4. Bootstrap And Event Flow
 
 1. app bootstrap 加载 product metadata、workspaces、commands 和 surfaces；
-2. workspace activation 获得一个 `CoreInterface`；
-3. `main.jsx` 组合 HTTP transport、socket transport 和 protocol adapter，`App.jsx` 只创建并绑定一个 `ClientRuntime`；
+2. workspace activation 获得一组 `FrontendSessionPort` / `FrontendWorkspacePort`；
+3. `main.jsx` 组合 HTTP transport、socket transport 和 protocol adapter，React hook 创建一个 `BrowserAppRuntime`，其内部创建一个 JavaScript `SessionClientRuntime`；
 4. session activation 先启动新 generation，再通过 named protocol method 获取 projection 与 Host-owned `event_cursor`；
 5. activation 期间到达的 canonical `session_event` 按 session 缓冲，app-level shell notifications 保持独立；
 6. bootstrap 安装以 cursor 为唯一 sequence 基线，只释放连续且尚未覆盖的 envelopes；
@@ -66,7 +68,7 @@ session transport controller 拥有 socket callbacks、retry timer、recovery pr
 
 最小 GUI 始终只由 session navigation、连续 timeline、composer/mode/command、blocking interaction 和 compact status 组成。移除全部 secondary surfaces 后，仍能创建/切换会话、发送/停止、响应 permission/user input、观察 tool lifecycle 和恢复状态。
 
-product-compiled descriptors 拥有 commands、surfaces、keybindings、timeline items 和 interaction renderer keys。React 的冻结 shell selector 只生成 renderer-ready 投影；`App` 只绑定 `ClientRuntime` 并渲染 `AgentShell`。command palette 是核心 overlay。terminal、source control、preview、file browser 和独立 diff view 只有在 descriptor 注册 secondary surface 时，才通过单一 `ContributionOutlet` 和 build-time renderer registry 出现；它们不占用永久宽度或高度。
+product-compiled descriptors 拥有 commands、surfaces、keybindings、timeline items 和 interaction renderer keys。React 的冻结 shell selector 只生成 renderer-ready 投影；`App` 只绑定 browser runtime hook 并渲染 `AgentShell`。command palette 是核心 overlay。terminal、source control、preview、file browser 和独立 diff view 只有在 descriptor 注册 secondary surface 时，才通过单一 `ContributionOutlet` 和 build-time renderer registry 出现；它们不占用永久宽度或高度。
 
 文件引用、diff、workflow summary 和 tool lifecycle 优先出现在连续 timeline 内。可选贡献面只提供更深查看或专用交互，不成为 session truth。未知 renderer key 在 descriptor 编译/验证阶段失败，不在 React 中以 fallback 猜测。
 
@@ -91,7 +93,10 @@ webapp 构建目标与 Windows 7 可用的 Chromium/WebView runtime 能力对齐
 - `tests/test_gui_sync.py`
 - `tests/test_gui_app_host.py`
 - `tests/test_gui_app_shell.py`
+- `tests/test_gui_frontend_port_integration.py`
 - `src/embedagent/frontend/gui/webapp/test/client-runtime.test.mjs`
+- `src/embedagent/frontend/gui/webapp/test/browser-app-runtime-boundary.test.mjs`
+- `src/embedagent/frontend/gui/webapp/test/session-client-runtime-contract.test.mjs`
 - `src/embedagent/frontend/gui/webapp/test/protocol-adapter.test.mjs`
 - `src/embedagent/frontend/gui/webapp/test/protocol-envelope.test.mjs`
 - `src/embedagent/frontend/gui/webapp/test/agent-shell-source.test.mjs`

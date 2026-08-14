@@ -21,6 +21,7 @@ Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md` 
 - `agent-harness-v2/`
 - `agent-platform-extraction-readiness/`
 - `clang-integration/`
+- `cli-client-runtime-convergence/`
 - `configurable-agent-bundles/`
 - `context-loop/`
 - `documentation-governance-baseline/`

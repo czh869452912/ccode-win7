@@ -6,11 +6,10 @@
 
 ## Context
 
-GUI currently reaches the hosted Agent through product `AgentCoreAdapter` and protocol
-`CoreInterface`, while CLI and TUI use Host `HostedSessionHost`. These facades wrap the same
-hosted adapter but expose different methods, event binding, and execution behavior. The CLI
-remained on a retired three-argument event callback after Host adopted canonical
-`SessionEventEnvelope`, and existing tests did not detect the mismatch.
+GUI, CLI, and TUI previously reached the hosted Agent through different aggregate facades.
+Those facades wrapped the same hosted adapter but exposed different methods, event binding,
+and execution behavior. The CLI remained on a retired three-argument event callback after
+Host adopted canonical `SessionEventEnvelope`, and existing tests did not detect the mismatch.
 
 The browser `ClientRuntime` and Python `TerminalRuntime` already implement similar activation,
 bootstrap, cursor, recovery, interaction, and command-dispatch responsibilities. Directly
@@ -32,8 +31,8 @@ HTTP/WebSocket, or runtime Node.js, which conflicts with the offline product bou
    executable code, code generation, or a client DSL.
 6. Frontend runtimes own only transient synchronization state. Agent/Core and Host remain the
    only owners of live and durable session truth.
-7. `CoreInterface`, `FrontendCallbacks`, `AgentCoreAdapter`, `HostedSessionHost`, per-call event
-   handlers, and resolver callbacks are removed without compatibility aliases.
+7. Former aggregate frontend/session facades, per-call event handlers, and resolver callbacks
+   are removed without compatibility aliases.
 
 ## Consequences
 

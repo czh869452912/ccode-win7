@@ -1030,7 +1030,7 @@ offline packaging, six-wheel distribution checks.
 - Modify: `tests/test_hosted_runtime.py`
 - Modify: `tests/test_tui_runtime.py`
 
-- [ ] **Step 1: Add source guards before deleting code.**
+- [x] **Step 1: Add source guards before deleting code.**
 
   Search the owning source trees and fail if any of these remain:
 
@@ -1049,19 +1049,19 @@ offline packaging, six-wheel distribution checks.
   Also fail if generic frontend runtime code branches on application id, workflow type, or
   known tool names.
 
-- [ ] **Step 2: Run architecture guards and confirm they identify every remaining site.**
+- [x] **Step 2: Run architecture guards and confirm they identify every remaining site.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_pre_release_architecture_guards.py
   uv run python scripts/test-suite.py tdd tests/test_current_architecture_boundaries.py
   ```
 
-- [ ] **Step 3: Delete facades, exports, obsolete tests, and forwarding methods.**
+- [x] **Step 3: Delete facades, exports, obsolete tests, and forwarding methods.**
 
   Update every live caller directly to focused ports. Do not leave deprecation warnings,
   aliases, proxy classes, or a compatibility module at the deleted paths.
 
-- [ ] **Step 4: Run architecture and distribution boundaries.**
+- [x] **Step 4: Run architecture and distribution boundaries.**
 
   ```powershell
   uv run pytest tests/test_pre_release_architecture_guards.py tests/test_current_architecture_boundaries.py -v
@@ -1070,7 +1070,7 @@ offline packaging, six-wheel distribution checks.
   uv run python scripts/test-suite.py tdd tests/test_python_distribution_contract.py
   ```
 
-- [ ] **Step 5: Verify the retired names are absent.**
+- [x] **Step 5: Verify the retired names are absent.**
 
   ```powershell
   rg -n "CoreInterface|FrontendCallbacks|AgentCoreAdapter|HostedSessionHost|permission_resolver|user_input_resolver" packages src tests
@@ -1080,7 +1080,7 @@ offline packaging, six-wheel distribution checks.
   Expected: no production matches; test matches are limited to explicit forbidden-name
   literals inside architecture guards.
 
-- [ ] **Step 6: Commit the deletion.**
+- [x] **Step 6: Commit the deletion.**
 
   ```powershell
   git add packages/embedagent-host/src/embedagent_host/hosted/session_host.py packages/embedagent-protocol/src/embedagent_protocol/__init__.py packages/embedagent-host/src/embedagent_host/hosted/__init__.py src/embedagent/core/adapter.py src/embedagent/core/__init__.py src/embedagent/frontend/__init__.py src/embedagent/frontend/tui/frontend_adapter.py src/embedagent/frontend/gui/backend/app_host.py src/embedagent/frontend/gui/backend/server.py src/embedagent/frontend/gui/launcher.py tests/test_pre_release_architecture_guards.py tests/test_current_architecture_boundaries.py tests/test_architecture.py tests/test_protocol_package_imports.py tests/test_host_distribution_imports.py tests/test_core_adapter_shutdown.py tests/test_exception_characterization.py tests/test_gui_runtime.py tests/test_gui_session_events.py tests/test_gui_sync.py tests/test_hosted_runtime.py tests/test_tui_runtime.py
@@ -1099,7 +1099,7 @@ offline packaging, six-wheel distribution checks.
 - Modify: `tests/test_python_distribution_smoke.py`
 - Modify: `tests/test_python_distribution_contract.py`
 
-- [ ] **Step 1: Add failing packaging contract tests.**
+- [x] **Step 1: Add failing packaging contract tests.**
 
   Inspect the smoke runner and require it to cross the staged `embedagent.cmd` launcher, not
   import product Host APIs. Require both `minimal-cli` and `cpp-desktop` plans to run:
@@ -1115,27 +1115,27 @@ offline packaging, six-wheel distribution checks.
   blocked user input
   ```
 
-- [ ] **Step 2: Run packaging tests and confirm direct Host smoke is rejected.**
+- [x] **Step 2: Run packaging tests and confirm direct Host smoke is rejected.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_packaging_control_plane.py
   uv run python scripts/test-suite.py tdd tests/test_python_distribution_smoke.py
   ```
 
-- [ ] **Step 3: Rewrite smoke orchestration around the staged command.**
+- [x] **Step 3: Rewrite smoke orchestration around the staged command.**
 
   Start the existing local fake OpenAI-compatible provider, create a credential-free
   temporary user/workspace config, invoke the bundle-local command with captured
   stdout/stderr/exit code, and validate the JSON contract. Confirm runtime source is bundle,
   the plan-selected application is active, and no system tool fallback occurs.
 
-- [ ] **Step 4: Align the single offline runtime contract.**
+- [x] **Step 4: Align the single offline runtime contract.**
 
   Add or update only `scripts/offline-runtime-contract.json`; do not create another
   hard-coded launcher or required-binary list. Ensure flavor policy still exposes CLI only
   for `minimal-cli` and CLI/TUI/GUI for `cpp-desktop`.
 
-- [ ] **Step 5: Run packaging control and six-wheel smoke tests.**
+- [x] **Step 5: Run packaging control and six-wheel smoke tests.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_packaging_control_plane.py
@@ -1146,7 +1146,7 @@ offline packaging, six-wheel distribution checks.
   uv run python scripts/smoke-python-distributions.py --dist-dir dist --python .venv/Scripts/python.exe
   ```
 
-- [ ] **Step 6: Commit the real CLI release gate.**
+- [x] **Step 6: Commit the real CLI release gate.**
 
   ```powershell
   git add scripts/validate-cli-smoke.py scripts/prepare-offline.ps1 scripts/validate-offline-bundle.ps1 scripts/offline-runtime-contract.json tests/test_packaging_control_plane.py tests/test_python_distribution_contract.py tests/test_python_distribution_smoke.py
@@ -1174,14 +1174,14 @@ offline packaging, six-wheel distribution checks.
   `docs/superpowers/plans/2026-08-13-cli-client-runtime-convergence.md`
 - Create: `docs/archive/cli-client-runtime-convergence/README.md`
 
-- [ ] **Step 1: Update each owning authority in place.**
+- [x] **Step 1: Update each owning authority in place.**
 
   Document only the landed names and behavior: focused ports, state ownership, Python/JS
   runtime equivalence, CLI grammar/output/exit codes, shared configuration order, flavor
   launchers, and real launcher smoke. Remove current references to retired facades and
   callbacks. Keep status and roadmap as current state, not a completion diary.
 
-- [ ] **Step 2: Run documentation and architecture checks.**
+- [x] **Step 2: Run documentation and architecture checks.**
 
   ```powershell
   uv run python scripts/test-suite.py tdd tests/test_documentation_navigation.py
@@ -1189,7 +1189,7 @@ offline packaging, six-wheel distribution checks.
   uv run python scripts/test-suite.py audit
   ```
 
-- [ ] **Step 3: Run the complete required verification set.**
+- [x] **Step 3: Run the complete required verification set.**
 
   ```powershell
   uv run python scripts/test-suite.py full
@@ -1208,7 +1208,7 @@ offline packaging, six-wheel distribution checks.
   A local release may report `TARGET_READY`/`PENDING_WIN7`; do not claim clean-machine Win7
   acceptance without the separate hash-bound evidence required by the runbook.
 
-- [ ] **Step 4: Perform final static acceptance searches.**
+- [x] **Step 4: Perform final static acceptance searches.**
 
   ```powershell
   rg -n "CoreInterface|FrontendCallbacks|AgentCoreAdapter|HostedSessionHost|permission_resolver|user_input_resolver" packages src docs
@@ -1221,14 +1221,14 @@ offline packaging, six-wheel distribution checks.
   the second may mention retired forms only in archive history or explicit architecture
   guards.
 
-- [ ] **Step 5: Archive the completed slice.**
+- [x] **Step 5: Archive the completed slice.**
 
   Move the design and this plan to `docs/archive/cli-client-runtime-convergence/`, add an
   archive index pointing to the durable ADR and authorities, and remove the active slice from
   `docs/superpowers/README.md`. Do this only after every repository-side acceptance condition
   above is green.
 
-- [ ] **Step 6: Commit documentation and closure.**
+- [x] **Step 6: Commit documentation and closure.**
 
   ```powershell
   git add docs src/embedagent/frontend/gui/static

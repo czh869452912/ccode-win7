@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`roadmap`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-08-09`
+> 最后同步日期：`2026-08-14`
 > 详细当前状态：`docs/current-status.md`
 
 ## Purpose
@@ -12,8 +12,8 @@
 
 ## P0: Release Acceptance
 
-- 对 `minimal-cli`，在干净 Windows 7 SP1 x64 环境验证 bundled Python 启动的 CLI Agent smoke，覆盖 session、read tool、permission/user-input continuation 与 restore。
-- 对 `cpp-desktop`，在独立干净 Windows 7 SP1 x64 环境验证 CLI smoke、Fixed Version WebView2 109 窗口化 GUI 和 bundle-local C smoke。
+- 对 `minimal-cli`，在干净 Windows 7 SP1 x64 环境运行 staged `embedagent.cmd` gate，验证 `run`/`chat`/`sessions`、read tool、permission/user-input continuation、restore、blocked exit、bundle runtime 与计划 application identity。
+- 对 `cpp-desktop`，在独立干净 Windows 7 SP1 x64 环境运行同一 staged CLI contract，并验证 Fixed Version WebView2 109 窗口化 GUI 和 bundle-local C smoke。
 - 每份报告必须匹配该 flavor 的 release identity、bundle plan/Agent lock hash 与精确 gate set；不得用另一个 flavor 的证据替代。
 - 仅当两个 official release flavor 各自被 `validate-release-evidence.py` 报告为 `ACCEPTED` 时退出本阶段。
 

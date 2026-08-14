@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`product authority`
 > 负责人：`release maintainers`
-> 最后同步日期：`2026-08-09`
+> 最后同步日期：`2026-08-14`
 > 对应代码范围：`scripts/`, 六个 distribution `pyproject.toml`, `src/embedagent/frontend/gui/static/`
 
 ## 1. Delivery Contract
@@ -74,6 +74,10 @@ EmbedAgent/
 `-- docs/
 ```
 
+`embedagent.cmd` 只执行 `runtime/python/python.exe -m embedagent`。desktop 的
+`embedagent-tui.cmd` 独立执行 `-m embedagent.frontend.tui.launcher`，GUI launcher 使用其
+专有入口；launcher 之间不通过已退役的 CLI compatibility flags 互相转发。
+
 ## 5. Build And Release Flow
 
 `scripts/package.ps1` 是主编排入口：
@@ -103,7 +107,7 @@ flowchart LR
 |---|---|
 | `build-python-distributions.py` | 六 wheel 清洁构建 |
 | `check-python-distributions.py` | wheel set、file ownership、project DAG、archive/path/Win7 collision checks |
-| `smoke-python-distributions.py` | Python 3.8 隔离 venv 中 no-index/no-deps 导入冒烟 |
+| `smoke-python-distributions.py` | Python 3.8 隔离 venv 中 no-index/no-deps 导入与 product CLI parser 冒烟 |
 | `compile-bundle-plan.py` | 将 official recipe、target 和 assurance 编译为 immutable plan/Agent lock |
 | `export-dependencies.py` | 锁定第三方导出和 checked project wheel install |
 | `prepare-offline.ps1` | 从已安装 distributions 生成分级 staging tree |
@@ -111,7 +115,7 @@ flowchart LR
 | `validate-offline-bundle.ps1` | 完整性、checksum、launcher、Python path、runtime contract 和 smoke gates |
 | `build-gui-launcher.ps1` | 生成薄 Win32 native GUI launcher |
 | `validate-cpp-smoke.py` | 使用 bundle-local compiler 构建小型 workspace |
-| `validate-cli-smoke.py` | 使用 bundle-local Python 和公开 Host API 验证最小 Agent、工具、交互 continuation 与 restore |
+| `validate-cli-smoke.py` | 通过 staged `embedagent.cmd` 验证 CLI parser、Agent turn、交互、durable session 与 exit contract |
 | `validate-gui-smoke.py` | 验证 GUI、WebSocket、tool/interaction flow 和 renderer report |
 | `validate-release-evidence.py` | 将目标机报告与 release identity 校验为验收结果 |
 
@@ -119,7 +123,20 @@ flowchart LR
 
 `scripts/offline-runtime-contract.json` 是 runtime-invoked external binaries 和 release gates 的唯一列表。tool、recipe、launcher 或 validator 开始调用新 binary 时，必须在同一变更中更新 contract 及测试，不在打包脚本中再建硬编码工具表。
 
-`validate-cli-smoke.py` 是两个 release flavor 的共同动态 gate，使用本地回环 fake provider，不依赖外部服务，并报告实际 flavor/application/runtime source 以及 session/tool/permission/user-input/restore 结果。`validate-cpp-smoke.py` 只在计划选择 C/C++ workflow 时执行，并只接受 bundle 内 compiler；GUI gates 只在计划选择 GUI 时执行，且不将开发机 runtime 作为交付证明。
+`validate-cli-smoke.py` 是 stdlib-only 的共同动态 gate，不导入产品或 Host API。它隔离
+user home 与 workspace，写入 credential-free `~/.embedagent/config.json` 和 workspace
+config，启动本地回环 fake provider，然后实际调用 staged `embedagent.cmd`。两种 flavor
+必须执行完全相同的 9 个场景：`run_json`, `chat_completion`, `chat_permission`,
+`chat_user_input`, `sessions_list`, `sessions_show`, `run_resume`,
+`blocked_permission`, `blocked_user_input`。
+
+schema version 2 报告记录 `command_launcher=embedagent.cmd`、实际 flavor/application、
+`runtime_source=bundle`、逐场景结果和 `system_tool_fallback_allowed=false`。报告不包含
+prompt、source、raw tool output、credential 或 permission payload。任一场景、launcher、
+plan-selected application 或 bundled runtime identity 不匹配都会阻断 release。
+
+`validate-cpp-smoke.py` 只在计划选择 C/C++ workflow 时执行，并只接受 bundle 内
+compiler；GUI gates 只在计划选择 GUI 时执行，且不将开发机 runtime 作为交付证明。
 
 ## 8. Release Identity And States
 

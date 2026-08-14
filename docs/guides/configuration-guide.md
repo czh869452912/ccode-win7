@@ -17,17 +17,16 @@ Configuration is resolved from low to high priority:
 
 ```text
 built-in defaults
-  ^
-user config      (~/.embedagent/config.json)
-  ^
-project config   (<workspace>/.embedagent/config.json)
-  ^
-environment      (EMBEDAGENT_*)
-  ^
-CLI arguments    (--max-context-tokens, --mode, ...)
+< user config      (~/.embedagent/config.json)
+< project config   (<workspace>/.embedagent/config.json)
+< environment      (EMBEDAGENT_*)
+< explicit shell arguments
 ```
 
-Later layers override earlier layers. CLI arguments always have the highest priority.
+Later layers override earlier layers. CLI, TUI, and GUI all call the same product
+`resolve_launch_config(...)` entry; launchers only construct explicit overrides and never load
+the JSON files themselves. An explicit boolean `false` is a value, while an omitted override
+allows the lower layer to win.
 
 ## Configuration Files
 
@@ -36,8 +35,8 @@ Later layers override earlier layers. CLI arguments always have the highest prio
 | User | `~/.embedagent/config.json` | All workspaces for one user |
 | Project | `<workspace>/.embedagent/config.json` | Current workspace only |
 
-The runtime reloads these files when it starts a session or command. Editing a config
-file does not require changing source code.
+The product loads these files before it constructs a Host runtime for a shell process. Editing
+a config file takes effect for the next CLI command or TUI/GUI runtime construction.
 
 ## JSON Shape
 
@@ -239,7 +238,24 @@ can still require confirmation or be denied by `PermissionPolicy`.
 }
 ```
 
-## CLI Overrides
+## CLI Commands And Overrides
+
+The CLI requires an explicit command. A naked message is not a supported invocation:
+
+```text
+embedagent chat [OPTIONS]
+embedagent run [OPTIONS] TASK
+embedagent sessions list [OPTIONS]
+embedagent sessions show [OPTIONS] REFERENCE
+embedagent sessions rename [OPTIONS] REFERENCE TITLE
+embedagent sessions archive [OPTIONS] REFERENCE
+embedagent sessions fork [OPTIONS] REFERENCE [--title TITLE]
+```
+
+Use `chat` for an interactive session with descriptor commands and permission/user-input
+responses. Use `run` for one turn suitable for scripts; a required interaction returns exit
+code `2` and a blocked result instead of prompting. `sessions` operates on durable session
+records and does not create parallel history.
 
 These CLI arguments override matching config fields. `--max-turns` is an
 explicit runtime safety fuse for diagnostics and tests; persistent JSON config
@@ -252,7 +268,19 @@ does not set the product's loop ceiling.
 --max-turns INT
 --mode STR
 --agent-application STR
+--base-url URL
+--api-key KEY
+--model NAME
+--timeout SECONDS
+--approve-all
+--approve-writes
+--approve-commands
+--permission-rules PATH
 ```
+
+`run` and session query commands also accept `--output text|json`; `run` and `chat` accept
+`--resume`, while session creation accepts `--mode`. Equivalent TUI/GUI startup options feed
+the same explicit-override layer and do not alter file/environment precedence.
 
 ## Task State
 

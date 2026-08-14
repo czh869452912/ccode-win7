@@ -5,27 +5,29 @@
 > 状态：`active`
 > 类型：`platform authority`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-09`
-> 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `src/embedagent/core/`
+> 最后同步日期：`2026-08-14`
+> 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `packages/embedagent-host/src/embedagent_host/frontend_ports.py`
 
 ## 1. Purpose And Boundary
 
-`embedagent_protocol` 是通用 Host/UI 线协议发行包，只依赖 Python 标准库，拥有 JSON-safe DTO、`CoreInterface` 和 `FrontendCallbacks`。`src/embedagent/core/adapter.py` 实现 `AgentCoreAdapter`，将通用 hosted runtime 能力暴露为协议对象。
+`embedagent_protocol` 是 stdlib-only 的通用 Host/UI 协议发行包，拥有 JSON-safe DTO、聚焦的前端 port ABC、单一 event sink 和封闭的失败分类。协议只传输冻结快照、capability descriptors、commands、interactions 和 canonical session events。
 
-协议只传输冻结快照、capability descriptors、commands、interactions 和 canonical session events。它不暴露 mutable Core `Session`、不恢复历史、不决定 active tools 或权限、不定义某个前端的布局。
+协议不暴露 mutable Core `Session`、Host adapter、restore policy 或应用实现；不执行工具、不授予权限，也不定义 shell 布局。Host 实现 ports，产品层组合实现与 shell，前端只依赖协议对象。
 
-## 2. Public Interfaces
+## 2. Focused Frontend Ports
 
-`CoreInterface` 覆盖：
+`FrontendSessionPort` 是 session 操作边界，覆盖：
 
-- session create/resume/list/bootstrap/snapshot/lifecycle；
-- submit/cancel/mode/interaction response；
-- workspace、file、diff、plan 和 permission context；
-- app/session capability queries；
-- local resource reload；
-- shutdown。
+- list、summary、bootstrap、create 和 resume；
+- submit、cancel、mode 和 interaction response；
+- rename、archive 和 fork；
+- session capability query 与 close。
 
-`FrontendCallbacks` 只保留 canonical `on_session_event(envelope)` live-session callback。GUI app host 通过 `CoreInterface` / `FrontendCallbacks` 绑定浏览器 shell；TUI 通过公开 `HostedSessionHost` 间接消费同一 DTO 和 event callback 语义。新 shell 不增加前端专用 Core facade 或 event shape。
+`FrontendWorkspacePort` 是 workspace 读写边界，覆盖 frozen snapshot、tree、file、diff 和 local-resource reload。它不拥有 application 选择或 workspace registry policy。
+
+`SessionEventSink.on_session_event(envelope)` 是唯一 live-event 输入。sink 在 Host 创建时绑定；submit/create/resume 不接受 callback 或 resolver 参数。`FrontendPortError` 由 Host 在 port 边界抛出并携带一个 `FailureRecord`。
+
+封闭失败代码为：`usage_error`, `configuration_error`, `session_not_found`, `interaction_required`, `permission_denied`, `provider_error`, `runtime_error`, `cancelled`, `protocol_error`。shell 不从异常消息文本推断分类。
 
 ## 3. DTO Families
 
@@ -36,13 +38,11 @@
 - activity：`Message`, `ToolCall`, `ToolResult`, `CommandResult`, `InteractionActivity`；
 - workspace：`WorkspaceInfo`, `DiffPreview`, `RuntimeEnvironmentSnapshot`。
 
-`SessionBootstrap` 是唯一详细会话 bootstrap DTO；已不存在并行 detail DTO。`SessionSnapshot.workflow_state` 是唯一通用 workflow carrier，协议不展开 phase、discipline、task 或 activity 等应用字段。应用需要给 UI 的读模型位于 `workflow_state["workflow"]`，协议只验证其 JSON-safe 容器，不解释内容。
-
-DTO 可以携带通用 workflow state 和 capability metadata，但协议发行包不导入任何应用实现。
+`SessionBootstrap` 是唯一详细会话 bootstrap DTO。`SessionSnapshot.workflow_state` 是唯一通用 workflow carrier；协议不展开 phase、discipline、task 等应用字段。应用读模型位于 `workflow_state["workflow"]`，协议只验证其 JSON-safe 容器。
 
 ## 4. Current Wire Schema
 
-当前 wire schema version 是整数 `1`。`AppBootstrap`、`SessionBootstrap`、`ShellDescriptor` 和 `CapabilitySnapshot` 构造时拒绝其他版本；GUI strict protocol normalizer 对 bootstrap、capability 和 `SessionEventEnvelope` 同样只接受 version `1` 与 `snake_case` keys。product composition 编译一个 `ShellDescriptor`，GUI/TUI 消费同一结构；renderer view projection 不定义第二套 wire shape。
+当前 wire schema version 是整数 `1`。`AppBootstrap`、`SessionBootstrap`、`ShellDescriptor` 和 `CapabilitySnapshot` 拒绝其他版本；GUI strict normalizer 对 bootstrap、capability 和 `SessionEventEnvelope` 同样只接受 version `1` 与 `snake_case` keys。
 
 | Root DTO | Exact current root keys |
 |---|---|
@@ -51,32 +51,33 @@ DTO 可以携带通用 workflow state 和 capability metadata，但协议发行�
 | `CapabilitySnapshot` | `schema_version`, `modes`, `commands`, `tools`, `workflow_packages`, `agent_application`, `agent_applications`, `resources`, `model_profiles`, `empty_state` |
 | `SessionEventEnvelope` | `schema_version`, `event_id`, `session_id`, `sequence`, `event_kind`, `timestamp`, `payload` |
 
-`history` 只包含 `activities` 和 `integrity`。descriptor DTO 也拒绝未声明字段；generic `metadata`、`workflow`、`payload` 等显式扩展映射保留开放内容。Python DTO `to_dict()` 是 wire serializer，JavaScript `protocol-normalizer.js` 是唯一 wire-to-view-model 映射点；内部 React camelCase 属性不是 wire shape。
+`history` 只包含 `activities` 和 `integrity`。descriptor DTO 拒绝未声明字段；显式 `metadata`、`workflow` 和 `payload` mapping 保持开放。Python `to_dict()` 是 wire serializer；JavaScript `protocol-normalizer.js` 是唯一 wire-to-view-model 映射点。
 
-## 5. Adapter Rule
+## 5. Boundary And Event Rule
 
-`AgentCoreAdapter` 可将 Host 的 snapshot dictionary 转换为协议 dataclass，但对 live events 只做 validation/forwarding：Host 创建一次 `SessionEventEnvelope`，adapter 不重命名 event kind、不重组 payload、不为不同 shell 重新编码。
+`InProcessFrontendSessionPort` 与 `InProcessFrontendWorkspacePort` 是 Host 的进程内实现，内部 adapter 不向调用方暴露。Host 对一次 live change 只创建一个 `SessionEventEnvelope`，然后交给构造时绑定的 sink；任何 shell 或 bridge 都不得重组 payload、重命名 event kind 或创建第二个 sequence。
 
 ```mermaid
 flowchart LR
-    UI["registered FrontendCallbacks"] -->|CoreInterface calls| A["AgentCoreAdapter"]
-    A --> H["InProcessAdapter"]
-    H -->|one SessionEventEnvelope| A
-    A -->|on_session_event| UI
+    UI["CLI / TUI / GUI client"] --> P["focused frontend ports"]
+    P --> H["Host in-process implementation"]
+    H --> C["HostedSessionController / AgentSession"]
+    H -->|"one SessionEventEnvelope"| S["bound SessionEventSink"]
+    S --> UI
 ```
 
-## 6. Registration And Composition
+## 6. Composition
 
-`AgentCoreAdapter.register_frontend(...)` 绑定当前 shell callback。GUI app host 可按 workspace 创建/替换 `CoreInterface` 实例；TUI 从产品 bootstrap 接收公开 `HostedSessionHost` 边界并由 `TerminalRuntime` 适配为同一 bootstrap/envelope 语义。应用 registry、默认 workflow、provider、tools 和产品文案由 product composition 注入，不由 protocol 或 shell 写死。
+Product composition resolves configuration, selects the application, constructs one `HostedRuntime(session, workspace)`, binds the selected shell sink, and compiles one `ShellDescriptor`. Protocol and Host do not select a product application. A new shell implements a client projection over the focused ports; it does not add an aggregate Host facade or a new event shape.
 
 ## 7. Verification
 
-- `tests/test_architecture.py`
 - `tests/test_protocol_package_imports.py`
+- `tests/test_agent_app_protocol.py`
+- `tests/test_host_frontend_ports.py`
 - `tests/test_session_event_protocol.py`
-- `tests/test_gui_sync.py`
-- `tests/test_terminal_frontend.py`
 - `tests/test_inprocess_adapter_frontend_api.py`
+- `tests/test_pre_release_architecture_guards.py`
 
 ## 8. Related Documents
 

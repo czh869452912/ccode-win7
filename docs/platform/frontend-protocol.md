@@ -5,47 +5,36 @@
 > 状态：`active`
 > 类型：`platform contract`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-09`
-> 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `packages/embedagent-host/src/embedagent_host/runtime/session_event_protocol.py`, `src/embedagent/core/adapter.py`, `src/embedagent/frontend/`
+> 最后同步日期：`2026-08-14`
+> 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `packages/embedagent-host/src/embedagent_host/frontend_ports.py`, `packages/embedagent-host/src/embedagent_host/runtime/session_event_protocol.py`, `src/embedagent/frontend/runtime/`, `src/embedagent/frontend/gui/webapp/src/session-runtime/session-client-runtime.js`
 
 ## 1. Truth Layers
 
-前端协议有三个明确层次：
-
 | Layer | Purpose | Truth rule |
 |---|---|---|
-| app bootstrap | 产品名、workspace registry、commands、surfaces、shell diagnostics | 只是 shell metadata，不是 session truth |
-| session bootstrap | 激活 session id，返回 thread、snapshot、history、capabilities、integrity、`event_cursor` | 来自 transcript-backed hosted projection；generic workflow 只在 snapshot 的 `workflow_state` 中；cursor 由 Host live stream 拥有 |
+| app bootstrap | 产品名、workspace registry、commands、surfaces、shell diagnostics | shell metadata，不是 session truth |
+| session bootstrap | 激活 session，返回 thread、snapshot、history、capabilities、integrity 和 `event_cursor` | transcript-backed frozen projection；cursor 由 Host live stream 拥有 |
 | session event stream | 运行中增量事件 | 只能通过 canonical `SessionEventEnvelope` |
 
-前端 local state 只拥有布局、选中、折叠、draft、scroll 和输入中交互等展示状态。它不拥有 session history、workflow、permission、tool activation、capability availability 或 restore policy。
+前端 local state 只拥有布局、选中、draft、scroll、request-in-flight 和其他可丢失展示状态。它不拥有 session history、workflow、permission、tool activation、capability availability 或 restore policy。
 
-## 2. Effect Ownership
+## 2. Client Runtime Contract
 
-GUI 和 TUI 各有一个 shell runtime，renderer 不直接执行 Host 或 transport effect：
+所有 shell 遵守同一个 observable session state machine，但不共享 transport-specific executable code：
 
-| Shell | Effect owner | Boundary rule |
+| Shell | Session synchronization owner | Transport / outer runtime |
 |---|---|---|
-| GUI | `ClientRuntime` | `main.jsx` 组合 HTTP transport、socket transport 和 protocol adapter；只有 `protocol-adapter.js` 声明 endpoint，只有 `http-transport.js` 调用 `fetch`，只有 `socket-transport.js` 构造 WebSocket；controllers 只调用 named protocol methods |
-| TUI | `TerminalRuntime` | 只调用 `HostedSessionHost` 公开方法，拥有 selected session、cursor、generation、bootstrap buffer、gap recovery 和 close；controller、views 和 reducer 不导入 Host 实现 |
+| CLI | Python `SessionClientRuntime` | 进程内 `FrontendSessionPort`；CLI renderer 只消费 `RuntimeAction` |
+| TUI | Python `SessionClientRuntime` | 进程内 `FrontendSessionPort`，另持有聚焦 `FrontendWorkspacePort` |
+| GUI | JavaScript `SessionClientRuntime` | HTTP/WebSocket protocol adapter；browser-only controllers 由 `BrowserAppRuntime` 组合 |
 
-`ClientRuntime` 和 `TerminalRuntime` 都接收一个 canonical session bootstrap 和 `SessionEventEnvelope`。它们拥有请求取消、旧 generation 失效和 effect dispatch；React/terminal renderer 只消费 action 与可丢失投影。不得再增加 direct endpoint helper、adapter 逃逸、三参数 event callback 或 shell-local history loader。
+两个 `SessionClientRuntime` 都拥有 active session id、generation、bootstrap buffer、Host cursor、duplicate/gap handling、一次 recovery、interaction lifecycle、terminal outcome 和 close。`BrowserAppRuntime` 额外拥有 workspace、terminal、preview、source-control、dialog 和 browser transport controllers；这些不是跨 shell runtime 合同。
 
-精确 DTO keys、当前 schema version 和 serializer authority 只在 `docs/platform/protocol.md` 定义。
+Python 与 JavaScript 实现由 `tests/fixtures/session_client_runtime/contract.json` 的同一组 credential-free cases 验证。不得新增 direct endpoint helper、port/adapter 逃逸、三参数 callback、shell-local history loader 或第三套 session runtime。
 
 ## 3. Canonical Event Envelope
 
-`SessionEventEnvelope` 字段：
-
-- `schema_version`；
-- `event_id`；
-- `session_id`；
-- positive `sequence`；
-- `event_kind`；
-- `timestamp`；
-- JSON-safe `payload`。
-
-Host `SessionEventEncoder` 为一次 live change 创建一个 envelope，Core adapter、WebSocket bridge 和 shell 逐层原样转发；renderer transport 只有一个 `session_event` 分支。前端不设置 per-event callbacks，不将后端 event kinds 翻译为第二套协议。
+`SessionEventEnvelope` 包含 `schema_version`, `event_id`, `session_id`, positive `sequence`, `event_kind`, `timestamp` 和 JSON-safe `payload`。Host `SessionEventEncoder` 为一次 live change 创建一次 envelope；in-process sink 或 WebSocket bridge 原样转发，renderer transport 只有一个 `session_event` 分支。
 
 主要 event families：
 
@@ -56,78 +45,53 @@ Host `SessionEventEncoder` 为一次 live change 创建一个 envelope，Core ad
 - session status/finished/error；
 - context compaction、command result、plan update 及其他 declared hosted events。
 
-schema version 是实际 wire compatibility 标识，不是文档或架构命名。
+前端不设置 per-event callbacks，也不把 backend event kinds 翻译成第二套协议。schema version 是 wire compatibility 标识，不是迁移标签。
 
-## 4. Session Bootstrap
+## 4. Activation, Ordering And Recovery
 
-GUI 的 `/api/sessions/{id}/bootstrap` 与 TUI 的 `HostedSessionHost.get_session_bootstrap(...)` 是各自正式激活入口，并返回同一个 `SessionBootstrap` shape。响应至少包含：
+GUI 的 `/api/sessions/{id}/bootstrap` 与 Python runtime 的 `FrontendSessionPort.get_session_bootstrap(...)` 返回同一个 `SessionBootstrap` shape：thread、frozen snapshot、`history.activities`、integrity、capabilities、permission context 和 non-negative `event_cursor`。
 
-- thread shell metadata；
-- frozen session snapshot；
-- `history.activities` 和 integrity summary；
-- session capability snapshot；
-- snapshot 内的 generic `workflow_state`；
-- non-negative `event_cursor`，表示该 projection 在 Host live event stream 中对应的 high-water mark。
+runtime 在请求 bootstrap 前创建新 generation，并缓冲该 session 的 live envelopes。安装时以 `event_cursor` 为唯一基线，丢弃不高于 cursor 的 envelope，再按 sequence 应用连续事件。duplicate 被忽略；sequence gap 只启动当前 generation 的一次 bootstrap recovery。旧 generation、其他 session、close 后或 late async completion 都不能写回 state。
 
-`SessionHistoryAssembler` 拥有 history DTO 序列化，`SessionSnapshotProjector` 拥有 snapshot。GUI/TUI 不从 replay tail、app bootstrap 或自己保存的 timeline 重建 session。
+Host 在一个 per-session event publication 同步边界内捕获 projection 与 cursor，因此事件只能完整位于 bootstrap 之前或之后。serializer 和 shell 不维护第二个 sequence counter。renderer 不从 event tail 或 local timeline 重建 history。
 
-Host 在同一个 per-session event stream 同步边界内加载 projection 并读取 `event_cursor`。因此一次 live event publication 只能完整地落在 bootstrap 之前或之后，serializer 和 shell 不维护第二个 sequence counter。
+## 5. Capabilities And Descriptor Dispatch
 
-shell 在请求 bootstrap 前启动新的 activation generation，并缓冲该 session 的 live envelopes。安装时先以 `event_cursor` 作为唯一基线，丢弃不高于 cursor 的 envelope，再按 sequence 应用连续事件；这些事件仍进入统一 `session_event` reducer 路径。sequence gap 只启动当前 generation 的一个 recovery，旧 generation 的 projection、cursor、events 和异步回调全部失效，恢复完成后不得写回旧 cursor。
+`CapabilitySnapshot` 投影 modes、commands、tool presentation、workflow packages、agent applications、resources、model profiles 和 empty state。app bootstrap 携带 product-compiled `ShellDescriptor`。
 
-## 5. Capabilities And Registries
-
-`CapabilitySnapshot` 可投影：
-
-- modes；
-- commands；
-- tool presentation metadata；
-- workflow package descriptors；
-- active/available agent application descriptors；
-- local resources；
-- model profiles；
-- empty-state metadata。
-
-app bootstrap 携带 product-compiled `ShellDescriptor` 和 workspace state。shell 必须从 descriptor/capability registry 计算可见性、标签、排序、dispatch 和 renderer key；不以产品名、应用 id、工具名或 command id 分支重建 backend policy。GUI 和 TUI 不维护平行 command/surface catalog。
-
-renderer-local registry 只声明当前 shell 支持哪些通用 component/handler/renderer kinds。它是展示实现表，不是 capability source。未支持的 descriptor 必须显式隐藏并产生受控 diagnostics，不得以 generic fallback 补入未注册的应用能力。
+shell 从 descriptor/capabilities 计算 command 可用性、label、order、dispatch 和 renderer key；不得以 application id、workflow type 或 tool name 分支重建 policy。CLI 与 TUI 的通用 descriptor command dispatch 位于 Python runtime，GUI 的等价 dispatch 位于 JavaScript runtime。renderer registry 只声明本 shell 支持的展示实现，不是 capability source。
 
 ## 6. Generic Workflow Projection
 
-`SessionSnapshot.workflow_state` 是通用、命名空间可扩展的读模型容器。shell 可通过注册 renderer 显示 `workflow_state["workflow"]` 中的 summary、items、activity 和 metadata，但不解释上层应用内部类或在前端推进状态。新应用通过 workflow projection 和 descriptors 参与，不要求协议硬编码其专有词汇。
+`SessionSnapshot.workflow_state` 是通用、命名空间可扩展的读模型容器。shell 可以通过已注册 renderer 显示 `workflow_state["workflow"]`，但不解释应用内部类型或推进其状态。新应用通过 workflow projection 与 descriptors 参与，协议不硬编码专有词汇。
 
-## 7. Interactions
+## 7. Interactions And Terminal Outcomes
 
-permission 和 user-input request payload 共享 stable `request_id` / `interaction_id`, `turn_id` 及请求细节。shell 调用 `respond_to_interaction(...)` 后，Host 原子 claim 该交互并返回 acknowledgement。只有 resolved event 和后续 session snapshot 能清除 pending interaction。
+permission 与 user-input request payload 共享 stable `interaction_id`、`turn_id` 和请求细节。shell 调用 `respond_to_interaction(...)` 后，Host 原子 claim 交互；resolved event 或后续 bootstrap/snapshot 清除 pending state。前端的 duplicate-submit 防护不能替代 Host claim。
 
-前端必须防止同一 request 重复提交，但该本地防护不代替 Host claim。response-failed 事件应恢复可操作状态或显示后端错误，不假设 action 已执行。
+Client runtime 把 interaction request 暴露为 `blocked` terminal outcome。交互式 shell 可以继续收集响应并 resume；one-shot client 必须返回结构化 `interaction_required`，不能隐式批准、猜测输入或长期持有 Agent 状态。
 
-## 8. Tool Presentation And Refresh
+## 8. Failure And Diagnostics
 
-tool catalog 提供 label、permission category、renderer keys、preview/changed-path metadata 和 provenance。timeline 只按这些字段展示，不按 tool name 猜测。`read_model_invalidations` 可请求 shell 刷新 workspace files、capabilities 等读模型，但不能改变工具、权限或 workflow。
+Host/port failure 通过 `FailureRecord(code, message, retryable, source)` 传递。CLI 只按封闭 code 映射稳定 exit status；GUI/TUI 只渲染结构化失败。协议不发送 full prompt、source contents、raw tool output、API key、approval secret、permission payload 或 token 到 telemetry/diagnostics。
 
-tool/activity identity 使用 engine-issued `turn_id`, `step_id`, `step_index`, `call_id`。前端不 mint 替代 identity。
+tool catalog 拥有 permission category、preview/changed-path metadata、read-model invalidations 和 provenance。前端只投影这些字段，不按 tool name 猜测。tool/activity identity 使用 engine-issued `turn_id`, `step_id`, `step_index`, `call_id`。
 
-## 9. Failure And Diagnostics
+## 9. Verification
 
-tool failure 可携带 `FailureRecord(code, message, retryable, source)`。runtime config、compaction、recovery、turn experience、extension diagnostics 和 integrity 都是读模型，仅用于恢复/调试可见性。它们不是 active-tool、permission、context selection、extension loading 或 history authority。
-
-协议不发送 full prompt、skill/prompt body、source contents、raw tool output、API key、approval secret 或 permission token。
-
-## 10. Verification
-
+- `tests/test_session_client_runtime_contract.py`
+- `tests/test_host_frontend_ports.py`
 - `tests/test_session_event_protocol.py`
-- `tests/test_inprocess_adapter_frontend_api.py`
-- `tests/test_gui_sync.py`
-- `tests/test_gui_backend_api.py`
+- `tests/test_cli_chat.py`
 - `tests/test_terminal_frontend.py`
-- `src/embedagent/frontend/gui/webapp/test/protocol-envelope.test.mjs`
+- `src/embedagent/frontend/gui/webapp/test/session-client-runtime-contract.test.mjs`
 - `src/embedagent/frontend/gui/webapp/test/protocol-adapter.test.mjs`
+- `src/embedagent/frontend/gui/webapp/test/protocol-envelope.test.mjs`
 
-## 11. Related Documents
+## 10. Related Documents
 
 - `docs/platform/protocol.md`
 - `docs/platform/session-runtime.md`
-- `docs/platform/tool-contracts.md`
 - `docs/platform/frontend-gui.md`
 - `docs/platform/frontend-tui.md`
+- `docs/product/composition.md`

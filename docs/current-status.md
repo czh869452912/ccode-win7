@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`status`
 > 负责人：`project maintainers`
-> 最后验证日期：`2026-08-09`
+> 最后验证日期：`2026-08-14`
 
 ## Release State
 
@@ -13,10 +13,14 @@
 
 - 当前架构权威按 Agent Platform、上层 applications、EmbedAgent product 三个领域组织；C/C++ 只有一个应用权威。
 - 产品打包已从固定 full bundle 收敛为 official recipe -> immutable bundle plan -> export/stage/validate/identity/evidence/runtime policy 单链。`minimal-cli` 只激活 `embedagent.generic` 与 CLI；默认 `cpp-desktop` 激活 `embedagent.default_c_cpp` 与 CLI/TUI/GUI。两者仍构建和归档恰好六个 project wheels。
-- `-Profile` 与 `-Flavor` 已正交：dev 不创建 zip、只执行静态检查并保持 `DEV_ONLY`；release 创建 zip 并运行 plan-selected gates。两个 release flavor 共用 bundle-local CLI Agent smoke，desktop 另有 C++/GUI gates；application 和 shell override 在 bundle 中按计划 fail closed。
+- `-Profile` 与 `-Flavor` 已正交：dev 不创建 zip、只执行静态检查并保持 `DEV_ONLY`；release 创建 zip 并运行 plan-selected gates。两个 release flavor 共用真实 staged `embedagent.cmd` gate，覆盖 `run`/`chat`/`sessions`、工具、permission/user-input、resume 与 blocked exit；desktop 另有 C++/GUI gates。application 和 shell override 在 bundle 中按计划 fail closed。
 - Agent Core 工具执行已收敛为 prepare/commit/execute：稳定 invocation identity、截断输出拦截、交互 continuation 与 started-only restore 语义均由同一个 Kernel/Loop 主链拥有；Host 隐式权限默认与 `PermissionPolicy()` 一致。
 - Agent Platform 独立提取准备已成为可执行能力：Core 根包公开显式 ports 和安全默认值，`examples/standalone_agent.py` 演示同一 durable session 的运行、挂起与恢复，`core_only` wheel smoke 直接运行该示例并确认所有上层分发不可发现。
-- GUI `ProtocolAdapter` / `ClientRuntime` 与 TUI `TerminalRuntime` 是各自唯一 effect owner；strict DTO path 只产出 `snake_case` version 1 bootstrap 和 canonical envelope。product composition 编译唯一 `ShellDescriptor` 供 GUI/TUI 消费，本地固定 catalog 和 fallback 已删除。
+- Protocol 公开聚焦 `FrontendSessionPort`、`FrontendWorkspacePort` 与 `SessionEventSink`；Host 只提供进程内实现并在构造时绑定一个 canonical envelope sink，不再暴露 aggregate frontend facade、per-call handler 或 resolver callback。
+- CLI 与 TUI 共用 Python `SessionClientRuntime`；GUI 的 JavaScript `SessionClientRuntime` 位于 browser-only `BrowserAppRuntime` 内。两种实现通过同一 JSON fixture 验证 activation、cursor、recovery、interaction、generation 和 close；frontend runtime 不拥有 durable session truth。
+- CLI 只有显式 `chat`、`run` 和 `sessions` grammar。`run` 提供稳定 text/JSON result 与 `0/2/3/4/130` exit contract，遇到交互只返回 blocked；CLI 不转发 TUI/GUI，不保留常驻 Agent 状态，也不导入其他 shell。
+- strict DTO path 只产出 `snake_case` version 1 bootstrap 和 canonical envelope。product composition 编译唯一 `ShellDescriptor` 供 CLI/TUI/GUI 消费，本地固定 catalog、fallback 和 frontend translation layer 已删除。
+- 所有 shell 使用同一个产品 launch-config composition：built-in < `~/.embedagent/config.json` < workspace config < `EMBEDAGENT_*` < explicit shell arguments。launcher 不自行加载 config。
 - GUI/TUI 核心体验已收敛为 session、连续 timeline、composer/mode/command、blocking interaction 和 status。terminal、source control、preview、file browser 与独立 diff 只通过可选 contribution 注册；移除全部 secondary contributions 后最小 Agent shell 仍可独立使用。
 - Protocol、Host 和前端只投影 `SessionSnapshot.workflow_state`；C/C++ phase、discipline、TaskGraph 与 task 语义只由 workflow package 拥有。活动源码与文档不再使用迁移阶段命名或已删除的永久 panel/drawer 状态。
 - 物理迁仓尚未开始；它需要独立仓库设计、版本与发布契约及 EmbedAgent 消费方式的单独决策，不属于已完成的提取准备。
