@@ -9,6 +9,7 @@
 ## Frontend Event Publication Convergence
 
 - `docs/superpowers/specs/2026-08-16-frontend-event-publication-convergence-design.md`
+- `docs/superpowers/plans/2026-08-16-frontend-event-publication-convergence.md`
 
 ## Closure Rule
 
