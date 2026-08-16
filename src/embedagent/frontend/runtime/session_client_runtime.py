@@ -585,11 +585,7 @@ class SessionClientRuntime(SessionEventSink):
             if self._lifecycle == "closed" or generation != self._generation:
                 return False
             matching = sorted(
-                (
-                    envelope
-                    for envelope in self._event_queue
-                    if envelope.session_id == session_id
-                ),
+                (envelope for envelope in self._event_queue if envelope.session_id == session_id),
                 key=lambda item: item.sequence,
             )
             terminal_outcome = None  # type: Optional[RuntimeAction]
