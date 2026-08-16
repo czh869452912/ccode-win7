@@ -131,6 +131,44 @@ class CursorInterleavingInteractionPort(FakeSessionPort):
         return captured
 
 
+class InspectingMutationPort(FakeSessionPort):
+    def __init__(self, runtime):
+        super().__init__()
+        self.runtime = runtime
+        self.observed = []
+        self.error = None
+        self.during_request = None
+
+    def get_session_bootstrap(self, reference, mode=""):
+        del mode
+        cursor = 1 if reference == "session-1" else 2
+        return _bootstrap(session_id=reference, cursor=cursor)
+
+    def _response(self, session_id="session-1"):
+        self.observed.append((self.runtime.lifecycle, self.runtime.generation))
+        callback, self.during_request = self.during_request, None
+        if callback is not None:
+            callback()
+        if self.error is not None:
+            raise self.error
+        return _bootstrap(session_id=session_id, cursor=2)
+
+    def create_session(self, mode):
+        del mode
+        return self._response("session-2")
+
+    def resume_session(self, reference, mode):
+        del reference, mode
+        return self._response()
+
+    def set_session_mode(self, session_id, mode):
+        del mode
+        return self._response(session_id)
+
+    def cancel_session(self, session_id):
+        return self._response(session_id)
+
+
 def _shell():
     return ShellDescriptor(
         commands=[
@@ -392,6 +430,61 @@ def test_interaction_response_discards_old_blocked_outcome_while_resume_is_pendi
         )
     )
     assert runtime.wait_for_terminal(timeout_s=0).to_dict()["final_text"] == "later"
+
+
+@pytest.mark.parametrize(
+    "invoke",
+    (
+        lambda runtime: runtime.create_session("debug"),
+        lambda runtime: runtime.resume_session("latest", "debug"),
+        lambda runtime: runtime.set_session_mode("session-1", "verify"),
+        lambda runtime: runtime.cancel_session("session-1"),
+    ),
+)
+def test_bootstrap_operations_begin_generation_before_port_request(invoke):
+    runtime = SessionClientRuntime()
+    port = InspectingMutationPort(runtime)
+    runtime.bind_session_port(port)
+    runtime.activate_session("session-1")
+    port.observed = []
+
+    invoke(runtime)
+
+    assert port.observed == [("activating", 2)]
+
+
+def test_failed_bootstrap_request_rolls_back_and_replays_buffered_event():
+    runtime = SessionClientRuntime()
+    port = InspectingMutationPort(runtime)
+    runtime.bind_session_port(port)
+    runtime.activate_session("session-1")
+    port.error = RuntimeError("request failed")
+    port.during_request = lambda: runtime.on_session_event(
+        _event("assistant.delta", {"text": "two"}, sequence=2)
+    )
+
+    with pytest.raises(RuntimeError, match="request failed"):
+        runtime.set_session_mode("session-1", "verify")
+
+    assert runtime.active_session_id == "session-1"
+    assert runtime.event_cursor == 2
+    assert runtime.lifecycle == "ready"
+    assert runtime.generation == 2
+
+
+def test_stale_returned_bootstrap_cannot_overwrite_nested_activation():
+    runtime = SessionClientRuntime()
+    port = InspectingMutationPort(runtime)
+    runtime.bind_session_port(port)
+    runtime.activate_session("session-1")
+    port.during_request = lambda: runtime.activate_session("session-2")
+
+    with pytest.raises(RuntimeError, match="bootstrap_transaction_superseded"):
+        runtime.set_session_mode("session-1", "verify")
+
+    assert runtime.active_session_id == "session-2"
+    assert runtime.event_cursor == 2
+    assert runtime.generation == 3
 
 
 def test_runtime_installs_failed_lifecycle_from_error_bootstrap():

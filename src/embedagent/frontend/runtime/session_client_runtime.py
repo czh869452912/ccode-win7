@@ -31,7 +31,6 @@ _INTERACTION_FINISH_EVENTS = frozenset(
         "user-input.response.failed",
     )
 )
-_RESET_TERMINAL = object()
 
 
 @dataclass(frozen=True)
@@ -160,26 +159,14 @@ class SessionClientRuntime(SessionEventSink):
         with self._condition:
             self._assert_operable()
             port = self._require_session_port()
-            self._generation += 1
-            generation = self._generation
-            self._active_session_id = session_id
-            self._event_cursor = 0
-            self._lifecycle = "activating"
-            self._activating = True
-            self._recovering = False
-            self._recovery_attempted = False
-            self._buffered_events = []
-            self._terminal_outcome = None
-            self._condition.notify_all()
         try:
-            bootstrap = port.get_session_bootstrap(session_id, mode)
-            self._validate_bootstrap(bootstrap, session_id)
-        except (OSError, RuntimeError, TypeError, ValueError) as exc:
-            self._fail_generation(generation, session_id, _failure_for_error(exc))
+            return self._run_bootstrap_transaction(
+                session_id,
+                reason,
+                lambda: port.get_session_bootstrap(session_id, mode),
+            )
+        except (OSError, RuntimeError, TypeError, ValueError):
             return None
-        if not self._install_bootstrap(generation, session_id, bootstrap, reason):
-            return None
-        return bootstrap
 
     def on_session_event(self, envelope: SessionEventEnvelope) -> None:
         if not isinstance(envelope, SessionEventEnvelope):
@@ -353,22 +340,32 @@ class SessionClientRuntime(SessionEventSink):
         with self._condition:
             self._assert_operable()
             port = self._require_session_port()
-        bootstrap = port.create_session(str(mode or ""))
-        return self._install_returned_bootstrap(bootstrap, "create")
+        return self._run_bootstrap_transaction(
+            "",
+            "create",
+            lambda: port.create_session(str(mode or "")),
+        )
 
     def resume_session(self, reference: str, mode: str = "") -> SessionBootstrap:
         with self._condition:
             self._assert_operable()
             port = self._require_session_port()
-        bootstrap = port.resume_session(str(reference or ""), str(mode or ""))
-        return self._install_returned_bootstrap(bootstrap, "resume")
+        return self._run_bootstrap_transaction(
+            "",
+            "resume",
+            lambda: port.resume_session(str(reference or ""), str(mode or "")),
+        )
 
     def set_session_mode(self, session_id: str, mode: str) -> SessionBootstrap:
+        selected_session_id = _required_session_id(session_id)
         with self._condition:
             self._assert_operable()
             port = self._require_session_port()
-        bootstrap = port.set_session_mode(_required_session_id(session_id), str(mode or ""))
-        return self._install_returned_bootstrap(bootstrap, "mode_changed")
+        return self._run_bootstrap_transaction(
+            selected_session_id,
+            "mode_changed",
+            lambda: port.set_session_mode(selected_session_id, str(mode or "")),
+        )
 
     def respond_to_interaction(
         self,
@@ -380,40 +377,26 @@ class SessionClientRuntime(SessionEventSink):
         with self._condition:
             self._assert_operable()
             port = self._require_session_port()
-        generation = self._begin_bootstrap_transaction(selected_session_id)
-        try:
-            bootstrap = port.respond_to_interaction(
+        return self._run_bootstrap_transaction(
+            selected_session_id,
+            "interaction_response",
+            lambda: port.respond_to_interaction(
                 selected_session_id,
                 str(interaction_id or ""),
                 dict(payload),
-            )
-        except (OSError, RuntimeError, TypeError, ValueError):
-            self._rollback_bootstrap_transaction(generation)
-            raise
-        try:
-            self._validate_bootstrap(bootstrap, selected_session_id)
-        except (TypeError, ValueError) as exc:
-            self._fail_generation(
-                generation,
-                selected_session_id,
-                _failure_for_error(exc),
-            )
-            raise
-        if not self._install_bootstrap(
-            generation,
-            selected_session_id,
-            bootstrap,
-            "interaction_response",
-        ):
-            raise RuntimeError("bootstrap_transaction_superseded")
-        return bootstrap
+            ),
+        )
 
     def cancel_session(self, session_id: str) -> SessionBootstrap:
+        selected_session_id = _required_session_id(session_id)
         with self._condition:
             self._assert_operable()
             port = self._require_session_port()
-        bootstrap = port.cancel_session(_required_session_id(session_id))
-        return self._install_returned_bootstrap(bootstrap, "cancel")
+        return self._run_bootstrap_transaction(
+            selected_session_id,
+            "cancel",
+            lambda: port.cancel_session(selected_session_id),
+        )
 
     def rename_session(self, session_id: str, title: str) -> ThreadShell:
         with self._condition:
@@ -500,6 +483,34 @@ class SessionClientRuntime(SessionEventSink):
             if envelope.session_id == baseline.active_session_id:
                 self.on_session_event(envelope)
 
+    def _run_bootstrap_transaction(
+        self,
+        target_session_id: str,
+        reason: str,
+        request: Callable[[], SessionBootstrap],
+    ) -> SessionBootstrap:
+        generation = self._begin_bootstrap_transaction(target_session_id)
+        try:
+            bootstrap = request()
+        except (OSError, RuntimeError, TypeError, ValueError):
+            self._rollback_bootstrap_transaction(generation)
+            raise
+        try:
+            if not isinstance(bootstrap, SessionBootstrap):
+                raise TypeError("session port must return a SessionBootstrap")
+            session_id = target_session_id or _required_session_id(bootstrap.thread.id)
+            self._validate_bootstrap(bootstrap, session_id)
+        except (TypeError, ValueError) as exc:
+            self._fail_generation(
+                generation,
+                target_session_id,
+                _failure_for_error(exc),
+            )
+            raise
+        if not self._install_bootstrap(generation, session_id, bootstrap, reason):
+            raise RuntimeError("bootstrap_transaction_superseded")
+        return bootstrap
+
     def _recover_generation(self, generation: int, session_id: str) -> None:
         try:
             port = self._require_session_port()
@@ -516,7 +527,6 @@ class SessionClientRuntime(SessionEventSink):
         session_id: str,
         bootstrap: SessionBootstrap,
         reason: str,
-        terminal_outcome: Optional[RuntimeAction] = None,
     ) -> bool:
         with self._condition:
             if self._lifecycle == "closed" or generation != self._generation:
@@ -529,12 +539,14 @@ class SessionClientRuntime(SessionEventSink):
                 ),
                 key=lambda item: item.sequence,
             )
+            terminal_outcome = None  # type: Optional[RuntimeAction]
             for envelope in matching:
                 if envelope.sequence <= bootstrap.event_cursor:
                     terminal_outcome = self._reduce_terminal_outcome(
                         terminal_outcome,
                         envelope,
                     )
+            self._active_session_id = session_id
             self._event_cursor = bootstrap.event_cursor
             self._lifecycle = self._bootstrap_lifecycle(bootstrap)
             self._terminal_outcome = terminal_outcome
@@ -713,44 +725,6 @@ class SessionClientRuntime(SessionEventSink):
                 "failure": failure.to_dict() if failure is not None else None,
             },
         )
-
-    def _install_returned_bootstrap(
-        self,
-        bootstrap: SessionBootstrap,
-        reason: str,
-        discard_terminal: Any = _RESET_TERMINAL,
-    ) -> SessionBootstrap:
-        if not isinstance(bootstrap, SessionBootstrap):
-            raise TypeError("session port must return a SessionBootstrap")
-        session_id = _required_session_id(bootstrap.thread.id)
-        self._validate_bootstrap(bootstrap, session_id)
-        with self._condition:
-            self._assert_operable()
-            observed_terminal = self._terminal_outcome
-            if discard_terminal is _RESET_TERMINAL:
-                retained_terminal = None
-            else:
-                retained_terminal = (
-                    observed_terminal if observed_terminal is not discard_terminal else None
-                )
-            self._generation += 1
-            generation = self._generation
-            self._active_session_id = session_id
-            self._event_cursor = 0
-            self._lifecycle = "activating"
-            self._activating = True
-            self._recovering = False
-            self._recovery_attempted = False
-            self._buffered_events = []
-            self._terminal_outcome = None
-        self._install_bootstrap(
-            generation,
-            session_id,
-            bootstrap,
-            reason,
-            terminal_outcome=retained_terminal,
-        )
-        return bootstrap
 
     def _assert_operable(self) -> None:
         if self._lifecycle == "closed":
