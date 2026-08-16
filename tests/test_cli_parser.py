@@ -102,3 +102,26 @@ def test_main_returns_integer_without_calling_sys_exit(monkeypatch):
     )
 
     assert cli_app.main(["run", "hello"]) == 17
+
+
+def test_main_prepares_standard_streams_before_parsing(monkeypatch):
+    import embedagent.cli.app as cli_app
+
+    calls = []
+    application = type("Application", (), {"run": lambda self: 0})()
+
+    class Parser(object):
+        def parse_args(self, argv):
+            calls.append(("parse", argv))
+            return object()
+
+    monkeypatch.setattr(cli_app, "prepare_cli_standard_streams", lambda: calls.append("prepare"))
+    monkeypatch.setattr(cli_app, "build_parser", lambda: Parser())
+    monkeypatch.setattr(
+        cli_app.CliApplication,
+        "from_options",
+        classmethod(lambda cls, options: application),
+    )
+
+    assert cli_app.main(["run", "hello"]) == 0
+    assert calls == ["prepare", ("parse", ["run", "hello"])]

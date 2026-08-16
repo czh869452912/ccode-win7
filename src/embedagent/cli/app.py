@@ -15,6 +15,7 @@ from embedagent.bundle_policy import load_current_bundle_policy
 from embedagent.cli.options import CliOptions
 from embedagent.cli.parser import build_parser
 from embedagent.cli.renderer import write_command_failure
+from embedagent.cli.text_output import prepare_cli_standard_streams
 from embedagent.frontend.runtime import SessionClientRuntime
 from embedagent.hosted import create_hosted_runtime, resolve_launch_config
 from embedagent.product_catalog import (
@@ -95,6 +96,7 @@ def _failure(code: str, source: str) -> FailureRecord:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    prepare_cli_standard_streams()
     options = build_parser().parse_args(argv)
     try:
         return CliApplication.from_options(options).run()
