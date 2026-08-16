@@ -400,9 +400,7 @@ def test_interaction_response_does_not_rewind_cursor_after_captured_bootstrap():
     assert result["final_text"] == "done"
     assert runtime.event_cursor == 4
     assert [
-        action.to_dict()["reason"]
-        for action in actions
-        if action.kind == "session_activated"
+        action.to_dict()["reason"] for action in actions if action.kind == "session_activated"
     ] == ["activate", "interaction_response"]
 
 

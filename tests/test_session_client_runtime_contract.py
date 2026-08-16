@@ -44,9 +44,7 @@ class FakeSessionPort(object):
         return self._take_response(("cancel", session_id))
 
     def respond_to_interaction(self, session_id, interaction_id, payload):
-        return self._take_response(
-            ("interaction_response", session_id, interaction_id, payload)
-        )
+        return self._take_response(("interaction_response", session_id, interaction_id, payload))
 
     def close(self):
         self.closed = True
@@ -127,9 +125,7 @@ def _run_case(contract, case):
             nested = operation.get("during_activation")
             if nested:
                 if nested.get("request_error"):
-                    port.responses.append(
-                        _port_error(nested["request_error"], "activation failed")
-                    )
+                    port.responses.append(_port_error(nested["request_error"], "activation failed"))
                 else:
                     port.responses.append(_bootstrap(contract, nested["bootstrap"]))
                 port.during_bootstrap = lambda value=nested: runtime.activate_session(
@@ -139,9 +135,7 @@ def _run_case(contract, case):
             continue
         if kind in ("bootstrap_operation", "bootstrap_operation_raw"):
             if operation.get("request_error"):
-                port.responses.append(
-                    _port_error(operation["request_error"], "request failed")
-                )
+                port.responses.append(_port_error(operation["request_error"], "request failed"))
             else:
                 port.responses.append(
                     _bootstrap(
@@ -164,44 +158,40 @@ def _run_case(contract, case):
                             )
                         )
                     else:
-                        port.responses.append(
-                            _bootstrap(contract, nested["bootstrap"])
-                        )
+                        port.responses.append(_bootstrap(contract, nested["bootstrap"]))
                     runtime.activate_session(nested["session_id"])
                 if value.get("during_close"):
                     runtime.close()
 
             port.during_bootstrap = during_request
             operation_name = operation["operation"]
-            if operation_name == "interaction_response":
-                invoke = lambda: runtime.respond_to_interaction(
-                    operation["session_id"],
-                    "approval-1",
-                    {"decision": "accept"},
-                )
-            elif operation_name == "create":
-                invoke = lambda: runtime.create_session("explore")
-            elif operation_name == "mode":
-                invoke = lambda: runtime.set_session_mode(
-                    operation["session_id"], "verify"
-                )
-            elif operation_name == "cancel":
-                invoke = lambda: runtime.cancel_session(operation["session_id"])
-            else:
-                raise AssertionError(
-                    "unknown bootstrap fixture operation: %s" % operation_name
-                )
+            if operation_name not in (
+                "interaction_response",
+                "create",
+                "mode",
+                "cancel",
+            ):
+                raise AssertionError("unknown bootstrap fixture operation: %s" % operation_name)
+
+            def invoke():
+                if operation_name == "interaction_response":
+                    return runtime.respond_to_interaction(
+                        operation["session_id"],
+                        "approval-1",
+                        {"decision": "accept"},
+                    )
+                if operation_name == "create":
+                    return runtime.create_session("explore")
+                if operation_name == "mode":
+                    return runtime.set_session_mode(operation["session_id"], "verify")
+                return runtime.cancel_session(operation["session_id"])
 
             if operation.get("expect_stale"):
-                with pytest.raises(
-                    RuntimeError, match="bootstrap_transaction_superseded"
-                ):
+                with pytest.raises(RuntimeError, match="bootstrap_transaction_superseded"):
                     invoke()
             elif operation.get("expect_error"):
                 expected_error = (
-                    FrontendPortError
-                    if operation.get("request_error")
-                    else (TypeError, ValueError)
+                    FrontendPortError if operation.get("request_error") else (TypeError, ValueError)
                 )
                 with pytest.raises(expected_error):
                     invoke()
@@ -246,9 +236,7 @@ def test_python_runtime_matches_cross_language_contract():
                 "cursor": runtime.event_cursor,
                 "generation": runtime.generation,
                 "lifecycle": runtime.lifecycle,
-                "terminal_status": (
-                    None if terminal is None else terminal.to_dict()["status"]
-                ),
+                "terminal_status": (None if terminal is None else terminal.to_dict()["status"]),
             }
             assert actual == case["final"], case["name"]
 

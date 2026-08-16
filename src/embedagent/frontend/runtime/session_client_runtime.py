@@ -553,9 +553,7 @@ class SessionClientRuntime(SessionEventSink):
             self._activating = False
             self._recovering = False
             buffered = [
-                envelope
-                for envelope in matching
-                if envelope.sequence > bootstrap.event_cursor
+                envelope for envelope in matching if envelope.sequence > bootstrap.event_cursor
             ]
             self._buffered_events = []
             self._transaction_baseline = None
