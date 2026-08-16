@@ -74,13 +74,14 @@ class TestEventEmissionChain(object):
         assert called_with[0].session_id == "sess-1"
         assert called_with[0].payload == {"key": "value"}
 
-    def test_handler_exception_isolated(self, fresh_container):
+    def test_handler_exception_propagates(self, fresh_container):
         def bad_handler(envelope):
             del envelope
             raise RuntimeError("boom")
 
         emitter = EventEmitter(SimpleNamespace(on_session_event=bad_handler))
-        emitter.emit("test_event", "sess-1", {})
+        with pytest.raises(RuntimeError, match="boom"):
+            emitter.emit("test_event", "sess-1", {})
 
 
 class TestWorkspaceBoundary(object):

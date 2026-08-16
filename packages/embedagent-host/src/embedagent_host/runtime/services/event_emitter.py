@@ -26,10 +26,7 @@ class EventEmitter(object):
         with self._encoder.session_scope(session_id):
             envelope = self._encoder.encode(session_id, event_name, payload)
             if self._sink is not None:
-                try:
-                    self._sink.on_session_event(envelope)
-                except (RuntimeError, ValueError, TypeError, OSError):
-                    logger.exception("Event sink failed for %s", event_name)
+                self._sink.on_session_event(envelope)
 
     def current_cursor(self, session_id: str) -> int:
         return self._encoder.current_sequence(session_id)

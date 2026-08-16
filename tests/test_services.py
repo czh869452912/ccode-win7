@@ -27,13 +27,14 @@ class TestEventEmitter(unittest.TestCase):
         self.assertEqual(self.calls[0].session_id, "sess1")
         self.assertEqual(self.calls[0].payload, {"key": "value"})
 
-    def test_handler_exception_isolated(self):
+    def test_handler_exception_propagates(self):
         def bad_handler(envelope):
             del envelope
             raise RuntimeError("boom")
 
         emitter = EventEmitter(SimpleNamespace(on_session_event=bad_handler))
-        emitter.emit("test_event", "sess1", {"key": "value"})
+        with self.assertRaisesRegex(RuntimeError, "boom"):
+            emitter.emit("test_event", "sess1", {"key": "value"})
 
     def test_sink_is_construction_bound(self):
         self.assertFalse(hasattr(self.emitter, "add_handler"))
