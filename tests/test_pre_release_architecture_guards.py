@@ -1021,6 +1021,7 @@ def test_gui_session_activation_bootstrap_is_session_runtime_owned():
     runtime_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/session-client-runtime.js"
     )
+    python_runtime_text = _read(ROOT / "src/embedagent/frontend/runtime/session_client_runtime.py")
     session_controller_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-controller.js"
     )
@@ -1043,6 +1044,13 @@ def test_gui_session_activation_bootstrap_is_session_runtime_owned():
     assert "async cancelSession" in runtime_text
     assert "async respondToInteraction" in runtime_text
     assert "recoveryAttempted" in runtime_text
+    assert "_drain_buffered_events" in python_runtime_text
+    assert "#drainBufferedEvents" in runtime_text
+    assert (
+        "for envelope in buffered:\n            self.on_session_event(envelope)"
+        not in python_runtime_text
+    )
+    assert "for (const event of buffered) await this.acceptSessionEvent(event)" not in runtime_text
     assert "installSessionBootstrap" not in runtime_text
     assert "installSessionBootstrap" not in browser_text
     assert "installSessionBootstrap" not in session_controller_text
