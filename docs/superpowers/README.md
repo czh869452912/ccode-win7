@@ -9,6 +9,7 @@
 ## Session Bootstrap Transaction Convergence
 
 - `docs/superpowers/specs/2026-08-16-session-bootstrap-transaction-design.md`
+- `docs/superpowers/plans/2026-08-16-session-bootstrap-transaction-convergence.md`
 
 ## Closure Rule
 
