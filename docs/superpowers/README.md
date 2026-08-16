@@ -9,6 +9,7 @@
 ## Session Bootstrap Buffer Drain
 
 - `docs/superpowers/specs/2026-08-16-session-bootstrap-buffer-drain-design.md`
+- `docs/superpowers/plans/2026-08-16-session-bootstrap-buffer-drain.md`
 
 ## Closure Rule
 
