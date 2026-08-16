@@ -28,7 +28,7 @@
 | TUI | Python `SessionClientRuntime` | 进程内 `FrontendSessionPort`，另持有聚焦 `FrontendWorkspacePort` |
 | GUI | JavaScript `SessionClientRuntime` | HTTP/WebSocket protocol adapter；browser-only controllers 由 `BrowserAppRuntime` 组合 |
 
-两个 `SessionClientRuntime` 都拥有 active session id、generation、bootstrap transaction buffer、Host cursor、duplicate/gap handling、一次 recovery、interaction lifecycle、terminal outcome 和 close。所有 bootstrap-producing operation 的 request-to-install transaction 都属于 runtime。`BrowserAppRuntime` 额外拥有 workspace、terminal、preview、source-control、dialog 和 browser transport controllers；这些不是跨 shell runtime 合同。
+两个 `SessionClientRuntime` 都拥有 active session id、generation、单一 synchronization phase、ordered event queue、Host cursor、duplicate/gap handling、一次 recovery、interaction lifecycle、terminal outcome 和 close。所有 bootstrap-producing operation 的 request-to-install transaction 都属于 runtime。`BrowserAppRuntime` 额外拥有 workspace、terminal、preview、source-control、dialog 和 browser transport controllers；这些不是跨 shell runtime 合同。
 
 Python 与 JavaScript 实现由 `tests/fixtures/session_client_runtime/contract.json` 的同一组 credential-free cases 验证。不得新增 direct endpoint helper、port/adapter 逃逸、三参数 callback、shell-local history loader 或第三套 session runtime。
 
@@ -51,7 +51,11 @@ Python 与 JavaScript 实现由 `tests/fixtures/session_client_runtime/contract.
 
 GUI 的 `/api/sessions/{id}/bootstrap` 与 Python runtime 的 `FrontendSessionPort.get_session_bootstrap(...)` 返回同一个 `SessionBootstrap` shape：thread、frozen snapshot、`history.activities`、integrity、capabilities、permission context 和 non-negative `event_cursor`。
 
-两个 runtime 对每个 bootstrap-producing operation 都在请求 port/transport 前创建新 generation；这包括 activate、create/resume、mode、cancel 和 interaction response。事务同步状态覆盖 request、bootstrap install、`session_activated` dispatch 和 ordered buffer drain；在 drain 持锁观察到 applicable queue 为空前，canonical envelope 只进入 generation buffer。安装以 Host `event_cursor` 为基线：cursor 已覆盖的 envelope 只参与 terminal outcome reduction，cursor 后的连续 envelope 由 runtime-owned drain 逐个推进唯一 live-event reducer。recovery install 与 request rollback 复用同一 drain boundary，因此新 envelope 不能越过待回放的前序 envelope。真实首 gap 仍只触发一次 recovery，真实 repeated gap 仍 fail closed。请求失败回滚到最近 committed synchronization baseline，invalid bootstrap 使当前 generation 失败，late completion 不能覆盖新 generation 或 closed runtime。
+两个 runtime 对每个 bootstrap-producing operation 都在请求 port/transport 前创建新 generation；这包括 activate、create/resume、mode、cancel 和 interaction response。`sync phase` 只取 idle、bootstrap、recovery 或 publication，一个 ordered event queue 接收这些阶段内的 applicable canonical envelopes。bootstrap install、recovery install 与 request rollback 都回到同一个 queue drain，因此新 envelope 不能越过待发布或待回放的前序 envelope。
+
+连续 live event 先派生 candidate lifecycle、terminal outcome 与 frozen `RuntimeAction`，再调用 shell sink；只有 sink 成功返回，runtime 才提交 cursor、lifecycle 和 terminal outcome 并唤醒 waiter。sink 调用期间的重入 event 只追加到同一 queue。投递失败不提交 candidate event、不推进 cursor，并以 `protocol_error` 终止当前 generation；不重试失败动作，也不向同一个失败 sink 递归投递失败动作。
+
+安装以 Host `event_cursor` 为基线：cursor 已覆盖的 envelope 只参与 terminal outcome reduction，cursor 后的连续 envelope 由 runtime-owned drain 逐个发布。真实首 gap 仍只触发一次 recovery，真实 repeated gap 仍 fail closed。请求失败回滚到最近 committed synchronization baseline，invalid bootstrap 使当前 generation 失败，late completion 不能覆盖新 generation 或 closed runtime。
 
 committed synchronization baseline 只是 runtime 内部的瞬态客户端同步状态，不是 durable session truth 或第二份 history。Host 的 projection capture、cursor 与 event publication 同步边界保持不变。
 
@@ -76,6 +80,8 @@ Client runtime 把 interaction request 暴露为 `blocked` terminal outcome。�
 ## 8. Failure And Diagnostics
 
 Host/port failure 通过 `FailureRecord(code, message, retryable, source)` 传递。CLI 只按封闭 code 映射稳定 exit status；GUI/TUI 只渲染结构化失败。协议不发送 full prompt、source contents、raw tool output、API key、approval secret、permission payload 或 token 到 telemetry/diagnostics。
+
+Host bound `SessionEventSink` 的异常必须传播给发布调用者，不能记录后当作成功。Host cursor 是 envelope sequence 分配事实，不是另一个 delivery acknowledgement；client runtime 的 delivered-before-committed 规则负责本地可观察提交边界。
 
 tool catalog 拥有 permission category、preview/changed-path metadata、read-model invalidations 和 provenance。前端只投影这些字段，不按 tool name 猜测。tool/activity identity 使用 engine-issued `turn_id`, `step_id`, `step_index`, `call_id`。
 

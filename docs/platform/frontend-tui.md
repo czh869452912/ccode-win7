@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform implementation`
 > 负责人：`TUI maintainers`
-> 最后同步日期：`2026-08-14`
+> 最后同步日期：`2026-08-16`
 > 对应代码范围：`src/embedagent/frontend/tui/`, `src/embedagent/frontend/runtime/`
 
 ## 1. Purpose And Boundary
@@ -19,7 +19,7 @@ TUI 不持有 Host adapter、session truth、application catalog 或 restore pol
 | Component | Ownership |
 |---|---|
 | `launcher.py` | bundle shell policy、统一 launch config、Host port set、application 与 descriptor 组合 |
-| `frontend/runtime/session_client_runtime.py` | CLI/TUI 共用的 activation、cursor、event ordering/recovery、interaction、descriptor dispatch 和 close |
+| `frontend/runtime/session_client_runtime.py` | CLI/TUI 共用的 activation、单一 event queue、delivered-before-committed publication、cursor/recovery、interaction、descriptor dispatch 和 close |
 | `bootstrap.py` | 校验注入对象，创建 app，单次绑定 runtime action dispatcher |
 | `app.py` | `TerminalApp` 生命周期、组件容器与 workspace port |
 | `controller.py`, `commands.py`, `shell_state.py` | 用户输入、`RuntimeAction` dispatch 和 descriptor-backed command/keybinding 投影 |
@@ -43,7 +43,7 @@ flowchart LR
 
 `launch_tui()` 创建一个 `SessionClientRuntime`，在构造 Host 时把它作为唯一 `SessionEventSink`，随后绑定 `runtime.session` port。`run_tui()` 只接收共享 runtime、workspace port、workspace、session options 与 `ShellDescriptor`；它不构造 Host，也不读取私有对象。
 
-`bootstrap.py` 将 `TerminalController.on_runtime_action` 单次绑定到 runtime。runtime 在 create/resume 前建立 generation，缓冲 bootstrap 期间的 envelopes，以 Host `event_cursor` 安装 projection，并只释放连续事件；sequence gap 通过同一个 bootstrap port 恢复。close 后拒绝新操作并忽略晚到事件。
+`bootstrap.py` 将 `TerminalController.on_runtime_action` 单次绑定到 runtime。runtime 在 create/resume 前建立 generation，以单一 sync phase 和 ordered queue 接收 bootstrap、recovery 或 publication 期间的 envelopes，以 Host `event_cursor` 安装 projection，并只发布连续事件。runtime action 成功交给 controller 后才提交 event cursor、interaction lifecycle 和 terminal outcome，因此 input waiter 不会早于 permission/user-input prompt 被唤醒；sequence gap 通过同一个 bootstrap port 恢复。close 后拒绝新操作并忽略晚到事件。
 
 bootstrap history 替换 terminal projection；terminal timeline 不是可恢复 transcript。`TUIFrontend` 只根据 canonical event 更新 timeline、snapshot、context diagnostics 和 pending interaction。
 

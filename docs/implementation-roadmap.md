@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`roadmap`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-08-14`
+> 最后同步日期：`2026-08-16`
 > 详细当前状态：`docs/current-status.md`
 
 ## Purpose
@@ -26,6 +26,7 @@
 ## P2: Test And CI Follow-Up
 
 - 只关闭有可复核证据的活跃 CI 切片。
+- frontend session-event 回归必须在共享 Python/JavaScript contract 与真实 staged launcher 路径复现；不得用 shell-local timing workaround、重试或第二个 cursor 掩盖发布边界问题。
 - 在现有固定测试分区稳定后，按所有者拆分大型测试资产和后续切片。
 
 ## Later: Optional Enterprise/Intranet Adapters

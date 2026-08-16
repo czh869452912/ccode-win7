@@ -5,8 +5,8 @@
 > 状态：`active`
 > 类型：`platform authority`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-14`
-> 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `packages/embedagent-host/src/embedagent_host/frontend_ports.py`
+> 最后同步日期：`2026-08-16`
+> 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `packages/embedagent-host/src/embedagent_host/frontend_ports.py`, `packages/embedagent-host/src/embedagent_host/runtime/session_event_protocol.py`, `packages/embedagent-host/src/embedagent_host/runtime/services/event_emitter.py`
 
 ## 1. Purpose And Boundary
 
@@ -25,7 +25,7 @@
 
 `FrontendWorkspacePort` 是 workspace 读写边界，覆盖 frozen snapshot、tree、file、diff 和 local-resource reload。它不拥有 application 选择或 workspace registry policy。
 
-`SessionEventSink.on_session_event(envelope)` 是唯一 live-event 输入。sink 在 Host 创建时绑定；submit/create/resume 不接受 callback 或 resolver 参数。`FrontendPortError` 由 Host 在 port 边界抛出并携带一个 `FailureRecord`。
+`SessionEventSink.on_session_event(envelope)` 是唯一 live-event 输入。sink 在 Host 创建时绑定；submit/create/resume 不接受 callback 或 resolver 参数。bound sink 抛出的异常必须传播给发布调用者，不能被日志记录后当作成功。`FrontendPortError` 由 Host 在 port 边界抛出并携带一个 `FailureRecord`。
 
 封闭失败代码为：`usage_error`, `configuration_error`, `session_not_found`, `interaction_required`, `permission_denied`, `provider_error`, `runtime_error`, `cancelled`, `protocol_error`。shell 不从异常消息文本推断分类。
 
@@ -55,7 +55,7 @@
 
 ## 5. Boundary And Event Rule
 
-`InProcessFrontendSessionPort` 与 `InProcessFrontendWorkspacePort` 是 Host 的进程内实现，内部 adapter 不向调用方暴露。Host 对一次 live change 只创建一个 `SessionEventEnvelope`，然后交给构造时绑定的 sink；任何 shell 或 bridge 都不得重组 payload、重命名 event kind 或创建第二个 sequence。
+`InProcessFrontendSessionPort` 与 `InProcessFrontendWorkspacePort` 是 Host 的进程内实现，内部 adapter 不向调用方暴露。Host 对一次 live change 只创建一个 `SessionEventEnvelope`，然后交给构造时绑定的 sink；任何 shell 或 bridge 都不得重组 payload、重命名 event kind 或创建第二个 sequence。Host cursor 只表示 envelope sequence 已分配，不是 delivery acknowledgement；sink 失败通过异常使整个发布操作失败，不新增确认 cursor、重试队列或旁路事件账本。
 
 ```mermaid
 flowchart LR
