@@ -352,6 +352,48 @@ def test_runtime_wait_uses_condition_and_returns_timeout():
     assert timed_out["failure"]["code"] == "runtime_error"
 
 
+def test_terminal_outcome_is_published_only_after_event_action_delivery():
+    dispatch_entered = threading.Event()
+    release_dispatch = threading.Event()
+    delivered = []
+
+    def dispatch(action):
+        if action.kind == "session_event":
+            dispatch_entered.set()
+            assert release_dispatch.wait(1.0)
+        delivered.append(action.kind)
+
+    runtime = SessionClientRuntime(dispatch=dispatch)
+    port = FakeSessionPort()
+    runtime.bind_session_port(port)
+    runtime.activate_session("session-1")
+    worker = threading.Thread(
+        target=runtime.on_session_event,
+        args=(
+            _event(
+                "approval.requested",
+                {"interaction_id": "approval-1", "request_id": "approval-1"},
+            ),
+        ),
+    )
+    worker.start()
+    assert dispatch_entered.wait(1.0)
+
+    try:
+        during = runtime.wait_for_terminal(timeout_s=0).to_dict()
+
+        assert during["status"] == "timeout"
+        assert runtime.event_cursor == 1
+        assert runtime.lifecycle == "ready"
+        assert delivered == ["session_activated"]
+    finally:
+        release_dispatch.set()
+        worker.join(1.0)
+
+    assert not worker.is_alive()
+    assert runtime.wait_for_terminal(timeout_s=0).to_dict()["status"] == "blocked"
+
+
 def test_interaction_response_preserves_terminal_event_arriving_before_bootstrap():
     runtime = SessionClientRuntime()
     port = ImmediateInteractionPort(runtime)
