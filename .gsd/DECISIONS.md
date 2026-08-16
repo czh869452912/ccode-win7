@@ -62,3 +62,20 @@ private until the production catalog and fail-closed plan validation are proven.
 
 The detailed design is recorded in
 `docs/superpowers/specs/2026-08-09-configurable-agent-bundle-flavors-design.md`.
+
+## 2026-08-16: Pi-Shaped Generic Agent Architecture
+
+**Status:** Proposed; implementation paused for architecture evaluation
+
+The approved direction is to retain the current Core session/replay/extension
+spine while moving mode semantics, system prompts, application profiles,
+workspace intelligence, and C++ runtime capabilities behind selected
+application boundaries. Bundle exports should select distributions from the
+compiled dependency closure instead of a fixed six-wheel set. `minimal-cli`
+should be a mode-free generic Agent; C++ remains a separately selected
+application package.
+
+The design and evaluation report are recorded in
+`docs/superpowers/specs/2026-08-16-pi-shaped-generic-agent-architecture-design.md`
+and
+`docs/superpowers/reports/2026-08-16-pi-shaped-generic-agent-architecture-report.md`.
