@@ -381,6 +381,56 @@
       ]
     },
     {
+      "name": "event_state_commits_after_action_delivery",
+      "initial": {"lifecycle": "idle", "generation": 0, "cursor": 0},
+      "operations": [
+        {"kind": "activate", "session_id": "session-1", "bootstrap": "session_1_cursor_1"},
+        {
+          "kind": "event",
+          "event": "approval_requested",
+          "dispatch_injections": [
+            {
+              "match": {"kind": "session_event", "sequence": 2},
+              "events": ["approval_resolved"],
+              "observation": "approval_publication"
+            }
+          ]
+        }
+      ],
+      "actions": [
+        {"kind": "session_activated", "session_id": "session-1", "cursor": 1, "generation": 1, "reason": "activate"},
+        {"kind": "session_event", "session_id": "session-1", "sequence": 2, "event_kind": "approval.requested", "lifecycle": "waiting_interaction"},
+        {"kind": "session_event", "session_id": "session-1", "sequence": 3, "event_kind": "approval.resolved", "lifecycle": "ready"}
+      ],
+      "observations": [
+        {"name": "approval_publication", "cursor": 1, "lifecycle": "ready", "terminal_status": null}
+      ],
+      "final": {"session_id": "session-1", "cursor": 3, "generation": 1, "lifecycle": "ready", "terminal_status": null}
+    },
+    {
+      "name": "event_dispatch_failure_does_not_commit_event",
+      "initial": {"lifecycle": "idle", "generation": 0, "cursor": 0},
+      "operations": [
+        {"kind": "activate", "session_id": "session-1", "bootstrap": "session_1_cursor_1"},
+        {
+          "kind": "event",
+          "event": "approval_requested",
+          "dispatch_injections": [
+            {
+              "match": {"kind": "session_event", "sequence": 2},
+              "events": [],
+              "error": "renderer failed"
+            }
+          ]
+        }
+      ],
+      "actions": [
+        {"kind": "session_activated", "session_id": "session-1", "cursor": 1, "generation": 1, "reason": "activate"},
+        {"kind": "session_event", "session_id": "session-1", "sequence": 2, "event_kind": "approval.requested", "lifecycle": "waiting_interaction"}
+      ],
+      "final": {"session_id": "session-1", "cursor": 1, "generation": 1, "lifecycle": "failed", "terminal_status": "failed"}
+    },
+    {
       "name": "returned_bootstrap_buffers_post_capture_event",
       "initial": {"lifecycle": "idle", "generation": 0, "cursor": 0},
       "operations": [

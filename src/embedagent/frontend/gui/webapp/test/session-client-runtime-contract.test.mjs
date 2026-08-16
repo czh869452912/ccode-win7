@@ -99,6 +99,7 @@ class FixtureTransport {
 
 async function runCase(contract, testCase) {
   const actions = [];
+  const observations = [];
   let runtime;
   let dispatchInjections = [];
   const dispatchPromises = [];
@@ -119,11 +120,20 @@ async function runCase(contract, testCase) {
           continue;
         }
         injection.used = true;
+        if (injection.observation) {
+          observations.push({
+            name: injection.observation,
+            cursor: runtime.cursor,
+            lifecycle: runtime.lifecycle,
+            terminal_status: runtime.terminalOutcome?.status || null,
+          });
+        }
         for (const eventName of injection.events) {
           dispatchPromises.push(
             runtime.acceptSessionEvent(clone(contract.events[eventName])),
           );
         }
+        if (injection.error) throw new Error(injection.error);
       }
     },
   });
@@ -142,6 +152,8 @@ async function runCase(contract, testCase) {
     dispatchInjections = (operation.dispatch_injections || []).map((item) => ({
       match: clone(item.match),
       events: [...item.events],
+      observation: String(item.observation || ""),
+      error: String(item.error || ""),
       used: false,
     }));
     if (operation.kind === "activate" || operation.kind === "activate_raw") {
@@ -255,7 +267,7 @@ async function runCase(contract, testCase) {
     throw new Error(`unknown fixture operation:${operation.kind}`);
   }
 
-  return { actions: actions.map(observable), runtime, transport };
+  return { actions: actions.map(observable), observations, runtime, transport };
 }
 
 export async function runSessionClientRuntimeContractTests() {
@@ -265,6 +277,11 @@ export async function runSessionClientRuntimeContractTests() {
   for (const testCase of contract.cases) {
     const result = await runCase(contract, testCase);
     assert.deepEqual(result.actions, testCase.actions, testCase.name);
+    assert.deepEqual(
+      result.observations,
+      testCase.observations || [],
+      `${testCase.name}:observations`,
+    );
     if (testCase.final) {
       assert.deepEqual(
         {

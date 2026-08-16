@@ -10,6 +10,10 @@ const INTERACTION_FINISH_EVENTS = new Set([
   "user-input.resolved",
   "user-input.response.failed",
 ]);
+const SYNC_IDLE = "idle";
+const SYNC_BOOTSTRAP = "bootstrap";
+const SYNC_RECOVERY = "recovery";
+const SYNC_PUBLICATION = "publication";
 
 class ProtocolError extends Error {}
 
@@ -214,10 +218,9 @@ export class SessionClientRuntime {
     this.sessionId = "";
     this.cursor = 0;
     this.generation = 0;
-    this.activationBuffer = [];
     this.lifecycle = "idle";
-    this.activating = false;
-    this.recovering = false;
+    this.syncPhase = SYNC_IDLE;
+    this.eventQueue = [];
     this.recoveryAttempted = false;
     this.terminalOutcome = null;
     this.transactionBaseline = null;
@@ -283,47 +286,36 @@ export class SessionClientRuntime {
     }
     if (this.lifecycle === "closed" || this.lifecycle === "failed") return;
     const event = frozenCopy(envelope);
-    if (this.activating) {
-      this.activationBuffer.push(event);
+    if (this.syncPhase === SYNC_BOOTSTRAP || this.syncPhase === SYNC_RECOVERY) {
+      this.eventQueue.push(event);
       return;
     }
     if (event.session_id !== this.sessionId) return;
-    if (this.recovering) {
-      this.activationBuffer.push(event);
-      return;
-    }
     if (event.sequence <= this.cursor) return;
-    if (event.sequence !== this.cursor + 1) {
-      if (this.recoveryAttempted) {
-        this.#failGeneration(
-          this.generation,
-          this.sessionId,
-          failureFor(new ProtocolError("session event sequence gap repeated after recovery")),
-        );
-        return;
-      }
-      this.recoveryAttempted = true;
-      this.recovering = true;
-      this.activationBuffer.push(event);
-      await this.#recoverGeneration(this.generation, this.sessionId);
-      return;
-    }
-    this.#emit(this.#acceptContiguousEvent(event));
+    this.eventQueue.push(event);
+    if (this.syncPhase === SYNC_PUBLICATION) return;
+    this.syncPhase = SYNC_PUBLICATION;
+    await this.#drainEventQueue(this.generation, this.sessionId);
   }
 
-  #acceptContiguousEvent(event) {
-    this.cursor = event.sequence;
-    this.#applyEventLifecycle(event.event_kind);
-    this.terminalOutcome = reduceTerminalOutcome(
+  #prepareEventPublication(event) {
+    const lifecycle = this.#eventLifecycle(this.lifecycle, event.event_kind);
+    const terminalOutcome = reduceTerminalOutcome(
       this.terminalOutcome,
       event,
       this.sessionId,
     );
     return {
-      kind: "session_event",
-      event,
-      lifecycle: this.lifecycle,
       generation: this.generation,
+      event,
+      lifecycle,
+      terminalOutcome,
+      action: {
+        kind: "session_event",
+        event,
+        lifecycle,
+        generation: this.generation,
+      },
     };
   }
 
@@ -331,9 +323,8 @@ export class SessionClientRuntime {
     if (this.lifecycle === "closed") return;
     this.generation += 1;
     this.lifecycle = "closed";
-    this.activating = false;
-    this.recovering = false;
-    this.activationBuffer = [];
+    this.syncPhase = SYNC_IDLE;
+    this.eventQueue = [];
     this.transactionBaseline = null;
     if (typeof this.transport.close === "function") this.transport.close();
     this.#emit({ kind: "runtime_closed" });
@@ -349,18 +340,17 @@ export class SessionClientRuntime {
     }
   }
 
-  async #drainBufferedEvents(generation, sessionId) {
+  async #drainEventQueue(generation, sessionId) {
     while (true) {
       if (this.lifecycle === "closed" || generation !== this.generation) return false;
-      const pending = this.activationBuffer
+      const pending = this.eventQueue
         .filter(
           (event) => event.session_id === sessionId && event.sequence > this.cursor,
         )
         .sort((left, right) => left.sequence - right.sequence);
-      this.activationBuffer = pending;
+      this.eventQueue = pending;
       if (pending.length === 0) {
-        this.activating = false;
-        this.recovering = false;
+        this.syncPhase = SYNC_IDLE;
         this.transactionBaseline = null;
         return true;
       }
@@ -377,19 +367,28 @@ export class SessionClientRuntime {
           return true;
         }
         this.recoveryAttempted = true;
-        this.activating = false;
-        this.recovering = true;
+        this.syncPhase = SYNC_RECOVERY;
         await this.#recoverGeneration(generation, sessionId);
         return true;
       }
-      this.activationBuffer = pending.slice(1);
-      this.#emit(this.#acceptContiguousEvent(event));
+      this.eventQueue = pending.slice(1);
+      const publication = this.#prepareEventPublication(event);
+      try {
+        this.#emit(publication.action);
+      } catch {
+        this.#commitActionFailure(publication.generation, event.session_id);
+        return true;
+      }
+      if (this.lifecycle === "closed" || generation !== this.generation) return false;
+      this.cursor = event.sequence;
+      this.lifecycle = publication.lifecycle;
+      this.terminalOutcome = publication.terminalOutcome;
     }
   }
 
   async #installBootstrap(generation, sessionId, bootstrap, reason) {
     if (this.lifecycle === "closed" || generation !== this.generation) return false;
-    const matching = this.activationBuffer
+    const matching = this.eventQueue
       .filter((event) => event.session_id === sessionId)
       .sort((left, right) => left.sequence - right.sequence);
     let terminalOutcome = null;
@@ -398,44 +397,49 @@ export class SessionClientRuntime {
         terminalOutcome = reduceTerminalOutcome(terminalOutcome, event, sessionId);
       }
     }
-    this.sessionId = sessionId;
-    this.cursor = bootstrap.event_cursor;
-    this.lifecycle = lifecycleForBootstrap(bootstrap);
-    this.terminalOutcome = terminalOutcome;
-    this.activationBuffer = matching.filter(
+    this.eventQueue = matching.filter(
       (event) => event.sequence > bootstrap.event_cursor,
     );
-    this.#emit({
+    const lifecycle = lifecycleForBootstrap(bootstrap);
+    const action = {
       kind: "session_activated",
       session_id: sessionId,
-      cursor: this.cursor,
+      cursor: bootstrap.event_cursor,
       generation,
       reason: String(reason || "activate"),
       bootstrap,
-    });
-    return this.#drainBufferedEvents(generation, sessionId);
+    };
+    try {
+      this.#emit(action);
+    } catch {
+      this.#commitActionFailure(generation, sessionId);
+      return true;
+    }
+    if (this.lifecycle === "closed" || generation !== this.generation) return false;
+    this.sessionId = sessionId;
+    this.cursor = bootstrap.event_cursor;
+    this.lifecycle = lifecycle;
+    this.terminalOutcome = terminalOutcome;
+    return this.#drainEventQueue(generation, sessionId);
   }
 
-  #applyEventLifecycle(eventKind) {
+  #eventLifecycle(current, eventKind) {
     if (INTERACTION_REQUEST_EVENTS.has(eventKind)) {
-      this.lifecycle = "waiting_interaction";
-    } else if (INTERACTION_FINISH_EVENTS.has(eventKind)) {
-      this.lifecycle = "ready";
-    } else if (eventKind === "session.finished") {
-      this.lifecycle = "ready";
-    } else if (eventKind === "session.error") {
-      this.lifecycle = "failed";
+      return "waiting_interaction";
     }
+    if (INTERACTION_FINISH_EVENTS.has(eventKind) || eventKind === "session.finished") {
+      return "ready";
+    }
+    if (eventKind === "session.error") return "failed";
+    return current;
   }
 
   #failGeneration(generation, sessionId, failure) {
     if (this.lifecycle === "closed" || generation !== this.generation) return;
-    this.lifecycle = "failed";
-    this.activating = false;
-    this.recovering = false;
-    this.activationBuffer = [];
+    this.syncPhase = SYNC_PUBLICATION;
+    this.eventQueue = [];
     this.transactionBaseline = null;
-    this.terminalOutcome = frozenCopy({
+    const terminalOutcome = frozenCopy({
       kind: "terminal_outcome",
       session_id: sessionId,
       status: "failed",
@@ -443,11 +447,42 @@ export class SessionClientRuntime {
       outcome: {},
       failure,
     });
-    this.#emit({
-      kind: "protocol_failed",
+    try {
+      this.#emit({
+        kind: "protocol_failed",
+        session_id: sessionId,
+        generation,
+        failure,
+      });
+    } catch {
+      // The failing sink cannot safely receive a recursive failure action.
+    }
+    if (this.lifecycle === "closed" || generation !== this.generation) return;
+    this.lifecycle = "failed";
+    this.syncPhase = SYNC_IDLE;
+    this.eventQueue = [];
+    this.terminalOutcome = terminalOutcome;
+  }
+
+  #commitActionFailure(generation, sessionId) {
+    if (this.lifecycle === "closed" || generation !== this.generation) return;
+    this.sessionId = sessionId;
+    this.lifecycle = "failed";
+    this.syncPhase = SYNC_IDLE;
+    this.eventQueue = [];
+    this.transactionBaseline = null;
+    this.terminalOutcome = frozenCopy({
+      kind: "terminal_outcome",
       session_id: sessionId,
-      generation,
-      failure,
+      status: "failed",
+      final_text: "",
+      outcome: {},
+      failure: {
+        code: "protocol_error",
+        message: "runtime action dispatch failed",
+        retryable: false,
+        source: "client_runtime",
+      },
     });
   }
 
@@ -466,8 +501,7 @@ export class SessionClientRuntime {
     this.sessionId = String(targetSessionId || "");
     this.cursor = 0;
     this.lifecycle = "activating";
-    this.activating = true;
-    this.recovering = false;
+    this.syncPhase = SYNC_BOOTSTRAP;
     this.recoveryAttempted = false;
     this.terminalOutcome = null;
     return this.generation;
@@ -480,14 +514,13 @@ export class SessionClientRuntime {
     this.sessionId = baseline.sessionId;
     this.cursor = baseline.cursor;
     this.lifecycle = baseline.lifecycle;
-    this.activating = true;
-    this.recovering = false;
+    this.syncPhase = SYNC_BOOTSTRAP;
     this.recoveryAttempted = baseline.recoveryAttempted;
     this.terminalOutcome = baseline.terminalOutcome;
-    this.activationBuffer = this.activationBuffer.filter(
+    this.eventQueue = this.eventQueue.filter(
       (event) => event.session_id === baseline.sessionId,
     );
-    return this.#drainBufferedEvents(generation, baseline.sessionId);
+    return this.#drainEventQueue(generation, baseline.sessionId);
   }
 
   async #runBootstrapTransaction(targetSessionId, reason, request) {

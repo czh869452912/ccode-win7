@@ -1054,7 +1054,16 @@ def test_gui_session_activation_bootstrap_is_session_runtime_owned():
         "_drain_buffered_events",
     ):
         assert retired_name not in python_runtime_text
-    assert "#drainBufferedEvents" in runtime_text
+    assert "syncPhase" in runtime_text
+    assert "eventQueue" in runtime_text
+    assert "#drainEventQueue" in runtime_text
+    for retired_name in (
+        "this.activating",
+        "this.recovering",
+        "activationBuffer",
+        "#drainBufferedEvents",
+    ):
+        assert retired_name not in runtime_text
     assert (
         "for envelope in buffered:\n            self.on_session_event(envelope)"
         not in python_runtime_text

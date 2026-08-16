@@ -106,6 +106,7 @@ def _observable(action):
 
 def _run_case(contract, case):
     actions = []
+    observations = []
     dispatch_injections = []
     runtime = None
 
@@ -117,8 +118,22 @@ def _run_case(contract, case):
                 continue
             if all(observed.get(key) == value for key, value in injection["match"].items()):
                 injection["used"] = True
+                if injection["observation"]:
+                    terminal = runtime._terminal_outcome
+                    observations.append(
+                        {
+                            "name": injection["observation"],
+                            "cursor": runtime.event_cursor,
+                            "lifecycle": runtime.lifecycle,
+                            "terminal_status": (
+                                None if terminal is None else terminal.to_dict()["status"]
+                            ),
+                        }
+                    )
                 for event_name in injection["events"]:
                     runtime.on_session_event(_event(contract, event_name))
+                if injection["error"]:
+                    raise RuntimeError(injection["error"])
 
     runtime = SessionClientRuntime(dispatch=dispatch)
     port = FakeSessionPort(runtime)
@@ -132,6 +147,8 @@ def _run_case(contract, case):
             {
                 "match": dict(item["match"]),
                 "events": list(item["events"]),
+                "observation": str(item.get("observation") or ""),
+                "error": str(item.get("error") or ""),
                 "used": False,
             }
             for item in operation.get("dispatch_injections", [])
@@ -248,7 +265,7 @@ def _run_case(contract, case):
             continue
         raise AssertionError("unknown fixture operation: %s" % kind)
 
-    return runtime, port, [_observable(action) for action in actions]
+    return runtime, port, [_observable(action) for action in actions], observations
 
 
 def test_python_runtime_matches_cross_language_contract():
@@ -256,8 +273,9 @@ def test_python_runtime_matches_cross_language_contract():
 
     assert contract["schema_version"] == 1
     for case in contract["cases"]:
-        runtime, _port, actions = _run_case(contract, case)
+        runtime, _port, actions, observations = _run_case(contract, case)
         assert actions == case["actions"], case["name"]
+        assert observations == case.get("observations", []), case["name"]
         if "final" in case:
             terminal = runtime._terminal_outcome
             actual = {
