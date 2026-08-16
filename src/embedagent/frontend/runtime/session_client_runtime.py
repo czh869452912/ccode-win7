@@ -202,21 +202,7 @@ class SessionClientRuntime(SessionEventSink):
                     generation = self._generation
                     session_id = self._active_session_id
             else:
-                self._event_cursor = envelope.sequence
-                self._apply_event_lifecycle(envelope.event_kind)
-                self._terminal_outcome = self._reduce_terminal_outcome(
-                    self._terminal_outcome,
-                    envelope,
-                )
-                action = RuntimeAction(
-                    "session_event",
-                    {
-                        "event": envelope.to_dict(),
-                        "lifecycle": self._lifecycle,
-                        "generation": self._generation,
-                    },
-                )
-                self._condition.notify_all()
+                action = self._accept_contiguous_event_locked(envelope)
         if fail:
             self._fail_generation(
                 generation,
@@ -234,6 +220,26 @@ class SessionClientRuntime(SessionEventSink):
             return
         if action is not None:
             self._dispatch_action(action)
+
+    def _accept_contiguous_event_locked(
+        self,
+        envelope: SessionEventEnvelope,
+    ) -> RuntimeAction:
+        self._event_cursor = envelope.sequence
+        self._apply_event_lifecycle(envelope.event_kind)
+        self._terminal_outcome = self._reduce_terminal_outcome(
+            self._terminal_outcome,
+            envelope,
+        )
+        self._condition.notify_all()
+        return RuntimeAction(
+            "session_event",
+            {
+                "event": envelope.to_dict(),
+                "lifecycle": self._lifecycle,
+                "generation": self._generation,
+            },
+        )
 
     def submit_user_message(
         self,
@@ -468,20 +474,20 @@ class SessionClientRuntime(SessionEventSink):
             baseline = self._transaction_baseline
             if baseline is None:
                 return
-            buffered = sorted(self._buffered_events, key=lambda item: item.sequence)
             self._active_session_id = baseline.active_session_id
             self._event_cursor = baseline.event_cursor
             self._lifecycle = baseline.lifecycle
-            self._activating = False
+            self._activating = True
             self._recovering = False
             self._recovery_attempted = baseline.recovery_attempted
             self._terminal_outcome = baseline.terminal_outcome
-            self._buffered_events = []
-            self._transaction_baseline = None
+            self._buffered_events = [
+                envelope
+                for envelope in self._buffered_events
+                if envelope.session_id == baseline.active_session_id
+            ]
             self._condition.notify_all()
-        for envelope in buffered:
-            if envelope.session_id == baseline.active_session_id:
-                self.on_session_event(envelope)
+        self._drain_buffered_events(generation, baseline.active_session_id)
 
     def _run_bootstrap_transaction(
         self,
@@ -521,6 +527,62 @@ class SessionClientRuntime(SessionEventSink):
             return
         self._install_bootstrap(generation, session_id, bootstrap, "recovery")
 
+    def _drain_buffered_events(self, generation: int, session_id: str) -> bool:
+        while True:
+            action = None  # type: Optional[RuntimeAction]
+            recover = False
+            fail = False
+            with self._condition:
+                if self._lifecycle == "closed" or generation != self._generation:
+                    return False
+                matching = sorted(
+                    (
+                        envelope
+                        for envelope in self._buffered_events
+                        if envelope.session_id == session_id
+                    ),
+                    key=lambda item: item.sequence,
+                )
+                pending = [
+                    envelope for envelope in matching if envelope.sequence > self._event_cursor
+                ]
+                self._buffered_events = pending
+                if not pending:
+                    self._activating = False
+                    self._recovering = False
+                    self._transaction_baseline = None
+                    self._condition.notify_all()
+                    return True
+                envelope = pending[0]
+                if envelope.sequence != self._event_cursor + 1:
+                    if self._recovery_attempted:
+                        fail = True
+                    else:
+                        self._recovery_attempted = True
+                        self._activating = False
+                        self._recovering = True
+                        recover = True
+                else:
+                    self._buffered_events = pending[1:]
+                    action = self._accept_contiguous_event_locked(envelope)
+            if fail:
+                self._fail_generation(
+                    generation,
+                    session_id,
+                    FailureRecord(
+                        code="protocol_error",
+                        message="session event sequence gap repeated after recovery",
+                        retryable=False,
+                        source="client_runtime",
+                    ),
+                )
+                return True
+            if recover:
+                self._recover_generation(generation, session_id)
+                return True
+            if action is not None:
+                self._dispatch_action(action)
+
     def _install_bootstrap(
         self,
         generation: int,
@@ -550,13 +612,9 @@ class SessionClientRuntime(SessionEventSink):
             self._event_cursor = bootstrap.event_cursor
             self._lifecycle = self._bootstrap_lifecycle(bootstrap)
             self._terminal_outcome = terminal_outcome
-            self._activating = False
-            self._recovering = False
-            buffered = [
+            self._buffered_events = [
                 envelope for envelope in matching if envelope.sequence > bootstrap.event_cursor
             ]
-            self._buffered_events = []
-            self._transaction_baseline = None
             self._condition.notify_all()
         self._dispatch_action(
             RuntimeAction(
@@ -570,9 +628,7 @@ class SessionClientRuntime(SessionEventSink):
                 },
             )
         )
-        for envelope in buffered:
-            self.on_session_event(envelope)
-        return True
+        return self._drain_buffered_events(generation, session_id)
 
     def _fail_generation(
         self,

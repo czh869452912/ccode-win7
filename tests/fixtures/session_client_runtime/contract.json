@@ -117,6 +117,35 @@
       "plan": null,
       "permission_context": {}
     },
+    "session_1_cursor_5": {
+      "schema_version": 1,
+      "event_cursor": 5,
+      "thread": {
+        "id": "session-1",
+        "title": "Session 1",
+        "archived": false,
+        "current_mode": "build",
+        "status": "idle",
+        "updated_at": "2026-08-13T00:00:05Z",
+        "pending_interaction": false
+      },
+      "snapshot": {"session_id": "session-1", "status": "idle"},
+      "history": {"activities": [], "integrity": {"status": "healthy"}},
+      "capabilities": {
+        "schema_version": 1,
+        "modes": [],
+        "commands": [],
+        "tools": [],
+        "workflow_packages": [],
+        "agent_application": {},
+        "agent_applications": [],
+        "resources": [],
+        "model_profiles": [],
+        "empty_state": {}
+      },
+      "plan": null,
+      "permission_context": {}
+    },
     "session_2_cursor_0": {
       "schema_version": 1,
       "event_cursor": 0,
@@ -194,6 +223,15 @@
       "event_kind": "assistant.delta",
       "timestamp": "2026-08-13T00:00:05Z",
       "payload": {"text": "five"}
+    },
+    "session_1_sequence_6": {
+      "schema_version": 1,
+      "event_id": "event-1-6",
+      "session_id": "session-1",
+      "sequence": 6,
+      "event_kind": "assistant.delta",
+      "timestamp": "2026-08-13T00:00:06Z",
+      "payload": {"text": "six"}
     },
     "session_2_sequence_2": {
       "schema_version": 1,
@@ -365,6 +403,91 @@
         {"kind": "session_event", "session_id": "session-1", "sequence": 5, "event_kind": "assistant.delta", "lifecycle": "ready"}
       ],
       "final": {"session_id": "session-1", "cursor": 5, "generation": 2, "lifecycle": "ready", "terminal_status": "completed"}
+    },
+    {
+      "name": "activation_dispatch_cannot_overtake_buffered_event",
+      "initial": {"lifecycle": "idle", "generation": 0, "cursor": 0},
+      "operations": [
+        {"kind": "activate", "session_id": "session-1", "bootstrap": "session_1_cursor_1"},
+        {"kind": "event", "event": "approval_requested"},
+        {
+          "kind": "bootstrap_operation",
+          "operation": "interaction_response",
+          "session_id": "session-1",
+          "bootstrap": "session_1_cursor_3",
+          "recovery_bootstrap": "session_1_cursor_5",
+          "during_events": ["approval_resolved", "session_1_sequence_4"],
+          "dispatch_injections": [
+            {
+              "match": {"kind": "session_activated", "reason": "interaction_response"},
+              "events": ["session_1_sequence_5"]
+            }
+          ]
+        }
+      ],
+      "actions": [
+        {"kind": "session_activated", "session_id": "session-1", "cursor": 1, "generation": 1, "reason": "activate"},
+        {"kind": "session_event", "session_id": "session-1", "sequence": 2, "event_kind": "approval.requested", "lifecycle": "waiting_interaction"},
+        {"kind": "session_activated", "session_id": "session-1", "cursor": 3, "generation": 2, "reason": "interaction_response"},
+        {"kind": "session_event", "session_id": "session-1", "sequence": 4, "event_kind": "session.finished", "lifecycle": "ready"},
+        {"kind": "session_event", "session_id": "session-1", "sequence": 5, "event_kind": "assistant.delta", "lifecycle": "ready"}
+      ],
+      "final": {"session_id": "session-1", "cursor": 5, "generation": 2, "lifecycle": "ready", "terminal_status": "completed"}
+    },
+    {
+      "name": "recovery_dispatch_cannot_overtake_buffered_event",
+      "initial": {"lifecycle": "idle", "generation": 0, "cursor": 0},
+      "operations": [
+        {"kind": "activate", "session_id": "session-1", "bootstrap": "session_1_cursor_2"},
+        {
+          "kind": "event",
+          "event": "session_1_sequence_4",
+          "recovery_bootstrap": "session_1_cursor_4",
+          "recovery_during_events": ["session_1_sequence_5"],
+          "dispatch_injections": [
+            {
+              "match": {"kind": "session_activated", "reason": "recovery"},
+              "events": ["session_1_sequence_6"]
+            }
+          ]
+        }
+      ],
+      "actions": [
+        {"kind": "session_activated", "session_id": "session-1", "cursor": 2, "generation": 1, "reason": "activate"},
+        {"kind": "session_activated", "session_id": "session-1", "cursor": 4, "generation": 1, "reason": "recovery"},
+        {"kind": "session_event", "session_id": "session-1", "sequence": 5, "event_kind": "assistant.delta", "lifecycle": "ready"},
+        {"kind": "session_event", "session_id": "session-1", "sequence": 6, "event_kind": "assistant.delta", "lifecycle": "ready"}
+      ],
+      "final": {"session_id": "session-1", "cursor": 6, "generation": 1, "lifecycle": "ready", "terminal_status": "completed"}
+    },
+    {
+      "name": "rollback_dispatch_cannot_overtake_buffered_event",
+      "initial": {"lifecycle": "idle", "generation": 0, "cursor": 0},
+      "operations": [
+        {"kind": "activate", "session_id": "session-1", "bootstrap": "session_1_cursor_1"},
+        {
+          "kind": "bootstrap_operation",
+          "operation": "mode",
+          "session_id": "session-1",
+          "request_error": "runtime_error",
+          "recovery_bootstrap": "session_1_cursor_4",
+          "during_events": ["session_1_sequence_2", "session_1_sequence_3"],
+          "dispatch_injections": [
+            {
+              "match": {"kind": "session_event", "sequence": 2},
+              "events": ["session_1_sequence_4"]
+            }
+          ],
+          "expect_error": true
+        }
+      ],
+      "actions": [
+        {"kind": "session_activated", "session_id": "session-1", "cursor": 1, "generation": 1, "reason": "activate"},
+        {"kind": "session_event", "session_id": "session-1", "sequence": 2, "event_kind": "assistant.delta", "lifecycle": "ready"},
+        {"kind": "session_event", "session_id": "session-1", "sequence": 3, "event_kind": "assistant.delta", "lifecycle": "ready"},
+        {"kind": "session_event", "session_id": "session-1", "sequence": 4, "event_kind": "session.finished", "lifecycle": "ready"}
+      ],
+      "final": {"session_id": "session-1", "cursor": 4, "generation": 2, "lifecycle": "ready", "terminal_status": "completed"}
     },
     {
       "name": "cursor_covered_terminal_reduces_without_duplicate_dispatch",

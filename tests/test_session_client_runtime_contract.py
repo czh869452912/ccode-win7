@@ -106,7 +106,21 @@ def _observable(action):
 
 def _run_case(contract, case):
     actions = []
-    runtime = SessionClientRuntime(dispatch=actions.append)
+    dispatch_injections = []
+    runtime = None
+
+    def dispatch(action):
+        actions.append(action)
+        observed = _observable(action)
+        for injection in dispatch_injections:
+            if injection["used"]:
+                continue
+            if all(observed.get(key) == value for key, value in injection["match"].items()):
+                injection["used"] = True
+                for event_name in injection["events"]:
+                    runtime.on_session_event(_event(contract, event_name))
+
+    runtime = SessionClientRuntime(dispatch=dispatch)
     port = FakeSessionPort(runtime)
     runtime.bind_session_port(port)
     assert runtime.lifecycle == case["initial"]["lifecycle"]
@@ -114,6 +128,14 @@ def _run_case(contract, case):
     assert runtime.event_cursor == case["initial"]["cursor"]
 
     for operation in case["operations"]:
+        dispatch_injections[:] = [
+            {
+                "match": dict(item["match"]),
+                "events": list(item["events"]),
+                "used": False,
+            }
+            for item in operation.get("dispatch_injections", [])
+        ]
         kind = operation["kind"]
         if kind in ("activate", "activate_raw"):
             strict = kind == "activate"
@@ -144,6 +166,8 @@ def _run_case(contract, case):
                         strict=kind == "bootstrap_operation",
                     )
                 )
+            if operation.get("recovery_bootstrap"):
+                port.responses.append(_bootstrap(contract, operation["recovery_bootstrap"]))
 
             def during_request(value=operation):
                 for event_name in value.get("during_events", []):
@@ -212,6 +236,11 @@ def _run_case(contract, case):
                         )
                     )
                 )
+            recovery_events = list(operation.get("recovery_during_events", []))
+            if recovery_events:
+                port.during_bootstrap = lambda names=recovery_events: [
+                    runtime.on_session_event(_event(contract, name)) for name in names
+                ]
             runtime.on_session_event(_event(contract, operation["event"]))
             continue
         if kind == "close":

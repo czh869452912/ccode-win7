@@ -308,6 +308,10 @@ export class SessionClientRuntime {
       await this.#recoverGeneration(this.generation, this.sessionId);
       return;
     }
+    this.#emit(this.#acceptContiguousEvent(event));
+  }
+
+  #acceptContiguousEvent(event) {
     this.cursor = event.sequence;
     this.#applyEventLifecycle(event.event_kind);
     this.terminalOutcome = reduceTerminalOutcome(
@@ -315,12 +319,12 @@ export class SessionClientRuntime {
       event,
       this.sessionId,
     );
-    this.#emit({
+    return {
       kind: "session_event",
       event,
       lifecycle: this.lifecycle,
       generation: this.generation,
-    });
+    };
   }
 
   close() {
@@ -345,6 +349,44 @@ export class SessionClientRuntime {
     }
   }
 
+  async #drainBufferedEvents(generation, sessionId) {
+    while (true) {
+      if (this.lifecycle === "closed" || generation !== this.generation) return false;
+      const pending = this.activationBuffer
+        .filter(
+          (event) => event.session_id === sessionId && event.sequence > this.cursor,
+        )
+        .sort((left, right) => left.sequence - right.sequence);
+      this.activationBuffer = pending;
+      if (pending.length === 0) {
+        this.activating = false;
+        this.recovering = false;
+        this.transactionBaseline = null;
+        return true;
+      }
+      const event = pending[0];
+      if (event.sequence !== this.cursor + 1) {
+        if (this.recoveryAttempted) {
+          this.#failGeneration(
+            generation,
+            sessionId,
+            failureFor(
+              new ProtocolError("session event sequence gap repeated after recovery"),
+            ),
+          );
+          return true;
+        }
+        this.recoveryAttempted = true;
+        this.activating = false;
+        this.recovering = true;
+        await this.#recoverGeneration(generation, sessionId);
+        return true;
+      }
+      this.activationBuffer = pending.slice(1);
+      this.#emit(this.#acceptContiguousEvent(event));
+    }
+  }
+
   async #installBootstrap(generation, sessionId, bootstrap, reason) {
     if (this.lifecycle === "closed" || generation !== this.generation) return false;
     const matching = this.activationBuffer
@@ -360,11 +402,9 @@ export class SessionClientRuntime {
     this.cursor = bootstrap.event_cursor;
     this.lifecycle = lifecycleForBootstrap(bootstrap);
     this.terminalOutcome = terminalOutcome;
-    this.activating = false;
-    this.recovering = false;
-    const buffered = matching.filter((event) => event.sequence > bootstrap.event_cursor);
-    this.activationBuffer = [];
-    this.transactionBaseline = null;
+    this.activationBuffer = matching.filter(
+      (event) => event.sequence > bootstrap.event_cursor,
+    );
     this.#emit({
       kind: "session_activated",
       session_id: sessionId,
@@ -373,8 +413,7 @@ export class SessionClientRuntime {
       reason: String(reason || "activate"),
       bootstrap,
     });
-    for (const event of buffered) await this.acceptSessionEvent(event);
-    return true;
+    return this.#drainBufferedEvents(generation, sessionId);
   }
 
   #applyEventLifecycle(eventKind) {
@@ -438,24 +477,17 @@ export class SessionClientRuntime {
     if (this.lifecycle === "closed" || generation !== this.generation) return false;
     const baseline = this.transactionBaseline;
     if (!baseline) return false;
-    const buffered = this.activationBuffer
-      .slice()
-      .sort((left, right) => left.sequence - right.sequence);
     this.sessionId = baseline.sessionId;
     this.cursor = baseline.cursor;
     this.lifecycle = baseline.lifecycle;
-    this.activating = false;
+    this.activating = true;
     this.recovering = false;
     this.recoveryAttempted = baseline.recoveryAttempted;
     this.terminalOutcome = baseline.terminalOutcome;
-    this.activationBuffer = [];
-    this.transactionBaseline = null;
-    for (const event of buffered) {
-      if (event.session_id === baseline.sessionId) {
-        await this.acceptSessionEvent(event);
-      }
-    }
-    return true;
+    this.activationBuffer = this.activationBuffer.filter(
+      (event) => event.session_id === baseline.sessionId,
+    );
+    return this.#drainBufferedEvents(generation, baseline.sessionId);
   }
 
   async #runBootstrapTransaction(targetSessionId, reason, request) {

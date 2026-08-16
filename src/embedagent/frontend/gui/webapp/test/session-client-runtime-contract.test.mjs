@@ -100,20 +100,50 @@ class FixtureTransport {
 async function runCase(contract, testCase) {
   const actions = [];
   let runtime;
+  let dispatchInjections = [];
+  const dispatchPromises = [];
   const transport = new FixtureTransport();
   runtime = new SessionClientRuntime({
     transport,
     dispatch(action) {
       assertDeeplyFrozen(action);
       actions.push(action);
+      const observed = observable(action);
+      for (const injection of dispatchInjections) {
+        if (injection.used) continue;
+        if (
+          !Object.entries(injection.match).every(
+            ([key, value]) => observed[key] === value,
+          )
+        ) {
+          continue;
+        }
+        injection.used = true;
+        for (const eventName of injection.events) {
+          dispatchPromises.push(
+            runtime.acceptSessionEvent(clone(contract.events[eventName])),
+          );
+        }
+      }
     },
   });
+
+  async function drainDispatchPromises() {
+    while (dispatchPromises.length > 0) {
+      await dispatchPromises.shift();
+    }
+  }
 
   assert.equal(runtime.lifecycle, testCase.initial.lifecycle);
   assert.equal(runtime.generation, testCase.initial.generation);
   assert.equal(runtime.cursor, testCase.initial.cursor);
 
   for (const operation of testCase.operations) {
+    dispatchInjections = (operation.dispatch_injections || []).map((item) => ({
+      match: clone(item.match),
+      events: [...item.events],
+      used: false,
+    }));
     if (operation.kind === "activate" || operation.kind === "activate_raw") {
       transport.responses.push(contract.bootstraps[operation.bootstrap]);
       if (operation.during_event) {
@@ -126,6 +156,7 @@ async function runCase(contract, testCase) {
         transport.duringBootstrap = () => runtime.activateSession(nested.session_id);
       }
       await runtime.activateSession(operation.session_id);
+      await drainDispatchPromises();
       continue;
     }
     if (
@@ -138,6 +169,9 @@ async function runCase(contract, testCase) {
           })
         : contract.bootstraps[operation.bootstrap];
       transport.responses.push(response);
+      if (operation.recovery_bootstrap) {
+        transport.responses.push(contract.bootstraps[operation.recovery_bootstrap]);
+      }
       if (
         operation.during_events ||
         operation.during_activation ||
@@ -190,6 +224,7 @@ async function runCase(contract, testCase) {
       } else {
         await invoke();
       }
+      await drainDispatchPromises();
       continue;
     }
     if (operation.kind === "event") {
@@ -201,11 +236,20 @@ async function runCase(contract, testCase) {
         error.code = operation.recovery_error;
         transport.responses.push(error);
       }
+      if (operation.recovery_during_events) {
+        transport.duringBootstrap = async () => {
+          for (const eventName of operation.recovery_during_events) {
+            await runtime.acceptSessionEvent(clone(contract.events[eventName]));
+          }
+        };
+      }
       await runtime.acceptSessionEvent(clone(contract.events[operation.event]));
+      await drainDispatchPromises();
       continue;
     }
     if (operation.kind === "close") {
       runtime.close();
+      await drainDispatchPromises();
       continue;
     }
     throw new Error(`unknown fixture operation:${operation.kind}`);
