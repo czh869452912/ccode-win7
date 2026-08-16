@@ -17,7 +17,7 @@
 - Agent Core 工具执行已收敛为 prepare/commit/execute：稳定 invocation identity、截断输出拦截、交互 continuation 与 started-only restore 语义均由同一个 Kernel/Loop 主链拥有；Host 隐式权限默认与 `PermissionPolicy()` 一致。
 - Agent Platform 独立提取准备已成为可执行能力：Core 根包公开显式 ports 和安全默认值，`examples/standalone_agent.py` 演示同一 durable session 的运行、挂起与恢复，`core_only` wheel smoke 直接运行该示例并确认所有上层分发不可发现。
 - Protocol 公开聚焦 `FrontendSessionPort`、`FrontendWorkspacePort` 与 `SessionEventSink`；Host 只提供进程内实现并在构造时绑定一个 canonical envelope sink，不再暴露 aggregate frontend facade、per-call handler 或 resolver callback。
-- CLI 与 TUI 共用 Python `SessionClientRuntime`；GUI 的 JavaScript `SessionClientRuntime` 位于 browser-only `BrowserAppRuntime` 内。两种实现通过同一 JSON fixture 验证 activation、cursor、recovery、interaction、generation 和 close；frontend runtime 不拥有 durable session truth。
+- CLI 与 TUI 共用 Python `SessionClientRuntime`；GUI 使用 browser-only JavaScript `SessionClientRuntime`。两种实现通过同一 JSON fixture 验证 activation、returned-bootstrap transaction、cursor、recovery、interaction、terminal evidence、generation 和 close。所有 bootstrap-producing operation 都在请求前开启 generation，controller 不拥有 bootstrap 安装，frontend runtime 不拥有 durable session truth。
 - CLI 只有显式 `chat`、`run` 和 `sessions` grammar。`run` 提供稳定 text/JSON result 与 `0/2/3/4/130` exit contract，遇到交互只返回 blocked；CLI 不转发 TUI/GUI，不保留常驻 Agent 状态，也不导入其他 shell。
 - strict DTO path 只产出 `snake_case` version 1 bootstrap 和 canonical envelope。product composition 编译唯一 `ShellDescriptor` 供 CLI/TUI/GUI 消费，本地固定 catalog、fallback 和 frontend translation layer 已删除。
 - 所有 shell 使用同一个产品 launch-config composition：built-in < `~/.embedagent/config.json` < workspace config < `EMBEDAGENT_*` < explicit shell arguments。launcher 不自行加载 config。
