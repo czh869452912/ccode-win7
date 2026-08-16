@@ -6,28 +6,32 @@ function requireProtocolMethod(protocol, name) {
   return method.bind(protocol);
 }
 
+function requireSessionRuntimeMethod(sessionRuntime, name) {
+  const method = sessionRuntime && sessionRuntime[name];
+  if (typeof method !== "function") {
+    throw new Error(`session_runtime_method_missing:${name}`);
+  }
+  return method.bind(sessionRuntime);
+}
+
 export function createSessionController({
   protocol,
+  sessionRuntime,
   dispatch,
   getCurrentSessionId,
   getCurrentMode,
   hasActiveWorkspace,
   markTimelineBottom,
   loadSessions,
-  installSessionBootstrap,
 }) {
-  const createSessionRequest = requireProtocolMethod(protocol, "createSession");
-  const setSessionMode = requireProtocolMethod(protocol, "setSessionMode");
-  const cancelSessionRequest = requireProtocolMethod(protocol, "cancelSession");
+  const createSessionRequest = requireSessionRuntimeMethod(sessionRuntime, "createSession");
+  const setSessionMode = requireSessionRuntimeMethod(sessionRuntime, "setSessionMode");
+  const cancelSessionRequest = requireSessionRuntimeMethod(sessionRuntime, "cancelSession");
   const sendSessionMessage = requireProtocolMethod(protocol, "sendSessionMessage");
-  if (typeof installSessionBootstrap !== "function") {
-    throw new Error("session_runtime_method_missing:installSessionBootstrap");
-  }
 
   async function createSession(mode) {
     const requestedMode = String(mode || "").trim();
     const bootstrap = await createSessionRequest(requestedMode);
-    await installSessionBootstrap(bootstrap, "create");
     await loadSessions();
     return String(bootstrap?.thread?.id || "");
   }
@@ -36,16 +40,14 @@ export function createSessionController({
     dispatch({ type: "mode_requested", mode });
     const sessionId = getCurrentSessionId();
     if (!sessionId) return;
-    const bootstrap = await setSessionMode(sessionId, mode);
-    await installSessionBootstrap(bootstrap, "mode_changed");
+    await setSessionMode(sessionId, mode);
   }
 
   async function cancelSession() {
     const sessionId = getCurrentSessionId();
     if (!sessionId) return;
     dispatch({ type: "stream_completed" });
-    const bootstrap = await cancelSessionRequest(sessionId);
-    await installSessionBootstrap(bootstrap, "cancel");
+    await cancelSessionRequest(sessionId);
   }
 
   async function submitText(rawText) {

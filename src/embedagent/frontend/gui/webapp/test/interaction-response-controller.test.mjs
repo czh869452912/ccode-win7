@@ -28,9 +28,8 @@ export async function runInteractionResponseControllerTests() {
   const calls = [];
   const dispatches = [];
   const pendingResponse = deferred();
-  const installed = [];
   const controller = createInteractionResponseController({
-    protocol: {
+    sessionRuntime: {
       respondToInteraction: async (sessionId, interactionId, response) => {
         calls.push({ sessionId, interactionId, response });
         return pendingResponse.promise;
@@ -46,7 +45,6 @@ export async function runInteractionResponseControllerTests() {
     loadSession: async () => {
       throw new Error("loadSession should not run on resolved response");
     },
-    installSessionBootstrap: async (value, reason) => installed.push([value.thread.id, reason]),
   });
 
   const first = controller.respondToInteraction({ answers: { answer: "yes" } });
@@ -65,7 +63,6 @@ export async function runInteractionResponseControllerTests() {
     response: { answers: { answer: "yes" } },
   });
   assert.equal(dispatches[0].type, "interaction_notice_clear");
-  assert.deepEqual(installed, [["sess-1", "interaction_response"]]);
   assert.deepEqual(dispatches[1], {
     type: "log_event",
     label: "interaction_response",
@@ -75,7 +72,7 @@ export async function runInteractionResponseControllerTests() {
   let loadedSession = "";
   respondingIds = [];
   const expiredController = createInteractionResponseController({
-    protocol: {
+    sessionRuntime: {
       respondToInteraction: async () => {
         const error = new Error("interaction_expired");
         error.status = 410;
@@ -102,6 +99,6 @@ export async function runInteractionResponseControllerTests() {
   assert.equal(loadedSession, "sess-1");
   assert.equal(dispatches.at(-2).notice.kind, "expired");
 
-  const missingProtocol = createInteractionResponseController({});
-  assert.equal(await missingProtocol.respondToInteraction({}), null);
+  const missingRuntime = createInteractionResponseController({});
+  assert.equal(await missingRuntime.respondToInteraction({}), null);
 }

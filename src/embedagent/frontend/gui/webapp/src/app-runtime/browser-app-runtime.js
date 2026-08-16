@@ -205,8 +205,6 @@ export function createBrowserAppRuntime({
   });
   const loadSession = (sessionId, options = {}) =>
     sessionRuntime.activateSession(sessionId, options);
-  const installSessionBootstrap = (bootstrap, reason) =>
-    sessionRuntime.installSessionBootstrap(bootstrap, reason);
   const respondingRequestIdsHandle = createRespondingRequestIdsHandle({
     initialRequestIds: [],
     setRequestIds: onRespondingRequestIdsChange,
@@ -281,13 +279,13 @@ export function createBrowserAppRuntime({
   });
   const sessionController = createSessionController({
     protocol,
+    sessionRuntime,
     dispatch: send,
     getCurrentSessionId: () => readActiveThreadId(readState()),
     getCurrentMode: () => readState().snapshot?.current_mode || readState().requestedMode,
     hasActiveWorkspace: () => Boolean(readState().app?.hasActiveWorkspace),
     markTimelineBottom: timelineScrollController.markFollowingBottom,
     loadSessions: sessionListController.loadSessions,
-    installSessionBootstrap,
   });
   const dialogService = createBrowserDialogService({
     windowObject: browserRuntime.windowObject,
@@ -375,14 +373,13 @@ export function createBrowserAppRuntime({
     timer: browserRuntime.timer,
   });
   const interactionResponseController = createInteractionResponseController({
-    protocol,
+    sessionRuntime,
     dispatch: send,
     getCurrentSessionId: () => readActiveThreadId(readState()),
     getCurrentInteraction: () => readActivityRuntime().currentInteraction || null,
     getRespondingRequestIds: respondingRequestIdsHandle.read,
     setRespondingRequestIds: respondingRequestIdsHandle.set,
     loadSession,
-    installSessionBootstrap,
   });
   const keyboardController = createWorkbenchKeyboardController({
     windowObject: browserRuntime.windowObject,

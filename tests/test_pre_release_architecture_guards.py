@@ -1021,6 +1021,13 @@ def test_gui_session_activation_bootstrap_is_session_runtime_owned():
     runtime_text = _read(
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/session-client-runtime.js"
     )
+    session_controller_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-controller.js"
+    )
+    interaction_controller_text = _read(
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/app-runtime/interaction-response-controller.js"
+    )
 
     assert "SessionClientRuntime" not in app_text
     assert "new SessionClientRuntime" in browser_text
@@ -1031,8 +1038,19 @@ def test_gui_session_activation_bootstrap_is_session_runtime_owned():
     assert 'type: "session_activated"' in browser_text
     assert 'type: "terminal_summaries_loaded"' in browser_text
     assert "async activateSession" in runtime_text
-    assert "async installSessionBootstrap" in runtime_text
+    assert "async createSession" in runtime_text
+    assert "async setSessionMode" in runtime_text
+    assert "async cancelSession" in runtime_text
+    assert "async respondToInteraction" in runtime_text
     assert "recoveryAttempted" in runtime_text
+    assert "installSessionBootstrap" not in runtime_text
+    assert "installSessionBootstrap" not in browser_text
+    assert "installSessionBootstrap" not in session_controller_text
+    assert "installSessionBootstrap" not in interaction_controller_text
+    assert 'requireSessionRuntimeMethod(sessionRuntime, "createSession")' in (
+        session_controller_text
+    )
+    assert "sessionRuntime.respondToInteraction" in interaction_controller_text
     assert not (
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/session-activation-controller.js"
     ).exists()

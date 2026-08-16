@@ -4,10 +4,16 @@ import { createSessionController } from "../src/app-runtime/session-controller.j
 
 function requiredProtocol(overrides = {}) {
   return {
-    createSession: async () => ({}),
-    setSessionMode: async () => ({}),
-    cancelSession: async () => ({}),
     sendSessionMessage: async () => ({}),
+    ...overrides,
+  };
+}
+
+function requiredSessionRuntime(overrides = {}) {
+  return {
+    createSession: async () => bootstrap("sess-new"),
+    setSessionMode: async (sessionId, mode) => bootstrap(sessionId, mode),
+    cancelSession: async (sessionId) => bootstrap(sessionId),
     ...overrides,
   };
 }
@@ -28,9 +34,9 @@ function bootstrap(sessionId, mode = "build") {
 export async function runSessionControllerTests() {
   const calls = [];
   const actions = [];
-  const installed = [];
   const controller = createSessionController({
-    protocol: requiredProtocol({
+    protocol: requiredProtocol(),
+    sessionRuntime: requiredSessionRuntime({
       createSession: async (mode) => {
         calls.push(["createSession", mode]);
         return bootstrap("sess-new", mode || "agent-default");
@@ -41,8 +47,6 @@ export async function runSessionControllerTests() {
     getCurrentMode: () => "debug",
     hasActiveWorkspace: () => true,
     loadSessions: async () => calls.push(["loadSessions"]),
-    loadSession: async () => { throw new Error("create must install its returned bootstrap"); },
-    installSessionBootstrap: async (value, reason) => installed.push([value.thread.id, reason]),
   });
 
   assert.equal(await controller.createSession("debug"), "sess-new");
@@ -51,12 +55,16 @@ export async function runSessionControllerTests() {
     calls.filter((call) => call[0] === "createSession"),
     [["createSession", "debug"], ["createSession", ""]],
   );
-  assert.deepEqual(installed, [["sess-new", "create"], ["sess-new", "create"]]);
   assert.equal(actions.some((action) => action.type === "session_activated"), false);
 
   const cancelActions = [];
   const cancelController = createSessionController({
-    protocol: requiredProtocol({
+    protocol: requiredProtocol(),
+    sessionRuntime: requiredSessionRuntime({
+      setSessionMode: async (sessionId, mode) => {
+        calls.push(["setSessionMode", sessionId, mode]);
+        return bootstrap(sessionId, mode);
+      },
       cancelSession: async (sessionId) => {
         calls.push(["cancelSession", sessionId]);
         return bootstrap("sess-cancel");
@@ -67,17 +75,18 @@ export async function runSessionControllerTests() {
     getCurrentMode: () => "build",
     hasActiveWorkspace: () => true,
     loadSessions: async () => {},
-    loadSession: async () => {},
-    installSessionBootstrap: async (value, reason) => installed.push([value.thread.id, reason]),
   });
 
+  await cancelController.setMode("verify");
   await cancelController.cancelSession();
-  assert.deepEqual(cancelActions[0], { type: "stream_completed" });
-  assert.equal(cancelActions.length, 1);
-  assert.deepEqual(installed.at(-1), ["sess-cancel", "cancel"]);
+  assert.deepEqual(calls.at(-2), ["setSessionMode", "sess-cancel", "verify"]);
+  assert.deepEqual(calls.at(-1), ["cancelSession", "sess-cancel"]);
+  assert.deepEqual(cancelActions[0], { type: "mode_requested", mode: "verify" });
+  assert.deepEqual(cancelActions[1], { type: "stream_completed" });
+  assert.equal(cancelActions.length, 2);
 
   assert.throws(
-    () => createSessionController({ protocol: {}, installSessionBootstrap() {} }),
-    /protocol_method_missing:createSession/,
+    () => createSessionController({ protocol: requiredProtocol(), sessionRuntime: {} }),
+    /session_runtime_method_missing:createSession/,
   );
 }
