@@ -122,6 +122,7 @@ function failureFor(error) {
 
 function lifecycleForBootstrap(bootstrap) {
   const status = String(bootstrap.snapshot.status || "");
+  if (status === "error" || status === "failed") return "failed";
   if (
     bootstrap.thread.pending_interaction === true ||
     status === "waiting_permission" ||
@@ -130,6 +131,74 @@ function lifecycleForBootstrap(bootstrap) {
     return "waiting_interaction";
   }
   return "ready";
+}
+
+function reduceTerminalOutcome(current, event, sessionId) {
+  if (INTERACTION_FINISH_EVENTS.has(event.event_kind)) return null;
+  if (INTERACTION_REQUEST_EVENTS.has(event.event_kind)) {
+    return frozenCopy({
+      kind: "terminal_outcome",
+      session_id: sessionId,
+      status: "blocked",
+      final_text: "",
+      outcome: {},
+      failure: {
+        code: "interaction_required",
+        message: "session interaction is required",
+        retryable: false,
+        source: "session",
+      },
+    });
+  }
+  if (event.event_kind === "session.error") {
+    const failure = record(event.payload?.failure)
+      ? event.payload.failure
+      : failureFor(new ProtocolError("session.error did not contain a valid failure"));
+    return frozenCopy({
+      kind: "terminal_outcome",
+      session_id: sessionId,
+      status: "failed",
+      final_text: "",
+      outcome: {},
+      failure,
+    });
+  }
+  if (event.event_kind !== "session.finished") return current;
+  const outcome = record(event.payload?.outcome) ? event.payload.outcome : {};
+  const reason = String(outcome.reason || event.payload?.termination_reason || "");
+  let status = "failed";
+  if (outcome.kind === "completed" || outcome.is_success === true) {
+    status = "completed";
+  } else if (outcome.kind === "blocked") {
+    status = "blocked";
+  } else if (
+    outcome.kind === "cancelled" ||
+    reason === "aborted" ||
+    reason === "cancelled"
+  ) {
+    status = "cancelled";
+  }
+  let failure = null;
+  if (status !== "completed") {
+    const code = status === "blocked" ? "interaction_required" :
+      status === "cancelled" ? "cancelled" : "runtime_error";
+    const message = status === "blocked" ? "session is blocked" :
+      status === "cancelled" ? "session was cancelled" : "session failed";
+    failure = {
+      code,
+      message: String(outcome.message || message),
+      retryable: false,
+      source: "session",
+    };
+  }
+  return frozenCopy({
+    kind: "terminal_outcome",
+    session_id: sessionId,
+    status,
+    final_text: String(event.payload?.final_text || ""),
+    outcome,
+    failure,
+  });
 }
 
 export class SessionClientRuntime {
@@ -150,57 +219,62 @@ export class SessionClientRuntime {
     this.activating = false;
     this.recovering = false;
     this.recoveryAttempted = false;
+    this.terminalOutcome = null;
+    this.transactionBaseline = null;
   }
 
   async activateSession(reference, options = {}) {
     this.#assertOperable();
     const sessionId = requiredSessionId(reference);
-    this.generation += 1;
-    const generation = this.generation;
-    this.sessionId = sessionId;
-    this.cursor = 0;
-    this.lifecycle = "activating";
-    this.activating = true;
-    this.recovering = false;
-    this.recoveryAttempted = false;
-    this.activationBuffer = [];
     try {
-      const bootstrap = await this.transport.loadSessionBootstrap(sessionId, options);
-      const validated = validateBootstrap(bootstrap, sessionId);
-      return (await this.#installBootstrap(
-        generation,
+      return await this.#runBootstrapTransaction(
         sessionId,
-        validated,
         options.reason || "activate",
-      ))
-        ? validated
-        : null;
-    } catch (error) {
-      this.#failGeneration(generation, sessionId, failureFor(error));
+        () => this.transport.loadSessionBootstrap(sessionId, options),
+      );
+    } catch {
       return null;
     }
   }
 
-  async installSessionBootstrap(value, reason = "activate") {
-    this.#assertOperable();
-    const sessionId = requiredSessionId(value?.thread?.id);
-    this.generation += 1;
-    const generation = this.generation;
-    this.sessionId = sessionId;
-    this.cursor = 0;
-    this.lifecycle = "activating";
-    this.activating = true;
-    this.recovering = false;
-    this.recoveryAttempted = false;
-    this.activationBuffer = [];
-    try {
-      const bootstrap = validateBootstrap(value, sessionId);
-      await this.#installBootstrap(generation, sessionId, bootstrap, reason);
-      return bootstrap;
-    } catch (error) {
-      this.#failGeneration(generation, sessionId, failureFor(error));
-      return null;
-    }
+  async createSession(mode = "", options = {}) {
+    return this.#runBootstrapTransaction(
+      "",
+      "create",
+      () => this.transport.createSession(String(mode || ""), options),
+    );
+  }
+
+  async setSessionMode(sessionId, mode, options = {}) {
+    const selected = requiredSessionId(sessionId);
+    return this.#runBootstrapTransaction(
+      selected,
+      "mode_changed",
+      () => this.transport.setSessionMode(selected, String(mode || ""), options),
+    );
+  }
+
+  async cancelSession(sessionId, options = {}) {
+    const selected = requiredSessionId(sessionId);
+    return this.#runBootstrapTransaction(
+      selected,
+      "cancel",
+      () => this.transport.cancelSession(selected, options),
+    );
+  }
+
+  async respondToInteraction(sessionId, interactionId, payload, options = {}) {
+    const selected = requiredSessionId(sessionId);
+    return this.#runBootstrapTransaction(
+      selected,
+      "interaction_response",
+      () => this.transport.respondToInteraction(
+        selected,
+        String(interactionId || ""),
+        payload || {},
+        options,
+      ),
+    );
   }
 
   async acceptSessionEvent(envelope) {
@@ -208,9 +282,13 @@ export class SessionClientRuntime {
       throw new TypeError("invalid session event envelope");
     }
     if (this.lifecycle === "closed" || this.lifecycle === "failed") return;
-    if (envelope.session_id !== this.sessionId) return;
     const event = frozenCopy(envelope);
-    if (this.activating || this.recovering) {
+    if (this.activating) {
+      this.activationBuffer.push(event);
+      return;
+    }
+    if (event.session_id !== this.sessionId) return;
+    if (this.recovering) {
       this.activationBuffer.push(event);
       return;
     }
@@ -232,6 +310,11 @@ export class SessionClientRuntime {
     }
     this.cursor = event.sequence;
     this.#applyEventLifecycle(event.event_kind);
+    this.terminalOutcome = reduceTerminalOutcome(
+      this.terminalOutcome,
+      event,
+      this.sessionId,
+    );
     this.#emit({
       kind: "session_event",
       event,
@@ -247,6 +330,7 @@ export class SessionClientRuntime {
     this.activating = false;
     this.recovering = false;
     this.activationBuffer = [];
+    this.transactionBaseline = null;
     if (typeof this.transport.close === "function") this.transport.close();
     this.#emit({ kind: "runtime_closed" });
   }
@@ -263,14 +347,24 @@ export class SessionClientRuntime {
 
   async #installBootstrap(generation, sessionId, bootstrap, reason) {
     if (this.lifecycle === "closed" || generation !== this.generation) return false;
+    const matching = this.activationBuffer
+      .filter((event) => event.session_id === sessionId)
+      .sort((left, right) => left.sequence - right.sequence);
+    let terminalOutcome = null;
+    for (const event of matching) {
+      if (event.sequence <= bootstrap.event_cursor) {
+        terminalOutcome = reduceTerminalOutcome(terminalOutcome, event, sessionId);
+      }
+    }
+    this.sessionId = sessionId;
     this.cursor = bootstrap.event_cursor;
     this.lifecycle = lifecycleForBootstrap(bootstrap);
+    this.terminalOutcome = terminalOutcome;
     this.activating = false;
     this.recovering = false;
-    const buffered = this.activationBuffer
-      .slice()
-      .sort((left, right) => left.sequence - right.sequence);
+    const buffered = matching.filter((event) => event.sequence > bootstrap.event_cursor);
     this.activationBuffer = [];
+    this.transactionBaseline = null;
     this.#emit({
       kind: "session_activated",
       session_id: sessionId,
@@ -288,6 +382,8 @@ export class SessionClientRuntime {
       this.lifecycle = "waiting_interaction";
     } else if (INTERACTION_FINISH_EVENTS.has(eventKind)) {
       this.lifecycle = "ready";
+    } else if (eventKind === "session.finished") {
+      this.lifecycle = "ready";
     } else if (eventKind === "session.error") {
       this.lifecycle = "failed";
     }
@@ -299,12 +395,90 @@ export class SessionClientRuntime {
     this.activating = false;
     this.recovering = false;
     this.activationBuffer = [];
+    this.transactionBaseline = null;
+    this.terminalOutcome = frozenCopy({
+      kind: "terminal_outcome",
+      session_id: sessionId,
+      status: "failed",
+      final_text: "",
+      outcome: {},
+      failure,
+    });
     this.#emit({
       kind: "protocol_failed",
       session_id: sessionId,
       generation,
       failure,
     });
+  }
+
+  #beginBootstrapTransaction(targetSessionId) {
+    this.#assertOperable();
+    if (!this.transactionBaseline) {
+      this.transactionBaseline = Object.freeze({
+        sessionId: this.sessionId,
+        cursor: this.cursor,
+        lifecycle: this.lifecycle,
+        recoveryAttempted: this.recoveryAttempted,
+        terminalOutcome: this.terminalOutcome,
+      });
+    }
+    this.generation += 1;
+    this.sessionId = String(targetSessionId || "");
+    this.cursor = 0;
+    this.lifecycle = "activating";
+    this.activating = true;
+    this.recovering = false;
+    this.recoveryAttempted = false;
+    this.terminalOutcome = null;
+    return this.generation;
+  }
+
+  async #rollbackBootstrapTransaction(generation) {
+    if (this.lifecycle === "closed" || generation !== this.generation) return false;
+    const baseline = this.transactionBaseline;
+    if (!baseline) return false;
+    const buffered = this.activationBuffer
+      .slice()
+      .sort((left, right) => left.sequence - right.sequence);
+    this.sessionId = baseline.sessionId;
+    this.cursor = baseline.cursor;
+    this.lifecycle = baseline.lifecycle;
+    this.activating = false;
+    this.recovering = false;
+    this.recoveryAttempted = baseline.recoveryAttempted;
+    this.terminalOutcome = baseline.terminalOutcome;
+    this.activationBuffer = [];
+    this.transactionBaseline = null;
+    for (const event of buffered) {
+      if (event.session_id === baseline.sessionId) {
+        await this.acceptSessionEvent(event);
+      }
+    }
+    return true;
+  }
+
+  async #runBootstrapTransaction(targetSessionId, reason, request) {
+    const generation = this.#beginBootstrapTransaction(targetSessionId);
+    let value;
+    try {
+      value = await request();
+    } catch (error) {
+      await this.#rollbackBootstrapTransaction(generation);
+      throw error;
+    }
+    let sessionId;
+    let bootstrap;
+    try {
+      sessionId = targetSessionId || requiredSessionId(value?.thread?.id);
+      bootstrap = validateBootstrap(value, sessionId);
+    } catch (error) {
+      this.#failGeneration(generation, String(targetSessionId || ""), failureFor(error));
+      throw error;
+    }
+    return (await this.#installBootstrap(generation, sessionId, bootstrap, reason))
+      ? bootstrap
+      : null;
   }
 
   #assertOperable() {

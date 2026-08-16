@@ -131,6 +131,94 @@ export async function runSessionClientRuntimeContractTests() {
     assert.deepEqual(result.actions, testCase.actions, testCase.name);
   }
 
+  const raceActions = [];
+  const raceTransport = new FixtureTransport();
+  const raceRuntime = new SessionClientRuntime({
+    transport: raceTransport,
+    dispatch: (action) => raceActions.push(action),
+  });
+  raceTransport.responses.push(contract.bootstraps.session_1_cursor_1);
+  await raceRuntime.activateSession("session-1");
+  await raceRuntime.acceptSessionEvent(clone(contract.events.approval_requested));
+
+  const cursor3 = clone(contract.bootstraps.session_1_cursor_2);
+  cursor3.event_cursor = 3;
+  raceTransport.respondToInteraction = async () => {
+    await raceRuntime.acceptSessionEvent(clone(contract.events.approval_resolved));
+    await raceRuntime.acceptSessionEvent({
+      schema_version: 1,
+      event_id: "session-finished-4",
+      session_id: "session-1",
+      sequence: 4,
+      event_kind: "session.finished",
+      timestamp: "2026-08-13T00:00:04Z",
+      payload: {
+        final_text: "done",
+        outcome: { kind: "completed", reason: "completed" },
+      },
+    });
+    return cursor3;
+  };
+
+  await raceRuntime.respondToInteraction(
+    "session-1",
+    "approval-1",
+    { decision: "accept" },
+  );
+  await raceRuntime.acceptSessionEvent(clone(contract.events.session_1_sequence_5));
+
+  assert.equal(raceRuntime.cursor, 5);
+  assert.equal(raceRuntime.lifecycle, "ready");
+  assert.equal(raceRuntime.terminalOutcome.status, "completed");
+  assert.equal(
+    raceActions.filter((action) => action.reason === "recovery").length,
+    0,
+  );
+
+  for (const method of [
+    "createSession",
+    "setSessionMode",
+    "cancelSession",
+    "respondToInteraction",
+  ]) {
+    assert.equal(typeof raceRuntime[method], "function", method);
+  }
+
+  const rollbackTransport = new FixtureTransport();
+  const rollbackRuntime = new SessionClientRuntime({ transport: rollbackTransport });
+  rollbackTransport.responses.push(contract.bootstraps.session_1_cursor_1);
+  await rollbackRuntime.activateSession("session-1");
+  rollbackTransport.setSessionMode = async () => {
+    await rollbackRuntime.acceptSessionEvent(
+      clone(contract.events.session_1_sequence_2),
+    );
+    throw new Error("request failed");
+  };
+
+  await assert.rejects(
+    () => rollbackRuntime.setSessionMode("session-1", "verify"),
+    /request failed/,
+  );
+  assert.equal(rollbackRuntime.sessionId, "session-1");
+  assert.equal(rollbackRuntime.cursor, 2);
+  assert.equal(rollbackRuntime.lifecycle, "ready");
+  assert.equal(rollbackRuntime.generation, 2);
+
+  const staleTransport = new FixtureTransport();
+  const staleRuntime = new SessionClientRuntime({ transport: staleTransport });
+  staleTransport.responses.push(contract.bootstraps.session_1_cursor_1);
+  await staleRuntime.activateSession("session-1");
+  staleTransport.setSessionMode = async () => {
+    staleTransport.responses.push(contract.bootstraps.session_2_cursor_0);
+    await staleRuntime.activateSession("session-2");
+    return clone(contract.bootstraps.session_1_cursor_2);
+  };
+
+  assert.equal(await staleRuntime.setSessionMode("session-1", "verify"), null);
+  assert.equal(staleRuntime.sessionId, "session-2");
+  assert.equal(staleRuntime.cursor, 0);
+  assert.equal(staleRuntime.generation, 3);
+
   const transport = new FixtureTransport();
   const runtime = new SessionClientRuntime({ transport });
   runtime.close();

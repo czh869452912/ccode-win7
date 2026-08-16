@@ -16,12 +16,19 @@ export function runBrowserAppRuntimeBoundaryTests() {
     "window",
     "document",
     "workspace",
-    "terminal",
     "preview",
     "sourceControl",
     "source-control",
   ]) {
     assert.equal(sessionRuntimeSource.includes(token), false, `session runtime owns ${token}`);
+  }
+  assert.equal(sessionRuntimeSource.includes("terminalOutcome"), true);
+  for (const terminalOwner of ["terminalController", "openTerminal", "closeTerminal"]) {
+    assert.equal(
+      sessionRuntimeSource.includes(terminalOwner),
+      false,
+      `session runtime owns ${terminalOwner}`,
+    );
   }
 
   const browserRuntimeSource = source("../src/app-runtime/browser-app-runtime.js");
