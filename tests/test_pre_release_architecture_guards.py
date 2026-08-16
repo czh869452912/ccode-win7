@@ -1044,7 +1044,16 @@ def test_gui_session_activation_bootstrap_is_session_runtime_owned():
     assert "async cancelSession" in runtime_text
     assert "async respondToInteraction" in runtime_text
     assert "recoveryAttempted" in runtime_text
-    assert "_drain_buffered_events" in python_runtime_text
+    assert "_sync_phase" in python_runtime_text
+    assert "_event_queue" in python_runtime_text
+    assert "_drain_event_queue" in python_runtime_text
+    for retired_name in (
+        "_activating",
+        "_recovering",
+        "_buffered_events",
+        "_drain_buffered_events",
+    ):
+        assert retired_name not in python_runtime_text
     assert "#drainBufferedEvents" in runtime_text
     assert (
         "for envelope in buffered:\n            self.on_session_event(envelope)"

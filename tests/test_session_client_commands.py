@@ -394,6 +394,39 @@ def test_terminal_outcome_is_published_only_after_event_action_delivery():
     assert runtime.wait_for_terminal(timeout_s=0).to_dict()["status"] == "blocked"
 
 
+def test_event_action_dispatch_failure_does_not_commit_the_event():
+    actions = []
+
+    def dispatch(action):
+        actions.append(action)
+        if action.kind == "session_event":
+            raise RuntimeError("renderer failed")
+
+    runtime = SessionClientRuntime(dispatch=dispatch)
+    port = FakeSessionPort()
+    runtime.bind_session_port(port)
+    runtime.activate_session("session-1")
+
+    runtime.on_session_event(
+        _event(
+            "approval.requested",
+            {"interaction_id": "approval-1", "request_id": "approval-1"},
+        )
+    )
+
+    outcome = runtime.wait_for_terminal(timeout_s=0).to_dict()
+    assert outcome["status"] == "failed"
+    assert outcome["failure"] == {
+        "code": "protocol_error",
+        "message": "runtime action dispatch failed",
+        "retryable": False,
+        "source": "client_runtime",
+    }
+    assert runtime.event_cursor == 1
+    assert runtime.lifecycle == "failed"
+    assert [action.kind for action in actions] == ["session_activated", "session_event"]
+
+
 def test_interaction_response_preserves_terminal_event_arriving_before_bootstrap():
     runtime = SessionClientRuntime()
     port = ImmediateInteractionPort(runtime)
