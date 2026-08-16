@@ -52,16 +52,44 @@ class FixtureTransport {
   constructor() {
     this.responses = [];
     this.duringBootstrap = null;
+    this.bootstrapCalls = [];
     this.closed = false;
   }
 
-  async loadSessionBootstrap() {
+  async takeResponse(operation) {
+    this.bootstrapCalls.push(operation);
     const response = this.responses.shift();
     const callback = this.duringBootstrap;
     this.duringBootstrap = null;
     if (callback) await callback();
     if (response instanceof Error) throw response;
     return clone(response);
+  }
+
+  async loadSessionBootstrap(reference, options) {
+    return this.takeResponse(["activate", reference, options]);
+  }
+
+  async createSession(mode, options) {
+    return this.takeResponse(["create", mode, options]);
+  }
+
+  async setSessionMode(sessionId, mode, options) {
+    return this.takeResponse(["mode", sessionId, mode, options]);
+  }
+
+  async cancelSession(sessionId, options) {
+    return this.takeResponse(["cancel", sessionId, options]);
+  }
+
+  async respondToInteraction(sessionId, interactionId, payload, options) {
+    return this.takeResponse([
+      "interaction_response",
+      sessionId,
+      interactionId,
+      payload,
+      options,
+    ]);
   }
 
   close() {
@@ -100,6 +128,70 @@ async function runCase(contract, testCase) {
       await runtime.activateSession(operation.session_id);
       continue;
     }
+    if (
+      operation.kind === "bootstrap_operation" ||
+      operation.kind === "bootstrap_operation_raw"
+    ) {
+      const response = operation.request_error
+        ? Object.assign(new Error("request failed"), {
+            code: operation.request_error,
+          })
+        : contract.bootstraps[operation.bootstrap];
+      transport.responses.push(response);
+      if (
+        operation.during_events ||
+        operation.during_activation ||
+        operation.during_close
+      ) {
+        transport.duringBootstrap = async () => {
+          for (const eventName of operation.during_events || []) {
+            await runtime.acceptSessionEvent(clone(contract.events[eventName]));
+          }
+          if (operation.during_activation) {
+            const nested = operation.during_activation;
+            const nestedResponse = nested.request_error
+              ? Object.assign(new Error("nested activation failed"), {
+                  code: nested.request_error,
+                })
+              : contract.bootstraps[nested.bootstrap];
+            transport.responses.push(nestedResponse);
+            await runtime.activateSession(nested.session_id);
+          }
+          if (operation.during_close) runtime.close();
+        };
+      }
+
+      const invoke = () => {
+        if (operation.operation === "interaction_response") {
+          return runtime.respondToInteraction(
+            operation.session_id,
+            "approval-1",
+            { decision: "accept" },
+          );
+        }
+        if (operation.operation === "create") {
+          return runtime.createSession("explore");
+        }
+        if (operation.operation === "mode") {
+          return runtime.setSessionMode(operation.session_id, "verify");
+        }
+        if (operation.operation === "cancel") {
+          return runtime.cancelSession(operation.session_id);
+        }
+        throw new Error(
+          `unknown bootstrap fixture operation:${operation.operation}`,
+        );
+      };
+
+      if (operation.expect_error) {
+        await assert.rejects(invoke);
+      } else if (operation.expect_stale) {
+        assert.equal(await invoke(), null);
+      } else {
+        await invoke();
+      }
+      continue;
+    }
     if (operation.kind === "event") {
       if (operation.recovery_bootstrap) {
         transport.responses.push(contract.bootstraps[operation.recovery_bootstrap]);
@@ -129,6 +221,19 @@ export async function runSessionClientRuntimeContractTests() {
   for (const testCase of contract.cases) {
     const result = await runCase(contract, testCase);
     assert.deepEqual(result.actions, testCase.actions, testCase.name);
+    if (testCase.final) {
+      assert.deepEqual(
+        {
+          session_id: result.runtime.sessionId,
+          cursor: result.runtime.cursor,
+          generation: result.runtime.generation,
+          lifecycle: result.runtime.lifecycle,
+          terminal_status: result.runtime.terminalOutcome?.status || null,
+        },
+        testCase.final,
+        `${testCase.name}:final`,
+      );
+    }
   }
 
   const raceActions = [];

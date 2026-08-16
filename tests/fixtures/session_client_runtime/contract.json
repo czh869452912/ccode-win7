@@ -59,6 +59,64 @@
       "plan": null,
       "permission_context": {}
     },
+    "session_1_cursor_3": {
+      "schema_version": 1,
+      "event_cursor": 3,
+      "thread": {
+        "id": "session-1",
+        "title": "Session 1",
+        "archived": false,
+        "current_mode": "build",
+        "status": "running",
+        "updated_at": "2026-08-13T00:00:01Z",
+        "pending_interaction": false
+      },
+      "snapshot": {"session_id": "session-1", "status": "running"},
+      "history": {"activities": [], "integrity": {"status": "healthy"}},
+      "capabilities": {
+        "schema_version": 1,
+        "modes": [],
+        "commands": [],
+        "tools": [],
+        "workflow_packages": [],
+        "agent_application": {},
+        "agent_applications": [],
+        "resources": [],
+        "model_profiles": [],
+        "empty_state": {}
+      },
+      "plan": null,
+      "permission_context": {}
+    },
+    "session_1_cursor_4": {
+      "schema_version": 1,
+      "event_cursor": 4,
+      "thread": {
+        "id": "session-1",
+        "title": "Session 1",
+        "archived": false,
+        "current_mode": "build",
+        "status": "idle",
+        "updated_at": "2026-08-13T00:00:04Z",
+        "pending_interaction": false
+      },
+      "snapshot": {"session_id": "session-1", "status": "idle"},
+      "history": {"activities": [], "integrity": {"status": "healthy"}},
+      "capabilities": {
+        "schema_version": 1,
+        "modes": [],
+        "commands": [],
+        "tools": [],
+        "workflow_packages": [],
+        "agent_application": {},
+        "agent_applications": [],
+        "resources": [],
+        "model_profiles": [],
+        "empty_state": {}
+      },
+      "plan": null,
+      "permission_context": {}
+    },
     "session_2_cursor_0": {
       "schema_version": 1,
       "event_cursor": 0,
@@ -116,6 +174,18 @@
       "timestamp": "2026-08-13T00:00:03Z",
       "payload": {"text": "three"}
     },
+    "session_1_sequence_4": {
+      "schema_version": 1,
+      "event_id": "event-1-4-finished",
+      "session_id": "session-1",
+      "sequence": 4,
+      "event_kind": "session.finished",
+      "timestamp": "2026-08-13T00:00:04Z",
+      "payload": {
+        "final_text": "done",
+        "outcome": {"kind": "completed", "reason": "completed"}
+      }
+    },
     "session_1_sequence_5": {
       "schema_version": 1,
       "event_id": "event-1-5",
@@ -133,6 +203,15 @@
       "event_kind": "assistant.delta",
       "timestamp": "2026-08-13T00:00:02Z",
       "payload": {"text": "other"}
+    },
+    "session_2_sequence_1": {
+      "schema_version": 1,
+      "event_id": "event-2-1",
+      "session_id": "session-2",
+      "sequence": 1,
+      "event_kind": "assistant.delta",
+      "timestamp": "2026-08-13T00:00:01Z",
+      "payload": {"text": "new session"}
     },
     "approval_requested": {
       "schema_version": 1,
@@ -262,6 +341,148 @@
         {"kind": "session_event", "session_id": "session-1", "sequence": 2, "event_kind": "approval.requested", "lifecycle": "waiting_interaction"},
         {"kind": "session_event", "session_id": "session-1", "sequence": 3, "event_kind": "approval.resolved", "lifecycle": "ready"}
       ]
+    },
+    {
+      "name": "returned_bootstrap_buffers_post_capture_event",
+      "initial": {"lifecycle": "idle", "generation": 0, "cursor": 0},
+      "operations": [
+        {"kind": "activate", "session_id": "session-1", "bootstrap": "session_1_cursor_1"},
+        {"kind": "event", "event": "approval_requested"},
+        {
+          "kind": "bootstrap_operation",
+          "operation": "interaction_response",
+          "session_id": "session-1",
+          "bootstrap": "session_1_cursor_3",
+          "during_events": ["approval_resolved", "session_1_sequence_4"]
+        },
+        {"kind": "event", "event": "session_1_sequence_5"}
+      ],
+      "actions": [
+        {"kind": "session_activated", "session_id": "session-1", "cursor": 1, "generation": 1, "reason": "activate"},
+        {"kind": "session_event", "session_id": "session-1", "sequence": 2, "event_kind": "approval.requested", "lifecycle": "waiting_interaction"},
+        {"kind": "session_activated", "session_id": "session-1", "cursor": 3, "generation": 2, "reason": "interaction_response"},
+        {"kind": "session_event", "session_id": "session-1", "sequence": 4, "event_kind": "session.finished", "lifecycle": "ready"},
+        {"kind": "session_event", "session_id": "session-1", "sequence": 5, "event_kind": "assistant.delta", "lifecycle": "ready"}
+      ],
+      "final": {"session_id": "session-1", "cursor": 5, "generation": 2, "lifecycle": "ready", "terminal_status": "completed"}
+    },
+    {
+      "name": "cursor_covered_terminal_reduces_without_duplicate_dispatch",
+      "initial": {"lifecycle": "idle", "generation": 0, "cursor": 0},
+      "operations": [
+        {"kind": "activate", "session_id": "session-1", "bootstrap": "session_1_cursor_1"},
+        {"kind": "event", "event": "approval_requested"},
+        {
+          "kind": "bootstrap_operation",
+          "operation": "interaction_response",
+          "session_id": "session-1",
+          "bootstrap": "session_1_cursor_4",
+          "during_events": ["approval_resolved", "session_1_sequence_4"]
+        }
+      ],
+      "actions": [
+        {"kind": "session_activated", "session_id": "session-1", "cursor": 1, "generation": 1, "reason": "activate"},
+        {"kind": "session_event", "session_id": "session-1", "sequence": 2, "event_kind": "approval.requested", "lifecycle": "waiting_interaction"},
+        {"kind": "session_activated", "session_id": "session-1", "cursor": 4, "generation": 2, "reason": "interaction_response"}
+      ],
+      "final": {"session_id": "session-1", "cursor": 4, "generation": 2, "lifecycle": "ready", "terminal_status": "completed"}
+    },
+    {
+      "name": "request_error_rolls_back_and_replays_committed_session",
+      "initial": {"lifecycle": "idle", "generation": 0, "cursor": 0},
+      "operations": [
+        {"kind": "activate", "session_id": "session-1", "bootstrap": "session_1_cursor_1"},
+        {
+          "kind": "bootstrap_operation",
+          "operation": "mode",
+          "session_id": "session-1",
+          "request_error": "runtime_error",
+          "during_events": ["session_1_sequence_2"],
+          "expect_error": true
+        }
+      ],
+      "actions": [
+        {"kind": "session_activated", "session_id": "session-1", "cursor": 1, "generation": 1, "reason": "activate"},
+        {"kind": "session_event", "session_id": "session-1", "sequence": 2, "event_kind": "assistant.delta", "lifecycle": "ready"}
+      ],
+      "final": {"session_id": "session-1", "cursor": 2, "generation": 2, "lifecycle": "ready", "terminal_status": null}
+    },
+    {
+      "name": "failed_superseding_activation_restores_committed_baseline",
+      "initial": {"lifecycle": "idle", "generation": 0, "cursor": 0},
+      "operations": [
+        {"kind": "activate", "session_id": "session-1", "bootstrap": "session_1_cursor_1"},
+        {
+          "kind": "bootstrap_operation",
+          "operation": "mode",
+          "session_id": "session-1",
+          "bootstrap": "session_1_cursor_2",
+          "during_activation": {"session_id": "session-2", "request_error": "runtime_error"},
+          "expect_stale": true
+        }
+      ],
+      "actions": [
+        {"kind": "session_activated", "session_id": "session-1", "cursor": 1, "generation": 1, "reason": "activate"}
+      ],
+      "final": {"session_id": "session-1", "cursor": 1, "generation": 3, "lifecycle": "ready", "terminal_status": null}
+    },
+    {
+      "name": "unknown_create_filters_buffer_to_returned_session",
+      "initial": {"lifecycle": "idle", "generation": 0, "cursor": 0},
+      "operations": [
+        {"kind": "activate", "session_id": "session-1", "bootstrap": "session_1_cursor_1"},
+        {
+          "kind": "bootstrap_operation",
+          "operation": "create",
+          "bootstrap": "session_2_cursor_0",
+          "during_events": ["session_1_sequence_2", "session_2_sequence_1"]
+        }
+      ],
+      "actions": [
+        {"kind": "session_activated", "session_id": "session-1", "cursor": 1, "generation": 1, "reason": "activate"},
+        {"kind": "session_activated", "session_id": "session-2", "cursor": 0, "generation": 2, "reason": "create"},
+        {"kind": "session_event", "session_id": "session-2", "sequence": 1, "event_kind": "assistant.delta", "lifecycle": "ready"}
+      ],
+      "final": {"session_id": "session-2", "cursor": 1, "generation": 2, "lifecycle": "ready", "terminal_status": null}
+    },
+    {
+      "name": "malformed_returned_bootstrap_fails_generation",
+      "initial": {"lifecycle": "idle", "generation": 0, "cursor": 0},
+      "operations": [
+        {"kind": "activate", "session_id": "session-1", "bootstrap": "session_1_cursor_1"},
+        {
+          "kind": "bootstrap_operation_raw",
+          "operation": "mode",
+          "session_id": "session-1",
+          "bootstrap": "schema_mismatch",
+          "expect_error": true
+        }
+      ],
+      "actions": [
+        {"kind": "session_activated", "session_id": "session-1", "cursor": 1, "generation": 1, "reason": "activate"},
+        {"kind": "protocol_failed", "session_id": "session-1", "generation": 2, "code": "protocol_error"}
+      ],
+      "final": {"session_id": "session-1", "cursor": 0, "generation": 2, "lifecycle": "failed", "terminal_status": "failed"}
+    },
+    {
+      "name": "close_during_returned_bootstrap_ignores_completion",
+      "initial": {"lifecycle": "idle", "generation": 0, "cursor": 0},
+      "operations": [
+        {"kind": "activate", "session_id": "session-1", "bootstrap": "session_1_cursor_1"},
+        {
+          "kind": "bootstrap_operation",
+          "operation": "cancel",
+          "session_id": "session-1",
+          "bootstrap": "session_1_cursor_2",
+          "during_close": true,
+          "expect_stale": true
+        }
+      ],
+      "actions": [
+        {"kind": "session_activated", "session_id": "session-1", "cursor": 1, "generation": 1, "reason": "activate"},
+        {"kind": "runtime_closed"}
+      ],
+      "final": {"session_id": "session-1", "cursor": 0, "generation": 3, "lifecycle": "closed", "terminal_status": null}
     },
     {
       "name": "close_ignores_late_event",
