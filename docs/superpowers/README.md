@@ -6,11 +6,6 @@
 
 - `docs/superpowers/plans/2026-07-19-win7-acceptance-handoff.md`
 
-## CLI Output Encoding Boundary
-
-- `docs/superpowers/specs/2026-08-16-cli-output-encoding-boundary-design.md`
-- `docs/superpowers/plans/2026-08-16-cli-output-encoding-boundary.md`
-
 ## Closure Rule
 
 先把可持续结论同步到活跃权威文档，再将已完成的 spec 和 plan 移入带索引的 `docs/archive/<topic>/` 包。

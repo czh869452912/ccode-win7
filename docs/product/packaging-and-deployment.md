@@ -78,6 +78,11 @@ EmbedAgent/
 `embedagent-tui.cmd` 独立执行 `-m embedagent.frontend.tui.launcher`，GUI launcher 使用其
 专有入口；launcher 之间不通过已退役的 CLI compatibility flags 互相转发。
 
+The product CLI prepares `sys.stdout` and `sys.stderr` once at startup. It keeps
+the selected stream encoding and uses replacement for characters the encoding
+cannot represent; Core and Host continue to carry Unicode without presentation
+fallbacks.
+
 ## 5. Build And Release Flow
 
 `scripts/package.ps1` 是主编排入口：
@@ -129,6 +134,12 @@ config，启动本地回环 fake provider，然后实际调用 staged `embedagen
 必须执行完全相同的 9 个场景：`run_json`, `chat_completion`, `chat_permission`,
 `chat_user_input`, `sessions_list`, `sessions_show`, `run_resume`,
 `blocked_permission`, `blocked_user_input`。
+
+The validator runs the staged CLI with `PYTHONIOENCODING=cp1252` so the gate is
+independent of the development machine locale and covers English Windows
+redirected output. Failure reports may include only the scenario ID, process
+exit code, and stable CLI failure code; raw stdout/stderr and interaction data
+remain forbidden.
 
 schema version 2 报告记录 `command_launcher=embedagent.cmd`、实际 flavor/application、
 `runtime_source=bundle`、逐场景结果和 `system_tool_fallback_allowed=false`。报告不包含
