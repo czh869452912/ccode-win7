@@ -117,8 +117,12 @@ rollback.
 
 Installation uses the bootstrap's `event_cursor` as the generation baseline.
 Buffered envelopes are sorted, envelopes at or below that cursor are discarded,
-and later envelopes are fed through the normal sequence path. This path remains
-the only place that advances the cursor or derives event-driven lifecycle state.
+and later envelopes are fed through the normal sequence path. Cursor-covered
+envelopes are not dispatched again, but they still pass through the terminal
+outcome reducer before removal. This is necessary because bootstrap projection
+contains session state but does not replace the CLI/TUI terminal outcome channel.
+The normal sequence path remains the only place that advances the cursor or
+dispatches a live event.
 
 ## Operation Ownership
 
@@ -140,9 +144,17 @@ logs, and view actions.
 ## Terminal Outcome Semantics
 
 A new bootstrap transaction clears the previous terminal outcome before the
-request. Terminal events received during the request are buffered and derive a new
-terminal outcome only when replayed after installation. This removes the need to
-compare `RuntimeAction` object identities across the request boundary.
+request. Terminal state is reduced from ordered canonical event evidence:
+interaction-request events set `blocked`, interaction-finish events clear that
+blocked outcome, and session finish/error events set their structured terminal
+outcome. Both runtimes use this reducer for normal live events and for buffered
+events already covered by the returned cursor.
+
+Cursor-covered buffered events affect terminal state but are not dispatched as
+duplicate `session_event` actions. Events after the bootstrap cursor go through the
+normal sequence path, which both dispatches them and applies the same reducer. This
+removes the need to compare `RuntimeAction` object identities across the request
+boundary without losing a finish event represented by the returned bootstrap.
 
 If a request fails and the transaction rolls back, the prior terminal outcome is
 restored before buffered events for the prior active session are replayed. A
@@ -159,6 +171,7 @@ retention branch are deleted.
 | Response contains an invalid bootstrap | Fail the current generation with structured `protocol_failed`; do not restore a projection that may now be stale. |
 | A newer transaction supersedes the request | Ignore the stale completion; it must not install, fail, or overwrite the newer generation. |
 | Runtime closes during the request | Ignore the completion and retain `closed`. |
+| Buffered events are at or below the bootstrap cursor | Reduce terminal state, then discard them without duplicate dispatch. |
 | Buffered events are continuous after the bootstrap cursor | Replay them without recovery. |
 | A real sequence gap remains after installation | Perform at most one recovery for that generation. A repeated gap fails deterministically. |
 
@@ -182,8 +195,9 @@ Required shared cases are:
 - bootstrap cursor 3, event 4 during the request, then event 5 after installation;
   final cursor 5 and zero recovery actions;
 - an event already represented by the returned cursor is discarded exactly once;
-- a terminal event during interaction response is replayed and becomes the new
-  terminal state without identity retention;
+- a terminal event during interaction response that is covered by the returned
+  cursor becomes the new terminal state without duplicate dispatch or identity
+  retention;
 - request rejection restores the previous session and replays its buffered events;
 - a failed superseding request restores the last committed state rather than an
   abandoned `activating` state;
@@ -232,6 +246,8 @@ permission scenario. Generated GUI assets are committed when webapp source chang
 - Python and JavaScript pass the same returned-bootstrap concurrency fixtures.
 - No bootstrap-producing public path requests first and starts activation later.
 - The deterministic cursor 3/4/5 scenario performs no recovery and ends at cursor 5.
+- Python and JavaScript derive terminal state from ordered event evidence, including
+  buffered events covered by the returned cursor.
 - Python no longer contains terminal identity comparison or its sentinel.
 - Browser controllers no longer call protocol mutation plus after-the-fact install.
 - Existing interaction conflict behavior remains user-visible and recoverable.
