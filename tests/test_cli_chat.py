@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import threading
 from types import SimpleNamespace
 
 from embedagent_protocol import (
@@ -15,7 +16,7 @@ from embedagent_protocol import (
 )
 
 from embedagent.cli.options import CliLaunchOptions, CliOptions
-from embedagent.frontend.runtime import RuntimeAction
+from embedagent.frontend.runtime import RuntimeAction, SessionClientRuntime
 
 
 def _shell():
@@ -223,6 +224,100 @@ class FakeRuntime(object):
         )
 
 
+class GatedSessionClientRuntime(SessionClientRuntime):
+    def __init__(self, dispatch_entered, release_dispatch):
+        super().__init__()
+        self._dispatch_entered = dispatch_entered
+        self._release_dispatch = release_dispatch
+
+    def _dispatch_action(self, action):
+        value = action.to_dict()
+        event = value.get("event") if action.kind == "session_event" else None
+        if isinstance(event, dict) and event.get("event_kind") == "approval.requested":
+            self._dispatch_entered.set()
+            if not self._release_dispatch.wait(5.0):
+                raise RuntimeError("timed out waiting for test dispatch gate")
+        super()._dispatch_action(action)
+
+
+class GatedInteractionSessionPort(object):
+    def __init__(self, runtime):
+        self.runtime = runtime
+        self.submissions = []
+        self.responses = []
+        self.closed = False
+        self.event_worker = None
+
+    def create_session(self, mode):
+        del mode
+        return _bootstrap()
+
+    def get_session_bootstrap(self, reference, mode=""):
+        del reference, mode
+        return _bootstrap()
+
+    def submit_user_message(self, session_id, text, stream):
+        self.submissions.append((session_id, text, stream))
+        if len(self.submissions) != 1:
+            return
+        self.event_worker = threading.Thread(target=self._publish_approval)
+        self.event_worker.start()
+
+    def respond_to_interaction(self, session_id, interaction_id, payload):
+        self.responses.append((session_id, interaction_id, payload))
+        self.runtime.on_session_event(
+            self._event("approval.resolved", {"interaction_id": interaction_id}, 2)
+        )
+        self.runtime.on_session_event(
+            self._event(
+                "session.finished",
+                {
+                    "final_text": "approved",
+                    "outcome": {"kind": "completed", "reason": "completed"},
+                },
+                3,
+            )
+        )
+        bootstrap = _bootstrap()
+        return SessionBootstrap(
+            schema_version=bootstrap.schema_version,
+            event_cursor=3,
+            thread=bootstrap.thread,
+            snapshot=bootstrap.snapshot,
+            activities=bootstrap.activities,
+            capabilities=bootstrap.capabilities,
+        )
+
+    def close(self):
+        self.closed = True
+
+    def _publish_approval(self):
+        self.runtime.on_session_event(
+            self._event(
+                "approval.requested",
+                {
+                    "interaction_id": "approval-1",
+                    "request_id": "approval-1",
+                    "reason": "Allow operation?",
+                    "category": "custom",
+                },
+                1,
+            )
+        )
+
+    @staticmethod
+    def _event(event_kind, payload, sequence):
+        return SessionEventEnvelope(
+            schema_version=1,
+            event_id="event-%s" % sequence,
+            session_id="session-1",
+            sequence=sequence,
+            event_kind=event_kind,
+            timestamp="2026-08-14T00:00:01Z",
+            payload=payload,
+        )
+
+
 def _options(resume="", mode=""):
     return CliOptions(
         command="chat",
@@ -349,6 +444,52 @@ def test_chat_answers_permission_only_through_runtime_interaction_operation():
     assert "Allow operation?" in stdout
     assert runtime.responses == [("session-1", "approval-1", {"decision": "accept"})]
     assert stderr == ""
+
+
+def test_chat_waits_for_interaction_action_delivery_before_reading_choice():
+    from embedagent.cli.chat import run_chat_command
+
+    dispatch_entered = threading.Event()
+    release_dispatch = threading.Event()
+    runtime = GatedSessionClientRuntime(dispatch_entered, release_dispatch)
+    port = GatedInteractionSessionPort(runtime)
+    runtime.bind_session_port(port)
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    result = []
+
+    def run():
+        result.append(
+            run_chat_command(
+                _application(runtime),
+                input_stream=ScriptedInput(["permission smoke\n", "1\n", "/exit\n"]),
+                stdout=stdout,
+                stderr=stderr,
+            )
+        )
+
+    chat_worker = threading.Thread(target=run)
+    chat_worker.start()
+    assert dispatch_entered.wait(5.0)
+
+    try:
+        assert port.submissions == [("session-1", "permission smoke", True)]
+    finally:
+        release_dispatch.set()
+        chat_worker.join(5.0)
+        if port.event_worker is not None:
+            port.event_worker.join(5.0)
+
+    assert not chat_worker.is_alive()
+    assert port.event_worker is not None
+    assert not port.event_worker.is_alive()
+    assert result == [0]
+    assert port.submissions == [("session-1", "permission smoke", True)]
+    assert port.responses == [
+        ("session-1", "approval-1", {"decision": "accept"}),
+    ]
+    assert "Allow operation?" in stdout.getvalue()
+    assert stderr.getvalue() == ""
 
 
 def test_chat_local_exit_leaves_pending_interaction_untouched():
