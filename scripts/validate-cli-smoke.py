@@ -225,6 +225,7 @@ def _isolated_environment(bundle_root: Path, home: Path) -> Dict[str, str]:
             "PYTHONPATH",
         ):
             environment.pop(name, None)
+    environment["PYTHONIOENCODING"] = "cp1252"
     environment["EMBEDAGENT_BUNDLE_ROOT"] = str(bundle_root)
     environment["EMBEDAGENT_HOME"] = str(home / ".embedagent")
     environment["HOME"] = str(home)

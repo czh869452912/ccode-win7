@@ -555,6 +555,16 @@ class TestRuntimeBundleContract(unittest.TestCase):
         self.assertNotIn("create_hosted_runtime", source)
         self.assertNotIn("session_host", source)
 
+    def test_cli_smoke_pins_english_windows_redirected_output_encoding(self):
+        module = _load_python_module(CLI_SMOKE_SCRIPT, "validate_cli_smoke_encoding")
+
+        environment = module._isolated_environment(
+            Path("bundle"),
+            Path("home"),
+        )
+
+        self.assertEqual(environment["PYTHONIOENCODING"], "cp1252")
+
     def test_runtime_contract_lists_current_llvm_children(self):
         payload = json.loads(RUNTIME_CONTRACT.read_text(encoding="utf-8"))
         llvm_component = [item for item in payload["runtime_components"] if item["id"] == "llvm"][0]
