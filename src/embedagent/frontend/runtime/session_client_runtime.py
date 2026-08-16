@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 import time
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from embedagent_protocol import (
@@ -31,6 +32,15 @@ _INTERACTION_FINISH_EVENTS = frozenset(
     )
 )
 _RESET_TERMINAL = object()
+
+
+@dataclass(frozen=True)
+class _RuntimeBaseline:
+    active_session_id: str
+    event_cursor: int
+    lifecycle: str
+    recovery_attempted: bool
+    terminal_outcome: Optional[RuntimeAction]
 
 
 def _required_session_id(value: Any) -> str:
@@ -80,6 +90,7 @@ class SessionClientRuntime(SessionEventSink):
         self._recovery_attempted = False
         self._buffered_events: List[SessionEventEnvelope] = []
         self._terminal_outcome = None  # type: Optional[RuntimeAction]
+        self._transaction_baseline = None  # type: Optional[_RuntimeBaseline]
 
     @property
     def lifecycle(self) -> str:
@@ -181,9 +192,12 @@ class SessionClientRuntime(SessionEventSink):
         with self._condition:
             if self._lifecycle in ("closed", "failed"):
                 return
+            if self._activating:
+                self._buffered_events.append(envelope)
+                return
             if envelope.session_id != self._active_session_id:
                 return
-            if self._activating or self._recovering:
+            if self._recovering:
                 self._buffered_events.append(envelope)
                 return
             if envelope.sequence <= self._event_cursor:
@@ -203,9 +217,10 @@ class SessionClientRuntime(SessionEventSink):
             else:
                 self._event_cursor = envelope.sequence
                 self._apply_event_lifecycle(envelope.event_kind)
-                terminal = self._terminal_from_event(envelope)
-                if terminal is not None:
-                    self._terminal_outcome = terminal
+                self._terminal_outcome = self._reduce_terminal_outcome(
+                    self._terminal_outcome,
+                    envelope,
+                )
                 action = RuntimeAction(
                     "session_event",
                     {
@@ -361,20 +376,37 @@ class SessionClientRuntime(SessionEventSink):
         interaction_id: str,
         payload: Dict[str, Any],
     ) -> SessionBootstrap:
+        selected_session_id = _required_session_id(session_id)
         with self._condition:
             self._assert_operable()
             port = self._require_session_port()
-            previous_terminal = self._terminal_outcome
-        bootstrap = port.respond_to_interaction(
-            _required_session_id(session_id),
-            str(interaction_id or ""),
-            dict(payload),
-        )
-        return self._install_returned_bootstrap(
+        generation = self._begin_bootstrap_transaction(selected_session_id)
+        try:
+            bootstrap = port.respond_to_interaction(
+                selected_session_id,
+                str(interaction_id or ""),
+                dict(payload),
+            )
+        except (OSError, RuntimeError, TypeError, ValueError):
+            self._rollback_bootstrap_transaction(generation)
+            raise
+        try:
+            self._validate_bootstrap(bootstrap, selected_session_id)
+        except (TypeError, ValueError) as exc:
+            self._fail_generation(
+                generation,
+                selected_session_id,
+                _failure_for_error(exc),
+            )
+            raise
+        if not self._install_bootstrap(
+            generation,
+            selected_session_id,
             bootstrap,
             "interaction_response",
-            discard_terminal=previous_terminal,
-        )
+        ):
+            raise RuntimeError("bootstrap_transaction_superseded")
+        return bootstrap
 
     def cancel_session(self, session_id: str) -> SessionBootstrap:
         with self._condition:
@@ -417,10 +449,56 @@ class SessionClientRuntime(SessionEventSink):
             self._activating = False
             self._recovering = False
             self._buffered_events = []
+            self._transaction_baseline = None
             self._condition.notify_all()
         if port is not None:
             port.close()
         self._dispatch_action(RuntimeAction("runtime_closed", {}))
+
+    def _begin_bootstrap_transaction(self, target_session_id: str) -> int:
+        with self._condition:
+            self._assert_operable()
+            if self._transaction_baseline is None:
+                self._transaction_baseline = _RuntimeBaseline(
+                    active_session_id=self._active_session_id,
+                    event_cursor=self._event_cursor,
+                    lifecycle=self._lifecycle,
+                    recovery_attempted=self._recovery_attempted,
+                    terminal_outcome=self._terminal_outcome,
+                )
+            self._generation += 1
+            generation = self._generation
+            self._active_session_id = str(target_session_id or "")
+            self._event_cursor = 0
+            self._lifecycle = "activating"
+            self._activating = True
+            self._recovering = False
+            self._recovery_attempted = False
+            self._terminal_outcome = None
+            self._condition.notify_all()
+            return generation
+
+    def _rollback_bootstrap_transaction(self, generation: int) -> None:
+        with self._condition:
+            if self._lifecycle == "closed" or generation != self._generation:
+                return
+            baseline = self._transaction_baseline
+            if baseline is None:
+                return
+            buffered = sorted(self._buffered_events, key=lambda item: item.sequence)
+            self._active_session_id = baseline.active_session_id
+            self._event_cursor = baseline.event_cursor
+            self._lifecycle = baseline.lifecycle
+            self._activating = False
+            self._recovering = False
+            self._recovery_attempted = baseline.recovery_attempted
+            self._terminal_outcome = baseline.terminal_outcome
+            self._buffered_events = []
+            self._transaction_baseline = None
+            self._condition.notify_all()
+        for envelope in buffered:
+            if envelope.session_id == baseline.active_session_id:
+                self.on_session_event(envelope)
 
     def _recover_generation(self, generation: int, session_id: str) -> None:
         try:
@@ -443,13 +521,32 @@ class SessionClientRuntime(SessionEventSink):
         with self._condition:
             if self._lifecycle == "closed" or generation != self._generation:
                 return False
+            matching = sorted(
+                (
+                    envelope
+                    for envelope in self._buffered_events
+                    if envelope.session_id == session_id
+                ),
+                key=lambda item: item.sequence,
+            )
+            for envelope in matching:
+                if envelope.sequence <= bootstrap.event_cursor:
+                    terminal_outcome = self._reduce_terminal_outcome(
+                        terminal_outcome,
+                        envelope,
+                    )
             self._event_cursor = bootstrap.event_cursor
             self._lifecycle = self._bootstrap_lifecycle(bootstrap)
             self._terminal_outcome = terminal_outcome
             self._activating = False
             self._recovering = False
-            buffered = sorted(self._buffered_events, key=lambda item: item.sequence)
+            buffered = [
+                envelope
+                for envelope in matching
+                if envelope.sequence > bootstrap.event_cursor
+            ]
             self._buffered_events = []
+            self._transaction_baseline = None
             self._condition.notify_all()
         self._dispatch_action(
             RuntimeAction(
@@ -480,6 +577,7 @@ class SessionClientRuntime(SessionEventSink):
             self._activating = False
             self._recovering = False
             self._buffered_events = []
+            self._transaction_baseline = None
             self._terminal_outcome = self._outcome_action("failed", failure=failure)
             self._condition.notify_all()
         self._dispatch_action(
@@ -522,6 +620,16 @@ class SessionClientRuntime(SessionEventSink):
             self._lifecycle = "ready"
         elif event_kind == "session.error":
             self._lifecycle = "failed"
+
+    def _reduce_terminal_outcome(
+        self,
+        current: Optional[RuntimeAction],
+        envelope: SessionEventEnvelope,
+    ) -> Optional[RuntimeAction]:
+        if envelope.event_kind in _INTERACTION_FINISH_EVENTS:
+            return None
+        terminal = self._terminal_from_event(envelope)
+        return terminal if terminal is not None else current
 
     def _terminal_from_event(
         self,

@@ -103,6 +103,34 @@ class ImmediateInteractionPort(FakeSessionPort):
         return _bootstrap(cursor=4)
 
 
+class CursorInterleavingInteractionPort(FakeSessionPort):
+    def __init__(self, runtime):
+        super().__init__()
+        self.runtime = runtime
+
+    def respond_to_interaction(self, session_id, interaction_id, payload):
+        del session_id, interaction_id, payload
+        self.runtime.on_session_event(
+            _event(
+                "approval.resolved",
+                {"interaction_id": "approval-1", "request_id": "approval-1"},
+                sequence=3,
+            )
+        )
+        captured = _bootstrap(cursor=3)
+        self.runtime.on_session_event(
+            _event(
+                "session.finished",
+                {
+                    "final_text": "done",
+                    "outcome": {"kind": "completed", "reason": "completed"},
+                },
+                sequence=4,
+            )
+        )
+        return captured
+
+
 def _shell():
     return ShellDescriptor(
         commands=[
@@ -307,6 +335,37 @@ def test_interaction_response_preserves_terminal_event_arriving_before_bootstrap
     assert result["final_text"] == "done"
     assert runtime.event_cursor == 4
     assert runtime.lifecycle == "ready"
+
+
+def test_interaction_response_does_not_rewind_cursor_after_captured_bootstrap():
+    actions = []
+    runtime = SessionClientRuntime(dispatch=actions.append)
+    port = CursorInterleavingInteractionPort(runtime)
+    runtime.bind_session_port(port)
+    runtime.activate_session("session-1")
+    runtime.on_session_event(
+        _event(
+            "approval.requested",
+            {"interaction_id": "approval-1", "request_id": "approval-1"},
+            sequence=2,
+        )
+    )
+
+    runtime.respond_to_interaction(
+        "session-1",
+        "approval-1",
+        {"decision": "accept"},
+    )
+
+    result = runtime.wait_for_terminal(timeout_s=0).to_dict()
+    assert result["status"] == "completed"
+    assert result["final_text"] == "done"
+    assert runtime.event_cursor == 4
+    assert [
+        action.to_dict()["reason"]
+        for action in actions
+        if action.kind == "session_activated"
+    ] == ["activate", "interaction_response"]
 
 
 def test_interaction_response_discards_old_blocked_outcome_while_resume_is_pending():
