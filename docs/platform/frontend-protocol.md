@@ -28,7 +28,7 @@
 | TUI | Python `SessionClientRuntime` | 进程内 `FrontendSessionPort`，另持有聚焦 `FrontendWorkspacePort` |
 | GUI | JavaScript `SessionClientRuntime` | HTTP/WebSocket protocol adapter；browser-only controllers 由 `BrowserAppRuntime` 组合 |
 
-两个 `SessionClientRuntime` 都拥有 active session id、generation、bootstrap buffer、Host cursor、duplicate/gap handling、一次 recovery、interaction lifecycle、terminal outcome 和 close。`BrowserAppRuntime` 额外拥有 workspace、terminal、preview、source-control、dialog 和 browser transport controllers；这些不是跨 shell runtime 合同。
+两个 `SessionClientRuntime` 都拥有 active session id、generation、bootstrap transaction buffer、Host cursor、duplicate/gap handling、一次 recovery、interaction lifecycle、terminal outcome 和 close。所有 bootstrap-producing operation 的 request-to-install transaction 都属于 runtime。`BrowserAppRuntime` 额外拥有 workspace、terminal、preview、source-control、dialog 和 browser transport controllers；这些不是跨 shell runtime 合同。
 
 Python 与 JavaScript 实现由 `tests/fixtures/session_client_runtime/contract.json` 的同一组 credential-free cases 验证。不得新增 direct endpoint helper、port/adapter 逃逸、三参数 callback、shell-local history loader 或第三套 session runtime。
 
@@ -51,7 +51,9 @@ Python 与 JavaScript 实现由 `tests/fixtures/session_client_runtime/contract.
 
 GUI 的 `/api/sessions/{id}/bootstrap` 与 Python runtime 的 `FrontendSessionPort.get_session_bootstrap(...)` 返回同一个 `SessionBootstrap` shape：thread、frozen snapshot、`history.activities`、integrity、capabilities、permission context 和 non-negative `event_cursor`。
 
-runtime 在请求 bootstrap 前创建新 generation，并缓冲该 session 的 live envelopes。安装时以 `event_cursor` 为唯一基线，丢弃不高于 cursor 的 envelope，再按 sequence 应用连续事件。duplicate 被忽略；sequence gap 只启动当前 generation 的一次 bootstrap recovery。旧 generation、其他 session、close 后或 late async completion 都不能写回 state。
+两个 runtime 对每个 bootstrap-producing operation 都在请求 port/transport 前创建新 generation；这包括 activate、create/resume、mode、cancel 和 interaction response。事务期间 canonical envelope 只进入 generation buffer，不直接分发。安装以 Host `event_cursor` 为基线：cursor 已覆盖的 envelope 只参与 terminal outcome reduction，不重复分发；cursor 之后的连续 envelope 经唯一 live-event path 回放。请求失败回滚到最近 committed synchronization baseline，invalid bootstrap 使当前 generation 失败，late completion 不能覆盖新 generation 或 closed runtime。
+
+committed synchronization baseline 只是 runtime 内部的瞬态客户端同步状态，不是 durable session truth 或第二份 history。Host 的 projection capture、cursor 与 event publication 同步边界保持不变。
 
 Host 在一个 per-session event publication 同步边界内捕获 projection 与 cursor，因此事件只能完整位于 bootstrap 之前或之后。serializer 和 shell 不维护第二个 sequence counter。renderer 不从 event tail 或 local timeline 重建 history。
 
@@ -67,7 +69,7 @@ shell 从 descriptor/capabilities 计算 command 可用性、label、order、dis
 
 ## 7. Interactions And Terminal Outcomes
 
-permission 与 user-input request payload 共享 stable `interaction_id`、`turn_id` 和请求细节。shell 调用 `respond_to_interaction(...)` 后，Host 原子 claim 交互；resolved event 或后续 bootstrap/snapshot 清除 pending state。前端的 duplicate-submit 防护不能替代 Host claim。
+permission 与 user-input request payload 共享 stable `interaction_id`、`turn_id` 和请求细节。shell 通过 runtime 调用 `respond_to_interaction(...)`；runtime 在请求 Host 原子 claim 前开启 bootstrap transaction，resolved event 或返回的 bootstrap/snapshot 清除 pending state。前端的 duplicate-submit 防护不能替代 Host claim。
 
 Client runtime 把 interaction request 暴露为 `blocked` terminal outcome。交互式 shell 可以继续收集响应并 resume；one-shot client 必须返回结构化 `interaction_required`，不能隐式批准、猜测输入或长期持有 Agent 状态。
 
