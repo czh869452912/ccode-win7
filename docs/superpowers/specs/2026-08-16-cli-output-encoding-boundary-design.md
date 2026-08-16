@@ -1,6 +1,6 @@
 # CLI Output Encoding Boundary Design
 
-> Status: approved design awaiting written review
+> Status: approved
 > Type: temporary implementation specification
 > Date: 2026-08-16
 

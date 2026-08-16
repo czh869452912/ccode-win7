@@ -9,6 +9,7 @@
 ## CLI Output Encoding Boundary
 
 - `docs/superpowers/specs/2026-08-16-cli-output-encoding-boundary-design.md`
+- `docs/superpowers/plans/2026-08-16-cli-output-encoding-boundary.md`
 
 ## Closure Rule
 
