@@ -585,6 +585,68 @@ class TestRuntimeBundleContract(unittest.TestCase):
         )
 
 
+class TestCliSmokeFailureReport(unittest.TestCase):
+    def test_exit_mismatch_preserves_only_stable_process_fields(self):
+        module = _load_python_module(CLI_SMOKE_SCRIPT, "validate_cli_smoke_exit")
+        result = subprocess.CompletedProcess(
+            ["embedagent.cmd"],
+            4,
+            stdout="sensitive stdout",
+            stderr="sensitive stderr\nerror: protocol_error\n",
+        )
+
+        with self.assertRaises(module.CliScenarioFailure) as raised:
+            module._require_exit(result, 0, "chat_permission")
+
+        self.assertEqual(str(raised.exception), "cli_scenario_failed")
+        self.assertEqual(raised.exception.scenario, "chat_permission")
+        self.assertEqual(raised.exception.process_exit_code, 4)
+        self.assertEqual(raised.exception.cli_failure_code, "protocol_error")
+        self.assertNotIn("sensitive", repr(raised.exception.__dict__))
+
+    def test_main_writes_structured_redacted_scenario_failure(self):
+        module = _load_python_module(CLI_SMOKE_SCRIPT, "validate_cli_smoke_report")
+
+        def fail_smoke(bundle_root, workspace, home):
+            del bundle_root, workspace, home
+            raise module.CliScenarioFailure("chat_permission", 4, "protocol_error")
+
+        original_run_smoke = module._run_smoke
+        module._run_smoke = fail_smoke
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                test_root = Path(tmp)
+                report_path = test_root / "report.json"
+                self.assertEqual(
+                    module.main(
+                        [
+                            "--bundle-root",
+                            str(test_root / "bundle"),
+                            "--workspace",
+                            str(test_root / "workspaces"),
+                            "--json-report",
+                            str(report_path),
+                        ]
+                    ),
+                    1,
+                )
+                self.assertEqual(
+                    json.loads(report_path.read_text(encoding="ascii")),
+                    {
+                        "cli_failure_code": "protocol_error",
+                        "error_type": "CliScenarioFailure",
+                        "failure_code": "cli_scenario_failed",
+                        "failure_scenario": "chat_permission",
+                        "failure_stage": "launcher",
+                        "ok": False,
+                        "process_exit_code": 4,
+                        "schema_version": 2,
+                    },
+                )
+        finally:
+            module._run_smoke = original_run_smoke
+
+
 @unittest.skipIf(sys.platform != "win32", "Windows-only: requires bundled python.exe")
 class TestCliSmokeGate(unittest.TestCase):
     def test_cli_smoke_crosses_staged_launcher_for_both_flavors(self):

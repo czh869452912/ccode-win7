@@ -265,11 +265,19 @@ def _invoke_cli(
     )
 
 
+class CliScenarioFailure(RuntimeError):
+    def __init__(self, scenario: str, process_exit_code: int, cli_failure_code: str) -> None:
+        super().__init__("cli_scenario_failed")
+        self.scenario = str(scenario)
+        self.process_exit_code = int(process_exit_code)
+        self.cli_failure_code = str(cli_failure_code)
+
+
 def _require_exit(result: subprocess.CompletedProcess, expected: int, scenario: str) -> None:
     if result.returncode != expected:
         categories = re.findall(r"error:\s*([a-z_]+)", result.stderr)
         category = categories[-1] if categories else "unknown"
-        raise RuntimeError("%s_exit_%s_%s" % (scenario, result.returncode, category))
+        raise CliScenarioFailure(scenario, result.returncode, category)
 
 
 def _cli_json(result: subprocess.CompletedProcess, scenario: str) -> Any:
@@ -487,6 +495,26 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _failure_payload(exc: Exception, stage: str) -> Dict[str, object]:
+    payload = {
+        "error_type": type(exc).__name__,
+        "failure_code": str(exc) if type(exc) is RuntimeError else type(exc).__name__,
+        "failure_stage": str(stage),
+        "ok": False,
+        "schema_version": 2,
+    }
+    if isinstance(exc, CliScenarioFailure):
+        payload.update(
+            {
+                "cli_failure_code": exc.cli_failure_code,
+                "failure_code": "cli_scenario_failed",
+                "failure_scenario": exc.scenario,
+                "process_exit_code": exc.process_exit_code,
+            }
+        )
+    return payload
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     args = _parser().parse_args(argv)
     report_path = Path(os.path.realpath(args.json_report))
@@ -510,17 +538,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("CLI smoke validation passed.")
         return 0
     except (OSError, RuntimeError, subprocess.SubprocessError, TypeError, ValueError) as exc:
-        failure_code = str(exc) if type(exc) is RuntimeError else type(exc).__name__
-        _write_json(
-            report_path,
-            {
-                "error_type": type(exc).__name__,
-                "failure_code": failure_code,
-                "failure_stage": stage,
-                "ok": False,
-                "schema_version": 2,
-            },
-        )
+        _write_json(report_path, _failure_payload(exc, stage))
         print("CLI smoke validation failed at %s (%s)." % (stage, type(exc).__name__))
         return 1
     finally:
