@@ -15,6 +15,11 @@ from embedagent.product_catalog import (
 )
 
 
+@pytest.fixture(autouse=True)
+def isolate_user_config(monkeypatch, tmp_path):
+    monkeypatch.setattr("embedagent.config._USER_CONFIG_DIR", str(tmp_path / "user"))
+
+
 def test_product_launch_config_injects_product_config_loader(tmp_path):
     config_dir = tmp_path / ".embedagent"
     config_dir.mkdir()
@@ -45,7 +50,7 @@ def test_product_runtime_injects_product_registry(tmp_path, monkeypatch):
     create_hosted_runtime(launch_config)
 
     registry = captured["agent_application_registry"]
-    assert registry.default_application_id == "embedagent.default_c_cpp"
+    assert registry.default_application_id == "embedagent.generic"
     assert callable(captured["command_sanitizer_factory"])
     assert callable(captured["bundle_root_resolver"])
     assert callable(captured["system_prompt_builder"])
@@ -147,5 +152,5 @@ def test_minimal_product_shell_keeps_interactions_out_of_command_palette():
     assert commands["session.archive"].availability == {"visible_when": "has_session"}
     assert commands["session.fork"].availability == {"visible_when": "has_session"}
     assert commands["session.cancel"].availability == {"visible_when": "running"}
-    assert commands["session.mode"].availability == {"visible_when": "has_session"}
+    assert "session.mode" not in commands
     assert commands["workspace.files"].availability == {"visible_when": "has_workspace"}

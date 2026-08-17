@@ -7,14 +7,6 @@ import json
 from pathlib import Path
 from typing import Mapping
 
-EXPECTED_DISTRIBUTIONS = (
-    "embedagent-core",
-    "embedagent-protocol",
-    "embedagent-host",
-    "embedagent-composition",
-    "embedagent-workflow-cpp",
-    "embedagent",
-)
 _SENSITIVE_KEY_PARTS = (
     "api_key",
     "apikey",
@@ -70,7 +62,7 @@ def _assert_safe_value(value, path="root"):
             _assert_safe_value(child, "%s[%s]" % (path, index))
 
 
-def _normalize_wheels(wheels):
+def _normalize_wheels(wheels, expected_distributions):
     if isinstance(wheels, Mapping):
         entries = list(wheels.items())
     else:
@@ -99,10 +91,15 @@ def _normalize_wheels(wheels):
         normalized.append(
             {"name": name, "filename": filename, "sha256": sha256_file(wheel_path)}
         )
-    normalized.sort(key=lambda item: EXPECTED_DISTRIBUTIONS.index(item["name"]) if item["name"] in EXPECTED_DISTRIBUTIONS else len(EXPECTED_DISTRIBUTIONS))
+    expected = tuple(expected_distributions)
+    normalized.sort(
+        key=lambda item: expected.index(item["name"])
+        if item["name"] in expected
+        else len(expected)
+    )
     names = [item["name"] for item in normalized]
-    if tuple(names) != EXPECTED_DISTRIBUTIONS:
-        raise ValueError("wheel set must contain the exact six project distributions")
+    if tuple(names) != expected:
+        raise ValueError("wheel set must match bundle plan project distributions")
     return normalized
 
 
@@ -128,6 +125,14 @@ def _load_bundle_plan(path):
     for field in ("flavor_id", "target_id", "agent_lock_sha256"):
         if not isinstance(plan.get(field), str) or not plan[field]:
             raise ValueError("bundle plan field is required: %s" % field)
+    project_distributions = plan.get("project_distribution_ids")
+    if (
+        not isinstance(project_distributions, list)
+        or not project_distributions
+        or any(not isinstance(item, str) or not item for item in project_distributions)
+        or len(project_distributions) != len(set(project_distributions))
+    ):
+        raise ValueError("bundle plan project_distribution_ids is invalid")
     for field in ("shell_ids", "gate_ids"):
         values = plan.get(field)
         if (
@@ -137,6 +142,11 @@ def _load_bundle_plan(path):
         ):
             raise ValueError("bundle plan array is invalid: %s" % field)
     return plan
+
+
+def load_bundle_plan(path):
+    """Load and validate the compiled plan used by release identity tooling."""
+    return _load_bundle_plan(path)
 
 
 def build_release_identity(
@@ -152,10 +162,11 @@ def build_release_identity(
     zip_path=None,
     tool_metadata=None,
 ):
-    normalized_wheels = _normalize_wheels(wheels)
     if not str(source_revision).strip() or not str(version).strip():
         raise ValueError("source revision and version are required")
     plan = _load_bundle_plan(bundle_plan_path)
+    project_distributions = tuple(plan["project_distribution_ids"])
+    normalized_wheels = _normalize_wheels(wheels, project_distributions)
     has_gui = "gui" in plan["shell_ids"]
     if has_gui:
         if gui_static_root is None or not Path(gui_static_root).is_dir():
@@ -173,7 +184,7 @@ def build_release_identity(
         "bundle_plan_sha256": sha256_file(bundle_plan_path),
         "agent_lock_sha256": plan["agent_lock_sha256"],
         "gate_ids": list(plan["gate_ids"]),
-        "project_distributions": list(EXPECTED_DISTRIBUTIONS),
+        "project_distributions": list(project_distributions),
         "wheels": normalized_wheels,
         "gui_static_sha256": gui_static_sha256,
         "asset_manifest_sha256": _optional_hash(asset_manifest_path),

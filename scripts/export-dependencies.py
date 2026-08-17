@@ -18,6 +18,12 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+try:
+    from bundle_plan import load_bundle_plan as _load_compiled_bundle_plan
+except ImportError:  # pragma: no cover - module loading by a test harness
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from bundle_plan import load_bundle_plan as _load_compiled_bundle_plan
+
 
 def _run(cmd: List[str], cwd: str = None, check: bool = True) -> subprocess.CompletedProcess:
     result = subprocess.run(
@@ -47,14 +53,6 @@ def write_json_report(path: str, payload: Dict) -> None:
         json.dump(payload, handle, indent=2, sort_keys=True)
 
 
-PROJECT_DISTRIBUTIONS = (
-    "embedagent-core",
-    "embedagent-protocol",
-    "embedagent-host",
-    "embedagent-composition",
-    "embedagent-workflow-cpp",
-    "embedagent",
-)
 PYTHON_FEATURES = frozenset(("gui", "tui"))
 
 
@@ -114,8 +112,10 @@ def build_project_wheels(
     wheelhouse: Path,
     cache_dir: str = "",
     offline: bool = False,
+    selected_distributions: Tuple[str, ...] = (),
+    bundle_plan_path: str = "",
 ) -> List[Path]:
-    """Build and validate the six project distributions into a clean wheelhouse."""
+    """Build and validate exactly the plan-selected project distributions."""
     root = Path(project_root).resolve()
     build_script = root / "scripts" / "build-python-distributions.py"
     check_script = root / "scripts" / "check-python-distributions.py"
@@ -124,11 +124,13 @@ def build_project_wheels(
         command.extend(["--cache-dir", str(cache_dir)])
     if offline:
         command.append("--offline")
+    if bundle_plan_path:
+        command.extend(["--bundle-plan", str(bundle_plan_path)])
     _run(command, cwd=str(root))
-    _run(
-        [sys.executable, str(check_script), "--dist-dir", str(wheelhouse)],
-        cwd=str(root),
-    )
+    check_command = [sys.executable, str(check_script), "--dist-dir", str(wheelhouse)]
+    if bundle_plan_path:
+        check_command.extend(["--bundle-plan", str(bundle_plan_path)])
+    _run(check_command, cwd=str(root))
 
     generated_gitignore = wheelhouse / ".gitignore"
     if generated_gitignore.is_file():
@@ -137,10 +139,8 @@ def build_project_wheels(
         generated_gitignore.unlink()
 
     wheels = []
-    for distribution in PROJECT_DISTRIBUTIONS:
+    for distribution in selected_distributions:
         filename_prefix = distribution.replace("-", "_") + "-"
-        if distribution == "embedagent":
-            filename_prefix = "embedagent-"
         candidates = sorted(
             path
             for path in wheelhouse.glob(filename_prefix + "*.whl")
@@ -216,16 +216,12 @@ def load_bundle_plan(path: str, expected_sha256: str = ""):
     plan_sha256 = _sha256_file(plan_path)
     if expected_sha256 and plan_sha256 != str(expected_sha256).strip().lower():
         raise ValueError("bundle plan hash mismatch")
-    payload = json.loads(plan_path.read_text(encoding="ascii"))
-    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
-        raise ValueError("unsupported bundle plan")
-    if tuple(payload.get("project_distribution_ids") or ()) != PROJECT_DISTRIBUTIONS:
-        raise ValueError("bundle plan project distributions mismatch")
+    payload, project_distributions = _load_compiled_bundle_plan(plan_path)
     feature_ids = _validated_feature_ids(tuple(payload.get("python_feature_ids") or ()))
     flavor_id = str(payload.get("flavor_id") or "").strip()
     if not flavor_id:
         raise ValueError("bundle plan flavor is required")
-    return payload, plan_sha256, feature_ids
+    return payload, plan_sha256, feature_ids, project_distributions
 
 
 def clean_export_root(output_dir: Path) -> Path:
@@ -262,8 +258,22 @@ def export_site_packages(
     feature_ids: Tuple[str, ...] = (),
     flavor_id: str = "",
     bundle_plan_sha256: str = "",
+    project_distributions: Tuple[str, ...] = (),
+    bundle_plan_path: str = "",
 ) -> None:
     """Export complete site-packages for offline use."""
+    if not project_distributions:
+        raise ValueError("bundle plan project distributions are required")
+    unknown_distributions = set(project_distributions) - {
+        "embedagent-core",
+        "embedagent-protocol",
+        "embedagent-host",
+        "embedagent-composition",
+        "embedagent-workflow-cpp",
+        "embedagent-shell",
+    }
+    if unknown_distributions:
+        raise ValueError("unknown bundle plan distribution: %s" % sorted(unknown_distributions)[0])
     if cache_dir:
         os.environ["UV_CACHE_DIR"] = str(Path(cache_dir).resolve())
     if offline:
@@ -297,6 +307,8 @@ def export_site_packages(
         wheelhouse,
         cache_dir=cache_dir,
         offline=offline,
+        selected_distributions=project_distributions,
+        bundle_plan_path=bundle_plan_path,
     )
 
     print("\nStep 3: Installing third-party dependencies into site-packages...")
@@ -393,7 +405,7 @@ def export_site_packages(
         "flavor_id": flavor_id,
         "bundle_plan_sha256": bundle_plan_sha256,
         "python_feature_ids": list(features),
-        "project_distributions": list(PROJECT_DISTRIBUTIONS),
+        "project_distributions": list(project_distributions),
         "project_wheels": [path.name for path in project_wheels],
         "wheel_hashes": {path.name: _sha256_file(path) for path in project_wheels},
     }
@@ -406,17 +418,19 @@ def export_site_packages(
 def verify_site_packages(
     site_packages_dir: str,
     feature_ids: Tuple[str, ...] = (),
+    project_distributions: Tuple[str, ...] = (),
 ) -> Tuple[bool, List[str]]:
     """Verify critical packages are present."""
     sp = Path(site_packages_dir)
-    critical_packages = [
-        "embedagent_core",
-        "embedagent_protocol",
-        "embedagent_host",
-        "embedagent_composition",
-        "embedagent_workflow_cpp",
-        "embedagent",
-    ]
+    package_names = {
+        "embedagent-core": "embedagent_core",
+        "embedagent-protocol": "embedagent_protocol",
+        "embedagent-host": "embedagent_host",
+        "embedagent-composition": "embedagent_composition",
+        "embedagent-workflow-cpp": "embedagent_workflow_cpp",
+        "embedagent-shell": "embedagent",
+    }
+    critical_packages = [package_names[item] for item in project_distributions]
     features = _validated_feature_ids(feature_ids)
     if "tui" in features:
         critical_packages.extend(("prompt_toolkit", "rich"))
@@ -510,7 +524,7 @@ def main():
     args = parser.parse_args()
 
     try:
-        plan, plan_sha256, feature_ids = load_bundle_plan(
+        plan, plan_sha256, feature_ids, project_distributions = load_bundle_plan(
             args.bundle_plan,
             args.bundle_plan_sha256,
         )
@@ -526,7 +540,9 @@ def main():
                 write_json_report(args.json_report, payload)
                 print(f"Site-packages not found: {site_packages}")
                 sys.exit(1)
-            success, missing = verify_site_packages(str(site_packages), feature_ids)
+            success, missing = verify_site_packages(
+                str(site_packages), feature_ids, project_distributions
+            )
             write_json_report(
                 args.json_report,
                 {
@@ -550,11 +566,15 @@ def main():
             feature_ids=feature_ids,
             flavor_id=flavor_id,
             bundle_plan_sha256=plan_sha256,
+            project_distributions=project_distributions,
+            bundle_plan_path=args.bundle_plan,
         )
 
         site_packages = Path(args.output_dir) / "site-packages"
         if site_packages.exists():
-            success, missing = verify_site_packages(str(site_packages), feature_ids)
+            success, missing = verify_site_packages(
+                str(site_packages), feature_ids, project_distributions
+            )
             manifest = json.loads(
                 (Path(args.output_dir) / "site-packages-manifest.json").read_text(encoding="utf-8")
             )
@@ -570,7 +590,7 @@ def main():
                     "flavor_id": flavor_id,
                     "bundle_plan_sha256": plan_sha256,
                     "python_feature_ids": list(feature_ids),
-                    "project_distributions": list(PROJECT_DISTRIBUTIONS),
+                    "project_distributions": list(project_distributions),
                     "project_wheels": manifest.get("project_wheels", []),
                     "wheel_hashes": manifest.get("wheel_hashes", {}),
                     "missing_packages": missing,

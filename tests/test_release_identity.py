@@ -26,9 +26,7 @@ def _wheels(tmp_path):
         "embedagent-core",
         "embedagent-protocol",
         "embedagent-host",
-        "embedagent-composition",
-        "embedagent-workflow-cpp",
-        "embedagent",
+        "embedagent-shell",
     )
     wheels = []
     for name in names:
@@ -45,6 +43,12 @@ def _bundle_plan(tmp_path, *, flavor_id="minimal-cli", gui=False):
         "flavor_id": flavor_id,
         "target_id": "win7-x64-portable",
         "agent_lock_sha256": "f" * 64,
+        "project_distribution_ids": [
+            "embedagent-core",
+            "embedagent-protocol",
+            "embedagent-host",
+            "embedagent-shell",
+        ],
         "shell_ids": ["cli", "tui", "gui"] if gui else ["cli"],
         "gate_ids": (
             [
@@ -122,9 +126,7 @@ def test_release_identity_contains_exact_six_wheels_without_operational_timestam
         "embedagent-core",
         "embedagent-protocol",
         "embedagent-host",
-        "embedagent-composition",
-        "embedagent-workflow-cpp",
-        "embedagent",
+        "embedagent-shell",
     ]
     assert [item["name"] for item in identity["wheels"]] == identity["project_distributions"]
     assert "started_at" not in identity

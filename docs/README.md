@@ -9,7 +9,7 @@
 
 | 意图 | 首要权威 | 补充权威 |
 |---|---|---|
-| 了解系统拓扑、六发行包和依赖方向 | `docs/overall-solution-architecture.md` | `docs/references/code-doc-matrix.md` |
+| 了解系统拓扑、selected distributions 和依赖方向 | `docs/overall-solution-architecture.md` | `docs/references/code-doc-matrix.md` |
 | 修改通用 Agent Core 或持久会话 | `docs/platform/agent-core.md` | `docs/platform/session-runtime.md` |
 | 修改通用工具、扩展或运行时目录 | `docs/platform/tools-and-extensions.md` | `docs/platform/tool-contracts.md` |
 | 修改权限、写路径或上下文组装 | `docs/platform/permissions-and-context.md` | `docs/platform/permission-model.md` |
@@ -18,7 +18,8 @@
 | 修改通用模式契约或独立底座方向 | `docs/platform/mode-contract.md` | `docs/platform/agent-platform-blueprint.md` |
 | 修改 C/C++ 工作流、任务图或质量证据 | `docs/applications/cpp-workflow.md` | `docs/applications/README.md` |
 | 修改 EmbedAgent 默认组合与启动 | `docs/product/composition.md` | `docs/product/README.md` |
-| 修改六轮构建、离线资产或 Win7 交付 | `docs/product/packaging-and-deployment.md` | `docs/guides/win7-release-runbook.md` |
+| 修改 plan-driven 构建、离线资产或 Win7 交付 | `docs/product/packaging-and-deployment.md` | `docs/guides/win7-release-runbook.md` |
+| 编写 application plugin 或注册入口 | `docs/guides/application-plugin-authoring.md` | `docs/adrs/0008-generic-agent-application-plugin-closure-export.md` |
 | 查询当前阻塞与下一步 | `docs/current-status.md` | `docs/implementation-roadmap.md`, `docs/superpowers/README.md` |
 | 同步代码与文档 | `docs/workflows/code-doc-sync.md` | `docs/documentation-governance.md`, `docs/references/code-doc-matrix.md` |
 | 查询长期架构理由 | `docs/adrs/README.md` | `docs/workflows/architecture-change-process.md` |

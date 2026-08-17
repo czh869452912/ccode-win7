@@ -17,14 +17,7 @@
         "chars_per_token": 3.0,
         "max_recent_turns": 4,
         "auto_compact_threshold_ratio": 0.9,
-        "default_mode": "explore",
-        "mode_writable_globs": {
-            "build": ["**/*.py", "**/*.toml", "**/*.cfg"],
-            "spec": ["**/*.md", "**/*.rst"]
-        },
-        "mode_extra_writable_globs": {
-            "build": ["scripts/**/*.ps1", "tools/**/*.json"]
-        }
+        "agent_application_id": "embedagent.generic"
     }
 """
 
@@ -32,8 +25,8 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from dataclasses import dataclass
+from typing import Optional
 
 _USER_CONFIG_DIR = None  # type: Optional[str]
 _PROJECT_CONFIG_RELPATH = os.path.join(".embedagent", "config.json")
@@ -54,16 +47,12 @@ class AppConfig:
     auto_compact_threshold_ratio: Optional[float] = None
     # Explicit runtime/test loop safety fuse. Persistent JSON config ignores this field.
     max_turns: Optional[int] = None
-    default_mode: Optional[str] = None
     agent_application_id: Optional[str] = None
     allow_system_tool_fallback: Optional[bool] = None
     approve_all: Optional[bool] = None
     approve_writes: Optional[bool] = None
     approve_commands: Optional[bool] = None
     permission_rules: Optional[str] = None
-    # 每个模式的可写路径 glob 覆盖
-    mode_writable_globs: Dict[str, List[str]] = field(default_factory=dict)
-    mode_extra_writable_globs: Dict[str, List[str]] = field(default_factory=dict)
 
 
 def _load_json_file(path: str) -> dict:
@@ -79,6 +68,13 @@ def _load_json_file(path: str) -> dict:
 def _merge(base: AppConfig, overrides: dict) -> AppConfig:
     """Apply overrides dict onto base, returning a new AppConfig."""
     normalized = dict(overrides)
+    retired_keys = {
+        "default_mode",
+        "mode_writable_globs",
+        "mode_extra_writable_globs",
+    }
+    if retired_keys.intersection(normalized):
+        raise ValueError("mode configuration is application-owned")
     llm_section = overrides.get("llm")
     if isinstance(llm_section, dict):
         for field_name in ("base_url", "api_key", "model", "timeout"):
@@ -105,7 +101,6 @@ def _merge(base: AppConfig, overrides: dict) -> AppConfig:
         "chars_per_token",
         "max_recent_turns",
         "auto_compact_threshold_ratio",
-        "default_mode",
         "agent_application_id",
         "allow_system_tool_fallback",
         "approve_all",
@@ -113,9 +108,6 @@ def _merge(base: AppConfig, overrides: dict) -> AppConfig:
         "approve_commands",
         "permission_rules",
     )
-    merged_globs = dict(base.mode_writable_globs)
-    merged_extra_globs = dict(base.mode_extra_writable_globs)
-
     kwargs = {}
     for f in simple_fields:
         val = normalized.get(f)
@@ -124,18 +116,6 @@ def _merge(base: AppConfig, overrides: dict) -> AppConfig:
         else:
             kwargs[f] = getattr(base, f)
 
-    globs_override = normalized.get("mode_writable_globs")
-    if isinstance(globs_override, dict):
-        for mode_name, globs in globs_override.items():
-            if isinstance(globs, list):
-                merged_globs[mode_name] = [str(g) for g in globs]
-    kwargs["mode_writable_globs"] = merged_globs
-    extra_globs_override = normalized.get("mode_extra_writable_globs")
-    if isinstance(extra_globs_override, dict):
-        for mode_name, globs in extra_globs_override.items():
-            if isinstance(globs, list):
-                merged_extra_globs[mode_name] = [str(g) for g in globs]
-    kwargs["mode_extra_writable_globs"] = merged_extra_globs
     kwargs["max_turns"] = base.max_turns
 
     return AppConfig(**kwargs)

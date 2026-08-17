@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 from typing import Any
 
-from embedagent_core.api import AgentPorts, RuntimeDefinition
+from embedagent_core.api import AgentPorts, ApplicationRuntimePolicy, RuntimeDefinition
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.ports import NoopContextAssembler
 from embedagent_core.runner import AgentRuntime
@@ -70,7 +70,11 @@ class ProductModeRuntimePolicy(object):
 
 
 def build_product_agent_application(tools):
-    return build_agent_application("", tools, registry=product_agent_application_registry())
+    return build_agent_application(
+        "",
+        tools,
+        registry=product_agent_application_registry(("embedagent.default_c_cpp",)),
+    )
 
 
 class BoundRuntimeDispatcher(object):
@@ -105,7 +109,7 @@ class BoundRuntimeDispatcher(object):
                 context = self._contexts.get(key)
                 if context is None:
                     context = SessionReducerContext(
-                        current_mode=self.runtime.definition.default_mode
+                        current_mode=self.runtime.definition.application_policy.default_mode
                     )
                     self._contexts[key] = context
             with self.runtime.event_committer.bind(context):
@@ -169,14 +173,16 @@ def build_product_agent_runtime_dispatcher(
     context = context_manager or ContextManager(
         project_memory=project_memory,
         workspace=workspace,
-        intelligence_broker=intelligence_broker or WorkspaceIntelligenceBroker(),
+        intelligence_broker=intelligence_broker or WorkspaceIntelligenceBroker.default(),
     )
     definition = RuntimeDefinition(
-        default_mode="explore",
         max_turns=kwargs.pop("max_turns", None),
-        mode_tool_policy=kwargs.pop("mode_tool_policy", ProductModeToolPolicy()),
-        write_path_policy=kwargs.pop("write_path_policy", ProductWritePathPolicy()),
-        mode_runtime_policy=kwargs.pop("mode_runtime_policy", ProductModeRuntimePolicy()),
+        application_policy=ApplicationRuntimePolicy(
+            default_mode="explore",
+            mode_tool_policy=kwargs.pop("mode_tool_policy", ProductModeToolPolicy()),
+            write_path_policy=kwargs.pop("write_path_policy", ProductWritePathPolicy()),
+            mode_runtime_policy=kwargs.pop("mode_runtime_policy", ProductModeRuntimePolicy()),
+        ),
     )
     if kwargs:
         raise TypeError("unsupported runtime test options: %s" % sorted(kwargs))

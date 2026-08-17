@@ -52,6 +52,7 @@ class AgentProfile(object):
     label: str
     default_mode: str
     modes: Tuple[AgentModeDescriptor, ...]
+    expose_modes: bool = True
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "modes", tuple(self.modes or ()))
@@ -73,6 +74,8 @@ class AgentProfile(object):
         return list(self.require_mode(mode_name).writable_globs)
 
     def mode_descriptor_payloads(self) -> List[Dict[str, object]]:
+        if not self.expose_modes:
+            return []
         return [
             item.to_capability_metadata(self.profile_id, order=index)
             for index, item in enumerate(self.modes)

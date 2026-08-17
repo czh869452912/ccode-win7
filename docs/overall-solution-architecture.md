@@ -9,13 +9,13 @@
 
 This document defines current cross-layer ownership and execution invariants for EmbedAgent. Read it when a change crosses distribution, Core/Host, application, frontend, or delivery boundaries. Use the domain authorities linked below for implementation detail.
 
-The repository contains three explicit strata: a reusable workflow-neutral Agent Platform, replaceable upper-layer applications, and the EmbedAgent product composition. EmbedAgent selects the Clang-centered C/C++ application by default and launches registered CLI/TUI/GUI shells. Windows 7, Python 3.8, and a self-contained offline bundle are mandatory.
+The repository contains three explicit strata: a reusable workflow-neutral Agent Platform, replaceable upper-layer applications, and the EmbedAgent product composition. The generic shell is the baseline; a compiled plan may add the Clang-centered C/C++ application and optional CLI/TUI/GUI contributions. Windows 7, Python 3.8, and a self-contained offline bundle are mandatory.
 
 This document does not inventory source files, record completed phases, track progress, or describe individual GUI controllers.
 
 ## Distribution Topology
 
-The uv workspace produces exactly six Python distributions:
+The uv workspace contains buildable distributions, while each exported agent selects a runtime subset from its component ownership closure:
 
 | Distribution | Import package | Owner | Project dependencies |
 |---|---|---|---|
@@ -23,18 +23,18 @@ The uv workspace produces exactly six Python distributions:
 | `embedagent-protocol` | `embedagent_protocol` | Stdlib-only JSON-safe wire DTOs | none |
 | `embedagent-host` | `embedagent_host` | Generic providers, tools, stores, context, and hosted sessions | exact-matched Core and Protocol |
 | `embedagent-composition` | `embedagent_composition` | Dependency-free build-time definition/compiler/export contracts | none |
-| `embedagent-workflow-cpp` | `embedagent_workflow_cpp` | Default C/C++ workflow package | exact-matched Core |
-| `embedagent` | `embedagent` | Product bootstrap and CLI/TUI/GUI shells | all five lower distributions |
+| `embedagent-workflow-cpp` | `embedagent_workflow_cpp` | Optional C/C++ application plugin | exact-matched Core and Protocol |
+| `embedagent-shell` | `embedagent` | Generic product bootstrap and shells | exact-matched Core, Protocol, and Host |
 
 ```text
-embedagent-core -----------> embedagent-host ---------\
-       |                           ^                   \
-       +----> embedagent-workflow-cpp                   > embedagent
-embedagent-protocol -------> embedagent-host ---------/
-embedagent-composition ------------------------------/
+embedagent-core -----------> embedagent-host ---------> embedagent-shell
+       |                           ^                         ^
+       +----> embedagent-workflow-cpp ----------------------|
+embedagent-protocol -------> embedagent-host                 |
+embedagent-composition (build-time compiler only) ---------+
 ```
 
-Core never imports Protocol, Host, the product, GUI, or workflow packages. Protocol and Composition remain independent leaves. The C/C++ workflow depends only on Core. Host never imports `embedagent`; product bootstrap injects product registries, policies, runtime discovery, and the selected extension manager into Host.
+Core never imports Protocol, Host, the product, GUI, or workflow packages. Protocol and Composition remain independent leaves. The C/C++ application plugin depends only on Core and Protocol. Host never imports `embedagent`; product bootstrap injects product registries, policies, runtime discovery, and the selected extension manager into Host.
 
 ## Official Execution Spine
 
@@ -73,7 +73,7 @@ Transcript-backed runtime-configuration, compaction, recovery, and turn-experien
 
 `ExtensionManager` is the shared in-process capability boundary for workflow packages, prompt/context hooks, tool hooks, local resources, dynamic tools, diagnostics, and manifest-gated project extensions. An extension participates only through declared `ExtensionCapability` records. Source-aware internal hook dispatch runs through `AgentEventBus`; `AgentExtensionHost` keeps direct extension-manager calls out of runtime owners.
 
-The bundled `CHarnessWorkflowExtension` owns default C/C++ workflow registration, packs, prompts, recipes, task state, and `WorkflowPackageManifest`. Product composition selects and injects it; Core does not import or construct it. `Session.workflow_state["workflow"]` is the generic frontend projection. C/C++ `TaskGraph` remains workflow-owned and is exposed through `task_status` and session task snapshots.
+The bundled `CHarnessWorkflowExtension` owns C/C++ application registration, packs, prompts, recipes, task state, and `WorkflowPackageManifest`. The selected application plugin injects it; Core and the generic shell do not import or construct it. `Session.workflow_state["workflow"]` is the generic frontend projection. C/C++ `TaskGraph` remains workflow-owned and is exposed through `task_status` and session task snapshots.
 
 `ToolRuntime` is the registration and execution catalog. `ToolRuntime.schemas_for(...)` projects model-visible schemas from explicit active tool names computed by the shared extension boundary. Mode contracts remain workflow-neutral. Catalog metadata owns permission category, presentation hints, changed-path hints, and read-model invalidations; Core policies and renderers do not maintain parallel tool-name taxonomies.
 
@@ -93,7 +93,7 @@ Shells may render modes, commands, surfaces, thread actions, tool presentation, 
 
 Runtime must work on a clean Windows 7 SP1 x64 machine without network or preinstalled plan-selected tools. Every official bundle carries Python 3.8 embeddable, vendored dependencies, MinGit/Bash, ripgrep, Universal Ctags, and every binary selected by its immutable bundle plan. The default `cpp-desktop` flavor additionally carries LLVM/Clang children and Fixed Version WebView2 109; `minimal-cli` does not advertise or stage those capabilities. `scripts/offline-runtime-contract.json` is the single contract for runtime assets and release gates.
 
-The six project wheels are built, checked, and smoke-tested before wheel-only offline staging. Product files live under `app/embedagent`; lower distributions live under `runtime/site-packages`. Runtime network resolution, editable links, or a duplicate product package are defects.
+The plan-selected project wheels are built, checked, and smoke-tested before wheel-only offline staging. A generic export normally selects Core, Protocol, Host, and Shell; a C/C++ export adds the workflow plugin and any other declared closure members. Product files live under `app/embedagent`; lower distributions live under `runtime/site-packages`. Runtime network resolution, editable links, or a duplicate product package are defects.
 
 Repository status may reach `TARGET_READY`, but `publishable=false` remains until hash-bound evidence from a clean Windows 7 target validates the exact gate set in that flavor's release identity. Minimal acceptance requires bundle-local CLI Agent smoke; desktop acceptance additionally requires windowed GUI/WebView2 and bundle-local C smoke. Local tests and hosted Windows CI do not replace target evidence.
 
@@ -125,4 +125,4 @@ uv run python scripts/test-suite.py full
 uv run --locked python scripts/lint.py
 ```
 
-Run `npm test` and `npm run build` from the webapp for frontend source changes. Run the six-distribution build/check/smoke pipeline for distribution changes and the release pipeline for packaging changes. Update this document only when cross-layer ownership, dependency direction, execution spine, durable truth, or release evidence boundaries change; update the owning domain authority for local mechanics.
+Run `npm test` and `npm run build` from the webapp for frontend source changes. Run the plan-selected distribution build/check/smoke pipeline for distribution changes and the release pipeline for packaging changes. Update this document only when cross-layer ownership, dependency direction, execution spine, durable truth, or release evidence boundaries change; update the owning domain authority for local mechanics.

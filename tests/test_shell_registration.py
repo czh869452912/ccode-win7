@@ -195,6 +195,23 @@ class ShellRegistrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unknown_shell_application:missing"):
             registry.compile("missing", {})
 
+    def test_registered_application_source_is_added_only_when_active(self):
+        registry = ShellContributionRegistry(
+            applications={"tests.app": ShellContribution()}
+        )
+        disposer = registry.register(
+            ShellContribution(commands=(command("workflow.run", "session.command", 20),)),
+            "tests.workflow",
+        )
+        inactive = registry.compile("tests.app", {"commands": []})
+        assert [item.id for item in inactive.commands] == []
+        active = registry.compile(
+            "tests.app",
+            {"commands": [], "application_sources": ["tests.workflow"]},
+        )
+        assert [item.id for item in active.commands] == ["workflow.run"]
+        disposer()
+
 
 if __name__ == "__main__":
     unittest.main()

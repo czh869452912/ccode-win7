@@ -22,7 +22,7 @@ PROJECTS = (
     (Path("packages/embedagent-host/pyproject.toml"), "embedagent-host"),
     (Path("packages/embedagent-composition/pyproject.toml"), "embedagent-composition"),
     (Path("packages/embedagent-workflow-cpp/pyproject.toml"), "embedagent-workflow-cpp"),
-    (Path("pyproject.toml"), "embedagent"),
+    (Path("pyproject.toml"), "embedagent-shell"),
 )
 
 WORKSPACE_MEMBERS = [
@@ -45,8 +45,6 @@ ROOT_DEPENDENCIES = [
     "embedagent-core==0.1.0",
     "embedagent-protocol==0.1.0",
     "embedagent-host==0.1.0",
-    "embedagent-composition==0.1.0",
-    "embedagent-workflow-cpp==0.1.0",
 ]
 
 ROOT_OPTIONAL_DEPENDENCIES = {
@@ -75,7 +73,10 @@ DEPENDENCIES = (
         ["embedagent-core==0.1.0", "embedagent-protocol==0.1.0"],
     ),
     (Path("packages/embedagent-composition/pyproject.toml"), []),
-    (Path("packages/embedagent-workflow-cpp/pyproject.toml"), ["embedagent-core==0.1.0"]),
+    (
+        Path("packages/embedagent-workflow-cpp/pyproject.toml"),
+        ["embedagent-core==0.1.0", "embedagent-protocol==0.1.0"],
+    ),
 )
 
 WHEEL_PACKAGES = {
@@ -84,7 +85,7 @@ WHEEL_PACKAGES = {
     "embedagent-host": "embedagent_host/",
     "embedagent-composition": "embedagent_composition/",
     "embedagent-workflow-cpp": "embedagent_workflow_cpp/",
-    "embedagent": "embedagent/",
+    "embedagent-shell": "embedagent/",
 }
 
 CHECKER_BASELINE_DISTRIBUTIONS = (
@@ -93,7 +94,7 @@ CHECKER_BASELINE_DISTRIBUTIONS = (
     "embedagent-host",
     "embedagent-composition",
     "embedagent-workflow-cpp",
-    "embedagent",
+    "embedagent-shell",
 )
 
 VALID_WHEEL_DEPENDENCIES = {
@@ -104,13 +105,14 @@ VALID_WHEEL_DEPENDENCIES = {
         "embedagent-protocol ==0.1.0",
     ),
     "embedagent-composition": (),
-    "embedagent-workflow-cpp": ("embedagent-core ==0.1.0",),
-    "embedagent": (
+    "embedagent-workflow-cpp": (
+        "embedagent-core ==0.1.0",
+        "embedagent-protocol ==0.1.0",
+    ),
+    "embedagent-shell": (
         "embedagent-core ==0.1.0",
         "embedagent-protocol ==0.1.0",
         "embedagent-host ==0.1.0",
-        "embedagent-composition ==0.1.0",
-        "embedagent-workflow-cpp ==0.1.0",
         "prompt-toolkit ==3.0.52 ; extra == 'tui'",
         "rich ==14.3.3 ; extra == 'tui'",
         "pywebview >=4.0 ; extra == 'gui'",
@@ -142,7 +144,7 @@ def test_distribution_project_names_are_ordered_and_unique():
 def test_root_distribution_composes_exact_product_dependencies():
     root_project = _read_pyproject(Path("pyproject.toml"))["project"]
 
-    assert root_project["name"] == "embedagent"
+    assert root_project["name"] == "embedagent-shell"
     assert root_project["dependencies"] == ROOT_DEPENDENCIES
     assert root_project["optional-dependencies"] == ROOT_OPTIONAL_DEPENDENCIES
 
@@ -340,7 +342,10 @@ def test_wheel_checker_accepts_target_cpp_workflow_wheel(tmp_path):
 
     assert report["errors"] == []
     assert result.returncode == 0
-    assert cpp_report["requires_dist"] == ["embedagent-core ==0.1.0"]
+    assert cpp_report["requires_dist"] == [
+        "embedagent-core ==0.1.0",
+        "embedagent-protocol ==0.1.0",
+    ]
     assert [item["name"] for item in report["distributions"]] == list(WHEEL_PACKAGES)
 
 
@@ -384,25 +389,22 @@ def test_wheel_checker_accepts_target_cpp_workflow_wheel(tmp_path):
             "unexpected_runtime_dependency",
         ),
         (
-            "embedagent",
+            "embedagent-shell",
             (
                 "prompt-toolkit ==3.0.52",
                 "embedagent-core ==0.1.0",
                 "embedagent-protocol ==0.1.0",
-                "embedagent-host ==0.1.0",
                 "embedagent-workflow-cpp ==0.1.0",
             ),
             "workspace_dependency_missing",
         ),
         (
-            "embedagent",
+            "embedagent-shell",
             (
                 "prompt-toolkit ==3.0.52",
-                "embedagent-core ==0.1.0",
+                "embedagent-core >=0.1.0",
                 "embedagent-protocol ==0.1.0",
                 "embedagent-host ==0.1.0",
-                "embedagent-composition ==0.1.0 ; extra == 'bundle'",
-                "embedagent-workflow-cpp ==0.1.0",
             ),
             "workspace_dependency_invalid",
         ),
@@ -427,7 +429,7 @@ def test_product_wheel_allows_documented_third_party_dependencies(tmp_path):
     result, report = _run_checker(tmp_path)
 
     assert result.returncode == 0
-    assert _error_codes(report, "embedagent") == []
+    assert _error_codes(report, "embedagent-shell") == []
 
 
 def test_wheel_checker_accepts_pep427_build_tag_remainder(tmp_path):
@@ -481,17 +483,17 @@ def test_wheel_checker_reports_forbidden_file_and_normalized_dependency(tmp_path
 )
 def test_wheel_checker_rejects_product_wheel_package_ownership_leaks(tmp_path, forbidden_file):
     _write_valid_wheels(tmp_path)
-    _wheel_path(tmp_path, "embedagent").unlink()
+    _wheel_path(tmp_path, "embedagent-shell").unlink()
     _write_wheel(
         tmp_path,
-        "embedagent",
+        "embedagent-shell",
         files=["embedagent/__init__.py", forbidden_file],
     )
 
     result, report = _run_checker(tmp_path)
 
     assert result.returncode != 0
-    assert _error_codes(report, "embedagent") == ["forbidden_prefix"]
+    assert _error_codes(report, "embedagent-shell") == ["forbidden_prefix"]
 
 
 def test_wheel_checker_rejects_product_package_in_host_wheel(tmp_path):
@@ -581,8 +583,8 @@ def test_wheel_checker_rejects_unknown_valid_wheel(tmp_path):
     assert result.returncode != 0
     assert report["errors"] == [
         {
-            "code": "unexpected_wheel",
-            "detail": "unexpected wheel: extra_pkg-0.1.0-py3-none-any.whl",
+                "code": "unplanned_wheel",
+                "detail": "unplanned wheel: extra_pkg-0.1.0-py3-none-any.whl",
         }
     ]
     assert report["verified_wheels"] == []
@@ -617,7 +619,7 @@ def test_wheel_checker_reports_only_the_current_verified_wheel_set(tmp_path):
         "embedagent_host-0.1.0-py3-none-any.whl",
         "embedagent_composition-0.1.0-py3-none-any.whl",
         "embedagent_workflow_cpp-0.1.0-py3-none-any.whl",
-        "embedagent-0.1.0-py3-none-any.whl",
+        "embedagent_shell-0.1.0-py3-none-any.whl",
     ]
 
 
@@ -836,10 +838,10 @@ def test_wheel_checker_rejects_unrelated_dist_info_identity(tmp_path):
 
 def test_product_wheel_rejects_webapp_source_and_node_modules(tmp_path):
     _write_valid_wheels(tmp_path)
-    _wheel_path(tmp_path, "embedagent").unlink()
+    _wheel_path(tmp_path, "embedagent-shell").unlink()
     _write_wheel(
         tmp_path,
-        "embedagent",
+        "embedagent-shell",
         files=[
             "embedagent/__init__.py",
             "embedagent/frontend/gui/webapp/node_modules/tool.py",
@@ -849,7 +851,7 @@ def test_product_wheel_rejects_webapp_source_and_node_modules(tmp_path):
     result, report = _run_checker(tmp_path)
 
     assert result.returncode != 0
-    assert _error_codes(report, "embedagent") == ["forbidden_prefix"]
+    assert _error_codes(report, "embedagent-shell") == ["forbidden_prefix"]
 
 
 def test_wheel_checker_rejects_a_second_dist_info_stem(tmp_path):

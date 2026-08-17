@@ -815,7 +815,10 @@ function Test-ReleaseArtifactContract {
         Add-Result -Results $Results -Level 'pass' -Code 'release.source_mode' -Message 'Bundle app was assembled from wheel-installed packages.'
     }
 
-    $expectedDistributions = @('embedagent-core', 'embedagent-protocol', 'embedagent-host', 'embedagent-composition', 'embedagent-workflow-cpp', 'embedagent')
+    $expectedDistributions = @()
+    if ($Manifest -and ($Manifest.PSObject.Properties.Name -contains 'project_distributions')) {
+        $expectedDistributions = @($Manifest.project_distributions)
+    }
     $wheelNames = @()
     if ($Manifest -and ($Manifest.PSObject.Properties.Name -contains 'project_wheels')) {
         $wheelNames = @($Manifest.project_wheels)
@@ -828,14 +831,14 @@ function Test-ReleaseArtifactContract {
     if ($Manifest -and ($Manifest.PSObject.Properties.Name -contains 'project_distributions')) {
         $declaredDistributions = @($Manifest.project_distributions)
     }
-    if ($wheelNames.Count -ne 6 -or $declaredDistributions.Count -ne 6) {
-        Add-Result -Results $Results -Level 'fail' -Code 'release.project_wheels' -Message 'Bundle manifest must declare exactly six project distributions and wheels.'
+    if ($expectedDistributions.Count -eq 0 -or $wheelNames.Count -ne $expectedDistributions.Count -or $declaredDistributions.Count -ne $expectedDistributions.Count -or (($declaredDistributions -join '|') -ne ($expectedDistributions -join '|'))) {
+        Add-Result -Results $Results -Level 'fail' -Code 'release.project_wheels' -Message 'Bundle manifest project distributions and wheels must match the selected bundle plan.'
     }
     else {
-        Add-Result -Results $Results -Level 'pass' -Code 'release.project_wheels' -Message 'Bundle manifest declares the exact six project wheels.'
+        Add-Result -Results $Results -Level 'pass' -Code 'release.project_wheels' -Message 'Bundle manifest declares the selected project wheels.'
     }
-    if (-not $wheelHashes -or @($wheelHashes.PSObject.Properties).Count -ne 6) {
-        Add-Result -Results $Results -Level 'fail' -Code 'release.wheel_hashes' -Message 'Bundle manifest must declare SHA-256 for all six project wheels.'
+    if (-not $wheelHashes -or @($wheelHashes.PSObject.Properties).Count -ne $expectedDistributions.Count) {
+        Add-Result -Results $Results -Level 'fail' -Code 'release.wheel_hashes' -Message 'Bundle manifest must declare SHA-256 for every selected project wheel.'
     }
 
     $sitePackages = Join-Path $BundleRoot 'runtime\site-packages'
@@ -847,9 +850,16 @@ function Test-ReleaseArtifactContract {
     else {
         Add-Result -Results $Results -Level 'pass' -Code 'release.duplicate_product' -Message 'Product package exists only under app/embedagent.'
     }
-    foreach ($lowerDistribution in @('embedagent_core', 'embedagent_protocol', 'embedagent_host', 'embedagent_composition', 'embedagent_workflow_cpp')) {
-        if (-not (Test-Path -LiteralPath (Join-Path $sitePackages $lowerDistribution))) {
-            Add-Result -Results $Results -Level 'fail' -Code 'release.lower_distribution' -Message ('Missing lower project distribution: {0}' -f $lowerDistribution)
+    $packageRoots = @{
+        'embedagent-core' = 'embedagent_core'
+        'embedagent-protocol' = 'embedagent_protocol'
+        'embedagent-host' = 'embedagent_host'
+        'embedagent-composition' = 'embedagent_composition'
+        'embedagent-workflow-cpp' = 'embedagent_workflow_cpp'
+    }
+    foreach ($lowerDistribution in $expectedDistributions) {
+        if ($packageRoots.ContainsKey([string]$lowerDistribution) -and -not (Test-Path -LiteralPath (Join-Path $sitePackages $packageRoots[[string]$lowerDistribution]))) {
+            Add-Result -Results $Results -Level 'fail' -Code 'release.lower_distribution' -Message ('Missing selected project distribution: {0}' -f $lowerDistribution)
         }
     }
 

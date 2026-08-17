@@ -4,7 +4,7 @@
     "config_origin": "production"
   },
   "default_profile": "dev",
-  "default_flavor": "cpp-desktop",
+  "default_flavor": "minimal-cli",
   "paths": {
     "project_root": ".",
     "build_root": "build",

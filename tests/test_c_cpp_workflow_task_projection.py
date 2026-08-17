@@ -54,7 +54,9 @@ class HarnessTaskProjectionTests(unittest.TestCase):
             client=DoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            agent_application_registry=product_agent_application_registry(),
+            agent_application_registry=product_agent_application_registry(
+                ("embedagent.default_c_cpp",)
+            ),
         )
 
     def tearDown(self):

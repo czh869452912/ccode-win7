@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = "==3.8.*"
 resolution-markers = [
     "python_full_version >= '3.8.1'",
@@ -8,11 +8,11 @@ resolution-markers = [
 
 [manifest]
 members = [
-    "embedagent",
     "embedagent-composition",
     "embedagent-core",
     "embedagent-host",
     "embedagent-protocol",
+    "embedagent-shell",
     "embedagent-workflow-cpp",
 ]
 
@@ -154,15 +154,43 @@ toml = [
 ]
 
 [[package]]
-name = "embedagent"
+name = "embedagent-composition"
+version = "0.1.0"
+source = { editable = "packages/embedagent-composition" }
+
+[[package]]
+name = "embedagent-core"
+version = "0.1.0"
+source = { editable = "packages/embedagent-core" }
+
+[[package]]
+name = "embedagent-host"
+version = "0.1.0"
+source = { editable = "packages/embedagent-host" }
+dependencies = [
+    { name = "embedagent-core" },
+    { name = "embedagent-protocol" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "embedagent-core", editable = "packages/embedagent-core" },
+    { name = "embedagent-protocol", editable = "packages/embedagent-protocol" },
+]
+
+[[package]]
+name = "embedagent-protocol"
+version = "0.1.0"
+source = { editable = "packages/embedagent-protocol" }
+
+[[package]]
+name = "embedagent-shell"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "embedagent-composition" },
     { name = "embedagent-core" },
     { name = "embedagent-host" },
     { name = "embedagent-protocol" },
-    { name = "embedagent-workflow-cpp" },
 ]
 
 [package.optional-dependencies]
@@ -194,11 +222,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "embedagent-composition", editable = "packages/embedagent-composition" },
     { name = "embedagent-core", editable = "packages/embedagent-core" },
     { name = "embedagent-host", editable = "packages/embedagent-host" },
     { name = "embedagent-protocol", editable = "packages/embedagent-protocol" },
-    { name = "embedagent-workflow-cpp", editable = "packages/embedagent-workflow-cpp" },
     { name = "fastapi", marker = "extra == 'gui'", specifier = ">=0.100" },
     { name = "prompt-toolkit", marker = "extra == 'tui'", specifier = "==3.0.52" },
     { name = "pywebview", marker = "extra == 'gui'", specifier = ">=4.0" },
@@ -224,19 +250,9 @@ dev = [
 ]
 
 [[package]]
-name = "embedagent-composition"
+name = "embedagent-workflow-cpp"
 version = "0.1.0"
-source = { editable = "packages/embedagent-composition" }
-
-[[package]]
-name = "embedagent-core"
-version = "0.1.0"
-source = { editable = "packages/embedagent-core" }
-
-[[package]]
-name = "embedagent-host"
-version = "0.1.0"
-source = { editable = "packages/embedagent-host" }
+source = { editable = "packages/embedagent-workflow-cpp" }
 dependencies = [
     { name = "embedagent-core" },
     { name = "embedagent-protocol" },
@@ -247,22 +263,6 @@ requires-dist = [
     { name = "embedagent-core", editable = "packages/embedagent-core" },
     { name = "embedagent-protocol", editable = "packages/embedagent-protocol" },
 ]
-
-[[package]]
-name = "embedagent-protocol"
-version = "0.1.0"
-source = { editable = "packages/embedagent-protocol" }
-
-[[package]]
-name = "embedagent-workflow-cpp"
-version = "0.1.0"
-source = { editable = "packages/embedagent-workflow-cpp" }
-dependencies = [
-    { name = "embedagent-core" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "embedagent-core", editable = "packages/embedagent-core" }]
 
 [[package]]
 name = "exceptiongroup"

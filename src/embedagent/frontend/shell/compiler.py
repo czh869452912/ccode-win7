@@ -121,7 +121,10 @@ def compile_shell_descriptor(
         raise ValueError("shell_registry is invalid")
     if not isinstance(session_capabilities, dict):
         raise ValueError("session_capabilities must be a mapping")
-    selected = registry.selected(application_id)
+    active_sources = session_capabilities.get("application_sources", ())
+    if not isinstance(active_sources, (list, tuple)):
+        raise ValueError("session_capabilities.application_sources must be a list")
+    selected = registry.selected(application_id, active_sources=active_sources)
     command_records: List[CommandContribution] = list(
         _merged_records(registry.generic, selected, "commands")
     )

@@ -6,7 +6,7 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent_core.api import RuntimeDefinition
+from embedagent_core.api import ApplicationRuntimePolicy, RuntimeDefinition
 from embedagent_core.session import (
     Action,
     AssistantReply,
@@ -80,7 +80,9 @@ class TestSessionIntegration(unittest.TestCase):
             session_log=self.store,
             journal=SessionJournal(self.store, SessionReducer()),
             loop=None,
-            definition=RuntimeDefinition(default_mode="build"),
+            definition=RuntimeDefinition(
+                application_policy=ApplicationRuntimePolicy(default_mode="build")
+            ),
             projection=None,
             dispatcher=None,
             event_committer=None,

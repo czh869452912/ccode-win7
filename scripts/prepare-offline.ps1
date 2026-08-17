@@ -216,24 +216,27 @@ function Remove-ProjectEditableArtifacts {
 
 function Get-ProjectWheelMetadata {
     param(
-        [string]$SitePackagesRoot
+        [string]$SitePackagesRoot,
+        [object]$BundlePlan
     )
 
     $wheelRoot = Join-Path (Split-Path -Parent $SitePackagesRoot) 'wheels'
     if (-not (Test-Path -LiteralPath $wheelRoot -PathType Container)) {
         throw "Checked project wheelhouse not found: $wheelRoot"
     }
-    $expected = [ordered]@{
-        'embedagent-core' = 'embedagent_core-*.whl'
-        'embedagent-protocol' = 'embedagent_protocol-*.whl'
-        'embedagent-host' = 'embedagent_host-*.whl'
-        'embedagent-composition' = 'embedagent_composition-*.whl'
-        'embedagent-workflow-cpp' = 'embedagent_workflow_cpp-*.whl'
-        'embedagent' = 'embedagent-*.whl'
+    if ($null -eq $BundlePlan -or @($BundlePlan.project_distribution_ids).Count -eq 0) {
+        throw 'Bundle plan project distributions are required.'
+    }
+    $expected = [ordered]@{}
+    foreach ($distribution in @($BundlePlan.project_distribution_ids)) {
+        $name = [string]$distribution
+        $prefix = $name.Replace('-', '_')
+        if ($name -eq 'embedagent-shell') { $prefix = 'embedagent_shell' }
+        $expected[$name] = $prefix + '-*.whl'
     }
     $allWheels = @(Get-ChildItem -LiteralPath $wheelRoot -Filter '*.whl' -File)
     if ($allWheels.Count -ne $expected.Count) {
-        throw ('Expected exactly six project wheels, found {0} in {1}' -f $allWheels.Count, $wheelRoot)
+        throw ('Expected the selected project wheel count ({0}), found {1} in {2}' -f $expected.Count, $allWheels.Count, $wheelRoot)
     }
     $wheelNames = @()
     $wheelHashes = [ordered]@{}
@@ -1005,9 +1008,16 @@ if ($sitePackagesPath) {
         if ((Test-Path -LiteralPath $duplicateProductPackage) -or @((Get-ChildItem -LiteralPath (Join-Path $bundleRoot 'runtime\site-packages') -Directory -Filter 'embedagent-*.dist-info' -ErrorAction SilentlyContinue)).Count -gt 0) {
             throw 'duplicate product package or dist-info remains in runtime/site-packages'
         }
-        foreach ($lowerDistribution in @('embedagent_core', 'embedagent_protocol', 'embedagent_host', 'embedagent_composition', 'embedagent_workflow_cpp')) {
-            if (-not (Test-Path -LiteralPath (Join-Path $bundleRoot ('runtime\site-packages\' + $lowerDistribution)))) {
-                throw ('lower project distribution missing from runtime/site-packages: {0}' -f $lowerDistribution)
+        $packageRoots = @{
+            'embedagent-core' = 'embedagent_core'
+            'embedagent-protocol' = 'embedagent_protocol'
+            'embedagent-host' = 'embedagent_host'
+            'embedagent-composition' = 'embedagent_composition'
+            'embedagent-workflow-cpp' = 'embedagent_workflow_cpp'
+        }
+        foreach ($lowerDistribution in @($bundlePlan.project_distribution_ids)) {
+            if ($packageRoots.ContainsKey([string]$lowerDistribution) -and -not (Test-Path -LiteralPath (Join-Path $bundleRoot ('runtime\site-packages\' + $packageRoots[[string]$lowerDistribution])))) {
+                throw ('selected project distribution missing from runtime/site-packages: {0}' -f $lowerDistribution)
             }
         }
     }
@@ -1206,7 +1216,7 @@ $projectWheelMetadata = [ordered]@{
     wheelhouse_path = ''
 }
 if ($sitePackagesPath -and -not $SkipBuild) {
-    $projectWheelMetadata = Get-ProjectWheelMetadata -SitePackagesRoot $sitePackagesPath
+    $projectWheelMetadata = Get-ProjectWheelMetadata -SitePackagesRoot $sitePackagesPath -BundlePlan $bundlePlan
 }
 $releaseIdentitySource = if ($ReleaseIdentityPath) {
     if ([System.IO.Path]::IsPathRooted($ReleaseIdentityPath)) { $ReleaseIdentityPath } else { Join-Path $projectRoot $ReleaseIdentityPath }
@@ -1254,6 +1264,7 @@ $manifest = [ordered]@{
     wheelhouse_path = $projectWheelMetadata.wheelhouse_path
     identity_path = $identityPath
     source_mode = 'wheel-installed'
+    project_distributions = @($bundlePlan.project_distribution_ids)
 }
 
 Write-Host "[prepare] Writing bundle manifest and checksums..."

@@ -6,17 +6,17 @@
 > 类型：`product authority`
 > 负责人：`release maintainers`
 > 最后同步日期：`2026-08-14`
-> 对应代码范围：`scripts/`, 六个 distribution `pyproject.toml`, `src/embedagent/frontend/gui/static/`
+> 对应代码范围：`scripts/`, workspace distribution `pyproject.toml`, `src/embedagent/frontend/gui/static/`
 
 ## 1. Delivery Contract
 
 EmbedAgent 交付为 Windows 7 SP1 x64 可运行的单文件夹离线包。目标机不需预安装计划选择的 runtime tools，也不在运行时联网解析依赖。Node.js 只用于 GUI build，不是任何 flavor 的运行时依赖；VS Code、WSL 和 Docker 均不是交付依赖。
 
-每个制品必须携带计划内所有 runtime-invoked binaries。两种 flavor 都携带 Python 3.8 embeddable、vendored Python packages、MinGit 及 Bash、ripgrep 和 Universal Ctags；默认 `cpp-desktop` 另外携带必需 LLVM/Clang executables、TUI/GUI Python features、native GUI launcher 和 Fixed Version WebView2 109。`minimal-cli` 不携带或宣称这些 desktop/C++ runtime assets。
+每个制品必须携带计划内所有 runtime-invoked binaries。generic flavor 携带 Python 3.8 embeddable、vendored Python packages、MinGit 及 Bash、ripgrep；显式选择 `cpp-desktop` 时才增加 Universal Ctags、LLVM/Clang executables、TUI/GUI Python features、native GUI launcher 和 Fixed Version WebView2 109。
 
-## 2. Six Distribution Boundary
+## 2. Selected Distribution Boundary
 
-builder 必须生成且 checker 必须验证恰好六个 wheel：
+builder 可以构建 workspace 中的候选 wheel；checker、exporter 和 staging 只接受 bundle plan 声明的 selected closure：
 
 | Distribution | Bundle location | Project dependencies |
 |---|---|---|
@@ -24,23 +24,23 @@ builder 必须生成且 checker 必须验证恰好六个 wheel：
 | `embedagent-protocol` | `runtime/site-packages` | none |
 | `embedagent-host` | `runtime/site-packages` | exact Core + Protocol |
 | `embedagent-composition` | `runtime/site-packages` | none |
-| `embedagent-workflow-cpp` | `runtime/site-packages` | exact Core |
-| `embedagent` | `app/embedagent` | all five lower distributions |
+| `embedagent-workflow-cpp` | `runtime/site-packages` when selected | exact Core + Protocol |
+| `embedagent-shell` | `app/embedagent` | exact Core + Protocol + Host |
 
-所有 flavor 都构建、检查、wheel-only 安装并归档恰好这六个 wheel；flavor 不改变 distribution 数量。release staging 中，产品 package 和产品 dist-info 不得在 `runtime/site-packages` 重复出现。不接受 editable links、开发源码树复制或依赖用户 site-packages 的结果。
+每个 flavor 都按 `project_distribution_ids` 构建、检查、wheel-only 安装并归档自身闭包；未被计划选择的 wheel 是错误。release staging 中，产品 package 和产品 dist-info 不得在 `runtime/site-packages` 重复出现。不接受 editable links、开发源码树复制或依赖用户 site-packages 的结果。
 
 `scripts/build-python-distributions.py` 是强制 wheel builder，不能以 raw `uv build --all-packages` 替代。builder 只清理已知生成物，保护外部 wheelhouse。`check-python-distributions.py` 必须在安装、归档或 staging 前通过。
 
 ## 3. Flavor And Plan Contract
 
-`scripts/package.config.json` 的 `default_flavor` 是 `cpp-desktop`。`-Flavor` 选择产品内容；`-Profile dev|release` 只选择 assurance。`dev` 运行静态检查且不创建 zip，结果为 `DEV_ONLY`；`release` 创建 zip、运行计划选中的动态 gates，并产生 release candidate。命令名不能将 `dev` profile 提升成 release assurance，计划选中的 gate 也不能通过命令行关闭。
+`scripts/package.config.json` 的 `default_flavor` 是 `minimal-cli`。`-Flavor` 选择产品内容；`-Profile dev|release` 只选择 assurance。`dev` 运行静态检查且不创建 zip，结果为 `DEV_ONLY`；`release` 创建 zip、运行计划选中的动态 gates，并产生 release candidate。命令名不能将 `dev` profile 提升成 release assurance，计划选中的 gate 也不能通过命令行关闭。
 
 | Flavor | Allowed application | Shell/runtime content | Release gates |
 |---|---|---|---|
-| `minimal-cli` | `embedagent.generic` | CLI；Python, MinGit/Bash, ripgrep, Ctags；无 TUI/GUI/WebView2/LLVM/C workspace | `runtime_contract`, `win7_cli_smoke` |
+| `minimal-cli` | `embedagent.generic` | CLI；Python, MinGit/Bash, ripgrep；无 TUI/GUI/WebView2/LLVM/C workspace | `runtime_contract`, `win7_cli_smoke` |
 | `cpp-desktop` | `embedagent.default_c_cpp` | CLI/TUI/GUI；上述基础 runtime 加 LLVM/Clang, WebView2 109 和 C workspace | `runtime_contract`, `win7_cli_smoke`, `cpp_smoke_workspace`, `gui_headless_smoke`, `win7_windowed_gui_smoke` |
 
-`scripts/compile-bundle-plan.py` 从 official recipe、`win7-x64-portable` target、assurance、`offline-runtime-contract.json` 和 `offline-assets.json` 生成 canonical `bundle-plan.json`, `agent.json` 与 `agent.lock.json`。计划固定 application、component、shell、runtime capability/component、asset、Python feature、launcher、gate 和六 distribution IDs。export、prepare、build、validate、identity、evidence 和 runtime policy 必须校验同一 plan SHA-256，不能从已存在文件反推或扩大计划。
+`scripts/compile-bundle-plan.py` 从 official recipe、`win7-x64-portable` target、assurance、`offline-runtime-contract.json` 和 `offline-assets.json` 生成 canonical `bundle-plan.json`, `agent.json` 与 `agent.lock.json`。计划固定 application、component、shell、runtime capability/component、asset、Python feature、launcher、gate 和 selected distribution IDs。export、prepare、build、validate、identity、evidence 和 runtime policy 必须校验同一 plan SHA-256，不能从已存在文件反推或扩大计划。
 
 ## 4. Bundle Layout
 
@@ -88,7 +88,7 @@ fallbacks.
 `scripts/package.ps1` 是主编排入口：
 
 - `doctor`：独立环境/资产预检；
-- `deps`：构建并检查六 wheel，准备锁定第三方依赖，以 no-index/no-deps 安装项目 wheel；
+- `deps`：构建并检查 plan-selected wheels，准备锁定第三方依赖，以 no-index/no-deps 安装项目 wheel；
 - `assemble`：按 plan 构建所需 native GUI launcher（若选择 GUI），生成 staging tree，再按 profile 生成分发目录、可选 zip 和 source seed；
 - `verify`：运行静态/动态 bundle checks 和 release smokes；
 - `release`：依次执行 `deps -> assemble -> verify`，任一 blocking issue 立即停止。
@@ -97,7 +97,7 @@ fallbacks.
 flowchart LR
     D["package.ps1 doctor"] --> R["package.ps1 release"]
     R --> P["compiled immutable bundle plan"]
-    P --> W["six checked wheels + plan-selected dependencies"]
+    P --> W["selected checked wheels + plan-selected dependencies"]
     W --> A["plan-selected offline staging"]
     A --> Z["artifact + zip + identity"]
     Z --> V["bundle validation + smokes"]
@@ -110,7 +110,7 @@ flowchart LR
 
 | Script | Ownership |
 |---|---|
-| `build-python-distributions.py` | 六 wheel 清洁构建 |
+| `build-python-distributions.py` | plan-selected wheel 清洁构建 |
 | `check-python-distributions.py` | wheel set、file ownership、project DAG、archive/path/Win7 collision checks |
 | `smoke-python-distributions.py` | Python 3.8 隔离 venv 中 no-index/no-deps 导入与 product CLI parser 冒烟 |
 | `compile-bundle-plan.py` | 将 official recipe、target 和 assurance 编译为 immutable plan/Agent lock |
@@ -151,7 +151,7 @@ compiler；GUI gates 只在计划选择 GUI 时执行，且不将开发机 runti
 
 ## 8. Release Identity And States
 
-`manifests/release-identity.json` 是 credential-free 发布身份，记录 source revision、product version、profile、flavor、target、bundle plan/Agent lock hash、精确 gate IDs、六个 wheel 名称/哈希、可选 GUI static hash、asset-manifest hash 和 runtime-contract hash。target report 必须回传完全相同的 flavor、plan hash 与 gate set；额外或缺失 gate 都是 blocking error。
+`manifests/release-identity.json` 是 credential-free 发布身份，记录 source revision、product version、profile、flavor、target、bundle plan/Agent lock hash、精确 gate IDs、selected wheel 名称/哈希、可选 GUI static hash、asset-manifest hash 和 runtime-contract hash。target report 必须回传完全相同的 flavor、plan hash 与 gate set；额外或缺失 gate 都是 blocking error。
 
 - `TARGET_READY`：仓库门禁、bundle-local checks 和要求的 smokes 通过。它仍是 candidate，`publishable=false`，不是 Win7 交付声明。
 - `ACCEPTED`：只由 offline evidence validator 在目标报告匹配 release identity，并证明 Windows 7 SP1 AMD64 及计划选择的全部 gates 后产生。最小 flavor 需要 bundle-local CLI smoke，不需要 GUI/C++ evidence；desktop flavor 另外需要 bundled browser/runtime renderer 和 bundle compiler smoke。
@@ -169,9 +169,9 @@ dirty worktree 生成的 report 只是 diagnostics，提交后必须从清洁 re
 ## 10. Required Commands
 
 ```powershell
-uv run python scripts/build-python-distributions.py --dist-dir dist
-uv run python scripts/check-python-distributions.py --dist-dir dist
-uv run python scripts/smoke-python-distributions.py --dist-dir dist --python .venv/Scripts/python.exe
+uv run python scripts/build-python-distributions.py --dist-dir dist --bundle-plan build/plans/minimal-cli/bundle-plan.json
+uv run python scripts/check-python-distributions.py --dist-dir dist --bundle-plan build/plans/minimal-cli/bundle-plan.json
+uv run python scripts/smoke-python-distributions.py --dist-dir dist --python .venv/Scripts/python.exe --bundle-plan build/plans/minimal-cli/bundle-plan.json
 powershell -ExecutionPolicy Bypass -File scripts/package.ps1 doctor -Profile release -Flavor minimal-cli
 powershell -ExecutionPolicy Bypass -File scripts/package.ps1 doctor -Profile release -Flavor cpp-desktop
 powershell -ExecutionPolicy Bypass -File scripts/package.ps1 release -Profile release -Flavor minimal-cli

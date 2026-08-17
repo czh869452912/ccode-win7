@@ -24,7 +24,7 @@
 - provider/tool DTOs：`Action`, `AssistantReply`, `Observation`, `PreparedToolObservation`；
 - execution errors：`ModelClientError`, `ToolError`, `SessionLeaseConflict`, `SessionRecoveryRequired`。
 
-`AgentPorts` 仍要求调用方显式提供 model、tools、session log、context 和 permissions；Core 不从 Host 或 product 查找隐式默认值。根包不导出 `HostedSessionController`、Kernel、Loop、mutable `Session` 或具体 provider/tool 实现。高级 extension authoring contract 保持由其所属 Core 子模块拥有，不为示例另造 facade。
+`AgentPorts` 仍要求调用方显式提供 model、tools、session log、context 和 permissions；Core 不从 Host 或 product 查找隐式默认值。`RuntimeDefinition.application_policy` 是上层应用注入的执行策略载体，Core 不选择产品 mode、prompt、workspace provider 或 workflow。根包不导出 `HostedSessionController`、Kernel、Loop、mutable `Session` 或具体 provider/tool 实现。高级 extension authoring contract 保持由其所属 Core 子模块拥有，不为示例另造 facade。
 
 `examples/standalone_agent.py` 是最小可执行参考，使用根包 API 和显式 ports 完成运行、user-input 挂起及同一 session 恢复。`scripts/smoke-python-distributions.py` 的 `core_only` 场景在只安装 Core wheel 的隔离环境中直接执行该示例，并拒绝 Host、Protocol、Composition、workflow 和 product 分发。
 
@@ -128,7 +128,7 @@ flowchart TD
 - `tests/test_current_architecture_boundaries.py`
 - `tests/test_pre_release_architecture_guards.py`
 
-涉及 Core/Host 边界时还必须运行仓库根目录 `AGENTS.md` 中的 pre-merge architecture gate 和六 wheel build/check/smoke gate。
+涉及 Core/Host 边界时还必须运行仓库根目录 `AGENTS.md` 中的 pre-merge architecture gate，以及针对目标 bundle plan 的 build/check/smoke gate。
 
 ## 7. Change Triggers
 

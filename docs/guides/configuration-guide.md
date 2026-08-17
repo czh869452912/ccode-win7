@@ -1,15 +1,14 @@
 # EmbedAgent Configuration Guide
 
 EmbedAgent uses layered configuration for model connection settings, context budgets,
-and mode write policies.
+and selected application identity. Workflow policy belongs to the selected application
+plugin, not to the generic shell configuration.
 
 This guide follows the current product baseline:
 
-- official modes are `explore`, `spec`, `build`, `debug`, and `verify`
-- `build` is the implementation mode
-- task state is projected from the default C/C++ harness through `task_status`
-- the retired implementation-mode and todo-management names are historical terms,
-  not current configuration targets
+- generic configuration has no default mode or workflow write scope
+- task state and optional modes are projected by the selected application plugin
+- C/C++ task state is supplied only by the C++ application package
 
 ## Configuration Precedence
 
@@ -50,14 +49,7 @@ a config file takes effect for the next CLI command or TUI/GUI runtime construct
   "reserve_output_tokens": 2000,
   "chars_per_token": 3.0,
   "max_recent_turns": 4,
-  "default_mode": "explore",
-  "agent_application_id": "<application-id>",
-  "mode_writable_globs": {
-    "<mode_name>": ["glob_pattern", "..."]
-  },
-  "mode_extra_writable_globs": {
-    "<mode_name>": ["glob_pattern", "..."]
-  }
+  "agent_application_id": "<application-id>"
 }
 ```
 
@@ -93,22 +85,11 @@ Do not commit `config/config.json` when it contains a real API key.
 For larger local models, increasing `max_context_tokens` can reduce compaction
 frequency. Keep `reserve_output_tokens` large enough for tool plans and final answers.
 
-## Mode Defaults
+## Application Selection
 
 | Field | Type | Default | Meaning |
 |------|------|---------|---------|
-| `default_mode` | string | `explore` | Initial mode for new sessions |
 | `agent_application_id` | string | omitted | Hosted scenario application to load |
-
-Valid `default_mode` values are:
-
-- `explore`
-- `spec`
-- `build`
-- `debug`
-- `verify`
-
-Unknown mode names fail fast. `code` is not a valid first-class mode.
 
 `agent_application_id` selects the hosted application package before the
 session engine is built. Omit it to let the hosted application registry choose
@@ -134,7 +115,7 @@ CLI/TUI/GUI launchers accept `--agent-application <id>`.
 | `minimal-cli` | `embedagent.generic` | CLI |
 | `cpp-desktop` | `embedagent.default_c_cpp` | CLI, TUI, GUI |
 
-在 bundle 中省略 `agent_application_id` 会选择计划允许的首个 application。显式配置其他 built-in ID 会 fail closed，即使包含该代码的六个 project wheel 已安装。类似地，`minimal-cli` 不能通过 launcher 参数激活 TUI/GUI。
+在 bundle 中省略 `agent_application_id` 会选择计划允许的首个 application。显式配置未被计划允许的 built-in ID 会 fail closed，即使对应代码已经安装。类似地，`minimal-cli` 不能通过 launcher 参数激活 TUI/GUI。
 
 打包选择由 packaging CLI 控制，不写入 workspace config：
 
@@ -143,51 +124,15 @@ powershell -ExecutionPolicy Bypass -File scripts/package.ps1 release -Profile re
 powershell -ExecutionPolicy Bypass -File scripts/package.ps1 release -Profile release -Flavor cpp-desktop
 ```
 
-省略 `-Flavor` 时使用 `cpp-desktop`。`-Profile` 只控制 dev/release assurance，`-Flavor` 只控制产品内容。官方模板位于 `config/bundle-flavors/`，模板不包含 `api_key`；真实 credential 只能进入未提交的用户/项目配置或环境变量。
+省略 `-Flavor` 时使用 `minimal-cli`。`-Profile` 只控制 dev/release assurance，`-Flavor` 只控制产品内容。官方模板位于 `config/bundle-flavors/`，模板不包含 `api_key`；真实 credential 只能进入未提交的用户/项目配置或环境变量。
 
-## Writable Globs
+## Workflow Policy
 
-`mode_writable_globs` completely replaces the built-in write scope for a mode.
-
-```json
-{
-  "mode_writable_globs": {
-    "build": ["src/**/*.py", "pyproject.toml"],
-    "spec": ["docs/**/*.md"]
-  }
-}
-```
-
-Rules:
-
-- glob matching uses Python `fnmatch` semantics
-- unspecified modes keep built-in defaults
-- an empty list makes the mode read-only
-- `explore` and `verify` should remain read-only
-
-`mode_extra_writable_globs` appends extra write scopes without replacing the built-in
-defaults.
-
-```json
-{
-  "mode_extra_writable_globs": {
-    "build": ["scripts/**/*.ps1", "tools/**/*.json"],
-    "debug": ["repro/**/*.py"]
-  }
-}
-```
-
-Use replacement when you want a strict project-specific write boundary. Use append when
-the default implementation/debug scopes are acceptable but the project has extra build
-metadata paths.
-
-## Built-In Write Policy
-
-| Mode | Built-in write policy |
-|------|-----------------------|
-| `explore` | read-only |
-| `spec` | documentation and text artifacts |
-| `build` | implementation files and build metadata |
+`default_mode`, `mode_writable_globs`, and `mode_extra_writable_globs` are retired
+configuration keys. Supplying them fails closed with `mode configuration is
+application-owned`. Applications declare prompt, tool, mode, and writable-path policy
+through their registration entry; the standalone Core only receives focused ports and
+permission collaborators.
 | `debug` | implementation files and build metadata |
 | `verify` | read-only |
 
@@ -216,27 +161,16 @@ can still require confirmation or be denied by `PermissionPolicy`.
 }
 ```
 
-### Restrict Build Writes To One Module
+### Select An Application
 
 ```json
 {
-  "default_mode": "explore",
-  "mode_writable_globs": {
-    "build": ["src/mymodule/**/*.py"],
-    "debug": ["src/mymodule/**/*.py", "tests/**/*.py"]
-  }
+  "agent_application_id": "embedagent.generic"
 }
 ```
 
-### Add Project Build Metadata Paths
-
-```json
-{
-  "mode_extra_writable_globs": {
-    "build": ["scripts/**/*.ps1", "tools/**/*.json", "pyproject.toml"]
-  }
-}
-```
+Application-specific write boundaries belong in the application registration and its
+explicit permission/path policy, not in workspace JSON.
 
 ## CLI Commands And Overrides
 

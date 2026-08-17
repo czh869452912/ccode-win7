@@ -136,6 +136,7 @@ def generic_agent_profile() -> AgentProfile:
         profile_id="embedagent.generic",
         label="Generic Agent",
         default_mode="explore",
+        expose_modes=False,
         modes=_standard_profile_modes(
             "通用工程",
             "Implement and refactor within a general workspace write boundary.",

@@ -7,7 +7,6 @@ FORBIDDEN_IMPORTS = (
     "embedagent",
     "embedagent_composition",
     "embedagent_host",
-    "embedagent_protocol",
 )
 
 
@@ -76,6 +75,11 @@ def test_cpp_component_returns_core_runtime_definition():
 def test_cpp_package_root_exports_only_contracts():
     import embedagent_workflow_cpp as package
 
-    assert package.__all__ == ["C_WORKFLOW_PACKAGE_ID", "cpp_runtime_definition"]
+    assert package.__all__ == [
+        "C_WORKFLOW_PACKAGE_ID",
+        "cpp_application_manifest",
+        "cpp_runtime_definition",
+        "register_application",
+    ]
     assert not hasattr(package, "default_c_cpp_agent_profile")
     assert not hasattr(package, "build_c_cpp_agent_application")

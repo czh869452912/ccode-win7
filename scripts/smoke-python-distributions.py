@@ -10,6 +10,12 @@ import sys
 import tempfile
 from pathlib import Path
 
+try:
+    from bundle_plan import load_bundle_plan, normalize_distribution_name
+except ImportError:  # pragma: no cover - module loading by a test harness
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from bundle_plan import load_bundle_plan, normalize_distribution_name
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 STANDALONE_AGENT_EXAMPLE = REPOSITORY_ROOT / "examples" / "standalone_agent.py"
 
@@ -67,7 +73,11 @@ SCENARIOS = (
     {
         "name": "workflow_cpp_only",
         "distribution": "embedagent-workflow-cpp",
-        "distributions": ("embedagent-core", "embedagent-workflow-cpp"),
+        "distributions": (
+            "embedagent-core",
+            "embedagent-protocol",
+            "embedagent-workflow-cpp",
+        ),
         "probe": (
             "import importlib.util\n"
             "from embedagent_workflow_cpp import cpp_runtime_definition\n"
@@ -78,24 +88,20 @@ SCENARIOS = (
     },
     {
         "name": "product_stack",
-        "distribution": "embedagent",
+        "distribution": "embedagent-shell",
         "distributions": (
             "embedagent-core",
             "embedagent-protocol",
             "embedagent-host",
-            "embedagent-composition",
-            "embedagent-workflow-cpp",
-            "embedagent",
+            "embedagent-shell",
         ),
         "probe": (
             "import os\n"
             "import sys\n"
             "import embedagent\n"
-            "import embedagent_composition\n"
             "import embedagent_core\n"
             "import embedagent_host\n"
             "import embedagent_protocol\n"
-            "import embedagent_workflow_cpp\n"
             "from embedagent.cli import build_parser\n"
             "product_file = os.path.realpath(embedagent.__file__)\n"
             "venv_root = os.path.realpath(sys.prefix)\n"
@@ -134,7 +140,46 @@ def parse_args(argv=None):
     parser.add_argument("--dist-dir", required=True, help="Directory containing checked wheels")
     parser.add_argument("--python", required=True, help="Exact Python 3.8 executable")
     parser.add_argument("--timeout", type=int, default=120, help="Per-command timeout in seconds")
+    parser.add_argument("--bundle-plan", default="", help="Compiled bundle plan JSON")
     return parser.parse_args(argv)
+
+
+def scenario_wheels(distributions, plan):
+    selected = {
+        normalize_distribution_name(item)
+        for item in (plan.get("project_distribution_ids") or ())
+    }
+    requested = tuple(str(item or "").strip() for item in distributions)
+    unplanned = [
+        item for item in requested if normalize_distribution_name(item) not in selected
+    ]
+    if unplanned:
+        raise ValueError("unplanned distribution: %s" % unplanned[0])
+    return requested
+
+
+def _plan_scenario(plan):
+    distributions = tuple(plan.get("project_distribution_ids") or ())
+    return {
+        "name": "selected_product",
+        "distribution": distributions[-1],
+        "distributions": scenario_wheels(distributions, plan),
+        "probe": (
+            "import os\n"
+            "import sys\n"
+            "import embedagent\n"
+            "from embedagent.cli import build_parser\n"
+            "product_file = os.path.realpath(embedagent.__file__)\n"
+            "venv_root = os.path.realpath(sys.prefix)\n"
+            "inside_venv = os.path.commonpath((venv_root, product_file)) == venv_root\n"
+            'run = build_parser().parse_args(["run", "smoke"])\n'
+            'chat = build_parser().parse_args(["chat"])\n'
+            'sessions = build_parser().parse_args(["sessions", "list"])\n'
+            "cli_ok = run.command == 'run' and chat.command == 'chat' "
+            "and sessions.sessions_action == 'list'\n"
+            "raise SystemExit(0 if inside_venv and cli_ok else 1)\n"
+        ),
+    }
 
 
 def install_command(python_path, wheel_paths):
@@ -269,7 +314,7 @@ def _run_scenario(base_python, wheel_paths, scenario, temp_root, timeout, enviro
     return result
 
 
-def build_report(dist_dir, python_path, timeout):
+def build_report(dist_dir, python_path, timeout, selected_distributions=None, plan=None):
     dist_dir = Path(os.path.abspath(str(dist_dir)))
     python_path = Path(os.path.abspath(str(python_path)))
     report = _base_report(dist_dir, python_path)
@@ -279,26 +324,16 @@ def build_report(dist_dir, python_path, timeout):
     if not python_path.is_file():
         report["error"] = _error("python_missing", "Python executable was not found")
         return report
-    checker_report = _load_checker().build_report(dist_dir)
-    if not checker_report["ok"] or len(checker_report["verified_wheels"]) != 6:
+    checker_report = _load_checker().build_report(dist_dir, selected_distributions)
+    if not checker_report["ok"]:
         report["error"] = _error(
             "distribution_check_failed", "wheelhouse failed exact distribution validation"
         )
         return report
     verified_paths = [dist_dir / name for name in checker_report["verified_wheels"]]
     wheels = {}
-    for distribution, path in zip(
-        (
-            "embedagent-core",
-            "embedagent-protocol",
-            "embedagent-host",
-            "embedagent-composition",
-            "embedagent-workflow-cpp",
-            "embedagent",
-        ),
-        verified_paths,
-    ):
-        wheels[distribution] = path
+    for item in checker_report["distributions"]:
+        wheels[item["name"]] = dist_dir / item["wheel"]
     environment = minimal_environment()
 
     try:
@@ -323,7 +358,8 @@ def build_report(dist_dir, python_path, timeout):
                 report["error"] = command_error
                 return report
             report["python_version"] = version_probe.stdout.strip()
-            for scenario in SCENARIOS:
+            scenarios = [_plan_scenario(plan)] if plan is not None else SCENARIOS
+            for scenario in scenarios:
                 wheel_paths = [wheels[name] for name in scenario["distributions"]]
                 report["scenarios"].append(
                     _run_scenario(
@@ -344,7 +380,21 @@ def build_report(dist_dir, python_path, timeout):
 
 def main(argv=None):
     args = parse_args(argv)
-    report = build_report(Path(args.dist_dir), Path(args.python), max(1, args.timeout))
+    try:
+        plan = None
+        selected = None
+        if args.bundle_plan:
+            plan, selected = load_bundle_plan(args.bundle_plan)
+        report = build_report(
+            Path(args.dist_dir),
+            Path(args.python),
+            max(1, args.timeout),
+            selected_distributions=selected,
+            plan=plan,
+        )
+    except ValueError as exc:
+        report = _base_report(Path(args.dist_dir), Path(args.python))
+        report["error"] = _error("bundle_plan_invalid", str(exc))
     json.dump(report, sys.stdout, indent=2, sort_keys=True)
     sys.stdout.write("\n")
     return 0 if report["ok"] else 1

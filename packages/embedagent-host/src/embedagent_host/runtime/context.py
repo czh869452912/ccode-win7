@@ -725,7 +725,7 @@ class ContextManager(object):
         )
         self.context_usage_estimator = ContextUsageEstimator(self.config.estimated_chars_per_token)
         self.workspace = str(workspace or "")
-        self.intelligence_broker = intelligence_broker or WorkspaceIntelligenceBroker()
+        self.intelligence_broker = intelligence_broker or WorkspaceIntelligenceBroker.default()
         self.workspace_profile = workspace_profile
 
     def bind_host_context(

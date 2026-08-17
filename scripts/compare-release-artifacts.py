@@ -20,7 +20,6 @@ def _load_release_identity_module():
 
 
 _RELEASE_IDENTITY = _load_release_identity_module()
-EXPECTED_DISTRIBUTIONS = _RELEASE_IDENTITY.EXPECTED_DISTRIBUTIONS
 canonical_json = _RELEASE_IDENTITY.canonical_json
 compare_release_identity = _RELEASE_IDENTITY.compare_release_identity
 
@@ -174,9 +173,9 @@ def _validate_identity(identity, label, mismatches):
     distributions = tuple(identity.get("project_distributions") or ())
     wheels = identity.get("wheels") or ()
     wheel_names = tuple(item.get("name") for item in wheels if isinstance(item, dict))
-    if distributions != EXPECTED_DISTRIBUTIONS:
+    if not distributions or len(distributions) != len(set(distributions)):
         mismatches.append("%s.project_distributions" % label)
-    if wheel_names != EXPECTED_DISTRIBUTIONS or len(wheels) != 6:
+    if wheel_names != distributions or len(wheels) != len(distributions):
         mismatches.append("%s.wheels" % label)
 
 

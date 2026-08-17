@@ -2,6 +2,5 @@
   "base_url": "http://127.0.0.1:8000/v1",
   "model": "",
   "timeout": 120,
-  "default_mode": "explore",
   "agent_application_id": "embedagent.default_c_cpp"
 }

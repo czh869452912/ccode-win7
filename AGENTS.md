@@ -43,10 +43,10 @@ uv run --locked python scripts/lint.py --fix
 # Full local CI equivalent
 make ci
 
-# Build, inspect, and isolate-smoke all six Python distributions
-uv run python scripts/build-python-distributions.py --dist-dir dist
-uv run python scripts/check-python-distributions.py --dist-dir dist
-uv run python scripts/smoke-python-distributions.py --dist-dir dist --python .venv/Scripts/python.exe
+# Build, inspect, and isolate-smoke the selected bundle-plan closure
+uv run python scripts/build-python-distributions.py --dist-dir dist --bundle-plan build/plans/minimal-cli/bundle-plan.json
+uv run python scripts/check-python-distributions.py --dist-dir dist --bundle-plan build/plans/minimal-cli/bundle-plan.json
+uv run python scripts/smoke-python-distributions.py --dist-dir dist --python .venv/Scripts/python.exe --bundle-plan build/plans/minimal-cli/bundle-plan.json
 ```
 
 ```powershell
@@ -61,7 +61,7 @@ The distribution builder is mandatory. Never replace it with raw `uv build --all
 - Runtime Python is strictly `>=3.8,<3.9`. Do not use the walrus operator, `match`, `dict | dict`, or other Python 3.9+ syntax/API assumptions.
 - Windows 7 SP1 x64 and offline operation are product requirements, not optional compatibility targets.
 - The base product and default C/C++ workflow must start and run with no network and no preinstalled tools.
-- The offline bundle must carry Python 3.8 embeddable, vendored Python packages, MinGit portable, Bash from MinGit, ripgrep, Universal Ctags, required LLVM/Clang executables, WebView2 runtime assets, and every other binary invoked at runtime.
+- The offline bundle must carry Python 3.8 embeddable, vendored Python packages, MinGit portable, Bash from MinGit, ripgrep, and every other binary invoked by the selected bundle plan. Universal Ctags, LLVM/Clang, and WebView2 runtime assets are selected only when the plan requires them.
 - Do not introduce runtime dependencies on Docker, WSL, VS Code, Node.js, or external online services. Node.js is a frontend build-time tool only.
 - Use only dependencies declared in the owning `pyproject.toml`; prefer stdlib and a small dependency surface. Never edit `uv.lock` manually.
 - Never commit `config/config.json` because it can contain `api_key`. Do not emit prompts, source files, raw tool outputs, credentials, tokens, approval secrets, or permission payloads through telemetry or diagnostics.
@@ -93,12 +93,12 @@ Use `docs/archive/` and `analysis/` only for historical investigation. Implement
 | `embedagent-protocol` | `embedagent_protocol` | Stdlib-only JSON-safe wire DTOs | none |
 | `embedagent-host` | `embedagent_host` | Generic providers, tools, stores, context, and session hosting | exact-matched Core and Protocol |
 | `embedagent-composition` | `embedagent_composition` | Dependency-free build-time definition/compiler/export contracts | none |
-| `embedagent-workflow-cpp` | `embedagent_workflow_cpp` | Default C/C++ workflow behavior and package metadata | exact-matched Core |
-| `embedagent` | `embedagent` | Product bootstrap, composition, CLI, TUI, and GUI | all five lower distributions |
+| `embedagent-workflow-cpp` | `embedagent_workflow_cpp` | Optional C/C++ application plugin and package metadata | exact-matched Core and Protocol |
+| `embedagent-shell` | `embedagent` | Generic product bootstrap, shell, CLI, TUI, and GUI | exact-matched Core, Protocol, and Host |
 
 Dependency direction is lower distributions toward the product only. Core never imports Protocol, Host, product, GUI, or workflow packages. Host never imports `embedagent`; product bootstrap injects registries, policies, discovery, and the selected extension manager into Host. GUI/TUI contracts and shell behavior are generic; product configuration, default registration, launcher selection, and delivery assets stay in the product. C/C++ behavior stays in the workflow package.
 
-Offline export must build and validate exactly these six wheels, install project distributions wheel-only with network resolution disabled, stage the product under `app/embedagent`, and keep other distributions under `runtime/site-packages`. Editable links or a duplicate product package in `runtime/site-packages` are release defects.
+Offline export must build and validate exactly the wheel set named by `bundle-plan.json`, install project distributions wheel-only with network resolution disabled, stage the product under `app/embedagent`, and keep other selected distributions under `runtime/site-packages`. Editable links or a duplicate product package in `runtime/site-packages` are release defects.
 
 ## Architecture Invariants
 
@@ -139,7 +139,7 @@ uv run --locked python scripts/lint.py
 
 From `src/embedagent/frontend/gui/webapp`, run `npm test` and `npm run build`. Commit generated static assets under `src/embedagent/frontend/gui/static/` whenever webapp source changes.
 
-For distribution or delivery changes, run the six-wheel build/check/smoke commands and `scripts/package.ps1 release`. Release internally runs dependency preparation, assembly, and verification; `doctor` is the standalone preflight.
+For distribution or delivery changes, run the selected-plan build/check/smoke commands and `scripts/package.ps1 release`. Release internally runs dependency preparation, assembly, and verification; `doctor` is the standalone preflight.
 
 No local or hosted CI result proves Windows 7 delivery. A release claim requires real clean-machine Win7/WebView2 bundle evidence validated by the release evidence scripts.
 

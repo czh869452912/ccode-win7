@@ -45,7 +45,7 @@ class AgentRuntime(object):
             manager=self.extension_manager,
             tools=ports.tools,
             permission_policy=ports.permissions,
-            mode_tool_policy=definition.mode_tool_policy,
+            mode_tool_policy=definition.application_policy.mode_tool_policy,
         )
         self.extension_manager.register_context_reducers(ports.context.reducers)
         category_setter = getattr(ports.permissions, "set_category_lookup", None)
@@ -57,7 +57,7 @@ class AgentRuntime(object):
             extension_host=self.extension_host,
             app_config_provider=lambda: getattr(ports.tools, "app_config", None),
             interaction_factory=InteractionFactory(),
-            write_path_policy=definition.write_path_policy,
+            write_path_policy=definition.application_policy.write_path_policy,
         )
         self.provider_steps = ProviderStepService(
             context_assembler=ports.context,
@@ -97,9 +97,9 @@ class AgentRuntime(object):
             context_manager=ports.context,
             session_projection=ports.session_projection,
             transcript_store=ports.session_log,
-            mode_tool_policy=definition.mode_tool_policy,
-            write_path_policy=definition.write_path_policy,
-            mode_runtime_policy=definition.mode_runtime_policy,
+            mode_tool_policy=definition.application_policy.mode_tool_policy,
+            write_path_policy=definition.application_policy.write_path_policy,
+            mode_runtime_policy=definition.application_policy.mode_runtime_policy,
         )
         self.transaction = SessionTransaction(
             ports.session_log,

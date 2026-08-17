@@ -91,15 +91,22 @@ class AgentPorts:
 
 
 @dataclass(frozen=True)
-class RuntimeDefinition:
-    agent_id: str = "embedagent.base"
+class ApplicationRuntimePolicy:
+    """Application-owned execution policy; Core does not choose a mode."""
+
     default_mode: str = ""
-    workflow_state: str = ""
-    max_turns: Optional[int] = None
-    extensions: Tuple[Any, ...] = field(default_factory=tuple)
     mode_tool_policy: ModeToolPolicy = field(default_factory=EmptyModeToolPolicy)
     write_path_policy: WritePathPolicy = field(default_factory=DenyWritePathPolicy)
     mode_runtime_policy: ModeRuntimePolicy = field(default_factory=NeutralModeRuntimePolicy)
+
+
+@dataclass(frozen=True)
+class RuntimeDefinition:
+    agent_id: str = "embedagent.base"
+    workflow_state: str = ""
+    max_turns: Optional[int] = None
+    extensions: Tuple[Any, ...] = field(default_factory=tuple)
+    application_policy: ApplicationRuntimePolicy = field(default_factory=ApplicationRuntimePolicy)
 
 
 @dataclass(frozen=True)

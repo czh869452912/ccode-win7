@@ -10,6 +10,12 @@ from email import policy
 from email.parser import BytesParser
 from pathlib import Path
 
+try:
+    from bundle_plan import load_bundle_plan, normalize_distribution_name
+except ImportError:  # pragma: no cover - module loading by a test harness
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from bundle_plan import load_bundle_plan, normalize_distribution_name
+
 EXPECTED = (
     {
         "name": "embedagent-core",
@@ -71,11 +77,11 @@ EXPECTED = (
             "embedagent/",
         ),
         "forbidden_dependencies": (),
-        "workspace_dependencies": ("embedagent-core",),
+        "workspace_dependencies": ("embedagent-core", "embedagent-protocol"),
         "allow_other_dependencies": False,
     },
     {
-        "name": "embedagent",
+        "name": "embedagent-shell",
         "version": "0.1.0",
         "required_prefixes": ("embedagent/",),
         "forbidden_prefixes": (
@@ -91,8 +97,6 @@ EXPECTED = (
             "embedagent-core",
             "embedagent-protocol",
             "embedagent-host",
-            "embedagent-composition",
-            "embedagent-workflow-cpp",
         ),
         "allow_other_dependencies": True,
     },
@@ -114,13 +118,10 @@ MAX_FILENAME_BYTES = 4 * 1024 * 1024
 MAX_METADATA_SIZE = 1024 * 1024
 
 
-def normalize_distribution_name(name):
-    return re.sub(r"[-_.]+", "-", str(name or "")).lower()
-
-
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dist-dir", required=True, help="Directory containing wheel files")
+    parser.add_argument("--bundle-plan", default="", help="Compiled bundle plan JSON")
     return parser.parse_args(argv)
 
 
@@ -514,11 +515,42 @@ def inspect_distribution(spec, wheels):
     return report
 
 
-def build_report(dist_dir):
+def build_report(dist_dir, selected_distributions=None):
+    if selected_distributions is None:
+        selected_distributions = tuple(spec["name"] for spec in EXPECTED)
+    selected = tuple(str(item or "").strip() for item in selected_distributions)
+    if len(
+        set(normalize_distribution_name(item) for item in selected)
+    ) != len(selected):
+        return {
+            "schema_version": 1,
+            "dist_dir": str(dist_dir),
+            "ok": False,
+            "errors": [error("duplicate_planned_distribution", "planned wheel set")],
+            "verified_wheels": [],
+            "distributions": [],
+            "selected_distributions": list(selected),
+        }
+    expected_by_name = {
+        normalize_distribution_name(spec["name"]): spec for spec in EXPECTED
+    }
+    unknown = [
+        item for item in selected if normalize_distribution_name(item) not in expected_by_name
+    ]
+    if unknown:
+        return {
+            "schema_version": 1,
+            "dist_dir": str(dist_dir),
+            "ok": False,
+            "errors": [error("unknown_planned_distribution", item) for item in unknown],
+            "verified_wheels": [],
+            "distributions": [],
+            "selected_distributions": list(selected),
+        }
     wheels = []
     if dist_dir.is_dir():
         wheels = sorted(dist_dir.glob("*.whl"), key=lambda path: path.name)
-    expected_names = {normalize_distribution_name(spec["name"]): spec["name"] for spec in EXPECTED}
+    expected_names = {normalize_distribution_name(item): item for item in selected}
     wheel_set_errors = []
     for wheel in wheels:
         identity = wheel_filename_identity(wheel)
@@ -532,8 +564,11 @@ def build_report(dist_dir):
             continue
         normalized_name = normalize_distribution_name(identity["distribution"])
         if normalized_name not in expected_names:
-            wheel_set_errors.append(error("unexpected_wheel", "unexpected wheel: %s" % wheel.name))
-    distributions = [inspect_distribution(spec, wheels) for spec in EXPECTED]
+            wheel_set_errors.append(error("unplanned_wheel", "unplanned wheel: %s" % wheel.name))
+    distributions = [
+        inspect_distribution(expected_by_name[normalize_distribution_name(item)], wheels)
+        for item in selected
+    ]
     report = {
         "schema_version": 1,
         "dist_dir": str(dist_dir),
@@ -541,6 +576,7 @@ def build_report(dist_dir):
         "errors": wheel_set_errors,
         "verified_wheels": [],
         "distributions": distributions,
+        "selected_distributions": list(selected),
     }
     if report["ok"]:
         report["verified_wheels"] = [item["wheel"] for item in distributions]
@@ -549,7 +585,20 @@ def build_report(dist_dir):
 
 def main(argv=None):
     args = parse_args(argv)
-    report = build_report(Path(args.dist_dir))
+    try:
+        selected = None
+        if args.bundle_plan:
+            _payload, selected = load_bundle_plan(args.bundle_plan)
+        report = build_report(Path(args.dist_dir), selected)
+    except ValueError as exc:
+        report = {
+            "schema_version": 1,
+            "dist_dir": str(Path(args.dist_dir)),
+            "ok": False,
+            "errors": [error("bundle_plan_invalid", str(exc))],
+            "verified_wheels": [],
+            "distributions": [],
+        }
     json.dump(report, sys.stdout, indent=2, sort_keys=True)
     sys.stdout.write("\n")
     return 0 if report["ok"] else 1

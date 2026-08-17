@@ -412,13 +412,13 @@ if (-not (Test-Path -LiteralPath $pythonWheelsSourceRoot)) {
 }
 $pythonDistributionChecker = Join-Path $projectRoot 'scripts\check-python-distributions.py'
 $packagePython = Resolve-PackagePythonPath -ProjectRoot $projectRoot
-$checkerOutput = @(& $packagePython $pythonDistributionChecker --dist-dir $pythonWheelsSourceRoot)
+$checkerOutput = @(& $packagePython $pythonDistributionChecker --dist-dir $pythonWheelsSourceRoot --bundle-plan (Join-Path $stagingBundleRoot 'manifests\bundle-plan.json'))
 if ($LASTEXITCODE -ne 0) {
     throw "Python distribution wheelhouse failed validation: $pythonWheelsSourceRoot"
 }
 $checkerReport = ($checkerOutput -join "`n") | ConvertFrom-Json
-if (-not $checkerReport.ok -or @($checkerReport.verified_wheels).Count -ne 6) {
-    throw "Python distribution checker did not return exactly six verified_wheels: $pythonWheelsSourceRoot"
+if (-not $checkerReport.ok -or @($checkerReport.verified_wheels).Count -ne @($bundlePlan.project_distribution_ids).Count) {
+    throw "Python distribution checker did not return the selected verified_wheels: $pythonWheelsSourceRoot"
 }
 Write-Host "[build] Archiving checked Python wheels..."
 $null = Publish-VerifiedPythonWheels `
@@ -426,20 +426,14 @@ $null = Publish-VerifiedPythonWheels `
     -DestinationRoot $pythonWheelsArchiveRoot `
     -WheelNames @($checkerReport.verified_wheels) `
     -PythonPath $packagePython `
-    -CheckerPath $pythonDistributionChecker
+    -CheckerPath $pythonDistributionChecker `
+    -BundlePlanPath (Join-Path $stagingBundleRoot 'manifests\bundle-plan.json')
 
 $checkerReportPath = Join-Path $sourcesRoot 'checker-report.json'
 $checkerOutputText = $checkerOutput -join "`n"
 Set-Content -LiteralPath $checkerReportPath -Value ($checkerOutputText + "`n") -Encoding ASCII
 $projectWheels = @($checkerReport.verified_wheels)
-$projectDistributions = @(
-    'embedagent-core',
-    'embedagent-protocol',
-    'embedagent-host',
-    'embedagent-composition',
-    'embedagent-workflow-cpp',
-    'embedagent'
-)
+$projectDistributions = @($bundlePlan.project_distribution_ids)
 $wheelHashes = [ordered]@{}
 foreach ($wheelName in $projectWheels) {
     $wheelPath = Join-Path $pythonWheelsSourceRoot ([string]$wheelName)

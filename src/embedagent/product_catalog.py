@@ -1,19 +1,15 @@
 from __future__ import annotations
 
-from typing import Iterable, Optional, Tuple
+from typing import Any, Iterable, Optional, Tuple
 
 from embedagent_host.runtime.agent_applications import (
     BUILTIN_AGENT_APPLICATION_RECORDS,
     AgentApplicationRecord,
     AgentApplicationRegistry,
+    GENERIC_AGENT_APPLICATION_ID,
 )
-from embedagent_workflow_cpp.component import cpp_runtime_definition
-from embedagent_workflow_cpp.package_manifest import C_WORKFLOW_PACKAGE_ID
-from embedagent_workflow_cpp.profile import default_cpp_profile
-from embedagent_workflow_cpp.workspace_profile import c_cpp_workspace_profile_detectors
 
 from embedagent.frontend.shell.defaults import (
-    cpp_workflow_contribution,
     desktop_file_contribution,
     minimal_shell_contribution,
     preview_contribution,
@@ -26,6 +22,11 @@ DEFAULT_C_CPP_AGENT_APPLICATION_ID = "embedagent.default_c_cpp"
 
 
 def default_c_cpp_application_record() -> AgentApplicationRecord:
+    from embedagent_workflow_cpp.component import cpp_runtime_definition
+    from embedagent_workflow_cpp.package_manifest import C_WORKFLOW_PACKAGE_ID
+    from embedagent_workflow_cpp.profile import default_cpp_profile
+    from embedagent_workflow_cpp.workspace_profile import c_cpp_workspace_profile_detectors
+
     return AgentApplicationRecord(
         application_id=DEFAULT_C_CPP_AGENT_APPLICATION_ID,
         label="Default C/C++ Agent",
@@ -35,7 +36,7 @@ def default_c_cpp_application_record() -> AgentApplicationRecord:
         workflow_package_ids=(C_WORKFLOW_PACKAGE_ID,),
         workspace_profile_detectors_factory=c_cpp_workspace_profile_detectors,
         source_type="builtin",
-        source_id="embedagent_workflow_cpp",
+        source_id="embedagent.workflow.cpp",
         default=True,
         empty_state={
             "scenario_label": "C/C++ workspace",
@@ -52,11 +53,15 @@ def default_c_cpp_application_record() -> AgentApplicationRecord:
 def product_agent_application_registry(
     allowed_application_ids: Optional[Tuple[str, ...]] = None,
 ) -> AgentApplicationRegistry:
-    records = (default_c_cpp_application_record(),) + tuple(BUILTIN_AGENT_APPLICATION_RECORDS)
+    records = tuple(BUILTIN_AGENT_APPLICATION_RECORDS)
+    if allowed_application_ids is not None and DEFAULT_C_CPP_AGENT_APPLICATION_ID in tuple(
+        str(item or "").strip() for item in allowed_application_ids
+    ):
+        records = (default_c_cpp_application_record(),) + records
     if allowed_application_ids is None:
         return AgentApplicationRegistry(
             application_records=records,
-            default_application_id=DEFAULT_C_CPP_AGENT_APPLICATION_ID,
+            default_application_id=GENERIC_AGENT_APPLICATION_ID,
         )
 
     allowed = tuple(str(item or "").strip() for item in allowed_application_ids)
@@ -102,7 +107,8 @@ def product_shell_registry() -> ShellContributionRegistry:
     applications = dict(
         (record.application_id, ShellContribution()) for record in BUILTIN_AGENT_APPLICATION_RECORDS
     )
-    applications[DEFAULT_C_CPP_AGENT_APPLICATION_ID] = cpp_workflow_contribution()
+    # Application-specific contributions are registered by the selected plugin.
+    applications[DEFAULT_C_CPP_AGENT_APPLICATION_ID] = ShellContribution()
     return ShellContributionRegistry(generic=generic, applications=applications)
 
 
@@ -113,3 +119,9 @@ def product_shell_compiler():
         return registry.compile(application_id, session_capabilities)
 
     return compile_descriptor
+
+
+def register(registrar: Any):
+    """Register the generic product shell contribution through a plugin sink."""
+    contribution = product_shell_registry().generic
+    return registrar.add_shell_contribution(contribution, "embedagent.product_catalog")

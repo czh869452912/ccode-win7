@@ -30,8 +30,8 @@ function Copy-VerifiedPythonWheels {
     if (-not (Test-Path -LiteralPath $SourceRoot -PathType Container)) {
         throw "Python wheel source directory not found: $SourceRoot"
     }
-    if (@($WheelNames).Count -ne 6) {
-        throw 'Exactly six verified Python wheel names are required.'
+    if (@($WheelNames).Count -eq 0) {
+        throw 'At least one verified Python wheel name is required.'
     }
 
     $sourceRootItem = Get-Item -LiteralPath $SourceRoot -Force
@@ -107,7 +107,8 @@ function Publish-VerifiedPythonWheels {
         [string]$DestinationRoot,
         [string[]]$WheelNames,
         [string]$PythonPath,
-        [string]$CheckerPath
+        [string]$CheckerPath,
+        [string]$BundlePlanPath = ''
     )
 
     if (-not (Test-Path -LiteralPath $PythonPath -PathType Leaf)) {
@@ -154,13 +155,15 @@ function Publish-VerifiedPythonWheels {
         if (($tempItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
             throw "Temporary Python wheel directory must not be a reparse point: $tempRoot"
         }
-        $checkerOutput = @(& $PythonPath $CheckerPath --dist-dir $tempRoot)
+        $checkerArguments = @('--dist-dir', $tempRoot)
+        if ($BundlePlanPath) { $checkerArguments += @('--bundle-plan', $BundlePlanPath) }
+        $checkerOutput = @(& $PythonPath $CheckerPath @checkerArguments)
         if ($LASTEXITCODE -ne 0) {
             throw 'copied Python wheelhouse failed validation'
         }
         $checkerReport = ($checkerOutput -join "`n") | ConvertFrom-Json
         $verifiedNames = @($checkerReport.verified_wheels)
-        if (-not $checkerReport.ok -or $verifiedNames.Count -ne 6) {
+        if (-not $checkerReport.ok -or $verifiedNames.Count -ne @($WheelNames).Count) {
             throw 'copied Python wheelhouse failed validation'
         }
         for ($index = 0; $index -lt $verifiedNames.Count; $index++) {
@@ -401,6 +404,7 @@ function Read-VerifiedBundlePlan {
         'launcher_ids',
         'plan_fact_ids',
         'project_distribution_ids',
+        'registration_entries',
         'python_feature_ids',
         'runtime_capability_ids',
         'runtime_component_ids',
@@ -423,18 +427,10 @@ function Read-VerifiedBundlePlan {
         }
     }
 
-    $projectDistributions = @(
-        'embedagent-core',
-        'embedagent-protocol',
-        'embedagent-host',
-        'embedagent-composition',
-        'embedagent-workflow-cpp',
-        'embedagent'
-    )
-    Assert-ExactBundlePlanIds `
-        -Name 'project distribution' `
-        -Actual @($bundlePlan.project_distribution_ids) `
-        -Expected $projectDistributions
+    $projectDistributions = @($bundlePlan.project_distribution_ids | ForEach-Object { [string]$_ })
+    if ($projectDistributions.Count -eq 0 -or ($projectDistributions | Select-Object -Unique).Count -ne $projectDistributions.Count) {
+        throw 'Bundle plan project distributions must be non-empty and unique.'
+    }
 
     $resolvedRuntimeContractPath = if ([System.IO.Path]::IsPathRooted($RuntimeContractPath)) {
         $RuntimeContractPath
@@ -1173,7 +1169,7 @@ function Get-PackageDoctorChecks {
 
     $distributionNames = @($Context.bundle_plan.project_distribution_ids)
     foreach ($distributionName in $distributionNames) {
-        $projectPath = if ($distributionName -eq 'embedagent') {
+        $projectPath = if ($distributionName -eq 'embedagent-shell') {
             Join-Path $projectRoot 'pyproject.toml'
         }
         elseif ($distributionName -eq 'embedagent-workflow-cpp') {
@@ -1450,12 +1446,7 @@ function Invoke-PackageDeps {
     if (($payload.PSObject.Properties.Name -contains 'wheel_hashes') -and $payload.wheel_hashes) {
         $wheelHashCount = @($payload.wheel_hashes.PSObject.Properties).Count
     }
-    $hasSixWheelContract = ($expectedDistributions.Count -eq 6) -and ($payload.PSObject.Properties.Name -contains 'project_distributions')
-    $depsOk = if ($hasSixWheelContract) {
-        [bool]$payload.ok -and $actualDistributions.Count -eq $expectedDistributions.Count -and (($actualDistributions -join '|' ) -eq ($expectedDistributions -join '|' )) -and $actualWheels.Count -eq 6 -and $wheelHashCount -eq 6
-    } else {
-        [bool]$payload.ok
-    }
+    $depsOk = [bool]$payload.ok -and $actualDistributions.Count -eq $expectedDistributions.Count -and (($actualDistributions -join '|' ) -eq ($expectedDistributions -join '|' )) -and $actualWheels.Count -eq $expectedDistributions.Count -and $wheelHashCount -eq $expectedDistributions.Count
     $actualWheelHashes = $null
     if ($payload.PSObject.Properties.Name -contains 'wheel_hashes') {
         $actualWheelHashes = $payload.wheel_hashes
@@ -1468,7 +1459,7 @@ function Invoke-PackageDeps {
         output_root = $outputRoot
     }
     if (-not $depsOk) {
-        $Report.Value.blocking_issues += 'deps: exact six-wheel report handoff failed'
+        $Report.Value.blocking_issues += 'deps: selected wheel report handoff failed'
     }
     $depsStatus = if ($depsOk) { 'pass' } else { 'fail' }
     $depsExitCode = if ($depsOk) { 0 } else { 1 }
@@ -1576,8 +1567,8 @@ function Invoke-ReleaseIdentity {
     }
     $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $identityScript -Arguments $arguments
     $identity = Get-Content -LiteralPath $identityPath -Raw | ConvertFrom-Json
-    if (@($identity.project_distributions).Count -ne 6 -or @($identity.wheels).Count -ne 6) {
-        throw 'Release identity must contain exactly six project distributions and wheels.'
+    if (@($identity.project_distributions).Count -eq 0 -or @($identity.project_distributions).Count -ne @($identity.wheels).Count) {
+        throw 'Release identity must contain the selected project distributions and wheels.'
     }
     if (
         [int]$identity.schema_version -ne 2 -or

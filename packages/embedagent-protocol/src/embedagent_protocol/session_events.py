@@ -17,6 +17,18 @@ FRONTEND_FAILURE_CODES = (
     "protocol_error",
 )
 
+_SAFE_FAILURE_MESSAGES = {
+    "usage_error": "The command arguments are invalid.",
+    "configuration_error": "The application configuration is invalid.",
+    "provider_error": "The model provider request failed.",
+    "provider": "The model provider request failed.",
+    "interaction": "The requested interaction could not be completed.",
+    "cancelled": "The operation was cancelled.",
+    "protocol_error": "The runtime returned an invalid response.",
+    "protocol": "The runtime returned an invalid response.",
+    "runtime": "The operation failed.",
+}
+
 
 def _required_text(value: Any, field_name: str) -> str:
     if not isinstance(value, str):
@@ -37,10 +49,15 @@ def _positive_integer(value: Any, field_name: str) -> int:
 
 @dataclass(frozen=True)
 class FailureRecord:
-    code: str
-    message: str
-    retryable: bool
-    source: str
+    code: str = "runtime_error"
+    message: str = ""
+    retryable: bool = False
+    source: str = "runtime"
+    phase: str = "runtime"
+    kind: str = "runtime"
+    correlation_id: str = ""
+    safe_message: str = ""
+    exception_type: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "code", _required_text(self.code, "failure code"))
@@ -49,6 +66,15 @@ class FailureRecord:
         if not isinstance(self.retryable, bool):
             raise TypeError("failure retryable must be a bool")
         object.__setattr__(self, "source", _required_text(self.source, "failure source"))
+        object.__setattr__(self, "phase", _required_text(self.phase, "failure phase"))
+        object.__setattr__(self, "kind", _required_text(self.kind, "failure kind"))
+        object.__setattr__(self, "correlation_id", str(self.correlation_id or "").strip())
+        safe_message = str(self.safe_message or "").strip()
+        if not safe_message:
+            safe_message = _SAFE_FAILURE_MESSAGES.get(self.kind, "The operation failed.")
+        object.__setattr__(self, "safe_message", safe_message)
+        object.__setattr__(self, "message", safe_message)
+        object.__setattr__(self, "exception_type", str(self.exception_type or "").strip())
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -56,7 +82,35 @@ class FailureRecord:
             "message": self.message,
             "retryable": self.retryable,
             "source": self.source,
+            "phase": self.phase,
+            "kind": self.kind,
+            "correlation_id": self.correlation_id,
+            "safe_message": self.safe_message,
+            "exception_type": self.exception_type,
         }
+
+    @classmethod
+    def from_exception(
+        cls,
+        phase: str,
+        kind: str,
+        correlation_id: str,
+        exception: BaseException,
+        code: str = "runtime_error",
+        retryable: bool = False,
+        source: str = "runtime",
+    ) -> "FailureRecord":
+        selected_kind = str(kind or "runtime").strip() or "runtime"
+        return cls(
+            code=code,
+            retryable=retryable,
+            source=source,
+            phase=phase,
+            kind=selected_kind,
+            correlation_id=correlation_id,
+            safe_message=_SAFE_FAILURE_MESSAGES.get(selected_kind, "The operation failed."),
+            exception_type=type(exception).__name__,
+        )
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "FailureRecord":
@@ -64,9 +118,14 @@ class FailureRecord:
             raise TypeError("failure record must be a mapping")
         return cls(
             code=value.get("code"),
-            message=value.get("message"),
-            retryable=value.get("retryable"),
-            source=value.get("source"),
+            message=value.get("message", ""),
+            retryable=value.get("retryable", False),
+            source=value.get("source", "runtime"),
+            phase=value.get("phase", "runtime"),
+            kind=value.get("kind", "runtime"),
+            correlation_id=value.get("correlation_id", ""),
+            safe_message=value.get("safe_message", ""),
+            exception_type=value.get("exception_type", ""),
         )
 
 

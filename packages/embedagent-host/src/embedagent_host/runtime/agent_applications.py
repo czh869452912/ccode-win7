@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from embedagent_core import RuntimeDefinition
+from embedagent_core import ApplicationRuntimePolicy, RuntimeDefinition
 from embedagent_core.extensions import ExtensionManager
 from embedagent_core.profile import AgentProfile
 from embedagent_core.profile_runtime import (
@@ -206,10 +206,12 @@ def _profile_for_record(record: AgentApplicationRecord) -> AgentProfile:
 def _runtime_definition_for_profile(profile: AgentProfile) -> RuntimeDefinition:
     return RuntimeDefinition(
         agent_id=profile.profile_id,
-        default_mode=profile.default_mode,
-        mode_tool_policy=AgentProfileToolPolicy(profile),
-        write_path_policy=AgentProfileWritePathPolicy(profile),
-        mode_runtime_policy=AgentProfileRuntimePolicy(profile),
+        application_policy=ApplicationRuntimePolicy(
+            default_mode=profile.default_mode,
+            mode_tool_policy=AgentProfileToolPolicy(profile),
+            write_path_policy=AgentProfileWritePathPolicy(profile),
+            mode_runtime_policy=AgentProfileRuntimePolicy(profile),
+        ),
     )
 
 
@@ -275,6 +277,34 @@ def _application_descriptor_payload(
     payload = record.to_manifest().to_dict()
     payload["active"] = bool(active)
     return payload
+
+
+def application_descriptor_payload(manifest: Any, active: bool = False) -> Dict[str, Any]:
+    """Serialize a build-time application manifest without synthesizing modes."""
+    if isinstance(manifest, AgentApplicationRecord):
+        payload = _application_descriptor_payload(manifest, active=active)
+        payload["capabilities"] = []
+        return payload
+    to_dict = getattr(manifest, "to_dict", None)
+    if not callable(to_dict):
+        raise TypeError("application manifest must provide to_dict")
+    raw = dict(to_dict())
+    application_id = str(raw.get("application_id") or raw.get("id") or "").strip()
+    label = str(raw.get("label") or application_id).strip()
+    if not application_id or not label:
+        raise ValueError("application manifest identity is required")
+    capabilities = list(getattr(manifest, "capabilities", ()) or ())
+    return {
+        "id": application_id,
+        "label": label,
+        "active": bool(active),
+        "capabilities": capabilities,
+        "runtime_requirements": list(
+            getattr(manifest, "runtime_requirements", ()) or ()
+        ),
+        "distribution_id": str(raw.get("distribution_id") or ""),
+        "registration_entry": str(raw.get("registration_entry") or ""),
+    }
 
 
 def agent_application_capability_payload(

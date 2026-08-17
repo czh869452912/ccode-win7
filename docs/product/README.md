@@ -9,6 +9,6 @@
 | 意图 | 权威文档 |
 |---|---|
 | 产品组装、默认注册与启动 | `docs/product/composition.md` |
-| 六发行包、离线资产与 Win7 交付 | `docs/product/packaging-and-deployment.md` |
+| 计划选定发行包、离线资产与 Win7 交付 | `docs/product/packaging-and-deployment.md` |
 
 通用 GUI/TUI 契约属于平台；WebView2 资产、默认工作流选择和产品启动属于 EmbedAgent 组装与交付。

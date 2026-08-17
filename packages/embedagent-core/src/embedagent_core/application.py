@@ -14,14 +14,13 @@ class ApplicationRegistrar(object):
 
     def _source(self, source_id: str) -> str:
         normalized = str(source_id or "").strip()
-        if not normalized or normalized in self._source_ids:
-            raise ValueError("application source id must be unique and nonempty")
+        if not normalized:
+            raise ValueError("application source id must be nonempty")
         self._source_ids.add(normalized)
         return normalized
 
     def _append_disposer(self, disposer: Any, source_id: str) -> None:
         if not callable(disposer):
-            self._source_ids.discard(source_id)
             raise TypeError("application registration did not return a disposer")
         self._disposers.append((source_id, disposer))
 
@@ -31,7 +30,6 @@ class ApplicationRegistrar(object):
             disposer = self._extension_host.register(extension, source)
             self._append_disposer(disposer, source)
         except Exception:
-            self._source_ids.discard(source)
             raise
 
     def add_prompt_provider(self, provider: Any, source_id: str) -> None:
@@ -40,7 +38,6 @@ class ApplicationRegistrar(object):
             disposer = self._extension_host.register_prompt_provider(provider, source)
             self._append_disposer(disposer, source)
         except Exception:
-            self._source_ids.discard(source)
             raise
 
     def add_context_provider(self, provider: Any, source_id: str) -> None:
@@ -49,7 +46,6 @@ class ApplicationRegistrar(object):
             disposer = self._extension_host.register_context_provider(provider, source)
             self._append_disposer(disposer, source)
         except Exception:
-            self._source_ids.discard(source)
             raise
 
     def add_shell_contribution(self, contribution: Any, source_id: str) -> None:
@@ -58,7 +54,6 @@ class ApplicationRegistrar(object):
             disposer = self._shell_registry.register(contribution, source)
             self._append_disposer(disposer, source)
         except Exception:
-            self._source_ids.discard(source)
             raise
 
     def dispose(self) -> None:

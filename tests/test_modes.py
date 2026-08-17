@@ -3,10 +3,10 @@
 import os
 import sys
 import unittest
+from types import SimpleNamespace
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.config import AppConfig
 from embedagent.modes import (
     allowed_tools_for,
     build_system_prompt,
@@ -92,17 +92,17 @@ class TestWritableGlobs(unittest.TestCase):
         self.assertIn("**/*.rst", globs)
 
     def test_config_override_replaces_defaults(self):
-        cfg = AppConfig(mode_writable_globs={"build": ["app/**/*.py"]})
+        cfg = SimpleNamespace(mode_writable_globs={"build": ["app/**/*.py"]}, mode_extra_writable_globs={})
         globs = get_writable_globs("build", cfg)
         self.assertEqual(globs, ["app/**/*.py"])
 
     def test_config_override_only_affects_specified_mode(self):
-        cfg = AppConfig(mode_writable_globs={"build": ["app/**/*.py"]})
+        cfg = SimpleNamespace(mode_writable_globs={"build": ["app/**/*.py"]}, mode_extra_writable_globs={})
         spec_globs = get_writable_globs("spec", cfg)
         self.assertIn("**/*.md", spec_globs)
 
     def test_extra_globs_append_to_defaults(self):
-        cfg = AppConfig(mode_extra_writable_globs={"build": ["**/*.cmake"]})
+        cfg = SimpleNamespace(mode_writable_globs={}, mode_extra_writable_globs={"build": ["**/*.cmake"]})
         globs = get_writable_globs("build", cfg)
         self.assertEqual(globs, ["**/*", "**/*.cmake"])
 
@@ -151,12 +151,12 @@ class TestIsPathWritable(unittest.TestCase):
 
     # --- config override ---
     def test_config_override_restricts_to_subdirectory(self):
-        cfg = AppConfig(mode_writable_globs={"build": ["src/*.py", "src/**/*.py"]})
+        cfg = SimpleNamespace(mode_writable_globs={"build": ["src/*.py", "src/**/*.py"]}, mode_extra_writable_globs={})
         self.assertTrue(is_path_writable("build", "src/main.py", cfg))
         self.assertFalse(is_path_writable("build", "scripts/build.py", cfg))
 
     def test_config_override_empty_list_means_readonly(self):
-        cfg = AppConfig(mode_writable_globs={"build": []})
+        cfg = SimpleNamespace(mode_writable_globs={"build": []}, mode_extra_writable_globs={})
         self.assertFalse(is_path_writable("build", "src/main.py", cfg))
 
     def test_windows_backslash_normalized(self):
@@ -185,7 +185,7 @@ class TestBuildSystemPrompt(unittest.TestCase):
         self.assertIn("只读", prompt)
 
     def test_config_override_reflected_in_prompt(self):
-        cfg = AppConfig(mode_writable_globs={"build": ["custom/**/*.py"]})
+        cfg = SimpleNamespace(mode_writable_globs={"build": ["custom/**/*.py"]}, mode_extra_writable_globs={})
         prompt = build_system_prompt("build", cfg)
         self.assertIn("custom/**/*.py", prompt)
 

@@ -36,7 +36,7 @@
 
 ## Sequencing Rules
 
-- 始终保持 Python 3.8、Windows 7、离线运行和六发行包边界。
-- `-Profile` 只改变 assurance，`-Flavor` 只改变产品内容；默认 flavor 保持 `cpp-desktop`。
+- 始终保持 Python 3.8、Windows 7、离线运行和 plan-selected distribution closure 边界。
+- `-Profile` 只改变 assurance，`-Flavor` 只改变产品内容；默认 flavor 为 `minimal-cli`，C/C++ desktop 必须显式选择。
 - 不重新引入已退役的兼容路径。
 - 归档历史不得参与当前工作排序。

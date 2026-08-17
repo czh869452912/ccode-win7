@@ -38,8 +38,6 @@ def _command(
         ),
         order=order,
     )
-
-
 def _surface(
     surface_id: str,
     label: str,
@@ -56,7 +54,6 @@ def _surface(
         ),
         order=order,
     )
-
 
 def minimal_shell_contribution() -> ShellContribution:
     return ShellContribution(
@@ -106,14 +103,6 @@ def minimal_shell_contribution() -> ShellContribution:
                 "session.cancel",
                 60,
                 availability={"visible_when": "running"},
-            ),
-            _command(
-                "session.mode",
-                "Select Mode",
-                "session",
-                "session.mode",
-                70,
-                availability={"visible_when": "has_session"},
             ),
             _command(
                 "shell.command_palette",
@@ -209,8 +198,6 @@ def minimal_shell_contribution() -> ShellContribution:
             InteractionDescriptor(kind="user_input", renderer_key="interaction"),
         ),
     )
-
-
 def desktop_file_contribution() -> ShellContribution:
     return ShellContribution(
         commands=(
@@ -316,29 +303,3 @@ def preview_contribution() -> ShellContribution:
             ),
         ),
     )
-
-
-def cpp_workflow_contribution() -> ShellContribution:
-    commands = []
-    for order, command_id, label, capability_id in (
-        (1000, "workflow.run", "Run Recipe", "run"),
-        (1010, "workflow.review", "Review", "review"),
-        (1020, "workflow.recipes", "List Recipes", "recipes"),
-        (1030, "workflow.diff", "View Diff", "diff"),
-        (1040, "workflow.tasks", "View Tasks", "tasks"),
-    ):
-        commands.append(
-            _command(
-                command_id,
-                label,
-                "workflow",
-                "session.command",
-                order,
-                {"command": capability_id},
-                {
-                    "capability_id": capability_id,
-                    "visible_when": "has_session",
-                },
-            )
-        )
-    return ShellContribution(commands=tuple(commands))

@@ -14,7 +14,7 @@
 
 ## Contract And Guide
 
-- [ ] `docs/product/packaging-and-deployment.md` matches the six-distribution invariant, official flavor plans, and conditional bundle layouts.
+- [ ] `docs/product/packaging-and-deployment.md` matches plan-selected distribution closures, official flavor plans, and conditional bundle layouts.
 - [ ] `docs/guides/win7-release-runbook.md` matches current commands, report schema, plan hashes, and exact per-flavor gate requirements.
 - [ ] `scripts/offline-runtime-contract.json` covers every runtime binary and release gate.
 - [ ] configuration examples contain no secrets and do not require network for base startup.
@@ -27,7 +27,7 @@
 
 ## Verification
 
-- [ ] Six distributions build, inspect, and isolate-smoke successfully.
+- [ ] Every plan-selected distribution closure builds, inspects, and isolate-smokes successfully.
 - [ ] `scripts/package.ps1 doctor` and `release` use the documented control plane for both `minimal-cli` and `cpp-desktop`.
 - [ ] Architecture guards, full Python partition, lint, and frontend test/build gates pass as applicable.
 - [ ] Paths, commands, links, metadata, and documentation context budgets are checked.

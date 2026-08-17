@@ -9,6 +9,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+try:
+    from bundle_plan import load_bundle_plan, normalize_distribution_name
+except ImportError:  # pragma: no cover - module loading by a test harness
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from bundle_plan import load_bundle_plan, normalize_distribution_name
+
 WORKSPACE_MEMBERS = (
     "packages/embedagent-core",
     "packages/embedagent-protocol",
@@ -157,7 +163,22 @@ def parse_args(argv=None):
     parser.add_argument(
         "--offline", action="store_true", help="Disable network access during wheel build"
     )
+    parser.add_argument("--bundle-plan", default="", help="Compiled bundle plan JSON")
     return parser.parse_args(argv)
+
+
+def _wheel_distribution_name(path):
+    if path.suffix.lower() != ".whl":
+        return ""
+    parts = path.stem.split("-")
+    return normalize_distribution_name(parts[0]) if len(parts) >= 5 else ""
+
+
+def filter_wheels_for_plan(dist_dir, selected_distributions):
+    selected = set(normalize_distribution_name(item) for item in selected_distributions)
+    for path in sorted(Path(dist_dir).glob("*.whl"), key=lambda item: item.name):
+        if _wheel_distribution_name(path) not in selected:
+            path.unlink()
 
 
 def build_command(uv, dist_dir, offline=False):
@@ -187,6 +208,9 @@ def main(argv=None):
         dist_dir = project_root / dist_dir
     package_roots = tuple(project_root / member for member in WORKSPACE_MEMBERS)
     try:
+        selected = None
+        if args.bundle_plan:
+            _payload, selected = load_bundle_plan(args.bundle_plan)
         clean_generated_artifacts(project_root, dist_dir, package_roots)
         command = build_command(args.uv, dist_dir, offline=args.offline)
         result = subprocess.run(
@@ -194,6 +218,8 @@ def main(argv=None):
             cwd=str(project_root),
             env=build_environment(args.cache_dir, offline=args.offline),
         )
+        if result.returncode == 0 and selected is not None:
+            filter_wheels_for_plan(dist_dir, selected)
     except (OSError, ValueError) as exc:
         print("distribution build failed: %s" % exc, file=sys.stderr)
         return 1

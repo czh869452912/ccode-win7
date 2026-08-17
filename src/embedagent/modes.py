@@ -288,10 +288,10 @@ def get_writable_globs(mode_name: str, config=None) -> List[str]:
     base_globs = list(require_mode(mode_name)["writable_globs"])  # type: ignore[index]
     if config is None:
         return base_globs
-    override = config.mode_writable_globs.get(mode_name)
+    override = getattr(config, "mode_writable_globs", {}).get(mode_name)
     if override is not None and isinstance(override, list):
         base_globs = list(override)
-    extra = config.mode_extra_writable_globs.get(mode_name)
+    extra = getattr(config, "mode_extra_writable_globs", {}).get(mode_name)
     if extra is not None and isinstance(extra, list):
         base_globs.extend([str(item) for item in extra if str(item or "").strip()])
     deduped = []

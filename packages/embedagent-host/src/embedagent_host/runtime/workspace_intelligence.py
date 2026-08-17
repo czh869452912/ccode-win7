@@ -612,7 +612,12 @@ class LlspProvider(WorkspaceIntelligenceProvider):
 
 class WorkspaceIntelligenceBroker(object):
     def __init__(self, providers: Optional[List[WorkspaceIntelligenceProvider]] = None) -> None:
-        self.providers = providers or [
+        self.providers = list(providers or [])
+
+    @classmethod
+    def default(cls):
+        """Build the legacy-rich provider set explicitly for an application."""
+        return cls([
             WorkingSetProvider(),
             ProjectMemoryProvider(),
             RecipeProvider(),
@@ -620,7 +625,7 @@ class WorkspaceIntelligenceBroker(object):
             DiagnosticsProvider(),
             GitStateProvider(),
             LlspProvider(),
-        ]
+        ])
 
     def collect(
         self,

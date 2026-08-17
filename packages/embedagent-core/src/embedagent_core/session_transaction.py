@@ -275,7 +275,7 @@ class SessionTransaction(object):
 
     def _restore_or_create(self, session_id: str) -> SessionTransactionState:
         if not self._session_log.transcript_exists(session_id):
-            current_mode = self._definition.default_mode
+            current_mode = self._definition.application_policy.default_mode
             return SessionTransactionState(
                 Session(session_id=session_id),
                 current_mode,

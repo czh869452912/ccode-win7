@@ -162,7 +162,7 @@ def test_dependency_checker_accepts_product_only_in_app_tree():
 
     assert "Product code is intentionally staged under app/embedagent" in script
     assert "Manifest source_mode must be wheel-installed" in script
-    assert "Manifest project_wheels must contain the exact six project wheels" in script
+    assert "Manifest project_wheels must match planned project distributions" in script
     assert "Duplicate product import package" in script
 
 

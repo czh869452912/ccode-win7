@@ -471,8 +471,12 @@ def test_agent_session_keeps_tool_failure_model_visible(base_ports):
         model=model,
         permissions=PermissionPolicy(auto_approve_all=True),
     )
+    from embedagent_core import ApplicationRuntimePolicy
+
     definition = RuntimeDefinition(
-        mode_tool_policy=AllowMissingToolPolicy(),
+        application_policy=ApplicationRuntimePolicy(
+            mode_tool_policy=AllowMissingToolPolicy(),
+        ),
     )
 
     result = (
@@ -779,7 +783,10 @@ def test_runtime_definition_uses_neutral_defaults():
     definition = RuntimeDefinition()
 
     assert definition.agent_id == "embedagent.base"
-    assert definition.default_mode == ""
+    assert not hasattr(definition, "default_mode")
+    assert not hasattr(definition, "mode_tool_policy")
+    assert not hasattr(definition, "mode_runtime_policy")
+    assert not hasattr(definition, "write_path_policy")
     assert definition.workflow_state == ""
     assert definition.extensions == ()
 
@@ -840,9 +847,10 @@ def test_runtime_definition_policy_defaults_are_isolated():
     first = RuntimeDefinition()
     second = RuntimeDefinition()
 
-    assert first.mode_tool_policy is not second.mode_tool_policy
-    assert first.write_path_policy is not second.write_path_policy
-    assert first.mode_runtime_policy is not second.mode_runtime_policy
+    assert first.application_policy is not second.application_policy
+    assert first.application_policy.mode_tool_policy is not second.application_policy.mode_tool_policy
+    assert first.application_policy.write_path_policy is not second.application_policy.write_path_policy
+    assert first.application_policy.mode_runtime_policy is not second.application_policy.mode_runtime_policy
 
 
 def test_neutral_mode_runtime_policy_is_fail_neutral():

@@ -18,9 +18,11 @@ class SessionNotFoundError(FrontendPortError, ValueError):
         super().__init__(
             FailureRecord(
                 code="session_not_found",
-                message="Session was not found: %s" % str(reference or ""),
                 retryable=False,
                 source="session",
+                phase="session_lookup",
+                kind="runtime",
+                safe_message="Session was not found.",
             )
         )
 
@@ -29,29 +31,41 @@ def failure_for_exception(error: BaseException, source: str) -> FailureRecord:
     if isinstance(error, FrontendPortError):
         return error.failure
     if isinstance(error, ModelClientError):
-        return FailureRecord(
+        return FailureRecord.from_exception(
+            phase="provider_request",
+            kind="provider",
+            correlation_id="",
+            exception=error,
             code="provider_error",
-            message=str(error),
             retryable=True,
             source="provider",
         )
     if isinstance(error, (AsyncCancelledError, FutureCancelledError)):
-        return FailureRecord(
+        return FailureRecord.from_exception(
+            phase="runtime",
+            kind="cancelled",
+            correlation_id="",
+            exception=error,
             code="cancelled",
-            message=str(error),
             retryable=False,
             source=source,
         )
     if isinstance(error, (TypeError, ValueError)):
-        return FailureRecord(
+        return FailureRecord.from_exception(
+            phase="protocol",
+            kind="protocol",
+            correlation_id="",
+            exception=error,
             code="protocol_error",
-            message=str(error),
             retryable=False,
             source=source,
         )
-    return FailureRecord(
+    return FailureRecord.from_exception(
+        phase="runtime",
+        kind="runtime",
+        correlation_id="",
+        exception=error,
         code="runtime_error",
-        message=str(error),
         retryable=False,
         source=source,
     )

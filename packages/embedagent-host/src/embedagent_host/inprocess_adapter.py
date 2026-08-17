@@ -8,7 +8,14 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from embedagent_core import Agent, AgentPorts, InteractionReply, RuntimeDefinition, UserTurn
+from embedagent_core import (
+    Agent,
+    AgentPorts,
+    ApplicationRuntimePolicy,
+    InteractionReply,
+    RuntimeDefinition,
+    UserTurn,
+)
 from embedagent_core.capabilities import (
     app_capability_payload,
     command_capability_descriptors,
@@ -279,18 +286,20 @@ class InProcessAdapter(object):
         if self.runtime_definition is None:
             self.runtime_definition = RuntimeDefinition(
                 agent_id=str(self.agent_application.application_id),
-                default_mode=self._agent_profile.default_mode,
-                mode_tool_policy=AgentProfileToolPolicy(self._agent_profile),
-                write_path_policy=AgentProfileWritePathPolicy(self._agent_profile),
-                mode_runtime_policy=AgentProfileRuntimePolicy(self._agent_profile),
+                application_policy=ApplicationRuntimePolicy(
+                    default_mode=self._agent_profile.default_mode,
+                    mode_tool_policy=AgentProfileToolPolicy(self._agent_profile),
+                    write_path_policy=AgentProfileWritePathPolicy(self._agent_profile),
+                    mode_runtime_policy=AgentProfileRuntimePolicy(self._agent_profile),
+                ),
             )
         if max_turns is not None:
             self.runtime_definition = replace(self.runtime_definition, max_turns=max_turns)
         self.max_turns = self.runtime_definition.max_turns
 
-        self._mode_tool_policy = self.runtime_definition.mode_tool_policy
-        self._write_path_policy = self.runtime_definition.write_path_policy
-        self._mode_runtime_policy = self.runtime_definition.mode_runtime_policy
+        self._mode_tool_policy = self.runtime_definition.application_policy.mode_tool_policy
+        self._write_path_policy = self.runtime_definition.application_policy.write_path_policy
+        self._mode_runtime_policy = self.runtime_definition.application_policy.mode_runtime_policy
         self.extension_manager = self.agent_application.extension_manager
         self.extension_manager.register_context_reducers(self.context_manager.reducers)
         self.project_extension_state = self._load_project_extensions()

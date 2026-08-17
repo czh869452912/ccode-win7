@@ -7,7 +7,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from release_identity import EXPECTED_DISTRIBUTIONS, build_release_identity
+from release_identity import build_release_identity, load_bundle_plan
 
 
 def _revision(project_root):
@@ -32,18 +32,18 @@ def _version(project_root):
     raise SystemExit("project version not found in pyproject.toml")
 
 
-def _wheel_entries(wheel_dir):
+def _wheel_entries(wheel_dir, expected_distributions):
     root = Path(wheel_dir)
     files = sorted(root.glob("*.whl"))
     by_distribution = {}
     for path in files:
         stem = path.name.split("-", 1)[0].replace("_", "-")
-        if stem in EXPECTED_DISTRIBUTIONS:
+        if stem in expected_distributions:
             by_distribution[stem] = path
-    if set(by_distribution) != set(EXPECTED_DISTRIBUTIONS):
-        missing = sorted(set(EXPECTED_DISTRIBUTIONS) - set(by_distribution))
-        raise SystemExit("wheelhouse missing exact project distributions: %s" % missing)
-    return [(name, by_distribution[name]) for name in EXPECTED_DISTRIBUTIONS]
+    if set(by_distribution) != set(expected_distributions):
+        missing = sorted(set(expected_distributions) - set(by_distribution))
+        raise SystemExit("wheelhouse missing planned project distributions: %s" % missing)
+    return [(name, by_distribution[name]) for name in expected_distributions]
 
 
 def main(argv=None):
@@ -58,11 +58,12 @@ def main(argv=None):
     parser.add_argument("--output", required=True)
     args = parser.parse_args(argv)
     project_root = Path(args.project_root)
+    plan = load_bundle_plan(args.bundle_plan)
     identity = build_release_identity(
         source_revision=_revision(project_root),
         version=_version(project_root),
         profile=args.profile,
-        wheels=_wheel_entries(args.wheel_dir),
+        wheels=_wheel_entries(args.wheel_dir, plan["project_distribution_ids"]),
         gui_static_root=args.gui_static_root,
         asset_manifest_path=args.asset_manifest,
         runtime_contract_path=args.runtime_contract,

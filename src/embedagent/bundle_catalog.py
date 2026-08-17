@@ -50,7 +50,7 @@ def product_component_catalog() -> FrozenComponentCatalog:
             "embedagent-workflow-cpp",
             "distribution",
             "embedagent-workflow-cpp",
-            requires=("embedagent-core",),
+            requires=("embedagent-core", "embedagent-protocol"),
         ),
         _manifest(
             "embedagent-shell",
@@ -74,7 +74,7 @@ def product_component_catalog() -> FrozenComponentCatalog:
             "profile.cpp",
             "profile",
             "embedagent-workflow-cpp",
-            requires=("embedagent-core",),
+            requires=("embedagent-core", "embedagent-protocol"),
             runtime_requirements=("runtime.python",),
             registration_entry="embedagent_workflow_cpp.application:register",
         ),

@@ -29,7 +29,7 @@ EmbedAgent 是本仓库对 Agent Platform、application records、provider/tools
 | `minimal-cli` | `embedagent.generic` | CLI | workflow-neutral 最小 Agent，不激活 C/C++ workflow、TUI 或 GUI |
 | `cpp-desktop` | `embedagent.default_c_cpp` | CLI, TUI, GUI | 默认完整 C/C++ desktop 产品 |
 
-`cpp-desktop` 是省略 `-Flavor` 时的默认值。`-Flavor` 选择产品内容，`-Profile dev|release` 只选择 assurance；二者正交。任意私有 `AgentProductDefinition` 仍可使用中立 composition API 编译，但只有冻结 registry 中的 recipe 是本产品可打包的公开 flavor。
+`minimal-cli` 是省略 `-Flavor` 时的默认值；C/C++ desktop 是显式选择的可选应用包。`-Flavor` 选择产品内容，`-Profile dev|release` 只选择 assurance；二者正交。任意私有 `AgentProductDefinition` 仍可使用中立 composition API 编译，但只有冻结 registry 中的 recipe 是本产品可打包的公开 flavor。
 
 编译计划是 export、staging、validation、release identity、target evidence 和 runtime bootstrap 的共同输入。未知 recipe/component/requirement/provider/asset/feature/launcher/gate/schema 或 hash 必须在输出变更前失败，后续阶段不得重新推导另一份产品选择。
 
@@ -45,7 +45,7 @@ EmbedAgent 是本仓库对 Agent Platform、application records、provider/tools
 - empty-state metadata；
 - app-shell commands/surfaces/capability restrictions。
 
-Host 的 base registry 当前提供 generic、Python 和 HTML profile records。`src/embedagent/product_catalog.py` 在此基础上注册 packaged C/C++ workflow record，并将它设为 EmbedAgent 默认应用。C/C++ record 是当前唯一具有独立 workflow distribution 的默认产品应用。
+Host 的 base registry 当前提供 generic、Python 和 HTML records。`src/embedagent/product_catalog.py` 只负责 generic shell registration；C/C++ application record、mode/prompt/context policy 和 workflow contribution 只在选中 `embedagent_workflow_cpp.application:register_application` 后由 workflow plugin 注入。generic shell 不加载 C/C++ 包，也不把其设为默认应用。
 
 开发源码中的 registry 可包含全部 records；bundle runtime 不能据此扩大制品能力。`src/embedagent/bundle_policy.py` 校验 embedded plan 与 bundle manifest 的 flavor/hash binding，并只向 Host 暴露计划允许的 application IDs。空 application 选择解析为计划中的首个允许项；显式选择未打包 application 会 fail closed，即使对应 Python distribution 物理存在。
 
@@ -82,11 +82,11 @@ flowchart TD
 | `embedagent-core` | 独立 Agent SDK 与通用转轮/会话内核 |
 | `embedagent-protocol` | stdlib-only Host/UI DTO 和双向接口 |
 | `embedagent-host` | 通用 providers、tools、stores、context、profiles 与 session hosting |
-| `embedagent-composition` | 中立 build-time definition/compiler/export contracts |
+| `embedagent-composition` | 中立 build-time definition/compiler/export contracts，不进入默认 runtime closure |
 | `embedagent-workflow-cpp` | packaged C/C++ 上层应用 |
-| `embedagent` | 产品 bootstrap、registry 组合、CLI/TUI/GUI 和交付资产 |
+| `embedagent-shell` | 产品 bootstrap、registry 组合、CLI/TUI/GUI 和交付资产 |
 
-产品依赖五个下层发行包，下层包不反向依赖产品。具体必须匹配的项目依赖见 `AGENTS.md` 和各 `pyproject.toml`。
+generic shell 只依赖 Core、Protocol 和 Host；C/C++ 或其他应用由 plan-selected closure 追加其显式 plugin distribution。下层包不反向依赖产品。具体必须匹配的项目依赖见 `AGENTS.md` 和各 `pyproject.toml`。
 
 ## 4. Shell Injection
 
@@ -98,7 +98,7 @@ CLI/TUI/GUI 都是产品选择的可注册 shell。产品层选择启动 shell�
 
 CLI application、GUI app bootstrap 与 TUI launcher 调用同一个 product shell compiler。三者没有本地固定 catalog、兼容 fallback 或第二条注册路径。renderer registry 只声明该 shell 构建实际支持的通用 renderer key；它不是产品能力真相。
 
-EmbedAgent 默认组合注册最小核心以及 desktop files、terminal、source control、preview 等可选 contributions，并为 C/C++ 应用注册其 application commands。删除任一可选 contribution 不得影响最小 Agent shell 的 session 主干。
+EmbedAgent 默认组合注册最小核心以及 desktop files、terminal、source control、preview 等可选 generic contributions。C/C++ application commands 只能由 selected plugin registration 注入；删除任一可选 contribution 不得影响最小 Agent shell 的 session 主干。
 
 ## 5. CLI Product Contract
 

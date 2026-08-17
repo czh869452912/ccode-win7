@@ -409,45 +409,48 @@ def check_site_packages(bundle_root: Path, plan: Optional[Dict] = None) -> Tuple
             "runtime/site-packages/embedagent; use app/embedagent only"
         )
     wheel_only_manifest = False
+    manifest_payload = {}
     manifest_path = bundle_root / "manifests" / "bundle-manifest.json"
     if manifest_path.is_file():
         try:
             with open(manifest_path) as manifest_file:
-                wheel_only_manifest = (
-                    json.load(manifest_file).get("source_mode") == "wheel-installed"
-                )
+                manifest_payload = json.load(manifest_file)
+                wheel_only_manifest = manifest_payload.get("source_mode") == "wheel-installed"
         except (OSError, json.JSONDecodeError):
             wheel_only_manifest = False
-    project_packages = (
-        ("embedagent", "", "embedagent-0.1.0.dist-info"),
-        ("embedagent_core", "embedagent_core", "embedagent_core-0.1.0.dist-info"),
-        (
-            "embedagent_protocol",
-            "embedagent_protocol",
-            "embedagent_protocol-0.1.0.dist-info",
-        ),
-        ("embedagent_host", "embedagent_host", "embedagent_host-0.1.0.dist-info"),
-        (
-            "embedagent_composition",
-            "embedagent_composition",
-            "embedagent_composition-0.1.0.dist-info",
-        ),
-        (
-            "embedagent_workflow_cpp",
-            "embedagent_workflow_cpp",
-            "embedagent_workflow_cpp-0.1.0.dist-info",
-        ),
+    distribution_ids = tuple(
+        (plan or {}).get("project_distribution_ids")
+        or manifest_payload.get("project_distributions")
+        or ()
     )
-    for display_name, import_name, dist_info_name in project_packages:
-        if display_name == "embedagent" and wheel_only_manifest:
+    if not distribution_ids:
+        errors.append("Bundle manifest or bundle plan must declare project distributions")
+    distribution_packages = {
+        "embedagent-shell": "embedagent",
+        "embedagent-core": "embedagent_core",
+        "embedagent-protocol": "embedagent_protocol",
+        "embedagent-host": "embedagent_host",
+        "embedagent-composition": "embedagent_composition",
+        "embedagent-workflow-cpp": "embedagent_workflow_cpp",
+    }
+    project_packages = tuple(
+        (
+            distribution_id,
+            distribution_packages.get(distribution_id, distribution_id.replace("-", "_")),
+        )
+        for distribution_id in distribution_ids
+    )
+    for display_name, import_name in project_packages:
+        if display_name == "embedagent-shell" and wheel_only_manifest:
             # Product code is intentionally staged under app/embedagent. Its
             # wheel metadata is represented by bundle-manifest project_wheels;
             # it must not be duplicated in runtime/site-packages.
             continue
-        if import_name and not (sp / import_name).is_dir():
+        if display_name != "embedagent-shell" and not (sp / import_name).is_dir():
             errors.append("Missing project import package: %s" % display_name)
-        if not (sp / dist_info_name / "METADATA").is_file():
-            errors.append("Missing project distribution metadata: %s" % dist_info_name)
+        dist_info_glob = "%s-*.dist-info" % display_name.replace("-", "_")
+        if not any((candidate / "METADATA").is_file() for candidate in sp.glob(dist_info_glob)):
+            errors.append("Missing project distribution metadata: %s" % display_name)
 
     feature_ids = (
         tuple(PYTHON_FEATURE_PACKAGES)
@@ -650,7 +653,7 @@ def check_static_files(bundle_root: Path, plan: Optional[Dict] = None) -> Tuple[
     return len(errors) == 0, errors
 
 
-def check_manifest(bundle_root: Path) -> Tuple[bool, List[str]]:
+def check_manifest(bundle_root: Path, plan: Optional[Dict] = None) -> Tuple[bool, List[str]]:
     """Check bundle manifest exists and is valid."""
     errors = []
     manifest_path = bundle_root / "manifests" / "bundle-manifest.json"
@@ -672,16 +675,22 @@ def check_manifest(bundle_root: Path) -> Tuple[bool, List[str]]:
         if "source_mode" in manifest:
             if manifest.get("source_mode") != "wheel-installed":
                 errors.append("Manifest source_mode must be wheel-installed")
-            expected_wheels = {
-                "embedagent_core-0.1.0-py3-none-any.whl",
-                "embedagent_protocol-0.1.0-py3-none-any.whl",
-                "embedagent_host-0.1.0-py3-none-any.whl",
-                "embedagent_composition-0.1.0-py3-none-any.whl",
-                "embedagent_workflow_cpp-0.1.0-py3-none-any.whl",
-                "embedagent-0.1.0-py3-none-any.whl",
-            }
-            if set(manifest.get("project_wheels") or []) != expected_wheels:
-                errors.append("Manifest project_wheels must contain the exact six project wheels")
+            expected_distributions = tuple(
+                (plan or {}).get("project_distribution_ids")
+                or manifest.get("project_distributions")
+                or ()
+            )
+            actual_wheels = tuple(manifest.get("project_wheels") or ())
+            actual_stems = tuple(
+                (
+                    "embedagent-shell"
+                    if str(item).split("-", 1)[0].replace("_", "-") == "embedagent"
+                    else str(item).split("-", 1)[0].replace("_", "-")
+                )
+                for item in actual_wheels
+            )
+            if actual_stems != expected_distributions:
+                errors.append("Manifest project_wheels must match planned project distributions")
     except json.JSONDecodeError as e:
         errors.append(f"Invalid manifest JSON: {e}")
 
@@ -728,7 +737,7 @@ def main():
         ("Config Files", check_config_files),
         ("Documentation", check_documentation),
         ("Static Files", lambda root: check_static_files(root, plan)),
-        ("Manifest", check_manifest),
+        ("Manifest", lambda root: check_manifest(root, plan)),
         (
             "Bundle Plan",
             lambda _root: (

@@ -3,7 +3,7 @@ requires = ["setuptools>=65"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "embedagent"
+name = "embedagent-shell"
 version = "0.1.0"
 description = "Offline-first agentic coding platform with a generic Agent Core and replaceable workflow packages"
 readme = "README.md"
@@ -12,8 +12,6 @@ dependencies = [
     "embedagent-core==0.1.0",
     "embedagent-protocol==0.1.0",
     "embedagent-host==0.1.0",
-    "embedagent-composition==0.1.0",
-    "embedagent-workflow-cpp==0.1.0",
 ]
 
 [project.optional-dependencies]

@@ -12,7 +12,7 @@
 ## Current Focus
 
 - 当前架构权威按 Agent Platform、上层 applications、EmbedAgent product 三个领域组织；C/C++ 只有一个应用权威。
-- 产品打包已从固定 full bundle 收敛为 official recipe -> immutable bundle plan -> export/stage/validate/identity/evidence/runtime policy 单链。`minimal-cli` 只激活 `embedagent.generic` 与 CLI；默认 `cpp-desktop` 激活 `embedagent.default_c_cpp` 与 CLI/TUI/GUI。两者仍构建和归档恰好六个 project wheels。
+- 产品打包已从固定 full bundle 收敛为 official recipe -> immutable bundle plan -> export/stage/validate/identity/evidence/runtime policy 单链。`minimal-cli` 只激活 `embedagent.generic` 与 CLI，并投影 Core/Protocol/Host/Shell 的 selected closure；`cpp-desktop` 才加入 `embedagent-workflow-cpp` 与 C++/desktop closure。composition compiler 是 build-time 工具，不是默认运行时依赖。
 - `-Profile` 与 `-Flavor` 已正交：dev 不创建 zip、只执行静态检查并保持 `DEV_ONLY`；release 创建 zip 并运行 plan-selected gates。两个 release flavor 共用真实 staged `embedagent.cmd` gate，覆盖 `run`/`chat`/`sessions`、工具、permission/user-input、resume 与 blocked exit；desktop 另有 C++/GUI gates。application 和 shell override 在 bundle 中按计划 fail closed。
 - Agent Core 工具执行已收敛为 prepare/commit/execute：稳定 invocation identity、截断输出拦截、交互 continuation 与 started-only restore 语义均由同一个 Kernel/Loop 主链拥有；Host 隐式权限默认与 `PermissionPolicy()` 一致。
 - Agent Platform 独立提取准备已成为可执行能力：Core 根包公开显式 ports 和安全默认值，`examples/standalone_agent.py` 演示同一 durable session 的运行、挂起与恢复，`core_only` wheel smoke 直接运行该示例并确认所有上层分发不可发现。

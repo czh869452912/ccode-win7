@@ -25,15 +25,15 @@ class TestAppConfigDefaults(unittest.TestCase):
             "chars_per_token",
             "max_recent_turns",
             "max_turns",
-            "default_mode",
             "agent_application_id",
         ):
             self.assertIsNone(getattr(cfg, field), "%s should be None" % field)
 
-    def test_mode_writable_globs_default_empty(self):
+    def test_mode_configuration_is_not_a_core_default(self):
         cfg = AppConfig()
-        self.assertEqual(cfg.mode_writable_globs, {})
-        self.assertEqual(cfg.mode_extra_writable_globs, {})
+        self.assertFalse(hasattr(cfg, "default_mode"))
+        self.assertFalse(hasattr(cfg, "mode_writable_globs"))
+        self.assertFalse(hasattr(cfg, "mode_extra_writable_globs"))
 
     def test_explicit_values(self):
         cfg = AppConfig(max_context_tokens=32000, model="qwen3")
@@ -51,8 +51,8 @@ class TestAppConfigDefaults(unittest.TestCase):
             payload = json.load(handle)
 
         self.assertIsNone(payload.get("max_turns"))
-        self.assertEqual(payload.get("default_mode"), "explore")
-        self.assertNotIn("agent_application_id", payload)
+        self.assertNotIn("default_mode", payload)
+        self.assertEqual(payload.get("agent_application_id"), "embedagent.generic")
         self.assertNotIn("embedagent.default_c_cpp", json.dumps(payload))
 
     def test_current_config_docs_do_not_show_removed_defaults(self):
@@ -123,27 +123,21 @@ class TestMerge(unittest.TestCase):
         result = _merge(base, {"model": None})
         self.assertEqual(result.model, "my-model")
 
-    def test_mode_writable_globs_merged(self):
-        base = AppConfig(mode_writable_globs={"build": ["**/*.c"]})
-        result = _merge(base, {"mode_writable_globs": {"spec": ["**/*.md"]}})
-        self.assertIn("build", result.mode_writable_globs)
-        self.assertIn("spec", result.mode_writable_globs)
+    def test_mode_writable_globs_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "application-owned"):
+            _merge(AppConfig(), {"mode_writable_globs": {"spec": ["**/*.md"]}})
 
-    def test_mode_extra_writable_globs_merged(self):
-        base = AppConfig(mode_extra_writable_globs={"build": ["**/*.cmake"]})
-        result = _merge(base, {"mode_extra_writable_globs": {"spec": ["**/*.adoc"]}})
-        self.assertIn("build", result.mode_extra_writable_globs)
-        self.assertIn("spec", result.mode_extra_writable_globs)
+    def test_mode_extra_writable_globs_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "application-owned"):
+            _merge(AppConfig(), {"mode_extra_writable_globs": {"spec": ["**/*.adoc"]}})
 
-    def test_mode_writable_globs_overrides_existing_mode(self):
-        base = AppConfig(mode_writable_globs={"build": ["old/*.py"]})
-        result = _merge(base, {"mode_writable_globs": {"build": ["new/*.py"]}})
-        self.assertEqual(result.mode_writable_globs["build"], ["new/*.py"])
+    def test_default_mode_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "application-owned"):
+            _merge(AppConfig(), {"default_mode": "build"})
 
-    def test_mode_extra_writable_globs_overrides_existing_mode(self):
-        base = AppConfig(mode_extra_writable_globs={"build": ["old/*.py"]})
-        result = _merge(base, {"mode_extra_writable_globs": {"build": ["new/*.py"]}})
-        self.assertEqual(result.mode_extra_writable_globs["build"], ["new/*.py"])
+    def test_mode_configuration_rejection_is_stable(self):
+        with self.assertRaisesRegex(ValueError, "application-owned"):
+            _merge(AppConfig(), {"mode_extra_writable_globs": {"build": ["new/*.py"]}})
 
     def test_numeric_type_coercion(self):
         base = AppConfig()
@@ -223,8 +217,7 @@ class TestLoadConfig(unittest.TestCase):
             ):
                 cfg = load_config(workspace)
             self.assertIsNone(cfg.model)
-            self.assertEqual(cfg.mode_writable_globs, {})
-            self.assertEqual(cfg.mode_extra_writable_globs, {})
+            self.assertFalse(hasattr(cfg, "default_mode"))
 
     def test_project_config_loaded(self):
         with tempfile.TemporaryDirectory() as workspace:
@@ -275,7 +268,7 @@ class TestLoadConfig(unittest.TestCase):
                 cfg = load_config(workspace)
             self.assertIsNone(cfg.model)
 
-    def test_mode_writable_globs_in_project_config(self):
+    def test_mode_writable_globs_in_project_config_are_rejected(self):
         with tempfile.TemporaryDirectory() as workspace:
             config_dir = os.path.join(workspace, ".embedagent")
             os.makedirs(config_dir)
@@ -285,10 +278,10 @@ class TestLoadConfig(unittest.TestCase):
             with tempfile.TemporaryDirectory() as user_config_dir, patch(
                 "embedagent.config._USER_CONFIG_DIR", user_config_dir
             ):
-                cfg = load_config(workspace)
-            self.assertEqual(cfg.mode_writable_globs["build"], ["app/**/*.py"])
+                with self.assertRaisesRegex(ValueError, "application-owned"):
+                    load_config(workspace)
 
-    def test_mode_extra_writable_globs_in_project_config(self):
+    def test_mode_extra_writable_globs_in_project_config_are_rejected(self):
         with tempfile.TemporaryDirectory() as workspace:
             config_dir = os.path.join(workspace, ".embedagent")
             os.makedirs(config_dir)
@@ -298,8 +291,8 @@ class TestLoadConfig(unittest.TestCase):
             with tempfile.TemporaryDirectory() as user_config_dir, patch(
                 "embedagent.config._USER_CONFIG_DIR", user_config_dir
             ):
-                cfg = load_config(workspace)
-            self.assertEqual(cfg.mode_extra_writable_globs["build"], ["**/*.cmake"])
+                with self.assertRaisesRegex(ValueError, "application-owned"):
+                    load_config(workspace)
 
     def test_nested_project_config_loaded(self):
         with tempfile.TemporaryDirectory() as workspace:
