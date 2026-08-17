@@ -120,9 +120,14 @@ def test_host_encoder_normalizes_interaction_and_failed_tool_payloads():
     assert failed.event_kind == "tool.finished"
     assert failed.payload["failure"] == {
         "code": "path_missing",
-        "message": "missing",
+        "message": "The operation failed.",
         "retryable": False,
         "source": "edit_file",
+        "phase": "runtime",
+        "kind": "runtime",
+        "correlation_id": "",
+        "safe_message": "The operation failed.",
+        "exception_type": "",
     }
 
 

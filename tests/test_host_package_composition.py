@@ -82,7 +82,7 @@ class HostPackageCompositionTests(unittest.TestCase):
             product_agent_application_registry,
         )
 
-        registry = product_agent_application_registry()
+        registry = product_agent_application_registry((DEFAULT_C_CPP_AGENT_APPLICATION_ID,))
         manifests = available_agent_application_manifests(registry)
         manifest_by_id = dict((item.application_id, item) for item in manifests)
 
@@ -360,7 +360,9 @@ class HostPackageCompositionTests(unittest.TestCase):
             adapter = InProcessAdapter(
                 tools=ToolRuntime(workspace),
                 agent_application_id=DEFAULT_C_CPP_AGENT_APPLICATION_ID,
-                agent_application_registry=product_agent_application_registry(),
+                agent_application_registry=product_agent_application_registry(
+                    (DEFAULT_C_CPP_AGENT_APPLICATION_ID,)
+                ),
             )
             capabilities = adapter.get_session_capabilities()
 

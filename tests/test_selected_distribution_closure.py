@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from embedagent.bundle_catalog import official_bundle_recipe_registry, product_component_catalog
 from embedagent_composition import compile_bundle_plan
 
+from embedagent.bundle_catalog import official_bundle_recipe_registry, product_component_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
 

@@ -13,6 +13,7 @@ from embedagent_composition import (
     compile_bundle_plan,
 )
 
+
 def _definition():
     return AgentProductDefinition(
         agent_id="tests.generic",

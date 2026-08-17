@@ -17,7 +17,14 @@ def test_base_agent_matrix_excludes_workflow_specialization():
 
 
 def test_product_agent_matrix_declares_c_cpp_alongside_base_agents():
-    registry = product_agent_application_registry()
+    registry = product_agent_application_registry(
+        (
+            "embedagent.default_c_cpp",
+            "embedagent.generic",
+            "embedagent.python",
+            "embedagent.html",
+        )
+    )
     payload = agent_application_capability_payload("embedagent.default_c_cpp", registry=registry)
     ids = [item["applicationId"] for item in payload["agentApplications"]]
     assert ids[0] == "embedagent.default_c_cpp"

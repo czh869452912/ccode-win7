@@ -4,7 +4,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from embedagent_composition import PORTABLE_PROJECT_DISTRIBUTIONS
 
 pytestmark = pytest.mark.release
 
@@ -64,14 +63,12 @@ def test_release_config_keeps_assurance_separate_from_distribution_contract():
     release = config["profiles"]["release"]
     assert release["minimum_free_bytes"] == 8589934592
     assert "required_project_distributions" not in release
-    assert list(PORTABLE_PROJECT_DISTRIBUTIONS) == [
-        "embedagent-core",
-        "embedagent-protocol",
-        "embedagent-host",
-        "embedagent-composition",
-        "embedagent-workflow-cpp",
-        "embedagent",
-    ]
+    assert (
+        json.loads(
+            (ROOT / "config" / "bundle-flavors" / "minimal-cli.json").read_text(encoding="utf-8")
+        )["agent_application_id"]
+        == "embedagent.generic"
+    )
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-only: requires PowerShell")
@@ -100,8 +97,8 @@ def test_minimal_release_doctor_omits_desktop_only_prerequisites():
         "asset.cache.python_embedded_x64",
         "asset.cache.mingit_x64",
         "asset.cache.ripgrep_x64",
-        "asset.cache.universal_ctags_x64",
     }.issubset(codes)
+    assert "asset.cache.universal_ctags_x64" not in codes
     assert "tool.build-gui-launcher.ps1" not in codes
     assert "runtime.npm" not in codes
     assert "asset.cache.webview2_fixed_runtime_x64" not in codes

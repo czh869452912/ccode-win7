@@ -38,6 +38,8 @@ def _command(
         ),
         order=order,
     )
+
+
 def _surface(
     surface_id: str,
     label: str,
@@ -54,6 +56,7 @@ def _surface(
         ),
         order=order,
     )
+
 
 def minimal_shell_contribution() -> ShellContribution:
     return ShellContribution(
@@ -198,6 +201,8 @@ def minimal_shell_contribution() -> ShellContribution:
             InteractionDescriptor(kind="user_input", renderer_key="interaction"),
         ),
     )
+
+
 def desktop_file_contribution() -> ShellContribution:
     return ShellContribution(
         commands=(

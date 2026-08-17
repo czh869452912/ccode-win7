@@ -4,9 +4,9 @@ from typing import Any, Iterable, Optional, Tuple
 
 from embedagent_host.runtime.agent_applications import (
     BUILTIN_AGENT_APPLICATION_RECORDS,
+    GENERIC_AGENT_APPLICATION_ID,
     AgentApplicationRecord,
     AgentApplicationRegistry,
-    GENERIC_AGENT_APPLICATION_ID,
 )
 
 from embedagent.frontend.shell.defaults import (

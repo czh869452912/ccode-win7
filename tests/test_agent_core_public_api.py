@@ -848,9 +848,17 @@ def test_runtime_definition_policy_defaults_are_isolated():
     second = RuntimeDefinition()
 
     assert first.application_policy is not second.application_policy
-    assert first.application_policy.mode_tool_policy is not second.application_policy.mode_tool_policy
-    assert first.application_policy.write_path_policy is not second.application_policy.write_path_policy
-    assert first.application_policy.mode_runtime_policy is not second.application_policy.mode_runtime_policy
+    assert (
+        first.application_policy.mode_tool_policy is not second.application_policy.mode_tool_policy
+    )
+    assert (
+        first.application_policy.write_path_policy
+        is not second.application_policy.write_path_policy
+    )
+    assert (
+        first.application_policy.mode_runtime_policy
+        is not second.application_policy.mode_runtime_policy
+    )
 
 
 def test_neutral_mode_runtime_policy_is_fail_neutral():

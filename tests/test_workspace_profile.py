@@ -85,7 +85,9 @@ class WorkspaceProfileTests(unittest.TestCase):
         adapter = InProcessAdapter(
             tools=ToolRuntime(self.workspace),
             agent_application_id=DEFAULT_C_CPP_AGENT_APPLICATION_ID,
-            agent_application_registry=product_agent_application_registry(),
+            agent_application_registry=product_agent_application_registry(
+                (DEFAULT_C_CPP_AGENT_APPLICATION_ID,)
+            ),
         )
 
         initial_messages = adapter.context_manager.initial_system_messages(

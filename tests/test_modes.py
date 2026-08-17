@@ -92,17 +92,23 @@ class TestWritableGlobs(unittest.TestCase):
         self.assertIn("**/*.rst", globs)
 
     def test_config_override_replaces_defaults(self):
-        cfg = SimpleNamespace(mode_writable_globs={"build": ["app/**/*.py"]}, mode_extra_writable_globs={})
+        cfg = SimpleNamespace(
+            mode_writable_globs={"build": ["app/**/*.py"]}, mode_extra_writable_globs={}
+        )
         globs = get_writable_globs("build", cfg)
         self.assertEqual(globs, ["app/**/*.py"])
 
     def test_config_override_only_affects_specified_mode(self):
-        cfg = SimpleNamespace(mode_writable_globs={"build": ["app/**/*.py"]}, mode_extra_writable_globs={})
+        cfg = SimpleNamespace(
+            mode_writable_globs={"build": ["app/**/*.py"]}, mode_extra_writable_globs={}
+        )
         spec_globs = get_writable_globs("spec", cfg)
         self.assertIn("**/*.md", spec_globs)
 
     def test_extra_globs_append_to_defaults(self):
-        cfg = SimpleNamespace(mode_writable_globs={}, mode_extra_writable_globs={"build": ["**/*.cmake"]})
+        cfg = SimpleNamespace(
+            mode_writable_globs={}, mode_extra_writable_globs={"build": ["**/*.cmake"]}
+        )
         globs = get_writable_globs("build", cfg)
         self.assertEqual(globs, ["**/*", "**/*.cmake"])
 
@@ -151,7 +157,9 @@ class TestIsPathWritable(unittest.TestCase):
 
     # --- config override ---
     def test_config_override_restricts_to_subdirectory(self):
-        cfg = SimpleNamespace(mode_writable_globs={"build": ["src/*.py", "src/**/*.py"]}, mode_extra_writable_globs={})
+        cfg = SimpleNamespace(
+            mode_writable_globs={"build": ["src/*.py", "src/**/*.py"]}, mode_extra_writable_globs={}
+        )
         self.assertTrue(is_path_writable("build", "src/main.py", cfg))
         self.assertFalse(is_path_writable("build", "scripts/build.py", cfg))
 
@@ -185,7 +193,9 @@ class TestBuildSystemPrompt(unittest.TestCase):
         self.assertIn("只读", prompt)
 
     def test_config_override_reflected_in_prompt(self):
-        cfg = SimpleNamespace(mode_writable_globs={"build": ["custom/**/*.py"]}, mode_extra_writable_globs={})
+        cfg = SimpleNamespace(
+            mode_writable_globs={"build": ["custom/**/*.py"]}, mode_extra_writable_globs={}
+        )
         prompt = build_system_prompt("build", cfg)
         self.assertIn("custom/**/*.py", prompt)
 

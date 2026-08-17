@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Set
+from typing import Any
 
 
 class ApplicationRegistrar(object):
@@ -26,35 +26,23 @@ class ApplicationRegistrar(object):
 
     def add_extension(self, extension: Any, source_id: str) -> None:
         source = self._source(source_id)
-        try:
-            disposer = self._extension_host.register(extension, source)
-            self._append_disposer(disposer, source)
-        except Exception:
-            raise
+        disposer = self._extension_host.register(extension, source)
+        self._append_disposer(disposer, source)
 
     def add_prompt_provider(self, provider: Any, source_id: str) -> None:
         source = self._source(source_id)
-        try:
-            disposer = self._extension_host.register_prompt_provider(provider, source)
-            self._append_disposer(disposer, source)
-        except Exception:
-            raise
+        disposer = self._extension_host.register_prompt_provider(provider, source)
+        self._append_disposer(disposer, source)
 
     def add_context_provider(self, provider: Any, source_id: str) -> None:
         source = self._source(source_id)
-        try:
-            disposer = self._extension_host.register_context_provider(provider, source)
-            self._append_disposer(disposer, source)
-        except Exception:
-            raise
+        disposer = self._extension_host.register_context_provider(provider, source)
+        self._append_disposer(disposer, source)
 
     def add_shell_contribution(self, contribution: Any, source_id: str) -> None:
         source = self._source(source_id)
-        try:
-            disposer = self._shell_registry.register(contribution, source)
-            self._append_disposer(disposer, source)
-        except Exception:
-            raise
+        disposer = self._shell_registry.register(contribution, source)
+        self._append_disposer(disposer, source)
 
     def dispose(self) -> None:
         while self._disposers:

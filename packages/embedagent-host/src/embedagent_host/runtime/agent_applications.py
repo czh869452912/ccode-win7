@@ -299,9 +299,7 @@ def application_descriptor_payload(manifest: Any, active: bool = False) -> Dict[
         "label": label,
         "active": bool(active),
         "capabilities": capabilities,
-        "runtime_requirements": list(
-            getattr(manifest, "runtime_requirements", ()) or ()
-        ),
+        "runtime_requirements": list(getattr(manifest, "runtime_requirements", ()) or ()),
         "distribution_id": str(raw.get("distribution_id") or ""),
         "registration_entry": str(raw.get("registration_entry") or ""),
     }

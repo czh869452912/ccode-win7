@@ -146,13 +146,10 @@ def parse_args(argv=None):
 
 def scenario_wheels(distributions, plan):
     selected = {
-        normalize_distribution_name(item)
-        for item in (plan.get("project_distribution_ids") or ())
+        normalize_distribution_name(item) for item in (plan.get("project_distribution_ids") or ())
     }
     requested = tuple(str(item or "").strip() for item in distributions)
-    unplanned = [
-        item for item in requested if normalize_distribution_name(item) not in selected
-    ]
+    unplanned = [item for item in requested if normalize_distribution_name(item) not in selected]
     if unplanned:
         raise ValueError("unplanned distribution: %s" % unplanned[0])
     return requested
@@ -330,7 +327,6 @@ def build_report(dist_dir, python_path, timeout, selected_distributions=None, pl
             "distribution_check_failed", "wheelhouse failed exact distribution validation"
         )
         return report
-    verified_paths = [dist_dir / name for name in checker_report["verified_wheels"]]
     wheels = {}
     for item in checker_report["distributions"]:
         wheels[item["name"]] = dist_dir / item["wheel"]

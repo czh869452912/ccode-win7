@@ -583,8 +583,8 @@ def test_wheel_checker_rejects_unknown_valid_wheel(tmp_path):
     assert result.returncode != 0
     assert report["errors"] == [
         {
-                "code": "unplanned_wheel",
-                "detail": "unplanned wheel: extra_pkg-0.1.0-py3-none-any.whl",
+            "code": "unplanned_wheel",
+            "detail": "unplanned wheel: extra_pkg-0.1.0-py3-none-any.whl",
         }
     ]
     assert report["verified_wheels"] == []

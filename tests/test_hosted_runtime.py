@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
 from embedagent_host.hosted.launch_config import (
     LaunchConfig,
     LaunchOverrides,
@@ -12,6 +13,11 @@ from embedagent_protocol import FrontendSessionPort, FrontendWorkspacePort
 
 from embedagent.config import AppConfig
 from embedagent.hosted import resolve_launch_config as resolve_product_launch_config
+
+
+@pytest.fixture(autouse=True)
+def isolate_user_config(monkeypatch, tmp_path):
+    monkeypatch.setattr("embedagent.config._USER_CONFIG_DIR", str(tmp_path / "user"))
 
 
 def _config(tmp_path):

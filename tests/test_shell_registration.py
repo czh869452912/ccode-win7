@@ -196,9 +196,7 @@ class ShellRegistrationTests(unittest.TestCase):
             registry.compile("missing", {})
 
     def test_registered_application_source_is_added_only_when_active(self):
-        registry = ShellContributionRegistry(
-            applications={"tests.app": ShellContribution()}
-        )
+        registry = ShellContributionRegistry(applications={"tests.app": ShellContribution()})
         disposer = registry.register(
             ShellContribution(commands=(command("workflow.run", "session.command", 20),)),
             "tests.workflow",

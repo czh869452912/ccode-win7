@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import importlib
-from typing import Any, Callable, Dict, Iterable, List, Tuple
+from typing import Any, Callable, Dict, List, Tuple
 
 
 def _plan_value(plan: Any, name: str, default: Any = None) -> Any:
@@ -45,7 +45,15 @@ def load_selected_applications(plan: Any, registrar: Any):
             result = callback(registrar)
             if callable(result):
                 disposers.append(result)
-    except Exception as exc:
+    except (
+        AttributeError,
+        ImportError,
+        KeyError,
+        OSError,
+        RuntimeError,
+        TypeError,
+        ValueError,
+    ) as exc:
         for disposer in reversed(disposers):
             disposer()
         if isinstance(exc, ValueError) and str(exc).startswith("application_registration_error:"):

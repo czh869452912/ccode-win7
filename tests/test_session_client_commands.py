@@ -286,6 +286,11 @@ def test_runtime_command_source_has_no_application_workflow_or_tool_branches():
                         "message": "provider failed",
                         "retryable": True,
                         "source": "provider",
+                        "phase": "provider_request",
+                        "kind": "provider",
+                        "correlation_id": "",
+                        "safe_message": "The model provider request failed.",
+                        "exception_type": "",
                     },
                 },
             ),
@@ -418,9 +423,14 @@ def test_event_action_dispatch_failure_does_not_commit_the_event():
     assert outcome["status"] == "failed"
     assert outcome["failure"] == {
         "code": "protocol_error",
-        "message": "runtime action dispatch failed",
+        "message": "The runtime returned an invalid response.",
         "retryable": False,
         "source": "client_runtime",
+        "phase": "client_runtime",
+        "kind": "protocol",
+        "correlation_id": "",
+        "safe_message": "The runtime returned an invalid response.",
+        "exception_type": "RuntimeError",
     }
     assert runtime.event_cursor == 1
     assert runtime.lifecycle == "failed"

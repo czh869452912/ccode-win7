@@ -90,7 +90,9 @@ class ShellContributionRegistry:
             tool_presentations=tuple(
                 item for record in contributions for item in record.tool_presentations
             ),
-            timeline_items=tuple(item for record in contributions for item in record.timeline_items),
+            timeline_items=tuple(
+                item for record in contributions for item in record.timeline_items
+            ),
             interactions=tuple(item for record in contributions for item in record.interactions),
         )
 

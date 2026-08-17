@@ -2363,7 +2363,7 @@ class TestRuntimeDispatcherRefactor(unittest.TestCase):
         with open(os.path.join(self.workspace, "tags"), "w", encoding="utf-8") as handle:
             handle.write("!_TAG_FILE_FORMAT\t2\t/extended format/\n")
             handle.write('demo\tsrc/demo.c\t/^int demo(void) {$/;"\tf\n')
-                broker = WorkspaceIntelligenceBroker.default()
+        broker = WorkspaceIntelligenceBroker.default()
         message = broker.render_system_message(
             Session(), "build", self.tools, None, limit=5, char_limit=2000
         )
@@ -3833,7 +3833,7 @@ class TestRuntimeDispatcherRefactor(unittest.TestCase):
         )
         restored = restore_events(transcript_store.load_events(session_id))
         result = ContextManager(
-                intelligence_broker=WorkspaceIntelligenceBroker.default(),
+            intelligence_broker=WorkspaceIntelligenceBroker.default(),
         ).build_messages(
             restored.session,
             "build",
@@ -3898,7 +3898,7 @@ class TestRuntimeDispatcherRefactor(unittest.TestCase):
 
         restored = restore_events(transcript_store.load_events(session.session_id))
         built = ContextManager(
-                intelligence_broker=WorkspaceIntelligenceBroker.default(),
+            intelligence_broker=WorkspaceIntelligenceBroker.default(),
         ).build_messages(
             restored.session,
             "build",

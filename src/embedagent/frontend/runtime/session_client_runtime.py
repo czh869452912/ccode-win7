@@ -72,9 +72,12 @@ def _failure_for_error(error: BaseException) -> FailureRecord:
         code = "protocol_error"
     else:
         code = "runtime_error"
-    return FailureRecord(
+    return FailureRecord.from_exception(
+        phase="client_runtime",
+        kind="protocol" if code == "protocol_error" else "runtime",
+        correlation_id="",
+        exception=error,
         code=code,
-        message=str(error),
         retryable=False,
         source="client_runtime",
     )
@@ -563,8 +566,8 @@ class SessionClientRuntime(SessionEventSink):
                 continue
             try:
                 self._dispatch_action(publication.action)
-            except (OSError, RuntimeError, TypeError, ValueError):
-                self._commit_dispatch_failure(publication)
+            except (OSError, RuntimeError, TypeError, ValueError) as exc:
+                self._commit_dispatch_failure(publication, exc)
                 return True
             with self._condition:
                 if self._lifecycle == "closed" or generation != self._generation:
@@ -611,8 +614,8 @@ class SessionClientRuntime(SessionEventSink):
         )
         try:
             self._dispatch_action(action)
-        except (OSError, RuntimeError, TypeError, ValueError):
-            self._commit_action_failure(generation, session_id)
+        except (OSError, RuntimeError, TypeError, ValueError) as exc:
+            self._commit_action_failure(generation, session_id, exc)
             return True
         with self._condition:
             if self._lifecycle == "closed" or generation != self._generation:
@@ -657,16 +660,29 @@ class SessionClientRuntime(SessionEventSink):
             self._terminal_outcome = self._outcome_action("failed", failure=failure)
             self._condition.notify_all()
 
-    def _commit_dispatch_failure(self, publication: _EventPublication) -> None:
+    def _commit_dispatch_failure(
+        self,
+        publication: _EventPublication,
+        error: BaseException,
+    ) -> None:
         self._commit_action_failure(
             publication.generation,
             publication.envelope.session_id,
+            error,
         )
 
-    def _commit_action_failure(self, generation: int, session_id: str) -> None:
-        failure = FailureRecord(
+    def _commit_action_failure(
+        self,
+        generation: int,
+        session_id: str,
+        error: BaseException,
+    ) -> None:
+        failure = FailureRecord.from_exception(
+            phase="client_runtime",
+            kind="protocol",
+            correlation_id="",
+            exception=error,
             code="protocol_error",
-            message="runtime action dispatch failed",
             retryable=False,
             source="client_runtime",
         )
@@ -738,10 +754,13 @@ class SessionClientRuntime(SessionEventSink):
         if envelope.event_kind == "session.error":
             try:
                 failure = FailureRecord.from_dict(payload.get("failure"))
-            except (TypeError, ValueError):
-                failure = FailureRecord(
+            except (TypeError, ValueError) as exc:
+                failure = FailureRecord.from_exception(
+                    phase="client_runtime",
+                    kind="protocol",
+                    correlation_id="",
+                    exception=exc,
                     code="protocol_error",
-                    message="session.error did not contain a valid failure",
                     retryable=False,
                     source="client_runtime",
                 )

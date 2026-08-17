@@ -617,15 +617,17 @@ class WorkspaceIntelligenceBroker(object):
     @classmethod
     def default(cls):
         """Build the legacy-rich provider set explicitly for an application."""
-        return cls([
-            WorkingSetProvider(),
-            ProjectMemoryProvider(),
-            RecipeProvider(),
-            CtagsProvider(),
-            DiagnosticsProvider(),
-            GitStateProvider(),
-            LlspProvider(),
-        ])
+        return cls(
+            [
+                WorkingSetProvider(),
+                ProjectMemoryProvider(),
+                RecipeProvider(),
+                CtagsProvider(),
+                DiagnosticsProvider(),
+                GitStateProvider(),
+                LlspProvider(),
+            ]
+        )
 
     def collect(
         self,

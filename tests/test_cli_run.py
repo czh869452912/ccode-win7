@@ -193,6 +193,15 @@ def test_run_preserves_structured_host_failure_category(failure_code):
                     "message": "redacted failure",
                     "retryable": False,
                     "source": "host",
+                    "phase": "host",
+                    "kind": "provider" if failure_code == "provider_error" else "runtime",
+                    "correlation_id": "",
+                    "safe_message": (
+                        "The model provider request failed."
+                        if failure_code == "provider_error"
+                        else "The operation failed."
+                    ),
+                    "exception_type": "",
                 }
             },
         )
@@ -268,9 +277,14 @@ def test_run_json_writes_one_stable_result_and_keeps_stderr_empty():
             {
                 "failure": {
                     "code": "provider_error",
-                    "message": "provider unavailable",
+                    "message": "The model provider request failed.",
                     "retryable": True,
                     "source": "provider",
+                    "phase": "provider_request",
+                    "kind": "provider",
+                    "correlation_id": "",
+                    "safe_message": "The model provider request failed.",
+                    "exception_type": "",
                 }
             },
         ),
@@ -295,7 +309,12 @@ def test_run_json_writes_one_stable_result_and_keeps_stderr_empty():
     ]
     assert json.loads(stdout.getvalue())["failure"] == {
         "code": "provider_error",
-        "message": "provider unavailable",
+        "message": "The model provider request failed.",
         "retryable": True,
         "source": "provider",
+        "phase": "provider_request",
+        "kind": "provider",
+        "correlation_id": "",
+        "safe_message": "The model provider request failed.",
+        "exception_type": "",
     }

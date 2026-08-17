@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import sys
 
-from embedagent.application_loader import (
-    bootstrap_generic_shell,
-    compile_generic_shell_descriptor,
-)
 from embedagent_composition import ApplicationManifest
 from embedagent_host.runtime.agent_applications import application_descriptor_payload
 from embedagent_host.runtime.profiles import generic_agent_profile
 from embedagent_host.runtime.workspace_intelligence import WorkspaceIntelligenceBroker
 from embedagent_workflow_cpp.application import cpp_application_manifest
+
+from embedagent.application_loader import (
+    bootstrap_generic_shell,
+    compile_generic_shell_descriptor,
+)
 
 
 class RecordingRegistrar(object):

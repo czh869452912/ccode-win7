@@ -116,6 +116,10 @@ class FailureRecord:
     def from_dict(cls, value: Mapping[str, Any]) -> "FailureRecord":
         if not isinstance(value, Mapping):
             raise TypeError("failure record must be a mapping")
+        required_fields = ("code", "message", "retryable", "source", "phase", "kind")
+        missing = tuple(field for field in required_fields if field not in value)
+        if missing:
+            raise ValueError("failure record is missing: %s" % ",".join(missing))
         return cls(
             code=value.get("code"),
             message=value.get("message", ""),

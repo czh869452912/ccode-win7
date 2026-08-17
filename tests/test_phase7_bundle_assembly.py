@@ -106,10 +106,10 @@ def _compile_plan(tmp_path, flavor="minimal-cli"):
     (
         (lambda plan: plan.pop("gate_ids"), "missing required array: gate_ids"),
         (lambda plan: plan["shell_ids"].append("unknown"), "unknown shell id"),
-            (
-                lambda plan: plan["project_distribution_ids"].clear(),
-                "project distributions must be non-empty",
-            ),
+        (
+            lambda plan: plan["project_distribution_ids"].clear(),
+            "project distributions must be non-empty",
+        ),
     ),
 )
 def test_bundle_plan_reader_fails_closed(tmp_path, mutation, message):

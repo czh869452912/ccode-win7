@@ -853,7 +853,9 @@ def test_frontend_tool_catalog_gets_harness_tools_from_workflow_extension(tmp_pa
 
     adapter = InProcessAdapter(
         tools=ToolRuntime(str(tmp_path)),
-        agent_application_registry=product_agent_application_registry(),
+        agent_application_registry=product_agent_application_registry(
+            ("embedagent.default_c_cpp",)
+        ),
     )
 
     names = set(item.get("name") for item in adapter.get_tool_catalog())
