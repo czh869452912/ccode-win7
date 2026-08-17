@@ -61,7 +61,7 @@ class RecordingApplicationRegistrar(object):
         self.active_source_ids[:] = []
 ```
 
-- [ ] **Step 1: Write failing manifest validation tests**
+- [x] **Step 1: Write failing manifest validation tests**
 
 ```python
 def test_application_manifest_requires_explicit_registration_entry():
@@ -92,7 +92,7 @@ Run: `uv run pytest tests/test_application_plugin_contract.py -q`
 
 Expected: FAIL because `ApplicationManifest`, `validate_application_manifest`, and the source-aware registration API do not exist.
 
-- [ ] **Step 2: Add the build-time manifest model**
+- [x] **Step 2: Add the build-time manifest model**
 
 Implement `ApplicationManifest` in `embedagent_composition.application` with these immutable fields:
 
@@ -124,7 +124,7 @@ runtime_only=True)` record. The catalog owns distribution records separately fro
 records so the compiler can project selected component owners without making the composition
 compiler a runtime dependency.
 
-- [ ] **Step 3: Add the runtime registrar without a general service bag**
+- [x] **Step 3: Add the runtime registrar without a general service bag**
 
 Implement `ApplicationRegistrar` in Core with focused methods only:
 
@@ -154,7 +154,7 @@ class ApplicationRegistrar(object):
 
 Each method must validate the source id, delegate capability registration to `AgentExtensionHost`/`ExtensionManager`, and retain a disposer. `dispose()` must be idempotent and unwind registrations in reverse order. It must never expose the mutable Core `Session`, permission decisions, or a generic dictionary of services.
 
-- [ ] **Step 4: Export the contract and run focused tests**
+- [x] **Step 4: Export the contract and run focused tests**
 
 Export `ApplicationManifest`, `validate_application_manifest`, and `ApplicationRegistrar` from their package `__init__.py` files. Run:
 
@@ -164,7 +164,7 @@ uv run pytest tests/test_application_plugin_contract.py tests/test_capability_ex
 
 Expected: all new contract tests pass and existing extension tests remain green.
 
-- [ ] **Step 5: Commit the contract boundary**
+- [x] **Step 5: Commit the contract boundary**
 
 ```bash
 git add packages/embedagent-composition packages/embedagent-core tests/test_application_plugin_contract.py
@@ -198,7 +198,7 @@ from embedagent.bundle_catalog import official_bundle_recipe_registry, product_c
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def compile_bundle_plan_for(flavor, target_id="win7-x64", assurance="dev"):
+def compile_bundle_plan_for(flavor, target_id="win7-x64-portable", assurance="dev"):
     recipe = official_bundle_recipe_registry().resolve(flavor)
     return compile_bundle_plan(
         recipe=recipe,
@@ -210,11 +210,11 @@ def compile_bundle_plan_for(flavor, target_id="win7-x64", assurance="dev"):
     )
 ```
 
-- [ ] **Step 1: Write failing closure tests**
+- [x] **Step 1: Write failing closure tests**
 
 ```python
 def test_generic_plan_contains_no_cpp_distribution_or_composition_runtime():
-    plan = compile_bundle_plan_for("generic-cli", target_id="win7-x64", assurance="dev")
+    plan = compile_bundle_plan_for("minimal-cli", target_id="win7-x64", assurance="dev")
     assert "embedagent-workflow-cpp" not in plan.project_distribution_ids
     assert "embedagent-shell" in plan.project_distribution_ids
     assert "embedagent-composition" not in plan.project_distribution_ids
@@ -228,7 +228,7 @@ def test_cpp_plan_adds_only_selected_workflow_distribution_and_assets():
 
 
 def test_distribution_owner_is_derived_from_selected_components():
-    plan = compile_bundle_plan_for("generic-cli", target_id="win7-x64", assurance="dev")
+    plan = compile_bundle_plan_for("minimal-cli", target_id="win7-x64", assurance="dev")
     catalog = product_component_catalog()
     assert set(plan.project_distribution_ids) == set(
         catalog.manifest(component_id).distribution_id for component_id in plan.component_ids
@@ -239,19 +239,19 @@ Run: `uv run pytest tests/test_selected_distribution_closure.py tests/test_bundl
 
 Expected: FAIL because `PORTABLE_PROJECT_DISTRIBUTIONS` still overrides the selected component closure.
 
-- [ ] **Step 2: Add distribution ownership to component manifests**
+- [x] **Step 2: Add distribution ownership to component manifests**
 
 Extend `ComponentManifest` with `distribution_id` and optional `registration_entry`. Require every runtime component to name its owning distribution. Make catalog freezing reject a component whose owner is not in the catalog's distribution records and reject an application registration entry that is not represented in the selected component.
 
-- [ ] **Step 3: Remove the fixed distribution constant**
+- [x] **Step 3: Remove the fixed distribution constant**
 
 Delete `PORTABLE_PROJECT_DISTRIBUTIONS` from `embedagent_composition.bundle`. In `compile_bundle_plan`, compute `project_distribution_ids` by preserving the dependency order of selected components and projecting each component's `distribution_id`; deduplicate while retaining first appearance. Do not add `embedagent-composition` unless a build-only command explicitly requests compiler tooling.
 
-- [ ] **Step 4: Bind lock, manifest, and plan hashes to the same closure**
+- [x] **Step 4: Bind lock, manifest, and plan hashes to the same closure**
 
 Add `registration_entries` to `CompiledBundlePlan.to_dict()` while keeping the existing `project_distribution_ids` field as the single canonical wheel set. Make `export.py` write both values into `agent.lock.json` and make every hash use the same canonical plan payload. Reject a wheel manifest when its project wheel set differs from `plan.project_distribution_ids`.
 
-- [ ] **Step 5: Run composition tests and commit**
+- [x] **Step 5: Run composition tests and commit**
 
 ```bash
 uv run pytest tests/test_selected_distribution_closure.py tests/test_bundle_plan.py tests/test_product_bundle_recipes.py -q
@@ -295,7 +295,7 @@ def test_smoke_runner_rejects_unplanned_project_wheel():
     with pytest.raises(ValueError, match="unplanned distribution"):
         scenario_wheels(
             ("embedagent-core", "embedagent-workflow-cpp"),
-            compile_bundle_plan_for("generic-cli"),
+            compile_bundle_plan_for("minimal-cli"),
         )
 ```
 
@@ -342,7 +342,7 @@ git commit -m "refactor: make offline packaging consume compiled bundle plans"
 - Modify: `tests/test_minimal_shell_contract.py`
 - Create: `tests/test_generic_shell_bootstrap.py`
 
-The shell test module reuses `RecordingApplicationRegistrar` from `tests/test_application_plugin_contract.py` through a test helper module, and loads the generic plan with `compile_bundle_plan_for("generic-cli")`.
+The shell test module reuses `RecordingApplicationRegistrar` from `tests/test_application_plugin_contract.py` through a test helper module, and loads the generic plan with `compile_bundle_plan_for("minimal-cli")`.
 
 - [ ] **Step 1: Write the generic shell isolation test**
 
@@ -357,7 +357,7 @@ def test_generic_shell_bootstrap_does_not_import_cpp_or_composition(monkeypatch)
 
     monkeypatch.setattr(builtins, "__import__", tracking_import)
     bootstrap_generic_shell(
-        compile_bundle_plan_for("generic-cli"),
+        compile_bundle_plan_for("minimal-cli"),
         registrar=RecordingApplicationRegistrar(),
     )
     assert not any(name.startswith("embedagent_workflow_cpp") for name in imported)
@@ -366,7 +366,7 @@ def test_generic_shell_bootstrap_does_not_import_cpp_or_composition(monkeypatch)
 
 def test_generic_shell_has_no_synthesized_mode_capability():
     descriptor = compile_generic_shell_descriptor(
-        compile_bundle_plan_for("generic-cli"), session_capabilities={}
+        compile_bundle_plan_for("minimal-cli"), session_capabilities={}
     )
     assert not any(item.id.startswith("mode.") for item in descriptor.commands)
 ```
@@ -727,13 +727,13 @@ git commit -m "docs: publish generic application plugin architecture"
 - Modify: `scripts/create-release-identity.py`
 - Modify: `scripts/release_identity.py`
 
-The release tests reuse `compile_bundle_plan_for("generic-cli")` and `compile_bundle_plan_for("cpp-desktop")` from the closure test helper and pass the resulting plan object into the release identity builder.
+The release tests reuse `compile_bundle_plan_for("minimal-cli")` and `compile_bundle_plan_for("cpp-desktop")` from the closure test helper and pass the resulting plan object into the release identity builder.
 
 - [ ] **Step 1: Add generic and C++ artifact acceptance tests**
 
 ```python
 def test_generic_release_identity_excludes_cpp_and_llvm():
-    identity = create_release_identity(compile_bundle_plan_for("generic-cli"), evidence={})
+    identity = create_release_identity(compile_bundle_plan_for("minimal-cli"), evidence={})
     assert "embedagent-workflow-cpp" not in identity["project_distribution_ids"]
     assert "toolchain.clang" not in identity["runtime_capability_ids"]
 

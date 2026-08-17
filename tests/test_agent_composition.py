@@ -16,12 +16,16 @@ def manifest(
     assets=(),
     namespaces=(),
     runtime_requirements=(),
+    distribution_id="embedagent-core",
+    registration_entry="",
 ):
     return ComponentManifest(
         component_id=component_id,
         kind=kind,
         version="0.1.0",
         api_version="agent_component_v1",
+        distribution_id=distribution_id,
+        registration_entry=registration_entry,
         requires=tuple(requires),
         conflicts=tuple(conflicts),
         runtime_assets=tuple(assets),
@@ -32,7 +36,7 @@ def manifest(
 
 def make_catalog():
     catalog = ComponentCatalog()
-    catalog.register(manifest("embedagent-core", "runtime", assets=("core.txt",)))
+    catalog.register(manifest("embedagent-core", "distribution", assets=("core.txt",)))
     catalog.register(
         manifest(
             "embedagent-protocol",
@@ -138,6 +142,7 @@ def test_cpp_export_contains_workflow_assets_and_reproducible_lock(tmp_path):
 
 def test_catalog_rejects_duplicate_namespace_and_asset_escape():
     catalog = ComponentCatalog()
+    catalog.register(manifest("embedagent-core", "distribution"))
     catalog.register(manifest("one", "tool", namespaces=("tool:duplicate",)))
     catalog.register(manifest("two", "tool", namespaces=("tool:duplicate",)))
     with pytest.raises(CompositionError) as duplicate:
@@ -152,6 +157,7 @@ def test_catalog_rejects_duplicate_namespace_and_asset_escape():
 
 def test_shells_and_runtime_requirements_are_compiled_deterministically():
     catalog = ComponentCatalog()
+    catalog.register(manifest("embedagent-core", "distribution"))
     catalog.register(manifest("profile", "profile"))
     catalog.register(
         manifest(
@@ -179,6 +185,7 @@ def test_shells_and_runtime_requirements_are_compiled_deterministically():
 
 def test_catalog_accepts_hyphenated_runtime_requirement_namespace():
     catalog = ComponentCatalog()
+    catalog.register(manifest("embedagent-core", "distribution"))
     catalog.register(
         manifest(
             "shell.tui",

@@ -7,18 +7,9 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Set, Tuple
 
 from .catalog import FrozenComponentCatalog
-from .compiler import compile_agent
+from .compiler import compile_agent, derive_distribution_closure
 from .errors import CompositionError
 from .recipes import OfficialBundleRecipe
-
-PORTABLE_PROJECT_DISTRIBUTIONS = (
-    "embedagent-core",
-    "embedagent-protocol",
-    "embedagent-host",
-    "embedagent-composition",
-    "embedagent-workflow-cpp",
-    "embedagent",
-)
 
 _RUNTIME_CAPABILITY_RE = re.compile(r"^[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)+$")
 _ASSURANCE_LEVELS = ("dev", "release")
@@ -52,6 +43,7 @@ class CompiledBundlePlan:
     launcher_ids: Tuple[str, ...]
     gate_ids: Tuple[str, ...]
     project_distribution_ids: Tuple[str, ...]
+    registration_entries: Tuple[str, ...]
     agent_lock_sha256: str
     component_catalog_sha256: str
     runtime_contract_sha256: str
@@ -76,6 +68,7 @@ class CompiledBundlePlan:
             "launcher_ids": list(self.launcher_ids),
             "gate_ids": list(self.gate_ids),
             "project_distribution_ids": list(self.project_distribution_ids),
+            "registration_entries": list(self.registration_entries),
             "agent_lock_sha256": self.agent_lock_sha256,
             "component_catalog_sha256": self.component_catalog_sha256,
             "runtime_contract_sha256": self.runtime_contract_sha256,
@@ -341,6 +334,7 @@ def compile_bundle_plan(
     components = compiled_agent.manifest["components"]
     component_ids = tuple(item["component_id"] for item in components)
     _validate_shells(recipe, components)
+    project_distribution_ids, registration_entries = derive_distribution_closure(components)
 
     requirements = set(
         _capability_list(
@@ -433,7 +427,8 @@ def compile_bundle_plan(
         python_feature_ids=tuple(sorted(python_features)),
         launcher_ids=tuple(sorted(selected_launchers)),
         gate_ids=tuple(sorted(selected_gates)),
-        project_distribution_ids=PORTABLE_PROJECT_DISTRIBUTIONS,
+        project_distribution_ids=project_distribution_ids,
+        registration_entries=registration_entries,
         agent_lock_sha256=_value_sha256(compiled_agent.lock),
         component_catalog_sha256=_value_sha256(catalog_payload),
         runtime_contract_sha256=_value_sha256(runtime_contract),

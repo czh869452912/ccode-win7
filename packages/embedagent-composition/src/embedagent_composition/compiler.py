@@ -69,6 +69,25 @@ def _selected_components(
     return _component_order(selected, catalog)
 
 
+def derive_distribution_closure(
+    components: List[Dict[str, object]],
+) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
+    """Project selected component manifests into their runtime owners."""
+    distributions = []  # type: List[str]
+    registration_entries = []  # type: List[str]
+    for component in components:
+        component_id = str(component.get("component_id") or "").strip()
+        distribution_id = str(component.get("distribution_id") or "").strip()
+        if not distribution_id:
+            raise CompositionError("missing_distribution_owner", component_id)
+        if distribution_id not in distributions:
+            distributions.append(distribution_id)
+        registration_entry = str(component.get("registration_entry") or "").strip()
+        if registration_entry and registration_entry not in registration_entries:
+            registration_entries.append(registration_entry)
+    return tuple(distributions), tuple(registration_entries)
+
+
 def compile_agent(
     definition: AgentProductDefinition,
     catalog: FrozenComponentCatalog,
@@ -127,6 +146,7 @@ def compile_agent(
                 "manifest_sha256": hashlib.sha256(_canonical(manifest).encode("ascii")).hexdigest(),
             }
         )
+    project_distribution_ids, registration_entries = derive_distribution_closure(components)
     manifest_payload = {
         "schema_version": 1,
         "agent_id": agent_id,
@@ -137,6 +157,8 @@ def compile_agent(
         "agent_id": agent_id,
         "components": lock_components,
         "files": sorted(files, key=lambda item: (item["target_path"], item["component_id"])),
+        "project_distribution_ids": list(project_distribution_ids),
+        "registration_entries": list(registration_entries),
     }
     return CompiledAgentSpec(
         agent_id=agent_id,

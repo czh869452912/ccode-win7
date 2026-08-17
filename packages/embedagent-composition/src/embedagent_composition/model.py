@@ -22,6 +22,8 @@ class ComponentManifest:
     kind: str
     version: str
     api_version: str
+    distribution_id: str = ""
+    registration_entry: str = ""
     requires: Tuple[str, ...] = field(default_factory=tuple)
     conflicts: Tuple[str, ...] = field(default_factory=tuple)
     permission_categories: Tuple[str, ...] = field(default_factory=tuple)
@@ -36,6 +38,8 @@ class ComponentManifest:
             "kind": str(self.kind),
             "version": str(self.version),
             "api_version": str(self.api_version),
+            "distribution_id": str(self.distribution_id),
+            "registration_entry": str(self.registration_entry),
             "requires": list(self.requires),
             "conflicts": list(self.conflicts),
             "permission_categories": list(self.permission_categories),

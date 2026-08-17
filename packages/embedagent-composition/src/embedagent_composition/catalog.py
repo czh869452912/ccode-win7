@@ -8,6 +8,10 @@ from .errors import CompositionError
 from .model import ComponentManifest
 
 _RUNTIME_REQUIREMENT_RE = re.compile(r"^[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)+$")
+_DISTRIBUTION_ID_RE = re.compile(r"^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)*$")
+_REGISTRATION_ENTRY_RE = re.compile(
+    r"^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_.]*$"
+)
 
 
 def _validate_asset_path(value: str) -> None:
@@ -51,13 +55,33 @@ class ComponentCatalog(object):
             value = str(requirement or "").strip()
             if not _RUNTIME_REQUIREMENT_RE.match(value):
                 raise CompositionError("invalid_runtime_requirement", value)
+        distribution_id = str(manifest.distribution_id or "").strip()
+        if not _DISTRIBUTION_ID_RE.match(distribution_id):
+            raise CompositionError("invalid_distribution_owner", component_id)
+        registration_entry = str(manifest.registration_entry or "").strip()
+        if registration_entry and not _REGISTRATION_ENTRY_RE.match(registration_entry):
+            raise CompositionError("invalid_registration_entry", component_id)
         self._manifests[component_id] = manifest
 
     def freeze(self) -> FrozenComponentCatalog:
         if self._frozen:
             return FrozenComponentCatalog(self._manifests)
+        distribution_ids = set(
+            manifest.component_id
+            for manifest in self._manifests.values()
+            if manifest.kind == "distribution"
+        )
+        if not distribution_ids:
+            raise CompositionError("missing_distribution_owner", "catalog has no distributions")
         namespaces = {}
         for manifest in self._manifests.values():
+            if manifest.distribution_id not in distribution_ids:
+                raise CompositionError(
+                    "unknown_distribution_owner",
+                    "%s -> %s" % (manifest.component_id, manifest.distribution_id),
+                )
+            if manifest.kind == "distribution" and manifest.distribution_id != manifest.component_id:
+                raise CompositionError("invalid_distribution_owner", manifest.component_id)
             for required in manifest.requires:
                 if required not in self._manifests:
                     raise CompositionError(

@@ -13,16 +13,6 @@ from embedagent_composition import (
     compile_bundle_plan,
 )
 
-PORTABLE_PROJECT_DISTRIBUTIONS = (
-    "embedagent-core",
-    "embedagent-protocol",
-    "embedagent-host",
-    "embedagent-composition",
-    "embedagent-workflow-cpp",
-    "embedagent",
-)
-
-
 def _definition():
     return AgentProductDefinition(
         agent_id="tests.generic",
@@ -44,10 +34,20 @@ def _catalog():
     catalog = ComponentCatalog()
     catalog.register(
         ComponentManifest(
+            component_id="embedagent-core",
+            kind="distribution",
+            version="0.1.0",
+            api_version="agent_component_v1",
+            distribution_id="embedagent-core",
+        )
+    )
+    catalog.register(
+        ComponentManifest(
             component_id="profile.generic",
             kind="profile",
             version="0.1.0",
             api_version="agent_component_v1",
+            distribution_id="embedagent-core",
             runtime_requirements=("runtime.python",),
         )
     )
@@ -57,6 +57,7 @@ def _catalog():
             kind="shell",
             version="0.1.0",
             api_version="agent_component_v1",
+            distribution_id="embedagent-core",
         )
     )
     return catalog.freeze()
@@ -116,7 +117,7 @@ def test_recipe_registry_rejects_duplicates_and_unknown_ids():
     assert unknown.value.code == "unknown_bundle_recipe"
 
 
-def test_bundle_plan_is_deterministic_and_exactly_six_distributions():
+def test_bundle_plan_is_deterministic_and_projects_selected_distributions():
     first = compile_bundle_plan(
         recipe=_recipe(),
         catalog=_catalog(),
@@ -135,7 +136,7 @@ def test_bundle_plan_is_deterministic_and_exactly_six_distributions():
     )
 
     assert first.to_dict() == second.to_dict()
-    assert first.project_distribution_ids == PORTABLE_PROJECT_DISTRIBUTIONS
+    assert first.project_distribution_ids == ("embedagent-core",)
     assert first.config_template_id == "minimal-cli"
     assert first.allowed_agent_application_ids == ("tests.generic",)
     assert first.runtime_capability_ids == ("runtime.python",)

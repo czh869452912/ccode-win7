@@ -1,6 +1,6 @@
 """Dependency-free build-time Agent composition and export contracts."""
 
-from .bundle import PORTABLE_PROJECT_DISTRIBUTIONS, CompiledBundlePlan, compile_bundle_plan
+from .bundle import CompiledBundlePlan, compile_bundle_plan
 from .catalog import ComponentCatalog, FrozenComponentCatalog
 from .compiler import compile_agent
 from .errors import CompositionError
@@ -29,7 +29,6 @@ __all__ = [
     "FrozenBundleRecipeRegistry",
     "FrozenComponentCatalog",
     "OfficialBundleRecipe",
-    "PORTABLE_PROJECT_DISTRIBUTIONS",
     "compile_agent",
     "compile_bundle_plan",
     "export_agent",
