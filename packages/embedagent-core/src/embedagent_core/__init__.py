@@ -13,6 +13,7 @@ from embedagent_core.api import (
     RuntimeDefinition,
     UserTurn,
 )
+from embedagent_core.application import ApplicationRegistrar
 from embedagent_core.model import ModelClient, ModelClientError
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.ports import (
@@ -42,6 +43,7 @@ __all__ = [
     "AgentResult",
     "AgentSession",
     "AgentSessionView",
+    "ApplicationRegistrar",
     "AssistantReply",
     "CancelToken",
     "ContextAssemblerPort",
