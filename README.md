@@ -1,10 +1,10 @@
 # EmbedAgent
 
-EmbedAgent is a native, offline-first Agent IDE assembled from a reusable workflow-neutral Agent Platform, replaceable upper-layer applications, and product-specific delivery. The packaged default is a Clang-centered C/C++ development workflow. The product must run from a self-contained bundle on Windows 7 with Python 3.8 and without network access or preinstalled developer tools.
+EmbedAgent is a native, offline-first Agent shell assembled from a reusable workflow-neutral Agent Platform, replaceable upper-layer applications, and product-specific delivery. The packaged default can select a Clang-centered C/C++ application, while a generic Agent can be exported without it. Every product artifact is a selected application dependency closure and must run from a self-contained bundle on Windows 7 with Python 3.8 and without network access or preinstalled developer tools.
 
 ## Architecture At A Glance
 
-The repository is a six-distribution uv workspace:
+The repository is a uv workspace with six buildable distributions; each artifact exports only the distributions selected by its compiled bundle plan:
 
 | Distribution | Import package | Ownership |
 |---|---|---|
@@ -13,17 +13,17 @@ The repository is a six-distribution uv workspace:
 | `embedagent-host` | `embedagent_host` | Generic providers, local services, tools, stores, context, and hosted sessions |
 | `embedagent-composition` | `embedagent_composition` | Dependency-free build-time definition/compiler/export contracts |
 | `embedagent-workflow-cpp` | `embedagent_workflow_cpp` | Independently exported default C/C++ workflow package |
-| `embedagent` | `embedagent` | Product bootstrap plus CLI, TUI, and GUI shells |
+| `embedagent-shell` | `embedagent` | Generic product bootstrap plus CLI, TUI, and GUI shells |
 
 ```text
 embedagent-core --------> embedagent-host --------\
         |                       ^                  \
-        +--> embedagent-workflow-cpp                > embedagent
+        +--> embedagent-workflow-cpp                > embedagent-shell
 embedagent-protocol ----> embedagent-host --------/
 embedagent-composition --------------------------/
 ```
 
-Core, Protocol, Composition, and the C/C++ workflow never import the product. Host depends only on exact-matched Core and Protocol distributions. Product composition injects workflow packages and product registries into Host.
+Core, Protocol, Composition, and the C/C++ workflow never import the product. Host depends only on exact-matched Core and Protocol distributions. Product composition injects selected application contributions and product registries into Host. Composition is build-time only and is not a fixed runtime dependency.
 
 ## Quick Commands
 
@@ -45,10 +45,10 @@ uv run --locked python scripts/lint.py
 uv run --locked python scripts/lint.py --fix
 make ci
 
-# Build, inspect, and isolate-smoke all six distributions
-uv run python scripts/build-python-distributions.py --dist-dir dist
-uv run python scripts/check-python-distributions.py --dist-dir dist
-uv run python scripts/smoke-python-distributions.py --dist-dir dist --python .venv/Scripts/python.exe
+# Build, inspect, and isolate-smoke a selected closure
+uv run python scripts/build-python-distributions.py --dist-dir dist --bundle-plan build/plans/minimal-cli/bundle-plan.json
+uv run python scripts/check-python-distributions.py --dist-dir dist --bundle-plan build/plans/minimal-cli/bundle-plan.json
+uv run python scripts/smoke-python-distributions.py --dist-dir dist --python .venv/Scripts/python.exe --bundle-plan build/plans/minimal-cli/bundle-plan.json
 ```
 
 ```powershell

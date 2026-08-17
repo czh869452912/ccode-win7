@@ -6,12 +6,9 @@
 
 - `docs/superpowers/plans/2026-07-19-win7-acceptance-handoff.md`
 
-## Architecture Evaluation
+## Architecture Convergence
 
-- `docs/superpowers/reports/2026-08-16-pi-shaped-generic-agent-architecture-report.md`
-- `docs/superpowers/specs/2026-08-16-pi-shaped-generic-agent-architecture-design.md`
-- `docs/superpowers/plans/2026-08-17-generic-agent-application-plugin-closure-export.md`
-- `docs/superpowers/handoffs/2026-08-16-pi-shaped-generic-agent-architecture/continue.md`
+- `docs/superpowers/plans/2026-08-17-public-contract-and-repository-boundary-convergence.md`
 
 ## Closure Rule
 

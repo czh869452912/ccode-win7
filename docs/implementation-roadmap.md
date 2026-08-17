@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`roadmap`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-08-16`
+> 最后同步日期：`2026-08-17`
 > 详细当前状态：`docs/current-status.md`
 
 ## Purpose
@@ -17,13 +17,19 @@
 - 每份报告必须匹配该 flavor 的 release identity、bundle plan/Agent lock hash 与精确 gate set；不得用另一个 flavor 的证据替代。
 - 仅当两个 official release flavor 各自被 `validate-release-evidence.py` 报告为 `ACCEPTED` 时退出本阶段。
 
-## P1: Real C/C++ Project Validation
+## P1: Public Contract And Repository Boundary Convergence
+
+- 依次执行 `docs/superpowers/plans/2026-08-17-public-contract-and-repository-boundary-convergence.md` 的 contract freeze、mode/profile removal、capability-driven shell、safe diagnostics 和 isolated C++ export proof。
+- `agent_application_v1`、registration entry、selected distribution、runtime requirement、asset 和 gate 必须由同一份 compiled plan/lock 表达；不恢复固定 wheel 数量或隐式 C++ 注册。
+- 只有 Core/Protocol/C++ isolated wheel smoke、版本化 release metadata 和 product consumption test 全部通过，才进入物理 repository split 的独立决策。
+
+## P2: Real C/C++ Project Validation
 
 - 选取有代表性的 C 与 C++ 工作区。
 - 验证 recipe 发现、Clang 诊断、构建/测试、权限、恢复与离线流程。
 - 在宣称真实项目验证完成前，先固定项目语料、证据格式和退出条件。
 
-## P2: Test And CI Follow-Up
+## P3: Test And CI Follow-Up
 
 - 只关闭有可复核证据的活跃 CI 切片。
 - frontend session-event 回归必须在共享 Python/JavaScript contract 与真实 staged launcher 路径复现；不得用 shell-local timing workaround、重试或第二个 cursor 掩盖发布边界问题。

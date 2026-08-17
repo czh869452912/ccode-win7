@@ -3,7 +3,7 @@
 > 状态：`archive`
 > 类型：`reference`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-08-16`
+> 最后同步日期：`2026-08-17`
 > 对应代码范围：`docs/archive/`
 
 ## 1. Purpose
@@ -60,6 +60,7 @@ Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md` 
 - `phase6-validation/`
 - `phase7-release-readiness/`
 - `pi-aligned-tool-architecture/`
+- `pi-shaped-generic-agent/`
 - `pi-t3-residual-debt-cleanup/`
 - `pre-release-debt-cleanup/`
 - `pi-like-agent-core-boundary/`

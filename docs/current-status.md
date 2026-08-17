@@ -35,9 +35,10 @@
 
 ## Next Actions
 
-1. 定义真实 C/C++ 项目语料、证据格式和退出条件，然后执行首轮项目验证。
-2. 在环境可用后分别获取并验证 `minimal-cli` 与 `cpp-desktop` 的 plan-bound Windows 7 证据报告。
-3. 只在现有分区出现可复核问题时继续拆分测试/CI 技术债。
+1. 按 `docs/superpowers/plans/2026-08-17-public-contract-and-repository-boundary-convergence.md` 的顺序冻结 application contract，并移除 Core/Host 的 mode/profile 与隐式 provider 债务。
+2. 让 Protocol、CLI、TUI、GUI 只消费 selected capability projection，再完成安全诊断 DTO 与 application-scoped runtime requirement 校验。
+3. 对 `cpp-desktop` 执行 Core/Protocol/C++ isolated wheel proof；只有公共契约、版本化 lock 和独立 smoke 全部通过后，才评估物理拆库。
+4. 并行保留 `minimal-cli`/`cpp-desktop` 的 Windows 7 目标机证据和真实 C/C++ 项目验证，不以本地 smoke 替代交付验收。
 
 ## Evidence Boundary
 

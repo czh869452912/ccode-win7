@@ -37,7 +37,7 @@ The resulting report must retain:
 - `final_status=TARGET_READY`;
 - `acceptance_status=PENDING_WIN7`;
 - `publishable=false`;
-- exact identities and hashes for all six project wheels;
+- exact identities and hashes for every project wheel selected by the compiled bundle plan;
 - bundle-local C and GUI smoke results;
 - `runtime_source=bundle` and `allow_system_tool_fallback=false`;
 - the release identity consumed by the target-machine validator.

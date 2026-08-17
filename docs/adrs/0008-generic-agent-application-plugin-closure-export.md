@@ -3,9 +3,9 @@
 - 状态：`accepted`
 - 日期：2026-08-17
 - 相关文档：
-  - `docs/superpowers/specs/2026-08-16-pi-shaped-generic-agent-architecture-design.md`
   - `docs/overall-solution-architecture.md`
   - `docs/platform/agent-platform-blueprint.md`
+  - `docs/superpowers/plans/2026-08-17-public-contract-and-repository-boundary-convergence.md`
 
 ## 背景
 
