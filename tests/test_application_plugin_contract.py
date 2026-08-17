@@ -29,6 +29,7 @@ class RecordingApplicationRegistrar(object):
     def __init__(self):
         self.source_ids = []
         self.active_source_ids = []
+        self.runtime_contributions = []
 
     def add_extension(self, extension, source_id):
         self.source_ids.append(source_id)
@@ -43,6 +44,11 @@ class RecordingApplicationRegistrar(object):
 
     def add_shell_contribution(self, contribution, source_id):
         return self.add_extension(contribution, source_id)
+
+    def add_runtime_contribution(self, contribution, source_id):
+        self.source_ids.append(source_id)
+        self.runtime_contributions.append(contribution)
+        return lambda: self.runtime_contributions.remove(contribution)
 
     def dispose(self):
         self.active_source_ids[:] = []
@@ -93,3 +99,46 @@ def test_application_registrar_disposes_source_registrations_in_reverse_order():
         ("dispose_shell", "app.second"),
         ("dispose", "app.first"),
     ]
+
+
+def test_application_runtime_contribution_is_a_focused_workflow_neutral_contract():
+    contribution_type = getattr(embedagent_core, "ApplicationRuntimeContribution", None)
+    assert contribution_type is not None, "runtime contribution contract is missing"
+    contribution = contribution_type(
+        application_id="app.generic",
+        label="Generic Agent",
+        runtime_definition_factory=lambda: object(),
+        capabilities=("tool.read_file",),
+    )
+    assert contribution.application_id == "app.generic"
+    assert callable(contribution.runtime_definition_factory)
+    assert contribution.capabilities == ("tool.read_file",)
+    assert not hasattr(contribution, "permission_policy")
+
+
+def test_application_registrar_collects_runtime_contributions_and_disposes_them():
+    registrar_type = getattr(embedagent_core, "ApplicationRegistrar", None)
+    contribution_type = getattr(embedagent_core, "ApplicationRuntimeContribution", None)
+    assert registrar_type is not None
+    assert contribution_type is not None
+
+    class ExtensionHost(object):
+        def register(self, extension, source_id):
+            del extension, source_id
+            return lambda: None
+
+    class ShellRegistry(object):
+        def register(self, contribution, source_id):
+            del contribution, source_id
+            return lambda: None
+
+    contribution = contribution_type(
+        application_id="app.generic",
+        label="Generic Agent",
+        runtime_definition_factory=lambda: object(),
+    )
+    registrar = registrar_type(ExtensionHost(), ShellRegistry())
+    disposer = registrar.add_runtime_contribution(contribution, "app.generic")
+    assert registrar.runtime_contributions() == (contribution,)
+    disposer()
+    assert registrar.runtime_contributions() == ()

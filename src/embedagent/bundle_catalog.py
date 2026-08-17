@@ -76,7 +76,7 @@ def product_component_catalog() -> FrozenComponentCatalog:
             "embedagent-workflow-cpp",
             requires=("embedagent-core", "embedagent-protocol"),
             runtime_requirements=("runtime.python",),
-            registration_entry="embedagent_workflow_cpp.application:register",
+            registration_entry="embedagent_workflow_cpp.application:register_application",
         ),
         _manifest(
             "provider.openai-compatible",
@@ -103,7 +103,7 @@ def product_component_catalog() -> FrozenComponentCatalog:
             "embedagent-workflow-cpp",
             requires=("embedagent-workflow-cpp",),
             runtime_requirements=("toolchain.clang", "symbols.ctags"),
-            registration_entry="embedagent_workflow_cpp.application:register",
+            registration_entry="embedagent_workflow_cpp.application:register_application",
         ),
         _manifest("shell.cli", "shell", "embedagent-shell", requires=("embedagent-shell",)),
         _manifest(

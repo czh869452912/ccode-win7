@@ -10,6 +10,7 @@ def _write_bundle_policy(
     root,
     applications=("embedagent.generic",),
     shells=("cli",),
+    registration_entries=("embedagent.product_catalog:register",),
     manifest_hash=None,
 ):
     for relative in ("app/embedagent", "runtime/python", "bin"):
@@ -21,6 +22,7 @@ def _write_bundle_policy(
         "flavor_id": "minimal-cli",
         "allowed_agent_application_ids": list(applications),
         "shell_ids": list(shells),
+        "registration_entries": list(registration_entries),
     }
     plan_path = manifests / "bundle-plan.json"
     plan_path.write_text(json.dumps(plan, sort_keys=True), encoding="ascii")
@@ -45,6 +47,7 @@ def test_bundle_policy_rejects_unplanned_application_and_shell(tmp_path):
 
     assert policy.bundled is True
     assert policy.bundle_plan_sha256 == plan_sha256
+    assert policy.registration_entries == ("embedagent.product_catalog:register",)
     assert policy.require_application("") == "embedagent.generic"
     assert policy.require_application("embedagent.generic") == "embedagent.generic"
     assert policy.require_shell("cli") == "cli"
@@ -84,3 +87,10 @@ def test_current_policy_discovers_launcher_bundle_from_environment(tmp_path, mon
 
     assert policy.bundled is True
     assert policy.flavor_id == "minimal-cli"
+
+
+def test_bundle_policy_rejects_missing_registration_entries(tmp_path):
+    bundle, _ = _write_bundle_policy(tmp_path, registration_entries=())
+
+    with pytest.raises(ValueError, match="registration_entries"):
+        load_bundle_policy(str(bundle))

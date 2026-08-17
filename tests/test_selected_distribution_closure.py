@@ -38,6 +38,10 @@ def test_cpp_plan_adds_only_selected_workflow_distribution_and_assets():
     assert "embedagent-workflow-cpp" in plan.project_distribution_ids
     assert "toolchain.clang" in plan.runtime_capability_ids
     assert "symbols.ctags" in plan.runtime_capability_ids
+    assert plan.registration_entries == (
+        "embedagent.product_catalog:register",
+        "embedagent_workflow_cpp.application:register_application",
+    )
 
 
 def test_distribution_owner_is_derived_from_selected_components():

@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Tuple
 
+from embedagent_core import ApplicationRuntimeContribution
+
 
 @dataclass(frozen=True)
 class CppApplicationManifest:
@@ -79,6 +81,25 @@ def register_application(registrar: Any):
 
     source_id = "embedagent.workflow.cpp"
     disposers = []
+    disposers.append(
+        registrar.add_runtime_contribution(
+            ApplicationRuntimeContribution(
+                application_id="embedagent.default_c_cpp",
+                label="Default C/C++ Agent",
+                runtime_definition_factory=cpp_runtime_definition,
+                workspace_contribution_factory=c_cpp_workspace_profile_detectors,
+                capabilities=tuple(cpp_application_manifest().capabilities),
+                empty_state={
+                    "scenario_label": "C/C++ workspace",
+                    "primary": "Open a C/C++ project",
+                    "secondary": "The selected agent will load its Clang-centered workflow after workspace activation.",
+                    "path_placeholder": "Path to C/C++ project",
+                },
+                metadata={"domain": "cpp", "source_id": source_id},
+            ),
+            source_id,
+        )
+    )
     runtime_definition = cpp_runtime_definition()
     for extension in tuple(runtime_definition.extensions or ()):
         disposers.append(registrar.add_extension(extension, source_id))

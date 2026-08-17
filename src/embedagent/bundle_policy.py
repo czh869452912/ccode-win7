@@ -3,11 +3,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Tuple
 
 from embedagent.runtime_discovery import discover_bundle_root
+
+_REGISTRATION_ENTRY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
 
 
 @dataclass(frozen=True)
@@ -17,6 +20,7 @@ class BundleRuntimePolicy:
     bundle_plan_sha256: str = ""
     allowed_agent_application_ids: Tuple[str, ...] = field(default_factory=tuple)
     shell_ids: Tuple[str, ...] = field(default_factory=tuple)
+    registration_entries: Tuple[str, ...] = field(default_factory=tuple)
 
     def require_application(self, requested_id: str) -> str:
         if (
@@ -63,6 +67,20 @@ def _required_ids(plan, field_name: str) -> Tuple[str, ...]:
     return normalized
 
 
+def _required_registration_entries(plan) -> Tuple[str, ...]:
+    values = plan.get("registration_entries")
+    if not isinstance(values, list):
+        raise ValueError("bundle plan registration_entries must be an array")
+    normalized = tuple(str(item or "").strip() for item in values)
+    if (
+        not normalized
+        or any(not _REGISTRATION_ENTRY_RE.fullmatch(item) for item in normalized)
+        or len(normalized) != len(set(normalized))
+    ):
+        raise ValueError("bundle plan registration_entries must contain unique valid entries")
+    return normalized
+
+
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -103,6 +121,7 @@ def load_bundle_policy(bundle_root: Optional[str]) -> BundleRuntimePolicy:
         bundle_plan_sha256=plan_sha256,
         allowed_agent_application_ids=_required_ids(plan, "allowed_agent_application_ids"),
         shell_ids=_required_ids(plan, "shell_ids"),
+        registration_entries=_required_registration_entries(plan),
     )
 
 

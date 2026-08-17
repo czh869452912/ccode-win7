@@ -70,7 +70,7 @@ def test_cli_application_composes_focused_ports_and_shared_runtime(tmp_path, mon
     monkeypatch.setattr(
         "embedagent.cli.app.product_agent_application_registry", lambda ids: registry
     )
-    monkeypatch.setattr("embedagent.cli.app.product_shell_compiler", lambda: compiler)
+    monkeypatch.setattr("embedagent.cli.app.compile_generic_shell_descriptor", compiler)
 
     application = CliApplication.from_options(options)
 
@@ -79,7 +79,13 @@ def test_cli_application_composes_focused_ports_and_shared_runtime(tmp_path, mon
     assert application.session_port is session
     assert application.workspace_port is hosted.workspace
     assert application.shell_descriptor == ShellDescriptor(schema_version=1)
-    compiler.assert_called_once_with("tests.python", _capabilities().to_dict())
+    compiler.assert_called_once_with(
+        {
+            "allowed_agent_application_ids": ("tests.python",),
+            "registration_entries": ("embedagent.product_catalog:register",),
+        },
+        _capabilities().to_dict(),
+    )
     with pytest.raises(FrozenInstanceError):
         application.options = options
 

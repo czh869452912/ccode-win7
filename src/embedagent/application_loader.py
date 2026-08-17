@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import importlib
+import re
 from typing import Any, Callable, Dict, List, Tuple
+
+_ENTRY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def _plan_value(plan: Any, name: str, default: Any = None) -> Any:
@@ -19,7 +22,7 @@ def _registration_entries(plan: Any) -> Tuple[str, ...]:
 
 def _load_entry(entry: str) -> Callable[[Any], Any]:
     module_name, separator, symbol_name = entry.partition(":")
-    if not separator or not module_name or not symbol_name:
+    if not separator or not module_name or not symbol_name or _ENTRY_RE.fullmatch(entry) is None:
         raise ValueError("application_registration_error:%s" % entry)
     try:
         module = importlib.import_module(module_name)
@@ -56,6 +59,9 @@ def load_selected_applications(plan: Any, registrar: Any):
     ) as exc:
         for disposer in reversed(disposers):
             disposer()
+        registrar_dispose = getattr(registrar, "dispose", None)
+        if callable(registrar_dispose):
+            registrar_dispose()
         if isinstance(exc, ValueError) and str(exc).startswith("application_registration_error:"):
             raise
         raise ValueError("application_registration_error:%s" % entry)
@@ -64,6 +70,9 @@ def load_selected_applications(plan: Any, registrar: Any):
         while disposers:
             disposer = disposers.pop()
             disposer()
+        registrar_dispose = getattr(registrar, "dispose", None)
+        if callable(registrar_dispose):
+            registrar_dispose()
 
     return dispose
 
@@ -77,9 +86,40 @@ def bootstrap_generic_shell(plan: Any, registrar: Any):
 
 
 def compile_generic_shell_descriptor(plan: Any, session_capabilities: Dict[str, Any]):
-    from embedagent.product_catalog import product_shell_compiler
+    from embedagent_core import ApplicationRegistrar
+
+    from embedagent.product_catalog import product_shell_registry
 
     allowed = tuple(_plan_value(plan, "allowed_agent_application_ids", ()) or ())
     if len(allowed) != 1:
         raise ValueError("application_registration_error:application_id")
-    return product_shell_compiler()(allowed[0], session_capabilities)
+
+    class _ShellOnlyExtensionHost(object):
+        def register(self, extension, source_id):
+            del extension, source_id
+            return lambda: None
+
+        def register_prompt_provider(self, provider, source_id):
+            del provider, source_id
+            return lambda: None
+
+        def register_context_provider(self, provider, source_id):
+            del provider, source_id
+            return lambda: None
+
+    registry = product_shell_registry()
+    registrar = ApplicationRegistrar(_ShellOnlyExtensionHost(), registry)
+    dispose = load_selected_applications(plan, registrar)
+    try:
+        capabilities = dict(session_capabilities or {})
+        active_sources = list(capabilities.get("application_sources", ()) or ())
+        entries = _registration_entries(plan)
+        if (
+            "embedagent_workflow_cpp.application:register_application" in entries
+            and "embedagent.workflow.cpp" not in active_sources
+        ):
+            active_sources.append("embedagent.workflow.cpp")
+        capabilities["application_sources"] = active_sources
+        return registry.compile(allowed[0], capabilities)
+    finally:
+        dispose()

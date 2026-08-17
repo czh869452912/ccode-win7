@@ -11,6 +11,7 @@ class RecordingApplicationRegistrar(object):
     def __init__(self):
         self.source_ids = []
         self.active_source_ids = []
+        self.runtime_contributions = []
 
     def _record(self, source_id):
         self.source_ids.append(source_id)
@@ -28,6 +29,10 @@ class RecordingApplicationRegistrar(object):
 
     def add_shell_contribution(self, contribution, source_id):
         return self._record(source_id)
+
+    def add_runtime_contribution(self, contribution, source_id):
+        self.runtime_contributions.append(contribution)
+        return lambda: self.runtime_contributions.remove(contribution)
 
 
 def test_cpp_plugin_manifest_declares_only_public_dependencies():
@@ -51,6 +56,16 @@ def test_cpp_registration_is_disposable():
     assert registrar.active_source_ids == []
 
 
+def test_cpp_registration_declares_runtime_contribution_without_host_dependency():
+    registrar = RecordingApplicationRegistrar()
+    disposer = register_application(registrar)
+    assert [item.application_id for item in registrar.runtime_contributions] == [
+        "embedagent.default_c_cpp"
+    ]
+    disposer()
+    assert registrar.runtime_contributions == []
+
+
 def test_cpp_registration_works_with_core_registrar_and_is_idempotent():
     calls = []
 
@@ -68,7 +83,11 @@ def test_cpp_registration_works_with_core_registrar_and_is_idempotent():
         def register(self, contribution, source_id):
             return lambda: calls.append(("shell", source_id))
 
-    registrar = ApplicationRegistrar(ExtensionHost(), ShellRegistry())
+    class RuntimeRegistry(object):
+        def register(self, contribution, source_id):
+            return lambda: calls.append(("runtime", source_id))
+
+    registrar = ApplicationRegistrar(ExtensionHost(), ShellRegistry(), RuntimeRegistry())
     disposer = register_application(registrar)
 
     assert callable(disposer)
@@ -79,4 +98,5 @@ def test_cpp_registration_works_with_core_registrar_and_is_idempotent():
         ("context", "embedagent.workflow.cpp"),
         ("prompt", "embedagent.workflow.cpp"),
         ("extension", "embedagent.workflow.cpp"),
+        ("runtime", "embedagent.workflow.cpp"),
     ]

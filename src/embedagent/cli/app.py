@@ -11,6 +11,7 @@ from embedagent_protocol import (
     ShellDescriptor,
 )
 
+from embedagent.application_loader import compile_generic_shell_descriptor
 from embedagent.bundle_policy import load_current_bundle_policy
 from embedagent.cli.options import CliOptions
 from embedagent.cli.parser import build_parser
@@ -20,7 +21,6 @@ from embedagent.frontend.runtime import SessionClientRuntime
 from embedagent.hosted import create_hosted_runtime, resolve_launch_config
 from embedagent.product_catalog import (
     product_agent_application_registry,
-    product_shell_compiler,
 )
 
 
@@ -51,8 +51,20 @@ class CliApplication(object):
             registry = product_agent_application_registry(allowed_ids)
             application = registry.record_by_id(launch_config.agent_application_id)
             capabilities = client_runtime.get_session_capabilities("")
-            descriptor = product_shell_compiler()(
-                application.application_id,
+            selected_plan = {
+                "allowed_agent_application_ids": (
+                    policy.allowed_agent_application_ids
+                    if policy.bundled
+                    else (application.application_id,)
+                ),
+                "registration_entries": (
+                    policy.registration_entries
+                    if policy.bundled
+                    else ("embedagent.product_catalog:register",)
+                ),
+            }
+            descriptor = compile_generic_shell_descriptor(
+                selected_plan,
                 capabilities.to_dict(),
             )
             if not isinstance(descriptor, ShellDescriptor):
