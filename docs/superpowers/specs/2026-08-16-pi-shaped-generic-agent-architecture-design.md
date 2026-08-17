@@ -1,8 +1,8 @@
 # Pi-Shaped Generic Agent Architecture
 
-> 状态：`proposed`
+> 状态：`accepted`
 > 类型：`architecture-design`
-> 日期：`2026-08-16`
+> 日期：`2026-08-17`
 > 基线：方案 A（沿用现有主干，收紧应用与工作流边界）
 
 ## 1. 目标
@@ -13,6 +13,7 @@
 - Host 提供可替换的运行时实现，但不拥有具体应用语义；
 - Generic application、C/C++ application 以及用户自定义 application 使用同一套应用边界；
 - CLI、未来的 TUI/GUI 只是通用 shell，不假定工程语言、模式或工具链；
+- 通用 shell/bootstrap 是运行时基线；应用只通过显式 capability contribution 扩展 shell；
 - `minimal-cli` 不携带、加载或提示任何 C/C++ 专属能力；
 - C/C++ workflow 仍然是一等产品能力，但作为可选应用包加入；
 - 每个导出制品只包含其选择闭包中的 distribution、runtime capability 和 shell。
@@ -122,7 +123,23 @@ Host runtime 接收选定 application 的：
 
 不能通过一个新的通用 service bag 恢复旧耦合；继续使用现有 focused ports 和 extension boundary。
 
-### 6.2 Application Definition
+### 6.3 Application plugin lifecycle
+
+Application plugin 由静态 manifest 和显式 registration entry 组成。manifest 是构建和诊断
+输入，不授予执行或权限；registration entry 只能通过 `AgentExtensionHost`、focused ports
+和 source-aware event bus 注册能力，并返回可逆 disposer。
+
+manifest 至少包含：
+
+- `application_id`、`api_version`、`distribution_id` 和 `registration_entry`；
+- dependency/conflict、capability、prompt/resource、toolset 和 context-provider 声明；
+- workflow-state namespace、shell contributions、runtime requirements 和 asset ids。
+
+加载顺序由声明的依赖闭包决定，不由配置文件顺序决定。运行时不扫描任意 entry point、
+不安装依赖、不执行远程代码，也不采用 Cordis 式通用共享 service bag。插件的注册、卸载
+和失败诊断必须带有稳定 source id。
+
+### 6.4 Application Definition
 
 现有 `AgentProductDefinition`/component manifest 应收敛为正式的 application composition contract，至少声明：
 
@@ -136,7 +153,7 @@ Host runtime 接收选定 application 的：
 
 通用 application 不需要声明 mode 或 workflow。C/C++ application 可以在同一 contract 中声明五模式、TaskGraph、recipes、quality tools 和 Clang runtime。
 
-### 6.3 Workspace intelligence 与 managed tools
+### 6.5 Workspace intelligence 与 managed tools
 
 `WorkspaceIntelligenceBroker` 改为基于 capability 注入 provider，默认集合只包含真正通用且被选中的 provider。Ctags、Recipe、Diagnostics、LLVM 等由 C/C++ application 注册。
 
@@ -169,9 +186,20 @@ CI 可以为了验证构建全部 workspace wheels，但任何独立导出制品
 
 第一阶段只要求源码和 distribution 依赖方向满足独立建库，不立即拆物理 Git repository。后续拆库时，各 application/shell/repository 只需要实现已冻结的 composition、protocol 和 extension contracts，不应再访问 product 私有模块。
 
+### 7.4 Runtime distribution boundary
+
+`embedagent-composition` 是构建期 compiler/export 工具，不是所有运行时制品的固定依赖。
+现有 `embedagent` product package 收敛为通用 shell/bootstrap（目标 distribution 名称为
+`embedagent-shell`）；它不得声明 `embedagent-workflow-cpp` 依赖。运行时 distribution 集合
+完全由 compiled bundle plan 的 selected closure 决定，仓库可以在 CI 中构建全部 workspace
+distribution，但发布制品不得携带未选择的 application package。
+
 ## 8. Generic CLI/TUI/GUI 与用户扩展
 
-所有 shell 使用同一套通用 session/projection 协议。应用声明 command、mode、surface、tool presentation 或 interaction 后，shell 才显示对应内容。
+所有 shell 使用同一套通用 session/projection 协议。通用 CLI shell 提供 session 生命周期、
+turn 提交、取消、权限/交互回复和安全 projection 渲染；应用声明 command、mode、surface、
+tool presentation 或 interaction 后，shell 才显示对应内容。通用 shell 本身不拥有 mode、
+task、recipe 或工作流执行权。
 
 用户可以通过以下方式定义上层应用：
 
@@ -189,6 +217,8 @@ CI 可以为了验证构建全部 workspace wheels，但任何独立导出制品
 - 新增 architecture boundary tests，拒绝 product->Core 反向依赖和 Host->C++ 默认依赖；
 - 增加 minimal artifact 的“无 C++ distribution、无 Ctags/LLVM capability、无 mode prompt”断言；
 - 定义新的 application registration 和 runtime requirement contract。
+- 将 application manifest、registration entry、source id 和 disposer 规则设为唯一插件契约；
+- 将通用 shell/bootstrap 与 C++ application registration 分离。
 
 ### Phase 1：导出闭包
 
@@ -231,6 +261,7 @@ CI 可以为了验证构建全部 workspace wheels，但任何独立导出制品
 5. 任意用户 application definition 可以替换/追加 system prompt、选择工具并声明 runtime requirements，而无需修改 Core。
 6. restore、permission、write-path、event envelope、frontend projection 和 offline Win7 contract 不被破坏。
 7. 所有 distribution owner、component manifest、release lock 和 runtime contract 的选择来自同一份 compiled bundle plan。
+8. generic runtime 不安装或导入任何未在 plan 中选择的 application/plugin，且 composition compiler 不进入运行时依赖闭包。
 
 ## 11. 非目标
 
