@@ -480,17 +480,16 @@ class InProcessAdapter(object):
         self._ensure_extension_tools_registered(reason="capabilities")
         payload = app_capability_payload(self.capability_snapshot())
         current_application = self._agent_application_capability_payload(active=True)
-        if str(current_application.get("sourceType") or "") == "builtin":
-            try:
-                payload.update(
-                    agent_application_capability_payload(
-                        str(current_application.get("applicationId") or ""),
-                        registry=self.agent_application_registry,
-                    )
+        try:
+            payload.update(
+                agent_application_capability_payload(
+                    str(current_application.get("applicationId") or ""),
+                    registry=self.agent_application_registry,
                 )
-                return payload
-            except ValueError:
-                pass
+            )
+            return payload
+        except ValueError:
+            pass
         if current_application:
             payload["agentApplication"] = current_application
         registry_payloads = []

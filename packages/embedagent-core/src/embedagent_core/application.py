@@ -3,6 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional, Tuple
 
+_REGISTRATION_ERRORS = (
+    AttributeError,
+    ImportError,
+    KeyError,
+    OSError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+)
+
 
 @dataclass(frozen=True)
 class ApplicationRuntimeContribution(object):
@@ -11,8 +21,10 @@ class ApplicationRuntimeContribution(object):
     application_id: str
     label: str
     runtime_definition_factory: Callable[[], Any]
+    application_state_factory: Optional[Callable[[], Any]] = None
     workspace_contribution_factory: Optional[Callable[[], Any]] = None
     capabilities: Tuple[str, ...] = field(default_factory=tuple)
+    workflow_package_ids: Tuple[str, ...] = field(default_factory=tuple)
     empty_state: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -26,9 +38,17 @@ class ApplicationRuntimeContribution(object):
         capabilities = tuple(str(item or "").strip() for item in self.capabilities or ())
         if any(not item for item in capabilities) or len(capabilities) != len(set(capabilities)):
             raise ValueError("application runtime capabilities must be unique and nonempty")
+        workflow_package_ids = tuple(
+            str(item or "").strip() for item in self.workflow_package_ids or ()
+        )
+        if any(not item for item in workflow_package_ids) or len(workflow_package_ids) != len(
+            set(workflow_package_ids)
+        ):
+            raise ValueError("application workflow package ids must be unique and nonempty")
         object.__setattr__(self, "application_id", application_id)
         object.__setattr__(self, "label", label)
         object.__setattr__(self, "capabilities", capabilities)
+        object.__setattr__(self, "workflow_package_ids", workflow_package_ids)
         object.__setattr__(self, "empty_state", dict(self.empty_state or {}))
         object.__setattr__(self, "metadata", dict(self.metadata or {}))
 
@@ -103,24 +123,44 @@ class ApplicationRegistrar(object):
             raise ValueError("duplicate_application_runtime:%s" % application_id)
         self._runtime_contributions[application_id] = contribution
         registry = self._runtime_registry
+
+        def noop_disposer() -> None:
+            return None
+
+        registry_disposer = noop_disposer
+        shell_disposer = noop_disposer
         if registry is not None:
             register = getattr(registry, "register", None)
             if not callable(register):
                 self._runtime_contributions.pop(application_id, None)
                 raise TypeError("application runtime registry is invalid")
             try:
-                disposer = register(contribution, source)
-            except Exception:
+                registry_disposer = register(contribution, source)
+            except _REGISTRATION_ERRORS:
                 self._runtime_contributions.pop(application_id, None)
                 raise
-        else:
-
-            def disposer() -> None:
-                return None
+            if not callable(registry_disposer):
+                self._runtime_contributions.pop(application_id, None)
+                raise TypeError("application runtime registry did not return a disposer")
+        register_application = getattr(self._shell_registry, "register_application", None)
+        try:
+            if callable(register_application):
+                shell_disposer = register_application(application_id)
+            if not callable(shell_disposer):
+                raise TypeError("shell application registry did not return a disposer")
+        except _REGISTRATION_ERRORS:
+            try:
+                registry_disposer()
+            finally:
+                self._runtime_contributions.pop(application_id, None)
+            raise
 
         def remove() -> None:
             self._runtime_contributions.pop(application_id, None)
-            disposer()
+            try:
+                shell_disposer()
+            finally:
+                registry_disposer()
 
         return self._append_disposer(remove, source)
 

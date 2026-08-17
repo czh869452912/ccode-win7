@@ -6,12 +6,11 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from agent_runtime_test_helpers import cpp_application_registry
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_host.inprocess_adapter import InProcessAdapter
 from embedagent_host.runtime.tools import ToolRuntime
 from embedagent_workflow_cpp import task_store
-
-from embedagent.product_catalog import product_agent_application_registry
 
 _COUNTER = count(1)
 
@@ -54,9 +53,7 @@ class HarnessTaskProjectionTests(unittest.TestCase):
             client=DoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            agent_application_registry=product_agent_application_registry(
-                ("embedagent.default_c_cpp",)
-            ),
+            agent_application_registry=cpp_application_registry(),
         )
 
     def tearDown(self):

@@ -67,9 +67,7 @@ def test_cli_application_composes_focused_ports_and_shared_runtime(tmp_path, mon
         "embedagent.cli.app.create_hosted_runtime",
         lambda config, event_sink: created.append((config, event_sink)) or hosted,
     )
-    monkeypatch.setattr(
-        "embedagent.cli.app.product_agent_application_registry", lambda ids: registry
-    )
+    monkeypatch.setattr("embedagent.cli.app.selected_application_registry", lambda value: registry)
     monkeypatch.setattr("embedagent.cli.app.compile_generic_shell_descriptor", compiler)
 
     application = CliApplication.from_options(options)

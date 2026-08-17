@@ -4,7 +4,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from agent_runtime_test_helpers import build_product_agent_runtime_dispatcher
+from agent_runtime_test_helpers import (
+    build_product_agent_runtime_dispatcher,
+    cpp_application_registry,
+)
 from embedagent_core.session import AssistantReply, Session
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -849,13 +852,9 @@ def test_frontend_tool_catalog_gets_harness_tools_from_workflow_extension(tmp_pa
     from embedagent_host.inprocess_adapter import InProcessAdapter
     from embedagent_host.runtime.tools import ToolRuntime
 
-    from embedagent.product_catalog import product_agent_application_registry
-
     adapter = InProcessAdapter(
         tools=ToolRuntime(str(tmp_path)),
-        agent_application_registry=product_agent_application_registry(
-            ("embedagent.default_c_cpp",)
-        ),
+        agent_application_registry=cpp_application_registry(),
     )
 
     names = set(item.get("name") for item in adapter.get_tool_catalog())

@@ -898,7 +898,6 @@ def test_active_docs_use_current_domain_paths_and_vocabulary():
     active_docs = {str(_relative(path)): _read(path) for path in _active_contract_doc_files()}
     joined = "\n".join(active_docs.values())
     forbidden = (
-        "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application.py",
         "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application_record.py",
         "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/agent_profile.py",
         "src/embedagent/agent_application_registry.py",
@@ -1379,8 +1378,9 @@ def test_agent_application_capabilities_are_declared_by_backend_not_gui_defaults
     assert "BUILTIN_AGENT_APPLICATION_RECORDS" in application_registry_text
     assert "embedagent_workflow_cpp" not in application_registry_text
     assert "default_c_cpp_application_record" not in application_registry_text
-    assert "default_c_cpp_application_record" in product_registry_text
-    assert "DEFAULT_C_CPP_AGENT_APPLICATION_ID" in product_registry_text
+    assert "default_c_cpp_application_record" not in product_registry_text
+    assert "DEFAULT_C_CPP_AGENT_APPLICATION_ID" not in product_registry_text
+    assert "selected_application_registry" in product_hosted_text
     assert "AgentApplicationDefinition" not in application_registry_text
     assert "_builtin_agent_application_definitions" not in application_registry_text
     assert "AgentApplicationDescriptor" in protocol_text
@@ -1957,8 +1957,8 @@ def test_product_compiles_one_shell_descriptor_for_gui_and_tui():
     app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
     assert "def compile_shell_descriptor" in compiler_text
     assert "ShellDescriptor(" in compiler_text
-    assert "product_shell_compiler()" in gui_launcher_text
-    assert "product_shell_compiler()" in tui_launcher_text
+    assert "compile_generic_shell_descriptor" in gui_launcher_text
+    assert "compile_generic_shell_descriptor" in tui_launcher_text
     assert "self._shell_compiler" in app_shell_text
     assert not (ROOT / "src/embedagent/frontend/gui/backend/app_shell_spec.py").exists()
 

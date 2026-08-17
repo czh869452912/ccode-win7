@@ -568,16 +568,15 @@ def test_c_cpp_agent_profile_lives_in_c_workflow_package():
     assert "from embedagent_workflow_cpp.profile import default_cpp_profile" in _read(component)
 
 
-def test_default_c_cpp_application_record_lives_in_c_workflow_package():
+def test_c_cpp_application_record_is_loaded_from_plugin_contribution():
     registry = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py"
     record = ROOT / "src/embedagent/product_catalog.py"
-    product_registry = ROOT / "src/embedagent/product_catalog.py"
+    plugin = ROOT / "packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application.py"
 
     assert record.is_file()
-    assert product_registry.is_file()
     registry_text = _read(registry)
     record_text = _read(record)
-    product_registry_text = _read(product_registry)
+    plugin_text = _read(plugin)
 
     for token in (
         "_C_CPP_APP_SHELL",
@@ -587,14 +586,13 @@ def test_default_c_cpp_application_record_lives_in_c_workflow_package():
         'profile_kind="default_c_cpp"',
         "embedagent_workflow_cpp",
         "default_c_cpp_application_record",
+        "DEFAULT_C_CPP_AGENT_APPLICATION_ID",
     ):
         assert token not in registry_text
     assert "AgentApplicationRegistry" in registry_text
-    assert "default_c_cpp_application_record" in product_registry_text
-    assert "DEFAULT_C_CPP_AGENT_APPLICATION_ID" in product_registry_text
-    assert "C_WORKFLOW_PACKAGE_ID" in record_text
-    assert '"Default C/C++ Agent"' in record_text
-    assert "runtime_factory=cpp_runtime_definition" in record_text
+    assert "default_c_cpp_application_record" not in record_text
+    assert "ApplicationRuntimeContribution" in plugin_text
+    assert "runtime_definition_factory=cpp_runtime_definition" in plugin_text
 
 
 def test_hosted_adapter_uses_shared_agent_profile_runtime_policies():

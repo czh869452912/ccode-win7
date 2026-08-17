@@ -9,6 +9,7 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from agent_runtime_test_helpers import cpp_application_registry
 from embedagent_core.model import ModelClientError
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 from embedagent_core.runner import SessionRecoveryRequired
@@ -19,8 +20,6 @@ from embedagent_host.inprocess_adapter import InProcessAdapter, _should_emit_con
 from embedagent_host.runtime.session_runtime import apply_hosted_projection
 from embedagent_host.runtime.tools import ToolDefinition, ToolRuntime
 from embedagent_protocol import PermissionContext
-
-from embedagent.product_catalog import product_agent_application_registry
 
 _COUNTER = count(1)
 
@@ -34,11 +33,10 @@ class _EventSink(object):
 
 
 def _product_adapter(*args, **kwargs):
-    # These adapter tests exercise the C/C++ extension surface explicitly; the
-    # product's default registry is intentionally generic-only.
+    # These adapter tests exercise the C/C++ extension surface explicitly.
     kwargs.setdefault(
         "agent_application_registry",
-        product_agent_application_registry(("embedagent.default_c_cpp",)),
+        cpp_application_registry(),
     )
     return InProcessAdapter(*args, **kwargs)
 

@@ -18,9 +18,10 @@ from embedagent.cli.parser import build_parser
 from embedagent.cli.renderer import write_command_failure
 from embedagent.cli.text_output import prepare_cli_standard_streams
 from embedagent.frontend.runtime import SessionClientRuntime
-from embedagent.hosted import create_hosted_runtime, resolve_launch_config
-from embedagent.product_catalog import (
-    product_agent_application_registry,
+from embedagent.hosted import (
+    create_hosted_runtime,
+    resolve_launch_config,
+    selected_application_registry,
 )
 
 
@@ -47,8 +48,7 @@ class CliApplication(object):
         try:
             hosted = create_hosted_runtime(launch_config, event_sink=client_runtime)
             client_runtime.bind_session_port(hosted.session)
-            allowed_ids = policy.allowed_agent_application_ids if policy.bundled else None
-            registry = product_agent_application_registry(allowed_ids)
+            registry = selected_application_registry(policy)
             application = registry.record_by_id(launch_config.agent_application_id)
             capabilities = client_runtime.get_session_capabilities("")
             selected_plan = {

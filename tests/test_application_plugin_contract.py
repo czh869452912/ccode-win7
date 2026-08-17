@@ -108,11 +108,15 @@ def test_application_runtime_contribution_is_a_focused_workflow_neutral_contract
         application_id="app.generic",
         label="Generic Agent",
         runtime_definition_factory=lambda: object(),
+        application_state_factory=lambda: object(),
         capabilities=("tool.read_file",),
+        workflow_package_ids=("workflow.generic",),
     )
     assert contribution.application_id == "app.generic"
     assert callable(contribution.runtime_definition_factory)
+    assert callable(contribution.application_state_factory)
     assert contribution.capabilities == ("tool.read_file",)
+    assert contribution.workflow_package_ids == ("workflow.generic",)
     assert not hasattr(contribution, "permission_policy")
 
 
@@ -132,6 +136,10 @@ def test_application_registrar_collects_runtime_contributions_and_disposes_them(
             del contribution, source_id
             return lambda: None
 
+        def register_application(self, application_id):
+            del application_id
+            return lambda: None
+
     contribution = contribution_type(
         application_id="app.generic",
         label="Generic Agent",
@@ -142,3 +150,43 @@ def test_application_registrar_collects_runtime_contributions_and_disposes_them(
     assert registrar.runtime_contributions() == (contribution,)
     disposer()
     assert registrar.runtime_contributions() == ()
+
+
+def test_application_registrar_rolls_back_runtime_and_shell_when_shell_registration_fails():
+    registrar_type = getattr(embedagent_core, "ApplicationRegistrar", None)
+    contribution_type = getattr(embedagent_core, "ApplicationRuntimeContribution", None)
+    calls = []
+
+    class ExtensionHost(object):
+        def register(self, extension, source_id):
+            del extension, source_id
+            return lambda: None
+
+    class RuntimeRegistry(object):
+        def register(self, contribution, source_id):
+            del contribution, source_id
+
+            def dispose():
+                calls.append("runtime_dispose")
+
+            return dispose
+
+    class ShellRegistry(object):
+        def register_application(self, application_id):
+            calls.append(("shell_register", application_id))
+            raise RuntimeError("shell failure")
+
+    registrar = registrar_type(ExtensionHost(), ShellRegistry(), RuntimeRegistry())
+    contribution = contribution_type(
+        application_id="app.failed",
+        label="Failed Agent",
+        runtime_definition_factory=lambda: object(),
+    )
+
+    with pytest.raises(RuntimeError, match="shell failure"):
+        registrar.add_runtime_contribution(contribution, "app.failed")
+    assert registrar.runtime_contributions() == ()
+    assert calls == [
+        ("shell_register", "app.failed"),
+        "runtime_dispose",
+    ]

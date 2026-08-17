@@ -122,6 +122,40 @@ def test_product_runtime_injects_plan_filtered_registry(tmp_path, monkeypatch):
     assert registry.default_application_id == "embedagent.generic"
 
 
+def test_cpp_runtime_registry_is_loaded_from_selected_plugin_entries(tmp_path, monkeypatch):
+    captured = {}
+    policy = BundleRuntimePolicy(
+        bundled=True,
+        flavor_id="cpp-desktop",
+        bundle_plan_sha256="e" * 64,
+        allowed_agent_application_ids=("embedagent.default_c_cpp",),
+        shell_ids=("cli", "tui", "gui"),
+        registration_entries=(
+            "embedagent.product_catalog:register",
+            "embedagent_workflow_cpp.application:register_application",
+        ),
+    )
+
+    def fake_create(launch_config, **kwargs):
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr("embedagent.hosted._current_bundle_policy", lambda: policy)
+    monkeypatch.setattr("embedagent.hosted.create_generic_hosted_runtime", fake_create)
+    launch_config = resolve_launch_config(
+        str(tmp_path),
+        LaunchOverrides(model="product-model", agent_application_id="embedagent.default_c_cpp"),
+    )
+
+    create_hosted_runtime(launch_config)
+
+    registry = captured["agent_application_registry"]
+    assert [record.application_id for record in registry.application_records] == [
+        "embedagent.generic",
+        "embedagent.default_c_cpp",
+    ]
+
+
 def test_host_application_record_has_no_shell_metadata():
     record = BUILTIN_AGENT_APPLICATION_RECORDS[0]
 

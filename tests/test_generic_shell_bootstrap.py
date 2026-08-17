@@ -25,6 +25,12 @@ class RecordingRegistrar(object):
         self.active.append(source_id)
         return lambda: self.active.remove(source_id)
 
+    def add_runtime_contribution(self, contribution, source_id):
+        del contribution
+        self.entries.append(source_id)
+        self.active.append(source_id)
+        return lambda: self.active.remove(source_id)
+
     def dispose(self):
         self.active[:] = []
 
@@ -37,7 +43,7 @@ def test_generic_bootstrap_imports_only_the_plan_registration_entry():
     registrar = RecordingRegistrar()
     sys.modules.pop("embedagent_workflow_cpp", None)
     disposer = bootstrap_generic_shell(plan, registrar)
-    assert registrar.entries == ["embedagent.product_catalog"]
+    assert registrar.entries == ["embedagent.product_catalog", "embedagent.product_catalog"]
     assert "embedagent_workflow_cpp" not in sys.modules
     disposer()
     assert registrar.active == []

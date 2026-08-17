@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from embedagent_core import ApplicationRuntimePolicy, RuntimeDefinition
+from embedagent_core import (
+    ApplicationRuntimeContribution,
+    ApplicationRuntimePolicy,
+    RuntimeDefinition,
+)
 from embedagent_core.extensions import ExtensionManager
 from embedagent_core.profile import AgentProfile
 from embedagent_core.profile_runtime import (
@@ -127,6 +131,35 @@ class AgentApplicationRegistry:
         return [record.to_manifest() for record in self.application_records]
 
 
+class ApplicationRuntimeContributionRegistry(object):
+    """Collect selected plugin contributions without importing workflow packages."""
+
+    def __init__(self) -> None:
+        self._contributions = {}
+
+    def register(
+        self,
+        contribution: ApplicationRuntimeContribution,
+        source_id: str,
+    ):
+        if not isinstance(contribution, ApplicationRuntimeContribution):
+            raise TypeError("application runtime contribution is invalid")
+        application_id = contribution.application_id
+        if application_id in self._contributions:
+            raise ValueError("duplicate_application_runtime:%s" % application_id)
+        self._contributions[application_id] = (str(source_id or ""), contribution)
+
+        def dispose() -> None:
+            current = self._contributions.get(application_id)
+            if current is not None and current[1] is contribution:
+                self._contributions.pop(application_id, None)
+
+        return dispose
+
+    def contributions(self):
+        return tuple(item[1] for item in self._contributions.values())
+
+
 BUILTIN_AGENT_APPLICATION_RECORDS = (
     AgentApplicationRecord(
         application_id=GENERIC_AGENT_APPLICATION_ID,
@@ -180,6 +213,67 @@ def base_agent_application_registry() -> AgentApplicationRegistry:
     return AgentApplicationRegistry(
         application_records=tuple(BUILTIN_AGENT_APPLICATION_RECORDS),
         default_application_id=GENERIC_AGENT_APPLICATION_ID,
+    )
+
+
+def runtime_contribution_for_record(
+    record: AgentApplicationRecord,
+) -> ApplicationRuntimeContribution:
+    if not isinstance(record, AgentApplicationRecord):
+        raise TypeError("agent application record is invalid")
+
+    def runtime_factory():
+        if callable(record.runtime_factory):
+            return record.runtime_factory()
+        return _runtime_definition_for_profile(_profile_for_record(record))
+
+    return ApplicationRuntimeContribution(
+        application_id=record.application_id,
+        label=record.label,
+        runtime_definition_factory=runtime_factory,
+        application_state_factory=record.profile_factory,
+        workspace_contribution_factory=record.workspace_profile_detectors_factory,
+        workflow_package_ids=tuple(record.workflow_package_ids),
+        empty_state=dict(record.empty_state or {}),
+        metadata=dict(record.metadata or {}),
+    )
+
+
+def application_registry_from_runtime_contributions(
+    contributions,
+    default_application_id: str = "",
+) -> AgentApplicationRegistry:
+    records = []
+    for contribution in tuple(contributions or ()):
+        if not isinstance(contribution, ApplicationRuntimeContribution):
+            raise TypeError("application runtime contribution is invalid")
+        state_factory = contribution.application_state_factory
+        if not callable(state_factory):
+            raise ValueError(
+                "application runtime state factory is missing: %s" % contribution.application_id
+            )
+        metadata = dict(contribution.metadata or {})
+        records.append(
+            AgentApplicationRecord(
+                application_id=contribution.application_id,
+                label=contribution.label,
+                profile_id=contribution.application_id,
+                profile_factory=state_factory,
+                runtime_factory=contribution.runtime_definition_factory,
+                workflow_package_ids=tuple(contribution.workflow_package_ids),
+                workspace_profile_detectors_factory=contribution.workspace_contribution_factory,
+                source_type="application",
+                source_id=str(metadata.get("source_id") or "application.plugin"),
+                default=not records,
+                empty_state=dict(contribution.empty_state or {}),
+                metadata=metadata,
+            )
+        )
+    if not records:
+        raise ValueError("selected application contributions are empty")
+    return AgentApplicationRegistry(
+        application_records=tuple(records),
+        default_application_id=str(default_application_id or records[0].application_id),
     )
 
 

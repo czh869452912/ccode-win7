@@ -16,6 +16,8 @@ from embedagent_host.runtime.project_memory import ProjectMemoryStore
 from embedagent_host.runtime.transcript_store import TranscriptStore
 from embedagent_host.runtime.workspace_intelligence import WorkspaceIntelligenceBroker
 
+from embedagent.bundle_policy import BundleRuntimePolicy
+from embedagent.hosted import selected_application_registry
 from embedagent.modes import (
     allowed_tools_for,
     build_system_prompt,
@@ -24,7 +26,6 @@ from embedagent.modes import (
     parse_natural_language_mode_switch,
     require_mode,
 )
-from embedagent.product_catalog import product_agent_application_registry
 
 
 class ProductModeToolPolicy(object):
@@ -73,7 +74,22 @@ def build_product_agent_application(tools):
     return build_agent_application(
         "",
         tools,
-        registry=product_agent_application_registry(("embedagent.default_c_cpp",)),
+        registry=cpp_application_registry(),
+    )
+
+
+def cpp_application_registry():
+    return selected_application_registry(
+        BundleRuntimePolicy(
+            bundled=True,
+            flavor_id="cpp-desktop",
+            allowed_agent_application_ids=("embedagent.default_c_cpp",),
+            shell_ids=("cli", "tui", "gui"),
+            registration_entries=(
+                "embedagent.product_catalog:register",
+                "embedagent_workflow_cpp.application:register_application",
+            ),
+        )
     )
 
 

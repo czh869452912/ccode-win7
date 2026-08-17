@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`product authority`
 > 负责人：`EmbedAgent product maintainers`
-> 最后同步日期：`2026-08-14`
+> 最后同步日期：`2026-08-17`
 > 对应代码范围：`src/embedagent/`, `packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py`, `packages/embedagent-composition/src/embedagent_composition/`, `scripts/compile-bundle-plan.py`
 
 ## 1. Purpose And Boundary
@@ -35,7 +35,7 @@ EmbedAgent 是本仓库对 Agent Platform、application records、provider/tools
 
 ### Runtime Application Registry
 
-`AgentApplicationRegistry` 拥有可选 `AgentApplicationRecord` 和 default application id。record 声明：
+`AgentApplicationRegistry` 拥有可选 `AgentApplicationRecord` 和 default application id。bundle runtime registry 由选中的 application registration entries 编译；Core 的 `ApplicationRuntimeContribution` 是 workflow-neutral 的跨 Core/Host 运行时契约，Host 只把它适配成内部 record。record 声明：
 
 - application/profile identity；
 - profile/runtime factories；
@@ -45,7 +45,7 @@ EmbedAgent 是本仓库对 Agent Platform、application records、provider/tools
 - empty-state metadata；
 - app-shell commands/surfaces/capability restrictions。
 
-Host 的 base registry 当前提供 generic、Python 和 HTML records。`src/embedagent/product_catalog.py` 只负责 generic shell registration；C/C++ application record、mode/prompt/context policy 和 workflow contribution 只在选中 `embedagent_workflow_cpp.application:register_application` 后由 workflow plugin 注入。generic shell 不加载 C/C++ 包，也不把其设为默认应用。
+Host 的开发 registry 当前提供 generic、Python 和 HTML records。`src/embedagent/product_catalog.py` 只注册 generic application 与 workflow-neutral shell；C/C++ application runtime contribution、mode/prompt/context policy 和 workflow contribution 只在选中 `embedagent_workflow_cpp.application:register_application` 后由 workflow plugin 注入。generic shell 不加载 C/C++ 包，也不把其设为默认应用。
 
 开发源码中的 registry 可包含全部 records；bundle runtime 不能据此扩大制品能力。`src/embedagent/bundle_policy.py` 校验 embedded plan 与 bundle manifest 的 flavor/hash binding，并只向 Host 暴露计划允许的 application IDs。空 application 选择解析为计划中的首个允许项；显式选择未打包 application 会 fail closed，即使对应 Python distribution 物理存在。
 

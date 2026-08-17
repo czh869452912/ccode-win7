@@ -5,8 +5,8 @@
 > 状态：`active`
 > 类型：`application authority`
 > 负责人：`C/C++ workflow maintainers`
-> 最后同步日期：`2026-08-09`
-> 对应代码范围：`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`, `src/embedagent/product_catalog.py`
+> 最后同步日期：`2026-08-17`
+> 对应代码范围：`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/`, `packages/embedagent-core/src/embedagent_core/application.py`, `packages/embedagent-host/src/embedagent_host/runtime/agent_applications.py`
 
 ## 1. Purpose And Boundary
 
@@ -16,8 +16,8 @@ C/C++ Workflow 是基于 Agent Platform 的上层应用，也是 EmbedAgent 产�
 
 ## 2. Composition
 
-`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py` 提供 `cpp_runtime_definition()`，将 `CHarnessWorkflowExtension` 以标准 `RuntimeDefinition` 扩展注入 Agent Platform。`src/embedagent/product_catalog.py` 把该 factory、应用 profile 和 workspace profile detector 组成 EmbedAgent 的默认 `AgentApplicationRecord`。
-`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/profile.py` 和 `workspace_profile.py` 提供应用 profile 与工作区检测 collaborators。
+`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/application.py` 是 C/C++ application plugin 的唯一注册入口。它通过 Core 的 `ApplicationRuntimeContribution` 提供 `cpp_runtime_definition()`、应用 profile、workspace profile detectors、workflow package id 和 empty-state metadata，并通过 `ApplicationRegistrar` 注册扩展、prompt/context providers 与 shell contribution。产品只在 bundle plan 选择 `embedagent_workflow_cpp.application:register_application` 时加载该入口；`product_catalog` 不导入 C/C++ package，也不构造 C/C++ application record。
+`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/component.py` 提供 `cpp_runtime_definition()`；`packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/profile.py` 和 `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/workspace_profile.py` 提供应用 profile 与工作区检测 collaborators。
 
 `CHarnessWorkflowExtension.extension_capabilities()` 是应用参与平台的唯一能力边界。当前声明：
 
@@ -31,11 +31,13 @@ C/C++ Workflow 是基于 Agent Platform 的上层应用，也是 EmbedAgent 产�
 
 ```mermaid
 flowchart LR
-    A["product_catalog"] --> B["cpp_runtime_definition"]
-    B --> C["ExtensionManager"]
-    C --> D["CHarnessWorkflowExtension"]
-    D --> E["TaskGraph / recipes / tools"]
-    D --> F["Session.workflow_state workflow projection"]
+    A["bundle plan"] --> B["application.register_application"]
+    B --> C["ApplicationRuntimeContribution"]
+    C --> D["RuntimeDefinition + profile"]
+    D --> E["ExtensionManager"]
+    E --> F["CHarnessWorkflowExtension"]
+    F --> G["TaskGraph / recipes / tools"]
+    F --> H["Session.workflow_state workflow projection"]
 ```
 
 ## 3. Workflow Model

@@ -76,6 +76,7 @@ def _shell_contribution() -> Any:
 def register_application(registrar: Any):
     """Register C/C++ runtime and shell capabilities into the generic host."""
     from embedagent_workflow_cpp.component import cpp_runtime_definition
+    from embedagent_workflow_cpp.package_manifest import C_WORKFLOW_PACKAGE_ID
     from embedagent_workflow_cpp.profile import default_cpp_profile
     from embedagent_workflow_cpp.workspace_profile import c_cpp_workspace_profile_detectors
 
@@ -87,8 +88,10 @@ def register_application(registrar: Any):
                 application_id="embedagent.default_c_cpp",
                 label="Default C/C++ Agent",
                 runtime_definition_factory=cpp_runtime_definition,
+                application_state_factory=default_cpp_profile,
                 workspace_contribution_factory=c_cpp_workspace_profile_detectors,
                 capabilities=tuple(cpp_application_manifest().capabilities),
+                workflow_package_ids=(C_WORKFLOW_PACKAGE_ID,),
                 empty_state={
                     "scenario_label": "C/C++ workspace",
                     "primary": "Open a C/C++ project",

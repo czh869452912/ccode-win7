@@ -61,7 +61,9 @@ bag、远程 marketplace 或运行时依赖安装。
 
 ## 后续动作
 
-- 按已接受 spec 的阶段拆分实施计划；
-- 先建立 application manifest、registration entry、runtime requirement 和 closure plan 的
-  测试护栏，再删除旧固定契约；
-- 完成 Core/Host/Product 解耦后，更新 packaging、Win7 runbook、code-doc matrix 和独立建库说明。
+- 保持 application manifest、registration entry、runtime contribution 和 closure plan 由同一
+  组 architecture guards 验证；新增 application plugin 必须先通过 Core/Protocol isolation、
+  selected-plan import isolation 和 wheel-only smoke。
+- 继续更新 packaging、Win7 runbook 和 release evidence，使它们只消费 selected closure；不得恢复
+  固定 wheel 数量或产品内置 workflow record。
+- 物理 Git 仓库拆分仍是独立决策，只有在公开 Core/Protocol/Composition contract 与发布流程稳定后再启动。

@@ -45,6 +45,21 @@ class ShellContributionRegistry:
         object.__setattr__(self, "applications", dict(self.applications or {}))
         object.__setattr__(self, "registered_sources", dict(self.registered_sources or {}))
 
+    def register_application(self, application_id: str):
+        application = str(application_id or "").strip()
+        if not application:
+            raise ValueError("shell application id is required")
+        if application in self.applications:
+            return lambda: None
+        contribution = ShellContribution()
+        self.applications[application] = contribution
+
+        def dispose() -> None:
+            if self.applications.get(application) is contribution:
+                self.applications.pop(application, None)
+
+        return dispose
+
     def register(self, contribution: ShellContribution, source_id: str):
         if not isinstance(contribution, ShellContribution):
             descriptors = tuple(getattr(contribution, "commands", ()) or ())

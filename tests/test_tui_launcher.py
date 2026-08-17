@@ -29,7 +29,6 @@ class TestTuiLauncher(unittest.TestCase):
         descriptor = ShellDescriptor()
         application_registry = MagicMock()
         application_registry.record_by_id.return_value.application_id = "tests.python"
-        compiler = MagicMock(return_value=descriptor)
         with tempfile.TemporaryDirectory() as workspace:
             real_workspace = os.path.realpath(workspace)
             with patch(
@@ -43,12 +42,12 @@ class TestTuiLauncher(unittest.TestCase):
             ) as create_runtime, patch(
                 "embedagent.frontend.tui.launcher.SessionClientRuntime",
             ) as runtime_type, patch(
-                "embedagent.frontend.tui.launcher.product_agent_application_registry",
+                "embedagent.frontend.tui.launcher.selected_application_registry",
                 return_value=application_registry,
             ), patch(
-                "embedagent.frontend.tui.launcher.product_shell_compiler",
-                return_value=compiler,
-            ), patch(
+                "embedagent.frontend.tui.launcher.compile_generic_shell_descriptor",
+                return_value=descriptor,
+            ) as compile_shell, patch(
                 "embedagent.frontend.tui.launcher.run_tui",
                 return_value=0,
             ) as run_tui:
@@ -72,7 +71,13 @@ class TestTuiLauncher(unittest.TestCase):
         client_runtime = runtime_type.return_value
         self.assertIs(create_runtime.call_args.kwargs["event_sink"], client_runtime)
         client_runtime.bind_session_port.assert_called_once_with(hosted_runtime.session)
-        compiler.assert_called_once_with("tests.python", {})
+        compile_shell.assert_called_once_with(
+            {
+                "allowed_agent_application_ids": ("tests.python",),
+                "registration_entries": ("embedagent.product_catalog:register",),
+            },
+            {},
+        )
         self.assertIs(run_tui.call_args.kwargs["shell_descriptor"], descriptor)
         self.assertIs(run_tui.call_args.kwargs["runtime"], client_runtime)
         self.assertIs(run_tui.call_args.kwargs["workspace_port"], hosted_runtime.workspace)

@@ -11,13 +11,15 @@ import os
 import sys
 from typing import Optional
 
+from embedagent.application_loader import compile_generic_shell_descriptor
 from embedagent.bundle_policy import load_current_bundle_policy
 from embedagent.frontend.runtime import SessionClientRuntime
 from embedagent.frontend.tui.bootstrap import TUIUnavailableError, run_tui
-from embedagent.hosted import LaunchOverrides, create_hosted_runtime, resolve_launch_config
-from embedagent.product_catalog import (
-    product_agent_application_registry,
-    product_shell_compiler,
+from embedagent.hosted import (
+    LaunchOverrides,
+    create_hosted_runtime,
+    resolve_launch_config,
+    selected_application_registry,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -64,12 +66,17 @@ def launch_tui(
     try:
         runtime = create_hosted_runtime(launch_config, event_sink=client_runtime)
         client_runtime.bind_session_port(runtime.session)
-        allowed_ids = bundle_policy.allowed_agent_application_ids if bundle_policy.bundled else None
-        application_record = product_agent_application_registry(allowed_ids).record_by_id(
-            launch_config.agent_application_id
-        )
-        shell_descriptor = product_shell_compiler()(
-            application_record.application_id,
+        application_registry = selected_application_registry(bundle_policy)
+        application_record = application_registry.record_by_id(launch_config.agent_application_id)
+        shell_descriptor = compile_generic_shell_descriptor(
+            {
+                "allowed_agent_application_ids": (application_record.application_id,),
+                "registration_entries": (
+                    bundle_policy.registration_entries
+                    if bundle_policy.bundled
+                    else ("embedagent.product_catalog:register",)
+                ),
+            },
             client_runtime.get_session_capabilities("").to_dict(),
         )
         if headless:

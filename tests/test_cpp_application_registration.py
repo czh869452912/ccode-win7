@@ -62,6 +62,7 @@ def test_cpp_registration_declares_runtime_contribution_without_host_dependency(
     assert [item.application_id for item in registrar.runtime_contributions] == [
         "embedagent.default_c_cpp"
     ]
+    assert registrar.runtime_contributions[0].workflow_package_ids == ("embedagent.c_workflow",)
     disposer()
     assert registrar.runtime_contributions == []
 
@@ -100,3 +101,34 @@ def test_cpp_registration_works_with_core_registrar_and_is_idempotent():
         ("extension", "embedagent.workflow.cpp"),
         ("runtime", "embedagent.workflow.cpp"),
     ]
+
+
+def test_cpp_runtime_contribution_registers_its_shell_application_id():
+    from embedagent.product_catalog import product_shell_registry
+
+    class ExtensionHost(object):
+        def register(self, extension, source_id):
+            del extension, source_id
+            return lambda: None
+
+        def register_prompt_provider(self, provider, source_id):
+            del provider, source_id
+            return lambda: None
+
+        def register_context_provider(self, provider, source_id):
+            del provider, source_id
+            return lambda: None
+
+    shell_registry = product_shell_registry()
+    registrar = ApplicationRegistrar(ExtensionHost(), shell_registry)
+    disposer = register_application(registrar)
+    descriptor = shell_registry.compile(
+        "embedagent.default_c_cpp",
+        {
+            "commands": [{"id": "run"}, {"id": "review"}, {"id": "recipes"}],
+            "application_sources": ["embedagent.workflow.cpp"],
+        },
+    )
+    assert "workflow.run" in {item.id for item in descriptor.commands}
+    disposer()
+    assert "embedagent.default_c_cpp" not in shell_registry.applications

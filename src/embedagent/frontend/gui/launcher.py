@@ -15,7 +15,12 @@ import time
 from typing import Any, Dict, Optional
 
 from embedagent.bundle_policy import load_current_bundle_policy
-from embedagent.hosted import LaunchOverrides, create_hosted_runtime, resolve_launch_config
+from embedagent.hosted import (
+    LaunchOverrides,
+    create_hosted_runtime,
+    resolve_launch_config,
+    selected_application_registry,
+)
 from embedagent.runtime_discovery import discover_bundle_root, running_from_bundle
 
 # 配置日志
@@ -321,12 +326,9 @@ def launch_gui(
 
         from embedagent_host.runtime.agent_applications import agent_application_capability_payload
 
+        from embedagent.application_loader import compile_generic_shell_descriptor
         from embedagent.frontend.gui.backend.app_host import GUIAppHost
         from embedagent.frontend.gui.backend.server import GUIBackend, WebSocketFrontend
-        from embedagent.product_catalog import (
-            product_agent_application_registry,
-            product_shell_compiler,
-        )
 
         frontend = WebSocketFrontend()
 
@@ -334,8 +336,7 @@ def launch_gui(
             _LOGGER.info("Initializing frontend ports for workspace: %s", path)
             return create_frontend_ports(path, event_sink, runtime_config)
 
-        allowed_ids = bundle_policy.allowed_agent_application_ids if bundle_policy.bundled else None
-        agent_application_registry = product_agent_application_registry(allowed_ids)
+        agent_application_registry = selected_application_registry(bundle_policy)
         app_host = GUIAppHost(
             port_factory=port_factory,
             event_sink=frontend,
@@ -349,7 +350,17 @@ def launch_gui(
             app_host=app_host,
             frontend=frontend,
             host_diagnostics=host_diagnostics,
-            shell_compiler=product_shell_compiler(),
+            shell_compiler=lambda application_id, capabilities: compile_generic_shell_descriptor(
+                {
+                    "allowed_agent_application_ids": (application_id,),
+                    "registration_entries": (
+                        bundle_policy.registration_entries
+                        if bundle_policy.bundled
+                        else ("embedagent.product_catalog:register",)
+                    ),
+                },
+                capabilities,
+            ),
         )
         startup_events.append("backend_constructed")
         _write_startup_report(startup_report, startup_events, status=startup_status)

@@ -72,22 +72,28 @@ class WorkspaceProfileTests(unittest.TestCase):
         from embedagent_host.inprocess_adapter import InProcessAdapter
         from embedagent_host.runtime.tools import ToolRuntime
 
-        from embedagent.product_catalog import (
-            DEFAULT_C_CPP_AGENT_APPLICATION_ID,
-            product_agent_application_registry,
-        )
+        from embedagent.bundle_policy import BundleRuntimePolicy
+        from embedagent.hosted import selected_application_registry
 
         native_dir = os.path.join(self.workspace, "native")
         os.makedirs(native_dir)
         with open(os.path.join(native_dir, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
             handle.write("cmake_minimum_required(VERSION 3.10)\n")
 
+        policy = BundleRuntimePolicy(
+            bundled=True,
+            flavor_id="cpp-desktop",
+            allowed_agent_application_ids=("embedagent.default_c_cpp",),
+            shell_ids=("cli", "tui", "gui"),
+            registration_entries=(
+                "embedagent.product_catalog:register",
+                "embedagent_workflow_cpp.application:register_application",
+            ),
+        )
         adapter = InProcessAdapter(
             tools=ToolRuntime(self.workspace),
-            agent_application_id=DEFAULT_C_CPP_AGENT_APPLICATION_ID,
-            agent_application_registry=product_agent_application_registry(
-                (DEFAULT_C_CPP_AGENT_APPLICATION_ID,)
-            ),
+            agent_application_id="embedagent.default_c_cpp",
+            agent_application_registry=selected_application_registry(policy),
         )
 
         initial_messages = adapter.context_manager.initial_system_messages(
