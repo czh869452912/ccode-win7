@@ -1,7 +1,7 @@
 .PHONY: install test test-full test-release test-performance test-audit harness lint lint-fix smoke python-distributions-build python-distributions-check python-distributions-smoke offline-bundle-contract ci
 
 install:
-	uv sync
+	uv sync --all-packages
 
 test:
 	uv run python scripts/test-suite.py pre-push

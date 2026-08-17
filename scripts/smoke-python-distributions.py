@@ -81,7 +81,7 @@ SCENARIOS = (
         "probe": (
             "import importlib.util\n"
             "from embedagent_workflow_cpp import cpp_runtime_definition\n"
-            "blocked = ('embedagent_host', 'embedagent_protocol', 'embedagent')\n"
+            "blocked = ('embedagent_host', 'embedagent_composition', 'embedagent')\n"
             "raise SystemExit(1 if any(importlib.util.find_spec(name) is not None "
             "for name in blocked) else 0)\n"
         ),

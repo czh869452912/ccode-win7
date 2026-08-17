@@ -73,7 +73,7 @@ def test_release_config_keeps_assurance_separate_from_distribution_contract():
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-only: requires PowerShell")
 def test_release_doctor_projects_structured_runtime_and_asset_checks():
-    report = _doctor("release")
+    report = _doctor("release", "cpp-desktop")
     checks = {item["code"]: item for item in report["doctor_checks"]}
 
     for code in (

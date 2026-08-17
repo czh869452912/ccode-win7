@@ -37,7 +37,7 @@ def _write_export_bundle_plan(root, feature_ids=("gui", "tui")):
             "embedagent-host",
             "embedagent-composition",
             "embedagent-workflow-cpp",
-            "embedagent",
+            "embedagent-shell",
         ],
     }
     path = Path(root) / "bundle-plan.json"
@@ -144,13 +144,29 @@ PROJECT_PACKAGE_LAYOUTS = (
     ("embedagent_workflow_cpp", "embedagent_workflow_cpp-0.1.0.dist-info"),
 )
 
+PROJECT_DISTRIBUTIONS = (
+    "embedagent-core",
+    "embedagent-protocol",
+    "embedagent-host",
+    "embedagent-composition",
+    "embedagent-workflow-cpp",
+    "embedagent-shell",
+)
+
+
+def _site_packages_plan(feature_ids=()):
+    return {
+        "project_distribution_ids": list(PROJECT_DISTRIBUTIONS),
+        "python_feature_ids": list(feature_ids),
+    }
+
 
 def _write_project_distribution_layout(bundle):
     site_packages = bundle / "runtime" / "site-packages"
     (bundle / "app" / "embedagent").mkdir(parents=True)
-    product_metadata = site_packages / "embedagent-0.1.0.dist-info" / "METADATA"
+    product_metadata = site_packages / "embedagent_shell-0.1.0.dist-info" / "METADATA"
     product_metadata.parent.mkdir(parents=True)
-    product_metadata.write_text("Name: embedagent\nVersion: 0.1.0\n", encoding="ascii")
+    product_metadata.write_text("Name: embedagent-shell\nVersion: 0.1.0\n", encoding="ascii")
     for import_name, dist_info_name in PROJECT_PACKAGE_LAYOUTS:
         (site_packages / import_name).mkdir(parents=True)
         metadata = site_packages / dist_info_name / "METADATA"
@@ -194,15 +210,18 @@ def _write_checker_wheelhouse(root):
         ("embedagent-host", "embedagent_host"),
         ("embedagent-composition", "embedagent_composition"),
         ("embedagent-workflow-cpp", "embedagent_workflow_cpp"),
-        ("embedagent", "embedagent"),
+        ("embedagent-shell", "embedagent"),
     )
     dependencies = {
-        "embedagent-workflow-cpp": ("embedagent-core ==0.1.0",),
+        "embedagent-workflow-cpp": (
+            "embedagent-core ==0.1.0",
+            "embedagent-protocol ==0.1.0",
+        ),
         "embedagent-host": (
             "embedagent-core ==0.1.0",
             "embedagent-protocol ==0.1.0",
         ),
-        "embedagent": (
+        "embedagent-shell": (
             "embedagent-core ==0.1.0",
             "embedagent-protocol ==0.1.0",
             "embedagent-host ==0.1.0",
@@ -213,8 +232,6 @@ def _write_checker_wheelhouse(root):
     names = []
     for distribution, package_name in layouts:
         wheel_name = "%s-0.1.0-py3-none-any.whl" % distribution.replace("-", "_")
-        if distribution == "embedagent":
-            wheel_name = "embedagent-0.1.0-py3-none-any.whl"
         dist_info = "%s-0.1.0.dist-info" % distribution.replace("-", "_")
         metadata = "Metadata-Version: 2.1\nName: {0}\nVersion: 0.1.0\n".format(distribution)
         metadata += "".join(
@@ -268,7 +285,7 @@ class TestPackageFoundation(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["default_profile"], "dev")
-        self.assertEqual(payload["default_flavor"], "cpp-desktop")
+        self.assertEqual(payload["default_flavor"], "minimal-cli")
         self.assertEqual(sorted(payload["profiles"]), ["dev", "release"])
 
     def test_profile_and_flavor_are_orthogonal(self):
@@ -663,6 +680,7 @@ class TestCliSmokeGate(unittest.TestCase):
                 site_packages = bundle_root / "runtime" / "site-packages"
                 python_root.mkdir(parents=True)
                 site_packages.mkdir(parents=True)
+                (bundle_root / "bin").mkdir(parents=True)
                 workspace_parent.mkdir()
                 shutil.copytree(
                     str(ROOT / "src" / "embedagent"),
@@ -841,7 +859,7 @@ class TestPrepareOfflineContract(unittest.TestCase):
             template = json.loads(
                 (ROOT / "config" / "bundle-flavors" / (name + ".json")).read_text(encoding="utf-8")
             )
-            self.assertEqual(template["default_mode"], "explore")
+            self.assertNotIn("default_mode", template)
             self.assertNotIn("api_key", template)
         self.assertNotIn('"max_turns": 8', script)
         self.assertNotIn('"max_turns": null', script)
@@ -892,7 +910,7 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
         "embedagent_host-0.1.0-py3-none-any.whl",
         "embedagent_composition-0.1.0-py3-none-any.whl",
         "embedagent_workflow_cpp-0.1.0-py3-none-any.whl",
-        "embedagent-0.1.0-py3-none-any.whl",
+        "embedagent_shell-0.1.0-py3-none-any.whl",
     ]
 
     def _copy_verified_wheels(self, source, destination):
@@ -1008,7 +1026,6 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
 
         self.assertIn("name: Install uv", workflow)
         self.assertIn("UV_CACHE_DIR: ${{ github.workspace }}\\.uv-cache", workflow)
-        self.assertIn("uv sync --locked --python python", workflow)
         self.assertIn("python scripts/test-suite.py audit", workflow)
         self.assertIn("python scripts/test-suite.py full --coverage", workflow)
         self.assertIn("python scripts/test-suite.py performance", workflow)
@@ -1016,8 +1033,16 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
         self.assertIn("npm test", workflow)
         self.assertIn("npm run build", workflow)
         self.assertNotIn("--cov=src/embedagent", workflow)
+        test_job = workflow.split("  test:\n", 1)[1].split("  performance:\n", 1)[0]
+        performance_job = workflow.split("  performance:\n", 1)[1].split("  frontend:\n", 1)[0]
+        windows_job = workflow.split("  windows-packaging:\n", 1)[1]
+        self.assertIn('uv sync --locked --all-packages --python "$(which python)"', test_job)
+        self.assertIn('uv sync --locked --all-packages --python "$(which python)"', performance_job)
+        self.assertIn("uv sync --locked --all-packages --python python", windows_job)
         smoke = workflow.split("  smoke:\n", 1)[1].split("  windows-packaging:\n", 1)[0]
         self.assertIn("name: Install uv", smoke)
+        self.assertIn('uv sync --locked --python "$(which python)"', smoke)
+        self.assertNotIn("--all-packages", smoke)
 
     def test_bundle_build_archives_the_exact_checked_python_wheelhouse(self):
         script = (ROOT / "scripts" / "build-offline-bundle.ps1").read_text(encoding="utf-8")
@@ -1035,15 +1060,15 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
     def test_bundle_dependency_gate_requires_all_split_project_packages(self):
         script = CHECK_SCRIPT.read_text(encoding="utf-8")
 
-        for package in (
-            "embedagent_core",
-            "embedagent_protocol",
-            "embedagent_host",
-            "embedagent_composition",
-            "embedagent_workflow_cpp",
+        for distribution, import_name in (
+            ("embedagent-core", "embedagent_core"),
+            ("embedagent-protocol", "embedagent_protocol"),
+            ("embedagent-host", "embedagent_host"),
+            ("embedagent-composition", "embedagent_composition"),
+            ("embedagent-workflow-cpp", "embedagent_workflow_cpp"),
+            ("embedagent-shell", "embedagent"),
         ):
-            self.assertIn('"{0}"'.format(package), script)
-            self.assertIn('"{0}-0.1.0.dist-info"'.format(package), script)
+            self.assertIn('"{0}": "{1}"'.format(distribution, import_name), script)
 
     @unittest.skipIf(sys.platform != "win32", "Windows-only: requires PowerShell")
     def test_verified_wheel_archive_ignores_unverified_files(self):
@@ -1201,14 +1226,17 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
 
     def test_split_project_packages_require_import_tree_and_dist_info(self):
         for import_name, dist_info_name in PROJECT_PACKAGE_LAYOUTS:
+            distribution_name = dist_info_name.split("-0.1.0", 1)[0].replace("_", "-")
             with self.subTest(import_name=import_name, missing="import_tree"):
                 with tempfile.TemporaryDirectory() as tmp:
                     bundle = Path(tmp)
                     site_packages = _write_project_distribution_layout(bundle)
                     shutil.rmtree(site_packages / import_name)
                     checker = _load_python_module(CHECK_SCRIPT, "bundle_checker_import_tree")
-                    _ok, errors = checker.check_site_packages(bundle)
-                    self.assertIn("Missing project import package: {0}".format(import_name), errors)
+                    _ok, errors = checker.check_site_packages(bundle, _site_packages_plan())
+                    self.assertIn(
+                        "Missing project import package: {0}".format(distribution_name), errors
+                    )
 
             with self.subTest(import_name=import_name, missing="dist_info"):
                 with tempfile.TemporaryDirectory() as tmp:
@@ -1216,9 +1244,9 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
                     site_packages = _write_project_distribution_layout(bundle)
                     shutil.rmtree(site_packages / dist_info_name)
                     checker = _load_python_module(CHECK_SCRIPT, "bundle_checker_dist_info")
-                    _ok, errors = checker.check_site_packages(bundle)
+                    _ok, errors = checker.check_site_packages(bundle, _site_packages_plan())
                     self.assertIn(
-                        "Missing project distribution metadata: {0}".format(dist_info_name),
+                        "Missing project distribution metadata: {0}".format(distribution_name),
                         errors,
                     )
 
@@ -1228,16 +1256,16 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
             bundle = Path(tmp)
             _write_project_distribution_layout(bundle)
             shutil.rmtree(bundle / "app" / "embedagent")
-            _ok, errors = checker.check_site_packages(bundle)
+            _ok, errors = checker.check_site_packages(bundle, _site_packages_plan())
             self.assertIn("Missing product import package: app/embedagent", errors)
 
         with tempfile.TemporaryDirectory() as tmp:
             bundle = Path(tmp)
             site_packages = _write_project_distribution_layout(bundle)
-            shutil.rmtree(site_packages / "embedagent-0.1.0.dist-info")
-            _ok, errors = checker.check_site_packages(bundle)
+            shutil.rmtree(site_packages / "embedagent_shell-0.1.0.dist-info")
+            _ok, errors = checker.check_site_packages(bundle, _site_packages_plan())
             self.assertIn(
-                "Missing project distribution metadata: embedagent-0.1.0.dist-info",
+                "Missing project distribution metadata: embedagent-shell",
                 errors,
             )
 
@@ -1246,12 +1274,12 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             bundle = Path(tmp)
             site_packages = _write_valid_site_packages_layout(bundle)
-            ok, errors = checker.check_site_packages(bundle)
+            ok, errors = checker.check_site_packages(bundle, _site_packages_plan(("gui", "tui")))
             self.assertTrue(ok, errors)
             self.assertEqual(errors, [])
 
             (site_packages / "embedagent").mkdir()
-            ok, errors = checker.check_site_packages(bundle)
+            ok, errors = checker.check_site_packages(bundle, _site_packages_plan(("gui", "tui")))
 
             self.assertFalse(ok)
             self.assertEqual(
@@ -1391,7 +1419,7 @@ class TestStageJsonReports(unittest.TestCase):
             for path in [
                 "app/embedagent/__init__.py",
                 "runtime/python/python.exe",
-                "runtime/site-packages/embedagent-0.1.0.dist-info/METADATA",
+                "runtime/site-packages/embedagent_shell-0.1.0.dist-info/METADATA",
                 "runtime/site-packages/embedagent_core/__init__.py",
                 "runtime/site-packages/embedagent_core-0.1.0.dist-info/METADATA",
                 "runtime/site-packages/embedagent_protocol/__init__.py",
@@ -1946,7 +1974,7 @@ class TestPackageDoctor(unittest.TestCase):
         npm_checks = [
             check for check in payload["doctor_checks"] if check.get("name") == "runtime:npm"
         ]
-        self.assertEqual(len(npm_checks), 1)
+        self.assertEqual(len(npm_checks), 0)
 
     def test_package_doctor_fails_for_missing_config(self):
         result = subprocess.run(

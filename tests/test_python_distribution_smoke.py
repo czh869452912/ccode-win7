@@ -1,3 +1,4 @@
+import hashlib
 import importlib.util
 import json
 import os
@@ -105,16 +106,15 @@ def test_smoke_scenarios_cover_independent_and_composed_stacks():
     assert smoke.SCENARIOS[4]["distribution"] == "embedagent-workflow-cpp"
     assert smoke.SCENARIOS[4]["distributions"] == (
         "embedagent-core",
+        "embedagent-protocol",
         "embedagent-workflow-cpp",
     )
-    assert smoke.SCENARIOS[5]["distribution"] == "embedagent"
+    assert smoke.SCENARIOS[5]["distribution"] == "embedagent-shell"
     assert smoke.SCENARIOS[5]["distributions"] == (
         "embedagent-core",
         "embedagent-protocol",
         "embedagent-host",
-        "embedagent-composition",
-        "embedagent-workflow-cpp",
-        "embedagent",
+        "embedagent-shell",
     )
     assert "embedagent.__file__" in smoke.SCENARIOS[5]["probe"]
     assert "sys.prefix" in smoke.SCENARIOS[5]["probe"]
@@ -454,6 +454,29 @@ def test_export_dependencies_supports_external_output_directory(tmp_path, monkey
     output = tmp_path / "external-export"
     sibling = tmp_path / "keep.txt"
     sibling.write_text("keep", encoding="ascii")
+    project_distributions = (
+        "embedagent-core",
+        "embedagent-protocol",
+        "embedagent-host",
+        "embedagent-composition",
+        "embedagent-workflow-cpp",
+        "embedagent-shell",
+    )
+    bundle_plan = tmp_path / "bundle-plan.json"
+    bundle_plan.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "flavor_id": "tests",
+                "python_feature_ids": [],
+                "project_distribution_ids": list(project_distributions),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+        encoding="ascii",
+    )
+    bundle_plan_sha256 = hashlib.sha256(bundle_plan.read_bytes()).hexdigest()
     monkeypatch.setattr(exporter, "get_all_dependencies", lambda _root, _features=(): [])
     original_run = exporter._run
 
@@ -470,6 +493,10 @@ def test_export_dependencies_supports_external_output_directory(tmp_path, monkey
         "3.8",
         cache_dir=str(ROOT / ".uv-cache"),
         offline=True,
+        flavor_id="tests",
+        bundle_plan_sha256=bundle_plan_sha256,
+        project_distributions=project_distributions,
+        bundle_plan_path=str(bundle_plan),
     )
 
     assert len(list((output / "wheels").glob("*.whl"))) == 6
@@ -679,7 +706,10 @@ _publish_module(
         "embedagent-workflow-cpp",
         "embedagent_workflow_cpp",
         "def cpp_runtime_definition():\n    return None\n",
-        dependencies=("embedagent-core ==0.1.0",),
+        dependencies=(
+            "embedagent-core ==0.1.0",
+            "embedagent-protocol ==0.1.0",
+        ),
     )
     product_fixture = """
 import argparse
@@ -705,15 +735,13 @@ sys.modules[cli.__name__] = cli
 """
     _write_installable_wheel(
         dist_dir,
-        "embedagent",
+        "embedagent-shell",
         "embedagent",
         product_fixture,
         dependencies=(
             "embedagent-core ==0.1.0",
             "embedagent-protocol ==0.1.0",
             "embedagent-host ==0.1.0",
-            "embedagent-composition ==0.1.0",
-            "embedagent-workflow-cpp ==0.1.0",
         ),
     )
 

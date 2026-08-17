@@ -9,6 +9,14 @@ pytestmark = pytest.mark.release
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPORT_SCRIPT = ROOT / "scripts" / "export-dependencies.py"
+PROJECT_DISTRIBUTIONS = (
+    "embedagent-core",
+    "embedagent-protocol",
+    "embedagent-host",
+    "embedagent-composition",
+    "embedagent-workflow-cpp",
+    "embedagent-shell",
+)
 
 
 def _load_exporter():
@@ -46,12 +54,10 @@ def test_clean_export_root_rejects_unknown_entries(tmp_path):
 
 
 def test_export_report_contains_exact_project_wheel_set(tmp_path):
-    module = _load_exporter()
     manifest = {
-        "project_distributions": list(module.PROJECT_DISTRIBUTIONS),
+        "project_distributions": list(PROJECT_DISTRIBUTIONS),
         "project_wheels": [
-            name.replace("-", "_") + "-0.1.0-py3-none-any.whl"
-            for name in module.PROJECT_DISTRIBUTIONS
+            name.replace("-", "_") + "-0.1.0-py3-none-any.whl" for name in PROJECT_DISTRIBUTIONS
         ],
     }
     report_path = tmp_path / "site-packages-manifest.json"
@@ -59,8 +65,8 @@ def test_export_report_contains_exact_project_wheel_set(tmp_path):
 
     payload = json.loads(report_path.read_text(encoding="utf-8"))
 
-    assert payload["project_distributions"] == list(module.PROJECT_DISTRIBUTIONS)
-    assert len(payload["project_wheels"]) == 6
+    assert payload["project_distributions"] == list(PROJECT_DISTRIBUTIONS)
+    assert len(payload["project_wheels"]) == len(PROJECT_DISTRIBUTIONS)
 
 
 def test_bundle_plan_loads_selected_features_and_verifies_hash(tmp_path):
@@ -69,17 +75,18 @@ def test_bundle_plan_loads_selected_features_and_verifies_hash(tmp_path):
         "schema_version": 1,
         "flavor_id": "cpp-desktop",
         "python_feature_ids": ["gui", "tui"],
-        "project_distribution_ids": list(module.PROJECT_DISTRIBUTIONS),
+        "project_distribution_ids": list(PROJECT_DISTRIBUTIONS),
     }
     path = tmp_path / "bundle-plan.json"
     path.write_text(json.dumps(plan, sort_keys=True, separators=(",", ":")), encoding="ascii")
     expected_hash = hashlib.sha256(path.read_bytes()).hexdigest()
 
-    loaded, actual_hash, features = module.load_bundle_plan(str(path), expected_hash)
+    loaded, actual_hash, features, distributions = module.load_bundle_plan(str(path), expected_hash)
 
     assert loaded == plan
     assert actual_hash == expected_hash
     assert features == ("gui", "tui")
+    assert distributions == PROJECT_DISTRIBUTIONS
 
 
 def test_bundle_plan_rejects_hash_mismatch(tmp_path):
@@ -91,7 +98,7 @@ def test_bundle_plan_rejects_hash_mismatch(tmp_path):
                 "schema_version": 1,
                 "flavor_id": "minimal-cli",
                 "python_feature_ids": [],
-                "project_distribution_ids": list(module.PROJECT_DISTRIBUTIONS),
+                "project_distribution_ids": list(PROJECT_DISTRIBUTIONS),
             }
         ),
         encoding="ascii",

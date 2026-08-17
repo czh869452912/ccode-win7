@@ -309,6 +309,8 @@ def _run_arguments(workspace: Path) -> List[str]:
     return [
         "--workspace",
         str(workspace),
+        "--mode",
+        "build",
         "--max-turns",
         "4",
     ]
@@ -340,7 +342,6 @@ def _run_smoke(bundle_root: Path, workspace: Path, home: Path) -> Dict[str, obje
             workspace / ".embedagent" / "config.json",
             {
                 "allow_system_tool_fallback": False,
-                "default_mode": "build",
             },
         )
         environment = _isolated_environment(bundle_root, home)
