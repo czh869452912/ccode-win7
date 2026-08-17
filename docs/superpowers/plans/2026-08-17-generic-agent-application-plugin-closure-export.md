@@ -280,7 +280,7 @@ git commit -m "refactor: derive bundle distributions from selected closure"
 
 The packaging tests must import `build_report`, `scenario_wheels`, and the selected-plan loader from the scripts under test rather than creating a second wheel allowlist.
 
-- [ ] **Step 1: Write failing plan-aware packaging tests**
+- [x] **Step 1: Write failing plan-aware packaging tests**
 
 ```python
 def test_checker_accepts_selected_generic_wheel_set(tmp_path):
@@ -303,19 +303,19 @@ Run: `uv run pytest tests/test_python_distribution_contract.py tests/test_python
 
 Expected: FAIL because the scripts currently require exactly six wheels.
 
-- [ ] **Step 2: Remove the product's workflow dependency and rename its distribution**
+- [x] **Step 2: Remove the product's workflow dependency and rename its distribution**
 
 Change the root `[project]` name to `embedagent-shell`, remove `embedagent-composition` and `embedagent-workflow-cpp` from runtime dependencies, and keep the import package `embedagent` and console script `embedagent` unchanged. Keep all workspace members buildable for CI, but do not expose workflow C++ in the shell wheel metadata.
 
-- [ ] **Step 3: Add selected-plan arguments to build/check/smoke scripts**
+- [x] **Step 3: Add selected-plan arguments to build/check/smoke scripts**
 
 Add a required `--bundle-plan` option to release-oriented invocations. Load `project_distribution_ids` from the plan, filter wheels by normalized distribution name, and fail closed when a wheel is missing, unexpected, duplicated, or present outside the selected closure. Keep the standalone Core and Protocol isolation probes; replace the fixed product scenario with a plan-derived scenario that imports only selected packages.
 
-- [ ] **Step 4: Select runtime assets from the same plan**
+- [x] **Step 4: Select runtime assets from the same plan**
 
 Change `managed_runtime_tools`, launcher checks, release-gate checks, and Python feature checks to receive the compiled plan. `offline-runtime-contract.json` remains the catalog of possible assets; `runtime_component_ids`, `asset_ids`, and `gate_ids` in the plan select the subset. Generic bundles keep only Python/MinGit/Bash/ripgrep and generic shell assets; C++ bundles add Ctags/LLVM and C++ gates.
 
-- [ ] **Step 5: Run packaging unit tests and commit**
+- [x] **Step 5: Run packaging unit tests and commit**
 
 ```bash
 uv run pytest tests/test_python_distribution_contract.py tests/test_python_distribution_smoke.py tests/test_packaging_control_plane.py tests/test_phase7_bundle_dependency_contract.py -q
@@ -344,7 +344,7 @@ git commit -m "refactor: make offline packaging consume compiled bundle plans"
 
 The shell test module reuses `RecordingApplicationRegistrar` from `tests/test_application_plugin_contract.py` through a test helper module, and loads the generic plan with `compile_bundle_plan_for("minimal-cli")`.
 
-- [ ] **Step 1: Write the generic shell isolation test**
+- [x] **Step 1: Write the generic shell isolation test**
 
 ```python
 def test_generic_shell_bootstrap_does_not_import_cpp_or_composition(monkeypatch):
@@ -375,7 +375,7 @@ Run: `uv run pytest tests/test_generic_shell_bootstrap.py tests/test_minimal_she
 
 Expected: FAIL because `product_catalog.py` imports the C++ package at module import and shell defaults synthesize application-specific records.
 
-- [ ] **Step 2: Implement selected application loading**
+- [x] **Step 2: Implement selected application loading**
 
 Implement `load_selected_applications(plan, registrar)` in `application_loader.py`. It must validate each `registration_entry` against the plan lock, import only the selected module, call its `register_application(registrar)` function, and return a disposer stack. Missing entries, mismatched application ids, and duplicate source ids must raise a stable `application_registration_error` without importing unselected entries.
 
@@ -383,11 +383,11 @@ Implement `load_selected_applications(plan, registrar)` in `application_loader.p
 
 Remove all C++ imports and `default_c_cpp_application_record` calls from `product_catalog.py`. Keep generic shell contributions in `defaults.py`; move application-specific contributions to plugin registration. Make `hosted.py` obtain the selected registry from the compiled plan rather than an unconditional product registry. Remove `embedagent_composition` imports from runtime bootstrap paths.
 
-- [ ] **Step 4: Keep the CLI generic**
+- [x] **Step 4: Keep the CLI generic**
 
 Keep `run`, `chat`, and `sessions` commands, but make their application label, prompt units, commands, and empty state come from the selected capability projection. Remove default mode parsing from `config.py` and reject mode-only config keys instead of silently applying them. `bash`, `ask_user`, file tools, and session interaction remain generic capabilities.
 
-- [ ] **Step 5: Run shell tests and commit**
+- [x] **Step 5: Run shell tests and commit**
 
 ```bash
 uv run pytest tests/test_generic_shell_bootstrap.py tests/test_minimal_shell_contract.py tests/test_product_host_composition.py tests/test_cli_run.py tests/test_cli_chat.py tests/test_cli_sessions.py -q
@@ -413,7 +413,7 @@ git commit -m "feat: load selected applications from the generic shell"
 
 The C++ test module imports `cpp_application_manifest` and `register_application` from `embedagent_workflow_cpp.application`; it does not import `src/embedagent.product_catalog`.
 
-- [ ] **Step 1: Write the C++ registration contract test**
+- [x] **Step 1: Write the C++ registration contract test**
 
 ```python
 def test_cpp_plugin_manifest_declares_only_public_dependencies():
@@ -436,7 +436,7 @@ Run: `uv run pytest tests/test_cpp_application_registration.py -q`
 
 Expected: FAIL until the C++ package exports a manifest and explicit registration function.
 
-- [ ] **Step 2: Implement the C++ application entry**
+- [x] **Step 2: Implement the C++ application entry**
 
 Create `cpp_application_manifest()` and `register_application(registrar)`. The registration function must add the C++ runtime definition, mode descriptors, TaskGraph/workflow extension, workspace profile detectors, Ctags/recipe/diagnostics providers, and C++ shell contribution using source id `embedagent.workflow.cpp`. It must not import `embedagent.product_catalog`, `embedagent.hosted`, or `embedagent_composition`.
 
@@ -444,11 +444,11 @@ Create `cpp_application_manifest()` and `register_application(registrar)`. The r
 
 Move `cpp_workflow_contribution()` and the C++ empty state into the plugin. The generic shell registry must merge only generic contributions unless the selected plan has the C++ registration source. Keep C++ modes and prompts in the workflow package; generic profiles are no longer a Host default.
 
-- [ ] **Step 4: Update the C++ distribution contract**
+- [x] **Step 4: Update the C++ distribution contract**
 
 Declare exact-matched `embedagent-core` and `embedagent-protocol` dependencies only. Add a package-level test that installs the C++ wheel with Core/Protocol in isolation and proves `embedagent_host` and the product shell are not importable.
 
-- [ ] **Step 5: Run C++ plugin tests and commit**
+- [x] **Step 5: Run C++ plugin tests and commit**
 
 ```bash
 uv run pytest tests/test_cpp_application_registration.py tests/test_cpp_workflow_distribution.py tests/test_c_cpp_workflow_task_projection.py -q
@@ -511,15 +511,15 @@ Expected: FAIL because Core and Host currently require `AgentProfile`, `default_
 
 Remove `AgentModeDescriptor`, `AgentProfile`, `AgentProfileRuntimePolicy`, `AgentProfileToolPolicy`, and `AgentProfileWritePathPolicy` from Core exports and runtime construction. `RuntimeDefinition` must accept application-supplied prompt/context/tool/permission ports without a mode argument. Delete mode transitions from session transaction and reducer inputs; do not add compatibility aliases.
 
-- [ ] **Step 3: Make Host provider injection explicit**
+- [x] **Step 3: Make Host provider injection explicit**
 
 Change `WorkspaceIntelligenceBroker(providers=None)` so its default is an empty tuple. Add an explicit provider list to the selected application registration path. Keep generic file/project context providers only when the generic application selects them; Ctags, recipe, diagnostics, LLSP, and LLVM providers are supplied by the C++ plugin.
 
-- [ ] **Step 4: Move write-path and prompt policy to applications**
+- [x] **Step 4: Move write-path and prompt policy to applications**
 
 Remove `default_mode`, `mode_writable_globs`, and `mode_extra_writable_globs` from `AppConfig`. Make `prompt_assembly_service` consume application prompt units and active tool names. Make permission policy and writable-path policy remain independent focused collaborators; no application mode may grant either one.
 
-- [ ] **Step 5: Update Core/Host boundary guards and commit**
+- [x] **Step 5: Update Core/Host boundary guards and commit**
 
 ```bash
 uv run pytest tests/test_agent_core_public_api.py tests/test_agent_effect_kernel.py tests/test_agent_loop_driver.py tests/test_session_reducer_restore.py tests/test_host_package_composition.py tests/test_current_architecture_boundaries.py tests/test_pre_release_architecture_guards.py -q
@@ -610,7 +610,7 @@ Regenerate and commit static GUI assets only if the webapp source changes requir
 - Modify: `tests/test_agent_app_protocol.py`
 - Create: `tests/test_safe_failure_diagnostics.py`
 
-- [ ] **Step 1: Write the safe diagnostic contract test**
+- [x] **Step 1: Write the safe diagnostic contract test**
 
 ```python
 def test_failure_record_contains_phase_kind_and_correlation_without_exception_text():
@@ -635,15 +635,15 @@ Run: `uv run pytest tests/test_safe_failure_diagnostics.py -q`
 
 Expected: FAIL because `FailureRecord` currently has only code/message/retryable/source.
 
-- [ ] **Step 2: Add the safe DTO fields and mapping**
+- [x] **Step 2: Add the safe DTO fields and mapping**
 
 Add `phase`, `kind`, `correlation_id`, `safe_message`, and `exception_type` to `FailureRecord`. Map exceptions to stable safe messages and type names; never serialize raw exception messages, prompts, source files, tool output, credentials, or approval payloads.
 
-- [ ] **Step 3: Update CLI and Host consumers**
+- [x] **Step 3: Update CLI and Host consumers**
 
 Replace `runtime_error` compression with the structured record. Keep renderer output concise and stable while retaining the correlation id for diagnostics. Update frontend DTO validation to accept the new fields without exposing raw text.
 
-- [ ] **Step 4: Run diagnostics tests and commit**
+- [x] **Step 4: Run diagnostics tests and commit**
 
 ```bash
 uv run pytest tests/test_safe_failure_diagnostics.py tests/test_cli_run.py tests/test_cli_chat.py tests/test_agent_app_protocol.py -q
@@ -669,7 +669,7 @@ git commit -m "fix: expose safe structured runtime diagnostics"
 - Modify: `docs/superpowers/README.md`
 - Modify: `docs/superpowers/handoffs/2026-08-16-pi-shaped-generic-agent-architecture/continue.md`
 
-- [ ] **Step 1: Write documentation guard tests**
+- [x] **Step 1: Write documentation guard tests**
 
 ```python
 def test_active_docs_do_not_claim_fixed_six_wheel_runtime_contract():
@@ -694,19 +694,19 @@ Run: `uv run pytest tests/test_documentation_navigation.py -q`
 
 Expected: FAIL until current authorities and the new authoring guide are synchronized.
 
-- [ ] **Step 2: Replace the six-wheel authority language**
+- [x] **Step 2: Replace the six-wheel authority language**
 
 Document the selected-closure distribution contract, generic shell baseline, build-only composition compiler, plan-selected runtime assets, and explicit C++ application registration. Update `AGENTS.md` wording so Windows 7/offline requirements remain mandatory while Ctags/LLVM are required only when selected by the C++ plan.
 
-- [ ] **Step 3: Add the application plugin authoring guide**
+- [x] **Step 3: Add the application plugin authoring guide**
 
 Document the exact manifest fields, registration entry shape, source ids, disposer semantics, allowed dependencies, test matrix, offline asset declaration, and the rule that plugins cannot mutate Core session truth or grant permissions. Include a generic application and C++ application example with no runtime dependency installation.
 
-- [ ] **Step 4: Synchronize ownership and close the evaluation slice**
+- [x] **Step 4: Synchronize ownership and close the evaluation slice**
 
 Update the code-doc matrix and current status to point at ADR-0008 and the accepted spec. Remove the evaluation entries from `docs/superpowers/README.md` only after implementation acceptance; until then, mark the plan as active and keep the handoff as the execution pointer.
 
-- [ ] **Step 5: Run documentation tests and commit**
+- [x] **Step 5: Run documentation tests and commit**
 
 ```bash
 uv run pytest tests/test_documentation_navigation.py tests/test_current_architecture_boundaries.py -q
