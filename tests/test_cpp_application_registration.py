@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from embedagent_core import ApplicationRegistrar
 from embedagent_workflow_cpp.application import (
     cpp_application_manifest,
     register_application,
@@ -48,3 +49,34 @@ def test_cpp_registration_is_disposable():
     ]
     disposer()
     assert registrar.active_source_ids == []
+
+
+def test_cpp_registration_works_with_core_registrar_and_is_idempotent():
+    calls = []
+
+    class ExtensionHost(object):
+        def register(self, extension, source_id):
+            return lambda: calls.append(("extension", source_id))
+
+        def register_prompt_provider(self, provider, source_id):
+            return lambda: calls.append(("prompt", source_id))
+
+        def register_context_provider(self, provider, source_id):
+            return lambda: calls.append(("context", source_id))
+
+    class ShellRegistry(object):
+        def register(self, contribution, source_id):
+            return lambda: calls.append(("shell", source_id))
+
+    registrar = ApplicationRegistrar(ExtensionHost(), ShellRegistry())
+    disposer = register_application(registrar)
+
+    assert callable(disposer)
+    disposer()
+    registrar.dispose()
+    assert calls == [
+        ("shell", "embedagent.workflow.cpp"),
+        ("context", "embedagent.workflow.cpp"),
+        ("prompt", "embedagent.workflow.cpp"),
+        ("extension", "embedagent.workflow.cpp"),
+    ]
