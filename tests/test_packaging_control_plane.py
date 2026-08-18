@@ -1039,6 +1039,7 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
         self.assertIn('uv sync --locked --all-packages --python "$(which python)"', test_job)
         self.assertIn('uv sync --locked --all-packages --python "$(which python)"', performance_job)
         self.assertIn("uv sync --locked --all-packages --python python", windows_job)
+        self.assertIn("uv run --locked --all-packages --python python", windows_job)
         smoke = workflow.split("  smoke:\n", 1)[1].split("  windows-packaging:\n", 1)[0]
         self.assertIn("name: Install uv", smoke)
         self.assertIn('uv sync --locked --python "$(which python)"', smoke)

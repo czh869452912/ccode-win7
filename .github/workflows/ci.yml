@@ -122,4 +122,5 @@ jobs:
       - name: Install locked workspace
         run: uv sync --locked --all-packages --python python
       - name: Run Windows release tests
-        run: uv run --locked --python python python scripts/test-suite.py release
+        # uv run can resync .venv on Windows; retain every workspace member for release imports.
+        run: uv run --locked --all-packages --python python python scripts/test-suite.py release
