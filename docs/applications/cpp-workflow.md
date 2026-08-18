@@ -61,7 +61,7 @@ flowchart LR
 
 ## 4. Task Truth And Projection
 
-`TaskGraph` 及其 session graph store 属于 `embedagent_workflow_cpp`。`CHarnessWorkflowExtension` 通过 `workflow_projection.py` 将需要给 Host/UI 的部分写入 `Session.workflow_state["workflow"]`：
+`TaskGraph` 及其 session graph store 属于 `embedagent_workflow_cpp`。任务变化以 `workflow_patch` 事件通过 Core `SessionJournal` 先 append、再由 `SessionReducer` 应用；该事件流和 `transcript.jsonl` 是任务真相。`HarnessSessionGraphState` 只是按 session id 缓存的可丢弃 projection，可从已恢复的 `Session.workflow_state["workflow"]` 重建，不能在事件提交前发布任务变化。`CHarnessWorkflowExtension` 通过 `workflow_projection.py` 将需要给 Host/UI 的部分写入 `Session.workflow_state["workflow"]`：
 
 - `summary`；
 - `items`；
@@ -70,6 +70,8 @@ flowchart LR
 - `metadata.discipline_profile`。
 
 `Session.workflow_state["workflow"]` 是通用读模型，不是另一个 `TaskGraph`。前端把它当作 summary/items/activity/metadata 结构交给注册 renderer，不读取扁平 `task_summary`、`task_items`、`current_phase`、`discipline_profile` 或 `current_activity` 字段，不导入 C/C++ 内部类，也不根据 UI local state 推进 phase。
+
+`.embedagent/memory/sessions/<session_id>/task-graph.json` 若存在，只是带 `snapshot_schema_version`、`source_transcript_event_count` 和 `source_workflow_fingerprint` 的派生快照。恢复和 `list_tasks` 先读取 canonical session projection；缺失、损坏或过期 sidecar 不得改变任务结果。关闭 extension/runtime 时必须清空 session graph cache。
 
 ## 5. Tools And Packs
 

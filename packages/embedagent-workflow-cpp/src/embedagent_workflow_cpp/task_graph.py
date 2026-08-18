@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Any, Dict, List
 
 
 @dataclass
@@ -28,6 +28,61 @@ class TaskGraph(object):
 
     def is_empty(self):
         return not self.tasks or len(self.tasks) == 0
+
+    def clone(self):
+        return TaskGraph(
+            mode_name=str(self.mode_name or ""),
+            discipline=str(self.discipline or ""),
+            current_phase=str(self.current_phase or ""),
+            tasks=[
+                TaskNode(
+                    task_id=str(task.task_id or ""),
+                    title=str(task.title or ""),
+                    kind=str(getattr(task, "kind", "phase") or "phase"),
+                    status=str(task.status or "pending"),
+                    source=str(getattr(task, "source", "harness") or "harness"),
+                    note=str(getattr(task, "note", "") or ""),
+                    evidence_refs=list(getattr(task, "evidence_refs", []) or []),
+                )
+                for task in list(self.tasks or [])
+            ],
+        )
+
+    @classmethod
+    def from_workflow_projection(cls, workflow: Any):
+        if not isinstance(workflow, dict):
+            return None
+        metadata = workflow.get("metadata")
+        metadata = dict(metadata) if isinstance(metadata, dict) else {}
+        raw_items = workflow.get("items")
+        if not isinstance(raw_items, list):
+            raw_items = []
+        tasks = []
+        mode_name = ""
+        for index, raw_item in enumerate(raw_items, start=1):
+            if not isinstance(raw_item, dict):
+                continue
+            title = str(raw_item.get("content") or raw_item.get("title") or "").strip()
+            if not mode_name and ":" in title:
+                mode_name = title.split(":", 1)[0].strip()
+            status = str(raw_item.get("status") or "pending").strip() or "pending"
+            tasks.append(
+                TaskNode(
+                    task_id=str(raw_item.get("task_id") or raw_item.get("id") or index),
+                    title=title,
+                    kind=str(raw_item.get("kind") or "phase"),
+                    status=status,
+                    source=str(raw_item.get("source") or "harness"),
+                    note=str(raw_item.get("note") or ""),
+                    evidence_refs=list(raw_item.get("evidence_refs") or []),
+                )
+            )
+        return cls(
+            mode_name=mode_name,
+            discipline=str(metadata.get("discipline_profile") or metadata.get("discipline") or ""),
+            current_phase=str(metadata.get("current_phase") or ""),
+            tasks=tasks,
+        )
 
     @classmethod
     def from_user_request(cls, user_text, mode_name):

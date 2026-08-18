@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import math
 import re
+import threading
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -266,8 +268,26 @@ class TokenEstimator(object):
         )
 
 
+class _ReducerRegistration(object):
+    def __init__(self, name: str, value: Any, owner_id: str, source_type: str) -> None:
+        self.name = name
+        self.value = value
+        self.owner_id = owner_id
+        self.source_type = source_type
+        self.active = True
+
+
+class _ReducerOwner(object):
+    def __init__(self, owner_id: str, source_type: str) -> None:
+        self.owner_id = owner_id
+        self.source_type = source_type
+        self.disposers = []  # type: List[Callable[[], None]]
+
+
 class ReducerRegistry(object):
     def __init__(self) -> None:
+        self._lock = threading.RLock()
+        self._owner_local = threading.local()
         self._reducers = {
             "read_file": self._reduce_file,
             "list_dir": self._reduce_list,
@@ -282,29 +302,116 @@ class ReducerRegistry(object):
             "ask_user": self._reduce_ask_user,
         }
         self._high_priority_tools = set()
+        self._baseline_reducers = set(self._reducers)
+        self._reducer_registrations = {}  # type: Dict[str, _ReducerRegistration]
+        self._priority_registrations = {}  # type: Dict[str, _ReducerRegistration]
+
+    @contextmanager
+    def owner_context(self, owner_id: str, source_type: str = "extension"):
+        normalized_owner = str(owner_id or "").strip() or "direct"
+        normalized_source = str(source_type or "").strip() or "extension"
+        owner = _ReducerOwner(normalized_owner, normalized_source)
+        previous = getattr(self._owner_local, "current", None)
+        self._owner_local.current = owner
+        try:
+            yield owner
+        finally:
+            self._owner_local.current = previous
+
+    def _current_owner(self, owner_id: str, source_type: str) -> Tuple[str, str, Any]:
+        current = getattr(self._owner_local, "current", None)
+        if current is not None:
+            return current.owner_id, current.source_type, current
+        return (
+            str(owner_id or "").strip() or "direct",
+            str(source_type or "").strip() or "direct",
+            None,
+        )
 
     def register_reducer(
         self,
         tool_name: str,
         reducer: Callable[[Dict[str, Any], bool, ContextPolicy], Dict[str, Any]],
-    ) -> None:
+        owner_id: str = "",
+        source_type: str = "",
+    ) -> Callable[[], None]:
         name = str(tool_name or "").strip()
         if not name:
             raise ValueError("tool_name is required")
         if not callable(reducer):
             raise TypeError("reducer must be callable")
-        self._reducers[name] = reducer
+        resolved_owner, resolved_source, owner = self._current_owner(owner_id, source_type)
+        with self._lock:
+            if name in self._baseline_reducers:
+                raise ValueError("cannot replace baseline reducer: %s" % name)
+            previous = self._reducer_registrations.get(name)
+            if previous is not None and previous.owner_id != resolved_owner:
+                raise ValueError("reducer already owned by %s: %s" % (previous.owner_id, name))
+            if previous is not None:
+                previous_disposer = self._disposer_for(self._reducer_registrations, previous)
+                previous_disposer()
+            registration = _ReducerRegistration(name, reducer, resolved_owner, resolved_source)
+            self._reducer_registrations[name] = registration
+            self._reducers[name] = reducer
+            disposer = self._disposer_for(self._reducer_registrations, registration)
+        if owner is not None:
+            owner.disposers.append(disposer)
+        return disposer
 
-    def register_high_priority_tool(self, tool_name: str) -> None:
+    def register_high_priority_tool(
+        self,
+        tool_name: str,
+        owner_id: str = "",
+        source_type: str = "",
+    ) -> Callable[[], None]:
         name = str(tool_name or "").strip()
-        if name:
+        if not name:
+            raise ValueError("tool_name is required")
+        resolved_owner, resolved_source, owner = self._current_owner(owner_id, source_type)
+        with self._lock:
+            previous = self._priority_registrations.get(name)
+            if previous is not None and previous.owner_id != resolved_owner:
+                raise ValueError(
+                    "high-priority tool already owned by %s: %s" % (previous.owner_id, name)
+                )
+            if previous is not None:
+                previous_disposer = self._disposer_for(self._priority_registrations, previous)
+                previous_disposer()
+            registration = _ReducerRegistration(name, name, resolved_owner, resolved_source)
+            self._priority_registrations[name] = registration
             self._high_priority_tools.add(name)
+            disposer = self._disposer_for(self._priority_registrations, registration)
+        if owner is not None:
+            owner.disposers.append(disposer)
+        return disposer
 
     def high_priority_tool_names(self) -> List[str]:
-        return sorted(self._high_priority_tools)
+        with self._lock:
+            return sorted(self._high_priority_tools)
 
     def is_high_priority_tool(self, tool_name: str) -> bool:
-        return str(tool_name or "").strip() in self._high_priority_tools
+        with self._lock:
+            return str(tool_name or "").strip() in self._high_priority_tools
+
+    def _disposer_for(
+        self,
+        registrations: Dict[str, _ReducerRegistration],
+        registration: _ReducerRegistration,
+    ) -> Callable[[], None]:
+        def dispose() -> None:
+            with self._lock:
+                if not registration.active:
+                    return
+                registration.active = False
+                if registrations.get(registration.name) is registration:
+                    registrations.pop(registration.name, None)
+                if registrations is self._reducer_registrations:
+                    if self._reducers.get(registration.name) is registration.value:
+                        self._reducers.pop(registration.name, None)
+                else:
+                    self._high_priority_tools.discard(registration.name)
+
+        return dispose
 
     def reduce_tool_message(
         self, tool_name: str, payload: Dict[str, Any], detailed: bool, policy: ContextPolicy
@@ -327,7 +434,8 @@ class ReducerRegistry(object):
                 if isinstance(data, str)
                 else data
             )
-        reducer = self._reducers.get(tool_name, self._reduce_generic)
+        with self._lock:
+            reducer = self._reducers.get(tool_name, self._reduce_generic)
         return reducer(data, detailed, policy)
 
     def summarize_observation(

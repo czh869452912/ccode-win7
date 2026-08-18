@@ -215,7 +215,12 @@ class ExtensionManager(object):
             try:
                 extension_scope.dispose()
             finally:
-                self._remove_extension(extension)
+                try:
+                    disposer = getattr(extension, "dispose", None)
+                    if callable(disposer):
+                        disposer()
+                finally:
+                    self._remove_extension(extension)
 
         return self._scope.register(remove_extension)
 
@@ -355,6 +360,7 @@ class ExtensionManager(object):
                 source_id,
                 source_type,
                 fail_closed,
+                scope=scope,
             )
             if callable(disposer):
                 scope.register(disposer)
@@ -399,6 +405,7 @@ class ExtensionManager(object):
         source_id: str,
         source_type: str,
         default_fail_closed: bool,
+        scope: Optional[RegistrationScope] = None,
     ) -> Optional[Callable[[], None]]:
         if not callable(capability.handler):
             self.record_diagnostic(
@@ -424,6 +431,7 @@ class ExtensionManager(object):
             "event_type": capability.event_type,
             "fail_closed": fail_closed,
             "metadata": dict(capability.metadata or {}),
+            "scope": scope,
         }
         if capability.hook_name == "package_manifest":
             self._package_manifest_capabilities.append(entry)
@@ -694,19 +702,30 @@ class ExtensionManager(object):
                     if str(item.get("source_type") or "") == "builtin":
                         raise
 
-    def register_context_reducers(self, reducer_registry: Any) -> None:
+    def register_context_reducers(self, reducer_registry: Any) -> Callable[[], None]:
         with self._context_reducer_registration_lock:
+            disposers = []
             for entry in list(self._context_reducer_capabilities):
                 if any(
                     registered_registry is reducer_registry and registered_entry is entry
-                    for registered_registry, registered_entry in self._context_reducer_registrations
+                    for registered_registry, registered_entry, registered_disposer in self._context_reducer_registrations
                 ):
                     continue
                 handler = entry["handler"]
                 extension_id = str(entry["source_id"] or "")
                 source = str(entry["source_type"] or "project")
                 try:
-                    handler(reducer_registry)
+                    owner_context = getattr(reducer_registry, "owner_context", None)
+                    if callable(owner_context):
+                        with owner_context(extension_id, source) as owner:
+                            result = handler(reducer_registry)
+                        handles = list(getattr(owner, "disposers", []) or [])
+                    else:
+                        result = handler(reducer_registry)
+                        handles = []
+                    if callable(result):
+                        handles.append(result)
+                    disposer = self._compose_disposers(handles)
                 except (RuntimeError, ValueError, TypeError, OSError) as exc:
                     self.record_diagnostic(
                         extension_id,
@@ -718,7 +737,45 @@ class ExtensionManager(object):
                     if bool(entry.get("fail_closed")):
                         raise
                     continue
-                self._context_reducer_registrations.append((reducer_registry, entry))
+                scope = entry.get("scope")
+                registration = [reducer_registry, entry, None]
+                self._context_reducer_registrations.append(registration)
+
+                def remove_registration(
+                    registration=registration,
+                    disposer=disposer,
+                ) -> None:
+                    if callable(disposer):
+                        disposer()
+                    with self._context_reducer_registration_lock:
+                        if registration in self._context_reducer_registrations:
+                            self._context_reducer_registrations.remove(registration)
+
+                registration[2] = remove_registration
+                if scope is not None:
+                    scope.register(remove_registration)
+                if disposer is not None:
+                    disposers.append(remove_registration)
+            return self._compose_disposers(disposers)
+
+    def _compose_disposers(self, disposers: List[Callable[[], None]]) -> Callable[[], None]:
+        handles = [item for item in list(disposers or []) if callable(item)]
+        disposed = [False]
+
+        def dispose() -> None:
+            if disposed[0]:
+                return
+            disposed[0] = True
+            failures = []
+            for handle in reversed(handles):
+                try:
+                    handle()
+                except BaseException as exc:
+                    failures.append(exc)
+            if failures:
+                raise RuntimeError("extension registration disposal failed")
+
+        return dispose
 
     def before_tool_call(
         self,

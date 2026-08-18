@@ -48,7 +48,7 @@
 
 注册是 owner-scoped effect：`ExtensionManager.register()`、`AgentEventBus.register_reducer()` 和 `AgentEventBus.register_observer()` 都返回幂等 disposer；应用层可将这些句柄挂入 `RegistrationScope`，在 `ACTIVE -> QUIESCING -> DISPOSED` 生命周期中逆序撤销。scope 进入 quiescing 后不接受新的 registration 或 operation admission，child scope 必须先于 parent scope 退出。该原语只管理内部注册和 admission，不替代 session journal、permission 或不可逆外部 effect 的补偿协议。
 
-当前限制：`ReducerRegistry` 的 context reducer 注册仍是旧的 append-only API，不能因为 `ExtensionManager` 已返回 disposer 就假设已注册的 reducer 可以撤销；在该 registry 获得对等 disposer 之前，context reducer 动态卸载仍是后续迁移项。
+`ReducerRegistry` 的 context reducer 注册也属于 owner-scoped effect：注册返回幂等 disposer，冲突 owner fail-closed，同一 owner 的替换会先撤销旧 registration；ExtensionManager 会把 workflow/project reducer handles 绑定到 extension child scope。context assembly 读取锁保护的 reducer snapshot，因此正在进行的 assembly 可以完成，但 disposed owner 不会被新的 assembly 接纳。
 
 ## 5. Execution Pipeline
 

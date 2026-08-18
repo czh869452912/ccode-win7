@@ -704,6 +704,72 @@ def test_default_c_workflow_extension_registers_context_reducers(tmp_path):
     assert "report_quality_v2" in reducers.high_priority_tool_names()
 
 
+def test_c_workflow_context_reducer_registration_returns_disposer():
+    from embedagent_host.runtime.context import ContextManager
+    from embedagent_workflow_cpp.extension import CHarnessWorkflowExtension
+
+    registry = ContextManager().reducers
+    dispose = CHarnessWorkflowExtension().register_context_reducers(registry)
+
+    assert callable(dispose)
+    assert "run_recipe" in registry._reducers
+    dispose()
+    dispose()
+    assert "run_recipe" not in registry._reducers
+    assert "report_quality_v2" not in registry.high_priority_tool_names()
+
+
+def test_extension_manager_disposes_workflow_context_reducers():
+    from embedagent_core.extensions import ExtensionManager
+    from embedagent_host.runtime.context import ContextManager
+    from embedagent_workflow_cpp.extension import CHarnessWorkflowExtension
+
+    registry = ContextManager().reducers
+    manager = ExtensionManager([CHarnessWorkflowExtension()])
+    manager.register_context_reducers(registry)
+
+    assert "task_status" in registry._reducers
+    manager.dispose()
+
+    assert "task_status" not in registry._reducers
+    assert "run_recipe" not in registry.high_priority_tool_names()
+
+
+def test_extension_manager_can_reload_context_reducers_after_manual_dispose():
+    from embedagent_core.extensions import ExtensionManager
+    from embedagent_host.runtime.context import ContextManager
+    from embedagent_workflow_cpp.extension import CHarnessWorkflowExtension
+
+    registry = ContextManager().reducers
+    manager = ExtensionManager([CHarnessWorkflowExtension()])
+    first_dispose = manager.register_context_reducers(registry)
+    first_dispose()
+    assert "task_status" not in registry._reducers
+
+    manager.register_context_reducers(registry)
+    assert "task_status" in registry._reducers
+
+
+def test_extension_manager_disposes_workflow_graph_cache():
+    from embedagent_core.extensions import ExtensionManager
+    from embedagent_core.session import Session
+    from embedagent_workflow_cpp.extension import CHarnessWorkflowExtension
+
+    extension = CHarnessWorkflowExtension()
+    manager = ExtensionManager([extension])
+    session = Session()
+    session.workflow_state["workflow"] = {
+        "items": [{"id": 1, "content": "build:implement", "status": "in_progress"}],
+        "metadata": {"current_phase": "implement", "discipline_profile": "lite_spec_tdd"},
+    }
+    extension.graph_state.get(session)
+
+    assert extension.graph_state._graphs
+    manager.dispose()
+
+    assert extension.graph_state._graphs == {}
+
+
 def test_extension_manager_registers_new_context_reducer_capability_once():
     from embedagent_core.extensions import ExtensionManager
 

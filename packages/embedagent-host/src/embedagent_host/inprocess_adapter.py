@@ -919,17 +919,12 @@ class InProcessAdapter(object):
                 "session_id": session_id,
             }
         stored_payload = self.extension_manager.load_session_tasks(self.tools.workspace, session_id)
-        state = None
-        with self._lock:
-            state = self._sessions.get(session_id)
-        if state is not None:
-            session_workflow = dict(state.projection.get("workflow_state") or {})
-            workflow = {}
-            if isinstance(session_workflow, dict):
-                workflow = dict(session_workflow.get("workflow") or {})
-            tasks = list(workflow.get("items") or [])
-        else:
-            return stored_payload
+        state = self._ensure_session_active(session_id)
+        session_workflow = dict(state.projection.get("workflow_state") or {})
+        workflow = {}
+        if isinstance(session_workflow, dict):
+            workflow = dict(session_workflow.get("workflow") or {})
+        tasks = list(workflow.get("items") or [])
         return {
             "count": len(tasks),
             "tasks": tasks,

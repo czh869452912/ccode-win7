@@ -3,28 +3,67 @@ from __future__ import annotations
 from typing import Any, Dict
 
 
-def register_c_workflow_context_reducers(reducer_registry: Any) -> None:
-    reducer_registry.register_reducer("list_recipes", reducer_registry._reduce_list)
-    reducer_registry.register_reducer(
-        "run_recipe",
-        lambda data, detailed, policy: reduce_recipe_result(
-            data, detailed, policy, reducer_registry
-        ),
-    )
-    reducer_registry.register_reducer(
-        "report_quality_v2",
-        lambda data, detailed, policy: reduce_quality(data, detailed, policy, reducer_registry),
-    )
-    reducer_registry.register_reducer(
-        "task_status",
-        lambda data, detailed, policy: reduce_tasks(data, detailed, policy, reducer_registry),
-    )
-    reducer_registry.register_reducer(
-        "record_failing_evidence",
-        reducer_registry._reduce_generic,
-    )
-    reducer_registry.register_high_priority_tool("run_recipe")
-    reducer_registry.register_high_priority_tool("report_quality_v2")
+def register_c_workflow_context_reducers(reducer_registry: Any):
+    disposers = []
+    try:
+        disposers.append(
+            reducer_registry.register_reducer("list_recipes", reducer_registry._reduce_list)
+        )
+        disposers.append(
+            reducer_registry.register_reducer(
+                "run_recipe",
+                lambda data, detailed, policy: reduce_recipe_result(
+                    data, detailed, policy, reducer_registry
+                ),
+            )
+        )
+        disposers.append(
+            reducer_registry.register_reducer(
+                "report_quality_v2",
+                lambda data, detailed, policy: reduce_quality(
+                    data, detailed, policy, reducer_registry
+                ),
+            )
+        )
+        disposers.append(
+            reducer_registry.register_reducer(
+                "task_status",
+                lambda data, detailed, policy: reduce_tasks(
+                    data, detailed, policy, reducer_registry
+                ),
+            )
+        )
+        disposers.append(
+            reducer_registry.register_reducer(
+                "record_failing_evidence",
+                reducer_registry._reduce_generic,
+            )
+        )
+        disposers.append(reducer_registry.register_high_priority_tool("run_recipe"))
+        disposers.append(reducer_registry.register_high_priority_tool("report_quality_v2"))
+    except BaseException:
+        _dispose_all(disposers)
+        raise
+    return _dispose_all(disposers)
+
+
+def _dispose_all(disposers):
+    disposed = [False]
+
+    def dispose() -> None:
+        if disposed[0]:
+            return
+        disposed[0] = True
+        failures = []
+        for disposer in reversed(list(disposers)):
+            try:
+                disposer()
+            except BaseException as exc:
+                failures.append(exc)
+        if failures:
+            raise RuntimeError("context reducer disposal failed")
+
+    return dispose
 
 
 def reduce_diagnostics_tool(

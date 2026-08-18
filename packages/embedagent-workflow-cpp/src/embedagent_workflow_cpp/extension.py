@@ -17,6 +17,7 @@ from embedagent_workflow_cpp.package_manifest import c_workflow_package_manifest
 from embedagent_workflow_cpp.packs import pack_tool_names
 from embedagent_workflow_cpp.runner import HarnessRunner
 from embedagent_workflow_cpp.session_graph_state import HarnessSessionGraphState
+from embedagent_workflow_cpp.task_graph import TaskGraph
 from embedagent_workflow_cpp.tool_registry import build_c_workflow_tools
 from embedagent_workflow_cpp.workflow_projection import (
     build_c_harness_workflow_projection,
@@ -37,6 +38,9 @@ class CHarnessWorkflowExtension(object):
         self.tools = tools
         self.harness_runner = harness_runner or HarnessRunner()
         self.graph_state = graph_state or HarnessSessionGraphState()
+
+    def dispose(self) -> None:
+        self.graph_state.dispose()
 
     def extension_capabilities(self) -> List[ExtensionCapability]:
         return [
@@ -155,11 +159,12 @@ class CHarnessWorkflowExtension(object):
         if graph is None:
             if not should_initialize and not has_existing_workflow:
                 return None
-            graph = self.graph_state.ensure_empty(session)
+            graph = TaskGraph.empty()
         if graph.is_empty() and should_initialize:
-            graph = self.graph_state.from_user_request(session, user_text, current_mode)
+            graph = TaskGraph.from_user_request(user_text, current_mode)
         if graph.is_empty() and not has_existing_workflow:
             return None
+        graph = graph.clone()
         discipline_override = self._discipline_override(current_mode, workflow_state)
         graph = self.harness_runner.update_task_graph(
             graph,
@@ -167,7 +172,6 @@ class CHarnessWorkflowExtension(object):
             observations=[],
             discipline_override=discipline_override,
         )
-        self.graph_state.set(session, graph)
         context = None
         if not graph.is_empty():
             context = self._describe_context(
@@ -228,6 +232,9 @@ class CHarnessWorkflowExtension(object):
             str(metadata.get("current_phase") or ""),
             str(workflow.get("summary") or ""),
             list(workflow.get("items") or []),
+            snapshot_schema_version=2,
+            source_event_count=int(projection.get("restore_transcript_event_count") or 0),
+            workflow_fingerprint=store.workflow_fingerprint(workflow),
         )
 
     def build_mode_context(
@@ -314,8 +321,8 @@ class CHarnessWorkflowExtension(object):
             return {}
         return dict(payload)
 
-    def register_context_reducers(self, reducer_registry: Any) -> None:
-        register_c_workflow_context_reducers(reducer_registry)
+    def register_context_reducers(self, reducer_registry: Any):
+        return register_c_workflow_context_reducers(reducer_registry)
 
     def load_session_tasks(self, workspace: str, session_id: str) -> dict:
         tasks = task_store.load_task_items(workspace, session_id)

@@ -250,16 +250,15 @@ class TestHarnessWorkflowExtensionRefresh(unittest.TestCase):
             "/tmp/workspace",
             task_store_module=mock_task_store,
         )
-        mock_task_store.save_task_snapshot.assert_called_once_with(
-            "/tmp/workspace",
-            "session-one",
-            "explore",
-            "",
-            "disc1",
-            "phase1",
-            "summary",
-            [],
+        mock_task_store.save_task_snapshot.assert_called_once()
+        args = mock_task_store.save_task_snapshot.call_args.args
+        kwargs = mock_task_store.save_task_snapshot.call_args.kwargs
+        self.assertEqual(
+            args[:7], ("/tmp/workspace", "session-one", "explore", "", "disc1", "phase1", "summary")
         )
+        self.assertEqual(args[7], [])
+        self.assertEqual(kwargs["snapshot_schema_version"], 2)
+        self.assertTrue(kwargs["workflow_fingerprint"])
 
         mock_task_store.save_task_snapshot.assert_called_once()
 

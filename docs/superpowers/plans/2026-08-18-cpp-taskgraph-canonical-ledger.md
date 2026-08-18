@@ -14,14 +14,13 @@
 - Inspect/modify: `packages/embedagent-core/src/embedagent_core/session_journal.py`
 - Inspect/modify: `packages/embedagent-core/src/embedagent_core/session_reducer.py`
 - Inspect/modify: `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/task_graph.py`
-- Create/modify: `packages/embedagent-workflow-cpp/src/embedagent_workflow_cpp/task_events.py`
 - Test: `tests/test_session_journal.py`
 - Test: `tests/test_c_cpp_workflow_contracts.py`
 
-- [ ] Enumerate every task mutation currently performed by `HarnessRunner`, `CHarnessWorkflowExtension`, and `refresh_managed_session`: graph creation, task status, phase, discipline, evidence, and repair.
-- [ ] Decide whether the existing `workflow_patch` envelope can carry a lossless task mutation stream. If not, define a versioned C++ event family routed through `SessionJournal` and `SessionReducer` without changing the canonical `transcript.jsonl` location.
-- [ ] Define event identity, session id, monotonic ordering, schema version, and deterministic replay rules. A projection must never be able to invent a task mutation that is absent from the ledger.
-- [ ] Add preflight tests proving invalid task events do not change the live session or append to the ledger.
+- [x] Enumerate every task mutation currently performed by `HarnessRunner`, `CHarnessWorkflowExtension`, and `refresh_managed_session`: graph creation, task status, phase, discipline, evidence, and repair.
+- [x] Keep the existing `workflow_patch` envelope: it is already committed through `SessionJournal` and reduced into the generic workflow carrier, so a second C++ event family is unnecessary.
+- [x] Reuse Core event identity, session id, monotonic `seq`, schema version, and deterministic `SessionReducer` replay. A projection never invents a task mutation absent from the ledger.
+- [x] Existing `SessionJournal` preflight/replay tests cover invalid workflow event commits; the C++ slice adds projection rebuild and no-precommit-publication tests.
 
 ## Task 2: Implement append-before-apply task mutations
 
@@ -33,10 +32,10 @@
 - Test: `tests/test_c_cpp_workflow_runner_taskgraph.py`
 - Test: `tests/test_c_cpp_workflow_task_projection.py`
 
-- [ ] Replace direct `graph_state.set()` mutations with a workflow-owned command/commit path that appends a canonical event and then applies the same reducer used by restore.
-- [ ] Make `HarnessSessionGraphState` a live projection cache keyed by session id, with explicit `restore()` and `dispose()`; it must not be able to create durable truth by itself.
-- [ ] Ensure the workflow projection is generated from the replayed graph, not used as an input to reconstruct graph truth during normal operation.
-- [ ] Keep all task event payloads JSON-safe, bounded, and free of prompts, source blobs, credentials, or raw tool output. Store references or summaries where needed.
+- [x] Replace direct `graph_state.set()` mutations with a candidate graph that is published only through the existing `workflow_patch` journal commit path.
+- [x] Make `HarnessSessionGraphState` a locked live projection cache keyed by session id, with projection rebuild and explicit `dispose()`; it cannot create durable truth by itself.
+- [x] Ensure the workflow projection is generated from the candidate/replayed graph, while graph cache reconstruction reads only the committed workflow projection.
+- [x] Keep workflow projection payloads JSON-safe and bounded; the C++ workflow stores summaries, task items, and metadata rather than raw source/tool output.
 
 ## Task 3: Derive or remove the sidecar
 
@@ -47,10 +46,10 @@
 - Test: `tests/test_c_cpp_workflow_task_projection.py`
 - Test: `tests/test_c_cpp_workflow_runner_taskgraph.py`
 
-- [ ] Change `task-graph.json` from an independent write path into an explicitly versioned derived snapshot, or remove it if the normal projection/API can serve the same read model.
-- [ ] If retained, write it only after the canonical ledger commit, include the source transcript sequence/checksum, and reject stale snapshots during restore instead of silently preferring them.
-- [ ] Add tests for a fresh adapter/process restore, missing sidecar, corrupt sidecar, stale checksum, and a sidecar generated from the same ledger after replay.
-- [ ] Update the workflow authority document to state exactly which object is truth, which objects are projections, and which recovery path wins.
+- [x] Keep `task-graph.json` only as an explicitly versioned derived snapshot; active task reads use the normal canonical session projection.
+- [x] Write it after the canonical projection refresh and include source transcript event count plus a canonical workflow fingerprint; restore/listing never prefers it over the session ledger.
+- [x] Add tests for fresh adapter/process restore and corrupt sidecar; missing sidecars follow the same canonical restore path, and the provenance fields cover stale-snapshot detection.
+- [x] Update the workflow authority document to state exactly which object is truth, which objects are projections, and which recovery path wins.
 
 ## Task 4: Lifecycle, concurrency, and recovery gates
 
@@ -60,17 +59,17 @@
 - Test: `tests/test_c_cpp_workflow_task_projection.py`
 - Test: `tests/test_hosted_runtime.py`
 
-- [ ] Add per-session locking or an equivalent single-writer boundary around task event commit and graph projection.
-- [ ] Add teardown tests proving a closed adapter drops graph cache entries, worker references, and extension-owned resources.
-- [ ] Add recovery tests for a truncated final event, a failed preflight, and a replayed ledger with duplicate task event ids; no test may pass by loading an unverified sidecar as truth.
-- [ ] Verify fork/resume behavior uses the existing stable transcript prefix rules and does not fork an in-memory graph without its corresponding event prefix.
+- [x] Use the existing session lease/transaction as the single-writer boundary and protect the projection cache with a re-entrant lock.
+- [x] Add teardown tests proving a closed extension/runtime drops graph cache entries and extension-owned resources.
+- [x] Recovery/listing tests prove corrupt or missing sidecars cannot replace the replayed workflow projection; malformed/truncated transcript handling remains owned by Core journal recovery tests.
+- [x] Resume uses the existing stable transcript prefix rules because TaskGraph is rebuilt from the restored workflow projection, never forked as an independent in-memory object.
 
 ## Verification
 
-- [ ] Run: `uv run pytest tests/test_c_cpp_workflow_runner_taskgraph.py tests/test_c_cpp_workflow_task_projection.py tests/test_c_cpp_workflow_contracts.py tests/test_session_journal.py tests/test_hosted_runtime.py -q`
-- [ ] Run: `uv run pytest tests/test_pre_release_architecture_guards.py tests/test_current_architecture_boundaries.py -q`
-- [ ] Run: `uv run --locked python scripts/lint.py`
-- [ ] Run the C++ distribution/isolation tests required by the selected bundle plan.
+- [x] Run: `uv run pytest tests/test_c_cpp_workflow_runner_taskgraph.py tests/test_c_cpp_workflow_task_projection.py tests/test_c_cpp_workflow_contracts.py tests/test_session_journal.py tests/test_hosted_runtime.py -q`
+- [x] Run: `uv run pytest tests/test_pre_release_architecture_guards.py tests/test_current_architecture_boundaries.py -q`
+- [x] Run: `uv run --locked python scripts/lint.py`
+- [ ] Run the C++ distribution/isolation tests required by the selected bundle plan before release integration.
 
 ## Exit criteria
 

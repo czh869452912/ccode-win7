@@ -57,6 +57,7 @@ class HarnessTaskProjectionTests(unittest.TestCase):
         )
 
     def tearDown(self):
+        self.adapter.shutdown()
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_build_session_projects_harness_tasks_without_legacy_todo_store(self):
@@ -86,6 +87,9 @@ class HarnessTaskProjectionTests(unittest.TestCase):
         workflow = (state.projection.get("workflow_state") or {}).get("workflow") or {}
         self.assertEqual(len(workflow.get("items") or []), payload["count"])
         self.assertTrue(os.path.isfile(task_store.task_snapshot_path(self.workspace, session_id)))
+        stored = task_store.load_task_snapshot(self.workspace, session_id)
+        self.assertEqual(stored["snapshot_schema_version"], 2)
+        self.assertTrue(stored["source_workflow_fingerprint"])
         self.assertFalse(
             os.path.exists(
                 os.path.join(
@@ -98,6 +102,33 @@ class HarnessTaskProjectionTests(unittest.TestCase):
                 )
             )
         )
+
+    def test_restart_and_corrupt_sidecar_use_canonical_session_projection(self):
+        snapshot = self.adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        self.adapter.submit_user_message(
+            session_id=session_id,
+            text="build the project",
+            stream=False,
+            wait=True,
+        )
+        self.adapter.shutdown()
+
+        with open(task_store.task_snapshot_path(self.workspace, session_id), "w") as handle:
+            handle.write("not-json")
+
+        restarted = InProcessAdapter(
+            client=DoneClient(),
+            tools=ToolRuntime(self.workspace),
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            agent_application_registry=cpp_application_registry(),
+        )
+        try:
+            payload = restarted.list_tasks(session_id=session_id)
+            self.assertGreaterEqual(payload["count"], 1)
+            self.assertEqual(payload["session_id"], session_id)
+        finally:
+            restarted.shutdown()
 
     def test_mode_change_does_not_synthesize_task_track_without_explicit_work(self):
         snapshot = self.adapter.create_session("build")

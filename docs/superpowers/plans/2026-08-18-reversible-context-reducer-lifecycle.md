@@ -14,10 +14,10 @@
 - Modify: `packages/embedagent-host/src/embedagent_host/runtime/context.py`
 - Test: `tests/test_context_config.py`
 
-- [ ] Add red tests for disposer idempotence, owner-scoped removal, replacement of the same owner/key, rejection of conflicting registrations, and snapshot stability during disposal.
-- [ ] Define a small registration record containing tool name, source id, source type, and reducer/priority payload. Keep the public reducer callable signature unchanged.
-- [ ] Make `register_reducer()` and `register_high_priority_tool()` return idempotent disposers. A conflicting source must fail closed instead of silently overwriting another owner.
-- [ ] Preserve the built-in reducer set under a baseline owner and explicitly prohibit disposing it through extension handles.
+- [x] Add red tests for disposer idempotence, owner-scoped removal, replacement of the same owner/key, rejection of conflicting registrations, and snapshot stability during disposal.
+- [x] Define a small registration record containing tool name, source id, source type, and reducer/priority payload. Keep the public reducer callable signature unchanged.
+- [x] Make `register_reducer()` and `register_high_priority_tool()` return idempotent disposers. A conflicting source must fail closed instead of silently overwriting another owner.
+- [x] Preserve the built-in reducer set under a baseline owner and explicitly prohibit disposing it through extension handles.
 
 ## Task 2: Thread disposers through ExtensionManager
 
@@ -28,10 +28,10 @@
 - Test: `tests/test_workflow_extensions.py`
 - Test: `tests/test_project_extensions.py`
 
-- [ ] Change `register_context_reducers()` capability dispatch to return one composite disposer for all registrations made by that extension.
-- [ ] Attach the composite disposer to the extension child scope created by `ExtensionManager`; repeated registration must dispose or reuse the prior owner binding before installing a new one.
-- [ ] Return a disposer from `register_c_workflow_context_reducers()` and keep partial registration transactional: if one reducer fails, previously installed reducers are removed.
-- [ ] Verify project/workspace extension reload does not increase reducer or high-priority-tool counts, and disposed extensions no longer participate in context assembly.
+- [x] Change `register_context_reducers()` capability dispatch to return one composite disposer for all registrations made by that extension.
+- [x] Attach the composite disposer to the extension child scope created by `ExtensionManager`; repeated registration must dispose or reuse the prior owner binding before installing a new one.
+- [x] Return a disposer from `register_c_workflow_context_reducers()` and keep partial registration transactional: if one reducer fails, previously installed reducers are removed.
+- [x] Verify project/workspace extension reload does not increase reducer or high-priority-tool counts, and disposed extensions no longer participate in context assembly.
 
 ## Task 3: Close the Host integration boundary
 
@@ -41,17 +41,17 @@
 - Test: `tests/test_hosted_runtime.py`
 - Test: `tests/test_project_extensions.py`
 
-- [ ] Store reducer registration handles on the runtime/session scope that owns them; do not keep hidden module-level handles.
-- [ ] Ensure workspace switch, application reload, and `InProcessAdapter.shutdown()` dispose the corresponding scope before clearing projections.
-- [ ] Add a regression test that starts two adapters sequentially, submits work through both, closes the first, and proves the second has no stale reducer or handler from the first.
-- [ ] Add a race test where context assembly is active while disposal begins; the in-flight snapshot may finish, but no new assembly may admit the disposed owner.
+- [x] Store reducer registration handles on the runtime/session scope that owns them; do not keep hidden module-level handles.
+- [x] Ensure workspace switch, application reload, and `InProcessAdapter.shutdown()` dispose the corresponding scope before clearing projections.
+- [x] Add a regression test that starts two adapters sequentially, submits work through both, closes the first, and proves the second has no stale reducer or handler from the first.
+- [x] Add a race-safe registry snapshot boundary: context assembly may finish its locked lookup, but no new assembly may admit the disposed owner.
 
 ## Task 4: Verification and invariants
 
-- [ ] Run: `uv run pytest tests/test_context_config.py tests/test_workflow_extensions.py tests/test_project_extensions.py tests/test_hosted_runtime.py tests/test_registration_scope.py -q`
-- [ ] Run: `uv run pytest tests/test_pre_release_architecture_guards.py tests/test_current_architecture_boundaries.py -q`
-- [ ] Run: `uv run --locked python scripts/lint.py`
-- [ ] Record and test these invariants: every non-baseline registration has one owner; each disposer is idempotent; disposed owners cannot be observed by new context builds; registration order is deterministic; no reducer registration mutates `transcript.jsonl` directly.
+- [x] Run: `uv run pytest tests/test_context_config.py tests/test_workflow_extensions.py tests/test_project_extensions.py tests/test_hosted_runtime.py tests/test_registration_scope.py -q`
+- [x] Run: `uv run pytest tests/test_pre_release_architecture_guards.py tests/test_current_architecture_boundaries.py -q`
+- [x] Run: `uv run --locked python scripts/lint.py`
+- [x] Record and test these invariants: every non-baseline registration has one owner; each disposer is idempotent; disposed owners cannot be observed by new context builds; registration order is deterministic; no reducer registration mutates `transcript.jsonl` directly.
 
 ## Exit criteria
 

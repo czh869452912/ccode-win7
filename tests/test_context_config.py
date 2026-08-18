@@ -129,6 +129,63 @@ class TestReducerRegistryTasks(unittest.TestCase):
         self.assertIn("task_status", self.registry._reducers)
         self.assertIn("record_failing_evidence", self.registry._reducers)
         self.assertNotIn("list_compilers", self.registry._reducers)
+
+    def test_extension_reducer_registration_is_owner_scoped_and_idempotent(self):
+        def first(data, detailed, policy):
+            del data, detailed, policy
+            return {"owner": "first"}
+
+        def second(data, detailed, policy):
+            del data, detailed, policy
+            return {"owner": "second"}
+
+        dispose_first = self.registry.register_reducer(
+            "owned_tool",
+            first,
+            owner_id="extension.one",
+            source_type="project",
+        )
+        dispose_second = self.registry.register_reducer(
+            "owned_tool",
+            second,
+            owner_id="extension.one",
+            source_type="project",
+        )
+
+        self.assertIs(self.registry._reducers["owned_tool"], second)
+        dispose_first()
+        self.assertIs(self.registry._reducers["owned_tool"], second)
+        dispose_second()
+        dispose_second()
+        self.assertNotIn("owned_tool", self.registry._reducers)
+
+    def test_conflicting_reducer_owner_fails_closed(self):
+        self.registry.register_reducer(
+            "owned_tool",
+            lambda data, detailed, policy: {"owner": "first"},
+            owner_id="extension.one",
+            source_type="project",
+        )
+
+        with self.assertRaises(ValueError):
+            self.registry.register_reducer(
+                "owned_tool",
+                lambda data, detailed, policy: {"owner": "second"},
+                owner_id="extension.two",
+                source_type="project",
+            )
+
+    def test_high_priority_registration_returns_disposer(self):
+        dispose = self.registry.register_high_priority_tool(
+            "owned_tool",
+            owner_id="extension.one",
+            source_type="project",
+        )
+
+        self.assertIn("owned_tool", self.registry.high_priority_tool_names())
+        dispose()
+        dispose()
+        self.assertNotIn("owned_tool", self.registry.high_priority_tool_names())
         self.assertNotIn("configure_build_env", self.registry._reducers)
         self.assertNotIn("run_build", self.registry._reducers)
 

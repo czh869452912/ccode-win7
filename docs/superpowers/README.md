@@ -12,6 +12,7 @@
 
 ## Composition Runtime Follow-up
 
+- `docs/superpowers/plans/2026-08-18-pi-cordis-composition-runtime.md`
 - `docs/superpowers/plans/2026-08-18-reversible-context-reducer-lifecycle.md`
 - `docs/superpowers/plans/2026-08-18-cpp-taskgraph-canonical-ledger.md`
 
