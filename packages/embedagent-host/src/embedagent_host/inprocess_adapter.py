@@ -3,6 +3,7 @@ from __future__ import annotations  # noqa: I001
 import copy
 import os
 import threading
+import time
 import uuid
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -308,6 +309,8 @@ class InProcessAdapter(object):
             category_setter(self._tool_permission_category)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
+        self._closing = False
+        self._closed = False
         self.restore_policy = ManagedSessionRestorePolicy(self._require_session)
         remembered_setter = self.permission_policy.set_remembered_categories_provider
         remembered_setter(self._remembered_categories_for_session)
@@ -748,6 +751,7 @@ class InProcessAdapter(object):
         self,
         mode: str = "",
     ) -> Dict[str, Any]:
+        self._ensure_open()
         current_mode = self._mode_runtime_policy.require_mode(
             mode or self._mode_runtime_policy.default_mode()
         )["slug"]
@@ -771,6 +775,7 @@ class InProcessAdapter(object):
         reference: str,
         mode: str = "",
     ) -> Dict[str, Any]:
+        self._ensure_open()
         state = self._session_lifecycle.restore_session_state(reference, mode)
         pending = state.history.get("current_interaction")
         if isinstance(pending, dict):
@@ -1005,6 +1010,7 @@ class InProcessAdapter(object):
         stream: bool = True,
         wait: bool = True,
     ) -> Dict[str, Any]:
+        self._ensure_open()
         state = self._require_session(session_id)
         with state.lock:
             if state.active_thread is not None and state.active_thread.is_alive():
@@ -1534,10 +1540,71 @@ class InProcessAdapter(object):
 
     def _require_session(self, session_id: str) -> ManagedSession:
         with self._lock:
+            if self._closed:
+                raise RuntimeError("hosted runtime is closed")
             state = self._sessions.get(session_id)
         if state is None:
             raise SessionNotFoundError(session_id)
         return state
+
+    def shutdown(self, timeout: float = 5.0) -> None:
+        with self._lock:
+            if self._closed:
+                return
+            if self._closing:
+                raise RuntimeError("hosted runtime shutdown is already in progress")
+            self._closing = True
+            states = list(self._sessions.values())
+
+        for state in states:
+            with state.lock:
+                state.stop_event.set()
+                pending = state.pending_interaction
+                pending_event = state.pending_event
+                if pending is not None and pending_event is not None:
+                    if getattr(pending, "kind", "") == "user_input":
+                        state.pending_response = {"user_input": UserInputResponse(answer="")}
+                    else:
+                        state.pending_response = {"approved": False}
+                    pending_event.set()
+
+        deadline = time.monotonic() + max(0.0, float(timeout))
+        threads = []
+        for state in states:
+            for thread in (state.active_thread, state.resume_thread):
+                if thread is not None and thread is not threading.current_thread():
+                    if thread not in threads:
+                        threads.append(thread)
+        for thread in threads:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            thread.join(remaining)
+        alive = [thread for thread in threads if thread.is_alive()]
+        if alive:
+            with self._lock:
+                self._closing = False
+            raise RuntimeError("hosted runtime shutdown did not quiesce")
+
+        dispose_error = None
+        try:
+            disposer = getattr(self.extension_manager, "dispose", None)
+            if callable(disposer):
+                disposer()
+        except BaseException as exc:
+            dispose_error = exc
+        finally:
+            with self._lock:
+                self._sessions.clear()
+                self._closed = True
+                self._closing = False
+        if dispose_error is not None:
+            raise dispose_error
+
+    def _ensure_open(self) -> None:
+        with self._lock:
+            if self._closed or self._closing:
+                raise RuntimeError("hosted runtime is closed")
 
     def _emit(
         self,

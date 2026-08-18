@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from embedagent_core.registration_scope import RegistrationScope
+
 _REGISTRATION_ERRORS = (
     AttributeError,
     ImportError,
@@ -61,11 +63,12 @@ class ApplicationRegistrar(object):
         extension_host: Any,
         shell_registry: Any,
         runtime_registry: Optional[Any] = None,
+        scope: Optional[RegistrationScope] = None,
     ) -> None:
         self._extension_host = extension_host
         self._shell_registry = shell_registry
         self._runtime_registry = runtime_registry
-        self._disposers = []
+        self._scope = scope or RegistrationScope("application")
         self._source_ids = set()
         self._runtime_contributions = {}
 
@@ -85,10 +88,12 @@ class ApplicationRegistrar(object):
             if called[0]:
                 return
             called[0] = True
-            disposer()
+            try:
+                disposer()
+            finally:
+                self._source_ids.discard(source_id)
 
-        self._disposers.append((source_id, dispose_once))
-        return dispose_once
+        return self._scope.register(dispose_once)
 
     def add_extension(self, extension: Any, source_id: str) -> Callable[[], None]:
         source = self._source(source_id)
@@ -168,9 +173,7 @@ class ApplicationRegistrar(object):
         return tuple(self._runtime_contributions.values())
 
     def dispose(self) -> None:
-        while self._disposers:
-            source_id, disposer = self._disposers.pop()
-            try:
-                disposer()
-            finally:
-                self._source_ids.discard(source_id)
+        try:
+            self._scope.dispose()
+        finally:
+            self._source_ids.clear()

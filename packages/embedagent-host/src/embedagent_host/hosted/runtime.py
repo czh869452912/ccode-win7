@@ -27,6 +27,9 @@ class HostedRuntime(object):
     session: FrontendSessionPort
     workspace: FrontendWorkspacePort
 
+    def close(self) -> None:
+        self.session.close()
+
 
 def create_hosted_runtime(
     launch_config: LaunchConfig,

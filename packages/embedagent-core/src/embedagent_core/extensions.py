@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional, Set
 
 from embedagent_core.agent_event_bus import AgentEvent, AgentEventBus, AgentEventDispatchError
+from embedagent_core.registration_scope import RegistrationScope
 
 _HOOK_EVENT_TYPES = {
     "context": "extension.context",
@@ -188,6 +189,7 @@ class ExtensionManager(object):
         self._extensions = []  # type: List[Any]
         self._diagnostics = []  # type: List[ExtensionDiagnostic]
         self._event_bus = AgentEventBus()
+        self._scope = RegistrationScope("extensions")
         self._package_manifest_capabilities = []  # type: List[Dict[str, Any]]
         self._context_reducer_capabilities = []  # type: List[Dict[str, Any]]
         self._context_reducer_registration_lock = threading.RLock()
@@ -196,9 +198,29 @@ class ExtensionManager(object):
         for extension in list(extensions or []):
             self.register(extension)
 
-    def register(self, extension: Any) -> None:
+    def register(self, extension: Any) -> Callable[[], None]:
+        source_id = self._extension_id(extension)
+        extension_scope = self._scope.create_child("extension:%s:%s" % (source_id, id(extension)))
         self._extensions.append(extension)
-        self._register_capabilities(extension)
+        try:
+            self._register_capabilities(extension, extension_scope)
+        except BaseException:
+            try:
+                extension_scope.dispose()
+            finally:
+                self._remove_extension(extension)
+            raise
+
+        def remove_extension() -> None:
+            try:
+                extension_scope.dispose()
+            finally:
+                self._remove_extension(extension)
+
+        return self._scope.register(remove_extension)
+
+    def dispose(self) -> None:
+        self._scope.dispose()
 
     def diagnostics(self) -> List[Dict[str, Any]]:
         return [item.to_dict() for item in self._diagnostics]
@@ -295,7 +317,11 @@ class ExtensionManager(object):
     def _is_builtin_extension(self, extension: Any) -> bool:
         return bool(getattr(extension, "builtin_extension", True))
 
-    def _register_capabilities(self, extension: Any) -> None:
+    def _register_capabilities(
+        self,
+        extension: Any,
+        scope: RegistrationScope,
+    ) -> None:
         source_id = self._extension_id(extension)
         source_type = "builtin" if self._is_builtin_extension(extension) else "project"
         fail_closed = self._is_builtin_extension(extension)
@@ -324,12 +350,14 @@ class ExtensionManager(object):
             )
             if capability is None:
                 continue
-            self._register_capability(
+            disposer = self._register_capability(
                 capability,
                 source_id,
                 source_type,
                 fail_closed,
             )
+            if callable(disposer):
+                scope.register(disposer)
 
     def _normalize_capability(
         self,
@@ -371,7 +399,7 @@ class ExtensionManager(object):
         source_id: str,
         source_type: str,
         default_fail_closed: bool,
-    ) -> None:
+    ) -> Optional[Callable[[], None]]:
         if not callable(capability.handler):
             self.record_diagnostic(
                 source_id,
@@ -399,13 +427,13 @@ class ExtensionManager(object):
         }
         if capability.hook_name == "package_manifest":
             self._package_manifest_capabilities.append(entry)
-            return
+            return lambda: self._remove_entry(self._package_manifest_capabilities, entry)
         if capability.hook_name == "register_context_reducers":
             self._context_reducer_capabilities.append(entry)
-            return
+            return lambda: self._remove_entry(self._context_reducer_capabilities, entry)
         if capability.hook_name == "workspace_recipes":
             self._workspace_recipe_capabilities.append(entry)
-            return
+            return lambda: self._remove_entry(self._workspace_recipe_capabilities, entry)
         event_type = str(capability.event_type or "")
         if not event_type:
             self.record_diagnostic(
@@ -422,7 +450,7 @@ class ExtensionManager(object):
         metadata.update(dict(capability.metadata or {}))
         handler = self._event_handler_for_capability(capability)
         if capability.kind == "observer":
-            self._event_bus.register_observer(
+            return self._event_bus.register_observer(
                 event_type,
                 source_id,
                 source_type,
@@ -431,7 +459,7 @@ class ExtensionManager(object):
                 metadata=metadata,
             )
         else:
-            self._event_bus.register_reducer(
+            return self._event_bus.register_reducer(
                 event_type,
                 source_id,
                 source_type,
@@ -439,6 +467,18 @@ class ExtensionManager(object):
                 fail_closed=fail_closed,
                 metadata=metadata,
             )
+
+    def _remove_extension(self, extension: Any) -> None:
+        for index, current in enumerate(self._extensions):
+            if current is extension:
+                self._extensions.pop(index)
+                return
+
+    def _remove_entry(self, entries: List[Dict[str, Any]], target: Dict[str, Any]) -> None:
+        for index, entry in enumerate(entries):
+            if entry is target:
+                entries.pop(index)
+                return
 
     def _record_bus_diagnostics(self, dispatch_result: Any, event_name: str) -> None:
         for diagnostic in list(getattr(dispatch_result, "diagnostics", []) or []):

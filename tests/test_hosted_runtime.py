@@ -76,6 +76,31 @@ def test_create_hosted_runtime_builds_frontend_port_set(tmp_path, monkeypatch):
     assert adapter_cls.call_args.kwargs["event_sink"] is sink
 
 
+def test_hosted_runtime_close_forwards_to_adapter_shutdown(tmp_path, monkeypatch):
+    adapter_cls = MagicMock(return_value=MagicMock(name="adapter"))
+    monkeypatch.setattr("embedagent_host.hosted.runtime.InProcessAdapter", adapter_cls)
+
+    runtime = create_hosted_runtime(_config(tmp_path))
+    runtime.close()
+
+    adapter_cls.return_value.shutdown.assert_called_once_with()
+
+
+def test_inprocess_adapter_shutdown_is_idempotent_and_releases_sessions(tmp_path):
+    from embedagent_host.inprocess_adapter import InProcessAdapter
+
+    adapter = InProcessAdapter(client=MagicMock(), tools=ToolRuntime(str(tmp_path)))
+    snapshot = adapter.create_session(mode="build")
+    assert snapshot["session_id"] in adapter._sessions
+
+    adapter.shutdown()
+    adapter.shutdown()
+
+    assert adapter._sessions == {}
+    with pytest.raises(RuntimeError, match="closed"):
+        adapter.create_session(mode="build")
+
+
 def test_generic_tool_runtime_preserves_permanent_command_denials(tmp_path):
     tools = ToolRuntime(str(tmp_path), app_config=SimpleNamespace())
 

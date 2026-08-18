@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
@@ -42,6 +43,7 @@ class AgentEventBus(object):
     def __init__(self) -> None:
         self._reducers = []  # type: List[EventHandlerRegistration]
         self._observers = []  # type: List[EventHandlerRegistration]
+        self._lock = threading.RLock()
 
     def register_reducer(
         self,
@@ -51,18 +53,17 @@ class AgentEventBus(object):
         reducer: Callable[[AgentEvent, Any], Any],
         fail_closed: bool = False,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        self._reducers.append(
-            EventHandlerRegistration(
-                event_type=str(event_type or ""),
-                source_id=str(source_id or ""),
-                source_type=str(source_type or "extension"),
-                handler=reducer,
-                kind="reducer",
-                fail_closed=bool(fail_closed),
-                metadata=dict(metadata or {}),
-            )
+    ) -> Callable[[], None]:
+        registration = EventHandlerRegistration(
+            event_type=str(event_type or ""),
+            source_id=str(source_id or ""),
+            source_type=str(source_type or "extension"),
+            handler=reducer,
+            kind="reducer",
+            fail_closed=bool(fail_closed),
+            metadata=dict(metadata or {}),
         )
+        return self._add_registration(self._reducers, registration)
 
     def register_observer(
         self,
@@ -72,18 +73,17 @@ class AgentEventBus(object):
         observer: Callable[[AgentEvent, Any], Any],
         fail_closed: bool = False,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        self._observers.append(
-            EventHandlerRegistration(
-                event_type=str(event_type or ""),
-                source_id=str(source_id or ""),
-                source_type=str(source_type or "extension"),
-                handler=observer,
-                kind="observer",
-                fail_closed=bool(fail_closed),
-                metadata=dict(metadata or {}),
-            )
+    ) -> Callable[[], None]:
+        registration = EventHandlerRegistration(
+            event_type=str(event_type or ""),
+            source_id=str(source_id or ""),
+            source_type=str(source_type or "extension"),
+            handler=observer,
+            kind="observer",
+            fail_closed=bool(fail_closed),
+            metadata=dict(metadata or {}),
         )
+        return self._add_registration(self._observers, registration)
 
     def dispatch(
         self,
@@ -93,11 +93,14 @@ class AgentEventBus(object):
     ) -> EventDispatchResult:
         result = EventDispatchResult()
         event_type = str(event.event_type or "")
-        for registration in list(self._observers):
+        with self._lock:
+            observers = list(self._observers)
+            reducers = list(self._reducers)
+        for registration in observers:
             if registration.event_type != event_type:
                 continue
             self._call_registration(registration, event, context, result)
-        for registration in list(self._reducers):
+        for registration in reducers:
             if registration.event_type != event_type:
                 continue
             self._call_registration(registration, event, context, result)
@@ -142,3 +145,24 @@ class AgentEventBus(object):
             "metadata": dict(registration.metadata),
         }
         result.reducer_results.append(item)
+
+    def _add_registration(
+        self,
+        registrations: List[EventHandlerRegistration],
+        registration: EventHandlerRegistration,
+    ) -> Callable[[], None]:
+        with self._lock:
+            registrations.append(registration)
+        active = [True]
+
+        def dispose_once() -> None:
+            with self._lock:
+                if not active[0]:
+                    return
+                active[0] = False
+                for index, current in enumerate(registrations):
+                    if current is registration:
+                        registrations.pop(index)
+                        break
+
+        return dispose_once

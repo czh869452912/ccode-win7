@@ -3,6 +3,7 @@ from __future__ import annotations
 import embedagent_composition
 import embedagent_core
 import pytest
+from embedagent_core.registration_scope import RegistrationScope
 
 
 def _manifest(**overrides):
@@ -99,6 +100,27 @@ def test_application_registrar_disposes_source_registrations_in_reverse_order():
         ("dispose_shell", "app.second"),
         ("dispose", "app.first"),
     ]
+
+
+def test_application_registrar_can_attach_to_an_owner_scope():
+    calls = []
+
+    class ExtensionHost(object):
+        def register(self, extension, source_id):
+            del extension
+            return lambda: calls.append(("dispose", source_id))
+
+    class ShellRegistry(object):
+        pass
+
+    scope = RegistrationScope("application")
+    registrar = embedagent_core.ApplicationRegistrar(ExtensionHost(), ShellRegistry(), scope=scope)
+    registrar.add_extension(object(), "app.scoped")
+
+    scope.dispose()
+
+    assert calls == [("dispose", "app.scoped")]
+    assert scope.state == RegistrationScope.DISPOSED
 
 
 def test_application_runtime_contribution_is_a_focused_workflow_neutral_contract():

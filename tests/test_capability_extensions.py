@@ -67,6 +67,21 @@ def test_extension_manager_registers_explicit_capability_records_only():
     assert manager.diagnostics() == []
 
 
+def test_extension_manager_registration_returns_a_disposer():
+    manager = ExtensionManager()
+    disposer = manager.register(ExplicitContextExtension())
+
+    assert callable(disposer)
+    disposer()
+    disposer()
+
+    patch = manager.context(
+        WorkflowEvent(current_mode="build"),
+        ExtensionContext(workspace="."),
+    )
+    assert patch.messages == []
+
+
 def test_extension_manager_records_invalid_capability_records():
     manager = ExtensionManager([InvalidCapabilityRecordExtension()])
 

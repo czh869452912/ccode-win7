@@ -26,6 +26,11 @@ from embedagent_core.ports import (
     StrictSessionRestorePolicy,
 )
 from embedagent_core.profile import AgentModeDescriptor, AgentProfile
+from embedagent_core.registration_scope import (
+    RegistrationScope,
+    ScopeDisposeError,
+    ScopeStateError,
+)
 from embedagent_core.session import Action, AssistantReply, Observation
 from embedagent_core.session_log import InMemorySessionLog, SessionLeaseConflict, SessionLogPort
 from embedagent_core.session_transaction import SessionRecoveryRequired
@@ -58,12 +63,15 @@ __all__ = [
     "NoopSessionProjection",
     "Observation",
     "PermissionPolicy",
+    "RegistrationScope",
     "PreparedToolObservation",
     "RuntimeDefinition",
     "SessionLeaseConflict",
     "SessionLogPort",
     "SessionProjectionPort",
     "SessionRecoveryRequired",
+    "ScopeDisposeError",
+    "ScopeStateError",
     "SessionRestorePolicyPort",
     "StrictSessionRestorePolicy",
     "ToolError",
