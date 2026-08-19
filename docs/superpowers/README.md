@@ -9,8 +9,6 @@
 ## Architecture Convergence
 
 - `docs/superpowers/plans/2026-08-17-public-contract-and-repository-boundary-convergence.md`
-- `docs/superpowers/specs/2026-08-19-phase-3-contract-runtime-boundary-design.md` (close and archive after Phase 3 verification)
-- `docs/superpowers/plans/2026-08-19-phase-3-contract-runtime-boundary.md` (close and archive after Phase 3 verification)
 
 ## Composition Runtime Follow-up
 
