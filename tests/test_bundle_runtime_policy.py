@@ -23,6 +23,11 @@ def _write_bundle_policy(
         "allowed_agent_application_ids": list(applications),
         "shell_ids": list(shells),
         "registration_entries": list(registration_entries),
+        "runtime_capability_ids": ["runtime.python"],
+        "runtime_component_ids": ["python_embedded"],
+        "asset_ids": ["python_embedded_x64"],
+        "gate_ids": ["runtime_contract"],
+        "project_distribution_ids": ["embedagent-core"],
     }
     plan_path = manifests / "bundle-plan.json"
     plan_path.write_text(json.dumps(plan, sort_keys=True), encoding="ascii")

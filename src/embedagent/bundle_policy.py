@@ -21,6 +21,11 @@ class BundleRuntimePolicy:
     allowed_agent_application_ids: Tuple[str, ...] = field(default_factory=tuple)
     shell_ids: Tuple[str, ...] = field(default_factory=tuple)
     registration_entries: Tuple[str, ...] = field(default_factory=tuple)
+    runtime_capability_ids: Tuple[str, ...] = field(default_factory=tuple)
+    runtime_component_ids: Tuple[str, ...] = field(default_factory=tuple)
+    asset_ids: Tuple[str, ...] = field(default_factory=tuple)
+    gate_ids: Tuple[str, ...] = field(default_factory=tuple)
+    project_distribution_ids: Tuple[str, ...] = field(default_factory=tuple)
 
     def require_application(self, requested_id: str) -> str:
         if (
@@ -81,6 +86,19 @@ def _required_registration_entries(plan) -> Tuple[str, ...]:
     return normalized
 
 
+def _selected_closure_ids(plan, field_name: str) -> Tuple[str, ...]:
+    values = plan.get(field_name)
+    if not isinstance(values, list):
+        raise ValueError("bundle plan %s must be an array" % field_name)
+    normalized = tuple(str(item).strip() for item in values)
+    if (
+        any(not item for item in normalized)
+        or len(normalized) != len(set(normalized))
+    ):
+        raise ValueError("bundle plan %s must contain unique nonempty ids" % field_name)
+    return normalized
+
+
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -122,6 +140,11 @@ def load_bundle_policy(bundle_root: Optional[str]) -> BundleRuntimePolicy:
         allowed_agent_application_ids=_required_ids(plan, "allowed_agent_application_ids"),
         shell_ids=_required_ids(plan, "shell_ids"),
         registration_entries=_required_registration_entries(plan),
+        runtime_capability_ids=_selected_closure_ids(plan, "runtime_capability_ids"),
+        runtime_component_ids=_selected_closure_ids(plan, "runtime_component_ids"),
+        asset_ids=_selected_closure_ids(plan, "asset_ids"),
+        gate_ids=_selected_closure_ids(plan, "gate_ids"),
+        project_distribution_ids=_selected_closure_ids(plan, "project_distribution_ids"),
     )
 
 
