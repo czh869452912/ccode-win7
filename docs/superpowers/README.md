@@ -9,8 +9,6 @@
 ## Architecture Convergence
 
 - `docs/superpowers/plans/2026-08-17-public-contract-and-repository-boundary-convergence.md`
-- `docs/superpowers/plans/2026-08-19-phase-4-mode-profile-boundary.md`
-- `docs/superpowers/plans/2026-08-19-phase-4-cpp-isolated-wheel.md`
 
 ## Composition Runtime Follow-up
 
