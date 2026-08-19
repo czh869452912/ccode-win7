@@ -22,8 +22,7 @@
 - 依次执行 `docs/superpowers/plans/2026-08-17-public-contract-and-repository-boundary-convergence.md` 的 contract freeze、mode/profile removal、capability-driven shell、safe diagnostics 和 isolated C++ export proof。
 - `agent_application_v1`、registration entry、selected distribution、runtime requirement、asset 和 gate 必须由同一份 compiled plan/lock 表达；不恢复固定 wheel 数量或隐式 C++ 注册。
 - 只有 Core/Protocol/C++ isolated wheel smoke、版本化 release metadata 和 product consumption test 全部通过，才进入物理 repository split 的独立决策。
-- Phase 3 的 selected closure、safe failure DTO 和 root-scope quiescent shutdown 已完成并有独立 contract/lifecycle/architecture tests；后续只补 application-scoped runtime requirement、C++ isolated wheel 和 Win7 evidence，不再扩展第二套 runtime owner。
-- Phase 4 的 generic mode/profile/provider removal 已完成：Host construction 和 capability projection 只消费显式 application runtime contribution、model client 与 tool runtime，generic context 不提供默认 workspace provider 或 mode，缺失组合以 typed configuration failure 终止。后续不恢复 profile-to-runtime synthesis 或 Host-selected application/provider。
+- 物理 repository split 仍需单独确定版本、发布与产品消费契约；不得把本地 isolated wheel prerequisite 当作迁仓授权，也不得恢复 Host-selected application/provider、profile-to-runtime synthesis 或第二套 runtime owner。
 
 ## P2: Real C/C++ Project Validation
 

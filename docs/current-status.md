@@ -26,6 +26,7 @@
 - GUI/TUI 核心体验已收敛为 session、连续 timeline、composer/mode/command、blocking interaction 和 status。terminal、source control、preview、file browser 与独立 diff 只通过可选 contribution 注册；移除全部 secondary contributions 后最小 Agent shell 仍可独立使用。
 - Protocol、Host 和前端只投影 `SessionSnapshot.workflow_state`；C/C++ phase、discipline、TaskGraph 与 task 语义只由 workflow package 拥有。活动源码与文档不再使用迁移阶段命名或已删除的永久 panel/drawer 状态。
 - Phase 3 已完成运行时边界收敛：compiled bundle selected closure 在启动时以不可变 tuple 投影并拒绝重复/缺失字段；public failure 统一经过 safe `FailureRecord` 或 Core 独立 safe diagnostic DTO；`HostedRuntime` 的 application、project extension、reducer、worker 和 cache 由单一 root `RegistrationScope` 管理，shutdown 具备 quiescence、逆序 disposer 和并发完成屏障。
+- Phase 4 的 C++ application wheel 边界已有本地可执行证据：`cpp-desktop` plan 固定 application-scoped runtime requirements、Core/Protocol/C++ wheel closure 与 C++ registration entry；checker 从已检查 wheel 内 registration module 的唯一 owner 和 `Requires-Dist` 导出精确 closure，smoke 在 no-index/no-deps 的 Python 3.8 隔离 venv 中先比对已安装 C++ public manifest 再执行 registration/disposer，并确认 Host、Composition 与 Product 不可发现。缺失 closure wheel、额外 Host/Product wheel、plan/wheelhouse 协同夹带或 manifest 漂移都会 fail closed。
 - 物理迁仓尚未开始；它需要独立仓库设计、版本与发布契约及 EmbedAgent 消费方式的单独决策，不属于已完成的提取准备。
 - 在分别取得两个 official release flavor 的真实 Windows 7 证据前，保留目标机验收交接切片。
 
@@ -37,9 +38,9 @@
 
 ## Next Actions
 
-1. 对 `cpp-desktop` 执行 Core/Protocol/C++ isolated wheel proof；只有公共契约、版本化 lock 和独立 smoke 全部通过后，才评估物理拆库。
-2. 继续按 `docs/superpowers/plans/2026-08-17-public-contract-and-repository-boundary-convergence.md` 收敛 application-scoped runtime requirement，不为已删除的 generic mode/profile/provider fallback 增加兼容别名。
-3. 并行保留 `minimal-cli`/`cpp-desktop` 的 Windows 7 目标机证据和真实 C/C++ 项目验证，不以本地 smoke 替代交付验收。
+1. 保持物理拆库为单独的版本、发布和产品消费设计决策；本地 Core/Protocol/C++ isolated wheel prerequisite 已通过，但不自动授权迁仓。
+2. 选取代表性的真实 C/C++ 项目，固定语料、证据格式和退出条件后验证完整工作流。
+3. 并行取得 `minimal-cli`/`cpp-desktop` 的 Windows 7 目标机证据，不以本地 smoke 替代交付验收。
 
 ## Evidence Boundary
 

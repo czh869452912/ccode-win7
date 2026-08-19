@@ -164,6 +164,11 @@ def parse_args(argv=None):
         "--offline", action="store_true", help="Disable network access during wheel build"
     )
     parser.add_argument("--bundle-plan", default="", help="Compiled bundle plan JSON")
+    parser.add_argument(
+        "--application-isolated",
+        action="store_true",
+        help="Build only the plan-selected application runtime wheel closure",
+    )
     return parser.parse_args(argv)
 
 
@@ -209,8 +214,13 @@ def main(argv=None):
     package_roots = tuple(project_root / member for member in WORKSPACE_MEMBERS)
     try:
         selected = None
+        if args.application_isolated and not args.bundle_plan:
+            raise ValueError("application-isolated build requires a bundle plan")
         if args.bundle_plan:
-            _payload, selected = load_bundle_plan(args.bundle_plan)
+            _payload, selected = load_bundle_plan(
+                args.bundle_plan,
+                application_isolated=args.application_isolated,
+            )
         clean_generated_artifacts(project_root, dist_dir, package_roots)
         command = build_command(args.uv, dist_dir, offline=args.offline)
         result = subprocess.run(

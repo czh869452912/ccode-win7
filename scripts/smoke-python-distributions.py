@@ -141,13 +141,16 @@ def parse_args(argv=None):
     parser.add_argument("--python", required=True, help="Exact Python 3.8 executable")
     parser.add_argument("--timeout", type=int, default=120, help="Per-command timeout in seconds")
     parser.add_argument("--bundle-plan", default="", help="Compiled bundle plan JSON")
+    parser.add_argument(
+        "--application-isolated",
+        action="store_true",
+        help="Probe only the plan-selected application runtime wheel closure",
+    )
     return parser.parse_args(argv)
 
 
-def scenario_wheels(distributions, plan):
-    selected = {
-        normalize_distribution_name(item) for item in (plan.get("project_distribution_ids") or ())
-    }
+def scenario_wheels(distributions, plan, field_name="project_distribution_ids"):
+    selected = {normalize_distribution_name(item) for item in (plan.get(field_name) or ())}
     requested = tuple(str(item or "").strip() for item in distributions)
     unplanned = [item for item in requested if normalize_distribution_name(item) not in selected]
     if unplanned:
@@ -176,6 +179,116 @@ def _plan_scenario(plan):
             "and sessions.sessions_action == 'list'\n"
             "raise SystemExit(0 if inside_venv and cli_ok else 1)\n"
         ),
+    }
+
+
+def _application_probe(plan, registration_owner):
+    distributions = tuple(plan.get("application_project_distribution_ids") or ())
+    import_roots = tuple(
+        normalize_distribution_name(item).replace("-", "_") for item in distributions
+    )
+    entries = tuple(plan.get("application_registration_entries") or ())
+    if not import_roots or not entries:
+        raise ValueError("bundle plan application runtime scope is required")
+    lines = [
+        "import importlib",
+        "import importlib.util",
+        "selected = %s" % repr(import_roots),
+        "planned_distributions = %s" % repr(distributions),
+        "planned_requirements = %s"
+        % repr(tuple(plan.get("application_runtime_requirements") or ())),
+        "planned_entries = %s" % repr(entries),
+        "registration_owner = %s" % json.dumps(registration_owner),
+        "modules = [importlib.import_module(name) for name in selected]",
+        "blocked = ('embedagent_host', 'embedagent_composition', 'embedagent')",
+        "isolated = not any(importlib.util.find_spec(name) is not None for name in blocked)",
+        "disposed = []",
+        "sources = []",
+        "class Registrar(object):",
+        "    def _add(self, _value, source_id):",
+        "        sources.append(source_id)",
+        "        def dispose():",
+        "            disposed.append(source_id)",
+        "        return dispose",
+        "    add_runtime_contribution = _add",
+        "    add_extension = _add",
+        "    add_prompt_provider = _add",
+        "    add_context_provider = _add",
+        "    add_shell_contribution = _add",
+        "registrar = Registrar()",
+        "entry_modules = []",
+        "entry_callables = []",
+    ]
+    for entry in entries:
+        module_name, separator, callable_name = str(entry or "").partition(":")
+        if not separator or not module_name or not callable_name:
+            raise ValueError("bundle plan application registration entry is invalid")
+        lines.extend(
+            (
+                "entry_module = importlib.import_module(%s)" % json.dumps(module_name),
+                "entry_modules.append(entry_module)",
+                "entry_callable = getattr(entry_module, %s, None)" % json.dumps(callable_name),
+                "entry_callables.append(entry_callable)",
+            )
+        )
+    lines.extend(
+        (
+            "manifest_module = entry_modules[0] if len(entry_modules) == 1 else None",
+            "manifest_factory = getattr(manifest_module, 'application_manifest', None) if manifest_module else None",
+            "if not callable(manifest_factory) and manifest_module:",
+            "    manifest_factory = getattr(manifest_module, 'cpp_application_manifest', None)",
+            "manifest = manifest_factory() if callable(manifest_factory) else None",
+            "def manifest_field(name):",
+            "    if isinstance(manifest, dict):",
+            "        return manifest.get(name)",
+            "    return getattr(manifest, name, None)",
+            "def names(values):",
+            "    if not isinstance(values, (list, tuple)):",
+            "        return ()",
+            "    return tuple(sorted(str(value).replace('_', '-').replace('.', '-').lower() for value in values))",
+            "manifest_requires = manifest_field('requires')",
+            "manifest_runtime_requirements = manifest_field('runtime_requirements')",
+            "manifest_distribution = str(manifest_field('distribution_id') or '')",
+            "manifest_dependencies = names(manifest_requires)",
+            "manifest_requirements = tuple(sorted(str(value) for value in manifest_runtime_requirements)) if isinstance(manifest_runtime_requirements, (list, tuple)) else ()",
+            "manifest_entry = str(manifest_field('registration_entry') or '')",
+            "expected_dependencies = names(tuple(item for item in planned_distributions if item != registration_owner))",
+            "manifest_contract_ok = (",
+            "    bool(registration_owner)",
+            "    and isinstance(manifest_requires, (list, tuple))",
+            "    and isinstance(manifest_runtime_requirements, (list, tuple))",
+            "    and manifest_distribution.replace('_', '-').replace('.', '-').lower() == registration_owner.replace('_', '-').replace('.', '-').lower()",
+            "    and manifest_dependencies == expected_dependencies",
+            "    and manifest_requirements == tuple(sorted(planned_requirements))",
+            "    and len(planned_entries) == 1",
+            "    and manifest_entry == planned_entries[0]",
+            ")",
+            "if not manifest_contract_ok:",
+            "    raise SystemExit(1)",
+            "registration_disposers = [entry_callable(registrar) if callable(entry_callable) else None for entry_callable in entry_callables]",
+            "valid_disposers = all(callable(item) for item in registration_disposers)",
+            "for item in reversed(registration_disposers):",
+            "    if callable(item):",
+            "        item()",
+            "source_aware = bool(sources) and all(bool(str(source).strip()) for source in sources)",
+            "disposed_all = len(disposed) == len(sources)",
+            "raise SystemExit(0 if isolated and modules and valid_disposers and source_aware and disposed_all else 1)",
+        )
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _application_scenario(plan, registration_owner):
+    distributions = tuple(plan.get("application_project_distribution_ids") or ())
+    return {
+        "name": "selected_application",
+        "distribution": registration_owner,
+        "distributions": scenario_wheels(
+            distributions,
+            plan,
+            field_name="application_project_distribution_ids",
+        ),
+        "probe": _application_probe(plan, registration_owner),
     }
 
 
@@ -311,7 +424,14 @@ def _run_scenario(base_python, wheel_paths, scenario, temp_root, timeout, enviro
     return result
 
 
-def build_report(dist_dir, python_path, timeout, selected_distributions=None, plan=None):
+def build_report(
+    dist_dir,
+    python_path,
+    timeout,
+    selected_distributions=None,
+    plan=None,
+    application_isolated=False,
+):
     dist_dir = Path(os.path.abspath(str(dist_dir)))
     python_path = Path(os.path.abspath(str(python_path)))
     report = _base_report(dist_dir, python_path)
@@ -321,7 +441,12 @@ def build_report(dist_dir, python_path, timeout, selected_distributions=None, pl
     if not python_path.is_file():
         report["error"] = _error("python_missing", "Python executable was not found")
         return report
-    checker_report = _load_checker().build_report(dist_dir, selected_distributions)
+    checker_report = _load_checker().build_report(
+        dist_dir,
+        selected_distributions,
+        plan=plan,
+        application_isolated=application_isolated,
+    )
     if not checker_report["ok"]:
         report["error"] = _error(
             "distribution_check_failed", "wheelhouse failed exact distribution validation"
@@ -354,7 +479,15 @@ def build_report(dist_dir, python_path, timeout, selected_distributions=None, pl
                 report["error"] = command_error
                 return report
             report["python_version"] = version_probe.stdout.strip()
-            scenarios = [_plan_scenario(plan)] if plan is not None else SCENARIOS
+            if application_isolated:
+                scenarios = [
+                    _application_scenario(
+                        plan,
+                        checker_report["application_registration_owner"],
+                    )
+                ]
+            else:
+                scenarios = [_plan_scenario(plan)] if plan is not None else SCENARIOS
             for scenario in scenarios:
                 wheel_paths = [wheels[name] for name in scenario["distributions"]]
                 report["scenarios"].append(
@@ -371,22 +504,33 @@ def build_report(dist_dir, python_path, timeout, selected_distributions=None, pl
         report["error"] = _error("temporary_directory_failed", "temporary directory failed")
         return report
     report["ok"] = all(item["status"] == "ok" for item in report["scenarios"])
+    if application_isolated:
+        report["scope"] = "application"
+        report["network_resolution"] = "disabled"
+        report["runtime_requirements"] = list(plan["application_runtime_requirements"])
+        report["registration_entries"] = list(plan["application_registration_entries"])
     return report
 
 
 def main(argv=None):
     args = parse_args(argv)
     try:
+        if args.application_isolated and not args.bundle_plan:
+            raise ValueError("application-isolated smoke requires a bundle plan")
         plan = None
         selected = None
         if args.bundle_plan:
-            plan, selected = load_bundle_plan(args.bundle_plan)
+            plan, selected = load_bundle_plan(
+                args.bundle_plan,
+                application_isolated=args.application_isolated,
+            )
         report = build_report(
             Path(args.dist_dir),
             Path(args.python),
             max(1, args.timeout),
             selected_distributions=selected,
             plan=plan,
+            application_isolated=args.application_isolated,
         )
     except ValueError as exc:
         report = _base_report(Path(args.dist_dir), Path(args.python))

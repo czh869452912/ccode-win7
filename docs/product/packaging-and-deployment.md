@@ -29,6 +29,8 @@ builder 可以构建 workspace 中的候选 wheel；checker、exporter 和 stagi
 
 每个 flavor 都按 `project_distribution_ids` 构建、检查、wheel-only 安装并归档自身闭包；未被计划选择的 wheel 是错误。release staging 中，产品 package 和产品 dist-info 不得在 `runtime/site-packages` 重复出现。不接受 editable links、开发源码树复制或依赖用户 site-packages 的结果。
 
+compiled plan 另行固定 `application_project_distribution_ids`、`application_runtime_requirements` 与 `application_registration_entries`，用于证明 selected application plugin 的独立运行时边界。checker 先从已检查 wheel 内的 registration module path 确定唯一 registration-entry owner，再从该 owner 的 `Requires-Dist` metadata 递归导出 workspace dependency closure，并要求它与 `application_project_distribution_ids` 精确同集；metadata header 顺序不参与依赖语义，plan 与 wheelhouse 同时夹带无关 distribution 也不能扩大 closure。`cpp-desktop` 的 application closure 因此只能包含 `embedagent-core`、`embedagent-protocol` 和 `embedagent-workflow-cpp`。这个 application closure 不替代 flavor 的完整 `project_distribution_ids`，正常产品 release 仍按完整 closure staging。
+
 `scripts/build-python-distributions.py` 是强制 wheel builder，不能以 raw `uv build --all-packages` 替代。builder 只清理已知生成物，保护外部 wheelhouse。`check-python-distributions.py` 必须在安装、归档或 staging 前通过。
 
 ## 3. Flavor And Plan Contract
@@ -114,7 +116,7 @@ flowchart LR
 |---|---|
 | `build-python-distributions.py` | plan-selected wheel 清洁构建 |
 | `check-python-distributions.py` | wheel set、file ownership、project DAG、archive/path/Win7 collision checks |
-| `smoke-python-distributions.py` | Python 3.8 隔离 venv 中 no-index/no-deps 导入与 product CLI parser 冒烟 |
+| `smoke-python-distributions.py` | Python 3.8 隔离 venv 中 no-index/no-deps 导入与 product CLI parser 冒烟；`--application-isolated` 比较已安装 plugin public manifest 的 distribution、dependencies、runtime requirements 与 registration entry 后再执行 registration/disposer，并拒绝未选 Host/Product/Composition import |
 | `compile-bundle-plan.py` | 将 official recipe、target 和 assurance 编译为 immutable plan/Agent lock |
 | `export-dependencies.py` | 锁定第三方导出和 checked project wheel install |
 | `prepare-offline.ps1` | 从已安装 distributions 生成分级 staging tree |
@@ -174,6 +176,7 @@ dirty worktree 生成的 report 只是 diagnostics，提交后必须从清洁 re
 uv run python scripts/build-python-distributions.py --dist-dir dist --bundle-plan build/plans/minimal-cli/bundle-plan.json
 uv run python scripts/check-python-distributions.py --dist-dir dist --bundle-plan build/plans/minimal-cli/bundle-plan.json
 uv run python scripts/smoke-python-distributions.py --dist-dir dist --python .venv/Scripts/python.exe --bundle-plan build/plans/minimal-cli/bundle-plan.json
+uv run --all-packages pytest tests/test_phase4_cpp_isolated_wheel.py -q
 powershell -ExecutionPolicy Bypass -File scripts/package.ps1 doctor -Profile release -Flavor minimal-cli
 powershell -ExecutionPolicy Bypass -File scripts/package.ps1 doctor -Profile release -Flavor cpp-desktop
 powershell -ExecutionPolicy Bypass -File scripts/package.ps1 release -Profile release -Flavor minimal-cli
@@ -181,6 +184,8 @@ powershell -ExecutionPolicy Bypass -File scripts/package.ps1 release -Profile re
 ```
 
 release profile 自行执行 dependency export，正常发布前不需手工重复调用 `export-dependencies.py`。诊断 wheel 边界时可单独运行 build/check/smoke。
+
+`test_phase4_cpp_isolated_wheel.py` 的确定性证据包含 application scope、由 wheel metadata 导出的精确 closure、唯一 registration owner、`network_resolution=disabled`、application runtime requirements、registration entry、已安装 public manifest 比对与 `selected_application` scenario status。它还证明 plan 和 wheelhouse 同时增加 Host 时 fail closed，并逐字段拒绝 manifest distribution/dependencies/runtime requirements/registration entry 漂移。测试在临时 wheelhouse 和新建 Python 3.8 venv 中执行，不读取开发源码或 user site-packages。该本地证据只是物理拆库和 release 的前置条件，不能替代 clean-machine Windows 7 C++/GUI/CLI evidence。
 
 ## 11. Change Triggers
 

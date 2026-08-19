@@ -122,6 +122,11 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dist-dir", required=True, help="Directory containing wheel files")
     parser.add_argument("--bundle-plan", default="", help="Compiled bundle plan JSON")
+    parser.add_argument(
+        "--application-isolated",
+        action="store_true",
+        help="Validate only the plan-selected application runtime wheel closure",
+    )
     return parser.parse_args(argv)
 
 
@@ -161,6 +166,18 @@ def wheel_filename_identity(path):
 
 def metadata_path(name):
     return name.count("/") == 1 and name.endswith(".dist-info/METADATA")
+
+
+def python_module_name(name):
+    if not name.endswith(".py"):
+        return ""
+    module_path = name[:-3]
+    if module_path.endswith("/__init__"):
+        module_path = module_path[: -len("/__init__")]
+    parts = module_path.split("/")
+    if not parts or any(not part.isidentifier() for part in parts):
+        return ""
+    return ".".join(parts)
 
 
 def portable_case_key(value):
@@ -311,6 +328,7 @@ def empty_distribution_report(spec):
         "wheel": "",
         "metadata_name": "",
         "requires_dist": [],
+        "python_modules": [],
         "required_prefixes": list(spec["required_prefixes"]),
         "forbidden_prefixes": list(spec["forbidden_prefixes"]),
         "errors": [],
@@ -413,6 +431,14 @@ def inspect_wheel(path, spec, report):
             if members is None:
                 return
             archive_paths = [canonical for _info, _raw, canonical in members]
+            report["python_modules"] = sorted(
+                set(
+                    module_name
+                    for _info, raw_name, _canonical in members
+                    for module_name in (python_module_name(raw_name),)
+                    if module_name
+                )
+            )
             metadata_members = [
                 (info, raw_name)
                 for info, raw_name, _canonical in members
@@ -515,7 +541,120 @@ def inspect_distribution(spec, wheels):
     return report
 
 
-def build_report(dist_dir, selected_distributions=None):
+def _application_scope(plan):
+    if not isinstance(plan, dict):
+        raise ValueError("application-isolated validation requires a bundle plan")
+    distributions = plan.get("application_project_distribution_ids")
+    requirements = plan.get("application_runtime_requirements")
+    entries = plan.get("application_registration_entries")
+    for field_name, values in (
+        ("application_project_distribution_ids", distributions),
+        ("application_runtime_requirements", requirements),
+        ("application_registration_entries", entries),
+    ):
+        if not isinstance(values, list) or not values:
+            raise ValueError("bundle plan %s are required" % field_name.replace("_", " "))
+        normalized = tuple(str(item or "").strip() for item in values)
+        if any(not item for item in normalized) or len(set(normalized)) != len(normalized):
+            raise ValueError("bundle plan %s are invalid" % field_name.replace("_", " "))
+    return tuple(str(item).strip() for item in distributions)
+
+
+def _registration_entry_owner(plan, distributions):
+    errors = []
+    owners = []
+    owners_by_module = {}
+    for distribution in distributions:
+        distribution_name = normalize_distribution_name(distribution["name"])
+        for module_name in distribution.get("python_modules") or ():
+            owners_by_module.setdefault(module_name, set()).add(distribution_name)
+    for entry in plan.get("application_registration_entries") or ():
+        module_name, separator, callable_name = str(entry or "").partition(":")
+        matching = (
+            sorted(owners_by_module.get(module_name, set())) if separator and callable_name else []
+        )
+        if len(matching) != 1:
+            errors.append(
+                error(
+                    "application_registration_owner_invalid",
+                    "application registration entry must have exactly one selected wheel owner",
+                )
+            )
+        else:
+            owners.append(matching[0])
+    unique_owners = tuple(sorted(set(owners)))
+    if len(unique_owners) != 1:
+        errors.append(
+            error(
+                "application_registration_owner_invalid",
+                "application registration entries must resolve to one selected wheel owner",
+            )
+        )
+        return "", errors
+    return unique_owners[0], errors
+
+
+def _application_distribution_closure(
+    plan,
+    selected,
+    distributions,
+    expected_by_name,
+):
+    owner, errors = _registration_entry_owner(plan, distributions)
+    if not owner:
+        return "", (), errors
+
+    reports_by_name = {
+        normalize_distribution_name(item["name"]): item for item in distributions
+    }
+    ordered = []
+    visiting = set()
+
+    def visit(distribution_name):
+        if distribution_name in ordered:
+            return
+        if distribution_name in visiting:
+            errors.append(
+                error(
+                    "application_distribution_dependency_cycle",
+                    "application wheel dependencies contain a cycle",
+                )
+            )
+            return
+        visiting.add(distribution_name)
+        report = reports_by_name.get(distribution_name)
+        if report is not None:
+            workspace_dependencies = set()
+            for requirement in report.get("requires_dist") or ():
+                required_name = dependency_name(requirement)
+                if required_name in expected_by_name:
+                    workspace_dependencies.add(required_name)
+            for required_name in sorted(workspace_dependencies):
+                visit(required_name)
+        visiting.remove(distribution_name)
+        ordered.append(distribution_name)
+
+    visit(owner)
+    planned = tuple(normalize_distribution_name(item) for item in selected)
+    derived = tuple(ordered)
+    if set(planned) != set(derived):
+        errors.append(
+            error(
+                "application_distribution_closure_mismatch",
+                "application wheel closure does not match registration owner dependencies",
+            )
+        )
+    return owner, derived, errors
+
+
+def build_report(
+    dist_dir,
+    selected_distributions=None,
+    plan=None,
+    application_isolated=False,
+):
+    if application_isolated:
+        selected_distributions = _application_scope(plan)
     if selected_distributions is None:
         selected_distributions = tuple(spec["name"] for spec in EXPECTED)
     selected = tuple(str(item or "").strip() for item in selected_distributions)
@@ -569,6 +708,20 @@ def build_report(dist_dir, selected_distributions=None):
         inspect_distribution(expected_by_name[normalize_distribution_name(item)], wheels)
         for item in selected
     ]
+    application_owner = ""
+    application_closure = ()
+    if application_isolated:
+        (
+            application_owner,
+            application_closure,
+            application_errors,
+        ) = _application_distribution_closure(
+            plan,
+            selected,
+            distributions,
+            expected_by_name,
+        )
+        wheel_set_errors.extend(application_errors)
     report = {
         "schema_version": 1,
         "dist_dir": str(dist_dir),
@@ -578,6 +731,16 @@ def build_report(dist_dir, selected_distributions=None):
         "distributions": distributions,
         "selected_distributions": list(selected),
     }
+    if application_isolated:
+        report["scope"] = "application"
+        report["application_registration_owner"] = (
+            expected_by_name[application_owner]["name"] if application_owner else ""
+        )
+        report["derived_application_project_distribution_ids"] = [
+            expected_by_name[item]["name"] for item in application_closure
+        ]
+        report["runtime_requirements"] = list(plan["application_runtime_requirements"])
+        report["registration_entries"] = list(plan["application_registration_entries"])
     if report["ok"]:
         report["verified_wheels"] = [item["wheel"] for item in distributions]
     return report
@@ -586,10 +749,21 @@ def build_report(dist_dir, selected_distributions=None):
 def main(argv=None):
     args = parse_args(argv)
     try:
+        if args.application_isolated and not args.bundle_plan:
+            raise ValueError("application-isolated validation requires a bundle plan")
         selected = None
+        plan = None
         if args.bundle_plan:
-            _payload, selected = load_bundle_plan(args.bundle_plan)
-        report = build_report(Path(args.dist_dir), selected)
+            plan, selected = load_bundle_plan(
+                args.bundle_plan,
+                application_isolated=args.application_isolated,
+            )
+        report = build_report(
+            Path(args.dist_dir),
+            selected,
+            plan=plan,
+            application_isolated=args.application_isolated,
+        )
     except ValueError as exc:
         report = {
             "schema_version": 1,
