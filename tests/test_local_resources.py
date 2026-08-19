@@ -26,6 +26,7 @@ class _EventSink(object):
 
 
 def _product_adapter(*args, **kwargs):
+    kwargs.setdefault("agent_application_id", "embedagent.default_c_cpp")
     kwargs.setdefault(
         "agent_application_registry",
         cpp_application_registry(),

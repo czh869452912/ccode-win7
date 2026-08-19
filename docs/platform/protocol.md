@@ -70,7 +70,7 @@ flowchart LR
 
 ## 6. Composition
 
-Product composition resolves configuration, selects the application, constructs one `HostedRuntime(session, workspace)`, binds the selected shell sink, and compiles one `ShellDescriptor`. Protocol and Host do not select a product application. A new shell implements a client projection over the focused ports; it does not add an aggregate Host facade or a new event shape.
+Product composition resolves configuration, selects the application, injects its runtime contribution plus explicit model/tool providers, constructs one `HostedRuntime(session, workspace)`, binds the selected shell sink, and compiles one `ShellDescriptor`. Protocol and generic Host do not select a product application, provider, profile or default mode. Incomplete application composition becomes the closed, non-retryable `configuration_error` failure; it is not reclassified from exception message text. A new shell implements a client projection over the focused ports; it does not add an aggregate Host facade or a new event shape.
 
 ## 7. Verification
 

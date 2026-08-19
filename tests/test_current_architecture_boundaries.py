@@ -236,6 +236,7 @@ class TestInProcessAdapterBoundaries(object):
     def _make_adapter(self, tmp_path):
         from embedagent_host.inprocess_adapter import InProcessAdapter
         from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
+        from embedagent_host.runtime.agent_applications import base_agent_application_registry
         from embedagent_host.runtime.tools import ToolRuntime
 
         client = MagicMock(spec=OpenAICompatibleClient)
@@ -244,13 +245,19 @@ class TestInProcessAdapterBoundaries(object):
         workspace.mkdir()
         tools.workspace = str(workspace)
         tools.tool_result_store = MagicMock()
-        return InProcessAdapter(client=client, tools=tools)
+        return InProcessAdapter(
+            client=client,
+            tools=tools,
+            agent_application_id="embedagent.generic",
+            agent_application_registry=base_agent_application_registry(),
+        )
 
-    def test_can_instantiate_with_no_args(self):
+    def test_missing_application_contribution_fails_closed(self):
+        from embedagent_core import ApplicationConfigurationError
         from embedagent_host.inprocess_adapter import InProcessAdapter
 
-        adapter = InProcessAdapter()
-        assert adapter is not None
+        with pytest.raises(ApplicationConfigurationError):
+            InProcessAdapter()
 
     def test_has_create_session_method(self, fresh_container, tmp_path):
         adapter = self._make_adapter(tmp_path)
@@ -595,7 +602,7 @@ def test_c_cpp_application_record_is_loaded_from_plugin_contribution():
     assert "runtime_definition_factory=cpp_runtime_definition" in plugin_text
 
 
-def test_hosted_adapter_uses_shared_agent_profile_runtime_policies():
+def test_hosted_adapter_consumes_selected_application_runtime_policy():
     adapter = ROOT / "packages/embedagent-host/src/embedagent_host/inprocess_adapter.py"
     profiles = ROOT / "packages/embedagent-host/src/embedagent_host/runtime/profiles.py"
     runtime = ROOT / "packages/embedagent-core/src/embedagent_core/profile_runtime.py"
@@ -606,9 +613,10 @@ def test_hosted_adapter_uses_shared_agent_profile_runtime_policies():
     profiles_text = _read(profiles)
     runtime_text = _read(runtime)
 
-    assert "AgentProfileRuntimePolicy" in adapter_text
-    assert "AgentProfileToolPolicy" in adapter_text
-    assert "AgentProfileWritePathPolicy" in adapter_text
+    assert "AgentProfileRuntimePolicy" not in adapter_text
+    assert "AgentProfileToolPolicy" not in adapter_text
+    assert "AgentProfileWritePathPolicy" not in adapter_text
+    assert "self.runtime_definition.application_policy" in adapter_text
     for token in (
         "class _ProductModeToolPolicy",
         "class _ProductWritePathPolicy",

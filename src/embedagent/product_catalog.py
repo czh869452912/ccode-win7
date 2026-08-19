@@ -6,6 +6,7 @@ from embedagent_host.runtime.agent_applications import (
     BUILTIN_AGENT_APPLICATION_RECORDS,
     GENERIC_AGENT_APPLICATION_ID,
     AgentApplicationRegistry,
+    application_registry_from_runtime_contributions,
     runtime_contribution_for_record,
 )
 
@@ -24,24 +25,23 @@ def product_agent_application_registry(
 ) -> AgentApplicationRegistry:
     records = tuple(BUILTIN_AGENT_APPLICATION_RECORDS)
     if allowed_application_ids is None:
-        return AgentApplicationRegistry(
-            application_records=records,
-            default_application_id=GENERIC_AGENT_APPLICATION_ID,
-        )
-
-    allowed = tuple(str(item or "").strip() for item in allowed_application_ids)
-    known_ids = tuple(record.application_id for record in records)
-    if not allowed or any(not item for item in allowed) or len(allowed) != len(set(allowed)):
-        raise ValueError("Allowed agent applications must contain unique nonempty ids")
-    unknown = tuple(item for item in allowed if item not in known_ids)
-    if unknown:
-        raise ValueError("Unknown allowed agent application %r" % (unknown[0],))
-    selected = tuple(record for record in records if record.application_id in allowed)
+        selected = records
+        default_application_id = GENERIC_AGENT_APPLICATION_ID
+    else:
+        allowed = tuple(str(item or "").strip() for item in allowed_application_ids)
+        known_ids = tuple(record.application_id for record in records)
+        if not allowed or any(not item for item in allowed) or len(allowed) != len(set(allowed)):
+            raise ValueError("Allowed agent applications must contain unique nonempty ids")
+        unknown = tuple(item for item in allowed if item not in known_ids)
+        if unknown:
+            raise ValueError("Unknown allowed agent application %r" % (unknown[0],))
+        selected = tuple(record for record in records if record.application_id in allowed)
+        default_application_id = allowed[0]
     if not selected:
         raise ValueError("Allowed agent applications did not select a product application")
-    return AgentApplicationRegistry(
-        application_records=selected,
-        default_application_id=allowed[0],
+    return application_registry_from_runtime_contributions(
+        tuple(runtime_contribution_for_record(record) for record in selected),
+        default_application_id=default_application_id,
     )
 
 

@@ -98,7 +98,11 @@ def register_application(registrar: Any):
                     "secondary": "The selected agent will load its Clang-centered workflow after workspace activation.",
                     "path_placeholder": "Path to C/C++ project",
                 },
-                metadata={"domain": "cpp", "source_id": source_id},
+                metadata={
+                    "domain": "cpp",
+                    "profile_id": "embedagent.default_c_cpp",
+                    "source_id": source_id,
+                },
             ),
             source_id,
         )

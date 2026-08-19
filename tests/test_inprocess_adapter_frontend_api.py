@@ -17,8 +17,10 @@ from embedagent_core.session import Action, AssistantReply, Observation
 from embedagent_host.hosted_command_service import HostedCommandService
 from embedagent_host.hosted_interaction_service import HostedInteractionService
 from embedagent_host.inprocess_adapter import InProcessAdapter, _should_emit_context_compacted
+from embedagent_host.runtime.context import ContextManager
 from embedagent_host.runtime.session_runtime import apply_hosted_projection
 from embedagent_host.runtime.tools import ToolDefinition, ToolRuntime
+from embedagent_host.runtime.workspace_intelligence import WorkspaceIntelligenceBroker
 from embedagent_protocol import PermissionContext
 
 _COUNTER = count(1)
@@ -34,6 +36,7 @@ class _EventSink(object):
 
 def _product_adapter(*args, **kwargs):
     # These adapter tests exercise the C/C++ extension surface explicitly.
+    kwargs.setdefault("agent_application_id", "embedagent.default_c_cpp")
     kwargs.setdefault(
         "agent_application_registry",
         cpp_application_registry(),
@@ -1215,6 +1218,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
+            context_manager=ContextManager(
+                intelligence_broker=WorkspaceIntelligenceBroker.default()
+            ),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
         snapshot = adapter.create_session("build")
@@ -1256,6 +1262,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         adapter = _product_adapter(
             client=ToolClient(),
             tools=self.tools,
+            context_manager=ContextManager(
+                intelligence_broker=WorkspaceIntelligenceBroker.default()
+            ),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
         snapshot = adapter.create_session("build")

@@ -167,9 +167,15 @@ def test_inprocess_adapter_loads_enabled_project_extension_into_shared_manager(t
     )
 
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.agent_applications import base_agent_application_registry
     from embedagent_host.runtime.tools import ToolRuntime
 
-    adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
+    adapter = InProcessAdapter(
+        client=object(),
+        tools=ToolRuntime(str(tmp_path)),
+        agent_application_id="embedagent.generic",
+        agent_application_registry=base_agent_application_registry(),
+    )
     snapshot = adapter.create_session(mode="build")
 
     assert adapter.project_extension_state["counts"]["loaded"] == 1
@@ -193,9 +199,15 @@ def test_project_extension_import_failure_appears_in_adapter_diagnostics(tmp_pat
     )
 
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.agent_applications import base_agent_application_registry
     from embedagent_host.runtime.tools import ToolRuntime
 
-    adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
+    adapter = InProcessAdapter(
+        client=object(),
+        tools=ToolRuntime(str(tmp_path)),
+        agent_application_id="embedagent.generic",
+        agent_application_registry=base_agent_application_registry(),
+    )
     snapshot = adapter.create_session(mode="build")
 
     assert adapter.project_extension_state["counts"]["failed"] == 1
@@ -261,9 +273,15 @@ def test_project_extension_dynamic_tool_uses_existing_catalog_and_permission_flo
     )
 
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.agent_applications import base_agent_application_registry
     from embedagent_host.runtime.tools import ToolRuntime
 
-    adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
+    adapter = InProcessAdapter(
+        client=object(),
+        tools=ToolRuntime(str(tmp_path)),
+        agent_application_id="embedagent.generic",
+        agent_application_registry=base_agent_application_registry(),
+    )
     catalog = adapter.get_tool_catalog()
     result = adapter.tools.execute("project_echo", {"message": "hi"})
 

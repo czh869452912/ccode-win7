@@ -53,6 +53,7 @@ class HarnessTaskProjectionTests(unittest.TestCase):
             client=DoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            agent_application_id="embedagent.default_c_cpp",
             agent_application_registry=cpp_application_registry(),
         )
 
@@ -121,6 +122,7 @@ class HarnessTaskProjectionTests(unittest.TestCase):
             client=DoneClient(),
             tools=ToolRuntime(self.workspace),
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            agent_application_id="embedagent.default_c_cpp",
             agent_application_registry=cpp_application_registry(),
         )
         try:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from asyncio import CancelledError as AsyncCancelledError
 from concurrent.futures import CancelledError as FutureCancelledError
 
+from embedagent_core import ApplicationConfigurationError
 from embedagent_core.model import ModelClientError
 from embedagent_protocol import FailureRecord
 
@@ -39,6 +40,16 @@ def failure_for_exception(error: BaseException, source: str) -> FailureRecord:
             code="provider_error",
             retryable=True,
             source="provider",
+        )
+    if isinstance(error, ApplicationConfigurationError):
+        return FailureRecord.from_exception(
+            phase="application_composition",
+            kind="configuration",
+            correlation_id="",
+            exception=error,
+            code="configuration_error",
+            retryable=False,
+            source=source,
         )
     if isinstance(error, (AsyncCancelledError, FutureCancelledError)):
         return FailureRecord.from_exception(

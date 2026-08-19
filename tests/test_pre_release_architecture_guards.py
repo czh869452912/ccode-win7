@@ -1369,7 +1369,8 @@ def test_agent_application_capabilities_are_declared_by_backend_not_gui_defaults
 
     assert "build_agent_application" in adapter_text
     assert "product_agent_application_registry" not in adapter_text
-    assert "base_agent_application_registry" in adapter_text
+    assert "base_agent_application_registry" not in adapter_text
+    assert "ApplicationConfigurationError" in adapter_text
     assert "product_agent_application_registry" in product_hosted_text
     assert "agentApplication" in adapter_text
     assert "agentApplications" in adapter_text

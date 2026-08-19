@@ -64,7 +64,10 @@ class TestGuiLauncher(unittest.TestCase):
             backend_type,
         ):
             with self.assertRaisesRegex(RuntimeError, "stop after backend construction"):
-                gui_launcher.launch_gui(headless=True)
+                gui_launcher.launch_gui(
+                    headless=True,
+                    agent_application_id="embedagent.generic",
+                )
 
         self.assertNotIn("core", backend_type.call_args.kwargs)
         self.assertIn("app_host", backend_type.call_args.kwargs)

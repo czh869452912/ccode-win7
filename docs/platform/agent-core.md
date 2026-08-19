@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform authority`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-03`
+> 最后同步日期：`2026-08-19`
 > 对应代码范围：`packages/embedagent-core/src/embedagent_core/`, `packages/embedagent-host/src/embedagent_host/`
 
 ## 1. Purpose And Scope
@@ -22,7 +22,7 @@
 - focused collaborators：`ModelClient`, `ToolRuntimePort`, `SessionLogPort`, `ContextAssemblerPort`, `SessionRestorePolicyPort`, `SessionProjectionPort`；
 - safe stdlib defaults：`PermissionPolicy`, `InMemorySessionLog`, `NoopContextAssembler`, `NoopSessionProjection`, `StrictSessionRestorePolicy`；
 - provider/tool DTOs：`Action`, `AssistantReply`, `Observation`, `PreparedToolObservation`；
-- execution errors：`ModelClientError`, `ToolError`, `SessionLeaseConflict`, `SessionRecoveryRequired`。
+- execution errors：`ApplicationConfigurationError`, `ModelClientError`, `ToolError`, `SessionLeaseConflict`, `SessionRecoveryRequired`。
 
 `AgentPorts` 仍要求调用方显式提供 model、tools、session log、context 和 permissions；Core 不从 Host 或 product 查找隐式默认值。`RuntimeDefinition.application_policy` 是上层应用注入的执行策略载体，Core 不选择产品 mode、prompt、workspace provider 或 workflow。根包不导出 `HostedSessionController`、Kernel、Loop、mutable `Session` 或具体 provider/tool 实现。高级 extension authoring contract 保持由其所属 Core 子模块拥有，不为示例另造 facade。
 
@@ -42,7 +42,7 @@
 - hosted `InProcessAdapter` shared `ExtensionManager` and session-handle ownership
 - hosted command, interaction, maintenance, projection, and history services
 
-Agent Core 提供 workflow-neutral execution、session reducer、permission policy、turn snapshot 与 capability read model。Host 注入 provider、tool runtime、context、store 和 selected application；任何具体工作流行为都由上层应用扩展提供。
+Agent Core 提供 workflow-neutral execution、session reducer、permission policy、turn snapshot 与 capability read model。Product 向 Host 注入 model client、tool runtime、context/store 和 selected application contribution；任何具体工作流行为都由上层应用扩展提供。`InProcessAdapter` 缺少显式非空 application id、selected registry/direct application、model client、tool runtime、有效 `RuntimeDefinition`、非空 application default mode 或 required runtime policy 时抛出 `ApplicationConfigurationError`。application policy 的 callable default mode 必须与声明值一致，并能解析为带同名非空 slug 的 mode definition；异常或无效结果在 session lifecycle 构造前同样以 configuration error 失败。generic `ContextManager` 的 workspace-intelligence provider 集为空且不合成 mode；application contribution 必须显式提供所需 provider 与 mode/profile policy。
 
 ## 3. Code Mapping
 
@@ -106,7 +106,7 @@ flowchart TD
 - `AgentLoop` 不拥有 callback bag、workflow package policy 或直接 session mutator。
 - `AgentExtensionHost` 集中 declared extension dispatch；不得在 transaction、loop 或 Host facade 重建 hook 分发。
 - Host ports 接收 `SessionReadView`，hosted operations 返回 `HostedSessionProjection`。
-- 应用由 product composition 通过公开 registry 注入；generic Core/Host 没有具体工作流的 constructor fallback。
+- 应用由 product composition 通过公开 registry 注入；generic Core/Host 没有 application、model/tool provider、mode 或 profile-runtime constructor fallback。
 
 ## 6. Verification And Tests
 
@@ -127,6 +127,7 @@ flowchart TD
 - `tests/test_host_package_composition.py`
 - `tests/test_current_architecture_boundaries.py`
 - `tests/test_pre_release_architecture_guards.py`
+- `tests/test_phase4_mode_profile_boundary.py`
 
 涉及 Core/Host 边界时还必须运行仓库根目录 `AGENTS.md` 中的 pre-merge architecture gate，以及针对目标 bundle plan 的 build/check/smoke gate。
 

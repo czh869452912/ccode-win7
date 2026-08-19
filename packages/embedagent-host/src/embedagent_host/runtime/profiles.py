@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
+from embedagent_core.api import ApplicationRuntimePolicy, RuntimeDefinition
 from embedagent_core.profile import AgentModeDescriptor, AgentProfile
 from embedagent_core.profile_runtime import (
     BASE_DISCUSSION_TOOLS,
@@ -9,6 +10,9 @@ from embedagent_core.profile_runtime import (
     BASE_VERIFY_TOOLS,
     BASE_WRITE_TOOLS,
     SPEC_WRITABLE_GLOBS,
+    AgentProfileRuntimePolicy,
+    AgentProfileToolPolicy,
+    AgentProfileWritePathPolicy,
 )
 
 GENERIC_BUILD_WRITABLE_GLOBS = ["**/*"]
@@ -146,6 +150,20 @@ def generic_agent_profile() -> AgentProfile:
     )
 
 
+def generic_runtime_definition() -> RuntimeDefinition:
+    """Return the generic application's explicit runtime contribution."""
+    profile = generic_agent_profile()
+    return RuntimeDefinition(
+        agent_id=profile.profile_id,
+        application_policy=ApplicationRuntimePolicy(
+            default_mode=profile.default_mode,
+            mode_tool_policy=AgentProfileToolPolicy(profile),
+            write_path_policy=AgentProfileWritePathPolicy(profile),
+            mode_runtime_policy=AgentProfileRuntimePolicy(profile),
+        ),
+    )
+
+
 def python_agent_profile() -> AgentProfile:
     return AgentProfile(
         profile_id="embedagent.python",
@@ -160,6 +178,20 @@ def python_agent_profile() -> AgentProfile:
     )
 
 
+def python_runtime_definition() -> RuntimeDefinition:
+    """Return the Python application's explicit runtime contribution."""
+    profile = python_agent_profile()
+    return RuntimeDefinition(
+        agent_id=profile.profile_id,
+        application_policy=ApplicationRuntimePolicy(
+            default_mode=profile.default_mode,
+            mode_tool_policy=AgentProfileToolPolicy(profile),
+            write_path_policy=AgentProfileWritePathPolicy(profile),
+            mode_runtime_policy=AgentProfileRuntimePolicy(profile),
+        ),
+    )
+
+
 def html_agent_profile() -> AgentProfile:
     return AgentProfile(
         profile_id="embedagent.html",
@@ -170,5 +202,19 @@ def html_agent_profile() -> AgentProfile:
             "Implement and refactor HTML, CSS, and frontend code within the configured write boundary.",
             "Reproduce, diagnose, and minimally repair HTML/Web frontend failures.",
             HTML_BUILD_WRITABLE_GLOBS,
+        ),
+    )
+
+
+def html_runtime_definition() -> RuntimeDefinition:
+    """Return the HTML application's explicit runtime contribution."""
+    profile = html_agent_profile()
+    return RuntimeDefinition(
+        agent_id=profile.profile_id,
+        application_policy=ApplicationRuntimePolicy(
+            default_mode=profile.default_mode,
+            mode_tool_policy=AgentProfileToolPolicy(profile),
+            write_path_policy=AgentProfileWritePathPolicy(profile),
+            mode_runtime_policy=AgentProfileRuntimePolicy(profile),
         ),
     )

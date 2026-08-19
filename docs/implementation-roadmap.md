@@ -23,6 +23,7 @@
 - `agent_application_v1`、registration entry、selected distribution、runtime requirement、asset 和 gate 必须由同一份 compiled plan/lock 表达；不恢复固定 wheel 数量或隐式 C++ 注册。
 - 只有 Core/Protocol/C++ isolated wheel smoke、版本化 release metadata 和 product consumption test 全部通过，才进入物理 repository split 的独立决策。
 - Phase 3 的 selected closure、safe failure DTO 和 root-scope quiescent shutdown 已完成并有独立 contract/lifecycle/architecture tests；后续只补 application-scoped runtime requirement、C++ isolated wheel 和 Win7 evidence，不再扩展第二套 runtime owner。
+- Phase 4 的 generic mode/profile/provider removal 已完成：Host construction 和 capability projection 只消费显式 application runtime contribution、model client 与 tool runtime，generic context 不提供默认 workspace provider 或 mode，缺失组合以 typed configuration failure 终止。后续不恢复 profile-to-runtime synthesis 或 Host-selected application/provider。
 
 ## P2: Real C/C++ Project Validation
 

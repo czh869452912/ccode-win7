@@ -51,6 +51,7 @@ def test_workspace_port_diff_preview_handles_missing_file(tmp_path):
     from embedagent_core.permissions import PermissionPolicy
     from embedagent_host.frontend_ports import InProcessFrontendWorkspacePort
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.agent_applications import base_agent_application_registry
     from embedagent_host.runtime.tools import ToolRuntime
 
     workspace = tmp_path / "workspace"
@@ -60,6 +61,8 @@ def test_workspace_port_diff_preview_handles_missing_file(tmp_path):
         tools=ToolRuntime(str(workspace)),
         max_turns=8,
         permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(workspace)),
+        agent_application_id="embedagent.generic",
+        agent_application_registry=base_agent_application_registry(),
     )
     result = InProcessFrontendWorkspacePort(runtime_adapter).get_diff_preview(
         "missing.txt", "new content"

@@ -42,6 +42,7 @@ class TestGuiSync(unittest.TestCase):
                 permission_policy=PermissionPolicy(auto_approve_all=True, workspace=workspace),
                 summary_store=SessionSummaryStore(workspace),
                 event_sink=frontend,
+                agent_application_id="embedagent.generic",
                 agent_application_registry=product_agent_application_registry(),
             )
             session = InProcessFrontendSessionPort(adapter)

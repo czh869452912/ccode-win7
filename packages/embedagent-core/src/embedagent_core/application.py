@@ -16,6 +16,10 @@ _REGISTRATION_ERRORS = (
 )
 
 
+class ApplicationConfigurationError(ValueError):
+    """Raised when selected application runtime semantics are incomplete."""
+
+
 @dataclass(frozen=True)
 class ApplicationRuntimeContribution(object):
     """Workflow-neutral runtime contribution owned by a selected application."""
@@ -34,7 +38,9 @@ class ApplicationRuntimeContribution(object):
         application_id = str(self.application_id or "").strip()
         label = str(self.label or "").strip()
         if not application_id or not label:
-            raise ValueError("application runtime contribution identity is required")
+            raise ApplicationConfigurationError(
+                "application runtime contribution identity is required"
+            )
         if not callable(self.runtime_definition_factory):
             raise TypeError("application runtime definition factory is required")
         capabilities = tuple(str(item or "").strip() for item in self.capabilities or ())

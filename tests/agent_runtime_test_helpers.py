@@ -72,7 +72,7 @@ class ProductModeRuntimePolicy(object):
 
 def build_product_agent_application(tools):
     return build_agent_application(
-        "",
+        "embedagent.default_c_cpp",
         tools,
         registry=cpp_application_registry(),
     )

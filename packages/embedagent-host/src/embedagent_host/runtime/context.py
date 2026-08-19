@@ -833,7 +833,7 @@ class ContextManager(object):
         )
         self.context_usage_estimator = ContextUsageEstimator(self.config.estimated_chars_per_token)
         self.workspace = str(workspace or "")
-        self.intelligence_broker = intelligence_broker or WorkspaceIntelligenceBroker.default()
+        self.intelligence_broker = intelligence_broker or WorkspaceIntelligenceBroker()
         self.workspace_profile = workspace_profile
 
     def bind_host_context(
@@ -871,7 +871,7 @@ class ContextManager(object):
         force_compact: bool = False,
         compact_trigger: str = "",
     ) -> ContextBuildResult:
-        resolved_mode = mode_name or self._detect_mode_name(session) or "build"
+        resolved_mode = mode_name or self._detect_mode_name(session) or ""
         policy = self._policy_for_mode("compact" if force_compact else resolved_mode)
         boundary = (
             session.latest_compact_boundary()

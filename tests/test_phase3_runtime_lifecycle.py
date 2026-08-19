@@ -68,9 +68,15 @@ def test_concurrent_scope_dispose_waits_for_one_completion_barrier():
 
 def test_adapter_shutdown_is_idempotent_and_rejects_new_admission(tmp_path):
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.agent_applications import base_agent_application_registry
     from embedagent_host.runtime.tools import ToolRuntime
 
-    adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
+    adapter = InProcessAdapter(
+        client=object(),
+        tools=ToolRuntime(str(tmp_path)),
+        agent_application_id="embedagent.generic",
+        agent_application_registry=base_agent_application_registry(),
+    )
     adapter.create_session("build")
 
     adapter.shutdown()
@@ -84,9 +90,15 @@ def test_adapter_shutdown_is_idempotent_and_rejects_new_admission(tmp_path):
 
 def test_concurrent_adapter_shutdown_shares_completion_barrier(tmp_path):
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.agent_applications import base_agent_application_registry
     from embedagent_host.runtime.tools import ToolRuntime
 
-    adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
+    adapter = InProcessAdapter(
+        client=object(),
+        tools=ToolRuntime(str(tmp_path)),
+        agent_application_id="embedagent.generic",
+        agent_application_registry=base_agent_application_registry(),
+    )
     adapter.create_session("build")
     entered = threading.Event()
     release = threading.Event()

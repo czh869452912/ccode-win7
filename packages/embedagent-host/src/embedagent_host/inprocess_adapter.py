@@ -1,7 +1,6 @@
 from __future__ import annotations  # noqa: I001
 
 import copy
-import os
 import threading
 import time
 import uuid
@@ -12,9 +11,9 @@ from typing import Any, Dict, List, Optional
 from embedagent_core import (
     Agent,
     AgentPorts,
-    ApplicationRuntimePolicy,
+    ApplicationConfigurationError,
     InteractionReply,
-    RuntimeDefinition,
+    ModelClient,
     UserTurn,
 )
 from embedagent_core.capabilities import (
@@ -26,20 +25,15 @@ from embedagent_core.capabilities import (
 )
 from embedagent_host.runtime.agent_applications import (
     agent_application_capability_payload,
-    base_agent_application_registry,
     build_agent_application,
-)
-from embedagent_core.profile_runtime import (
-    AgentProfileRuntimePolicy,
-    AgentProfileToolPolicy,
-    AgentProfileWritePathPolicy,
+    require_application_identity,
+    require_application_runtime_definition,
 )
 from embedagent_host.runtime.context import ContextManager
 from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
 from embedagent_core.interaction import UserInputRequest, UserInputResponse
 from embedagent_core.hosting import HostedResourcePrompt, HostedSessionController
 from embedagent_core.registration_scope import RegistrationScope
-from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
 from embedagent_host.runtime.memory_maintenance import MemoryMaintenance
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 from embedagent_host.runtime.plan_store import PlanStore
@@ -217,7 +211,7 @@ def _pending_interaction_payload(state: "ManagedSession") -> Optional[Dict[str, 
 class InProcessAdapter(object):
     def __init__(
         self,
-        client: Optional[OpenAICompatibleClient] = None,
+        client: Optional[ModelClient] = None,
         tools: Optional[ToolRuntime] = None,
         max_turns: Optional[int] = None,
         permission_policy: Optional[PermissionPolicy] = None,
@@ -231,14 +225,12 @@ class InProcessAdapter(object):
         agent_application: Optional[Any] = None,
         agent_application_registry: Optional[Any] = None,
     ) -> None:
+        if agent_application is None and agent_application_registry is None:
+            raise ApplicationConfigurationError("selected application contribution is required")
         if tools is None:
-            tools = ToolRuntime(os.getcwd())
+            raise ApplicationConfigurationError("tool runtime is required")
         if client is None:
-            client = OpenAICompatibleClient(
-                base_url="http://localhost",
-                api_key="",
-                model="default-model",
-            )
+            raise ApplicationConfigurationError("model client is required")
         self.client = client
         self.tools = tools
         self._runtime_scope = RegistrationScope(
@@ -262,13 +254,14 @@ class InProcessAdapter(object):
         self.command_registry = SlashCommandRegistry()
         self.transcript_store = TranscriptStore(self.tools.workspace)
         self.snapshot_projector = SessionSnapshotProjector()
-        self.agent_application_registry = (
-            agent_application_registry or base_agent_application_registry()
-        )
+        self.agent_application_registry = agent_application_registry
         self.agent_application = agent_application or build_agent_application(
             agent_application_id,
             self.tools,
             registry=self.agent_application_registry,
+        )
+        application_id = require_application_identity(
+            getattr(self.agent_application, "application_id", None)
         )
         self.workspace_profile = _WorkspaceProfilePort(
             getattr(self.agent_application, "workspace_profile_detectors", ()),
@@ -290,18 +283,11 @@ class InProcessAdapter(object):
             memory_maintenance=self.memory_maintenance,
             maintenance_interval=maintenance_interval,
         )
-        self._agent_profile = self.agent_application.profile
-        self.runtime_definition = getattr(self.agent_application, "runtime_definition", None)
-        if self.runtime_definition is None:
-            self.runtime_definition = RuntimeDefinition(
-                agent_id=str(self.agent_application.application_id),
-                application_policy=ApplicationRuntimePolicy(
-                    default_mode=self._agent_profile.default_mode,
-                    mode_tool_policy=AgentProfileToolPolicy(self._agent_profile),
-                    write_path_policy=AgentProfileWritePathPolicy(self._agent_profile),
-                    mode_runtime_policy=AgentProfileRuntimePolicy(self._agent_profile),
-                ),
-            )
+        self._agent_profile = getattr(self.agent_application, "profile", None)
+        self.runtime_definition = require_application_runtime_definition(
+            getattr(self.agent_application, "runtime_definition", None),
+            application_id,
+        )
         if max_turns is not None:
             self.runtime_definition = replace(self.runtime_definition, max_turns=max_turns)
         self.max_turns = self.runtime_definition.max_turns
@@ -369,7 +355,11 @@ class InProcessAdapter(object):
         self._runtime_capabilities = RuntimeCapabilityService(
             descriptor_loader=self._capability_descriptors,
             model_descriptor_loader=lambda: model_profile_capability_descriptor(self.client),
-            mode_descriptor_loader=lambda: mode_capability_descriptors(self._agent_profile),
+            mode_descriptor_loader=lambda: (
+                mode_capability_descriptors(self._agent_profile)
+                if self._agent_profile is not None
+                else []
+            ),
             workflow_manifest_loader=self._workflow_package_capability_descriptors,
         )
         self.interaction_service = HostedInteractionService(
@@ -503,16 +493,17 @@ class InProcessAdapter(object):
         self._ensure_extension_tools_registered(reason="capabilities")
         payload = app_capability_payload(self.capability_snapshot())
         current_application = self._agent_application_capability_payload(active=True)
-        try:
-            payload.update(
-                agent_application_capability_payload(
-                    str(current_application.get("applicationId") or ""),
-                    registry=self.agent_application_registry,
+        if self.agent_application_registry is not None:
+            try:
+                payload.update(
+                    agent_application_capability_payload(
+                        str(current_application.get("applicationId") or ""),
+                        registry=self.agent_application_registry,
+                    )
                 )
-            )
-            return payload
-        except ValueError:
-            pass
+                return payload
+            except ValueError:
+                pass
         if current_application:
             payload["agentApplication"] = current_application
         registry_payloads = []

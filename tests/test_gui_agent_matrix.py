@@ -35,7 +35,7 @@ def test_injected_specialized_registry_projects_without_renderer_knowledge():
         application_id="tests.specialized",
         label="Specialized Agent",
         profile_id="tests.specialized.profile",
-        profile_factory=generic_agent_profile,
+        application_state_factory=generic_agent_profile,
         source_type="project",
         source_id="workspace-extension",
         workflow_package_ids=("tests.workflow",),

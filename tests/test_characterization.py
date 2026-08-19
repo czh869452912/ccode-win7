@@ -24,6 +24,7 @@ class TestServiceDelegation(object):
     def _make_adapter(self, fresh_container, tmp_path):
         """Helper to create an InProcessAdapter with mocked dependencies."""
         from embedagent_host.inprocess_adapter import InProcessAdapter
+        from embedagent_host.runtime.agent_applications import base_agent_application_registry
 
         client = MagicMock(spec=OpenAICompatibleClient)
         tools = MagicMock(spec=ToolRuntime)
@@ -31,7 +32,12 @@ class TestServiceDelegation(object):
         workspace.mkdir()
         tools.workspace = str(workspace)
         tools.tool_result_store = MagicMock()
-        return InProcessAdapter(client=client, tools=tools)
+        return InProcessAdapter(
+            client=client,
+            tools=tools,
+            agent_application_id="embedagent.generic",
+            agent_application_registry=base_agent_application_registry(),
+        )
 
     def test_inprocess_adapter_has_session_lifecycle(self, fresh_container, tmp_path):
         adapter = self._make_adapter(fresh_container, tmp_path)

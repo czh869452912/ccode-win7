@@ -16,6 +16,7 @@ from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.runner import SessionRecoveryRequired
 from embedagent_core.session import Action, AssistantReply
 from embedagent_host.inprocess_adapter import InProcessAdapter
+from embedagent_host.runtime.agent_applications import base_agent_application_registry
 from embedagent_host.runtime.session_restore_policy import ManagedSessionRestorePolicy
 from embedagent_host.runtime.tools import ToolRuntime
 
@@ -112,6 +113,8 @@ def _adapter(tmp_path, events=None):
         client=DoneClient(),
         tools=ToolRuntime(str(tmp_path)),
         event_sink=RecordingSink(events) if events is not None else None,
+        agent_application_id="embedagent.generic",
+        agent_application_registry=base_agent_application_registry(),
     )
 
 
@@ -252,6 +255,8 @@ def test_pending_host_interaction_submits_interaction_reply(tmp_path):
             auto_approve_all=False,
             workspace=str(tmp_path),
         ),
+        agent_application_id="embedagent.generic",
+        agent_application_registry=base_agent_application_registry(),
     )
     created = adapter.create_session("build")
     session_id = created["session_id"]
@@ -399,6 +404,8 @@ def test_interaction_resume_rebuilds_host_extension_projection(tmp_path):
         client=PermissionClient(),
         tools=ToolRuntime(str(tmp_path)),
         permission_policy=PermissionPolicy(auto_approve_all=False, workspace=str(tmp_path)),
+        agent_application_id="embedagent.generic",
+        agent_application_registry=base_agent_application_registry(),
     )
     created = adapter.create_session("build")
     session_id = created["session_id"]
@@ -478,6 +485,8 @@ def test_permission_wait_emits_final_waiting_status(tmp_path):
         tools=ToolRuntime(str(tmp_path)),
         permission_policy=PermissionPolicy(auto_approve_all=False, workspace=str(tmp_path)),
         event_sink=RecordingSink(events),
+        agent_application_id="embedagent.generic",
+        agent_application_registry=base_agent_application_registry(),
     )
     session_id = adapter.create_session("build")["session_id"]
     adapter.submit_user_message(
@@ -512,6 +521,8 @@ def test_user_input_wait_emits_final_waiting_status(tmp_path):
         tools=ToolRuntime(str(tmp_path)),
         permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
         event_sink=RecordingSink(events),
+        agent_application_id="embedagent.generic",
+        agent_application_registry=base_agent_application_registry(),
     )
     session_id = adapter.create_session("spec")["session_id"]
     adapter.submit_user_message(

@@ -9,7 +9,7 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from agent_runtime_test_helpers import build_product_agent_application
+from agent_runtime_test_helpers import build_product_agent_application, cpp_application_registry
 from agent_runtime_test_helpers import build_product_agent_runtime_dispatcher as RuntimeDispatcher
 from conftest import register_default_c_workflow_tools
 from embedagent_core.extensions import ExtensionManager, ToolResultPatch, WorkflowPatch
@@ -4196,6 +4196,8 @@ class TestRuntimeDispatcherRefactor(unittest.TestCase):
             client=AskThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            agent_application_id="embedagent.default_c_cpp",
+            agent_application_registry=cpp_application_registry(),
         )
         snapshot = adapter.create_session("spec")
         session_id = str(snapshot.get("session_id") or "")
@@ -4224,6 +4226,8 @@ class TestRuntimeDispatcherRefactor(unittest.TestCase):
             client=WriteThenDoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+            agent_application_id="embedagent.default_c_cpp",
+            agent_application_registry=cpp_application_registry(),
         )
         snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")

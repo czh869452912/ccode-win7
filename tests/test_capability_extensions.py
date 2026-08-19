@@ -1017,9 +1017,15 @@ class SnapshotBrokenExtension(object):
 
 def test_inprocess_snapshot_includes_extension_diagnostics(tmp_path):
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.agent_applications import base_agent_application_registry
     from embedagent_host.runtime.tools import ToolRuntime
 
-    adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
+    adapter = InProcessAdapter(
+        client=object(),
+        tools=ToolRuntime(str(tmp_path)),
+        agent_application_id="embedagent.generic",
+        agent_application_registry=base_agent_application_registry(),
+    )
     adapter.extension_manager = ExtensionManager([SnapshotBrokenExtension()])
     adapter.extension_manager.context(
         WorkflowEvent(current_mode="build"),

@@ -9,7 +9,7 @@ def register_default_c_workflow_tools(runtime, workspace: str, reason: str = "te
     from embedagent_host.runtime.agent_applications import build_agent_application
 
     default_set = build_agent_application(
-        "",
+        "embedagent.default_c_cpp",
         runtime,
         registry=cpp_application_registry(),
     )

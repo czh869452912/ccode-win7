@@ -776,8 +776,14 @@ def test_agent_runtime_dynamic_shell_tool_waits_for_permission(tmp_path):
 
 def test_inprocess_adapter_catalog_includes_active_extension_tool(tmp_path):
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.agent_applications import base_agent_application_registry
 
-    adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
+    adapter = InProcessAdapter(
+        client=object(),
+        tools=ToolRuntime(str(tmp_path)),
+        agent_application_id="embedagent.generic",
+        agent_application_registry=base_agent_application_registry(),
+    )
     adapter.extension_manager.register(DynamicToolExtension(active=True, workflow_state=""))
 
     catalog = adapter.get_tool_catalog()

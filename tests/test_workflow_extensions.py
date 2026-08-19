@@ -919,7 +919,9 @@ def test_frontend_tool_catalog_gets_harness_tools_from_workflow_extension(tmp_pa
     from embedagent_host.runtime.tools import ToolRuntime
 
     adapter = InProcessAdapter(
+        client=DoneClient(),
         tools=ToolRuntime(str(tmp_path)),
+        agent_application_id="embedagent.default_c_cpp",
         agent_application_registry=cpp_application_registry(),
     )
 
@@ -973,7 +975,12 @@ def test_inprocess_adapter_tool_catalog_uses_shared_extension_manager(tmp_path):
     from embedagent_host.inprocess_adapter import InProcessAdapter
     from embedagent_host.runtime.tools import ToolRuntime
 
-    adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
+    adapter = InProcessAdapter(
+        client=DoneClient(),
+        tools=ToolRuntime(str(tmp_path)),
+        agent_application_id="embedagent.default_c_cpp",
+        agent_application_registry=cpp_application_registry(),
+    )
     adapter.extension_manager.register(CatalogExtension())
 
     names = set(item.get("name") for item in adapter.get_tool_catalog())
@@ -985,7 +992,12 @@ def test_inprocess_adapter_passes_extension_manager_to_agent_runtime(tmp_path):
     from embedagent_host.inprocess_adapter import InProcessAdapter
     from embedagent_host.runtime.tools import ToolRuntime
 
-    adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
+    adapter = InProcessAdapter(
+        client=DoneClient(),
+        tools=ToolRuntime(str(tmp_path)),
+        agent_application_id="embedagent.default_c_cpp",
+        agent_application_registry=cpp_application_registry(),
+    )
 
     assert adapter.agent._runtime.extension_manager is adapter.extension_manager
 
@@ -994,7 +1006,12 @@ def test_inprocess_adapter_session_handle_uses_shared_extension_manager(tmp_path
     from embedagent_host.inprocess_adapter import InProcessAdapter
     from embedagent_host.runtime.tools import ToolRuntime
 
-    adapter = InProcessAdapter(client=DoneClient(), tools=ToolRuntime(str(tmp_path)))
+    adapter = InProcessAdapter(
+        client=DoneClient(),
+        tools=ToolRuntime(str(tmp_path)),
+        agent_application_id="embedagent.default_c_cpp",
+        agent_application_registry=cpp_application_registry(),
+    )
     snapshot = adapter.create_session(mode="build")
     session_id = str(snapshot.get("session_id") or "")
     state = adapter._require_session(session_id)
@@ -1052,7 +1069,12 @@ def test_inprocess_adapter_no_longer_depends_on_removed_sync_facade(tmp_path):
         / "embedagent_host"
         / "inprocess_adapter.py"
     ).read_text(encoding="utf-8")
-    adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
+    adapter = InProcessAdapter(
+        client=DoneClient(),
+        tools=ToolRuntime(str(tmp_path)),
+        agent_application_id="embedagent.default_c_cpp",
+        agent_application_registry=cpp_application_registry(),
+    )
 
     assert symbol not in source
     assert "_harness_sync" not in source

@@ -91,6 +91,7 @@ class WorkspaceProfileTests(unittest.TestCase):
             ),
         )
         adapter = InProcessAdapter(
+            client=object(),
             tools=ToolRuntime(self.workspace),
             agent_application_id="embedagent.default_c_cpp",
             agent_application_registry=selected_application_registry(policy),
@@ -106,6 +107,7 @@ class WorkspaceProfileTests(unittest.TestCase):
 
     def test_profile_only_application_does_not_inherit_c_cpp_workspace_detector(self):
         from embedagent_host.inprocess_adapter import InProcessAdapter
+        from embedagent_host.runtime.agent_applications import base_agent_application_registry
         from embedagent_host.runtime.tools import ToolRuntime
 
         native_dir = os.path.join(self.workspace, "native")
@@ -114,8 +116,10 @@ class WorkspaceProfileTests(unittest.TestCase):
             handle.write("cmake_minimum_required(VERSION 3.10)\n")
 
         adapter = InProcessAdapter(
+            client=object(),
             tools=ToolRuntime(self.workspace),
             agent_application_id="embedagent.python",
+            agent_application_registry=base_agent_application_registry(),
         )
 
         message = adapter.workspace_profile.build_message(self.workspace, session_id="session")

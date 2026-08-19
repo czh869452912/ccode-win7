@@ -88,8 +88,14 @@ def test_hosted_runtime_close_forwards_to_adapter_shutdown(tmp_path, monkeypatch
 
 def test_inprocess_adapter_shutdown_is_idempotent_and_releases_sessions(tmp_path):
     from embedagent_host.inprocess_adapter import InProcessAdapter
+    from embedagent_host.runtime.agent_applications import base_agent_application_registry
 
-    adapter = InProcessAdapter(client=MagicMock(), tools=ToolRuntime(str(tmp_path)))
+    adapter = InProcessAdapter(
+        client=MagicMock(),
+        tools=ToolRuntime(str(tmp_path)),
+        agent_application_id="embedagent.generic",
+        agent_application_registry=base_agent_application_registry(),
+    )
     snapshot = adapter.create_session(mode="build")
     assert snapshot["session_id"] in adapter._sessions
 

@@ -13,6 +13,7 @@
 
 - 当前架构权威按 Agent Platform、上层 applications、EmbedAgent product 三个领域组织；C/C++ 只有一个应用权威。
 - application runtime 已收敛为 Core 的 `ApplicationRuntimeContribution` 与显式 `registration_entry`：generic product registration 只提供通用 runtime/shell，C/C++ profile、runtime definition、workspace detectors、workflow package id 和 shell/extension contributions 只由选中的 workflow plugin 提供。Host 只把贡献适配成内部 registry record，bundle plan 不再通过产品内置 C/C++ record 推断运行时能力。
+- Phase 4 的 generic mode/profile/provider 边界已关闭：Host 构造必须显式接收非空 application id、selected application contribution、model client 与 tool runtime，application record 必须贡献带非空 default mode 和 required policies 的有效 `RuntimeDefinition`；generic context provider 集为空且不合成默认 mode，Host 不再从 profile 合成 runtime。缺失或未知组合统一以 typed `ApplicationConfigurationError` / `configuration_error` fail closed。
 - 产品打包已从固定 full bundle 收敛为 official recipe -> immutable bundle plan -> export/stage/validate/identity/evidence/runtime policy 单链。`minimal-cli` 只激活 `embedagent.generic` 与 CLI，并投影 Core/Protocol/Host/Shell 的 selected closure；`cpp-desktop` 才加入 `embedagent-workflow-cpp` 与 C++/desktop closure。composition compiler 是 build-time 工具，不是默认运行时依赖。
 - `-Profile` 与 `-Flavor` 已正交：dev 不创建 zip、只执行静态检查并保持 `DEV_ONLY`；release 创建 zip 并运行 plan-selected gates。两个 release flavor 共用真实 staged `embedagent.cmd` gate，覆盖 `run`/`chat`/`sessions`、工具、permission/user-input、resume 与 blocked exit；desktop 另有 C++/GUI gates。application 和 shell override 在 bundle 中按计划 fail closed。
 - Agent Core 工具执行已收敛为 prepare/commit/execute：稳定 invocation identity、截断输出拦截、交互 continuation 与 started-only restore 语义均由同一个 Kernel/Loop 主链拥有；Host 隐式权限默认与 `PermissionPolicy()` 一致。
@@ -36,8 +37,8 @@
 
 ## Next Actions
 
-1. 继续按 `docs/superpowers/plans/2026-08-17-public-contract-and-repository-boundary-convergence.md` 清理 Core/Host 的 mode/profile 与隐式 provider 债务；Phase 3 不为旧契约增加兼容别名。
-2. 对 `cpp-desktop` 执行 Core/Protocol/C++ isolated wheel proof；只有公共契约、版本化 lock 和独立 smoke 全部通过后，才评估物理拆库。
+1. 对 `cpp-desktop` 执行 Core/Protocol/C++ isolated wheel proof；只有公共契约、版本化 lock 和独立 smoke 全部通过后，才评估物理拆库。
+2. 继续按 `docs/superpowers/plans/2026-08-17-public-contract-and-repository-boundary-convergence.md` 收敛 application-scoped runtime requirement，不为已删除的 generic mode/profile/provider fallback 增加兼容别名。
 3. 并行保留 `minimal-cli`/`cpp-desktop` 的 Windows 7 目标机证据和真实 C/C++ 项目验证，不以本地 smoke 替代交付验收。
 
 ## Evidence Boundary
