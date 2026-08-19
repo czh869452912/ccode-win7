@@ -91,10 +91,7 @@ def _selected_closure_ids(plan, field_name: str) -> Tuple[str, ...]:
     if not isinstance(values, list):
         raise ValueError("bundle plan %s must be an array" % field_name)
     normalized = tuple(str(item).strip() for item in values)
-    if (
-        any(not item for item in normalized)
-        or len(normalized) != len(set(normalized))
-    ):
+    if any(not item for item in normalized) or len(normalized) != len(set(normalized)):
         raise ValueError("bundle plan %s must contain unique nonempty ids" % field_name)
     return normalized
 

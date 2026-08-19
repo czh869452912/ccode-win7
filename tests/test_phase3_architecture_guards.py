@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -28,12 +27,10 @@ def test_public_failure_paths_do_not_serialize_raw_exception_text():
     protocol = _read(
         "packages/embedagent-host/src/embedagent_host/runtime/session_event_protocol.py"
     )
-    projector = _read(
-        "packages/embedagent-host/src/embedagent_host/runtime/session_projector.py"
-    )
+    projector = _read("packages/embedagent-host/src/embedagent_host/runtime/session_projector.py")
     diagnostics = _read("packages/embedagent-core/src/embedagent_core/extensions.py")
 
-    assert 'state.last_error' not in adapter
+    assert "state.last_error" not in adapter
     assert '"error": str(exc)' not in adapter
     assert 'data.pop("error", None)' in protocol
     assert '"last_failure"' in projector

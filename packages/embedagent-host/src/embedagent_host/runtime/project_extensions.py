@@ -78,12 +78,14 @@ def load_project_extensions(
     try:
         root = _resolve_inside(workspace_root, extensions_path or DEFAULT_EXTENSION_RELPATH)
     except ValueError as exc:
-        diagnostics.append(_safe_diagnostic(
-            extension_id="",
-            event="load_project_extensions",
-            exception=exc,
-            metadata={"path": str(extensions_path or DEFAULT_EXTENSION_RELPATH)},
-        ))
+        diagnostics.append(
+            _safe_diagnostic(
+                extension_id="",
+                event="load_project_extensions",
+                exception=exc,
+                metadata={"path": str(extensions_path or DEFAULT_EXTENSION_RELPATH)},
+            )
+        )
         return _payload(workspace_root, entries, diagnostics, loaded_extensions)
     if not os.path.isdir(root):
         return _payload(workspace_root, entries, diagnostics, loaded_extensions)

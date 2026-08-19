@@ -518,9 +518,7 @@ class HostedInteractionService(object):
             with state.lock:
                 if state.active_thread is threading.current_thread():
                     state.status = "error"
-                    state.last_failure = failure_for_exception(
-                        exc, source="interaction"
-                    ).to_dict()
+                    state.last_failure = failure_for_exception(exc, source="interaction").to_dict()
                     state.active_thread = None
                     state.active_thread_is_worker = False
                     state.updated_at = _utc_now()
