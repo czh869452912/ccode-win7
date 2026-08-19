@@ -33,6 +33,9 @@ class CompiledBundlePlan:
     agent_id: str
     config_template_id: str
     allowed_agent_application_ids: Tuple[str, ...]
+    application_runtime_requirements: Tuple[str, ...]
+    application_project_distribution_ids: Tuple[str, ...]
+    application_registration_entries: Tuple[str, ...]
     component_ids: Tuple[str, ...]
     shell_ids: Tuple[str, ...]
     plan_fact_ids: Tuple[str, ...]
@@ -58,6 +61,11 @@ class CompiledBundlePlan:
             "agent_id": self.agent_id,
             "config_template_id": self.config_template_id,
             "allowed_agent_application_ids": list(self.allowed_agent_application_ids),
+            "application_runtime_requirements": list(self.application_runtime_requirements),
+            "application_project_distribution_ids": list(
+                self.application_project_distribution_ids
+            ),
+            "application_registration_entries": list(self.application_registration_entries),
             "component_ids": list(self.component_ids),
             "shell_ids": list(self.shell_ids),
             "plan_fact_ids": list(self.plan_fact_ids),
@@ -88,6 +96,76 @@ def _records(value: object, error_code: str) -> List[Dict[str, object]]:
             raise CompositionError(error_code, "expected an object")
         records.append(item)
     return records
+
+
+def _application_closure(
+    components: List[Dict[str, object]],
+) -> Tuple[Tuple[str, ...], Tuple[str, ...], Tuple[str, ...]]:
+    """Project the selected application plugin into its public runtime closure."""
+    by_id = {
+        str(component.get("component_id") or "").strip(): component for component in components
+    }
+    profile_components = [component for component in components if component.get("kind") == "profile"]
+    if len(profile_components) != 1:
+        raise CompositionError("invalid_application_profile", "selected components")
+
+    application_distribution = str(profile_components[0].get("distribution_id") or "").strip()
+    if not application_distribution:
+        raise CompositionError("missing_application_distribution", "selected profile")
+
+    owned_ids = {
+        str(component.get("component_id") or "").strip()
+        for component in components
+        if str(component.get("distribution_id") or "").strip() == application_distribution
+    }
+    if not owned_ids:
+        raise CompositionError("missing_application_distribution", application_distribution)
+
+    closure_ids = []  # type: List[str]
+    visiting = set()  # type: Set[str]
+
+    def visit(component_id: str) -> None:
+        if component_id in closure_ids:
+            return
+        if component_id in visiting:
+            raise CompositionError("application_dependency_cycle", component_id)
+        component = by_id.get(component_id)
+        if component is None:
+            raise CompositionError("unknown_application_component", component_id)
+        visiting.add(component_id)
+        for required in component.get("requires") or ():
+            required_id = str(required or "").strip()
+            if required_id:
+                visit(required_id)
+        visiting.remove(component_id)
+        closure_ids.append(component_id)
+
+    for owned_id in sorted(owned_ids):
+        visit(owned_id)
+
+    distributions = []  # type: List[str]
+    requirements = set()  # type: Set[str]
+    registration_entries = []  # type: List[str]
+    for component_id in closure_ids:
+        component = by_id[component_id]
+        distribution_id = str(component.get("distribution_id") or "").strip()
+        if distribution_id and distribution_id not in distributions:
+            distributions.append(distribution_id)
+        if component_id in owned_ids:
+            requirements.update(
+                str(item or "").strip()
+                for item in (component.get("runtime_requirements") or ())
+                if str(item or "").strip()
+            )
+            registration_entry = str(component.get("registration_entry") or "").strip()
+            if registration_entry and registration_entry not in registration_entries:
+                registration_entries.append(registration_entry)
+
+    return (
+        tuple(sorted(requirements)),
+        tuple(distributions),
+        tuple(registration_entries),
+    )
 
 
 def _string_list(value: object, error_code: str, owner: str) -> Tuple[str, ...]:
@@ -335,6 +413,11 @@ def compile_bundle_plan(
     component_ids = tuple(item["component_id"] for item in components)
     _validate_shells(recipe, components)
     project_distribution_ids, registration_entries = derive_distribution_closure(components)
+    (
+        application_runtime_requirements,
+        application_project_distribution_ids,
+        application_registration_entries,
+    ) = _application_closure(components)
 
     requirements = set(
         _capability_list(
@@ -418,6 +501,9 @@ def compile_bundle_plan(
         agent_id=compiled_agent.agent_id,
         config_template_id=recipe.config_template_id,
         allowed_agent_application_ids=(compiled_agent.agent_id,),
+        application_runtime_requirements=application_runtime_requirements,
+        application_project_distribution_ids=application_project_distribution_ids,
+        application_registration_entries=application_registration_entries,
         component_ids=component_ids,
         shell_ids=recipe.shell_ids,
         plan_fact_ids=tuple(sorted(facts)),
