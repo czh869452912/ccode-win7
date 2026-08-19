@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform authority`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-16`
+> 最后同步日期：`2026-08-19`
 > 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `packages/embedagent-host/src/embedagent_host/frontend_ports.py`, `packages/embedagent-host/src/embedagent_host/runtime/session_event_protocol.py`, `packages/embedagent-host/src/embedagent_host/runtime/services/event_emitter.py`
 
 ## 1. Purpose And Boundary
@@ -27,7 +27,7 @@
 
 `SessionEventSink.on_session_event(envelope)` 是唯一 live-event 输入。sink 在 Host 创建时绑定；submit/create/resume 不接受 callback 或 resolver 参数。bound sink 抛出的异常必须传播给发布调用者，不能被日志记录后当作成功。`FrontendPortError` 由 Host 在 port 边界抛出并携带一个 `FailureRecord`。
 
-封闭失败代码为：`usage_error`, `configuration_error`, `session_not_found`, `interaction_required`, `permission_denied`, `provider_error`, `runtime_error`, `cancelled`, `protocol_error`。shell 不从异常消息文本推断分类。
+封闭失败代码为：`usage_error`, `configuration_error`, `session_not_found`, `interaction_required`, `permission_denied`, `provider_error`, `runtime_error`, `cancelled`, `protocol_error`。shell 不从异常消息文本推断分类。`FailureRecord` 是 public failure 的唯一结构化入口；它只允许 code、safe message、retryable、source、phase、kind、correlation id 和 exception type，不能携带异常文本、prompt、source、tool output 或 credential。
 
 ## 3. DTO Families
 
@@ -39,6 +39,8 @@
 - workspace：`WorkspaceInfo`, `DiffPreview`, `RuntimeEnvironmentSnapshot`。
 
 `SessionBootstrap` 是唯一详细会话 bootstrap DTO。`SessionSnapshot.workflow_state` 是唯一通用 workflow carrier；协议不展开 phase、discipline、task 等应用字段。应用读模型位于 `workflow_state["workflow"]`，协议只验证其 JSON-safe 容器。
+
+`SessionSnapshot.last_failure` 是 session failure 的只读投影；Host 不再发布 `last_error` 或 session error payload 的 raw `error`。失败工具事件保留 `failure`，并递归移除 observation 中的 `error`、`exception` 和 `traceback` 字段；durable tool observation 仍由 Core ledger 拥有。
 
 ## 4. Current Wire Schema
 

@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`status`
 > 负责人：`project maintainers`
-> 最后验证日期：`2026-08-17`
+> 最后验证日期：`2026-08-19`
 
 ## Release State
 
@@ -24,6 +24,7 @@
 - 所有 shell 使用同一个产品 launch-config composition：built-in < `~/.embedagent/config.json` < workspace config < `EMBEDAGENT_*` < explicit shell arguments。launcher 不自行加载 config。
 - GUI/TUI 核心体验已收敛为 session、连续 timeline、composer/mode/command、blocking interaction 和 status。terminal、source control、preview、file browser 与独立 diff 只通过可选 contribution 注册；移除全部 secondary contributions 后最小 Agent shell 仍可独立使用。
 - Protocol、Host 和前端只投影 `SessionSnapshot.workflow_state`；C/C++ phase、discipline、TaskGraph 与 task 语义只由 workflow package 拥有。活动源码与文档不再使用迁移阶段命名或已删除的永久 panel/drawer 状态。
+- Phase 3 已完成运行时边界收敛：compiled bundle selected closure 在启动时以不可变 tuple 投影并拒绝重复/缺失字段；public failure 统一经过 safe `FailureRecord` 或 Core 独立 safe diagnostic DTO；`HostedRuntime` 的 application、project extension、reducer、worker 和 cache 由单一 root `RegistrationScope` 管理，shutdown 具备 quiescence、逆序 disposer 和并发完成屏障。
 - 物理迁仓尚未开始；它需要独立仓库设计、版本与发布契约及 EmbedAgent 消费方式的单独决策，不属于已完成的提取准备。
 - 在分别取得两个 official release flavor 的真实 Windows 7 证据前，保留目标机验收交接切片。
 
@@ -35,10 +36,9 @@
 
 ## Next Actions
 
-1. 按 `docs/superpowers/plans/2026-08-17-public-contract-and-repository-boundary-convergence.md` 的顺序冻结 application contract，并移除 Core/Host 的 mode/profile 与隐式 provider 债务。
-2. 让 Protocol、CLI、TUI、GUI 只消费 selected capability projection，再完成安全诊断 DTO 与 application-scoped runtime requirement 校验。
-3. 对 `cpp-desktop` 执行 Core/Protocol/C++ isolated wheel proof；只有公共契约、版本化 lock 和独立 smoke 全部通过后，才评估物理拆库。
-4. 并行保留 `minimal-cli`/`cpp-desktop` 的 Windows 7 目标机证据和真实 C/C++ 项目验证，不以本地 smoke 替代交付验收。
+1. 继续按 `docs/superpowers/plans/2026-08-17-public-contract-and-repository-boundary-convergence.md` 清理 Core/Host 的 mode/profile 与隐式 provider 债务；Phase 3 不为旧契约增加兼容别名。
+2. 对 `cpp-desktop` 执行 Core/Protocol/C++ isolated wheel proof；只有公共契约、版本化 lock 和独立 smoke 全部通过后，才评估物理拆库。
+3. 并行保留 `minimal-cli`/`cpp-desktop` 的 Windows 7 目标机证据和真实 C/C++ 项目验证，不以本地 smoke 替代交付验收。
 
 ## Evidence Boundary
 

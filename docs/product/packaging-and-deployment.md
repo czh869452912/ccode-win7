@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`product authority`
 > 负责人：`release maintainers`
-> 最后同步日期：`2026-08-14`
+> 最后同步日期：`2026-08-19`
 > 对应代码范围：`scripts/`, workspace distribution `pyproject.toml`, `src/embedagent/frontend/gui/static/`
 
 ## 1. Delivery Contract
@@ -41,6 +41,8 @@ builder 可以构建 workspace 中的候选 wheel；checker、exporter 和 stagi
 | `cpp-desktop` | `embedagent.default_c_cpp` | CLI/TUI/GUI；上述基础 runtime 加 LLVM/Clang, WebView2 109 和 C workspace | `runtime_contract`, `win7_cli_smoke`, `cpp_smoke_workspace`, `gui_headless_smoke`, `win7_windowed_gui_smoke` |
 
 `scripts/compile-bundle-plan.py` 从 official recipe、`win7-x64-portable` target、assurance、`offline-runtime-contract.json` 和 `offline-assets.json` 生成 canonical `bundle-plan.json`, `agent.json` 与 `agent.lock.json`。计划固定 application、component、shell、runtime capability/component、asset、Python feature、launcher、gate 和 selected distribution IDs。export、prepare、build、validate、identity、evidence 和 runtime policy 必须校验同一 plan SHA-256，不能从已存在文件反推或扩大计划。
+
+运行时 `BundleRuntimePolicy` 只读取并冻结 compiled plan 的 selected closure：`runtime_capability_ids`、`runtime_component_ids`、`asset_ids`、`gate_ids` 和 `project_distribution_ids`。每个字段必须存在、元素非空且唯一（合法空闭包除外）；runtime policy 不导入 composition、不扫描全局 catalog，也不合成 fallback id。registration entry 只在加载器中按 plan 逐项解析，未知符号不能通过 runtime policy 的第二套注册表放行。
 
 ## 4. Bundle Layout
 

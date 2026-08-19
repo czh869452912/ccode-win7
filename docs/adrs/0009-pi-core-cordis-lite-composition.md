@@ -21,12 +21,13 @@ Pi 的 Agent Core 通过显式状态、显式 loop、事件流和 append-only se
 采用 **Pi-shaped Core + Cordis-lite Composition Runtime**：
 
 1. Core 继续只拥有 Agent/AgentSession、SessionJournal/Reducer、AgentKernel、AgentLoop、权限和 focused ports。Core 不引入通用 Service Registry、ambient Context 或在线插件加载器。
-2. Host/Application 使用一个小型 `RegistrationScope` 表达 owner、子作用域、注册 effect、quiescence 和逆序 disposer。该原语不承载工作流语义，也不负责加载任意外部代码。
+2. Host/Application 使用一个小型 `RegistrationScope` 表达显式 owner、子作用域、注册 effect、quiescence 和逆序 disposer。Hosted runtime 的 application/project extension/reducer/cache/worker 资源必须挂在唯一 root scope 上；该原语不承载工作流语义，也不负责加载任意外部代码。
 3. 能力使用显式 `source_id`、`scope_id`、`requires`、`provides` 和 permission metadata。动态注册必须返回可幂等调用的 disposer；禁止只有 append、没有撤销的全局注册。
 4. 事件只允许有限的 typed dispatch mode：观察型 `emit`、有序 `serial`、可短路 `waterfall` 和白名单 `parallel`。事件传播受 scope admission 限制。
 5. durable session ledger 仍是唯一事实源。`model-visible means logged`、append-before-apply、同一 reducer restore/live 和 workflow projection-only 规则不因插件化改变。
 6. Effect 按可逆内部资源、可补偿外部资源和不可逆外部操作分层。只有第一类自动 disposer；第二、三类必须通过 journal、permission 和 operation marker 管理，不能伪称 rollback。
 7. 形式化保证以可执行契约、状态机、属性测试和架构门禁为第一阶段目标；只对 scope lifecycle、工具取消和并发 admission 等有限模型引入 TLA+/PlusCal，不追求证明全部业务代码。
+8. public failure 也属于边界 contract：Protocol `FailureRecord` 与 Core safe diagnostic DTO 只发布 allowlisted classification，raw exception text 只可存在于当前同步调用链；selected runtime closure 只由 compiled plan 提供，runtime policy 不反推或扩大它。
 
 ## 生命周期契约
 
@@ -68,4 +69,4 @@ Pi 的 Agent Core 通过显式状态、显式 loop、事件流和 append-only se
 3. 将 `ApplicationRegistrar` 的现有 disposer 栈迁移到该原语。
 4. 为 `HostedRuntime`、`InProcessAdapter` 和 session lifecycle 增加 quiescent close。
 5. 将 C/C++ TaskGraph 收敛到 workflow-owned durable event source，清除并行状态真相。
-6. 增加 requires/provides/runtime closure 的 manifest 校验，再继续处理 mode/profile 去平台化。
+6. 增加 requires/provides/runtime closure 的 manifest 校验，再继续处理 mode/profile 去平台化；其中 selected runtime closure、safe failure 和 root-scope shutdown 已落地为可执行 contract tests。

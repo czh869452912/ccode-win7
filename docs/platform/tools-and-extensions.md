@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform authority`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-03`
+> 最后同步日期：`2026-08-19`
 > 对应代码范围：`packages/embedagent-core/src/embedagent_core/agent_extension_host.py`, `packages/embedagent-core/src/embedagent_core/extensions.py`, `packages/embedagent-core/src/embedagent_core/agent_tool_action_service.py`, `packages/embedagent-host/src/embedagent_host/runtime/tools/`
 
 ## 1. Purpose And Boundary
@@ -47,6 +47,10 @@
 `AgentEventBus` 按 source 分发 hooks，`AgentExtensionHost` 将 context、prompt、active tools、schema、tool-call、tool-result 和 extension-owned actions 集中在一个边界。运行时所有者不得在 session transaction、Host facade 或 UI adapter 中散落 manager 直调。
 
 注册是 owner-scoped effect：`ExtensionManager.register()`、`AgentEventBus.register_reducer()` 和 `AgentEventBus.register_observer()` 都返回幂等 disposer；应用层可将这些句柄挂入 `RegistrationScope`，在 `ACTIVE -> QUIESCING -> DISPOSED` 生命周期中逆序撤销。scope 进入 quiescing 后不接受新的 registration 或 operation admission，child scope 必须先于 parent scope 退出。该原语只管理内部注册和 admission，不替代 session journal、permission 或不可逆外部 effect 的补偿协议。
+
+每个 scope 具有显式 `owner_id` 和可观察的 registration/child/active-operation 计数。Hosted runtime 以一个 `hosted-runtime` root scope 拥有 application、project extension、context reducer 和 session cache；shutdown 先 quiesce、再等待 worker/operation、最后按 child 与 registration 的逆序释放。并发 close 共享同一 completion barrier，失败也不能留下第二条 dispose 路径。
+
+扩展诊断是 safe projection：Core 只发布 code、kind、exception type 和固定 safe message；Host project loader 通过 `FailureRecord` 转换异常。原始异常文本只能留在当前同步调用的 exception chain，不能进入 event payload、snapshot、extension state 或 metadata。
 
 `ReducerRegistry` 的 context reducer 注册也属于 owner-scoped effect：注册返回幂等 disposer，冲突 owner fail-closed，同一 owner 的替换会先撤销旧 registration；ExtensionManager 会把 workflow/project reducer handles 绑定到 extension child scope。context assembly 读取锁保护的 reducer snapshot，因此正在进行的 assembly 可以完成，但 disposed owner 不会被新的 assembly 接纳。
 
