@@ -232,7 +232,10 @@ class ExtensionManager(object):
 
     def register(self, extension: Any) -> Callable[[], None]:
         source_id = self._extension_id(extension)
-        extension_scope = self._scope.create_child("extension:%s:%s" % (source_id, id(extension)))
+        extension_scope = self._scope.create_child(
+            "extension:%s:%s" % (source_id, id(extension)),
+            owner_id=source_id,
+        )
         self._extensions.append(extension)
         try:
             self._register_capabilities(extension, extension_scope)

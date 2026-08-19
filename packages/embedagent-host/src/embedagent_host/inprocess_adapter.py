@@ -38,6 +38,7 @@ from embedagent_host.runtime.context import ContextManager
 from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
 from embedagent_core.interaction import UserInputRequest, UserInputResponse
 from embedagent_core.hosting import HostedResourcePrompt, HostedSessionController
+from embedagent_core.registration_scope import RegistrationScope
 from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
 from embedagent_host.runtime.memory_maintenance import MemoryMaintenance
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
@@ -240,6 +241,13 @@ class InProcessAdapter(object):
             )
         self.client = client
         self.tools = tools
+        self._runtime_scope = RegistrationScope(
+            "hosted-runtime",
+            owner_id="inprocess-adapter",
+        )
+        self._shutdown_complete = threading.Event()
+        self._shutdown_complete.set()
+        self._shutdown_error = None
         self.max_turns = max_turns
         self.permission_policy = permission_policy or PermissionPolicy()
         self.summary_store = summary_store or SessionSummaryStore(self.tools.workspace)
@@ -302,12 +310,18 @@ class InProcessAdapter(object):
         self._write_path_policy = self.runtime_definition.application_policy.write_path_policy
         self._mode_runtime_policy = self.runtime_definition.application_policy.mode_runtime_policy
         self.extension_manager = self.agent_application.extension_manager
-        self.extension_manager.register_context_reducers(self.context_manager.reducers)
+        self._runtime_scope.register(self.extension_manager.dispose)
+        reducer_disposer = self.extension_manager.register_context_reducers(
+            self.context_manager.reducers
+        )
+        if callable(reducer_disposer):
+            self._runtime_scope.register(reducer_disposer)
         self.project_extension_state = self._load_project_extensions()
         category_setter = getattr(self.permission_policy, "set_category_lookup", None)
         if callable(category_setter):
             category_setter(self._tool_permission_category)
         self._sessions = {}  # type: Dict[str, ManagedSession]
+        self._runtime_scope.register(self._sessions.clear)
         self._lock = threading.RLock()
         self._closing = False
         self._closed = False
@@ -395,8 +409,14 @@ class InProcessAdapter(object):
         payload = load_project_extensions(self.tools.workspace)
         loaded_extensions = list(payload.get("loaded_extensions") or [])
         for extension in loaded_extensions:
-            self.extension_manager.register(extension)
-        self.extension_manager.register_context_reducers(self.context_manager.reducers)
+            disposer = self.extension_manager.register(extension)
+            if callable(disposer):
+                self._runtime_scope.register(disposer)
+        reducer_disposer = self.extension_manager.register_context_reducers(
+            self.context_manager.reducers
+        )
+        if callable(reducer_disposer):
+            self._runtime_scope.register(reducer_disposer)
         self._record_project_extension_diagnostics(payload)
         return self._sanitize_project_extension_state(payload)
 
@@ -1213,6 +1233,29 @@ class InProcessAdapter(object):
         turn_id: str = "",
         emit_turn_start: bool = True,
     ) -> None:
+        with self._runtime_scope.operation():
+            self._run_turn_active(
+                state=state,
+                text=text,
+                stream=stream,
+                interaction_resolution=interaction_resolution,
+                resume_pending=resume_pending,
+                stop_event=stop_event,
+                turn_id=turn_id,
+                emit_turn_start=emit_turn_start,
+            )
+
+    def _run_turn_active(
+        self,
+        state: ManagedSession,
+        text: str,
+        stream: bool,
+        interaction_resolution: Optional[Dict[str, Any]] = None,
+        resume_pending: bool = False,
+        stop_event: Optional[threading.Event] = None,
+        turn_id: str = "",
+        emit_turn_start: bool = True,
+    ) -> None:
         session_id = state.session_id
         turn_id = turn_id or ("t-" + uuid.uuid4().hex[:12])
         core_pending = state.projection.get("pending_interaction")
@@ -1530,9 +1573,8 @@ class InProcessAdapter(object):
         return self._session_lifecycle.read_summary_for_state(state)
 
     def _require_session(self, session_id: str) -> ManagedSession:
+        self._ensure_open()
         with self._lock:
-            if self._closed:
-                raise RuntimeError("hosted runtime is closed")
             state = self._sessions.get(session_id)
         if state is None:
             raise SessionNotFoundError(session_id)
@@ -1543,9 +1585,27 @@ class InProcessAdapter(object):
             if self._closed:
                 return
             if self._closing:
-                raise RuntimeError("hosted runtime shutdown is already in progress")
-            self._closing = True
-            states = list(self._sessions.values())
+                shutdown_complete = self._shutdown_complete
+                owner = False
+                states = []
+            else:
+                self._closing = True
+                self._shutdown_error = None
+                self._shutdown_complete.clear()
+                shutdown_complete = self._shutdown_complete
+                owner = True
+                states = list(self._sessions.values())
+
+        if not owner:
+            if not shutdown_complete.wait(max(0.0, float(timeout))):
+                raise RuntimeError("hosted runtime shutdown did not complete")
+            with self._lock:
+                error = self._shutdown_error
+            if error is not None:
+                raise error
+            return
+
+        self._runtime_scope.quiesce()
 
         for state in states:
             with state.lock:
@@ -1575,13 +1635,13 @@ class InProcessAdapter(object):
         if alive:
             with self._lock:
                 self._closing = False
-            raise RuntimeError("hosted runtime shutdown did not quiesce")
+                self._shutdown_error = RuntimeError("hosted runtime shutdown did not quiesce")
+                self._shutdown_complete.set()
+            raise self._shutdown_error
 
         dispose_error = None
         try:
-            disposer = getattr(self.extension_manager, "dispose", None)
-            if callable(disposer):
-                disposer()
+            self._runtime_scope.dispose()
         except BaseException as exc:
             dispose_error = exc
         finally:
@@ -1589,6 +1649,8 @@ class InProcessAdapter(object):
                 self._sessions.clear()
                 self._closed = True
                 self._closing = False
+                self._shutdown_error = dispose_error
+                self._shutdown_complete.set()
         if dispose_error is not None:
             raise dispose_error
 
@@ -1596,6 +1658,8 @@ class InProcessAdapter(object):
         with self._lock:
             if self._closed or self._closing:
                 raise RuntimeError("hosted runtime is closed")
+        if self._runtime_scope.state != RegistrationScope.ACTIVE:
+            raise RuntimeError("hosted runtime is closed")
 
     def _emit(
         self,

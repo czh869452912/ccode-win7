@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import threading
 from contextlib import contextmanager
-from typing import Callable, Iterator, List, Optional
+from typing import Callable, Dict, Iterator, List, Optional
 
 Disposer = Callable[[], None]
 
@@ -37,11 +37,19 @@ class RegistrationScope(object):
     QUIESCING = "quiescing"
     DISPOSED = "disposed"
 
-    def __init__(self, scope_id: str, parent: Optional["RegistrationScope"] = None) -> None:
+    def __init__(
+        self,
+        scope_id: str,
+        parent: Optional["RegistrationScope"] = None,
+        owner_id: Optional[str] = None,
+    ) -> None:
         normalized_id = str(scope_id or "").strip()
         if not normalized_id:
             raise ValueError("scope id is required")
         self._scope_id = normalized_id
+        self._owner_id = str(owner_id or normalized_id).strip()
+        if not self._owner_id:
+            raise ValueError("scope owner id is required")
         self._parent = parent
         self._lock = threading.RLock()
         self._state = self.ACTIVE
@@ -53,6 +61,7 @@ class RegistrationScope(object):
         self._dispose_complete = threading.Event()
         self._disposing = False
         self._disposing_thread = None  # type: Optional[int]
+        self._dispose_failures = ()  # type: tuple
         if parent is not None:
             with parent._lock:
                 parent._require_active()
@@ -63,6 +72,10 @@ class RegistrationScope(object):
         return self._scope_id
 
     @property
+    def owner_id(self) -> str:
+        return self._owner_id
+
+    @property
     def parent(self) -> Optional["RegistrationScope"]:
         return self._parent
 
@@ -70,6 +83,32 @@ class RegistrationScope(object):
     def state(self) -> str:
         with self._lock:
             return self._state
+
+    @property
+    def active_operations(self) -> int:
+        with self._lock:
+            return self._active_operations
+
+    @property
+    def registration_count(self) -> int:
+        with self._lock:
+            return len(self._registrations)
+
+    @property
+    def child_count(self) -> int:
+        with self._lock:
+            return len(self._children)
+
+    def snapshot(self) -> Dict[str, object]:
+        with self._lock:
+            return {
+                "scope_id": self._scope_id,
+                "owner_id": self._owner_id,
+                "state": self._state,
+                "active_operations": self._active_operations,
+                "registration_count": len(self._registrations),
+                "child_count": len(self._children),
+            }
 
     def register(self, disposer: Disposer) -> Disposer:
         if not callable(disposer):
@@ -89,8 +128,12 @@ class RegistrationScope(object):
 
         return dispose_once
 
-    def create_child(self, scope_id: str) -> "RegistrationScope":
-        return RegistrationScope(scope_id, parent=self)
+    def create_child(
+        self,
+        scope_id: str,
+        owner_id: Optional[str] = None,
+    ) -> "RegistrationScope":
+        return RegistrationScope(scope_id, parent=self, owner_id=owner_id)
 
     @contextmanager
     def transaction(self) -> Iterator["RegistrationScope"]:
@@ -168,6 +211,10 @@ class RegistrationScope(object):
 
         if not owner:
             wait_for.wait()
+            with self._lock:
+                failures = list(self._dispose_failures)
+            if failures:
+                raise ScopeDisposeError(failures)
             return
 
         failures = []  # type: List[BaseException]
@@ -190,6 +237,7 @@ class RegistrationScope(object):
             self._state = self.DISPOSED
             self._disposing = False
             self._disposing_thread = None
+            self._dispose_failures = tuple(failures)
             self._dispose_complete.set()
             parent = self._parent
         if parent is not None:
