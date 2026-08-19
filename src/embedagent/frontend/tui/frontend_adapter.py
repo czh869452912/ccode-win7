@@ -52,15 +52,23 @@ class TUIFrontend(object):
                 "tool_name": str(payload.get("tool_name") or ""),
                 "success": bool(payload.get("success")),
                 "data": payload.get("data"),
-                "error": str(payload.get("error") or failure.get("message") or ""),
+                "error": str(failure.get("message") or ""),
             }
             reducer.append_line(self.app.state, format_observation_line(observation))
         elif event_kind in ("session.status", "session.finished", "session.error"):
             self._apply_session_snapshot(payload, render_error=event_kind != "session.error")
             if event_kind == "session.error":
                 snapshot = payload.get("session_snapshot")
-                snapshot_error = snapshot.get("last_error") if isinstance(snapshot, dict) else ""
-                message = str(payload.get("error") or snapshot_error or "")
+                snapshot_failure = (
+                    snapshot.get("last_failure") if isinstance(snapshot, dict) else {}
+                )
+                message = str(
+                    (payload.get("failure") or {}).get("message")
+                    if isinstance(payload.get("failure"), dict)
+                    else ""
+                )
+                if not message and isinstance(snapshot_failure, dict):
+                    message = str(snapshot_failure.get("message") or "")
                 if message:
                     reducer.set_last_error(self.app.state, message)
                     reducer.append_line(self.app.state, "[error] %s" % message)
@@ -106,8 +114,9 @@ class TUIFrontend(object):
             self.app.state,
             **snapshot,
         )
-        if render_error and snapshot.get("last_error"):
-            message = str(snapshot.get("last_error") or "")
+        failure = snapshot.get("last_failure")
+        if render_error and isinstance(failure, dict) and failure.get("message"):
+            message = str(failure.get("message") or "")
             reducer.set_last_error(self.app.state, message)
             reducer.append_line(self.app.state, "[error] %s" % message)
 

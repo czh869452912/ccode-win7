@@ -410,7 +410,7 @@ class InProcessAdapter(object):
             record(
                 str(item.get("extension_id") or ""),
                 str(item.get("event") or "load_project_extension"),
-                str(item.get("error") or ""),
+                dict(item.get("failure") or {}),
                 severity=str(item.get("severity") or "error"),
                 source=str(item.get("source") or "project"),
                 metadata=dict(item.get("metadata") or {}),
@@ -1039,7 +1039,6 @@ class InProcessAdapter(object):
                         "termination_reason": "completed",
                         "turns_used": 0,
                         "max_turns": self.max_turns,
-                        "error": "",
                     },
                 )
             with state.lock:
@@ -1056,7 +1055,7 @@ class InProcessAdapter(object):
             state.current_command_step_index = 0
         with state.lock:
             state.status = "running"
-            state.last_error = None
+            state.last_failure = None
             state.current_command_context = ""
             state.updated_at = _utc_now()
         payload = {
@@ -1226,7 +1225,7 @@ class InProcessAdapter(object):
             )
         with state.lock:
             state.status = "running"
-            state.last_error = None
+            state.last_failure = None
             state.updated_at = _utc_now()
             state.pending_interaction = None
             state.pending_resolution_claim_id = ""
@@ -1450,7 +1449,7 @@ class InProcessAdapter(object):
                     and threading.current_thread() is state.active_thread
                 )
                 state.status = "error"
-                state.last_error = str(exc)
+                state.last_failure = failure.to_dict()
                 state.active_thread = None
                 state.active_thread_is_worker = False
                 state.pending_resolution_claim_id = ""
@@ -1459,7 +1458,6 @@ class InProcessAdapter(object):
                 "session_error",
                 state,
                 {
-                    "error": str(exc),
                     "failure": failure.to_dict(),
                     "status": "error",
                     "phase": "loop",
@@ -1504,7 +1502,6 @@ class InProcessAdapter(object):
                 "termination_reason": public_result.termination_reason,
                 "turns_used": public_result.turns_used,
                 "max_turns": self.max_turns,
-                "error": public_result.termination_message,
             },
         )
         self._persist_state(state)
@@ -1521,7 +1518,6 @@ class InProcessAdapter(object):
                 "termination_reason": public_result.termination_reason,
                 "turns_used": public_result.turns_used,
                 "max_turns": self.max_turns,
-                "error": public_result.termination_message,
             },
         )
         self._notify_status(state)

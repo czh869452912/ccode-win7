@@ -92,7 +92,7 @@ def test_extension_manager_records_invalid_capability_records():
     assert len(diagnostics) == 1
     assert diagnostics[0]["extension_id"] == "invalid_capability"
     assert diagnostics[0]["event"] == "extension_capabilities"
-    assert "invalid capability record" in diagnostics[0]["error"]
+    assert diagnostics[0]["message"] == "The extension operation failed."
 
 
 def test_agent_event_bus_reduces_in_source_order():
@@ -154,7 +154,8 @@ def test_agent_event_bus_records_project_reducer_diagnostics():
     assert result.diagnostics[0]["source_id"] == "broken_project"
     assert result.diagnostics[0]["source_type"] == "project"
     assert result.diagnostics[0]["event_type"] == "extension.context"
-    assert result.diagnostics[0]["error"] == "project reducer failed"
+    assert result.diagnostics[0]["message"] == "The extension operation failed."
+    assert result.diagnostics[0]["exception_type"] == "RuntimeError"
 
 
 def test_agent_event_bus_observers_run_before_reducers_without_results():
@@ -220,7 +221,8 @@ def test_project_extension_hook_error_is_recorded_and_isolated():
     assert len(diagnostics) == 1
     assert diagnostics[0]["extension_id"] == "broken_project"
     assert diagnostics[0]["event"] == "context"
-    assert diagnostics[0]["error"] == "project hook failed"
+    assert diagnostics[0]["message"] == "The extension operation failed."
+    assert diagnostics[0]["exception_type"] == "RuntimeError"
     assert diagnostics[0]["severity"] == "error"
     assert diagnostics[0]["metadata"]["agent_event_type"] == "extension.context"
     assert diagnostics[0]["metadata"]["handler_kind"] == "reducer"
@@ -1028,4 +1030,4 @@ def test_inprocess_snapshot_includes_extension_diagnostics(tmp_path):
     diagnostics = snapshot.get("extension_diagnostics") or []
     assert diagnostics
     assert diagnostics[0]["extension_id"] == "snapshot_broken"
-    assert diagnostics[0]["error"] == "snapshot diagnostic"
+    assert diagnostics[0]["message"] == "The extension operation failed."

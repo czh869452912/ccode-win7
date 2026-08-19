@@ -39,7 +39,8 @@ def test_enabled_manifest_requires_permissions(tmp_path):
 
     assert payload["counts"]["failed"] == 1
     assert payload["extensions"][0]["status"] == "failed"
-    assert "permissions" in payload["diagnostics"][0]["error"]
+    assert payload["diagnostics"][0]["failure"]["code"] == "extension_error"
+    assert payload["diagnostics"][0]["failure"]["exception_type"] == "ValueError"
 
 
 def test_enabled_manifest_accepts_network_and_telemetry_permissions(tmp_path):
@@ -200,7 +201,8 @@ def test_project_extension_import_failure_appears_in_adapter_diagnostics(tmp_pat
     assert adapter.project_extension_state["counts"]["failed"] == 1
     assert snapshot["extension_diagnostics"]
     assert snapshot["extension_diagnostics"][0]["extension_id"] == "broken_extension"
-    assert "boom" in snapshot["extension_diagnostics"][0]["error"]
+    assert snapshot["extension_diagnostics"][0]["message"] == "The extension operation failed."
+    assert snapshot["extension_diagnostics"][0]["exception_type"] == "RuntimeError"
 
 
 def test_project_extension_dynamic_tool_uses_existing_catalog_and_permission_flow(

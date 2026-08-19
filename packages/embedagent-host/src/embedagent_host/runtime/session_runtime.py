@@ -29,7 +29,7 @@ class ManagedSession(object):
     current_command_step_index: int = 0
     summary_ref: str = ""
     updated_at: str = field(default_factory=_utc_now)
-    last_error: Optional[str] = None
+    last_failure: Optional[Dict[str, Any]] = None
     pending_interaction: Optional[Any] = None
     pending_resolution_claim_id: str = ""
     pending_event: Optional[threading.Event] = None

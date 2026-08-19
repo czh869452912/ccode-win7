@@ -27,6 +27,8 @@ _SAFE_FAILURE_MESSAGES = {
     "protocol_error": "The runtime returned an invalid response.",
     "protocol": "The runtime returned an invalid response.",
     "runtime": "The operation failed.",
+    "tool": "The tool operation failed.",
+    "extension": "The project extension could not be loaded.",
 }
 
 

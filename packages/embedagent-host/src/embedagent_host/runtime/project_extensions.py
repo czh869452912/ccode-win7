@@ -6,6 +6,7 @@ import sys
 from typing import Any, Dict, List, Optional
 
 from embedagent_core.permissions import OFFICIAL_PERMISSION_CATEGORIES
+from embedagent_protocol import FailureRecord
 
 DEFAULT_EXTENSION_RELPATH = os.path.join(".embedagent", "extensions")
 _VALID_EXTENSION_ID_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]*$")
@@ -77,16 +78,12 @@ def load_project_extensions(
     try:
         root = _resolve_inside(workspace_root, extensions_path or DEFAULT_EXTENSION_RELPATH)
     except ValueError as exc:
-        diagnostics.append(
-            {
-                "extension_id": "",
-                "event": "load_project_extensions",
-                "error": str(exc),
-                "severity": "error",
-                "source": "project",
-                "metadata": {"path": str(extensions_path or DEFAULT_EXTENSION_RELPATH)},
-            }
-        )
+        diagnostics.append(_safe_diagnostic(
+            extension_id="",
+            event="load_project_extensions",
+            exception=exc,
+            metadata={"path": str(extensions_path or DEFAULT_EXTENSION_RELPATH)},
+        ))
         return _payload(workspace_root, entries, diagnostics, loaded_extensions)
     if not os.path.isdir(root):
         return _payload(workspace_root, entries, diagnostics, loaded_extensions)
@@ -132,7 +129,7 @@ def _load_manifest_entry(
         with open(manifest_path, "r", encoding="utf-8") as handle:
             manifest = json.load(handle)
     except (OSError, ValueError) as exc:
-        return _failed_entry(base_entry, diagnostics, "manifest", str(exc))
+        return _failed_entry(base_entry, diagnostics, "manifest", exc)
     if not isinstance(manifest, dict):
         return _failed_entry(
             base_entry, diagnostics, "manifest", "extension manifest must be an object"
@@ -146,7 +143,7 @@ def _load_manifest_entry(
         entrypoint_path = _resolve_inside(extension_dir, entrypoint)
         base_entry["entrypoint"] = _display_path(workspace, entrypoint_path)
     except ValueError as exc:
-        return _failed_entry(base_entry, diagnostics, extension_id, str(exc))
+        return _failed_entry(base_entry, diagnostics, extension_id, exc)
     if error:
         return _failed_entry(base_entry, diagnostics, extension_id, error)
     if not bool(manifest.get("enabled", False)):
@@ -160,7 +157,7 @@ def _load_manifest_entry(
             entrypoint_path,
         )
     except _LOAD_FAILURE_TYPES as exc:
-        return _failed_entry(base_entry, diagnostics, extension_id, str(exc))
+        return _failed_entry(base_entry, diagnostics, extension_id, exc)
     loaded_extensions.append(extension)
     base_entry["status"] = "loaded"
     return base_entry
@@ -237,15 +234,23 @@ def _failed_entry(
     entry: Dict[str, Any],
     diagnostics: List[Dict[str, Any]],
     extension_id: str,
-    error: str,
+    error: Any,
 ) -> Dict[str, Any]:
+    if isinstance(error, BaseException):
+        exception = error
+    else:
+        exception = ValueError(str(error or "extension load failed"))
+    failure = _failure_for_exception(
+        exception,
+        extension_id=str(extension_id or entry.get("id") or ""),
+    )
     item = dict(entry)
     item["status"] = "failed"
     diagnostics.append(
         {
             "extension_id": str(extension_id or item.get("id") or ""),
             "event": "load_project_extension",
-            "error": str(error or ""),
+            "failure": failure,
             "severity": "error",
             "source": "project",
             "metadata": {
@@ -255,6 +260,34 @@ def _failed_entry(
         }
     )
     return item
+
+
+def _failure_for_exception(exception: BaseException, extension_id: str) -> Dict[str, Any]:
+    return FailureRecord.from_exception(
+        phase="extension_load",
+        kind="extension",
+        correlation_id=extension_id,
+        exception=exception,
+        code="extension_error",
+        retryable=False,
+        source="project",
+    ).to_dict()
+
+
+def _safe_diagnostic(
+    extension_id: str,
+    event: str,
+    exception: BaseException,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    return {
+        "extension_id": str(extension_id or ""),
+        "event": str(event or "load_project_extensions"),
+        "failure": _failure_for_exception(exception, extension_id),
+        "severity": "error",
+        "source": "project",
+        "metadata": dict(metadata or {}),
+    }
 
 
 def _resolve_inside(root: str, path: str) -> str:

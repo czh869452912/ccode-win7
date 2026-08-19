@@ -73,16 +73,31 @@ def _interaction_payload(event_name: str, payload: Dict[str, Any]) -> Dict[str, 
     return data
 
 
+def _strip_error_fields(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            str(key): _strip_error_fields(item)
+            for key, item in value.items()
+            if str(key).lower() not in ("error", "exception", "traceback")
+        }
+    if isinstance(value, list):
+        return [_strip_error_fields(item) for item in value]
+    return value
+
+
 def _failed_tool_payload(event_kind: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     data = dict(payload)
     if event_kind != "tool.finished" or bool(data.get("success")):
         return data
     observation_data = data.get("data") if isinstance(data.get("data"), dict) else {}
+    data.pop("error", None)
+    data["data"] = _strip_error_fields(observation_data)
     data["failure"] = FailureRecord(
         code=str(observation_data.get("error_kind") or "tool_failed"),
-        message=str(data.get("error") or ""),
         retryable=bool(observation_data.get("retryable")),
         source=str(data.get("tool_name") or "tool"),
+        kind="runtime",
+        phase="runtime",
     ).to_dict()
     return data
 

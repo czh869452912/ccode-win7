@@ -320,7 +320,11 @@ def test_sync_post_submit_projection_failure_sets_error_and_emits_session_error(
 
     assert state.status == "error"
     assert state.active_thread is None
-    assert state.last_error == "post-submit projection failed"
+    assert state.last_failure["message"] == "The operation failed."
+    assert state.last_failure["exception_type"] == "RuntimeError"
+    session_error = [payload for name, payload in events if name == "session.error"][-1]
+    assert "error" not in session_error
+    assert session_error["failure"]["exception_type"] == "RuntimeError"
     assert [name for name, payload in events if name == "session.error"] == ["session.error"]
     failure = [payload["failure"] for name, payload in events if name == "session.error"][0]
     assert failure["code"] == "runtime_error"
@@ -351,7 +355,11 @@ def test_worker_post_submit_projection_failure_clears_thread_and_reports_error(t
 
     assert state.status == "error"
     assert state.active_thread is None
-    assert state.last_error == "worker projection failed"
+    assert state.last_failure["message"] == "The operation failed."
+    assert state.last_failure["exception_type"] == "RuntimeError"
+    session_error = [payload for name, payload in events if name == "session.error"][-1]
+    assert "error" not in session_error
+    assert session_error["failure"]["exception_type"] == "RuntimeError"
     assert [name for name, payload in events if name == "session.error"] == ["session.error"]
 
 

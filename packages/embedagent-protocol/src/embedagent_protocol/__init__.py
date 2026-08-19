@@ -245,7 +245,7 @@ class SessionSnapshot:
     has_active_plan: bool = False
     active_plan_ref: str = ""
     current_command_context: str = ""
-    last_error: Optional[str] = None
+    last_failure: Optional[Dict[str, Any]] = None
     runtime_source: str = ""
     bundled_tools_ready: bool = False
     fallback_warnings: List[str] = field(default_factory=list)

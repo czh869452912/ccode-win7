@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, List, Mapping, Optional, Set
 
 from embedagent_core.agent_event_bus import AgentEvent, AgentEventBus, AgentEventDispatchError
 from embedagent_core.registration_scope import RegistrationScope
@@ -24,6 +24,32 @@ _HOOK_EVENT_TYPES = {
     "register_context_reducers": "extension.register_context_reducers",
     "workspace_recipes": "extension.workspace_recipes",
 }
+
+_SAFE_EXTENSION_MESSAGE = "The extension operation failed."
+
+
+def _safe_diagnostic_details(value: Any) -> Dict[str, str]:
+    failure = value
+    if isinstance(value, Mapping) and isinstance(value.get("failure"), Mapping):
+        failure = value.get("failure")
+    if isinstance(failure, Mapping):
+        code = str(failure.get("code") or "extension_error").strip()
+        kind = str(failure.get("kind") or "runtime").strip()
+        exception_type = str(failure.get("exception_type") or "").strip()
+    elif isinstance(value, BaseException):
+        code = "extension_error"
+        kind = "runtime"
+        exception_type = type(value).__name__
+    else:
+        code = "extension_error"
+        kind = "runtime"
+        exception_type = ""
+    return {
+        "code": code or "extension_error",
+        "kind": kind or "runtime",
+        "exception_type": exception_type,
+        "message": _SAFE_EXTENSION_MESSAGE,
+    }
 
 
 @dataclass
@@ -137,7 +163,10 @@ class WorkflowPatch:
 class ExtensionDiagnostic:
     extension_id: str = ""
     event: str = ""
-    error: str = ""
+    code: str = "extension_error"
+    kind: str = "runtime"
+    exception_type: str = ""
+    message: str = "The extension operation failed."
     severity: str = "error"
     source: str = "extension"
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -146,7 +175,10 @@ class ExtensionDiagnostic:
         return {
             "extension_id": self.extension_id,
             "event": self.event,
-            "error": self.error,
+            "code": self.code,
+            "kind": self.kind,
+            "exception_type": self.exception_type,
+            "message": self.message,
             "severity": self.severity,
             "source": self.source,
             "metadata": dict(self.metadata),
@@ -237,16 +269,20 @@ class ExtensionManager(object):
         self,
         extension_id: str,
         event: str,
-        error: str,
+        error: Any,
         severity: str = "error",
         source: str = "project",
         metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
+        details = _safe_diagnostic_details(error)
         self._diagnostics.append(
             ExtensionDiagnostic(
                 extension_id=str(extension_id or ""),
                 event=str(event or ""),
-                error=str(error or ""),
+                code=details["code"],
+                kind=details["kind"],
+                exception_type=details["exception_type"],
+                message=details["message"],
                 severity=str(severity or "error"),
                 source=str(source or "project"),
                 metadata=dict(metadata or {}),
@@ -493,15 +529,13 @@ class ExtensionManager(object):
             metadata = dict(diagnostic.get("metadata") or {})
             metadata["agent_event_type"] = str(diagnostic.get("event_type") or "")
             metadata["handler_kind"] = str(diagnostic.get("kind") or "")
-            self._diagnostics.append(
-                ExtensionDiagnostic(
-                    extension_id=str(diagnostic.get("source_id") or ""),
-                    event=event_name,
-                    error=str(diagnostic.get("error") or ""),
-                    severity="error",
-                    source=str(diagnostic.get("source_type") or "project"),
-                    metadata=metadata,
-                )
+            self.record_diagnostic(
+                str(diagnostic.get("source_id") or ""),
+                event_name,
+                diagnostic,
+                severity="error",
+                source=str(diagnostic.get("source_type") or "project"),
+                metadata=metadata,
             )
 
     def _event_handler_for_capability(self, capability: ExtensionCapability) -> Any:

@@ -2484,7 +2484,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         ]
         self.assertEqual(len(tool_finished), 1)
         self.assertFalse(tool_finished[0].get("success"))
-        self.assertIn("不存在", str(tool_finished[0].get("error") or ""))
+        self.assertNotIn("error", tool_finished[0])
+        self.assertEqual(
+            tool_finished[0]["failure"]["message"],
+            "The operation failed.",
+        )
         self.assertNotIn("session.error", [event_name for event_name, _ in events])
 
     def test_adapter_step_events_use_engine_step_id(self):

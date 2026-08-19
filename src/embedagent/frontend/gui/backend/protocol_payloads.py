@@ -315,7 +315,7 @@ def serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
         "active_plan_ref": str(read_value(snapshot, "active_plan_ref", "") or ""),
         "current_command_context": str(read_value(snapshot, "current_command_context", "") or ""),
         "pending_interaction": pending_interaction,
-        "last_error": read_value(snapshot, "last_error"),
+        "last_failure": dict(read_value(snapshot, "last_failure", {}) or {}) or None,
         "runtime_source": str(read_value(snapshot, "runtime_source", "") or ""),
         "bundled_tools_ready": bool(read_value(snapshot, "bundled_tools_ready", False)),
         "fallback_warnings": list(read_value(snapshot, "fallback_warnings", []) or []),

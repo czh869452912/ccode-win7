@@ -127,7 +127,9 @@ class AgentEventBus(object):
                 "source_type": registration.source_type,
                 "event_type": registration.event_type,
                 "kind": registration.kind,
-                "error": str(exc),
+                "code": "extension_error",
+                "exception_type": type(exc).__name__,
+                "message": "The extension operation failed.",
                 "metadata": metadata,
             }
             result.diagnostics.append(diagnostic)

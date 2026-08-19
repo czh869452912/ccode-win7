@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, Optional
 from embedagent_core.interaction import UserInputRequest, UserInputResponse
 from embedagent_core.permissions import PermissionRequest
 
+from embedagent_host.frontend_errors import failure_for_exception
 from embedagent_host.runtime.session_runtime import ManagedSession
 
 UserInputResolver = Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]
@@ -517,7 +518,9 @@ class HostedInteractionService(object):
             with state.lock:
                 if state.active_thread is threading.current_thread():
                     state.status = "error"
-                    state.last_error = str(exc)
+                    state.last_failure = failure_for_exception(
+                        exc, source="interaction"
+                    ).to_dict()
                     state.active_thread = None
                     state.active_thread_is_worker = False
                     state.updated_at = _utc_now()

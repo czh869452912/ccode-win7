@@ -94,7 +94,9 @@ class SessionSnapshotProjector(object):
             "pending_interaction": (
                 dict(pending_interaction) if pending_interaction is not None else None
             ),
-            "last_error": state.last_error,
+            "last_failure": (
+                dict(state.last_failure) if isinstance(state.last_failure, dict) else None
+            ),
             "restore_stop_reason": state.restore_stop_reason,
             "restore_consumed_event_count": state.restore_consumed_event_count,
             "restore_transcript_event_count": state.restore_transcript_event_count,

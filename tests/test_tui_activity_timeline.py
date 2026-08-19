@@ -140,16 +140,22 @@ def test_tui_renders_one_error_line_for_one_session_error_event():
         _event(
             "session.error",
             {
-                "error": "provider failed",
+                "failure": {
+                    "message": "The model provider request failed.",
+                    "code": "provider_error",
+                },
                 "session_snapshot": {
                     "session_id": "session-1",
                     "status": "error",
-                    "last_error": "provider failed",
+                    "last_failure": {
+                        "message": "The model provider request failed.",
+                        "code": "provider_error",
+                    },
                     "pending_interaction_valid": False,
                 },
             },
         )
     )
 
-    assert app.state.timeline.items == ["[error] provider failed"]
-    assert app.state.session.last_error == "provider failed"
+    assert app.state.timeline.items == ["[error] The model provider request failed."]
+    assert app.state.session.last_error == "The model provider request failed."
