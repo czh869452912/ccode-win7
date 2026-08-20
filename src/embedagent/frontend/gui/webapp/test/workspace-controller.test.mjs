@@ -33,7 +33,7 @@ function bootstrap(id = "ws-2", active = true) {
     },
     settings: { confirm_workspace_switch: true, show_diagnostics_badge: true },
     diagnostics: {},
-    last_error: "",
+    last_failure: null,
   };
 }
 

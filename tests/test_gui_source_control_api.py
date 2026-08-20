@@ -171,7 +171,7 @@ class GuiSourceControlApiTests(unittest.TestCase):
                 )
 
             self.assertEqual(raised.exception.status_code, 422)
-            self.assertEqual(raised.exception.detail, "invalid_diff_scope")
+            self.assertEqual(raised.exception.detail["code"], "invalid_diff_scope")
 
 
 if __name__ == "__main__":

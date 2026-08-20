@@ -45,7 +45,7 @@ export function runAppWorkspaceTests() {
       show_diagnostics_badge: true,
     },
     diagnostics: {},
-    last_error: "",
+    last_failure: null,
   });
   assert.equal(bootstrap.workspaces.length, 1);
   assert.equal(bootstrap.activeWorkspace.id, "ws-1");

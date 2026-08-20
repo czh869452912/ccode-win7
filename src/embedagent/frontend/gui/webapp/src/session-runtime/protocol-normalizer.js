@@ -47,6 +47,37 @@ function bool(value, scope, field) {
   return value;
 }
 
+function normalizeFailure(value, scope, field) {
+  const data = record(value, scope, field);
+  exact(
+    data,
+    new Set([
+      "code",
+      "message",
+      "retryable",
+      "source",
+      "phase",
+      "kind",
+      "correlation_id",
+      "safe_message",
+      "exception_type",
+    ]),
+    scope,
+    field,
+  );
+  return Object.freeze({
+    code: requiredText(data.code, scope, `${field}.code`),
+    message: requiredText(data.message, scope, `${field}.message`),
+    retryable: bool(data.retryable, scope, `${field}.retryable`),
+    source: requiredText(data.source, scope, `${field}.source`),
+    phase: requiredText(data.phase, scope, `${field}.phase`),
+    kind: requiredText(data.kind, scope, `${field}.kind`),
+    correlationId: optionalText(data.correlation_id, scope, `${field}.correlation_id`),
+    safeMessage: optionalText(data.safe_message, scope, `${field}.safe_message`),
+    exceptionType: optionalText(data.exception_type, scope, `${field}.exception_type`),
+  });
+}
+
 function uniqueIds(items, scope, kind) {
   const ids = new Set();
   for (const item of items) {
@@ -480,7 +511,7 @@ export function normalizeProtocolAppBootstrap(value) {
       "shell",
       "settings",
       "diagnostics",
-      "last_error",
+      "last_failure",
       "removed",
     ]),
     scope,
@@ -499,7 +530,9 @@ export function normalizeProtocolAppBootstrap(value) {
     shell: normalizeShellDescriptor(data.shell, scope),
     settings: mapping(data.settings, scope, "settings"),
     diagnostics: mapping(data.diagnostics, scope, "diagnostics"),
-    lastError: optionalText(data.last_error, scope, "last_error"),
+    lastFailure: data.last_failure === null || data.last_failure === undefined
+      ? null
+      : normalizeFailure(data.last_failure, scope, "last_failure"),
     removed: data.removed === undefined ? undefined : bool(data.removed, scope, "removed"),
   });
 }

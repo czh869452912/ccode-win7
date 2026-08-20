@@ -78,9 +78,7 @@ class AppShellService(object):
         raw = self._app_host.remove_workspace(workspace_id)
         return self._base_payload(raw)
 
-    def _base_payload(
-        self, raw: Optional[Dict[str, Any]] = None, last_error: str = ""
-    ) -> Dict[str, Any]:
+    def _base_payload(self, raw: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         payload = dict(raw or {})
         workspaces = list(payload.get("workspaces") or [])
         active_workspace = payload.get("active_workspace")
@@ -94,7 +92,7 @@ class AppShellService(object):
             "diagnostics": self._diagnostics(payload),
             "shell": self._compiled_shell().to_dict(),
             "settings": self._settings_payload(),
-            "last_error": str(last_error or payload.get("last_error") or ""),
+            "last_failure": dict(payload.get("last_failure") or {}) or None,
         }
         if "removed" in payload:
             response["removed"] = bool(payload.get("removed"))

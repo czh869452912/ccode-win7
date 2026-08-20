@@ -1,4 +1,4 @@
-import { isSessionEventEnvelope } from "./session-transport-state.js";
+import { normalizeSessionEventEnvelope } from "./protocol-envelope.js";
 import { FRONTEND_PROTOCOL_SCHEMA_VERSION } from "./protocol-version.js";
 
 const INTERACTION_REQUEST_EVENTS = new Set([
@@ -302,9 +302,7 @@ export class SessionClientRuntime {
   }
 
   async acceptSessionEvent(envelope) {
-    if (!isSessionEventEnvelope(envelope)) {
-      throw new TypeError("invalid session event envelope");
-    }
+    normalizeSessionEventEnvelope(envelope);
     if (this.lifecycle === "closed" || this.lifecycle === "failed") return;
     const event = frozenCopy(envelope);
     if (this.syncPhase === SYNC_BOOTSTRAP || this.syncPhase === SYNC_RECOVERY) {

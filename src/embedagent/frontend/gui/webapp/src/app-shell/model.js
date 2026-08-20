@@ -69,7 +69,7 @@ export function createAppShellState() {
     shell,
     capabilities: shellCapabilityModel(shell),
     settings: normalizeAppSettings(),
-    lastError: "",
+    lastFailure: null,
   };
 }
 
@@ -88,11 +88,11 @@ export function normalizeAppBootstrap(payload = {}) {
     workspaces,
     activeWorkspace: activeWorkspace && activeWorkspace.id ? activeWorkspace : null,
     hasActiveWorkspace: Boolean(protocol.hasActiveWorkspace && activeWorkspace),
-    workspaceError: protocol.lastError,
+    workspaceError: protocol.lastFailure?.code || "",
     diagnostics: normalizeAppDiagnostics(protocol.diagnostics),
     shell: protocol.shell,
     capabilities: shellCapabilityModel(protocol.shell),
     settings: normalizeAppSettings(protocol.settings),
-    lastError: protocol.lastError,
+    lastFailure: protocol.lastFailure,
   };
 }

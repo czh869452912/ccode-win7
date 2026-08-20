@@ -24,7 +24,7 @@ function appBootstrap() {
       show_diagnostics_badge: true,
     },
     diagnostics: {},
-    last_error: "",
+    last_failure: null,
   };
 }
 

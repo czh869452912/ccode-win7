@@ -25,7 +25,7 @@ class GuiDynamicAgentCapabilityTests(unittest.TestCase):
         app_payload = serialize_app_bootstrap(
             {
                 "app": {"shell_version": 1, "protocol": "gui_app_shell_v1"},
-                "shell": {"schema_version": 1},
+                "shell": {"schema_version": 2},
             }
         )
         session_payload = serialize_session_bootstrap(
@@ -53,7 +53,7 @@ class GuiDynamicAgentCapabilityTests(unittest.TestCase):
                     "protocol": "gui_app_shell_v1",
                 },
                 "shell": {
-                    "schema_version": 1,
+                    "schema_version": 2,
                     "commands": [
                         {
                             "id": "project.check",
@@ -154,7 +154,7 @@ class GuiDynamicAgentCapabilityTests(unittest.TestCase):
         script = """
 import sys
 from embedagent.frontend.gui.backend.protocol_payloads import serialize_app_bootstrap
-serialize_app_bootstrap({"app": {}, "shell": {"schema_version": 1}})
+serialize_app_bootstrap({"app": {}, "shell": {"schema_version": 2}})
 if "embedagent_workflow_cpp" in sys.modules:
     raise SystemExit("workflow package imported by GUI protocol serializer")
 """

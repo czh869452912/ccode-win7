@@ -300,7 +300,8 @@ def test_structured_frontend_port_failure_maps_to_http_status():
         )
 
     assert raised.value.status_code == 404
-    assert raised.value.detail == "session_not_found"
+    assert raised.value.detail["code"] == "session_not_found"
+    assert raised.value.detail["safe_message"]
 
 
 def test_file_write_route_remains_disabled():

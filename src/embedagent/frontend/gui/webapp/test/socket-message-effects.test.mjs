@@ -38,6 +38,17 @@ function deriveEvent(eventKind, payload, sequence = 1, options = {}) {
 }
 
 export function runSocketMessageEffectsTests() {
+  const workspaceChange = derive("workspace_changed", {
+    schema_version: 2,
+    workspace_id: "workspace-1",
+    path: "D:/workspace",
+    reason: "activated",
+  });
+  assert.deepEqual(workspaceChange.loaderRequests, [
+    { name: LOADER_REQUESTS.LOAD_APP_BOOTSTRAP },
+  ]);
+  assert.equal(workspaceChange.actions[0].type, "workspace_changed_notification");
+
   const status = deriveEvent("session.status", {
     session_snapshot: {
       session_id: "sess-active",

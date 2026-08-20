@@ -64,6 +64,22 @@ export function runProtocolNormalizerTests() {
   assert.equal(app.schemaVersion, FRONTEND_PROTOCOL_SCHEMA_VERSION);
   assert.equal(app.hasActiveWorkspace, true);
   assert.equal(app.shell.surfaces[0].placement, "overlay");
+  const failedApp = normalizeProtocolAppBootstrap({
+    ...readFixture("app_bootstrap.json"),
+    last_failure: {
+      code: "configuration_error",
+      message: "The application configuration is invalid.",
+      retryable: false,
+      source: "gui",
+      phase: "application_composition",
+      kind: "configuration",
+      correlation_id: "",
+      safe_message: "The application configuration is invalid.",
+      exception_type: "",
+    },
+  });
+  assert.equal(failedApp.lastFailure.code, "configuration_error");
+  assert.equal(failedApp.lastFailure.safeMessage, "The application configuration is invalid.");
 
   assert.throws(
     () => normalizeSessionBootstrap({ ...wireSession, eventCursor: 4 }),

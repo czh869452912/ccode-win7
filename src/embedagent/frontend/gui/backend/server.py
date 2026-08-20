@@ -11,8 +11,12 @@ import threading
 from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional, Set
 
-from embedagent_host.frontend_errors import FrontendPortError
-from embedagent_protocol import SessionEventEnvelope, SessionEventSink
+from embedagent_host.frontend_errors import FrontendPortError, failure_for_exception
+from embedagent_protocol import (
+    SessionEventEnvelope,
+    SessionEventSink,
+    WorkspaceChangedNotification,
+)
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -75,16 +79,28 @@ class WebSocketFrontend(SessionEventSink):
             with self._connections_lock:
                 for conn in disconnected:
                     self.connections.discard(conn)
+            raise FrontendPortError(
+                failure_for_exception(RuntimeError("websocket_send_failed"), source="gui_websocket")
+            )
 
     def _dispatch_message(self, message: Dict[str, Any]) -> bool:
         result = self._dispatcher.dispatch(lambda: self.broadcast(message))
         if not result:
-            _LOGGER.error("GUI event dispatch failed: %s", result.reason)
-            return False
+            raise FrontendPortError(
+                failure_for_exception(
+                    RuntimeError("websocket_loop_unavailable"), source="gui_websocket"
+                )
+            )
         return True
 
     def on_session_event(self, envelope: SessionEventEnvelope) -> None:
         self._dispatch_message({"type": "session_event", "data": envelope.to_dict()})
+
+    def on_workspace_changed(self, notification: WorkspaceChangedNotification) -> None:
+        with self._connections_lock:
+            if not self.connections:
+                return
+        self._dispatch_message({"type": "workspace_changed", "data": notification.to_dict()})
 
 
 class GUIBackend:

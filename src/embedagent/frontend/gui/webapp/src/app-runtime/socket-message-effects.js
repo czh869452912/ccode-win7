@@ -296,6 +296,15 @@ export function deriveSocketMessageEffects({
   diffPanelChrome = {},
 } = {}) {
   const payload = data || {};
+  if (type === "workspace_changed") {
+    const effects = emptyEffects();
+    effects.actions.push({
+      type: "workspace_changed_notification",
+      notification: payload,
+    });
+    effects.loaderRequests.push({ name: LOADER_REQUESTS.LOAD_APP_BOOTSTRAP });
+    return effects;
+  }
   if (type === "terminal_event") {
     const effects = emptyEffects();
     effects.actions.push({ type: "terminal_event", event: payload?.event || payload || {} });
