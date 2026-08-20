@@ -51,9 +51,11 @@ def test_product_runtime_injects_product_registry(tmp_path, monkeypatch):
 
     registry = captured["agent_application_registry"]
     assert registry.default_application_id == "embedagent.generic"
-    assert callable(captured["command_sanitizer_factory"])
-    assert callable(captured["bundle_root_resolver"])
-    assert callable(captured["system_prompt_builder"])
+    assert captured["model_client"].model == "product-model"
+    assert captured["tool_runtime"].workspace == str(tmp_path)
+    assert captured["context_manager"] is not None
+    assert captured["permission_policy"] is not None
+    assert captured["summary_store"] is not None
 
 
 def test_product_registry_filters_allowed_applications_in_stable_order():
@@ -120,6 +122,7 @@ def test_product_runtime_injects_plan_filtered_registry(tmp_path, monkeypatch):
         "embedagent.generic"
     ]
     assert registry.default_application_id == "embedagent.generic"
+    assert captured["model_client"].model == "product-model"
 
 
 def test_cpp_runtime_registry_is_loaded_from_selected_plugin_entries(tmp_path, monkeypatch):
