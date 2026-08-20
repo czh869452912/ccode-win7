@@ -16,6 +16,10 @@
 - `docs/superpowers/plans/2026-08-18-reversible-context-reducer-lifecycle.md`
 - `docs/superpowers/plans/2026-08-18-cpp-taskgraph-canonical-ledger.md`
 
+## Frontend Contract Convergence
+
+- `docs/superpowers/plans/2026-08-20-frontend-contract-v2-design.md` (design review open)
+
 ## Closure Rule
 
 先把可持续结论同步到活跃权威文档，再将已完成的 spec 和 plan 移入带索引的 `docs/archive/<topic>/` 包。
