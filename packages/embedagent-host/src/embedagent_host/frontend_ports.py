@@ -16,13 +16,13 @@ from embedagent_protocol import (
     ToolPresentation,
     WorkflowPackageDescriptor,
 )
+from embedagent_protocol.versions import FRONTEND_PROTOCOL_SCHEMA_VERSION
 
 from embedagent_host.frontend_errors import (
     FrontendPortError,
     SessionNotFoundError,
     failure_for_exception,
 )
-from embedagent_protocol.versions import FRONTEND_PROTOCOL_SCHEMA_VERSION
 
 
 def _frontend_call(source: str, operation: Callable[[], Any]) -> Any:

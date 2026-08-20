@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from embedagent_protocol import (
     AppBootstrap,
     FailureRecord,
@@ -32,13 +31,16 @@ def test_frontend_protocol_uses_v2_and_app_bootstrap_has_structured_failure():
     assert FRONTEND_PROTOCOL_SCHEMA_VERSION == 2
     assert payload["last_failure"] == failure.to_dict()
     assert "last_error" not in payload
-    assert AppBootstrap(
-        schema_version=FRONTEND_PROTOCOL_SCHEMA_VERSION,
-        app={"name": "EmbedAgent"},
-        workspaces=[],
-        shell=ShellDescriptor(schema_version=FRONTEND_PROTOCOL_SCHEMA_VERSION),
-        last_failure=failure,
-    ).last_failure == failure
+    assert (
+        AppBootstrap(
+            schema_version=FRONTEND_PROTOCOL_SCHEMA_VERSION,
+            app={"name": "EmbedAgent"},
+            workspaces=[],
+            shell=ShellDescriptor(schema_version=FRONTEND_PROTOCOL_SCHEMA_VERSION),
+            last_failure=failure,
+        ).last_failure
+        == failure
+    )
 
 
 def test_app_bootstrap_rejects_legacy_last_error_wire_field():

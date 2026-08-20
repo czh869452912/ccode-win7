@@ -179,6 +179,31 @@ def test_run_json_uses_result_contract_for_composition_failure(monkeypatch, caps
     assert json.loads(captured.out)["failure"] == failure.to_dict()
 
 
+def test_cli_preserves_typed_application_configuration_failure(monkeypatch, capsys):
+    import json
+
+    from embedagent_core import ApplicationConfigurationError
+
+    from embedagent.cli import app as cli_app
+
+    monkeypatch.setattr(
+        cli_app.CliApplication,
+        "from_options",
+        classmethod(
+            lambda cls, options: (_ for _ in ()).throw(
+                ApplicationConfigurationError("raw composition detail")
+            )
+        ),
+    )
+
+    assert cli_app.main(["run", "--output", "json", "hello"]) == 3
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["failure"]["code"] == "configuration_error"
+    assert payload["failure"]["phase"] == "application_composition"
+    assert payload["failure"]["kind"] == "configuration"
+    assert payload["failure"]["safe_message"] != "raw composition detail"
+
+
 def test_cli_sources_do_not_import_other_shells_or_construct_host_internals():
     from pathlib import Path
 

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, List, Optional
 
 from embedagent_host import FrontendPortError
+from embedagent_host.frontend_errors import failure_for_exception
 from embedagent_protocol import (
     FailureRecord,
     FrontendSessionPort,
@@ -114,10 +115,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         return CliApplication.from_options(options).run()
     except FrontendPortError as exc:
         failure = exc.failure
-    except ValueError:
-        failure = _failure("configuration_error", "cli")
     except KeyboardInterrupt:
         failure = _failure("cancelled", "cli")
-    except (ImportError, RuntimeError, TypeError):
-        failure = _failure("runtime_error", "cli")
+    except (ImportError, RuntimeError, TypeError, ValueError) as exc:
+        failure = failure_for_exception(exc, "cli")
     return write_command_failure(failure, output=options.output)

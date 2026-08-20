@@ -40,7 +40,9 @@ class InteractionProjection(object):
         )
         object.__setattr__(self, "turn_id", _required_text(self.turn_id, "interaction.turn_id"))
         object.__setattr__(self, "renderer", _required_text(self.renderer, "interaction.renderer"))
-        if isinstance(self.descriptor_version, bool) or not isinstance(self.descriptor_version, int):
+        if isinstance(self.descriptor_version, bool) or not isinstance(
+            self.descriptor_version, int
+        ):
             raise ValueError("interaction.descriptor_version must be an integer")
         if self.descriptor_version <= 0:
             raise ValueError("interaction.descriptor_version must be positive")

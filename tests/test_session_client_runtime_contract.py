@@ -350,7 +350,6 @@ def test_active_message_and_interaction_use_runtime_session_owner():
 
 
 def test_activation_failure_is_structured_and_rethrown():
-    contract = _load_contract()
     actions = []
     runtime = SessionClientRuntime(dispatch=actions.append)
     port = FakeSessionPort(runtime)
@@ -413,7 +412,9 @@ def test_fork_result_is_separate_from_fork_and_activate():
     assert isinstance(thread, ThreadShell)
     assert runtime.active_session_id == ""
 
-    port.responses.append(ThreadShell.from_dict(contract["bootstraps"]["session_2_cursor_0"]["thread"]))
+    port.responses.append(
+        ThreadShell.from_dict(contract["bootstraps"]["session_2_cursor_0"]["thread"])
+    )
     port.responses.append(_bootstrap(contract, "session_2_cursor_0"))
     activated = runtime.fork_and_activate_session("session-1", "Fork")
     assert isinstance(activated, SessionBootstrap)

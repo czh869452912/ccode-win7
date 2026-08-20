@@ -66,6 +66,7 @@ def _interaction_payload(event_name: str, payload: Dict[str, Any]) -> Dict[str, 
     )
     data["request_id"] = str(request_id)
     data["interaction_id"] = str(data.get("interaction_id") or request_id)
+    data["kind"] = "permission" if event_name.startswith("permission_") else "user_input"
     data["turn_id"] = str(data.get("turn_id") or "")
     for key in ("tool_name", "category", "reason", "details", "question", "questions"):
         for container in (permission, request, user_input):

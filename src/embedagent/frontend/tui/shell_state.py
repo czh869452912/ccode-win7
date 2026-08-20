@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Tuple
 
 from embedagent_protocol import KeybindingDescriptor, ShellDescriptor, SurfaceDescriptor
 
+from embedagent.frontend.runtime.commands import is_command_available
+
 
 @dataclass(frozen=True)
 class ShellCommand:
@@ -64,10 +66,18 @@ class ShellState:
         return ShellCommand("", "", "")
 
 
-def slash_commands(state: ShellState) -> List[ShellCommand]:
+def slash_commands(
+    state: ShellState,
+    availability: Dict[str, Any] = None,
+) -> List[ShellCommand]:
     values = []
     seen = set()
     for command in state.commands:
+        descriptor = next(
+            (item for item in state.descriptor.commands if item.id == command.id), None
+        )
+        if descriptor is not None and not is_command_available(descriptor, availability):
+            continue
         if not command.slash:
             continue
         name = command.slash.strip().split()[0].lstrip("/")
@@ -86,16 +96,30 @@ def slash_commands(state: ShellState) -> List[ShellCommand]:
     return values
 
 
-def slash_name_strings(state: ShellState) -> List[str]:
-    return [item.slash.lstrip("/") for item in slash_commands(state)]
+def slash_name_strings(
+    state: ShellState,
+    availability: Dict[str, Any] = None,
+) -> List[str]:
+    return [item.slash.lstrip("/") for item in slash_commands(state, availability)]
 
 
-def visible_palette_commands(state: ShellState, query: str = "") -> List[ShellCommand]:
+def visible_palette_commands(
+    state: ShellState,
+    query: str = "",
+    availability: Dict[str, Any] = None,
+) -> List[ShellCommand]:
     normalized = (query or "").strip().lower()
-    if not normalized:
-        return list(state.commands)
-    matches = []
+    commands = []
     for command in state.commands:
+        descriptor = next(
+            (item for item in state.descriptor.commands if item.id == command.id), None
+        )
+        if descriptor is None or is_command_available(descriptor, availability):
+            commands.append(command)
+    if not normalized:
+        return commands
+    matches = []
+    for command in commands:
         haystack = " ".join([command.id, command.label, command.group, command.slash]).lower()
         if normalized in haystack:
             matches.append(command)

@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any, Dict
 
 from embedagent_protocol import SessionEventEnvelope
 
+from embedagent.frontend.runtime.interaction_projection import resolve_interaction
+
 if TYPE_CHECKING:
     from embedagent.frontend.tui.app import TerminalApp
 
@@ -52,7 +54,7 @@ class TUIFrontend(object):
                 "tool_name": str(payload.get("tool_name") or ""),
                 "success": bool(payload.get("success")),
                 "data": payload.get("data"),
-                "error": str(failure.get("message") or ""),
+                "error": str(failure.get("safe_message") or failure.get("message") or ""),
             }
             reducer.append_line(self.app.state, format_observation_line(observation))
         elif event_kind in ("session.status", "session.finished", "session.error"):
@@ -63,7 +65,8 @@ class TUIFrontend(object):
                     snapshot.get("last_failure") if isinstance(snapshot, dict) else {}
                 )
                 message = str(
-                    (payload.get("failure") or {}).get("message")
+                    (payload.get("failure") or {}).get("safe_message")
+                    or (payload.get("failure") or {}).get("message")
                     if isinstance(payload.get("failure"), dict)
                     else ""
                 )
@@ -87,8 +90,16 @@ class TUIFrontend(object):
                 "[plan] %s" % str(plan.get("title") or "Current Plan"),
             )
         elif event_kind in ("approval.requested", "user-input.requested"):
-            reducer.set_pending_interaction(self.app.state, payload)
-        elif event_kind in ("approval.resolved", "user-input.resolved"):
+            reducer.set_pending_interaction(
+                self.app.state,
+                self._normalize_interaction(event_kind, payload),
+            )
+        elif event_kind in (
+            "approval.resolved",
+            "approval.response.failed",
+            "user-input.resolved",
+            "user-input.response.failed",
+        ):
             reducer.set_pending_interaction(self.app.state, None)
 
         self.app.refresh_views()
@@ -104,7 +115,14 @@ class TUIFrontend(object):
         if not snapshot:
             return
         pending = (
-            dict(snapshot.get("pending_interaction") or {})
+            self._normalize_interaction(
+                (
+                    "approval.requested"
+                    if str(snapshot.get("status") or "") == "waiting_permission"
+                    else "user-input.requested"
+                ),
+                dict(snapshot.get("pending_interaction") or {}),
+            )
             if bool(snapshot.get("pending_interaction_valid"))
             and isinstance(snapshot.get("pending_interaction"), dict)
             else None
@@ -116,7 +134,7 @@ class TUIFrontend(object):
         )
         failure = snapshot.get("last_failure")
         if render_error and isinstance(failure, dict) and failure.get("message"):
-            message = str(failure.get("message") or "")
+            message = str(failure.get("safe_message") or failure.get("message") or "")
             reducer.set_last_error(self.app.state, message)
             reducer.append_line(self.app.state, "[error] %s" % message)
 
@@ -125,3 +143,30 @@ class TUIFrontend(object):
         if not isinstance(value, dict):
             return {}
         return {key: item for key, item in value.items() if not str(key).startswith("_")}
+
+    def _normalize_interaction(self, event_kind: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        value = dict(payload or {})
+        nested_key = "permission" if event_kind.startswith("approval") else "user_input"
+        nested = value.get(nested_key)
+        if isinstance(nested, dict):
+            merged = dict(nested)
+            merged.update(value)
+            value = merged
+        value["kind"] = "permission" if event_kind.startswith("approval") else "user_input"
+        try:
+            prompt = resolve_interaction(
+                getattr(self.app, "shell_descriptor", None),
+                event_kind,
+                value,
+            )
+        except (TypeError, ValueError):
+            return value
+        value["prompt"] = prompt.prompt
+        value["default"] = prompt.default
+        value["answer_key"] = prompt.answer_key
+        value["choices"] = [
+            {"key": choice.key, "label": choice.label, "value": choice.value}
+            for choice in prompt.choices
+        ]
+        value["interaction_id"] = prompt.interaction_id
+        return value

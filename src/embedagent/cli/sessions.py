@@ -22,7 +22,7 @@ def _resolved_session_id(context: Any) -> str:
     reference = str(context.options.reference or "").strip()
     if not reference:
         raise ValueError("session reference is required")
-    summary = context.session_port.load_session_summary(reference)
+    summary = context.client_runtime.load_session_summary(reference)
     if not isinstance(summary, dict):
         raise TypeError("session summary must be a mapping")
     session_id = summary.get("session_id")
@@ -33,9 +33,9 @@ def _resolved_session_id(context: Any) -> str:
 
 def _execute(context: Any) -> Tuple[str, Any]:
     options = context.options
-    port = context.session_port
+    runtime = context.client_runtime
     if options.sessions_action == "list":
-        threads = port.list_sessions(limit=options.limit)
+        threads = runtime.list_sessions(limit=options.limit)
         if not isinstance(threads, list) or not all(
             isinstance(thread, ThreadShell) for thread in threads
         ):
@@ -45,7 +45,7 @@ def _execute(context: Any) -> Tuple[str, Any]:
         reference = str(options.reference or "").strip()
         if not reference:
             raise ValueError("session reference is required")
-        summary = port.load_session_summary(reference)
+        summary = runtime.load_session_summary(reference)
         if not isinstance(summary, dict):
             raise TypeError("session summary must be a mapping")
         return "summary", dict(summary)
@@ -53,12 +53,12 @@ def _execute(context: Any) -> Tuple[str, Any]:
         title = str(options.title or "").strip()
         if not title:
             return "failure", _failure("usage_error")
-        return "thread", port.rename_session(_resolved_session_id(context), title)
+        return "thread", runtime.rename_session(_resolved_session_id(context), title)
     if options.sessions_action == "archive":
-        return "thread", port.archive_session(_resolved_session_id(context))
+        return "thread", runtime.archive_session(_resolved_session_id(context))
     if options.sessions_action == "fork":
         title = str(options.title or "").strip()
-        return "thread", port.fork_session(_resolved_session_id(context), title)
+        return "thread", runtime.fork_session(_resolved_session_id(context), title)
     return "failure", _failure("usage_error")
 
 

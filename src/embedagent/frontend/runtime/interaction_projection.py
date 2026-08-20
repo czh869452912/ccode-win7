@@ -147,29 +147,18 @@ def _selected_value(prompt: InteractionPrompt, raw: str) -> str:
         value = prompt.default
     normalized = value.lower()
     if prompt.kind == "permission":
-        aliases = {
-            "y": "accept",
-            "yes": "accept",
-            "n": "decline",
-            "no": "decline",
-        }
+        aliases = {"y": "accept", "yes": "accept", "n": "decline", "no": "decline"}
         value = aliases.get(normalized, value)
         normalized = value.lower()
     for choice in prompt.choices:
-        if value == choice.key or normalized in (
-            choice.label.lower(),
-            choice.value.lower(),
-        ):
+        if value == choice.key or normalized in (choice.label.lower(), choice.value.lower()):
             return choice.value
     if value and prompt.allow_custom:
         return value
     raise InteractionResponseError("invalid_interaction_response")
 
 
-def build_interaction_response(
-    prompt: InteractionPrompt,
-    value: str,
-) -> Dict[str, Any]:
+def build_interaction_response(prompt: InteractionPrompt, value: str) -> Dict[str, Any]:
     if not isinstance(prompt, InteractionPrompt):
         raise TypeError("prompt must be an InteractionPrompt")
     selected = _selected_value(prompt, value)

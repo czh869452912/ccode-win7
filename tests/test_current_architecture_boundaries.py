@@ -434,7 +434,7 @@ def test_transcript_store_has_no_schema_v1_compatibility_path():
     forbidden_tokens = (
         "schema_v1",
         "schema v1",
-        "schema_version=2",
+        "schema_version=1",
         "schema_version: int = 1",
         '"schema_version": 1',
         '"schema_version":1',

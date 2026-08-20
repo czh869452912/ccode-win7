@@ -105,6 +105,11 @@ def _options(action, output="text", reference="", title="", limit=10):
 def _application(action, output="text", reference="", title="", limit=10):
     runtime = MagicMock()
     port = FakeSessionPort()
+    runtime.list_sessions.side_effect = port.list_sessions
+    runtime.load_session_summary.side_effect = port.load_session_summary
+    runtime.rename_session.side_effect = port.rename_session
+    runtime.archive_session.side_effect = port.archive_session
+    runtime.fork_session.side_effect = port.fork_session
     return (
         SimpleNamespace(
             options=_options(action, output, reference, title, limit),
@@ -137,7 +142,7 @@ def test_sessions_list_text_uses_stable_columns_and_limit():
     )
     assert stderr == ""
     assert port.list_calls == [1]
-    assert runtime.method_calls == []
+    assert runtime.list_sessions.call_args.kwargs == {"limit": 1}
 
 
 def test_sessions_list_json_serializes_thread_dtos_directly():
@@ -149,7 +154,7 @@ def test_sessions_list_json_serializes_thread_dtos_directly():
     assert json.loads(stdout) == [thread.to_dict() for thread in application.session_port.threads]
     assert stdout.count("\n") == 1
     assert stderr == ""
-    assert runtime.method_calls == []
+    assert runtime.list_sessions.call_args.kwargs == {"limit": 10}
 
 
 def test_sessions_show_uses_summary_without_bootstrap_or_activation():
@@ -170,7 +175,7 @@ def test_sessions_show_uses_summary_without_bootstrap_or_activation():
     )
     assert stderr == ""
     assert port.summary_calls == ["latest"]
-    assert runtime.method_calls == []
+    assert runtime.load_session_summary.call_args.args == ("latest",)
 
 
 def test_sessions_show_json_serializes_summary_projection_directly():
@@ -185,7 +190,7 @@ def test_sessions_show_json_serializes_summary_projection_directly():
     assert exit_code == 0
     assert json.loads(stdout) == port.summaries["session-1"]
     assert stderr == ""
-    assert runtime.method_calls == []
+    assert runtime.load_session_summary.call_args.args == ("session-1",)
 
 
 @pytest.mark.parametrize(
@@ -218,7 +223,11 @@ def test_session_mutations_resolve_reference_and_return_thread_json(
     assert port.summary_calls == ["latest"]
     assert getattr(port, expected_call) == expected_arguments
     assert stderr == ""
-    assert runtime.method_calls == []
+    assert runtime.load_session_summary.call_args.args == ("latest",)
+    runtime_method = getattr(runtime, expected_call.replace("_calls", "_session"))
+    assert runtime_method.call_args.args == tuple(
+        expected_arguments[0] if isinstance(expected_arguments[0], tuple) else expected_arguments
+    )
 
 
 def test_sessions_rename_rejects_empty_title_before_calling_port():
@@ -235,7 +244,7 @@ def test_sessions_rename_rejects_empty_title_before_calling_port():
     assert stderr == "error: usage_error\n"
     assert port.summary_calls == []
     assert port.rename_calls == []
-    assert runtime.method_calls == []
+    assert runtime.load_session_summary.call_count == 0
 
 
 def test_sessions_missing_reference_uses_structured_failure_in_json():
@@ -253,4 +262,4 @@ def test_sessions_missing_reference_uses_structured_failure_in_json():
     assert result["failure"]["code"] == "session_not_found"
     assert stderr == ""
     assert port.summary_calls == ["missing"]
-    assert runtime.method_calls == []
+    assert runtime.load_session_summary.call_args.args == ("missing",)

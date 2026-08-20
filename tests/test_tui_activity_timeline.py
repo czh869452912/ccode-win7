@@ -23,7 +23,7 @@ class _FakeApp(object):
 
 
 def _event(kind, payload, sequence=1):
-    return SessionEventEnvelope(1, "evt-%s" % sequence, "session-1", sequence, kind, "now", payload)
+    return SessionEventEnvelope(2, "evt-%s" % sequence, "session-1", sequence, kind, "now", payload)
 
 
 def test_empty_activities_render():
