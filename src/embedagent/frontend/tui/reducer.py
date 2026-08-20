@@ -26,7 +26,7 @@ def reset_session_buffers(state: TerminalState) -> None:
     state.timeline.follow_output = True
     state.session.pending_interaction = None
     state.session.last_context_event = {}
-    state.session.last_error = ""
+    state.session.last_failure = None
     state.overlay.active_id = ""
     for contribution in state.contributions.values():
         contribution.active = False
@@ -65,8 +65,8 @@ def set_pending_interaction(state: TerminalState, ticket: Optional[Dict[str, obj
     state.overlay.active_id = "session.interaction" if ticket else ""
 
 
-def set_last_error(state: TerminalState, message: str) -> None:
-    state.session.last_error = message
+def set_last_failure(state: TerminalState, failure: Optional[Dict[str, object]]) -> None:
+    state.session.last_failure = dict(failure or {}) if failure else None
 
 
 def set_context_event(state: TerminalState, payload: Dict[str, object]) -> None:

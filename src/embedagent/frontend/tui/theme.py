@@ -8,7 +8,6 @@ class TerminalTheme:
     vertical: str = "|"
     horizontal: str = "-"
     prompt_user: str = "user> "
-    prompt_confirm: str = "confirm(y/n)> "
 
 
 DIFF_THEMES = {

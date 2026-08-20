@@ -12,8 +12,8 @@
     "offline": true
   },
   "has_active_workspace": true,
-  "last_error": "",
-  "schema_version": 1,
+  "last_failure": null,
+  "schema_version": 2,
   "settings": {
     "confirm_workspace_switch": true
   },
@@ -41,7 +41,7 @@
         "when": {}
       }
     ],
-    "schema_version": 1,
+    "schema_version": 2,
     "surfaces": [
       {
         "availability": {},

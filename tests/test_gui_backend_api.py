@@ -32,7 +32,7 @@ def _thread(session_id="session-1", mode="build"):
 
 def _bootstrap(session_id="session-1", mode="build"):
     return SessionBootstrap(
-        schema_version=1,
+        schema_version=2,
         event_cursor=4,
         thread=_thread(session_id, mode),
         snapshot={
@@ -300,7 +300,8 @@ def test_structured_frontend_port_failure_maps_to_http_status():
         )
 
     assert raised.value.status_code == 404
-    assert raised.value.detail == "session_not_found"
+    assert raised.value.detail["code"] == "session_not_found"
+    assert raised.value.detail["safe_message"]
 
 
 def test_file_write_route_remains_disabled():

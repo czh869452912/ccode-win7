@@ -15,7 +15,7 @@ import {
 
 function appBootstrap(shell, app = {}) {
   return {
-    schema_version: 1,
+    schema_version: 2,
     app: {
       shell_version: 1,
       product_name: "",
@@ -31,13 +31,13 @@ function appBootstrap(shell, app = {}) {
       show_diagnostics_badge: true,
     },
     diagnostics: {},
-    last_error: "",
+    last_failure: null,
   };
 }
 
 function shellDescriptor(patch = {}) {
   return {
-    schema_version: 1,
+    schema_version: 2,
     commands: [],
     surfaces: [],
     keybindings: [],

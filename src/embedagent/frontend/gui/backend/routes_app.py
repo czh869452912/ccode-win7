@@ -2,9 +2,14 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from embedagent_host.frontend_errors import FrontendPortError
 from fastapi import HTTPException
 
-from embedagent.frontend.gui.backend.http_errors import preview_http_error
+from embedagent.frontend.gui.backend.http_errors import (
+    frontend_port_http_error,
+    preview_http_error,
+    workspace_http_error,
+)
 from embedagent.frontend.gui.backend.protocol_payloads import serialize_app_bootstrap
 
 
@@ -25,19 +30,19 @@ def register_app_routes(app: Any, backend: Any) -> None:
             raise HTTPException(status_code=422, detail="workspace_path_required")
         try:
             return serialize_app_bootstrap(backend.app_shell.open_workspace_path(path, label=label))
+        except FrontendPortError as exc:
+            raise frontend_port_http_error(exc)
         except ValueError as exc:
-            detail = str(exc or "").strip() or "workspace_open_failed"
-            status = 404 if detail == "workspace_not_found" else 422
-            raise HTTPException(status_code=status, detail=detail)
+            raise workspace_http_error(exc)
 
     @app.post("/api/app/workspaces/{workspace_id}/activate")
     async def activate_app_workspace(workspace_id: str):
         try:
             return serialize_app_bootstrap(backend.app_shell.activate_workspace(workspace_id))
+        except FrontendPortError as exc:
+            raise frontend_port_http_error(exc)
         except ValueError as exc:
-            detail = str(exc or "").strip() or "workspace_activate_failed"
-            status = 404 if detail == "workspace_not_found" else 422
-            raise HTTPException(status_code=status, detail=detail)
+            raise workspace_http_error(exc)
 
     @app.delete("/api/app/workspaces/{workspace_id}")
     async def remove_app_workspace(workspace_id: str):

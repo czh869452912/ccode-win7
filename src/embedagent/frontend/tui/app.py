@@ -97,8 +97,8 @@ class TerminalApp(object):
         return self.state.session.last_context_event
 
     @property
-    def last_error(self):
-        return self.state.session.last_error
+    def last_failure(self):
+        return self.state.session.last_failure
 
     def run(self) -> int:
         try:

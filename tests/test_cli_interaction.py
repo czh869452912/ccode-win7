@@ -16,7 +16,7 @@ def _shell():
 
 
 def test_permission_interaction_resolves_safe_default_choices_and_payload():
-    from embedagent.cli.interaction import (
+    from embedagent.frontend.runtime.interaction_projection import (
         InteractionResponseError,
         build_interaction_response,
         resolve_interaction,
@@ -50,7 +50,7 @@ def test_permission_interaction_resolves_safe_default_choices_and_payload():
 
 
 def test_user_input_resolves_question_options_default_and_custom_answer():
-    from embedagent.cli.interaction import (
+    from embedagent.frontend.runtime.interaction_projection import (
         build_interaction_response,
         resolve_interaction,
     )
@@ -84,7 +84,7 @@ def test_user_input_resolves_question_options_default_and_custom_answer():
 
 
 def test_user_input_without_default_rejects_blank_answer():
-    from embedagent.cli.interaction import (
+    from embedagent.frontend.runtime.interaction_projection import (
         InteractionResponseError,
         build_interaction_response,
         resolve_interaction,
@@ -101,7 +101,10 @@ def test_user_input_without_default_rejects_blank_answer():
 
 
 def test_interaction_requires_registered_descriptor_and_stable_id():
-    from embedagent.cli.interaction import UnsupportedInteraction, resolve_interaction
+    from embedagent.frontend.runtime.interaction_projection import (
+        UnsupportedInteraction,
+        resolve_interaction,
+    )
 
     with pytest.raises(UnsupportedInteraction):
         resolve_interaction(
@@ -124,7 +127,9 @@ def test_interaction_requires_registered_descriptor_and_stable_id():
 
 
 def test_cli_interaction_source_is_application_workflow_and_tool_neutral():
-    source = (Path("src/embedagent/cli/interaction.py")).read_text(encoding="utf-8")
+    source = (Path("src/embedagent/frontend/runtime/interaction_projection.py")).read_text(
+        encoding="utf-8"
+    )
 
     for forbidden in ("application_id", "workflow_type", "run_recipe", "write_file"):
         assert forbidden not in source

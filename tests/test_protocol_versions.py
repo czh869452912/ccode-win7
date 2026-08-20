@@ -32,7 +32,7 @@ class ProtocolVersionTests(unittest.TestCase):
         self.assertEqual(result["envelope"]["sequence"], 4)
 
         session_event = SessionEventEnvelope(
-            schema_version=1,
+            schema_version=2,
             event_id="evt-1",
             session_id="s-1",
             sequence=1,
@@ -40,15 +40,15 @@ class ProtocolVersionTests(unittest.TestCase):
             timestamp="2026-07-26T00:00:00Z",
             payload={},
         )
-        self.assertEqual(session_event.to_dict()["schema_version"], 1)
+        self.assertEqual(session_event.to_dict()["schema_version"], 2)
 
     def test_frontend_protocol_dtos_require_current_schema_version(self):
-        self.assertEqual(CapabilitySnapshot(schema_version=1).to_dict()["schema_version"], 1)
-        self.assertEqual(ShellDescriptor(schema_version=1).to_dict()["schema_version"], 1)
+        self.assertEqual(CapabilitySnapshot(schema_version=2).to_dict()["schema_version"], 2)
+        self.assertEqual(ShellDescriptor(schema_version=2).to_dict()["schema_version"], 2)
         with self.assertRaises(ValueError):
             CapabilitySnapshot(schema_version=0)
         with self.assertRaises(ValueError):
-            ShellDescriptor(schema_version=2)
+            ShellDescriptor(schema_version=1)
 
     def test_protocol_envelope_rejects_bad_sequence_revision_and_sensitive_fields(self):
         result = validate_protocol_envelope(

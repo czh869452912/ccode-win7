@@ -1,3 +1,5 @@
+import { FRONTEND_PROTOCOL_SCHEMA_VERSION } from "../session-runtime/protocol-version.js";
+
 const SECRET_KEY_PARTS = ["api_key", "authorization", "password", "secret", "token"];
 const BLOCKED_KEYS = ["prompt", "transcript", "tool_output"];
 
@@ -24,7 +26,7 @@ export function safeValue(value) {
 }
 
 export function validateShellDescriptor(shell) {
-  if (!isRecord(shell) || shell.schemaVersion !== 1) {
+  if (!isRecord(shell) || shell.schemaVersion !== FRONTEND_PROTOCOL_SCHEMA_VERSION) {
     throw new TypeError("invalid_app_bootstrap:shell");
   }
   for (const key of [

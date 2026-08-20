@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform authority`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-19`
+> 最后同步日期：`2026-08-20`
 > 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `packages/embedagent-host/src/embedagent_host/frontend_ports.py`, `packages/embedagent-host/src/embedagent_host/runtime/session_event_protocol.py`, `packages/embedagent-host/src/embedagent_host/runtime/services/event_emitter.py`
 
 ## 1. Purpose And Boundary
@@ -44,11 +44,11 @@
 
 ## 4. Current Wire Schema
 
-当前 wire schema version 是整数 `1`。`AppBootstrap`、`SessionBootstrap`、`ShellDescriptor` 和 `CapabilitySnapshot` 拒绝其他版本；GUI strict normalizer 对 bootstrap、capability 和 `SessionEventEnvelope` 同样只接受 version `1` 与 `snake_case` keys。
+当前 frontend wire schema version 是整数 `2`。`AppBootstrap`、`SessionBootstrap`、`ShellDescriptor` 和 `CapabilitySnapshot` 拒绝其他版本；GUI strict normalizer 对 bootstrap、capability 和 `SessionEventEnvelope` 同样只接受 version `2` 与 `snake_case` keys。其他独立协议的 version 不得复用这个常量。
 
 | Root DTO | Exact current root keys |
 |---|---|
-| `AppBootstrap` | `schema_version`, `app`, `workspaces`, `active_workspace`, `has_active_workspace`, `shell`, `settings`, `diagnostics`, `last_error`；workspace 删除响应可额外包含 `removed` |
+| `AppBootstrap` | `schema_version`, `app`, `workspaces`, `active_workspace`, `has_active_workspace`, `shell`, `settings`, `diagnostics`, `last_failure`；workspace 删除响应可额外包含 `removed` |
 | `SessionBootstrap` | `schema_version`, `event_cursor`, `thread`, `snapshot`, `history`, `capabilities`, `plan`, `permission_context` |
 | `CapabilitySnapshot` | `schema_version`, `modes`, `commands`, `tools`, `workflow_packages`, `agent_application`, `agent_applications`, `resources`, `model_profiles`, `empty_state` |
 | `SessionEventEnvelope` | `schema_version`, `event_id`, `session_id`, `sequence`, `event_kind`, `timestamp`, `payload` |
@@ -71,6 +71,11 @@ flowchart LR
 ## 6. Composition
 
 Product composition resolves configuration, selects the application, injects its runtime contribution plus explicit model/tool providers, constructs one `HostedRuntime(session, workspace)`, binds the selected shell sink, and compiles one `ShellDescriptor`. Protocol and generic Host do not select a product application, provider, profile or default mode. Incomplete application composition becomes the closed, non-retryable `configuration_error` failure; it is not reclassified from exception message text. A new shell implements a client projection over the focused ports; it does not add an aggregate Host facade or a new event shape.
+
+`WorkspaceChangedNotification` is an app-level notification with its own strict DTO. It is sent as
+`{"type":"workspace_changed","data":...}` and never enters the session event cursor or
+session ledger. A sink with no live transport must report the publish failure explicitly; an event
+must not be logged and treated as delivered.
 
 ## 7. Verification
 

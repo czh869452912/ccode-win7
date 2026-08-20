@@ -5,7 +5,14 @@ import threading
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional
 
-from embedagent_protocol import FrontendSessionPort, FrontendWorkspacePort, SessionEventSink
+from embedagent_host.frontend_errors import failure_for_exception
+from embedagent_protocol import (
+    FrontendSessionPort,
+    FrontendWorkspacePort,
+    SessionEventSink,
+    WorkspaceChangedNotification,
+)
+from embedagent_protocol.versions import FRONTEND_PROTOCOL_SCHEMA_VERSION
 
 from .workspace_registry import WorkspaceRegistry, canonical_workspace_path
 
@@ -50,7 +57,7 @@ class GUIAppHost(object):
         self._active_ports = None  # type: Optional[FrontendPortSet]
         self._active_workspace = None  # type: Optional[Dict[str, Any]]
         self._agent_capabilities = _copy_value(agent_capabilities or {})
-        self._last_error = ""
+        self._last_failure = None
 
     def current_ports(self) -> Optional[FrontendPortSet]:
         with self._lock:
@@ -88,7 +95,7 @@ class GUIAppHost(object):
                     dict(self._active_workspace) if self._active_workspace else None
                 ),
                 "has_active_workspace": self._active_ports is not None,
-                "last_error": self._last_error,
+                "last_failure": dict(self._last_failure) if self._last_failure else None,
             }
 
     def list_workspaces(self) -> Dict[str, Any]:
@@ -123,13 +130,27 @@ class GUIAppHost(object):
                 next_ports = self._port_factory(path, self._event_sink)
                 self._validate_ports(next_ports)
             except (OSError, RuntimeError, TypeError, ValueError) as exc:
-                self._last_error = str(exc)
+                self._last_failure = failure_for_exception(exc, source="gui").to_dict()
                 raise
             refreshed = self._registry.mark_opened(record["id"]) or record
             self._active_ports = next_ports
             self._active_workspace = refreshed
-            self._last_error = ""
+            self._last_failure = None
+            self._notify_workspace_changed(refreshed, "activated")
             return self.bootstrap()
+
+    def _notify_workspace_changed(self, record: Dict[str, Any], reason: str) -> None:
+        callback = getattr(self._event_sink, "on_workspace_changed", None)
+        if not callable(callback):
+            return
+        callback(
+            WorkspaceChangedNotification(
+                schema_version=FRONTEND_PROTOCOL_SCHEMA_VERSION,
+                workspace_id=str(record.get("id") or ""),
+                path=canonical_workspace_path(str(record.get("path") or "")),
+                reason=reason,
+            )
+        )
 
     def remove_workspace(self, workspace_id: str) -> Dict[str, Any]:
         with self._lock:
@@ -218,7 +239,7 @@ class SingleWorkspaceAppHost(object):
             "workspaces": [workspace] if workspace else [],
             "active_workspace": workspace,
             "has_active_workspace": self._ports is not None,
-            "last_error": "",
+            "last_failure": None,
         }
 
     def list_workspaces(self) -> Dict[str, Any]:

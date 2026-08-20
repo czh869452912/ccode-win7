@@ -11,6 +11,8 @@ import os
 import sys
 from typing import Optional
 
+from embedagent_host.frontend_errors import FrontendPortError, failure_for_exception
+
 from embedagent.application_loader import compile_generic_shell_descriptor
 from embedagent.bundle_policy import load_current_bundle_policy
 from embedagent.frontend.runtime import SessionClientRuntime
@@ -186,8 +188,12 @@ def main(argv: Optional[list] = None) -> int:
             permission_rules=args.permission_rules,
             agent_application_id=args.agent_application or None,
         )
-    except (TUIUnavailableError, ValueError) as exc:
-        _LOGGER.error(str(exc))
+    except FrontendPortError as exc:
+        _LOGGER.error(str(exc.failure.safe_message or exc.failure.code))
+        return 1
+    except (TUIUnavailableError, ValueError, TypeError, RuntimeError) as exc:
+        failure = failure_for_exception(exc, "tui")
+        _LOGGER.error(str(failure.safe_message or failure.code))
         return 1
     return int(exit_code or 0)
 

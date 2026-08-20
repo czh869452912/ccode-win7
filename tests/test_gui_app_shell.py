@@ -117,7 +117,7 @@ def _capability_snapshot():
 
 def _descriptor():
     return ShellDescriptor(
-        schema_version=1,
+        schema_version=2,
         commands=[
             CommandDescriptor(
                 id="session.new",
@@ -191,7 +191,7 @@ class TestGuiAppShellService(unittest.TestCase):
 
             payload = serialize_app_bootstrap(service.bootstrap())
 
-        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["schema_version"], 2)
         self.assertEqual(payload["shell"], _descriptor().to_dict())
 
     def test_compiler_failure_is_not_replaced_with_gui_defaults(self):

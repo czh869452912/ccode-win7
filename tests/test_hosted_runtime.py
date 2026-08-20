@@ -43,35 +43,36 @@ def _config(tmp_path):
 
 
 def test_create_hosted_runtime_builds_frontend_port_set(tmp_path, monkeypatch):
-    client_cls = MagicMock(return_value=MagicMock(name="client"))
-    tools_cls = MagicMock(return_value=MagicMock(name="tools"))
-    context_cls = MagicMock(return_value=MagicMock(name="context_manager"))
-    policy_cls = MagicMock(return_value=MagicMock(name="permission_policy"))
     adapter_cls = MagicMock(return_value=MagicMock(name="adapter"))
-    monkeypatch.setattr("embedagent_host.hosted.runtime.OpenAICompatibleClient", client_cls)
-    monkeypatch.setattr("embedagent_host.hosted.runtime.ToolRuntime", tools_cls)
-    monkeypatch.setattr("embedagent_host.hosted.runtime.ContextManager", context_cls)
-    monkeypatch.setattr("embedagent_host.hosted.runtime.PermissionPolicy", policy_cls)
     monkeypatch.setattr("embedagent_host.hosted.runtime.InProcessAdapter", adapter_cls)
 
     sink = MagicMock()
-    runtime = create_hosted_runtime(_config(tmp_path), event_sink=sink)
+    client = MagicMock(name="client")
+    tools = MagicMock(name="tools")
+    context = MagicMock(name="context_manager")
+    policy = MagicMock(name="permission_policy")
+    summary = MagicMock(name="summary_store")
+    runtime = create_hosted_runtime(
+        _config(tmp_path),
+        model_client=client,
+        tool_runtime=tools,
+        context_manager=context,
+        permission_policy=policy,
+        summary_store=summary,
+        event_sink=sink,
+    )
 
     assert isinstance(runtime.session, FrontendSessionPort)
     assert isinstance(runtime.workspace, FrontendWorkspacePort)
     assert not hasattr(runtime.session, "adapter")
     assert not hasattr(runtime.workspace, "adapter")
     assert not hasattr(runtime, "session_host")
-    client_cls.assert_called_once_with(
-        base_url="http://configured/v1",
-        api_key="sk-configured",
-        model="configured-model",
-        timeout=45,
-    )
-    tools_cls.assert_called_once()
-    context_cls.assert_called_once()
-    policy_cls.assert_called_once()
     adapter_cls.assert_called_once()
+    assert adapter_cls.call_args.kwargs["client"] is client
+    assert adapter_cls.call_args.kwargs["tools"] is tools
+    assert adapter_cls.call_args.kwargs["context_manager"] is context
+    assert adapter_cls.call_args.kwargs["permission_policy"] is policy
+    assert adapter_cls.call_args.kwargs["summary_store"] is summary
     assert adapter_cls.call_args.kwargs["agent_application_id"] == "tests.python"
     assert adapter_cls.call_args.kwargs["event_sink"] is sink
 
@@ -80,10 +81,22 @@ def test_hosted_runtime_close_forwards_to_adapter_shutdown(tmp_path, monkeypatch
     adapter_cls = MagicMock(return_value=MagicMock(name="adapter"))
     monkeypatch.setattr("embedagent_host.hosted.runtime.InProcessAdapter", adapter_cls)
 
-    runtime = create_hosted_runtime(_config(tmp_path))
+    runtime = create_hosted_runtime(
+        _config(tmp_path),
+        model_client=MagicMock(),
+        tool_runtime=MagicMock(),
+        context_manager=MagicMock(),
+        permission_policy=MagicMock(),
+        summary_store=MagicMock(),
+    )
     runtime.close()
 
     adapter_cls.return_value.shutdown.assert_called_once_with()
+
+
+def test_generic_hosted_runtime_requires_explicit_collaborators(tmp_path):
+    with pytest.raises(ValueError, match="model_client"):
+        create_hosted_runtime(_config(tmp_path))
 
 
 def test_inprocess_adapter_shutdown_is_idempotent_and_releases_sessions(tmp_path):

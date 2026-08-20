@@ -1,4 +1,6 @@
-const CURRENT_SCHEMA_VERSION = 1;
+import { FRONTEND_PROTOCOL_SCHEMA_VERSION } from "./protocol-version.js";
+
+const CURRENT_SCHEMA_VERSION = FRONTEND_PROTOCOL_SCHEMA_VERSION;
 
 function invalid(scope, field) {
   throw new Error(`invalid_${scope}:${field}`);
@@ -43,6 +45,37 @@ function schemaVersion(value, scope, field = "schema_version") {
 function bool(value, scope, field) {
   if (typeof value !== "boolean") invalid(scope, field);
   return value;
+}
+
+function normalizeFailure(value, scope, field) {
+  const data = record(value, scope, field);
+  exact(
+    data,
+    new Set([
+      "code",
+      "message",
+      "retryable",
+      "source",
+      "phase",
+      "kind",
+      "correlation_id",
+      "safe_message",
+      "exception_type",
+    ]),
+    scope,
+    field,
+  );
+  return Object.freeze({
+    code: requiredText(data.code, scope, `${field}.code`),
+    message: requiredText(data.message, scope, `${field}.message`),
+    retryable: bool(data.retryable, scope, `${field}.retryable`),
+    source: requiredText(data.source, scope, `${field}.source`),
+    phase: requiredText(data.phase, scope, `${field}.phase`),
+    kind: requiredText(data.kind, scope, `${field}.kind`),
+    correlationId: optionalText(data.correlation_id, scope, `${field}.correlation_id`),
+    safeMessage: optionalText(data.safe_message, scope, `${field}.safe_message`),
+    exceptionType: optionalText(data.exception_type, scope, `${field}.exception_type`),
+  });
 }
 
 function uniqueIds(items, scope, kind) {
@@ -333,7 +366,7 @@ export function normalizeProtocolCapabilities(value) {
 
 export function emptyProtocolCapabilities() {
   return normalizeProtocolCapabilities({
-    schema_version: 1,
+    schema_version: FRONTEND_PROTOCOL_SCHEMA_VERSION,
     modes: [],
     commands: [],
     tools: [],
@@ -478,7 +511,7 @@ export function normalizeProtocolAppBootstrap(value) {
       "shell",
       "settings",
       "diagnostics",
-      "last_error",
+      "last_failure",
       "removed",
     ]),
     scope,
@@ -497,7 +530,9 @@ export function normalizeProtocolAppBootstrap(value) {
     shell: normalizeShellDescriptor(data.shell, scope),
     settings: mapping(data.settings, scope, "settings"),
     diagnostics: mapping(data.diagnostics, scope, "diagnostics"),
-    lastError: optionalText(data.last_error, scope, "last_error"),
+    lastFailure: data.last_failure === null || data.last_failure === undefined
+      ? null
+      : normalizeFailure(data.last_failure, scope, "last_failure"),
     removed: data.removed === undefined ? undefined : bool(data.removed, scope, "removed"),
   });
 }

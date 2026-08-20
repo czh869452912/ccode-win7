@@ -30,6 +30,7 @@ Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md` 
 - `documentation-domain-separation/`
 - `enterprise-boundary-foundation/`
 - `frontend-shell-convergence/`
+- `frontend-contract-convergence/`
 - `gui-agent-bridge-review-fixes/`
 - `interaction-response-async/`
 - `gui-app-runtime-boundary/`

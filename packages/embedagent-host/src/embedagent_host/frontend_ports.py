@@ -16,6 +16,7 @@ from embedagent_protocol import (
     ToolPresentation,
     WorkflowPackageDescriptor,
 )
+from embedagent_protocol.versions import FRONTEND_PROTOCOL_SCHEMA_VERSION
 
 from embedagent_host.frontend_errors import (
     FrontendPortError,
@@ -154,7 +155,7 @@ def capability_snapshot(value: Any) -> CapabilitySnapshot:
         if descriptor is not None:
             applications.append(descriptor)
     return CapabilitySnapshot(
-        schema_version=1,
+        schema_version=FRONTEND_PROTOCOL_SCHEMA_VERSION,
         modes=modes,
         commands=commands,
         tools=tools,
@@ -192,7 +193,7 @@ def session_bootstrap(value: Any) -> SessionBootstrap:
     snapshot = _mapping(data.get("snapshot"))
     history = _mapping(data.get("history") or {})
     return SessionBootstrap(
-        schema_version=1,
+        schema_version=FRONTEND_PROTOCOL_SCHEMA_VERSION,
         event_cursor=data.get("event_cursor", 0),
         thread=thread_shell(
             {

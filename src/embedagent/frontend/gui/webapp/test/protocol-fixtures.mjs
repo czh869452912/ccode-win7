@@ -1,6 +1,6 @@
 export function capabilitySnapshot(overrides = {}) {
   return {
-    schema_version: 1,
+    schema_version: 2,
     modes: [],
     commands: [],
     tools: [],

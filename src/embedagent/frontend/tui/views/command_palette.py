@@ -8,7 +8,11 @@ def build_command_palette_text(state: TerminalState) -> str:
     palette = state.shell.command_palette
     if not palette.open:
         return ""
-    commands = visible_palette_commands(state.shell, palette.query)
+    commands = visible_palette_commands(
+        state.shell,
+        palette.query,
+        state.command_availability(),
+    )
     lines = [
         " Command Palette",
         " query: %s" % (palette.query or ""),

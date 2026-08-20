@@ -55,6 +55,12 @@ from embedagent_protocol.app_protocol import (
 from embedagent_protocol.app_protocol import (
     WorkflowPackageDescriptor as WorkflowPackageDescriptor,
 )
+from embedagent_protocol.frontend_interactions import (
+    InteractionProjection as InteractionProjection,
+)
+from embedagent_protocol.frontend_notifications import (
+    WorkspaceChangedNotification as WorkspaceChangedNotification,
+)
 from embedagent_protocol.frontend_ports import (
     FrontendSessionPort as FrontendSessionPort,
 )

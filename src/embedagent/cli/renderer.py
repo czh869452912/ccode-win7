@@ -6,9 +6,9 @@ from typing import Any, Mapping, Optional, Sequence, TextIO
 
 from embedagent_protocol import FailureRecord, ThreadShell
 
-from embedagent.cli.interaction import InteractionPrompt
 from embedagent.cli.result import CliResult, write_failure
 from embedagent.frontend.runtime import RuntimeAction
+from embedagent.frontend.runtime.interaction_projection import InteractionPrompt
 
 
 def write_result(

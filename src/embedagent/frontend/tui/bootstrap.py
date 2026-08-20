@@ -65,3 +65,5 @@ def run_tui(
         raise TUIUnavailableError(
             "当前终端不支持全屏 TUI。请在 cmd.exe、Windows Terminal 或支持控制台缓冲区的终端中运行。"
         ) from exc
+    finally:
+        runtime.close()

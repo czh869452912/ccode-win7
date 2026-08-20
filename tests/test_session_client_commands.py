@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _bootstrap(session_id="session-1", cursor=1):
     return SessionBootstrap(
-        schema_version=1,
+        schema_version=2,
         event_cursor=cursor,
         thread=ThreadShell(
             id=session_id,
@@ -45,7 +45,7 @@ def _bootstrap(session_id="session-1", cursor=1):
 
 def _event(event_kind, payload, sequence=2):
     return SessionEventEnvelope(
-        schema_version=1,
+        schema_version=2,
         event_id="event-%s" % sequence,
         session_id="session-1",
         sequence=sequence,
@@ -319,7 +319,7 @@ def test_runtime_waits_for_structured_terminal_outcomes(
     expected_lifecycle,
 ):
     runtime, _port = _runtime()
-    runtime.submit_user_message("session-1", "test", stream=True)
+    runtime.submit_active_message("test", stream=True)
 
     runtime.on_session_event(event)
     result = runtime.wait_for_terminal(timeout_s=0).to_dict()
@@ -451,7 +451,7 @@ def test_interaction_response_preserves_terminal_event_arriving_before_bootstrap
     )
     assert runtime.wait_for_terminal(timeout_s=0).to_dict()["status"] == "blocked"
 
-    runtime.respond_to_interaction("session-1", "approval-1", {"decision": "accept"})
+    runtime.respond_to_interaction("approval-1", {"decision": "accept"})
     result = runtime.wait_for_terminal(timeout_s=0).to_dict()
 
     assert result["status"] == "completed"
@@ -475,7 +475,6 @@ def test_interaction_response_does_not_rewind_cursor_after_captured_bootstrap():
     )
 
     runtime.respond_to_interaction(
-        "session-1",
         "approval-1",
         {"decision": "accept"},
     )
@@ -501,7 +500,7 @@ def test_interaction_response_discards_old_blocked_outcome_while_resume_is_pendi
     assert runtime.wait_for_terminal(timeout_s=0).to_dict()["status"] == "blocked"
     port.bootstrap = _bootstrap(cursor=2)
 
-    runtime.respond_to_interaction("session-1", "approval-1", {"decision": "accept"})
+    runtime.respond_to_interaction("approval-1", {"decision": "accept"})
 
     pending = runtime.wait_for_terminal(timeout_s=0).to_dict()
     assert pending["status"] == "timeout"
@@ -574,7 +573,7 @@ def test_runtime_installs_failed_lifecycle_from_error_bootstrap():
     runtime = SessionClientRuntime()
     port = FakeSessionPort()
     port.bootstrap = SessionBootstrap(
-        schema_version=1,
+        schema_version=2,
         event_cursor=1,
         thread=ThreadShell(
             id="session-1",

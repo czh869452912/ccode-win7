@@ -42,6 +42,15 @@ def _is_available(command: CommandDescriptor, context: Dict[str, Any]) -> bool:
     return all(bool(context.get(str(item or ""))) for item in conditions)
 
 
+def is_command_available(
+    command: CommandDescriptor,
+    availability: Optional[Dict[str, Any]] = None,
+) -> bool:
+    if not isinstance(command, CommandDescriptor):
+        raise TypeError("command must be a CommandDescriptor")
+    return _is_available(command, dict(availability or {}))
+
+
 def resolve_command(
     shell: ShellDescriptor,
     name: str,
@@ -61,6 +70,6 @@ def resolve_command(
     if len(matches) != 1:
         raise UnknownShellCommand("ambiguous_shell_command:%s" % normalized)
     command = matches[0]
-    if not _is_available(command, dict(availability or {})):
+    if not is_command_available(command, availability):
         raise UnavailableShellCommand("unavailable_shell_command:%s" % command.id)
     return command

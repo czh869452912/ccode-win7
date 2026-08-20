@@ -74,7 +74,7 @@ function shellDescriptor(optional = "") {
     surfaces.push(surface("diff", "Diff", "secondary", "inline_diff"));
   }
   return {
-    schema_version: 1,
+    schema_version: 2,
     commands,
     surfaces,
     keybindings: [
@@ -100,7 +100,7 @@ function shellDescriptor(optional = "") {
 
 export function buildVisualAppBootstrap(optional = "") {
   return normalizeAppBootstrap({
-    schema_version: 1,
+    schema_version: 2,
     app: {
       shell_version: 1,
       product_name: "EmbedAgent",
@@ -112,7 +112,7 @@ export function buildVisualAppBootstrap(optional = "") {
     shell: shellDescriptor(optional),
     settings: { confirm_workspace_switch: true, show_diagnostics_badge: true },
     diagnostics: {},
-    last_error: "",
+    last_failure: null,
   });
 }
 

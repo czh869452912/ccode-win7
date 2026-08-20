@@ -165,12 +165,15 @@ def test_product_source_owns_current_cli_without_retired_frontend_facades():
     assert {path.name for path in cli_root.glob("*.py")} >= {
         "app.py",
         "chat.py",
-        "interaction.py",
         "parser.py",
         "result.py",
         "run.py",
         "sessions.py",
     }
+    assert not (cli_root / "interaction.py").exists()
+    assert (
+        ROOT / "src" / "embedagent" / "frontend" / "runtime" / "interaction_projection.py"
+    ).exists()
     assert not (ROOT / "src" / "embedagent" / "core" / "adapter.py").exists()
     assert not (
         ROOT

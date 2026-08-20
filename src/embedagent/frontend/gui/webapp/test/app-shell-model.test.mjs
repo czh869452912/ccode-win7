@@ -34,7 +34,7 @@ function surface(id = "preview") {
 
 function emptyShell() {
   return {
-    schema_version: 1,
+    schema_version: 2,
     commands: [],
     surfaces: [],
     keybindings: [],
@@ -46,7 +46,7 @@ function emptyShell() {
 
 function appBootstrap(patch = {}) {
   return {
-    schema_version: 1,
+    schema_version: 2,
     app: {
       shell_version: 1,
       product_name: "EmbedAgent",
@@ -61,7 +61,7 @@ function appBootstrap(patch = {}) {
       show_diagnostics_badge: true,
     },
     diagnostics: {},
-    last_error: "",
+    last_failure: null,
     ...patch,
   };
 }

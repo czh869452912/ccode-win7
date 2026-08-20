@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform contract`
 > 负责人：`Agent platform maintainers`
-> 最后同步日期：`2026-08-16`
+> 最后同步日期：`2026-08-20`
 > 对应代码范围：`packages/embedagent-protocol/src/embedagent_protocol/`, `packages/embedagent-host/src/embedagent_host/frontend_ports.py`, `packages/embedagent-host/src/embedagent_host/runtime/session_event_protocol.py`, `src/embedagent/frontend/runtime/`, `src/embedagent/frontend/gui/webapp/src/session-runtime/session-client-runtime.js`
 
 ## 1. Truth Layers
@@ -34,7 +34,7 @@ Python 与 JavaScript 实现由 `tests/fixtures/session_client_runtime/contract.
 
 ## 3. Canonical Event Envelope
 
-`SessionEventEnvelope` 包含 `schema_version`, `event_id`, `session_id`, positive `sequence`, `event_kind`, `timestamp` 和 JSON-safe `payload`。Host `SessionEventEncoder` 为一次 live change 创建一次 envelope；in-process sink 或 WebSocket bridge 原样转发，renderer transport 只有一个 `session_event` 分支。
+`SessionEventEnvelope` 包含 `schema_version`, `event_id`, `session_id`, positive `sequence`, `event_kind`, `timestamp` 和 JSON-safe `payload`。Host `SessionEventEncoder` 为一次 live change 创建一次 envelope；in-process sink 或 WebSocket bridge 原样转发，renderer transport 只有一个 `session_event` 分支。GUI runtime 在接受消息前执行 strict normalizer：拒绝额外 root key、camelCase alias、敏感 payload key 和非 JSON-safe 值。
 
 主要 event families：
 
@@ -45,7 +45,7 @@ Python 与 JavaScript 实现由 `tests/fixtures/session_client_runtime/contract.
 - session status/finished/error；
 - context compaction、command result、plan update 及其他 declared hosted events。
 
-前端不设置 per-event callbacks，也不把 backend event kinds 翻译成第二套协议。schema version 是 wire compatibility 标识，不是迁移标签。
+前端不设置 per-event callbacks，也不把 backend event kinds 翻译成第二套协议。schema version 是 wire compatibility 标识，不是迁移标签。`WorkspaceChangedNotification` 是独立的 app-level DTO，不改变 session cursor、history 或 recovery state。
 
 ## 4. Activation, Ordering And Recovery
 
@@ -75,11 +75,11 @@ shell 从 descriptor/capabilities 计算 command 可用性、label、order、dis
 
 permission 与 user-input request payload 共享 stable `interaction_id`、`turn_id` 和请求细节。shell 通过 runtime 调用 `respond_to_interaction(...)`；runtime 在请求 Host 原子 claim 前开启 bootstrap transaction，resolved event 或返回的 bootstrap/snapshot 清除 pending state。前端的 duplicate-submit 防护不能替代 Host claim。
 
-Client runtime 把 interaction request 暴露为 `blocked` terminal outcome。交互式 shell 可以继续收集响应并 resume；one-shot client 必须返回结构化 `interaction_required`，不能隐式批准、猜测输入或长期持有 Agent 状态。
+Client runtime 把 interaction request 暴露为 `blocked` terminal outcome。交互式 shell 可以继续收集响应并 resume；one-shot client 必须返回结构化 `interaction_required`，不能隐式批准、猜测输入或长期持有 Agent 状态。所有 shell 从同一 `InteractionProjection` 计算 prompt、choices、question id 和 response payload，不得硬编码 `y/n` 或 `answers.answer`。
 
 ## 8. Failure And Diagnostics
 
-Host/port failure 通过 `FailureRecord(code, message, retryable, source)` 传递。CLI 只按封闭 code 映射稳定 exit status；GUI/TUI 只渲染结构化失败。协议不发送 full prompt、source contents、raw tool output、API key、approval secret、permission payload 或 token 到 telemetry/diagnostics。
+Host/port failure 通过完整 `FailureRecord(code, message, retryable, source, phase, kind, correlation_id, safe_message)` 传递。CLI 只按封闭 code 映射稳定 exit status；GUI/TUI 只渲染结构化失败。协议不发送 full prompt、source contents、raw tool output、API key、approval secret、permission payload 或 token 到 telemetry/diagnostics。app bootstrap 使用 `last_failure`，不再存在 `last_error` wire alias。
 
 Host bound `SessionEventSink` 的异常必须传播给发布调用者，不能记录后当作成功。Host cursor 是 envelope sequence 分配事实，不是另一个 delivery acknowledgement；client runtime 的 delivered-before-committed 规则负责本地可观察提交边界。
 

@@ -94,7 +94,7 @@ CLI/TUI/GUI 都是产品选择的可注册 shell。产品层选择启动 shell�
 
 打包运行时还必须先通过 `BundleRuntimePolicy.require_shell(...)`。`minimal-cli` 只允许 CLI；TUI/GUI 入口在该 flavor 中既不 staging，也不能通过源码或 wheel 的物理存在被激活。开发树不发现 bundle 时保持 unrestricted，便于使用全部已注册 shell 和 application。
 
-产品维护一个 `ShellContributionRegistry`：generic contribution 定义最小 session/timeline/composer/interaction 能力，selected application 只追加其 commands、surfaces、tool presentation、timeline item 和 interaction records。`compile_shell_descriptor(...)` 合并两层记录，按当前 session capabilities 过滤 application commands，校验唯一 id/order、dispatch kind、renderer key 和 keybinding target，并产出 schema version 1 的 `ShellDescriptor`。
+产品维护一个 `ShellContributionRegistry`：generic contribution 定义最小 session/timeline/composer/interaction 能力，selected application 只追加其 commands、surfaces、tool presentation、timeline item 和 interaction records。`compile_shell_descriptor(...)` 合并两层记录，按当前 session capabilities 过滤 application commands，校验唯一 id/order、dispatch kind、renderer key 和 keybinding target，并产出 frontend schema version 2 的 `ShellDescriptor`。
 
 CLI application、GUI app bootstrap 与 TUI launcher 调用同一个 product shell compiler。三者没有本地固定 catalog、兼容 fallback 或第二条注册路径。renderer registry 只声明该 shell 构建实际支持的通用 renderer key；它不是产品能力真相。
 

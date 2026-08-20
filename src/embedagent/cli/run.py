@@ -26,11 +26,10 @@ def execute_run(context: Any) -> CliResult:
         return CliResult.from_failure("", _failure("usage_error", "cli"))
     try:
         if options.resume:
-            bootstrap = runtime.resume_session(options.resume, options.mode)
+            runtime.resume_session(options.resume, options.mode)
         else:
-            bootstrap = runtime.create_session(options.mode or _default_mode(context))
-        session_id = bootstrap.thread.id
-        runtime.submit_user_message(session_id, options.task, stream=True)
+            runtime.create_session(options.mode or _default_mode(context))
+        runtime.submit_active_message(options.task, stream=True)
         return CliResult.from_runtime_outcome(runtime.wait_for_terminal())
     except FrontendPortError as exc:
         return CliResult.from_failure(runtime.active_session_id, exc.failure)

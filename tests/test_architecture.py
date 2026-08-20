@@ -48,7 +48,7 @@ class TestSessionEventSink(unittest.TestCase):
     def test_frontend_receives_protocol_envelope(self):
         frontend = MockEventSink()
         envelope = SessionEventEnvelope(
-            1,
+            2,
             "evt-1",
             "session-1",
             1,

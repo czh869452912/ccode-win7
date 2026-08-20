@@ -129,6 +129,19 @@ class TerminalLayout(object):
             self.owner.controller.close_overlay()
 
         for descriptor in self.owner.state.shell.keybindings:
+            command = next(
+                (
+                    item
+                    for item in self.owner.shell_descriptor.commands
+                    if item.id == descriptor.command_id
+                ),
+                None,
+            )
+            if command is not None:
+                from embedagent.frontend.runtime.commands import is_command_available
+
+                if not is_command_available(command, self.owner.controller._availability()):
+                    continue
             keys = _prompt_toolkit_keys(descriptor.keys)
             if not keys:
                 continue

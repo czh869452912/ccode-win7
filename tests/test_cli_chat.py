@@ -54,7 +54,7 @@ def _bootstrap(session_id="session-1", mode="verify", activities=None, pending=N
             }
         )
     return SessionBootstrap(
-        schema_version=1,
+        schema_version=2,
         event_cursor=0,
         thread=ThreadShell(
             id=session_id,
@@ -118,8 +118,8 @@ class FakeRuntime(object):
         self._activate("resume")
         return self.bootstrap
 
-    def submit_user_message(self, session_id, text, stream=True):
-        self.submissions.append((session_id, text, stream))
+    def submit_active_message(self, text, stream=True):
+        self.submissions.append((self.active_session_id, text, stream))
         if self.submit_interrupts:
             self.submit_interrupts -= 1
             raise KeyboardInterrupt
@@ -143,11 +143,11 @@ class FakeRuntime(object):
             text = "/" + str(command.dispatch.get("command") or "")
             if values:
                 text += " " + " ".join(values)
-            self.submit_user_message(self.active_session_id, text, stream=True)
+            self.submit_active_message(text, stream=True)
         return command
 
-    def respond_to_interaction(self, session_id, interaction_id, payload):
-        self.responses.append((session_id, interaction_id, payload))
+    def respond_to_interaction(self, interaction_id, payload):
+        self.responses.append((self.active_session_id, interaction_id, payload))
         events = self.response_events.pop(0) if self.response_events else []
         self._emit_all(events)
         return self.bootstrap
@@ -174,7 +174,7 @@ class FakeRuntime(object):
         for event_kind, payload in records:
             self._sequence += 1
             envelope = SessionEventEnvelope(
-                schema_version=1,
+                schema_version=2,
                 event_id="event-%s" % self._sequence,
                 session_id=self.active_session_id,
                 sequence=self._sequence,
@@ -308,7 +308,7 @@ class GatedInteractionSessionPort(object):
     @staticmethod
     def _event(event_kind, payload, sequence):
         return SessionEventEnvelope(
-            schema_version=1,
+            schema_version=2,
             event_id="event-%s" % sequence,
             session_id="session-1",
             sequence=sequence,

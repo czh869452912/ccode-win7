@@ -23,7 +23,7 @@ class _FakeApp(object):
 
 
 def _event(kind, payload, sequence=1):
-    return SessionEventEnvelope(1, "evt-%s" % sequence, "session-1", sequence, kind, "now", payload)
+    return SessionEventEnvelope(2, "evt-%s" % sequence, "session-1", sequence, kind, "now", payload)
 
 
 def test_empty_activities_render():
@@ -158,4 +158,4 @@ def test_tui_renders_one_error_line_for_one_session_error_event():
     )
 
     assert app.state.timeline.items == ["[error] The model provider request failed."]
-    assert app.state.session.last_error == "The model provider request failed."
+    assert app.state.session.last_failure["code"] == "provider_error"

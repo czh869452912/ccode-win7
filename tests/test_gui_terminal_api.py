@@ -18,7 +18,7 @@ from embedagent.frontend.gui.backend.workspace_registry import WorkspaceRegistry
 def GUIBackend(*args, **kwargs):
     kwargs.setdefault(
         "shell_compiler",
-        lambda application_id, capabilities: ShellDescriptor(schema_version=1),
+        lambda application_id, capabilities: ShellDescriptor(schema_version=2),
     )
     return _GUIBackend(*args, **kwargs)
 

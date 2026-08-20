@@ -2,14 +2,33 @@ function defaultFetch(path, options) {
   return fetch(path, options);
 }
 
+function errorFailure(payload) {
+  const detail = payload && typeof payload === "object" ? payload.detail : "";
+  if (
+    detail &&
+    typeof detail === "object" &&
+    !Array.isArray(detail) &&
+    typeof detail.code === "string" &&
+    typeof detail.retryable === "boolean"
+  ) return detail;
+  const fallback = payload && typeof payload === "object" ? payload.error : "";
+  if (
+    fallback &&
+    typeof fallback === "object" &&
+    !Array.isArray(fallback) &&
+    typeof fallback.code === "string" &&
+    typeof fallback.retryable === "boolean"
+  ) return fallback;
+  return null;
+}
+
 function errorDetail(payload) {
+  const failure = errorFailure(payload);
+  if (failure) return String(failure.safe_message || failure.message || failure.code || "");
   const detail = payload && typeof payload === "object" ? payload.detail : "";
   if (typeof detail === "string") return detail;
-  if (detail !== undefined && detail !== null && detail !== "") {
-    return JSON.stringify(detail);
-  }
-  const fallback = payload && typeof payload === "object" ? payload.error : "";
-  return typeof fallback === "string" ? fallback : "";
+  if (detail && typeof detail === "object") return JSON.stringify(detail);
+  return typeof payload?.error === "string" ? payload.error : "";
 }
 
 export function createHttpTransport({ fetchImpl } = {}) {
@@ -27,7 +46,8 @@ export function createHttpTransport({ fetchImpl } = {}) {
       const detail = errorDetail(payload);
       const error = new Error(detail || response.statusText || "HTTP " + response.status);
       error.status = response.status;
-      error.detail = detail;
+      error.failure = errorFailure(payload);
+      error.detail = error.failure?.code || detail;
       throw error;
     }
     return payload;

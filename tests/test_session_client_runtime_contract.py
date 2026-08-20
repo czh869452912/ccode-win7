@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from embedagent_host.frontend_errors import FrontendPortError
-from embedagent_protocol import FailureRecord, SessionBootstrap, SessionEventEnvelope
+from embedagent_protocol import FailureRecord, SessionBootstrap, SessionEventEnvelope, ThreadShell
 
 from embedagent.frontend.runtime import RuntimeAction, SessionClientRuntime
 
@@ -19,6 +19,8 @@ class FakeSessionPort(object):
         self.responses = []
         self.during_bootstrap = None
         self.bootstrap_calls = []
+        self.message_calls = []
+        self.fork_calls = []
         self.closed = False
 
     def _take_response(self, operation):
@@ -43,8 +45,16 @@ class FakeSessionPort(object):
     def cancel_session(self, session_id):
         return self._take_response(("cancel", session_id))
 
+    def submit_user_message(self, session_id, text, stream):
+        self.message_calls.append((session_id, text, stream))
+        return self._take_response(("message", session_id, text, stream))
+
     def respond_to_interaction(self, session_id, interaction_id, payload):
         return self._take_response(("interaction_response", session_id, interaction_id, payload))
+
+    def fork_session(self, session_id, title=""):
+        self.fork_calls.append((session_id, title))
+        return self._take_response(("fork", session_id, title))
 
     def close(self):
         self.closed = True
@@ -156,7 +166,10 @@ def _run_case(contract, case):
         kind = operation["kind"]
         if kind in ("activate", "activate_raw"):
             strict = kind == "activate"
-            port.responses.append(_bootstrap(contract, operation["bootstrap"], strict=strict))
+            if operation.get("request_error"):
+                port.responses.append(_port_error(operation["request_error"], "activation failed"))
+            else:
+                port.responses.append(_bootstrap(contract, operation["bootstrap"], strict=strict))
             if operation.get("during_event"):
                 port.during_bootstrap = lambda name=operation["during_event"]: (
                     runtime.on_session_event(_event(contract, name))
@@ -170,7 +183,10 @@ def _run_case(contract, case):
                 port.during_bootstrap = lambda value=nested: runtime.activate_session(
                     value["session_id"]
                 )
-            runtime.activate_session(operation["session_id"])
+            try:
+                runtime.activate_session(operation["session_id"])
+            except (FrontendPortError, TypeError, ValueError):
+                pass
             continue
         if kind in ("bootstrap_operation", "bootstrap_operation_raw"):
             if operation.get("request_error"):
@@ -217,7 +233,6 @@ def _run_case(contract, case):
             def invoke():
                 if operation_name == "interaction_response":
                     return runtime.respond_to_interaction(
-                        operation["session_id"],
                         "approval-1",
                         {"decision": "accept"},
                     )
@@ -271,7 +286,7 @@ def _run_case(contract, case):
 def test_python_runtime_matches_cross_language_contract():
     contract = _load_contract()
 
-    assert contract["schema_version"] == 1
+    assert contract["schema_version"] == 2
     for case in contract["cases"]:
         runtime, _port, actions, observations = _run_case(contract, case)
         assert actions == case["actions"], case["name"]
@@ -309,3 +324,98 @@ def test_runtime_binds_one_port_and_rejects_operations_after_close():
     assert port.closed is True
     with pytest.raises(RuntimeError, match="runtime_closed"):
         runtime.activate_session("session-1")
+
+
+def test_active_message_and_interaction_use_runtime_session_owner():
+    contract = _load_contract()
+    actions = []
+    runtime = SessionClientRuntime(dispatch=actions.append)
+    port = FakeSessionPort(runtime)
+    runtime.bind_session_port(port)
+    port.responses.append(_bootstrap(contract, "session_1_cursor_1"))
+    runtime.activate_session("session-1")
+
+    port.responses.append(_bootstrap(contract, "session_1_cursor_2"))
+    runtime.submit_active_message("hello", stream=False)
+    assert port.message_calls == [("session-1", "hello", False)]
+
+    port.responses.append(_bootstrap(contract, "session_1_cursor_3"))
+    runtime.respond_to_interaction("approval-1", {"decision": "accept"})
+    assert port.bootstrap_calls[-1] == (
+        "interaction_response",
+        "session-1",
+        "approval-1",
+        {"decision": "accept"},
+    )
+
+
+def test_activation_failure_is_structured_and_rethrown():
+    actions = []
+    runtime = SessionClientRuntime(dispatch=actions.append)
+    port = FakeSessionPort(runtime)
+    runtime.bind_session_port(port)
+    error = _port_error("configuration_error", "composition rejected")
+    port.responses.append(error)
+
+    with pytest.raises(FrontendPortError) as raised:
+        runtime.activate_session("session-1")
+
+    assert raised.value.failure.code == "configuration_error"
+    assert [item.kind for item in actions] == ["protocol_failed"]
+    assert actions[0].payload["failure"]["code"] == "configuration_error"
+    assert runtime.lifecycle == "failed"
+
+
+def test_nested_activation_is_deferred_until_publication_commits():
+    contract = _load_contract()
+    actions = []
+    runtime = None
+    port = None
+
+    def dispatch(action):
+        actions.append(action)
+        if action.kind == "session_activated" and action.payload["session_id"] == "session-1":
+            port.responses.append(_bootstrap(contract, "session_2_cursor_0"))
+            runtime.activate_session("session-2")
+
+    runtime = SessionClientRuntime(dispatch=dispatch)
+    port = FakeSessionPort(runtime)
+    runtime.bind_session_port(port)
+    port.responses.append(_bootstrap(contract, "session_1_cursor_1"))
+    runtime.activate_session("session-1")
+
+    assert [item.payload.get("session_id") for item in actions] == [
+        "session-1",
+        "session-2",
+    ]
+    assert runtime.active_session_id == "session-2"
+    assert runtime.event_cursor == 0
+    assert runtime.lifecycle == "ready"
+
+
+def test_fork_result_is_separate_from_fork_and_activate():
+    contract = _load_contract()
+    runtime = SessionClientRuntime()
+    port = FakeSessionPort(runtime)
+    runtime.bind_session_port(port)
+    port.responses.append(
+        ThreadShell(
+            id="session-2",
+            title="Fork",
+            archived=False,
+            current_mode="explore",
+            status="idle",
+            updated_at="now",
+        )
+    )
+    thread = runtime.fork_session("session-1", "Fork")
+    assert isinstance(thread, ThreadShell)
+    assert runtime.active_session_id == ""
+
+    port.responses.append(
+        ThreadShell.from_dict(contract["bootstraps"]["session_2_cursor_0"]["thread"])
+    )
+    port.responses.append(_bootstrap(contract, "session_2_cursor_0"))
+    activated = runtime.fork_and_activate_session("session-1", "Fork")
+    assert isinstance(activated, SessionBootstrap)
+    assert runtime.active_session_id == "session-2"

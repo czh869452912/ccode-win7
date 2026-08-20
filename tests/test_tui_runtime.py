@@ -5,7 +5,9 @@ from pathlib import Path
 from embedagent_protocol import (
     CapabilitySnapshot,
     CommandDescriptor,
+    InteractionDescriptor,
     SessionBootstrap,
+    SessionEventEnvelope,
     ShellDescriptor,
     SurfaceDescriptor,
     ThreadShell,
@@ -13,6 +15,8 @@ from embedagent_protocol import (
 
 from embedagent.frontend.runtime import SessionClientRuntime
 from embedagent.frontend.tui.controller import TerminalController
+from embedagent.frontend.tui.frontend_adapter import TUIFrontend
+from embedagent.frontend.tui.shell_state import visible_palette_commands
 from embedagent.frontend.tui.state import TerminalState
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,7 +35,7 @@ def _thread(session_id="session-1", mode="build"):
 
 def _bootstrap(session_id="session-1", mode="build"):
     return SessionBootstrap(
-        schema_version=1,
+        schema_version=2,
         event_cursor=0,
         thread=_thread(session_id, mode),
         snapshot={
@@ -47,6 +51,8 @@ def _bootstrap(session_id="session-1", mode="build"):
 class FakeSessionPort(object):
     def __init__(self):
         self.submissions = []
+        self.responses = []
+        self.response_error = None
         self.closed = False
 
     def list_sessions(self, limit=10):
@@ -69,7 +75,9 @@ class FakeSessionPort(object):
         self.submissions.append((session_id, text, stream))
 
     def respond_to_interaction(self, session_id, interaction_id, payload):
-        del interaction_id, payload
+        if self.response_error is not None:
+            raise self.response_error
+        self.responses.append((session_id, interaction_id, payload))
         return _bootstrap(session_id)
 
     def close(self):
@@ -110,6 +118,10 @@ SHELL = ShellDescriptor(
             renderer_key="file_reference",
         )
     ],
+    interactions=[
+        InteractionDescriptor(kind="permission", renderer_key="interaction"),
+        InteractionDescriptor(kind="user_input", renderer_key="interaction"),
+    ],
 )
 
 
@@ -123,7 +135,7 @@ class FakeOwner(object):
         self.initial_message = ""
         self.workspace = "."
         self.state = TerminalState.from_shell_descriptor(".", "build", SHELL)
-        self.frontend = None
+        self.frontend = TUIFrontend(self)
         self.refresh_count = 0
 
     def refresh_views(self):
@@ -180,3 +192,89 @@ def test_tui_has_no_private_host_or_duplicate_session_runtime():
         "_recovering",
     ):
         assert forbidden not in sources
+
+
+def test_tui_normalizes_nested_interaction_and_uses_descriptor_response_shape():
+    controller, owner, session_port, _workspace_port = _controller()
+    controller.start()
+    runtime = owner.runtime
+    runtime.on_session_event(
+        SessionEventEnvelope(
+            2,
+            "approval-1",
+            "session-1",
+            1,
+            "approval.requested",
+            "now",
+            {
+                "permission": {
+                    "kind": "permission",
+                    "interaction_id": "approval-1",
+                    "reason": "Allow?",
+                }
+            },
+        )
+    )
+
+    assert owner.state.session.pending_interaction["kind"] == "permission"
+    controller.handle_input("2")
+
+    assert session_port.responses == [("session-1", "approval-1", {"decision": "acceptForSession"})]
+
+
+def test_tui_clears_pending_on_response_failed_and_renders_safe_failure():
+    controller, owner, session_port, _workspace_port = _controller()
+    controller.start()
+    runtime = owner.runtime
+    runtime.on_session_event(
+        SessionEventEnvelope(
+            2,
+            "input-1",
+            "session-1",
+            1,
+            "user-input.requested",
+            "now",
+            {
+                "kind": "user_input",
+                "interaction_id": "input-1",
+                "question": "Target",
+                "id": "target",
+            },
+        )
+    )
+    from embedagent_host.frontend_errors import FrontendPortError
+    from embedagent_protocol import FailureRecord
+
+    session_port.response_error = FrontendPortError(
+        FailureRecord(
+            code="provider_error",
+            message="raw provider detail",
+            safe_message="The provider request failed.",
+            retryable=False,
+            source="provider",
+        )
+    )
+    controller.handle_input("custom")
+    assert owner.state.session.pending_interaction["interaction_id"] == "input-1"
+    assert owner.state.session.last_failure["code"] == "provider_error"
+
+    runtime.on_session_event(
+        SessionEventEnvelope(
+            2,
+            "input-1-failed",
+            "session-1",
+            2,
+            "user-input.response.failed",
+            "now",
+            {"interaction_id": "input-1"},
+        )
+    )
+    assert owner.state.session.pending_interaction is None
+
+
+def test_tui_palette_filters_descriptor_commands_by_runtime_availability():
+    _controller_instance, owner, _session_port, _workspace_port = _controller()
+    commands = visible_palette_commands(
+        owner.state.shell, availability=owner.state.command_availability()
+    )
+    assert [item.id for item in commands] == ["workspace.files"]

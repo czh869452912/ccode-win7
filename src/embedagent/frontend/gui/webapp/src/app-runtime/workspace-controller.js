@@ -6,7 +6,7 @@ function invoke(callback, ...args) {
 }
 
 function workspaceErrorFrom(error) {
-  return String(error?.detail || error?.message || "workspace_open_failed");
+  return String(error?.failure?.code || error?.detail || error?.message || "workspace_open_failed");
 }
 
 function requireProtocolMethod(protocol, name) {

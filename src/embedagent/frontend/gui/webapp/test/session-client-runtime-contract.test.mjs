@@ -157,7 +157,11 @@ async function runCase(contract, testCase) {
       used: false,
     }));
     if (operation.kind === "activate" || operation.kind === "activate_raw") {
-      transport.responses.push(contract.bootstraps[operation.bootstrap]);
+      transport.responses.push(
+        operation.request_error
+          ? Object.assign(new Error("activation failed"), { code: operation.request_error })
+          : contract.bootstraps[operation.bootstrap],
+      );
       if (operation.during_event) {
         transport.duringBootstrap = () =>
           runtime.acceptSessionEvent(clone(contract.events[operation.during_event]));
@@ -167,7 +171,11 @@ async function runCase(contract, testCase) {
         transport.responses.push(contract.bootstraps[nested.bootstrap]);
         transport.duringBootstrap = () => runtime.activateSession(nested.session_id);
       }
-      await runtime.activateSession(operation.session_id);
+      try {
+        await runtime.activateSession(operation.session_id);
+      } catch {
+        // Invalid activation fixtures intentionally exercise protocol_failed.
+      }
       await drainDispatchPromises();
       continue;
     }
@@ -210,7 +218,6 @@ async function runCase(contract, testCase) {
       const invoke = () => {
         if (operation.operation === "interaction_response") {
           return runtime.respondToInteraction(
-            operation.session_id,
             "approval-1",
             { decision: "accept" },
           );
@@ -272,7 +279,7 @@ async function runCase(contract, testCase) {
 
 export async function runSessionClientRuntimeContractTests() {
   const contract = JSON.parse(await readFile(CONTRACT_PATH, "utf8"));
-  assert.equal(contract.schema_version, 1);
+  assert.equal(contract.schema_version, 2);
 
   for (const testCase of contract.cases) {
     const result = await runCase(contract, testCase);
@@ -312,7 +319,7 @@ export async function runSessionClientRuntimeContractTests() {
   raceTransport.respondToInteraction = async () => {
     await raceRuntime.acceptSessionEvent(clone(contract.events.approval_resolved));
     await raceRuntime.acceptSessionEvent({
-      schema_version: 1,
+      schema_version: 2,
       event_id: "session-finished-4",
       session_id: "session-1",
       sequence: 4,
@@ -390,4 +397,59 @@ export async function runSessionClientRuntimeContractTests() {
   runtime.close();
   assert.equal(transport.closed, true);
   await assert.rejects(() => runtime.activateSession("session-1"), /runtime_closed/);
+
+  const activeTransport = new FixtureTransport();
+  const activeRuntime = new SessionClientRuntime({ transport: activeTransport });
+  activeTransport.responses.push(contract.bootstraps.session_1_cursor_1);
+  await activeRuntime.activateSession("session-1");
+  activeTransport.sendSessionMessage = async (sessionId, text, options) => {
+    assert.equal(sessionId, "session-1");
+    assert.equal(text, "hello");
+    assert.deepEqual(options, { stream: false });
+    return clone(contract.bootstraps.session_1_cursor_2);
+  };
+  await activeRuntime.submitActiveMessage("hello", false);
+  activeTransport.respondToInteraction = async (sessionId, interactionId, payload) => {
+    assert.equal(sessionId, "session-1");
+    assert.equal(interactionId, "approval-1");
+    assert.deepEqual(payload, { decision: "accept" });
+    return clone(contract.bootstraps.session_1_cursor_3);
+  };
+  await activeRuntime.respondToInteraction("approval-1", { decision: "accept" });
+
+  const activationActions = [];
+  const failedTransport = new FixtureTransport();
+  const failedRuntime = new SessionClientRuntime({
+    transport: failedTransport,
+    dispatch: (action) => activationActions.push(action),
+  });
+  const activationError = Object.assign(new Error("composition rejected"), {
+    code: "configuration_error",
+  });
+  failedTransport.responses.push(activationError);
+  await assert.rejects(() => failedRuntime.activateSession("session-1"));
+  assert.equal(activationActions.at(-1).kind, "protocol_failed");
+  assert.equal(activationActions.at(-1).failure.code, "configuration_error");
+  assert.equal(failedRuntime.lifecycle, "failed");
+
+  const deferredActions = [];
+  const deferredTransport = new FixtureTransport();
+  let deferredRuntime;
+  deferredRuntime = new SessionClientRuntime({
+    transport: deferredTransport,
+    dispatch: (action) => {
+      deferredActions.push(action);
+      if (action.kind === "session_activated" && action.session_id === "session-1") {
+        deferredTransport.responses.push(contract.bootstraps.session_2_cursor_0);
+        deferredRuntime.activateSession("session-2");
+      }
+    },
+  });
+  deferredTransport.responses.push(contract.bootstraps.session_1_cursor_1);
+  await deferredRuntime.activateSession("session-1");
+  assert.deepEqual(
+    deferredActions.filter((action) => action.kind === "session_activated").map((action) => action.session_id),
+    ["session-1", "session-2"],
+  );
+  assert.equal(deferredRuntime.sessionId, "session-2");
 }

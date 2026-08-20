@@ -7,20 +7,27 @@ from typing import Any, Optional, TextIO
 from embedagent_host import FrontendPortError
 from embedagent_protocol import FailureRecord, SessionEventEnvelope
 
-from embedagent.cli.interaction import (
+from embedagent.cli.renderer import ChatRenderer
+from embedagent.cli.result import CliResult, exit_code_for_failure
+from embedagent.frontend.runtime import RuntimeAction
+from embedagent.frontend.runtime.commands import resolve_command
+from embedagent.frontend.runtime.interaction_projection import (
     InteractionPrompt,
     InteractionResponseError,
     build_interaction_response,
     resolve_interaction,
 )
-from embedagent.cli.renderer import ChatRenderer
-from embedagent.cli.result import CliResult, exit_code_for_failure
-from embedagent.frontend.runtime import RuntimeAction
-from embedagent.frontend.runtime.commands import resolve_command
 from embedagent.modes import DEFAULT_MODE
 
 _INTERACTION_REQUEST_EVENTS = frozenset(("approval.requested", "user-input.requested"))
-_INTERACTION_RESOLVED_EVENTS = frozenset(("approval.resolved", "user-input.resolved"))
+_INTERACTION_RESOLVED_EVENTS = frozenset(
+    (
+        "approval.resolved",
+        "approval.response.failed",
+        "user-input.resolved",
+        "user-input.response.failed",
+    )
+)
 
 
 def _failure(code: str) -> FailureRecord:
@@ -85,7 +92,11 @@ class CliChat(object):
                 self._active_interaction = None
             return
         if action.kind == "protocol_failed":
-            self._fatal_exit = 4
+            try:
+                failure = FailureRecord.from_dict(value.get("failure") or {})
+            except (TypeError, ValueError):
+                failure = _failure("protocol_error")
+            self._fatal_exit = exit_code_for_failure(failure.code)
             return
         if action.kind != "session_event":
             return
@@ -152,11 +163,7 @@ class CliChat(object):
     def _submit(self, text: str) -> Optional[int]:
         self._running = True
         try:
-            self._runtime.submit_user_message(
-                self._runtime.active_session_id,
-                text,
-                stream=True,
-            )
+            self._runtime.submit_active_message(text, stream=True)
         except KeyboardInterrupt:
             return self._cancel_running_turn()
         return self._wait_for_turn()
@@ -195,11 +202,7 @@ class CliChat(object):
             return None
         try:
             self._running = True
-            self._runtime.respond_to_interaction(
-                self._runtime.active_session_id,
-                prompt.interaction_id,
-                payload,
-            )
+            self._runtime.respond_to_interaction(prompt.interaction_id, payload)
             return self._wait_for_turn()
         except KeyboardInterrupt:
             return self._cancel_running_turn()

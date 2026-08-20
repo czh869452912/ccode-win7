@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from embedagent_core.permissions import PermissionPolicy
+from embedagent_core import ApplicationConfigurationError
 from embedagent_protocol import (
     FrontendSessionPort,
     FrontendWorkspacePort,
@@ -14,11 +14,6 @@ from embedagent_host.frontend_ports import (
 )
 from embedagent_host.hosted.launch_config import LaunchConfig
 from embedagent_host.inprocess_adapter import InProcessAdapter
-from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
-from embedagent_host.runtime.context import ContextManager, make_context_config
-from embedagent_host.runtime.project_memory import ProjectMemoryStore
-from embedagent_host.runtime.session_store import SessionSummaryStore
-from embedagent_host.runtime.tools import ToolRuntime
 
 
 @dataclass
@@ -33,44 +28,32 @@ class HostedRuntime(object):
 
 def create_hosted_runtime(
     launch_config: LaunchConfig,
+    model_client=None,
+    tool_runtime=None,
+    context_manager=None,
+    permission_policy=None,
+    summary_store=None,
     event_sink=None,
     agent_application_registry=None,
-    command_sanitizer_factory=None,
-    bundle_root_resolver=None,
-    system_prompt_builder=None,
 ) -> HostedRuntime:
-    client = OpenAICompatibleClient(
-        base_url=launch_config.base_url,
-        api_key=launch_config.api_key,
-        model=launch_config.model,
-        timeout=launch_config.timeout,
-    )
-    tools = ToolRuntime(
-        launch_config.workspace,
-        app_config=launch_config.app_config,
-        command_sanitizer_factory=command_sanitizer_factory,
-        bundle_root_resolver=bundle_root_resolver,
-    )
-    context_manager = ContextManager(
-        config=make_context_config(launch_config.app_config),
-        project_memory=ProjectMemoryStore(launch_config.workspace),
-    )
-    permission_policy = PermissionPolicy(
-        auto_approve_all=launch_config.approve_all,
-        auto_approve_writes=launch_config.approve_writes,
-        auto_approve_commands=launch_config.approve_commands,
-        workspace=launch_config.workspace,
-        rules_path=launch_config.permission_rules,
-    )
+    required = {
+        "model_client": model_client,
+        "tool_runtime": tool_runtime,
+        "context_manager": context_manager,
+        "permission_policy": permission_policy,
+        "summary_store": summary_store,
+    }
+    missing = [name for name, value in required.items() if value is None]
+    if missing:
+        raise ApplicationConfigurationError(
+            "host runtime collaborators are required: %s" % ",".join(missing)
+        )
     adapter = InProcessAdapter(
-        client=client,
-        tools=tools,
+        client=model_client,
+        tools=tool_runtime,
         max_turns=launch_config.max_turns,
         permission_policy=permission_policy,
-        summary_store=SessionSummaryStore(
-            launch_config.workspace,
-            system_prompt_builder=system_prompt_builder,
-        ),
+        summary_store=summary_store,
         context_manager=context_manager,
         event_sink=event_sink,
         agent_application_id=launch_config.agent_application_id,

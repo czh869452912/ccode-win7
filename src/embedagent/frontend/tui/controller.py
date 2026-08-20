@@ -2,13 +2,34 @@ from __future__ import annotations
 
 from typing import Dict
 
-from embedagent_protocol import SessionEventEnvelope
+from embedagent_protocol import CapabilitySnapshot, FailureRecord, SessionEventEnvelope
 
 import embedagent.frontend.tui.reducer as reducer
 from embedagent.frontend.runtime import RuntimeAction
 from embedagent.frontend.runtime.commands import resolve_command
+from embedagent.frontend.runtime.interaction_projection import (
+    InteractionResponseError,
+    build_interaction_response,
+    resolve_interaction,
+)
 from embedagent.frontend.tui.commands import parse_command
 from embedagent.frontend.tui.views.timeline import format_activity_records
+
+
+def _failure_for_exception(error):
+    failure = getattr(error, "failure", None)
+    if isinstance(failure, FailureRecord):
+        return failure
+    protocol = isinstance(error, (TypeError, ValueError))
+    return FailureRecord(
+        code="protocol_error" if protocol else "runtime_error",
+        message="The operation failed.",
+        safe_message="The operation failed.",
+        retryable=False,
+        source="tui",
+        phase="protocol" if protocol else "runtime",
+        kind="protocol" if protocol else "runtime",
+    )
 
 
 class TerminalController(object):
@@ -50,43 +71,34 @@ class TerminalController(object):
 
     def handle_permission_reply(self, text: str) -> None:
         ticket = self.owner.state.session.pending_interaction or {}
-        interaction_id = str(ticket.get("interaction_id") or "")
-        normalized = text.strip().lower()
-        decisions = {"y": "accept", "yes": "accept", "n": "decline", "no": "decline"}
-        decision = decisions.get(normalized)
-        if not decision:
-            reducer.append_line(self.owner.state, "[permission] enter y or n")
-            self.owner.refresh_views()
+        try:
+            prompt = resolve_interaction(self.owner.shell_descriptor, "approval.requested", ticket)
+            payload = build_interaction_response(prompt, text)
+            self.owner.runtime.respond_to_interaction(prompt.interaction_id, payload)
+        except RuntimeError as exc:
+            self._render_failure(_failure_for_exception(exc))
             return
-        self.owner.runtime.respond_to_interaction(
-            self.owner.state.session.current_session_id,
-            interaction_id,
-            {"decision": decision},
-        )
-        reducer.append_line(self.owner.state, "[permission] %s" % decision)
+        except (InteractionResponseError, TypeError, ValueError) as exc:
+            self._render_failure(_failure_for_exception(exc))
+            return
+        reducer.append_line(self.owner.state, "[permission] %s" % payload.get("decision"))
         self.owner.refresh_views()
 
     def handle_user_input_reply(self, text: str) -> None:
         ticket = self.owner.state.session.pending_interaction or {}
-        interaction_id = str(ticket.get("interaction_id") or "")
-        answer = text.strip()
-        if not answer:
-            reducer.append_line(self.owner.state, "[question] answer required")
-            self.owner.refresh_views()
+        try:
+            prompt = resolve_interaction(
+                self.owner.shell_descriptor, "user-input.requested", ticket
+            )
+            payload = build_interaction_response(prompt, text)
+            self.owner.runtime.respond_to_interaction(prompt.interaction_id, payload)
+        except RuntimeError as exc:
+            self._render_failure(_failure_for_exception(exc))
             return
-        if answer.isdigit():
-            questions = ticket.get("questions") or []
-            question = questions[0] if questions and isinstance(questions[0], dict) else {}
-            for item in question.get("options") or []:
-                if isinstance(item, dict) and int(item.get("index") or 0) == int(answer):
-                    answer = str(item.get("label") or item.get("value") or item.get("text") or "")
-                    break
-        self.owner.runtime.respond_to_interaction(
-            self.owner.state.session.current_session_id,
-            interaction_id,
-            {"answers": {"answer": answer}},
-        )
-        reducer.append_line(self.owner.state, "[question] %s" % answer)
+        except (InteractionResponseError, TypeError, ValueError) as exc:
+            self._render_failure(_failure_for_exception(exc))
+            return
+        reducer.append_line(self.owner.state, "[question] %s" % text.strip())
         self.owner.refresh_views()
 
     def handle_command(self, text: str) -> None:
@@ -107,9 +119,10 @@ class TerminalController(object):
                 default_mode=self.owner.initial_mode,
             )
             self._after_shell_command(command.dispatch)
-        except (RuntimeError, ValueError, TypeError) as exc:
-            reducer.set_last_error(self.owner.state, str(exc))
-            reducer.append_line(self.owner.state, "[error] %s" % exc)
+        except RuntimeError as exc:
+            self._render_failure(_failure_for_exception(exc))
+        except (ValueError, TypeError) as exc:
+            self._render_failure(_failure_for_exception(exc))
         self.owner.refresh_views()
 
     def _after_shell_command(self, dispatch: Dict[str, object]) -> None:
@@ -123,20 +136,20 @@ class TerminalController(object):
             self.refresh_sessions()
 
     def submit_message(self, text: str) -> None:
-        session_id = self.owner.state.session.current_session_id
-        if not session_id:
+        if not self.owner.runtime.active_session_id:
             reducer.append_line(self.owner.state, "[error] no active session")
             self.owner.refresh_views()
             return
         reducer.append_line(self.owner.state, "user> %s" % text)
-        reducer.update_snapshot(self.owner.state, status="running", last_error=None)
-        reducer.set_last_error(self.owner.state, "")
+        reducer.update_snapshot(self.owner.state, status="running", last_failure=None)
+        reducer.set_last_failure(self.owner.state, None)
         try:
-            self.owner.runtime.submit_user_message(session_id, text)
-        except (RuntimeError, ValueError, TypeError) as exc:
-            reducer.set_last_error(self.owner.state, str(exc))
-            reducer.update_snapshot(self.owner.state, status="error", last_error=str(exc))
-            reducer.append_line(self.owner.state, "[error] %s" % exc)
+            self.owner.runtime.submit_active_message(text)
+        except RuntimeError as exc:
+            self._render_failure(_failure_for_exception(exc))
+        except (ValueError, TypeError) as exc:
+            self._render_failure(_failure_for_exception(exc))
+            reducer.update_snapshot(self.owner.state, status="error")
         self.owner.refresh_views()
 
     def create_new_session(self, mode=None) -> None:
@@ -180,9 +193,10 @@ class TerminalController(object):
                 default_mode=self.owner.initial_mode,
             )
             self._after_shell_command(command.dispatch)
-        except (RuntimeError, ValueError, TypeError) as exc:
-            reducer.set_last_error(self.owner.state, str(exc))
-            reducer.append_line(self.owner.state, "[error] %s" % exc)
+        except RuntimeError as exc:
+            self._render_failure(_failure_for_exception(exc))
+        except (ValueError, TypeError) as exc:
+            self._render_failure(_failure_for_exception(exc))
         self.owner.refresh_views()
 
     def on_runtime_action(self, action: RuntimeAction) -> None:
@@ -198,9 +212,10 @@ class TerminalController(object):
             return
         if action_type == "protocol_failed":
             failure = value.get("failure") if isinstance(value.get("failure"), dict) else {}
-            message = str(failure.get("message") or failure.get("code") or "protocol failed")
-            reducer.set_last_error(self.owner.state, message)
-            reducer.append_line(self.owner.state, "[error] %s" % message)
+            try:
+                self._render_failure(FailureRecord.from_dict(failure))
+            except (TypeError, ValueError):
+                self._render_failure(_failure_for_exception(ValueError("invalid failure")))
             self.owner.refresh_views()
             return
         if action_type != "session_event":
@@ -209,12 +224,24 @@ class TerminalController(object):
         self.owner.frontend.on_session_event(envelope)
         if envelope.event_kind == "session.finished":
             self.refresh_sessions()
-            self.refresh_session_projection()
         self.owner.refresh_views()
 
     def _handle_shell_command(self, action: Dict[str, object]) -> None:
         dispatch = action.get("dispatch") if isinstance(action.get("dispatch"), dict) else {}
         if str(dispatch.get("kind") or "") != "shell.surface":
+            if str(dispatch.get("kind") or "") == "interaction.respond":
+                try:
+                    ticket = self.owner.state.session.pending_interaction or {}
+                    prompt = resolve_interaction(self.owner.shell_descriptor, "", ticket)
+                    value = " ".join(str(item) for item in action.get("args") or [])
+                    self.owner.runtime.respond_to_interaction(
+                        prompt.interaction_id,
+                        build_interaction_response(prompt, value),
+                    )
+                except RuntimeError as exc:
+                    self._render_failure(_failure_for_exception(exc))
+                except (InteractionResponseError, TypeError, ValueError) as exc:
+                    self._render_failure(_failure_for_exception(exc))
             return
         surface_id = str(dispatch.get("surface_id") or "")
         for surface in self.owner.shell_descriptor.surfaces:
@@ -257,8 +284,21 @@ class TerminalController(object):
         if bool(snapshot.get("pending_interaction_valid")) and isinstance(
             snapshot.get("pending_interaction"), dict
         ):
-            pending = dict(snapshot.get("pending_interaction") or {})
+            pending = self.owner.frontend._normalize_interaction(
+                (
+                    "approval.requested"
+                    if str(snapshot.get("status") or "") == "waiting_permission"
+                    else "user-input.requested"
+                ),
+                dict(snapshot.get("pending_interaction") or {}),
+            )
         reducer.set_pending_interaction(self.owner.state, pending)
+        capabilities = payload.get("capabilities")
+        if isinstance(capabilities, dict):
+            try:
+                self.owner.state.capabilities = CapabilitySnapshot.from_dict(capabilities)
+            except (TypeError, ValueError):
+                self.owner.state.capabilities = CapabilitySnapshot()
         self.owner.state.timeline.items = format_activity_records(history.get("activities") or [])
         reducer.trim_timeline(self.owner.state)
         self.latest_assistant_reply = str(
@@ -272,16 +312,35 @@ class TerminalController(object):
             for item in self.owner.runtime.list_sessions(self.owner.state.session_limit)
         ]
 
-    def refresh_session_projection(self) -> None:
-        session_id = self.owner.state.session.current_session_id
-        if session_id:
-            self.owner.runtime.activate_session(session_id, reason="refresh")
-
     def _availability(self) -> Dict[str, object]:
-        status = str(self.owner.state.session.current_snapshot.get("status") or "")
-        return {
-            "has_session": bool(self.owner.state.session.current_session_id),
-            "has_workspace": bool(self.owner.workspace),
-            "running": status in ("running", "submitting"),
-            "has_interaction": self.owner.state.session.pending_interaction is not None,
-        }
+        return self.owner.state.command_availability()
+
+    def _render_failure(self, failure) -> None:
+        record = (
+            failure if isinstance(failure, FailureRecord) else getattr(failure, "failure", None)
+        )
+        if isinstance(record, FailureRecord):
+            reducer.set_last_failure(self.owner.state, record.to_dict())
+            safe = record.safe_message
+            reducer.append_line(self.owner.state, "[error] %s" % safe)
+            self.owner.refresh_views()
+            return
+        safe = str(
+            getattr(failure, "safe_message", "")
+            or getattr(failure, "message", "")
+            or "The operation failed."
+        )
+        reducer.set_last_failure(
+            self.owner.state,
+            {
+                "code": "runtime_error",
+                "message": safe,
+                "safe_message": safe,
+                "retryable": False,
+                "source": "tui",
+                "phase": "frontend",
+                "kind": "runtime",
+            },
+        )
+        reducer.append_line(self.owner.state, "[error] %s" % safe)
+        self.owner.refresh_views()

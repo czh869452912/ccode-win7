@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from embedagent_protocol import ShellDescriptor
+from embedagent_protocol import CapabilitySnapshot, ShellDescriptor
 
 from embedagent.frontend.tui.shell_state import ShellState
 
@@ -24,7 +24,7 @@ class SessionState:
     session_items: List[Dict[str, Any]] = field(default_factory=list)
     session_selection: int = 0
     pending_interaction: Optional[Dict[str, Any]] = None
-    last_error: str = ""
+    last_failure: Optional[Dict[str, Any]] = None
     last_context_event: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -66,6 +66,7 @@ class TerminalState:
     session_limit: int = 10
     transcript_limit: int = 240
     capability: CapabilityProfile = field(default_factory=CapabilityProfile)
+    capabilities: CapabilitySnapshot = field(default_factory=CapabilitySnapshot)
     session: SessionState = field(default_factory=SessionState)
     timeline: TimelineState = field(default_factory=TimelineState)
     composer: ComposerState = field(default_factory=ComposerState)
@@ -98,3 +99,12 @@ class TerminalState:
         )
         state.session.current_mode = initial_mode
         return state
+
+    def command_availability(self) -> Dict[str, object]:
+        status = str(self.session.current_snapshot.get("status") or "")
+        return {
+            "has_session": bool(self.session.current_session_id),
+            "has_workspace": bool(self.workspace),
+            "running": status in ("running", "submitting"),
+            "has_interaction": self.session.pending_interaction is not None,
+        }

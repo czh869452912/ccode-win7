@@ -81,7 +81,7 @@ export function normalizeSessionPayload(payload, defaultMode = "") {
     has_active_plan: Boolean(payload.has_active_plan),
     active_plan_ref: payload.active_plan_ref || "",
     current_command_context: payload.current_command_context || "",
-    last_error: payload.last_error || "",
+    last_failure: payload.last_failure || null,
     lastTransitionReason: payload.last_transition_reason || "",
     lastTransitionDisplayReason:
       payload.last_transition_display_reason || payload.last_transition_reason || "",

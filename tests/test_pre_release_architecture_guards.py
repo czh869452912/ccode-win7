@@ -2150,3 +2150,52 @@ def test_frontend_source_owners_stay_focused():
         '@import "./styles/overlays.css";',
         '@import "./styles/contributions.css";',
     ]
+
+
+def test_frontend_v2_failure_and_workspace_contracts_stay_canonical():
+    protocol = _read(ROOT / "packages/embedagent-protocol/src/embedagent_protocol/app_protocol.py")
+    app_shell = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
+    normalizer = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/protocol-normalizer.js"
+    )
+    assert "last_failure" in protocol
+    assert "last_error" not in app_shell
+    assert '"last_failure"' in normalizer
+    assert '"last_error"' not in normalizer
+
+
+def test_generic_host_runtime_has_no_concrete_provider_construction():
+    source = _read(ROOT / "packages/embedagent-host/src/embedagent_host/hosted/runtime.py")
+    for forbidden in (
+        "OpenAICompatibleClient(",
+        "ToolRuntime(",
+        "ContextManager(",
+        "PermissionPolicy(",
+        "ProjectMemoryStore(",
+        "SessionSummaryStore(",
+    ):
+        assert forbidden not in source
+    assert "model_client=None" in source
+    assert "tool_runtime=None" in source
+    assert "ApplicationConfigurationError" in source
+
+
+def test_gui_session_event_acceptance_uses_strict_normalizer():
+    runtime = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/session-client-runtime.js"
+    )
+    transport = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/session-transport-state.js"
+    )
+    assert "normalizeSessionEventEnvelope" in runtime
+    assert "normalizeSessionEventEnvelope" in transport
+
+
+def test_cli_sessions_and_tui_use_runtime_failure_projection():
+    sessions = _read(ROOT / "src/embedagent/cli/sessions.py")
+    tui_files = "\n".join(
+        _read(path) for path in (ROOT / "src/embedagent/frontend/tui").rglob("*.py")
+    )
+    assert "context.session_port" not in sessions
+    assert "last_error" not in tui_files
+    assert "set_last_failure" in tui_files

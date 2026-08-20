@@ -241,7 +241,7 @@ class TestWebSocketFrontend(unittest.TestCase):
         dispatched = []
         frontend._dispatch_message = lambda message: dispatched.append(message) or True
         envelope = SessionEventEnvelope(
-            schema_version=1,
+            schema_version=2,
             event_id="event-1",
             session_id="session-1",
             sequence=4,

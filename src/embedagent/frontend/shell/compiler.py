@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, List, Set, Tuple
 
 from embedagent_protocol import ShellDescriptor
+from embedagent_protocol.versions import FRONTEND_PROTOCOL_SCHEMA_VERSION
 
 from embedagent.frontend.shell.registration import (
     CommandContribution,
@@ -170,7 +171,7 @@ def compile_shell_descriptor(
         if item.command_id not in command_ids:
             raise ValueError("unknown_keybinding_command:%s" % item.command_id)
     return ShellDescriptor(
-        schema_version=1,
+        schema_version=FRONTEND_PROTOCOL_SCHEMA_VERSION,
         commands=commands,
         surfaces=[
             record.descriptor

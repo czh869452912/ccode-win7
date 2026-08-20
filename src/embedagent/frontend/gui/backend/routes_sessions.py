@@ -147,13 +147,8 @@ def register_session_routes(app: Any, backend: Any) -> None:
 
     @app.get("/api/files/{path:path}")
     async def read_file(path: str):
-        try:
-            workspace = backend._require_workspace_port()
-            return backend._call_port(workspace.read_file, path)
-        except HTTPException:
-            raise
-        except (OSError, ValueError, TypeError) as exc:
-            return {"error": str(exc)}
+        workspace = backend._require_workspace_port()
+        return backend._call_port(workspace.read_file, path)
 
     @app.post("/api/files/{path:path}")
     async def write_file(path: str, request: Dict[str, Any]):

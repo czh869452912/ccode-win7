@@ -29,7 +29,7 @@ from embedagent_protocol import (
 class AgentAppProtocolTests(unittest.TestCase):
     def test_capability_snapshot_is_json_safe_and_backend_declared(self):
         snapshot = CapabilitySnapshot(
-            schema_version=1,
+            schema_version=2,
             modes=[
                 ModeDescriptor(
                     id="python-build",
@@ -95,7 +95,7 @@ class AgentAppProtocolTests(unittest.TestCase):
 
         payload = snapshot.to_dict()
 
-        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["schema_version"], 2)
         self.assertEqual(payload["agent_application"]["id"], "python")
         self.assertEqual(payload["agent_applications"][0]["profile_id"], "python.profile")
         self.assertEqual(payload["modes"][0]["id"], "python-build")
@@ -110,7 +110,7 @@ class AgentAppProtocolTests(unittest.TestCase):
 
     def test_thread_detail_contains_activities_not_timeline_replay(self):
         detail = SessionBootstrap(
-            schema_version=1,
+            schema_version=2,
             event_cursor=0,
             thread=ThreadShell(
                 id="sess-1",
@@ -140,7 +140,7 @@ class AgentAppProtocolTests(unittest.TestCase):
                     },
                 )
             ],
-            capabilities=CapabilitySnapshot(schema_version=1),
+            capabilities=CapabilitySnapshot(schema_version=2),
             integrity={"status": "healthy"},
         )
 
@@ -155,11 +155,11 @@ class AgentAppProtocolTests(unittest.TestCase):
 
     def test_app_bootstrap_does_not_include_session_history(self):
         bootstrap = AppBootstrap(
-            schema_version=1,
+            schema_version=2,
             app={"name": "EmbedAgent"},
             workspaces=[],
             shell=ShellDescriptor(
-                schema_version=1,
+                schema_version=2,
                 commands=[
                     CommandDescriptor(
                         id="app.open",
@@ -180,7 +180,7 @@ class AgentAppProtocolTests(unittest.TestCase):
 
     def test_session_bootstrap_uses_one_versioned_snake_case_shape(self):
         payload = SessionBootstrap(
-            schema_version=1,
+            schema_version=2,
             event_cursor=4,
             thread=ThreadShell(
                 id="s-1",
@@ -192,17 +192,17 @@ class AgentAppProtocolTests(unittest.TestCase):
             ),
             snapshot={"session_id": "s-1", "workflow_state": {}},
             activities=[],
-            capabilities=CapabilitySnapshot(schema_version=1),
+            capabilities=CapabilitySnapshot(schema_version=2),
         ).to_dict()
 
-        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["schema_version"], 2)
         self.assertEqual(payload["event_cursor"], 4)
         self.assertEqual(payload["thread"]["current_mode"], "build")
         self.assertNotIn("currentMode", json.dumps(payload))
 
     def test_session_bootstrap_round_trips_from_strict_wire_payload(self):
         payload = SessionBootstrap(
-            schema_version=1,
+            schema_version=2,
             event_cursor=4,
             thread=ThreadShell(
                 id="s-1",
@@ -224,7 +224,7 @@ class AgentAppProtocolTests(unittest.TestCase):
                 )
             ],
             capabilities=CapabilitySnapshot(
-                schema_version=1,
+                schema_version=2,
                 modes=[ModeDescriptor(id="build", label="Build")],
                 commands=[
                     CommandDescriptor(
@@ -250,7 +250,7 @@ class AgentAppProtocolTests(unittest.TestCase):
 
     def test_session_bootstrap_from_dict_rejects_invalid_nested_shapes(self):
         valid = SessionBootstrap(
-            schema_version=1,
+            schema_version=2,
             event_cursor=0,
             thread=ThreadShell(
                 id="s-1",
@@ -262,11 +262,11 @@ class AgentAppProtocolTests(unittest.TestCase):
             ),
             snapshot={"session_id": "s-1"},
             activities=[],
-            capabilities=CapabilitySnapshot(schema_version=1),
+            capabilities=CapabilitySnapshot(schema_version=2),
         ).to_dict()
         invalid_payloads = []
         for key, value in (
-            ("schema_version", 2),
+            ("schema_version", 1),
             ("event_cursor", -1),
             ("thread", []),
             ("capabilities", []),
@@ -282,7 +282,7 @@ class AgentAppProtocolTests(unittest.TestCase):
 
     def test_session_bootstrap_preserves_generic_history_activities(self):
         payload = SessionBootstrap(
-            schema_version=1,
+            schema_version=2,
             event_cursor=1,
             thread=ThreadShell(
                 id="s-1",
@@ -301,7 +301,7 @@ class AgentAppProtocolTests(unittest.TestCase):
                     "content": "hello",
                 }
             ],
-            capabilities=CapabilitySnapshot(schema_version=1),
+            capabilities=CapabilitySnapshot(schema_version=2),
         ).to_dict()
 
         restored = SessionBootstrap.from_dict(payload)
@@ -310,7 +310,7 @@ class AgentAppProtocolTests(unittest.TestCase):
 
     def test_app_bootstrap_contains_one_versioned_shell_descriptor(self):
         shell = ShellDescriptor(
-            schema_version=1,
+            schema_version=2,
             commands=[
                 CommandDescriptor(
                     id="app.open",
@@ -348,20 +348,20 @@ class AgentAppProtocolTests(unittest.TestCase):
             ],
         )
         payload = AppBootstrap(
-            schema_version=1,
+            schema_version=2,
             app={"name": "EmbedAgent"},
             workspaces=[],
             shell=shell,
         ).to_dict()
 
-        self.assertEqual(payload["schema_version"], 1)
-        self.assertEqual(payload["shell"]["schema_version"], 1)
+        self.assertEqual(payload["schema_version"], 2)
+        self.assertEqual(payload["shell"]["schema_version"], 2)
         self.assertEqual(payload["shell"]["surfaces"][0]["renderer_key"], "files")
         self.assertNotIn("rendererKey", json.dumps(payload))
 
     def test_shell_descriptor_is_json_safe_and_workflow_neutral(self):
         descriptor = ShellDescriptor(
-            schema_version=1,
+            schema_version=2,
             commands=[
                 CommandDescriptor(
                     id="session.new",
@@ -440,12 +440,12 @@ class AgentAppProtocolTests(unittest.TestCase):
         invalid_factories = (
             lambda: CapabilitySnapshot(schema_version=0),
             lambda: SessionBootstrap(
-                schema_version=1,
+                schema_version=2,
                 event_cursor=-1,
                 thread=valid_thread,
                 snapshot={},
                 activities=[],
-                capabilities=CapabilitySnapshot(schema_version=1),
+                capabilities=CapabilitySnapshot(schema_version=2),
             ),
             lambda: CommandDescriptor(id="", label="Open", group="app"),
             lambda: CommandDescriptor(

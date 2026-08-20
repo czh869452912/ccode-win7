@@ -19,7 +19,7 @@ from embedagent.frontend.runtime import SessionClientRuntime
 
 def _bootstrap(session_id="session-1", mode="build", cursor=1):
     return SessionBootstrap(
-        schema_version=1,
+        schema_version=2,
         event_cursor=cursor,
         thread=ThreadShell(
             id=session_id,
@@ -37,7 +37,7 @@ def _bootstrap(session_id="session-1", mode="build", cursor=1):
 
 def _event(event_kind, payload, session_id="session-1", sequence=2):
     return SessionEventEnvelope(
-        schema_version=1,
+        schema_version=2,
         event_id="event-%s" % sequence,
         session_id=session_id,
         sequence=sequence,

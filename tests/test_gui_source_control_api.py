@@ -18,7 +18,7 @@ from embedagent.frontend.gui.backend.workspace_registry import WorkspaceRegistry
 def GUIBackend(*args, **kwargs):
     kwargs.setdefault(
         "shell_compiler",
-        lambda application_id, capabilities: ShellDescriptor(schema_version=1),
+        lambda application_id, capabilities: ShellDescriptor(schema_version=2),
     )
     return _GUIBackend(*args, **kwargs)
 
@@ -171,7 +171,7 @@ class GuiSourceControlApiTests(unittest.TestCase):
                 )
 
             self.assertEqual(raised.exception.status_code, 422)
-            self.assertEqual(raised.exception.detail, "invalid_diff_scope")
+            self.assertEqual(raised.exception.detail["code"], "invalid_diff_scope")
 
 
 if __name__ == "__main__":

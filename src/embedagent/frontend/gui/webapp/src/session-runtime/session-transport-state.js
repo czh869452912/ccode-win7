@@ -1,3 +1,6 @@
+import { FRONTEND_PROTOCOL_SCHEMA_VERSION } from "./protocol-version.js";
+import { normalizeSessionEventEnvelope } from "./protocol-envelope.js";
+
 const VALID_RELOAD_STATES = new Set(["healthy", "reload_required", "degraded"]);
 
 function normalizeReloadState(value, fallback = "healthy") {
@@ -24,14 +27,19 @@ export function capRetryAttempt(value) {
 }
 
 export function isSessionEventEnvelope(event) {
-  if (!event || typeof event !== "object" || Array.isArray(event)) return false;
-  if (event.schema_version !== 1) return false;
-  if (!String(event.event_id || "").trim()) return false;
-  if (!String(event.session_id || "").trim()) return false;
-  if (!Number.isInteger(event.sequence) || event.sequence <= 0) return false;
-  if (!String(event.event_kind || "").trim()) return false;
-  if (!String(event.timestamp || "").trim()) return false;
-  return Boolean(event.payload) && typeof event.payload === "object" && !Array.isArray(event.payload);
+  if (
+    !event ||
+    event.sequence === undefined ||
+    event.event_id === undefined ||
+    event.schema_version !== FRONTEND_PROTOCOL_SCHEMA_VERSION ||
+    event.timestamp === undefined
+  ) return false;
+  try {
+    normalizeSessionEventEnvelope(event);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function projectTransportView({ transportState } = {}) {

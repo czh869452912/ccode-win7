@@ -7,6 +7,7 @@ from embedagent_protocol import (
     AppBootstrap,
     CapabilitySnapshot,
     CommandDescriptor,
+    FailureRecord,
     InteractionDescriptor,
     KeybindingDescriptor,
     ModeDescriptor,
@@ -19,6 +20,7 @@ from embedagent_protocol import (
     ToolPresentation,
     WorkflowPackageDescriptor,
 )
+from embedagent_protocol.versions import FRONTEND_PROTOCOL_SCHEMA_VERSION
 
 
 def to_mapping(value: Any) -> Optional[Dict[str, Any]]:
@@ -186,7 +188,7 @@ def _shell_records(data: Dict[str, Any], key: str) -> list:
 def _protocol_shell_descriptor(payload: Any) -> ShellDescriptor:
     data = _normal_mapping(payload)
     if not data:
-        return ShellDescriptor(schema_version=1)
+        return ShellDescriptor(schema_version=FRONTEND_PROTOCOL_SCHEMA_VERSION)
     return ShellDescriptor(
         schema_version=data.get("schema_version"),
         commands=[
@@ -255,7 +257,7 @@ def serialize_app_bootstrap(payload: Any) -> Dict[str, Any]:
     data = _normal_mapping(payload)
     active_workspace = data.get("active_workspace")
     return AppBootstrap(
-        schema_version=1,
+        schema_version=FRONTEND_PROTOCOL_SCHEMA_VERSION,
         app=dict(data.get("app") or {}),
         workspaces=_normal_list(data.get("workspaces")),
         active_workspace=(dict(active_workspace) if isinstance(active_workspace, dict) else None),
@@ -263,7 +265,11 @@ def serialize_app_bootstrap(payload: Any) -> Dict[str, Any]:
         shell=_protocol_shell_descriptor(data.get("shell")),
         settings=dict(data.get("settings") or {}),
         diagnostics=dict(data.get("diagnostics") or {}),
-        last_error=str(data.get("last_error") or ""),
+        last_failure=(
+            FailureRecord.from_dict(data["last_failure"])
+            if isinstance(data.get("last_failure"), dict)
+            else None
+        ),
         removed=bool(data.get("removed")) if "removed" in data else None,
     ).to_dict()
 
@@ -278,7 +284,7 @@ def serialize_session_bootstrap(payload: Any) -> Dict[str, Any]:
     if isinstance(event_cursor, bool) or not isinstance(event_cursor, int):
         raise ValueError("event_cursor must be an integer")
     return SessionBootstrap(
-        schema_version=1,
+        schema_version=FRONTEND_PROTOCOL_SCHEMA_VERSION,
         event_cursor=event_cursor,
         thread=ThreadShell(
             id=session_id,

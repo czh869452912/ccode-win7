@@ -15,6 +15,7 @@ from embedagent_protocol import (
     ShellDescriptor,
     ThreadShell,
 )
+from embedagent_protocol.versions import FRONTEND_PROTOCOL_SCHEMA_VERSION
 
 from embedagent.frontend.runtime.commands import (
     UnsupportedShellDispatch,
@@ -105,6 +106,8 @@ class SessionClientRuntime(SessionEventSink):
         self._event_queue: List[SessionEventEnvelope] = []
         self._terminal_outcome = None  # type: Optional[RuntimeAction]
         self._transaction_baseline = None  # type: Optional[_RuntimeBaseline]
+        self._dispatch_depth = 0
+        self._deferred_operations = []  # type: List[Callable[[], Any]]
 
     @property
     def lifecycle(self) -> str:
@@ -174,14 +177,37 @@ class SessionClientRuntime(SessionEventSink):
         with self._condition:
             self._assert_operable()
             port = self._require_session_port()
+            if self._dispatch_depth:
+                self._deferred_operations.append(
+                    lambda: self.activate_session(session_id, mode=mode, reason=reason)
+                )
+                return None
         try:
             return self._run_bootstrap_transaction(
                 session_id,
                 reason,
                 lambda: port.get_session_bootstrap(session_id, mode),
+                allow_superseded=True,
             )
-        except (OSError, RuntimeError, TypeError, ValueError):
-            return None
+        except (OSError, RuntimeError, TypeError, ValueError) as exc:
+            if str(exc) == "bootstrap_transaction_superseded":
+                raise
+            with self._condition:
+                already_failed = self._lifecycle == "failed"
+                generation = self._generation
+                superseding_transaction = (
+                    self._transaction_baseline is not None
+                    and self._sync_phase == _SYNC_BOOTSTRAP
+                    and self._dispatch_depth == 0
+                )
+            if superseding_transaction:
+                raise RuntimeError("bootstrap_transaction_superseded")
+            if not already_failed:
+                failure = getattr(exc, "failure", None)
+                if not isinstance(failure, FailureRecord):
+                    failure = _failure_for_error(exc)
+                self._fail_generation(generation, session_id, failure)
+            raise
 
     def on_session_event(self, envelope: SessionEventEnvelope) -> None:
         if not isinstance(envelope, SessionEventEnvelope):
@@ -228,7 +254,17 @@ class SessionClientRuntime(SessionEventSink):
             ),
         )
 
-    def submit_user_message(
+    def submit_active_message(
+        self,
+        text: str,
+        stream: bool = True,
+    ) -> None:
+        with self._condition:
+            self._assert_operable()
+            selected_session_id = _required_session_id(self._active_session_id)
+        self._submit_message_for_session(selected_session_id, text, stream)
+
+    def _submit_message_for_session(
         self,
         session_id: str,
         text: str,
@@ -269,7 +305,7 @@ class SessionClientRuntime(SessionEventSink):
             text = "/" + command_name
             if values:
                 text += " " + " ".join(values)
-            self.submit_user_message(self.active_session_id, text, stream=True)
+            self.submit_active_message(text, stream=True)
             return command
         if kind == "session.create":
             return self.create_session(values[0] if values else default_mode)
@@ -288,7 +324,10 @@ class SessionClientRuntime(SessionEventSink):
         if kind == "session.archive":
             return self.archive_session(self.active_session_id)
         if kind == "session.fork":
-            return self.fork_session(self.active_session_id, " ".join(values).strip())
+            return self.fork_and_activate_session(
+                self.active_session_id,
+                " ".join(values).strip(),
+            )
         if kind == "session.mode":
             if not values:
                 raise ValueError("shell_command_argument_required:mode")
@@ -362,13 +401,12 @@ class SessionClientRuntime(SessionEventSink):
 
     def respond_to_interaction(
         self,
-        session_id: str,
         interaction_id: str,
         payload: Dict[str, Any],
     ) -> SessionBootstrap:
-        selected_session_id = _required_session_id(session_id)
         with self._condition:
             self._assert_operable()
+            selected_session_id = _required_session_id(self._active_session_id)
             port = self._require_session_port()
         return self._run_bootstrap_transaction(
             selected_session_id,
@@ -403,16 +441,20 @@ class SessionClientRuntime(SessionEventSink):
             port = self._require_session_port()
         return port.archive_session(_required_session_id(session_id))
 
-    def fork_session(self, session_id: str, title: str = "") -> SessionBootstrap:
+    def fork_session(self, session_id: str, title: str = "") -> ThreadShell:
         with self._condition:
             self._assert_operable()
             port = self._require_session_port()
         thread = port.fork_session(_required_session_id(session_id), str(title or ""))
         if not isinstance(thread, ThreadShell):
             raise TypeError("session port must return a ThreadShell")
+        return thread
+
+    def fork_and_activate_session(self, session_id: str, title: str = "") -> SessionBootstrap:
+        thread = self.fork_session(session_id, title)
         activated = self.activate_session(thread.id, reason="fork")
         if activated is None:
-            raise RuntimeError("forked session activation failed")
+            raise RuntimeError("forked session activation was superseded")
         return activated
 
     def close(self) -> None:
@@ -478,12 +520,21 @@ class SessionClientRuntime(SessionEventSink):
         target_session_id: str,
         reason: str,
         request: Callable[[], SessionBootstrap],
+        allow_superseded: bool = False,
     ) -> SessionBootstrap:
         generation = self._begin_bootstrap_transaction(target_session_id)
         try:
             bootstrap = request()
         except (OSError, RuntimeError, TypeError, ValueError):
+            with self._condition:
+                nested_transaction = (
+                    self._transaction_baseline is not None
+                    and bool(self._transaction_baseline.active_session_id)
+                    and self._transaction_baseline.active_session_id != target_session_id
+                )
             self._rollback_bootstrap_transaction(generation)
+            if nested_transaction:
+                raise RuntimeError("bootstrap_transaction_superseded")
             raise
         try:
             if not isinstance(bootstrap, SessionBootstrap):
@@ -498,6 +549,8 @@ class SessionClientRuntime(SessionEventSink):
             )
             raise
         if not self._install_bootstrap(generation, session_id, bootstrap, reason):
+            if allow_superseded:
+                return None  # type: ignore[return-value]
             raise RuntimeError("bootstrap_transaction_superseded")
         return bootstrap
 
@@ -576,6 +629,7 @@ class SessionClientRuntime(SessionEventSink):
                 self._lifecycle = publication.lifecycle
                 self._terminal_outcome = publication.terminal_outcome
                 self._condition.notify_all()
+            self._drain_deferred_operations()
 
     def _install_bootstrap(
         self,
@@ -625,7 +679,9 @@ class SessionClientRuntime(SessionEventSink):
             self._lifecycle = lifecycle
             self._terminal_outcome = terminal_outcome
             self._condition.notify_all()
-        return self._drain_event_queue(generation, session_id)
+        result = self._drain_event_queue(generation, session_id)
+        self._drain_deferred_operations()
+        return result
 
     def _fail_generation(
         self,
@@ -654,6 +710,7 @@ class SessionClientRuntime(SessionEventSink):
         with self._condition:
             if self._lifecycle == "closed" or generation != self._generation:
                 return
+            self._active_session_id = session_id
             self._lifecycle = "failed"
             self._sync_phase = _SYNC_IDLE
             self._event_queue = []
@@ -700,7 +757,7 @@ class SessionClientRuntime(SessionEventSink):
     def _validate_bootstrap(self, bootstrap: Any, session_id: str) -> None:
         if not isinstance(bootstrap, SessionBootstrap):
             raise TypeError("session port must return a SessionBootstrap")
-        if bootstrap.schema_version != 1:
+        if bootstrap.schema_version != FRONTEND_PROTOCOL_SCHEMA_VERSION:
             raise ValueError("unsupported session bootstrap schema")
         snapshot_session_id = _required_session_id(bootstrap.snapshot.get("session_id"))
         if bootstrap.thread.id != session_id or snapshot_session_id != session_id:
@@ -830,8 +887,23 @@ class SessionClientRuntime(SessionEventSink):
 
     def _dispatch_action(self, action: RuntimeAction) -> None:
         dispatch = self._dispatch
-        if dispatch is not None:
+        if dispatch is None:
+            return
+        with self._condition:
+            self._dispatch_depth += 1
+        try:
             dispatch(action)
+        finally:
+            with self._condition:
+                self._dispatch_depth -= 1
+
+    def _drain_deferred_operations(self) -> None:
+        while True:
+            with self._condition:
+                if not self._deferred_operations:
+                    return
+                operation = self._deferred_operations.pop(0)
+            operation()
 
     def _require_session_port(self) -> FrontendSessionPort:
         if self._session_port is None:
