@@ -32,14 +32,20 @@ permission/user-input 形状、GUI 仍解析 `last_error` 而 Host session snaps
    synchronization owner。CLI session commands 不得直接访问 `session_port`；shell 不得以
    本地 projection 的 session id 代替 runtime active id。
 3. permission 和 user-input 使用规范化的 `InteractionProjection` 与 descriptor-backed
-   response。所有 shell 使用相同的 interaction id、question/choice/default、renderer 和
-   response-failure 生命周期。
+   response。所有 shell 只依赖最小公共字段（interaction id、turn id、renderer、response
+   lifecycle）；choices、questions、defaults 和 workflow-specific data 由命名空间化
+   descriptor 描述，不能把某个 shell 或工作流的私有结构写进共享 runtime。
 4. WebSocket 只接受经过 strict `SessionEventEnvelope` normalizer 的消息；event sink 发布
    失败必须传播给 Host/runtime，不能记录后当作成功。workspace 切换使用独立的 app-level
    `workspace_changed` notification，不伪装成 session event。
-5. Host generic runtime 接收产品组合显式创建的 model、tool、context 和 permission
-   collaborators；Host 不再构造默认 provider。该迁移与 shell 协议迁移在同一个收敛计划中完成。
-6. 所有旧路径直接删除。不会添加 `last_error` alias、port forwarding facade、第三套
+5. Host generic runtime 接收产品组合显式创建、且只满足 focused port/interface 的 model、
+   tool、context 和 permission collaborators；Host 不依赖这些 collaborator 的具体实现，
+   也不构造默认 provider。该迁移与 shell 协议迁移在同一个收敛计划中完成。
+6. 必要耦合只存在于稳定 DTO、focused port、生命周期和 capability key；shell renderer、
+   workflow implementation、provider SDK、Host concrete class 和 application registry
+   不得进入公共 runtime。可替换实现通过 descriptor registry、capability contribution 和
+   可撤销 `RegistrationScope` 接入，并以 fake port/provider contract tests 验证替换性。
+7. 所有旧路径直接删除。不会添加 `last_error` alias、port forwarding facade、第三套
    runtime、shell-specific interaction fallback 或从异常文本恢复分类的兼容层。
 
 ## 形式化不变量
@@ -59,12 +65,16 @@ permission/user-input 形状、GUI 仍解析 `last_error` 而 Host session snaps
   ledger 或伪造 session event。
 - **Composition closure**：Host runtime 的 model/tool/context/permission collaborators
   必须由 selected product contribution 显式提供，缺失时产生 typed `configuration_error`。
+- **Substitutability**：runtime contract tests 使用 fake transport、fake provider 和 fake
+  renderer 即可通过；任何具体 Host、shell toolkit 或 provider SDK 都不能成为 runtime 的
+  必需依赖。
 
 ## 影响
 
 收益：三端的失败展示、退出码、interaction response、恢复和关闭行为可由同一组 fixtures
 验证；shell 不再拥有 session truth；GUI/WebSocket 丢事件和 TUI stale-session race 可以在
-runtime 层被拒绝；Host/Application 的组合边界与 Phase 4 的显式贡献模型一致。
+runtime 层被拒绝；Host/Application 的组合边界与 Phase 4 的显式贡献模型一致；具体 shell、
+provider 和 workflow 可以在不修改 runtime 的情况下替换。
 
 代价：这是 breaking migration，需要同步更新 Python/JavaScript DTO、fixture、CLI/TUI/GUI
 测试和 protocol schema；旧的 `last_error` fixture、direct port command 和硬编码 interaction
@@ -72,7 +82,8 @@ runtime 层被拒绝；Host/Application 的组合边界与 Phase 4 的显式贡�
 
 风险：WebSocket sink 传播失败后，Host 已分配的 event sequence 不能回滚，因此 recovery 必须
 依赖 canonical cursor/bootstrap；workspace notification 增加 app-level DTO，需要单独的严格
-normalizer 和连接关闭测试。
+normalizer 和连接关闭测试。过度收敛 descriptor 也可能把未来 capability 锁死，因此公共
+字段保持最小化，扩展数据必须使用版本化命名空间，而不是继续扩张核心 DTO。
 
 ## 备选方案
 

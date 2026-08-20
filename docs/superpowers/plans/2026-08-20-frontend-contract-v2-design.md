@@ -8,7 +8,8 @@
 
 让 CLI、TUI、GUI 对同一 hosted session 呈现同一套可观察行为：失败分类一致、runtime
 拥有 session truth、interaction descriptor 可执行、事件顺序可恢复、workspace 切换不污染
-session ledger。实现采用 breaking pre-release migration，不建立兼容双轨。
+session ledger。实现采用 breaking pre-release migration，不建立兼容双轨，同时把耦合限制在
+协议和 focused ports，不把具体 shell、Host、provider 或 workflow 实现带入共享 runtime。
 
 ## 当前证据
 
@@ -40,9 +41,11 @@ JavaScript normalizer/reducer 和所有 fixtures 同步删除旧字段。
 
 ### InteractionProjection
 
-Host normalization 后，顶层必须包含 `kind`, `interaction_id`, `turn_id` 和 request-specific
-descriptor。permission 具有 choices/default；user-input 具有 question(s)、answer key、
-choices/default 和 renderer。shell 只消费 projection，不解释 Host 私有 payload。
+Host normalization 后，顶层只包含稳定公共字段 `kind`, `interaction_id`, `turn_id`,
+`renderer` 和 versioned `descriptor`。内置 permission/user-input descriptor 可以提供
+choices/default/question(s)/answer key，但这些字段位于 descriptor 命名空间；未来 capability
+可以注册不同 descriptor，而不修改 runtime 状态机。shell 只消费 descriptor contract，不
+解释 Host 私有 payload。
 
 ### App shell notification
 
@@ -90,10 +93,34 @@ session ledger，不改变 session runtime cursor。
 
 ### Product/Host
 
-- `create_generic_hosted_runtime` 改为接收显式 model/tool/context/permission collaborators。
-- 产品组合负责构造并绑定这些 collaborators；缺失或不匹配时返回 typed
-  `configuration_error`。
+- `create_generic_hosted_runtime` 改为接收显式 model/tool/context/permission focused ports。
+- 产品组合负责构造并绑定这些 ports；Host 只依赖 interface/Protocol，不依赖 collaborator
+  concrete class。缺失或不匹配时返回 typed `configuration_error`。
 - Host 不再创建默认 provider，不添加 forwarding facade。
+
+## 耦合预算与可替换性
+
+### 必要耦合
+
+- Protocol DTO、schema version、FailureRecord、canonical session envelope；
+- SessionClientRuntime 的 generation/cursor/interaction/close 状态机；
+- focused ports 和 capability keys；
+- descriptor registry 的 renderer/dispatch contract。
+
+这些是跨实现必须一致的可执行契约，使用 shared fixtures 和 property tests 验证。
+
+### 禁止耦合
+
+- runtime import 具体 Host adapter、OpenAI/provider SDK、prompt_toolkit、React 或 pywebview；
+- TUI/GUI 根据 workflow name、application id 或 tool name 重建 policy；
+- interaction projection 暴露 Host 私有对象或 workflow 私有 DTO；
+- 为了复用而增加 aggregate service、callback bag、forwarding facade 或第三套 runtime。
+
+### 插件替换方式
+
+具体 provider、renderer、command 和 workflow capability 通过 manifest-gated contribution、
+descriptor registry 和 `RegistrationScope` 注册，注册返回可幂等 disposer。替换实现只需满足
+focused port 与 descriptor contract；测试使用 fake implementation 验证 runtime 不依赖具体类。
 
 ## 删除项
 
@@ -104,6 +131,7 @@ session ledger，不改变 session runtime cursor。
 - GUI WebSocket permissive envelope bypass；
 - Host generic provider construction fallback；
 - 为保留旧行为而新增的 adapter、facade、双写字段或 message-text classifier。
+- 将 concrete provider、shell renderer 或 workflow state 作为 shared runtime 的新依赖。
 
 ## 验收用例
 
@@ -116,6 +144,7 @@ session ledger，不改变 session runtime cursor。
 4. sink failure propagation、strict WebSocket envelope 和 workspace notification；
 5. runtime sink 回调重入、TUI late event 和 direct close；
 6. explicit product provider composition 以及缺失 collaborator 的 configuration error。
+7. fake transport/provider/renderer 替换 concrete implementation 后，runtime contract 仍全部通过。
 
 ## 审阅后下一步
 
