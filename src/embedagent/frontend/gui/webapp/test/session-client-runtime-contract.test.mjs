@@ -312,7 +312,7 @@ export async function runSessionClientRuntimeContractTests() {
   raceTransport.respondToInteraction = async () => {
     await raceRuntime.acceptSessionEvent(clone(contract.events.approval_resolved));
     await raceRuntime.acceptSessionEvent({
-      schema_version: 1,
+      schema_version: 2,
       event_id: "session-finished-4",
       session_id: "session-1",
       sequence: 4,

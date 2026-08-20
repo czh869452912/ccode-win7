@@ -1,4 +1,5 @@
 import { isSessionEventEnvelope } from "./session-transport-state.js";
+import { FRONTEND_PROTOCOL_SCHEMA_VERSION } from "./protocol-version.js";
 
 const INTERACTION_REQUEST_EVENTS = new Set([
   "approval.requested",
@@ -71,7 +72,7 @@ function validateBootstrap(value, sessionId) {
   if (Object.keys(value).some((key) => !BOOTSTRAP_KEYS.has(key))) {
     throw new ProtocolError("invalid session bootstrap field");
   }
-  if (value.schema_version !== 1) {
+  if (value.schema_version !== FRONTEND_PROTOCOL_SCHEMA_VERSION) {
     throw new ProtocolError("unsupported session bootstrap schema");
   }
   if (!Number.isInteger(value.event_cursor) || value.event_cursor < 0) {
@@ -100,7 +101,7 @@ function validateBootstrap(value, sessionId) {
   if (!record(value.history.integrity) || !record(value.capabilities)) {
     throw new ProtocolError("invalid session bootstrap capabilities");
   }
-  if (value.capabilities.schema_version !== 1) {
+  if (value.capabilities.schema_version !== FRONTEND_PROTOCOL_SCHEMA_VERSION) {
     throw new ProtocolError("invalid session capabilities schema");
   }
   if (value.plan !== null && !record(value.plan)) {

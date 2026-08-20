@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Mapping
 
 from embedagent_protocol import FailureRecord, SessionEventEnvelope
+from embedagent_protocol.versions import FRONTEND_PROTOCOL_SCHEMA_VERSION
 
 _EVENT_KIND_MAP = {
     "turn_start": "turn.started",
@@ -140,7 +141,7 @@ class SessionEventEncoder(object):
             sequence = int(self._sequences.get(resolved_session_id, 0) or 0) + 1
             self._sequences[resolved_session_id] = sequence
         return SessionEventEnvelope(
-            schema_version=1,
+            schema_version=FRONTEND_PROTOCOL_SCHEMA_VERSION,
             event_id="evt-" + uuid.uuid4().hex[:12],
             session_id=resolved_session_id,
             sequence=sequence,

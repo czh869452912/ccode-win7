@@ -11,7 +11,7 @@ import { summarizeChangedFiles } from "../src/session-runtime/timeline/diff-acti
 
 function envelope(eventKind, payload, sequence = 1) {
   return {
-    schema_version: 1,
+    schema_version: 2,
     event_id: `evt-${sequence}`,
     session_id: "sess-active",
     sequence,

@@ -5,6 +5,8 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Dict, Mapping
 
+from embedagent_protocol.versions import FRONTEND_PROTOCOL_SCHEMA_VERSION
+
 FRONTEND_FAILURE_CODES = (
     "usage_error",
     "configuration_error",
@@ -151,6 +153,8 @@ class SessionEventEnvelope:
             "schema_version",
             _positive_integer(self.schema_version, "schema_version"),
         )
+        if self.schema_version != FRONTEND_PROTOCOL_SCHEMA_VERSION:
+            raise ValueError("schema_version must be %s" % FRONTEND_PROTOCOL_SCHEMA_VERSION)
         object.__setattr__(self, "event_id", _required_text(self.event_id, "event_id"))
         object.__setattr__(self, "session_id", _required_text(self.session_id, "session_id"))
         object.__setattr__(self, "sequence", _positive_integer(self.sequence, "sequence"))

@@ -1,3 +1,5 @@
+import { FRONTEND_PROTOCOL_SCHEMA_VERSION } from "./protocol-version.js";
+
 const SENSITIVE_KEY_PARTS = ["api_key", "authorization", "password", "secret", "token"];
 const BLOCKED_KEYS = new Set(["prompt", "transcript", "tool_output"]);
 
@@ -76,7 +78,9 @@ export function normalizeSessionEventEnvelope(input) {
     if (typeof value !== "string" || !value.trim()) throw new Error(`${scope}:${field}`);
     return value.trim();
   };
-  if (input.schema_version !== 1) throw new Error(`${scope}:schema_version`);
+  if (input.schema_version !== FRONTEND_PROTOCOL_SCHEMA_VERSION) {
+    throw new Error(`${scope}:schema_version`);
+  }
   if (!Number.isInteger(input.sequence) || input.sequence <= 0) {
     throw new Error(`${scope}:sequence`);
   }

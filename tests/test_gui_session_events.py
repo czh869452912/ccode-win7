@@ -7,7 +7,7 @@ from embedagent.frontend.gui.backend.server import WebSocketFrontend
 
 def _event():
     return SessionEventEnvelope(
-        schema_version=1,
+        schema_version=2,
         event_id="event-1",
         session_id="session-1",
         sequence=3,

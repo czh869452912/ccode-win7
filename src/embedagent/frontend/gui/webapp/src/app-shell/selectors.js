@@ -1,8 +1,9 @@
 import { isRecord, validateShellDescriptor } from "./validation.js";
+import { FRONTEND_PROTOCOL_SCHEMA_VERSION } from "../session-runtime/protocol-version.js";
 
 export function emptyShellDescriptor() {
   return Object.freeze({
-    schemaVersion: 1,
+    schemaVersion: FRONTEND_PROTOCOL_SCHEMA_VERSION,
     commands: Object.freeze([]),
     surfaces: Object.freeze([]),
     keybindings: Object.freeze([]),

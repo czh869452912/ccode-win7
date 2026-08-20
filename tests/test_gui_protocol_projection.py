@@ -80,7 +80,7 @@ class GuiProtocolProjectionTests(unittest.TestCase):
                 "permission_context",
             },
         )
-        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["schema_version"], 2)
         self.assertEqual(payload["thread"]["id"], "sess-1")
         self.assertEqual(payload["history"]["activities"][0]["kind"], "user")
         self.assertNotIn("turns", payload["history"])
@@ -155,7 +155,7 @@ class GuiProtocolProjectionTests(unittest.TestCase):
                 "active_workspace": {"id": "ws-1", "label": "demo"},
                 "has_active_workspace": True,
                 "shell": {
-                    "schema_version": 1,
+                    "schema_version": 2,
                     "commands": [
                         {
                             "id": "app.open",
@@ -172,7 +172,7 @@ class GuiProtocolProjectionTests(unittest.TestCase):
                 },
                 "settings": {"confirm_workspace_switch": True},
                 "diagnostics": {"offline": True},
-                "last_error": "",
+                "last_failure": None,
                 "history": {"activities": []},
             }
         )
@@ -188,10 +188,10 @@ class GuiProtocolProjectionTests(unittest.TestCase):
                 "shell",
                 "settings",
                 "diagnostics",
-                "last_error",
+                "last_failure",
             },
         )
-        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["schema_version"], 2)
         self.assertEqual(payload["app"]["product_name"], "EmbedAgent")
         self.assertEqual(payload["active_workspace"]["id"], "ws-1")
         self.assertEqual(

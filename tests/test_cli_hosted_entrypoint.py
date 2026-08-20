@@ -9,7 +9,7 @@ from embedagent_protocol import CapabilitySnapshot, FailureRecord, ShellDescript
 
 def _capabilities():
     return CapabilitySnapshot(
-        schema_version=1,
+        schema_version=2,
         modes=[],
         commands=[],
         tools=[],
@@ -54,7 +54,7 @@ def test_cli_application_composes_focused_ports_and_shared_runtime(tmp_path, mon
     session = FakeSessionPort()
     hosted = SimpleNamespace(session=session, workspace=object())
     created = []
-    compiler = MagicMock(return_value=ShellDescriptor(schema_version=1))
+    compiler = MagicMock(return_value=ShellDescriptor(schema_version=2))
     registry = MagicMock()
     registry.record_by_id.return_value = SimpleNamespace(application_id="tests.python")
 
@@ -76,7 +76,7 @@ def test_cli_application_composes_focused_ports_and_shared_runtime(tmp_path, mon
     assert created == [(launch_config, application.client_runtime)]
     assert application.session_port is session
     assert application.workspace_port is hosted.workspace
-    assert application.shell_descriptor == ShellDescriptor(schema_version=1)
+    assert application.shell_descriptor == ShellDescriptor(schema_version=2)
     compiler.assert_called_once_with(
         {
             "allowed_agent_application_ids": ("tests.python",),
@@ -121,7 +121,7 @@ def test_cli_application_routes_run_and_closes_shared_runtime(tmp_path, monkeypa
         client_runtime=runtime,
         session_port=MagicMock(),
         workspace_port=MagicMock(),
-        shell_descriptor=ShellDescriptor(schema_version=1),
+        shell_descriptor=ShellDescriptor(schema_version=2),
     )
     handler = MagicMock(return_value=17)
     monkeypatch.setattr("embedagent.cli.run.run_command", handler)
@@ -144,7 +144,7 @@ def test_cli_application_routes_chat_and_closes_shared_runtime(tmp_path, monkeyp
         client_runtime=runtime,
         session_port=MagicMock(),
         workspace_port=MagicMock(),
-        shell_descriptor=ShellDescriptor(schema_version=1),
+        shell_descriptor=ShellDescriptor(schema_version=2),
     )
     handler = MagicMock(return_value=0)
     monkeypatch.setattr("embedagent.cli.chat.run_chat_command", handler)

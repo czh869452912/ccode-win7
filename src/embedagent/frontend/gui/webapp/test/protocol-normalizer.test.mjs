@@ -10,6 +10,7 @@ import {
   normalizeSessionBootstrap,
 } from "../src/session-runtime/protocol-normalizer.js";
 import { resolveToolPresentation } from "../src/session-runtime/tool-presentation.js";
+import { FRONTEND_PROTOCOL_SCHEMA_VERSION } from "../src/session-runtime/protocol-version.js";
 
 const FIXTURE_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -29,7 +30,7 @@ export function runProtocolNormalizerTests() {
   const session = normalizeSessionBootstrap(wireSession);
   const capabilities = session.capabilities;
 
-  assert.equal(session.schemaVersion, 1);
+  assert.equal(session.schemaVersion, FRONTEND_PROTOCOL_SCHEMA_VERSION);
   assert.equal(session.eventCursor, 4);
   assert.equal(session.thread.currentMode, "build");
   assert.deepEqual(capabilities.modes.map((item) => item.id), ["build"]);
@@ -60,7 +61,7 @@ export function runProtocolNormalizerTests() {
   assert.deepEqual(emptyCapabilities.agentApplications, []);
 
   const app = normalizeProtocolAppBootstrap(readFixture("app_bootstrap.json"));
-  assert.equal(app.schemaVersion, 1);
+  assert.equal(app.schemaVersion, FRONTEND_PROTOCOL_SCHEMA_VERSION);
   assert.equal(app.hasActiveWorkspace, true);
   assert.equal(app.shell.surfaces[0].placement, "overlay");
 
@@ -69,7 +70,7 @@ export function runProtocolNormalizerTests() {
     /invalid_session_bootstrap/,
   );
   assert.throws(
-    () => normalizeSessionBootstrap({ ...wireSession, schema_version: 2 }),
+    () => normalizeSessionBootstrap({ ...wireSession, schema_version: 1 }),
     /invalid_session_bootstrap:schema_version/,
   );
   const missingCursor = { ...wireSession };

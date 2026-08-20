@@ -5,13 +5,13 @@ import { initialState } from "../src/client-runtime/runtime-reducer.js";
 
 function appBootstrap() {
   return {
-    schema_version: 1,
+    schema_version: 2,
     app: { shell_version: 1, product_name: "EmbedAgent", protocol: "gui_app_shell_v1" },
     workspaces: [],
     active_workspace: null,
     has_active_workspace: false,
     shell: {
-      schema_version: 1,
+      schema_version: 2,
       commands: [],
       surfaces: [],
       keybindings: [],
@@ -80,7 +80,7 @@ export async function runClientRuntimeTests() {
     listSessions: async () => ({ sessions: [] }),
     loadSessionCapabilities: async () => ({}),
     loadSessionBootstrap: async (sessionId) => ({
-      schema_version: 1,
+      schema_version: 2,
       event_cursor: 0,
       thread: {
         id: sessionId,
@@ -94,7 +94,7 @@ export async function runClientRuntimeTests() {
       snapshot: { session_id: sessionId, status: "idle", current_mode: "explore" },
       history: { activities: [], integrity: {} },
       capabilities: {
-        schema_version: 1,
+        schema_version: 2,
         modes: [],
         commands: [],
         tools: [],
@@ -149,7 +149,7 @@ export async function runClientRuntimeTests() {
   receiveSocketMessage({
     type: "session_event",
     data: {
-      schema_version: 1,
+      schema_version: 2,
       event_id: "event-1",
       session_id: "s-1",
       sequence: 1,

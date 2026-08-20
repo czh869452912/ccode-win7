@@ -35,7 +35,7 @@ def test_frontend_failure_codes_are_closed():
 
 def test_session_event_envelope_is_json_safe():
     envelope = SessionEventEnvelope(
-        schema_version=1,
+        schema_version=2,
         event_id="evt-1",
         session_id="s-1",
         sequence=1,
@@ -71,7 +71,7 @@ def test_session_event_envelope_is_json_safe():
 )
 def test_session_event_envelope_rejects_invalid_wire_fields(field, value):
     values = {
-        "schema_version": 1,
+        "schema_version": 2,
         "event_id": "evt-1",
         "session_id": "s-1",
         "sequence": 1,

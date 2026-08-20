@@ -1,8 +1,8 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "bootstraps": {
     "session_1_cursor_1": {
-      "schema_version": 1,
+      "schema_version": 2,
       "event_cursor": 1,
       "thread": {
         "id": "session-1",
@@ -16,7 +16,7 @@
       "snapshot": {"session_id": "session-1", "status": "idle"},
       "history": {"activities": [], "integrity": {"status": "healthy"}},
       "capabilities": {
-        "schema_version": 1,
+        "schema_version": 2,
         "modes": [],
         "commands": [],
         "tools": [],
@@ -31,7 +31,7 @@
       "permission_context": {}
     },
     "session_1_cursor_2": {
-      "schema_version": 1,
+      "schema_version": 2,
       "event_cursor": 2,
       "thread": {
         "id": "session-1",
@@ -45,7 +45,7 @@
       "snapshot": {"session_id": "session-1", "status": "running"},
       "history": {"activities": [], "integrity": {"status": "healthy"}},
       "capabilities": {
-        "schema_version": 1,
+        "schema_version": 2,
         "modes": [],
         "commands": [],
         "tools": [],
@@ -60,7 +60,7 @@
       "permission_context": {}
     },
     "session_1_cursor_3": {
-      "schema_version": 1,
+      "schema_version": 2,
       "event_cursor": 3,
       "thread": {
         "id": "session-1",
@@ -74,7 +74,7 @@
       "snapshot": {"session_id": "session-1", "status": "running"},
       "history": {"activities": [], "integrity": {"status": "healthy"}},
       "capabilities": {
-        "schema_version": 1,
+        "schema_version": 2,
         "modes": [],
         "commands": [],
         "tools": [],
@@ -89,7 +89,7 @@
       "permission_context": {}
     },
     "session_1_cursor_4": {
-      "schema_version": 1,
+      "schema_version": 2,
       "event_cursor": 4,
       "thread": {
         "id": "session-1",
@@ -103,7 +103,7 @@
       "snapshot": {"session_id": "session-1", "status": "idle"},
       "history": {"activities": [], "integrity": {"status": "healthy"}},
       "capabilities": {
-        "schema_version": 1,
+        "schema_version": 2,
         "modes": [],
         "commands": [],
         "tools": [],
@@ -118,7 +118,7 @@
       "permission_context": {}
     },
     "session_1_cursor_5": {
-      "schema_version": 1,
+      "schema_version": 2,
       "event_cursor": 5,
       "thread": {
         "id": "session-1",
@@ -132,7 +132,7 @@
       "snapshot": {"session_id": "session-1", "status": "idle"},
       "history": {"activities": [], "integrity": {"status": "healthy"}},
       "capabilities": {
-        "schema_version": 1,
+        "schema_version": 2,
         "modes": [],
         "commands": [],
         "tools": [],
@@ -147,7 +147,7 @@
       "permission_context": {}
     },
     "session_2_cursor_0": {
-      "schema_version": 1,
+      "schema_version": 2,
       "event_cursor": 0,
       "thread": {
         "id": "session-2",
@@ -161,7 +161,7 @@
       "snapshot": {"session_id": "session-2", "status": "idle"},
       "history": {"activities": [], "integrity": {"status": "healthy"}},
       "capabilities": {
-        "schema_version": 1,
+        "schema_version": 2,
         "modes": [],
         "commands": [],
         "tools": [],
@@ -181,12 +181,12 @@
       "thread": {"id": "session-1"},
       "snapshot": {"session_id": "session-1"},
       "history": {"activities": [], "integrity": {}},
-      "capabilities": {"schema_version": 1}
+      "capabilities": {"schema_version": 2}
     }
   },
   "events": {
     "session_1_sequence_2": {
-      "schema_version": 1,
+      "schema_version": 2,
       "event_id": "event-1-2",
       "session_id": "session-1",
       "sequence": 2,
@@ -195,7 +195,7 @@
       "payload": {"text": "two"}
     },
     "session_1_sequence_3": {
-      "schema_version": 1,
+      "schema_version": 2,
       "event_id": "event-1-3",
       "session_id": "session-1",
       "sequence": 3,
@@ -204,7 +204,7 @@
       "payload": {"text": "three"}
     },
     "session_1_sequence_4": {
-      "schema_version": 1,
+      "schema_version": 2,
       "event_id": "event-1-4-finished",
       "session_id": "session-1",
       "sequence": 4,
@@ -216,7 +216,7 @@
       }
     },
     "session_1_sequence_5": {
-      "schema_version": 1,
+      "schema_version": 2,
       "event_id": "event-1-5",
       "session_id": "session-1",
       "sequence": 5,
@@ -225,7 +225,7 @@
       "payload": {"text": "five"}
     },
     "session_1_sequence_6": {
-      "schema_version": 1,
+      "schema_version": 2,
       "event_id": "event-1-6",
       "session_id": "session-1",
       "sequence": 6,
@@ -234,7 +234,7 @@
       "payload": {"text": "six"}
     },
     "session_2_sequence_2": {
-      "schema_version": 1,
+      "schema_version": 2,
       "event_id": "event-2-2",
       "session_id": "session-2",
       "sequence": 2,
@@ -243,7 +243,7 @@
       "payload": {"text": "other"}
     },
     "session_2_sequence_1": {
-      "schema_version": 1,
+      "schema_version": 2,
       "event_id": "event-2-1",
       "session_id": "session-2",
       "sequence": 1,
@@ -252,7 +252,7 @@
       "payload": {"text": "new session"}
     },
     "approval_requested": {
-      "schema_version": 1,
+      "schema_version": 2,
       "event_id": "approval-requested",
       "session_id": "session-1",
       "sequence": 2,
@@ -261,7 +261,7 @@
       "payload": {"interaction_id": "approval-1", "request_id": "approval-1"}
     },
     "approval_resolved": {
-      "schema_version": 1,
+      "schema_version": 2,
       "event_id": "approval-resolved",
       "session_id": "session-1",
       "sequence": 3,

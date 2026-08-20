@@ -31,7 +31,7 @@ def _thread(session_id="session-1", mode="build"):
 
 def _bootstrap(session_id="session-1", mode="build"):
     return SessionBootstrap(
-        schema_version=1,
+        schema_version=2,
         event_cursor=0,
         thread=_thread(session_id, mode),
         snapshot={

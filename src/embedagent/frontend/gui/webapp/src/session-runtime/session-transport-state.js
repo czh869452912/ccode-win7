@@ -1,3 +1,5 @@
+import { FRONTEND_PROTOCOL_SCHEMA_VERSION } from "./protocol-version.js";
+
 const VALID_RELOAD_STATES = new Set(["healthy", "reload_required", "degraded"]);
 
 function normalizeReloadState(value, fallback = "healthy") {
@@ -25,7 +27,7 @@ export function capRetryAttempt(value) {
 
 export function isSessionEventEnvelope(event) {
   if (!event || typeof event !== "object" || Array.isArray(event)) return false;
-  if (event.schema_version !== 1) return false;
+  if (event.schema_version !== FRONTEND_PROTOCOL_SCHEMA_VERSION) return false;
   if (!String(event.event_id || "").trim()) return false;
   if (!String(event.session_id || "").trim()) return false;
   if (!Number.isInteger(event.sequence) || event.sequence <= 0) return false;

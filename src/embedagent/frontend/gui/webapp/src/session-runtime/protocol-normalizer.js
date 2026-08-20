@@ -1,4 +1,6 @@
-const CURRENT_SCHEMA_VERSION = 1;
+import { FRONTEND_PROTOCOL_SCHEMA_VERSION } from "./protocol-version.js";
+
+const CURRENT_SCHEMA_VERSION = FRONTEND_PROTOCOL_SCHEMA_VERSION;
 
 function invalid(scope, field) {
   throw new Error(`invalid_${scope}:${field}`);
@@ -333,7 +335,7 @@ export function normalizeProtocolCapabilities(value) {
 
 export function emptyProtocolCapabilities() {
   return normalizeProtocolCapabilities({
-    schema_version: 1,
+    schema_version: FRONTEND_PROTOCOL_SCHEMA_VERSION,
     modes: [],
     commands: [],
     tools: [],

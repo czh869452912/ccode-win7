@@ -56,7 +56,7 @@
 
 - [ ] **Step 1: Write failing DTO tests.**
 
-  Add tests asserting that `CURRENT_SCHEMA_VERSION == 2`, `AppBootstrap` accepts only
+  Add tests asserting that `FRONTEND_PROTOCOL_SCHEMA_VERSION == 2`, `AppBootstrap` accepts only
   `last_failure: FailureRecord | None` and rejects `last_error`, and the new DTOs reject
   unknown root fields. The interaction test must use this concrete shape:
 

@@ -10,7 +10,7 @@ import { buildSessionActivityRuntime } from "../src/session-runtime/activity-sta
 
 function envelope(sessionId, sequence, eventId) {
   return {
-    schema_version: 1,
+    schema_version: 2,
     session_id: sessionId,
     event_id: eventId,
     sequence,
@@ -137,7 +137,7 @@ export function runSessionRuntimeTests() {
       ...createSessionTransportState(),
       events: [
         {
-          schema_version: 1,
+          schema_version: 2,
           session_id: "sess-1",
           event_id: "evt-ignored",
           sequence: 1,
@@ -238,7 +238,7 @@ export function runSessionRuntimeTests() {
   assert.equal(detachedRuntime.timelineView[0].trailingTurnItems[0].id, "detached-tool");
 
   const malformedEnvelope = isSessionEventEnvelope({
-    schema_version: 1,
+    schema_version: 2,
     session_id: "sess-1",
     event_id: "evt-bad",
     sequence: 1,

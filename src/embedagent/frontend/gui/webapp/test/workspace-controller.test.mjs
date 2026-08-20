@@ -13,7 +13,7 @@ function readSource(...parts) {
 
 function bootstrap(id = "ws-2", active = true) {
   return {
-    schema_version: 1,
+    schema_version: 2,
     app: { shell_version: 1, product_name: "EmbedAgent", protocol: "gui_app_shell_v1" },
     active_workspace: active
       ? { id, path: `D:/work/${id}`, label: id, exists: true }
@@ -23,7 +23,7 @@ function bootstrap(id = "ws-2", active = true) {
       : [],
     has_active_workspace: active,
     shell: {
-      schema_version: 1,
+      schema_version: 2,
       commands: [],
       surfaces: [],
       keybindings: [],

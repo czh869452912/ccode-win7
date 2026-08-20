@@ -1,0 +1,1 @@
+export const FRONTEND_PROTOCOL_SCHEMA_VERSION = 2;

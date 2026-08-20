@@ -15,6 +15,7 @@ from embedagent_protocol import (
     ShellDescriptor,
     ThreadShell,
 )
+from embedagent_protocol.versions import FRONTEND_PROTOCOL_SCHEMA_VERSION
 
 from embedagent.frontend.runtime.commands import (
     UnsupportedShellDispatch,
@@ -700,7 +701,7 @@ class SessionClientRuntime(SessionEventSink):
     def _validate_bootstrap(self, bootstrap: Any, session_id: str) -> None:
         if not isinstance(bootstrap, SessionBootstrap):
             raise TypeError("session port must return a SessionBootstrap")
-        if bootstrap.schema_version != 1:
+        if bootstrap.schema_version != FRONTEND_PROTOCOL_SCHEMA_VERSION:
             raise ValueError("unsupported session bootstrap schema")
         snapshot_session_id = _required_session_id(bootstrap.snapshot.get("session_id"))
         if bootstrap.thread.id != session_id or snapshot_session_id != session_id:

@@ -8,6 +8,7 @@ import {
   normalizeSessionEventEnvelope,
   protocolEnvelopeIsValid,
 } from "../src/session-runtime/protocol-envelope.js";
+import { FRONTEND_PROTOCOL_SCHEMA_VERSION } from "../src/session-runtime/protocol-version.js";
 
 const FIXTURE_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -47,13 +48,13 @@ export function runProtocolEnvelopeTests() {
 
   const wireEvent = readFixture("session_event.json");
   const event = normalizeSessionEventEnvelope(wireEvent);
-  assert.equal(event.schemaVersion, 1);
+  assert.equal(event.schemaVersion, FRONTEND_PROTOCOL_SCHEMA_VERSION);
   assert.equal(event.eventId, "event-5");
   assert.equal(event.sequence, 5);
   assert.equal(event.eventKind, "session.snapshot");
 
   assert.throws(
-    () => normalizeSessionEventEnvelope({ ...wireEvent, schema_version: 2 }),
+    () => normalizeSessionEventEnvelope({ ...wireEvent, schema_version: 1 }),
     /invalid_session_event:schema_version/,
   );
   assert.throws(

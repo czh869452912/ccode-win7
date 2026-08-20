@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _bootstrap(session_id="session-1", cursor=1):
     return SessionBootstrap(
-        schema_version=1,
+        schema_version=2,
         event_cursor=cursor,
         thread=ThreadShell(
             id=session_id,
@@ -45,7 +45,7 @@ def _bootstrap(session_id="session-1", cursor=1):
 
 def _event(event_kind, payload, sequence=2):
     return SessionEventEnvelope(
-        schema_version=1,
+        schema_version=2,
         event_id="event-%s" % sequence,
         session_id="session-1",
         sequence=sequence,
@@ -574,7 +574,7 @@ def test_runtime_installs_failed_lifecycle_from_error_bootstrap():
     runtime = SessionClientRuntime()
     port = FakeSessionPort()
     port.bootstrap = SessionBootstrap(
-        schema_version=1,
+        schema_version=2,
         event_cursor=1,
         thread=ThreadShell(
             id="session-1",

@@ -15,7 +15,7 @@ import {
 
 function appBootstrap(shell, app = {}) {
   return {
-    schema_version: 1,
+    schema_version: 2,
     app: {
       shell_version: 1,
       product_name: "",
@@ -37,7 +37,7 @@ function appBootstrap(shell, app = {}) {
 
 function shellDescriptor(patch = {}) {
   return {
-    schema_version: 1,
+    schema_version: 2,
     commands: [],
     surfaces: [],
     keybindings: [],

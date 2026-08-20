@@ -62,6 +62,12 @@ from embedagent_protocol.frontend_ports import (
     FrontendWorkspacePort as FrontendWorkspacePort,
 )
 from embedagent_protocol.frontend_ports import SessionEventSink as SessionEventSink
+from embedagent_protocol.frontend_interactions import (
+    InteractionProjection as InteractionProjection,
+)
+from embedagent_protocol.frontend_notifications import (
+    WorkspaceChangedNotification as WorkspaceChangedNotification,
+)
 from embedagent_protocol.session_events import FRONTEND_FAILURE_CODES as FRONTEND_FAILURE_CODES
 from embedagent_protocol.session_events import FailureRecord as FailureRecord
 from embedagent_protocol.session_events import (

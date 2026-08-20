@@ -3,13 +3,19 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Type
 
-CURRENT_SCHEMA_VERSION = 1
+from embedagent_protocol.session_events import FailureRecord
+from embedagent_protocol.versions import FRONTEND_PROTOCOL_SCHEMA_VERSION
+
 SURFACE_PLACEMENTS = ("overlay", "secondary")
 
 
 def _require_schema_version(value: Any, field_name: str = "schema_version") -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or value != CURRENT_SCHEMA_VERSION:
-        raise ValueError("%s must be %s" % (field_name, CURRENT_SCHEMA_VERSION))
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int)
+        or value != FRONTEND_PROTOCOL_SCHEMA_VERSION
+    ):
+        raise ValueError("%s must be %s" % (field_name, FRONTEND_PROTOCOL_SCHEMA_VERSION))
     return value
 
 
@@ -288,7 +294,7 @@ class AgentApplicationDescriptor:
 
 @dataclass
 class CapabilitySnapshot:
-    schema_version: int = CURRENT_SCHEMA_VERSION
+    schema_version: int = FRONTEND_PROTOCOL_SCHEMA_VERSION
     modes: List[ModeDescriptor] = field(default_factory=list)
     commands: List[CommandDescriptor] = field(default_factory=list)
     tools: List[ToolPresentation] = field(default_factory=list)
@@ -395,7 +401,7 @@ class CapabilitySnapshot:
 
 @dataclass
 class ShellDescriptor:
-    schema_version: int = CURRENT_SCHEMA_VERSION
+    schema_version: int = FRONTEND_PROTOCOL_SCHEMA_VERSION
     commands: List[CommandDescriptor] = field(default_factory=list)
     surfaces: List[SurfaceDescriptor] = field(default_factory=list)
     keybindings: List[KeybindingDescriptor] = field(default_factory=list)
@@ -601,7 +607,7 @@ class AppBootstrap:
     has_active_workspace: bool = False
     settings: Dict[str, Any] = field(default_factory=dict)
     diagnostics: Dict[str, Any] = field(default_factory=dict)
-    last_error: str = ""
+    last_failure: Optional[FailureRecord] = None
     removed: Optional[bool] = None
 
     def __post_init__(self) -> None:
@@ -616,8 +622,8 @@ class AppBootstrap:
             _require_mapping(self.active_workspace, "active_workspace")
         _require_mapping(self.settings, "settings")
         _require_mapping(self.diagnostics, "diagnostics")
-        if not isinstance(self.last_error, str):
-            raise ValueError("last_error must be a string")
+        if self.last_failure is not None and not isinstance(self.last_failure, FailureRecord):
+            raise ValueError("last_failure must be a FailureRecord")
         if self.removed is not None and not isinstance(self.removed, bool):
             raise ValueError("removed must be a bool")
 
@@ -635,7 +641,9 @@ class AppBootstrap:
             "shell": self.shell.to_dict(),
             "settings": _require_mapping(self.settings, "settings"),
             "diagnostics": _require_mapping(self.diagnostics, "diagnostics"),
-            "last_error": self.last_error,
+            "last_failure": (
+                self.last_failure.to_dict() if self.last_failure is not None else None
+            ),
         }
         if self.removed is not None:
             payload["removed"] = self.removed

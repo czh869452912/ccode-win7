@@ -20,7 +20,7 @@ function requiredSessionRuntime(overrides = {}) {
 
 function bootstrap(sessionId, mode = "build") {
   return {
-    schema_version: 1,
+    schema_version: 2,
     event_cursor: 0,
     thread: { id: sessionId },
     snapshot: { session_id: sessionId, status: "idle", current_mode: mode },
