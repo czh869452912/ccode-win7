@@ -58,11 +58,7 @@ class TerminalController(object):
             reducer.append_line(self.owner.state, "[permission] enter y or n")
             self.owner.refresh_views()
             return
-        self.owner.runtime.respond_to_interaction(
-            self.owner.state.session.current_session_id,
-            interaction_id,
-            {"decision": decision},
-        )
+        self.owner.runtime.respond_to_interaction(interaction_id, {"decision": decision})
         reducer.append_line(self.owner.state, "[permission] %s" % decision)
         self.owner.refresh_views()
 
@@ -82,7 +78,6 @@ class TerminalController(object):
                     answer = str(item.get("label") or item.get("value") or item.get("text") or "")
                     break
         self.owner.runtime.respond_to_interaction(
-            self.owner.state.session.current_session_id,
             interaction_id,
             {"answers": {"answer": answer}},
         )
@@ -123,8 +118,7 @@ class TerminalController(object):
             self.refresh_sessions()
 
     def submit_message(self, text: str) -> None:
-        session_id = self.owner.state.session.current_session_id
-        if not session_id:
+        if not self.owner.runtime.active_session_id:
             reducer.append_line(self.owner.state, "[error] no active session")
             self.owner.refresh_views()
             return
@@ -132,7 +126,7 @@ class TerminalController(object):
         reducer.update_snapshot(self.owner.state, status="running", last_error=None)
         reducer.set_last_error(self.owner.state, "")
         try:
-            self.owner.runtime.submit_user_message(session_id, text)
+            self.owner.runtime.submit_active_message(text)
         except (RuntimeError, ValueError, TypeError) as exc:
             reducer.set_last_error(self.owner.state, str(exc))
             reducer.update_snapshot(self.owner.state, status="error", last_error=str(exc))

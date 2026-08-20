@@ -282,6 +282,17 @@
       ]
     },
     {
+      "name": "activation_failure_is_rethrown_and_published",
+      "initial": {"lifecycle": "idle", "generation": 0, "cursor": 0},
+      "operations": [
+        {"kind": "activate", "session_id": "session-1", "request_error": "configuration_error"}
+      ],
+      "actions": [
+        {"kind": "protocol_failed", "session_id": "session-1", "generation": 1, "code": "configuration_error"}
+      ],
+      "final": {"session_id": "session-1", "cursor": 0, "generation": 1, "lifecycle": "failed", "terminal_status": "failed"}
+    },
+    {
       "name": "activation_buffers_live_event",
       "initial": {"lifecycle": "idle", "generation": 0, "cursor": 0},
       "operations": [

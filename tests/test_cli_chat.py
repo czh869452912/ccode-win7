@@ -118,8 +118,8 @@ class FakeRuntime(object):
         self._activate("resume")
         return self.bootstrap
 
-    def submit_user_message(self, session_id, text, stream=True):
-        self.submissions.append((session_id, text, stream))
+    def submit_active_message(self, text, stream=True):
+        self.submissions.append((self.active_session_id, text, stream))
         if self.submit_interrupts:
             self.submit_interrupts -= 1
             raise KeyboardInterrupt
@@ -143,11 +143,11 @@ class FakeRuntime(object):
             text = "/" + str(command.dispatch.get("command") or "")
             if values:
                 text += " " + " ".join(values)
-            self.submit_user_message(self.active_session_id, text, stream=True)
+            self.submit_active_message(text, stream=True)
         return command
 
-    def respond_to_interaction(self, session_id, interaction_id, payload):
-        self.responses.append((session_id, interaction_id, payload))
+    def respond_to_interaction(self, interaction_id, payload):
+        self.responses.append((self.active_session_id, interaction_id, payload))
         events = self.response_events.pop(0) if self.response_events else []
         self._emit_all(events)
         return self.bootstrap

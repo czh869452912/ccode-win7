@@ -225,20 +225,40 @@ export class SessionClientRuntime {
     this.recoveryAttempted = false;
     this.terminalOutcome = null;
     this.transactionBaseline = null;
+    this.dispatchDepth = 0;
+    this.deferredOperations = [];
   }
 
   async activateSession(reference, options = {}) {
     this.#assertOperable();
     const sessionId = requiredSessionId(reference);
+    if (this.dispatchDepth > 0) {
+      this.deferredOperations.push(() => this.activateSession(sessionId, options));
+      return null;
+    }
     try {
       return await this.#runBootstrapTransaction(
         sessionId,
         options.reason || "activate",
         () => this.transport.loadSessionBootstrap(sessionId, options),
       );
-    } catch {
-      return null;
+    } catch (error) {
+      if (error?.message === "bootstrap_transaction_superseded") return null;
+      if (this.lifecycle !== "failed") {
+        this.#failGeneration(this.generation, sessionId, failureFor(error));
+      }
+      throw error;
     }
+  }
+
+  async submitActiveMessage(text, stream = true) {
+    this.#assertOperable();
+    const sessionId = requiredSessionId(this.sessionId);
+    return this.#runBootstrapTransaction(
+      sessionId,
+      "message",
+      () => this.transport.sendSessionMessage(sessionId, String(text || ""), { stream: Boolean(stream) }),
+    );
   }
 
   async createSession(mode = "", options = {}) {
@@ -267,8 +287,8 @@ export class SessionClientRuntime {
     );
   }
 
-  async respondToInteraction(sessionId, interactionId, payload, options = {}) {
-    const selected = requiredSessionId(sessionId);
+  async respondToInteraction(interactionId, payload, options = {}) {
+    const selected = requiredSessionId(this.sessionId);
     return this.#runBootstrapTransaction(
       selected,
       "interaction_response",
@@ -384,6 +404,7 @@ export class SessionClientRuntime {
       this.cursor = event.sequence;
       this.lifecycle = publication.lifecycle;
       this.terminalOutcome = publication.terminalOutcome;
+      await this.#drainDeferredOperations();
     }
   }
 
@@ -421,7 +442,9 @@ export class SessionClientRuntime {
     this.cursor = bootstrap.event_cursor;
     this.lifecycle = lifecycle;
     this.terminalOutcome = terminalOutcome;
-    return this.#drainEventQueue(generation, sessionId);
+    const result = await this.#drainEventQueue(generation, sessionId);
+    await this.#drainDeferredOperations();
+    return result;
   }
 
   #eventLifecycle(current, eventKind) {
@@ -459,6 +482,7 @@ export class SessionClientRuntime {
       // The failing sink cannot safely receive a recursive failure action.
     }
     if (this.lifecycle === "closed" || generation !== this.generation) return;
+    this.sessionId = sessionId;
     this.lifecycle = "failed";
     this.syncPhase = SYNC_IDLE;
     this.eventQueue = [];
@@ -530,7 +554,12 @@ export class SessionClientRuntime {
     try {
       value = await request();
     } catch (error) {
+      const nestedTransaction = Boolean(
+        this.transactionBaseline?.sessionId &&
+        this.transactionBaseline.sessionId !== String(targetSessionId || ""),
+      );
       await this.#rollbackBootstrapTransaction(generation);
+      if (nestedTransaction) throw new Error("bootstrap_transaction_superseded");
       throw error;
     }
     let sessionId;
@@ -553,6 +582,18 @@ export class SessionClientRuntime {
   }
 
   #emit(action) {
-    this.dispatch(frozenCopy(action));
+    this.dispatchDepth += 1;
+    try {
+      this.dispatch(frozenCopy(action));
+    } finally {
+      this.dispatchDepth -= 1;
+    }
+  }
+
+  async #drainDeferredOperations() {
+    while (this.deferredOperations.length > 0) {
+      const operation = this.deferredOperations.shift();
+      await operation();
+    }
   }
 }

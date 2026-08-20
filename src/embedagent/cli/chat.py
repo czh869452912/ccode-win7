@@ -152,11 +152,7 @@ class CliChat(object):
     def _submit(self, text: str) -> Optional[int]:
         self._running = True
         try:
-            self._runtime.submit_user_message(
-                self._runtime.active_session_id,
-                text,
-                stream=True,
-            )
+            self._runtime.submit_active_message(text, stream=True)
         except KeyboardInterrupt:
             return self._cancel_running_turn()
         return self._wait_for_turn()
@@ -195,11 +191,7 @@ class CliChat(object):
             return None
         try:
             self._running = True
-            self._runtime.respond_to_interaction(
-                self._runtime.active_session_id,
-                prompt.interaction_id,
-                payload,
-            )
+            self._runtime.respond_to_interaction(prompt.interaction_id, payload)
             return self._wait_for_turn()
         except KeyboardInterrupt:
             return self._cancel_running_turn()
