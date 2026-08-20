@@ -202,6 +202,15 @@ def test_python38_toml_fallback_is_an_explicit_dev_dependency():
     assert not any(dependency.startswith("tomli") for dependency in root["project"]["dependencies"])
 
 
+def test_offline_wheel_backend_is_an_explicit_pinned_dev_dependency():
+    root = _read_pyproject(Path("pyproject.toml"))
+
+    assert "setuptools==75.3.2" in root["dependency-groups"]["dev"]
+    assert not any(
+        dependency.startswith("setuptools") for dependency in root["project"]["dependencies"]
+    )
+
+
 @pytest.mark.parametrize(("relative_path", "package_pattern"), PACKAGE_LAYOUTS)
 def test_distribution_build_metadata_is_exact(relative_path, package_pattern):
     metadata = _read_pyproject(relative_path)

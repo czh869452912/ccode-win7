@@ -31,7 +31,7 @@ builder 可以构建 workspace 中的候选 wheel；checker、exporter 和 stagi
 
 compiled plan 另行固定 `application_project_distribution_ids`、`application_runtime_requirements` 与 `application_registration_entries`，用于证明 selected application plugin 的独立运行时边界。checker 先从已检查 wheel 内的 registration module path 确定唯一 registration-entry owner，再从该 owner 的 `Requires-Dist` metadata 递归导出 workspace dependency closure，并要求它与 `application_project_distribution_ids` 精确同集；metadata header 顺序不参与依赖语义，plan 与 wheelhouse 同时夹带无关 distribution 也不能扩大 closure。`cpp-desktop` 的 application closure 因此只能包含 `embedagent-core`、`embedagent-protocol` 和 `embedagent-workflow-cpp`。这个 application closure 不替代 flavor 的完整 `project_distribution_ids`，正常产品 release 仍按完整 closure staging。
 
-`scripts/build-python-distributions.py` 是强制 wheel builder，不能以 raw `uv build --all-packages` 替代。builder 只清理已知生成物，保护外部 wheelhouse，并将嵌套 `uv` 构建绑定到启动 builder 的兼容 Python 3.8 解释器；这允许 Linux CI 使用 3.8.x patch 版本而不被仓库 `.python-version` 的发布 pin 误导。`check-python-distributions.py` 必须在安装、归档或 staging 前通过。
+`scripts/build-python-distributions.py` 是强制 wheel builder，不能以 raw `uv build --all-packages` 替代。builder 只清理已知生成物，保护外部 wheelhouse，并将嵌套 `uv` 构建绑定到启动 builder 的兼容 Python 3.8 解释器；这允许 Linux CI 使用 3.8.x patch 版本而不被仓库 `.python-version` 的发布 pin 误导。所有 workspace package 使用的 PEP 517 backend 必须同时作为精确锁定的开发构建依赖，由 `uv sync --locked` 写入同一个 `UV_CACHE_DIR`，后续隔离 wheel build 才能在 `--offline` 下解析 backend。`check-python-distributions.py` 必须在安装、归档或 staging 前通过。
 
 ## 3. Flavor And Plan Contract
 
