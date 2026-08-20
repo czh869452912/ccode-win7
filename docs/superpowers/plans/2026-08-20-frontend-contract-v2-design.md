@@ -1,6 +1,6 @@
 # Frontend Contract v2 Design
 
-> 状态：`proposed`
+> 状态：`accepted`
 > 类型：设计切片（实现前审阅）
 > 关联 ADR：`docs/adrs/0010-frontend-contract-cross-shell-convergence.md`
 

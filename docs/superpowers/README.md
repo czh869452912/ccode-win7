@@ -18,7 +18,8 @@
 
 ## Frontend Contract Convergence
 
-- `docs/superpowers/plans/2026-08-20-frontend-contract-v2-design.md` (design review open)
+- `docs/superpowers/plans/2026-08-20-frontend-contract-v2-design.md` (accepted design)
+- `docs/superpowers/plans/2026-08-20-frontend-contract-implementation.md` (implementation plan)
 
 ## Closure Rule
 
