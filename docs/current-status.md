@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`status`
 > 负责人：`project maintainers`
-> 最后验证日期：`2026-08-19`
+> 最后验证日期：`2026-08-20`
 
 ## Release State
 
@@ -21,7 +21,7 @@
 - Protocol 公开聚焦 `FrontendSessionPort`、`FrontendWorkspacePort` 与 `SessionEventSink`；Host 只提供进程内实现并在构造时绑定一个 canonical envelope sink，不再暴露 aggregate frontend facade、per-call handler 或 resolver callback。
 - CLI 与 TUI 共用 Python `SessionClientRuntime`；GUI 使用 browser-only JavaScript `SessionClientRuntime`。两种实现通过同一 JSON fixture 验证 activation、returned-bootstrap transaction、cursor、recovery、interaction、terminal evidence、generation、close、reentrant dispatch 和 sink failure。每端只保留一个 sync phase 与 ordered event queue；runtime action 成功投递后才提交 cursor/lifecycle/terminal，投递失败不推进 event 并使 generation fail closed。Host bound sink failure 向发布调用者传播，不再静默丢失。controller 不拥有 bootstrap 安装，frontend runtime 不拥有 durable session truth。
 - CLI 只有显式 `chat`、`run` 和 `sessions` grammar。`run` 提供稳定 text/JSON result 与 `0/2/3/4/130` exit contract，遇到交互只返回 blocked；CLI 不转发 TUI/GUI，不保留常驻 Agent 状态，也不导入其他 shell。
-- strict DTO path 只产出 `snake_case` version 1 bootstrap 和 canonical envelope。product composition 编译唯一 `ShellDescriptor` 供 CLI/TUI/GUI 消费，本地固定 catalog、fallback 和 frontend translation layer 已删除。
+- strict DTO path 只产出 `snake_case` frontend schema version 2 bootstrap 和 canonical envelope。app bootstrap 以 `last_failure` 传递安全失败，workspace change 走独立 app notification；product composition 编译唯一 `ShellDescriptor` 供 CLI/TUI/GUI 消费，本地固定 catalog、fallback 和 frontend translation layer 已删除。
 - 所有 shell 使用同一个产品 launch-config composition：built-in < `~/.embedagent/config.json` < workspace config < `EMBEDAGENT_*` < explicit shell arguments。launcher 不自行加载 config。
 - GUI/TUI 核心体验已收敛为 session、连续 timeline、composer/mode/command、blocking interaction 和 status。terminal、source control、preview、file browser 与独立 diff 只通过可选 contribution 注册；移除全部 secondary contributions 后最小 Agent shell 仍可独立使用。
 - Protocol、Host 和前端只投影 `SessionSnapshot.workflow_state`；C/C++ phase、discipline、TaskGraph 与 task 语义只由 workflow package 拥有。活动源码与文档不再使用迁移阶段命名或已删除的永久 panel/drawer 状态。

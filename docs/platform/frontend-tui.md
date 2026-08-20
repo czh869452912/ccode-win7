@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform implementation`
 > 负责人：`TUI maintainers`
-> 最后同步日期：`2026-08-16`
+> 最后同步日期：`2026-08-20`
 > 对应代码范围：`src/embedagent/frontend/tui/`, `src/embedagent/frontend/runtime/`
 
 ## 1. Purpose And Boundary
@@ -55,7 +55,7 @@ secondary contribution 通过 `ContributionState` 和 renderer registry 覆盖�
 
 ## 5. State, Workspace And Interactions
 
-`TerminalState` 只保存 session projection、timeline、composer、status、overlay、descriptor-backed shell state 和 contribution state。workspace tree/file/write 操作只调用 `FrontendWorkspacePort`。permission/user-input response 只调用共享 runtime 的 `respond_to_interaction(...)`，并在 resolved event 或后续 bootstrap/snapshot 到达后清除 pending state。
+`TerminalState` 只保存 session projection、timeline、composer、status、overlay、descriptor-backed shell state 和 contribution state。workspace tree/file/write 操作只调用 `FrontendWorkspacePort`。permission/user-input response 只调用共享 runtime 的 `respond_to_interaction(...)`，并由 `InteractionProjection` 提供 choice/question/default 形状；不得硬编码 `y/n` 或单一 `answers.answer`。resolved/response.failed/expired 状态都必须清除或更新 pending state。
 
 reducer 不导入 Host、执行工具、修改权限规则或解释应用 workflow。TUI 退出时关闭共享 runtime；Host port 的生命周期随之结束。
 

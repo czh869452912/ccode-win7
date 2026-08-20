@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`platform implementation`
 > 负责人：`GUI maintainers`
-> 最后同步日期：`2026-08-14`
+> 最后同步日期：`2026-08-20`
 > 对应代码范围：`src/embedagent/frontend/gui/`
 
 ## 1. Purpose And Boundary
@@ -43,7 +43,7 @@ flowchart LR
 
 ## 3. Registration And Workspace Hosting
 
-`GUIAppHost` 构造时接收 `port_factory(workspace, event_sink)`、一个 `SessionEventSink`、可选 `WorkspaceRegistry` 和 agent capability snapshot。切换 workspace 时关闭旧 port set、用同一个 sink 构造新 port set，并广播 workspace change。app host 只公开聚焦 session/workspace ports，不暴露内部 adapter。
+`GUIAppHost` 构造时接收 `port_factory(workspace, event_sink)`、一个 `SessionEventSink`、可选 `WorkspaceRegistry` 和 agent capability snapshot。切换 workspace 时关闭旧 port set、用同一个 sink 构造新 port set，并以独立 `workspace_changed` app notification 广播；它不消耗 session cursor，也不进入 session ledger。app host 只公开聚焦 session/workspace ports，不暴露内部 adapter。激活失败保留结构化 `last_failure`，不能把异常原文写入 bootstrap。
 
 app host 可以是 multi-workspace 或 `SingleWorkspaceAppHost`。新产品可注入不同 application registry 与 port composition，不需更改 GUI reducer 或增加 product-name branches。
 
@@ -55,7 +55,7 @@ app host 可以是 multi-workspace 或 `SingleWorkspaceAppHost`。新产品可�
 4. session activation 先启动新 generation，再通过 named protocol method 获取 projection 与 Host-owned `event_cursor`；
 5. activation 期间到达的 canonical `session_event` 按 session 缓冲，app-level shell notifications 保持独立；
 6. bootstrap 安装以 cursor 为唯一 sequence 基线，只释放连续且尚未覆盖的 envelopes；
-7. 通过 transport 接受的 envelope 进入同一个 protocol adapter 与 runtime reducer，按 `event_kind` 更新前端投影；
+7. 通过 transport 接受的 envelope 先经过 strict snake_case/canonical normalizer，再进入同一个 protocol adapter 与 runtime reducer，按 `event_kind` 更新前端投影；
 8. invalidation metadata 触发 controller 刷新 backend read models。
 
 renderer 不从事件尾部重建历史。断线重连或 session 切换后，以新 session bootstrap 为准，不以 local persisted timeline 为准。
@@ -80,7 +80,7 @@ GUI-owned：session rail 折叠、timeline scroll anchor、draft、command palet
 
 ## 7. Interaction And Safety
 
-composer 渲染 permission/user-input request，通过 interaction response API 提交，并在 resolved/failed event 到达前防止重复点击。file/preview/terminal routes 执行 workspace-bound path validation。所有后端错误使用结构化响应，不将凭证、raw tool payload 或内部 exception 原文放入前端 diagnostics。
+composer 从 interaction descriptor 渲染 permission/user-input request，通过 interaction response API 提交，并在 resolved/failed event 到达前防止重复点击。file/preview/terminal routes 执行 workspace-bound path validation。所有后端错误使用完整 `FailureRecord` JSON 响应，不将凭证、raw tool payload 或内部 exception 原文放入前端 diagnostics。HTTP/WS sink failure 必须向 Host/runtime 显式传播。
 
 ## 8. Runtime Compatibility
 

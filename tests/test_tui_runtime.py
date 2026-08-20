@@ -256,7 +256,7 @@ def test_tui_clears_pending_on_response_failed_and_renders_safe_failure():
     )
     controller.handle_input("custom")
     assert owner.state.session.pending_interaction["interaction_id"] == "input-1"
-    assert owner.state.session.last_error == "The provider request failed."
+    assert owner.state.session.last_failure["code"] == "provider_error"
 
     runtime.on_session_event(
         SessionEventEnvelope(

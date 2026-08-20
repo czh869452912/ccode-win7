@@ -73,7 +73,14 @@ class TUIFrontend(object):
                 if not message and isinstance(snapshot_failure, dict):
                     message = str(snapshot_failure.get("message") or "")
                 if message:
-                    reducer.set_last_error(self.app.state, message)
+                    reducer.set_last_failure(
+                        self.app.state,
+                        (
+                            payload.get("failure")
+                            if isinstance(payload.get("failure"), dict)
+                            else snapshot_failure
+                        ),
+                    )
                     reducer.append_line(self.app.state, "[error] %s" % message)
         elif event_kind == "context.compacted":
             reducer.set_context_event(self.app.state, payload)
@@ -135,7 +142,7 @@ class TUIFrontend(object):
         failure = snapshot.get("last_failure")
         if render_error and isinstance(failure, dict) and failure.get("message"):
             message = str(failure.get("safe_message") or failure.get("message") or "")
-            reducer.set_last_error(self.app.state, message)
+            reducer.set_last_failure(self.app.state, failure)
             reducer.append_line(self.app.state, "[error] %s" % message)
 
     @staticmethod

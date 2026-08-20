@@ -141,8 +141,8 @@ class TerminalController(object):
             self.owner.refresh_views()
             return
         reducer.append_line(self.owner.state, "user> %s" % text)
-        reducer.update_snapshot(self.owner.state, status="running", last_error=None)
-        reducer.set_last_error(self.owner.state, "")
+        reducer.update_snapshot(self.owner.state, status="running", last_failure=None)
+        reducer.set_last_failure(self.owner.state, None)
         try:
             self.owner.runtime.submit_active_message(text)
         except RuntimeError as exc:
@@ -316,11 +316,31 @@ class TerminalController(object):
         return self.owner.state.command_availability()
 
     def _render_failure(self, failure) -> None:
+        record = (
+            failure if isinstance(failure, FailureRecord) else getattr(failure, "failure", None)
+        )
+        if isinstance(record, FailureRecord):
+            reducer.set_last_failure(self.owner.state, record.to_dict())
+            safe = record.safe_message
+            reducer.append_line(self.owner.state, "[error] %s" % safe)
+            self.owner.refresh_views()
+            return
         safe = str(
             getattr(failure, "safe_message", "")
             or getattr(failure, "message", "")
             or "The operation failed."
         )
-        reducer.set_last_error(self.owner.state, safe)
+        reducer.set_last_failure(
+            self.owner.state,
+            {
+                "code": "runtime_error",
+                "message": safe,
+                "safe_message": safe,
+                "retryable": False,
+                "source": "tui",
+                "phase": "frontend",
+                "kind": "runtime",
+            },
+        )
         reducer.append_line(self.owner.state, "[error] %s" % safe)
         self.owner.refresh_views()

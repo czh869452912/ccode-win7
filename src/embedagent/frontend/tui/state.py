@@ -24,7 +24,7 @@ class SessionState:
     session_items: List[Dict[str, Any]] = field(default_factory=list)
     session_selection: int = 0
     pending_interaction: Optional[Dict[str, Any]] = None
-    last_error: str = ""
+    last_failure: Optional[Dict[str, Any]] = None
     last_context_event: Dict[str, Any] = field(default_factory=dict)
 
 

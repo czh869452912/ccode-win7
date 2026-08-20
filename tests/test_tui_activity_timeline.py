@@ -158,4 +158,4 @@ def test_tui_renders_one_error_line_for_one_session_error_event():
     )
 
     assert app.state.timeline.items == ["[error] The model provider request failed."]
-    assert app.state.session.last_error == "The model provider request failed."
+    assert app.state.session.last_failure["code"] == "provider_error"

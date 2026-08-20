@@ -11,7 +11,8 @@ def _truncate_text(text: str, limit: int) -> str:
 
 def build_header_text(state: TerminalState) -> str:
     snapshot = state.session.current_snapshot
-    last_error = state.session.last_error or str(snapshot.get("last_error") or "")
+    last_failure = state.session.last_failure or snapshot.get("last_failure") or {}
+    failure_message = str(last_failure.get("safe_message") or last_failure.get("message") or "")
     second_line = "host=%s" % state.capability.host_mode
     pending = state.session.pending_interaction
     if pending is not None and pending.get("kind") == "permission":
@@ -24,8 +25,8 @@ def build_header_text(state: TerminalState) -> str:
         second_line += "  palette=open"
     if state.overlay.active_id:
         second_line += "  overlay=%s" % state.overlay.active_id
-    if last_error:
-        second_line += "  error=%s" % _truncate_text(last_error, 64)
+    if failure_message:
+        second_line += "  error=%s" % _truncate_text(failure_message, 64)
     return ("session=%s  mode=%s  status=%s  workspace=%s\n%s") % (
         str(snapshot.get("session_id") or "-")[:12],
         state.session.current_mode or state.initial_mode,

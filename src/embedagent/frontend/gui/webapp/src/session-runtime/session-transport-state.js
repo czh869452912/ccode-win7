@@ -27,6 +27,13 @@ export function capRetryAttempt(value) {
 }
 
 export function isSessionEventEnvelope(event) {
+  if (
+    !event ||
+    event.sequence === undefined ||
+    event.event_id === undefined ||
+    event.schema_version !== FRONTEND_PROTOCOL_SCHEMA_VERSION ||
+    event.timestamp === undefined
+  ) return false;
   try {
     normalizeSessionEventEnvelope(event);
     return true;
