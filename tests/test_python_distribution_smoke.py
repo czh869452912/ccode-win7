@@ -387,6 +387,7 @@ def test_builder_supports_explicit_offline_cache_configuration(tmp_path):
     assert "--offline" in command
     assert environment["UV_CACHE_DIR"] == str(cache_dir.resolve())
     assert environment["UV_OFFLINE"] == "1"
+    assert environment["UV_PYTHON"] == sys.executable
 
 
 @unittest.skipIf(sys.platform != "win32", "Windows-only: requires pinned release toolchain")

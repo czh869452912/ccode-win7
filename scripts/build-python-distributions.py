@@ -199,6 +199,10 @@ def build_environment(cache_dir="", offline=False):
         cache_dir = environment.get("UV_CACHE_DIR", "") or os.path.join(os.getcwd(), ".uv-cache")
     if cache_dir:
         environment["UV_CACHE_DIR"] = str(_absolute_path(cache_dir))
+    # The repository pins the release runtime in .python-version, but CI may
+    # intentionally run a different compatible Python 3.8 patch release.
+    # Keep nested uv builds on the interpreter that launched this builder.
+    environment.setdefault("UV_PYTHON", sys.executable)
     if offline:
         environment["UV_OFFLINE"] = "1"
     environment["SOURCE_DATE_EPOCH"] = "0"
