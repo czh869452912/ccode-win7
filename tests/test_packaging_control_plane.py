@@ -1036,6 +1036,10 @@ class TestPythonDistributionPackagingContract(unittest.TestCase):
         test_job = workflow.split("  test:\n", 1)[1].split("  performance:\n", 1)[0]
         performance_job = workflow.split("  performance:\n", 1)[1].split("  frontend:\n", 1)[0]
         windows_job = workflow.split("  windows-packaging:\n", 1)[1]
+        self.assertIn(
+            "UV_CACHE_DIR: ${{ github.workspace }}/.uv-cache",
+            test_job,
+        )
         self.assertIn('uv sync --locked --all-packages --python "$(which python)"', test_job)
         self.assertIn('uv sync --locked --all-packages --python "$(which python)"', performance_job)
         self.assertIn("uv sync --locked --all-packages --python python", windows_job)

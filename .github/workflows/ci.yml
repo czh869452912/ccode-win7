@@ -26,6 +26,8 @@ jobs:
   test:
     name: Test (pytest + coverage)
     runs-on: ubuntu-latest
+    env:
+      UV_CACHE_DIR: ${{ github.workspace }}/.uv-cache
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
