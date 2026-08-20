@@ -7,7 +7,7 @@
   - `docs/platform/frontend-protocol.md`
   - `docs/platform/frontend-gui.md`
   - `docs/platform/frontend-tui.md`
-  - `docs/superpowers/plans/2026-08-20-frontend-contract-v2-design.md`
+  - `docs/archive/frontend-contract-convergence/2026-08-20-frontend-contract-v2-design.md`
 
 ## 背景
 

@@ -49,7 +49,7 @@ def test_refresh_session_projection_formats_bootstrap_activities():
     controller = TerminalController(owner)
     owner.runtime.dispatch = controller.on_runtime_action
 
-    controller.refresh_session_projection()
+    owner.runtime.activate_session("session-1")
 
     assert owner.state.timeline.items == [
         "user> Inspect parser",
